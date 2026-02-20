@@ -244,13 +244,13 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
       {/* ── Panel 3: Project Feed ───────────────────────────────────────── */}
       <div
-        className={`flex-1 overflow-y-auto bg-gray-50 ${
-          mobileView === 'list' ? 'hidden lg:block' : 'block'
-        }`}
+        className={`flex-1 overflow-hidden bg-gray-50 ${
+          mobileView === 'list' ? 'hidden lg:flex' : 'flex'
+        } flex-col`}
       >
         {selectedProject ? (
           feedLoading ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center flex-1">
               <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
@@ -263,7 +263,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
             />
           )
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center px-8">
+          <div className="flex flex-col items-center justify-center flex-1 text-center px-8">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
               <BriefcaseIcon className="w-8 h-8 text-gray-300" />
             </div>
