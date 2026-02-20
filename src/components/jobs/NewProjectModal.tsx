@@ -13,6 +13,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   const [name, setName] = useState('')
   const [clientName, setClientName] = useState('')
   const [address, setAddress] = useState('')
+  const [estimateNumber, setEstimateNumber] = useState('')
   const [status, setStatus] = useState<'Active' | 'Complete'>('Active')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,6 +29,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       client_name: clientName.trim(),
       address: address.trim(),
       status,
+      ...(estimateNumber.trim() ? { estimate_number: estimateNumber.trim() } : {}),
     })
 
     if (error) {
@@ -97,6 +99,19 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="e.g. 123 Main St, Austin TX"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Estimate #
+            </label>
+            <input
+              type="text"
+              value={estimateNumber}
+              onChange={(e) => setEstimateNumber(e.target.value)}
+              placeholder="e.g. EST-1042"
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
             />
           </div>

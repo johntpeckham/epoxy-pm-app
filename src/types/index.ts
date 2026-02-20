@@ -6,6 +6,7 @@ export interface Project {
   client_name: string
   address: string
   status: ProjectStatus
+  estimate_number?: string
   created_at: string
 }
 
