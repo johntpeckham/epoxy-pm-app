@@ -67,7 +67,7 @@ export default function ProjectFeedClient({
     <div className={`flex flex-col bg-gray-50 ${inPanel ? 'h-full' : 'h-screen'}`}>
       {/* Project header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200">
-        <div className="max-w-3xl mx-auto px-4 py-4 sm:px-6">
+        <div className="px-4 py-4">
           <div className="flex items-start gap-3">
             {inPanel ? (
               <button
@@ -112,7 +112,7 @@ export default function ProjectFeedClient({
 
       {/* Scrollable feed */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto w-full px-4 py-5 sm:px-6">
+        <div className="py-4">
           {/* Pinned posts */}
           <PinnedSection
             posts={pinnedPosts}
