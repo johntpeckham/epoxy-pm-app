@@ -62,8 +62,10 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files || [])
     if (!selected.length) return
-    setPhotoFiles(selected)
-    setPhotoPreviews(selected.map((f) => URL.createObjectURL(f)))
+    setPhotoFiles((p) => [...p, ...selected])
+    setPhotoPreviews((p) => [...p, ...selected.map((f) => URL.createObjectURL(f))])
+    // Reset input so the same file can be re-selected if removed
+    e.target.value = ''
   }
 
   function removePhoto(i: number) {
@@ -199,42 +201,53 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </div>
       )}
 
-      {/* ── Photo upload expanded area ────────────────────────────────────── */}
+      {/* ── Photo upload compact thumbnail strip ─────────────────────────── */}
       {mode === 'photo' && (
-        <div className="px-4 pt-3 pb-2 space-y-3">
-          <div
-            onClick={() => photoInputRef.current?.click()}
-            className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 transition"
-          >
-            <UploadIcon className="w-5 h-5 text-gray-400 mx-auto mb-1.5" />
-            <p className="text-sm text-gray-500">
-              <span className="font-medium text-amber-600">Click to upload</span> photos
-            </p>
-            <p className="text-xs text-gray-400 mt-0.5">JPG, PNG, HEIC up to 10MB each</p>
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handlePhotoChange}
-            />
-          </div>
+        <div className="px-3 pt-3 pb-1">
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handlePhotoChange}
+          />
 
-          {photoPreviews.length > 0 && (
-            <div className={`grid gap-2 ${photoPreviews.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
+          {photoPreviews.length === 0 ? (
+            /* No photos yet — small prompt */
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium py-1 transition"
+            >
+              <UploadIcon className="w-4 h-4" />
+              Select photos to upload
+            </button>
+          ) : (
+            /* Thumbnail strip */
+            <div className="flex items-center gap-2 flex-wrap">
               {photoPreviews.map((url, i) => (
-                <div key={i} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100">
+                <div
+                  key={i}
+                  className="relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-100"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt="" className="w-full h-full object-cover" />
                   <button
                     onClick={() => removePhoto(i)}
-                    className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
+                    className="absolute top-0.5 right-0.5 bg-black/70 text-white rounded-full p-0.5"
                   >
                     <XIcon className="w-3 h-3" />
                   </button>
                 </div>
               ))}
+              {/* Add more tile */}
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                className="flex-shrink-0 w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-amber-400 hover:text-amber-500 transition"
+              >
+                <PlusIcon className="w-5 h-5" />
+                <span className="text-xs mt-0.5">Add</span>
+              </button>
             </div>
           )}
         </div>
