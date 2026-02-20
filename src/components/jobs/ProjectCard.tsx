@@ -1,18 +1,17 @@
 import Link from 'next/link'
-import { MapPinIcon, UserIcon, ChevronRightIcon } from 'lucide-react'
+import { MapPinIcon, UserIcon, PencilIcon, Trash2Icon } from 'lucide-react'
 import { Project } from '@/types'
 
 interface ProjectCardProps {
   project: Project
+  onEdit: (project: Project) => void
+  onDelete: (project: Project) => void
 }
 
-export default function ProjectCard({ project }: ProjectCardProps) {
+export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
   return (
-    <Link
-      href={`/projects/${project.id}`}
-      className="block bg-white rounded-xl border border-gray-200 hover:border-amber-300 hover:shadow-md transition-all duration-150 group"
-    >
-      <div className="p-5">
+    <div className="relative group bg-white rounded-xl border border-gray-200 hover:border-amber-300 hover:shadow-md transition-all duration-150">
+      <Link href={`/projects/${project.id}`} className="block p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2.5 flex-wrap">
@@ -41,9 +40,26 @@ export default function ProjectCard({ project }: ProjectCardProps) {
               </div>
             </div>
           </div>
-          <ChevronRightIcon className="w-5 h-5 text-gray-300 group-hover:text-amber-400 flex-shrink-0 mt-0.5 transition-colors" />
         </div>
+      </Link>
+
+      {/* Edit / Delete action buttons */}
+      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.preventDefault(); onEdit(project) }}
+          title="Edit project"
+          className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
+        >
+          <PencilIcon className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => { e.preventDefault(); onDelete(project) }}
+          title="Delete project"
+          className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+        >
+          <Trash2Icon className="w-4 h-4" />
+        </button>
       </div>
-    </Link>
+    </div>
   )
 }

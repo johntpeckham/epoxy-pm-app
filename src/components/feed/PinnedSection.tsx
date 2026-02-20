@@ -8,9 +8,11 @@ import { FeedPost } from '@/types'
 interface PinnedSectionProps {
   posts: FeedPost[]
   onPinToggle: () => void
+  onDeleted?: () => void
+  onUpdated?: () => void
 }
 
-export default function PinnedSection({ posts, onPinToggle }: PinnedSectionProps) {
+export default function PinnedSection({ posts, onPinToggle, onDeleted, onUpdated }: PinnedSectionProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   if (posts.length === 0) return null
@@ -37,7 +39,13 @@ export default function PinnedSection({ posts, onPinToggle }: PinnedSectionProps
       {!collapsed && (
         <div className="px-3 pb-3 space-y-2">
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} onPinToggle={onPinToggle} />
+            <PostCard
+              key={post.id}
+              post={post}
+              onPinToggle={onPinToggle}
+              onDeleted={onDeleted}
+              onUpdated={onUpdated}
+            />
           ))}
         </div>
       )}
