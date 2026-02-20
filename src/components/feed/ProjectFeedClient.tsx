@@ -13,13 +13,17 @@ interface ProjectFeedClientProps {
   project: Project
   initialPosts: FeedPost[]
   userId: string
+  /** When provided, renders in panel mode: compact layout, no Link navigation */
+  onBack?: () => void
 }
 
 export default function ProjectFeedClient({
   project,
   initialPosts,
   userId,
+  onBack,
 }: ProjectFeedClientProps) {
+  const inPanel = onBack !== undefined
   const [posts, setPosts] = useState<FeedPost[]>(initialPosts)
   const bottomRef = useRef<HTMLDivElement>(null)
   const isFirstLoad = useRef(true)
@@ -60,17 +64,26 @@ export default function ProjectFeedClient({
   const unpinnedPosts = posts.filter((p) => !p.is_pinned)
 
   return (
-    <div className="flex flex-col h-screen lg:h-auto lg:min-h-screen bg-gray-50">
+    <div className={`flex flex-col bg-gray-50 ${inPanel ? '' : 'h-screen lg:h-auto lg:min-h-screen'}`}>
       {/* Project header */}
-      <div className="bg-white border-b border-gray-200 sticky top-14 lg:top-0 z-10">
+      <div className={`bg-white border-b border-gray-200 sticky z-10 ${inPanel ? 'top-0' : 'top-14 lg:top-0'}`}>
         <div className="max-w-3xl mx-auto px-4 py-4 sm:px-6">
           <div className="flex items-start gap-3">
-            <Link
-              href="/jobs"
-              className="mt-0.5 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition flex-shrink-0"
-            >
-              <ArrowLeftIcon className="w-5 h-5" />
-            </Link>
+            {inPanel ? (
+              <button
+                onClick={onBack}
+                className="mt-0.5 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition flex-shrink-0 lg:hidden"
+              >
+                <ArrowLeftIcon className="w-5 h-5" />
+              </button>
+            ) : (
+              <Link
+                href="/jobs"
+                className="mt-0.5 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition flex-shrink-0"
+              >
+                <ArrowLeftIcon className="w-5 h-5" />
+              </Link>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-lg font-bold text-gray-900 leading-tight">{project.name}</h1>
