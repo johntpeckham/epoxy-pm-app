@@ -11,6 +11,7 @@ import {
   Trash2Icon,
   CheckIcon,
   XIcon,
+  DownloadIcon,
 } from 'lucide-react'
 import { FeedPost, TextContent, PhotoContent, DailyReportContent } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -78,25 +79,75 @@ function PhotoPost({ content }: { content: PhotoContent }) {
   )
 }
 
-function DailyReportPost({ content }: { content: DailyReportContent }) {
-  const fields: { label: string; key: keyof DailyReportContent }[] = [
-    { label: 'Date', key: 'date' },
-    { label: 'Crew Members', key: 'crew_members' },
-    { label: 'Surface Prep Notes', key: 'surface_prep_notes' },
-    { label: 'Epoxy Product Used', key: 'epoxy_product_used' },
-    { label: 'Coats Applied', key: 'coats_applied' },
-    { label: 'Weather Conditions', key: 'weather_conditions' },
-    { label: 'Additional Notes', key: 'additional_notes' },
+function DailyReportPost({
+  content,
+  photoUrls,
+}: {
+  content: DailyReportContent
+  photoUrls: string[]
+}) {
+  const crewFields: { label: string; key: keyof DailyReportContent }[] = [
+    { label: 'Reported By', key: 'reported_by' },
+    { label: 'Project Foreman', key: 'project_foreman' },
+    { label: 'Weather', key: 'weather' },
+  ]
+  const progressFields: { label: string; key: keyof DailyReportContent }[] = [
+    { label: 'Progress', key: 'progress' },
+    { label: 'Delays', key: 'delays' },
+    { label: 'Safety', key: 'safety' },
+    { label: 'Materials Used', key: 'materials_used' },
+    { label: 'Employees', key: 'employees' },
   ]
 
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-lg overflow-hidden">
+      {/* Report header */}
       <div className="flex items-center gap-2 px-4 py-3 bg-amber-100 border-b border-amber-200">
         <ClipboardListIcon className="w-4 h-4 text-amber-700" />
         <span className="text-sm font-semibold text-amber-800">Daily Field Report</span>
+        {content.date && (
+          <span className="text-xs text-amber-600 ml-auto">
+            {new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </span>
+        )}
       </div>
-      <div className="p-4 space-y-3">
-        {fields.map(({ label, key }) =>
+
+      <div className="p-4 space-y-4">
+        {/* Project / address */}
+        {(content.project_name || content.address) && (
+          <div className="text-xs text-amber-700 space-y-0.5">
+            {content.project_name && <p className="font-semibold">{content.project_name}</p>}
+            {content.address && <p className="text-amber-600">{content.address}</p>}
+          </div>
+        )}
+
+        {/* Crew row */}
+        {crewFields.some((f) => content[f.key]) && (
+          <div className="grid grid-cols-3 gap-3">
+            {crewFields.map(({ label, key }) =>
+              content[key] ? (
+                <div key={key}>
+                  <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
+                    {label}
+                  </dt>
+                  <dd className="text-sm text-gray-700">{content[key]}</dd>
+                </div>
+              ) : null
+            )}
+          </div>
+        )}
+
+        {/* Divider */}
+        {crewFields.some((f) => content[f.key]) && progressFields.some((f) => content[f.key]) && (
+          <div className="border-t border-amber-200" />
+        )}
+
+        {/* Progress fields */}
+        {progressFields.map(({ label, key }) =>
           content[key] ? (
             <div key={key}>
               <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
@@ -105,6 +156,38 @@ function DailyReportPost({ content }: { content: DailyReportContent }) {
               <dd className="text-sm text-gray-700 whitespace-pre-wrap">{content[key]}</dd>
             </div>
           ) : null
+        )}
+
+        {/* Embedded photos */}
+        {photoUrls.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+              Photos ({photoUrls.length})
+            </p>
+            <div
+              className={`grid gap-2 ${
+                photoUrls.length === 1
+                  ? 'grid-cols-1'
+                  : photoUrls.length === 2
+                  ? 'grid-cols-2'
+                  : 'grid-cols-2 sm:grid-cols-3'
+              }`}
+            >
+              {photoUrls.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                  <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-100">
+                    <Image
+                      src={url}
+                      alt={`Report photo ${i + 1}`}
+                      fill
+                      className="object-cover hover:opacity-90 transition"
+                      sizes="(max-width: 640px) 50vw, 250px"
+                    />
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -116,6 +199,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditReport, setShowEditReport] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   // Inline text editing
   const [editingText, setEditingText] = useState(false)
@@ -124,9 +208,18 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   )
   const [savingText, setSavingText] = useState(false)
 
+  // Resolve photo URLs for daily reports
+  const supabase = createClient()
+  const reportPhotoUrls: string[] =
+    post.post_type === 'daily_report'
+      ? ((post.content as DailyReportContent).photos ?? []).map((path) => {
+          const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
+          return data.publicUrl
+        })
+      : []
+
   async function handlePinToggle() {
     setPinning(true)
-    const supabase = createClient()
     await supabase
       .from('feed_posts')
       .update({ is_pinned: !post.is_pinned })
@@ -137,13 +230,14 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
   async function handleDelete() {
     setIsDeleting(true)
-    const supabase = createClient()
 
     if (post.post_type === 'photo') {
       const photos = (post.content as PhotoContent).photos
-      if (photos.length > 0) {
-        await supabase.storage.from('post-photos').remove(photos)
-      }
+      if (photos.length > 0) await supabase.storage.from('post-photos').remove(photos)
+    }
+    if (post.post_type === 'daily_report') {
+      const photos = (post.content as DailyReportContent).photos ?? []
+      if (photos.length > 0) await supabase.storage.from('post-photos').remove(photos)
     }
 
     await supabase.from('feed_posts').delete().eq('id', post.id)
@@ -155,7 +249,6 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   async function handleSaveText() {
     if (!editText.trim()) return
     setSavingText(true)
-    const supabase = createClient()
     await supabase
       .from('feed_posts')
       .update({ content: { message: editText.trim() } })
@@ -163,6 +256,16 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
     setSavingText(false)
     setEditingText(false)
     onUpdated?.()
+  }
+
+  async function handleDownloadPdf() {
+    setPdfLoading(true)
+    try {
+      const { generateReportPdf } = await import('@/lib/generateReportPdf')
+      await generateReportPdf(post.content as DailyReportContent, reportPhotoUrls)
+    } finally {
+      setPdfLoading(false)
+    }
   }
 
   const authorName = post.author_name || post.author_email?.split('@')[0] || 'User'
@@ -190,6 +293,19 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
             {/* Action buttons */}
             <div className="flex items-center gap-0.5">
+              {/* PDF download — daily reports only */}
+              {post.post_type === 'daily_report' && (
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={pdfLoading}
+                  title="Download PDF"
+                  className="p-1.5 rounded-md text-gray-300 hover:text-amber-500 hover:bg-amber-50 transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100 disabled:opacity-40"
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* Edit — text and daily_report */}
               {(post.post_type === 'text' || post.post_type === 'daily_report') && (
                 <button
                   onClick={() => {
@@ -207,6 +323,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
                 </button>
               )}
 
+              {/* Delete */}
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 title="Delete post"
@@ -215,6 +332,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
                 <Trash2Icon className="w-4 h-4" />
               </button>
 
+              {/* Pin toggle */}
               <button
                 onClick={handlePinToggle}
                 disabled={pinning}
@@ -235,8 +353,8 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
           </div>
 
           {/* Post content */}
-          {post.post_type === 'text' && (
-            editingText ? (
+          {post.post_type === 'text' &&
+            (editingText ? (
               <div className="space-y-2">
                 <textarea
                   autoFocus
@@ -265,13 +383,15 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
               <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
                 {(post.content as TextContent).message}
               </p>
-            )
-          )}
+            ))}
           {post.post_type === 'photo' && (
             <PhotoPost content={post.content as PhotoContent} />
           )}
           {post.post_type === 'daily_report' && (
-            <DailyReportPost content={post.content as DailyReportContent} />
+            <DailyReportPost
+              content={post.content as DailyReportContent}
+              photoUrls={reportPhotoUrls}
+            />
           )}
         </div>
       </div>

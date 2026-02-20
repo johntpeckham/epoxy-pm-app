@@ -2,50 +2,100 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquareIcon, CameraIcon, ClipboardListIcon, XIcon, SendIcon, UploadIcon } from 'lucide-react'
+import {
+  MessageSquareIcon,
+  CameraIcon,
+  ClipboardListIcon,
+  XIcon,
+  SendIcon,
+  UploadIcon,
+} from 'lucide-react'
+import { Project } from '@/types'
 
 type Tab = 'text' | 'photo' | 'daily_report'
 
 interface AddPostPanelProps {
-  projectId: string
+  project: Project
   userId: string
   onPosted: () => void
 }
 
-export default function AddPostPanel({ projectId, userId, onPosted }: AddPostPanelProps) {
+const inputCls =
+  'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+const textareaCls = inputCls + ' resize-none'
+const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
+
+export default function AddPostPanel({ project, userId, onPosted }: AddPostPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('text')
-  const [message, setMessage] = useState('')
-  const [caption, setCaption] = useState('')
-  const [files, setFiles] = useState<File[]>([])
-  const [previews, setPreviews] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Daily report fields
-  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0])
-  const [crewMembers, setCrewMembers] = useState('')
-  const [surfacePrep, setSurfacePrep] = useState('')
-  const [epoxyProduct, setEpoxyProduct] = useState('')
-  const [coatsApplied, setCoatsApplied] = useState('')
-  const [weather, setWeather] = useState('')
-  const [additionalNotes, setAdditionalNotes] = useState('')
+  // ── Text post ──────────────────────────────────────────────────────────────
+  const [message, setMessage] = useState('')
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  // ── Photo post ─────────────────────────────────────────────────────────────
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [caption, setCaption] = useState('')
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  // ── Daily report ───────────────────────────────────────────────────────────
+  const today = new Date().toISOString().split('T')[0]
+  const [rProjectName, setRProjectName] = useState(project.name)
+  const [rDate, setRDate] = useState(today)
+  const [rAddress, setRAddress] = useState(project.address)
+  const [rReportedBy, setRReportedBy] = useState('')
+  const [rForeman, setRForeman] = useState('')
+  const [rWeather, setRWeather] = useState('')
+  const [rProgress, setRProgress] = useState('')
+  const [rDelays, setRDelays] = useState('')
+  const [rSafety, setRSafety] = useState('')
+  const [rMaterials, setRMaterials] = useState('')
+  const [rEmployees, setREmployees] = useState('')
+  const [rFiles, setRFiles] = useState<File[]>([])
+  const [rPreviews, setRPreviews] = useState<string[]>([])
+  const reportPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // ── Photo helpers ──────────────────────────────────────────────────────────
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files || [])
     if (!selected.length) return
-    setFiles(selected)
-    const urls = selected.map((f) => URL.createObjectURL(f))
-    setPreviews(urls)
+    setPhotoFiles(selected)
+    setPhotoPreviews(selected.map((f) => URL.createObjectURL(f)))
   }
 
-  function removeFile(index: number) {
-    const newFiles = files.filter((_, i) => i !== index)
-    const newPreviews = previews.filter((_, i) => i !== index)
-    setFiles(newFiles)
-    setPreviews(newPreviews)
+  function removePhoto(i: number) {
+    setPhotoFiles((p) => p.filter((_, idx) => idx !== i))
+    setPhotoPreviews((p) => p.filter((_, idx) => idx !== i))
   }
 
+  function handleReportPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files || [])
+    if (!selected.length) return
+    setRFiles((p) => [...p, ...selected])
+    setRPreviews((p) => [...p, ...selected.map((f) => URL.createObjectURL(f))])
+  }
+
+  function removeReportPhoto(i: number) {
+    setRFiles((p) => p.filter((_, idx) => idx !== i))
+    setRPreviews((p) => p.filter((_, idx) => idx !== i))
+  }
+
+  // ── Upload helper ──────────────────────────────────────────────────────────
+  async function uploadFiles(files: File[], folder: string): Promise<string[]> {
+    const supabase = createClient()
+    const paths: string[] = []
+    for (const file of files) {
+      const ext = file.name.split('.').pop()
+      const path = `${project.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error: err } = await supabase.storage.from('post-photos').upload(path, file)
+      if (err) throw err
+      paths.push(path)
+    }
+    return paths
+  }
+
+  // ── Submit ──────────────────────────────────────────────────────────────────
   async function handleSubmit() {
     setLoading(true)
     setError(null)
@@ -55,7 +105,7 @@ export default function AddPostPanel({ projectId, userId, onPosted }: AddPostPan
       if (activeTab === 'text') {
         if (!message.trim()) throw new Error('Please enter a message')
         await supabase.from('feed_posts').insert({
-          project_id: projectId,
+          project_id: project.id,
           user_id: userId,
           post_type: 'text',
           content: { message: message.trim() },
@@ -65,54 +115,56 @@ export default function AddPostPanel({ projectId, userId, onPosted }: AddPostPan
       }
 
       if (activeTab === 'photo') {
-        if (!files.length) throw new Error('Please select at least one photo')
-        const paths: string[] = []
-        for (const file of files) {
-          const ext = file.name.split('.').pop()
-          const path = `${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-          const { error: uploadError } = await supabase.storage
-            .from('post-photos')
-            .upload(path, file)
-          if (uploadError) throw uploadError
-          paths.push(path)
-        }
+        if (!photoFiles.length) throw new Error('Please select at least one photo')
+        const paths = await uploadFiles(photoFiles, 'photos')
         await supabase.from('feed_posts').insert({
-          project_id: projectId,
+          project_id: project.id,
           user_id: userId,
           post_type: 'photo',
           content: { photos: paths, caption: caption.trim() || undefined },
           is_pinned: false,
         })
-        setFiles([])
-        setPreviews([])
+        setPhotoFiles([])
+        setPhotoPreviews([])
         setCaption('')
-        if (fileInputRef.current) fileInputRef.current.value = ''
+        if (photoInputRef.current) photoInputRef.current.value = ''
       }
 
       if (activeTab === 'daily_report') {
-        if (!crewMembers.trim()) throw new Error('Please enter crew members')
+        const photoPaths = rFiles.length ? await uploadFiles(rFiles, 'reports') : []
         await supabase.from('feed_posts').insert({
-          project_id: projectId,
+          project_id: project.id,
           user_id: userId,
           post_type: 'daily_report',
           content: {
-            date: reportDate,
-            crew_members: crewMembers.trim(),
-            surface_prep_notes: surfacePrep.trim(),
-            epoxy_product_used: epoxyProduct.trim(),
-            coats_applied: coatsApplied.trim(),
-            weather_conditions: weather.trim(),
-            additional_notes: additionalNotes.trim(),
+            project_name: rProjectName.trim(),
+            date: rDate,
+            address: rAddress.trim(),
+            reported_by: rReportedBy.trim(),
+            project_foreman: rForeman.trim(),
+            weather: rWeather.trim(),
+            progress: rProgress.trim(),
+            delays: rDelays.trim(),
+            safety: rSafety.trim(),
+            materials_used: rMaterials.trim(),
+            employees: rEmployees.trim(),
+            photos: photoPaths,
           },
           is_pinned: false,
         })
-        setCrewMembers('')
-        setSurfacePrep('')
-        setEpoxyProduct('')
-        setCoatsApplied('')
-        setWeather('')
-        setAdditionalNotes('')
-        setReportDate(new Date().toISOString().split('T')[0])
+        // Reset report fields (keep project name/address for next report)
+        setRDate(new Date().toISOString().split('T')[0])
+        setRReportedBy('')
+        setRForeman('')
+        setRWeather('')
+        setRProgress('')
+        setRDelays('')
+        setRSafety('')
+        setRMaterials('')
+        setREmployees('')
+        setRFiles([])
+        setRPreviews([])
+        if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = ''
       }
 
       onPosted()
@@ -156,22 +208,22 @@ export default function AddPostPanel({ projectId, userId, onPosted }: AddPostPan
           </div>
         )}
 
-        {/* Text post */}
+        {/* ── Text post ──────────────────────────────────────────────────── */}
         {activeTab === 'text' && (
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Write a message..."
             rows={3}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+            className={textareaCls}
           />
         )}
 
-        {/* Photo post */}
+        {/* ── Photo post ─────────────────────────────────────────────────── */}
         {activeTab === 'photo' && (
           <div className="space-y-3">
             <div
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => photoInputRef.current?.click()}
               className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 transition"
             >
               <UploadIcon className="w-6 h-6 text-gray-400 mx-auto mb-2" />
@@ -180,23 +232,23 @@ export default function AddPostPanel({ projectId, userId, onPosted }: AddPostPan
               </p>
               <p className="text-xs text-gray-400 mt-1">JPG, PNG, HEIC up to 10MB each</p>
               <input
-                ref={fileInputRef}
+                ref={photoInputRef}
                 type="file"
                 accept="image/*"
                 multiple
                 className="hidden"
-                onChange={handleFileChange}
+                onChange={handlePhotoChange}
               />
             </div>
 
-            {previews.length > 0 && (
-              <div className={`grid gap-2 ${previews.length === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'}`}>
-                {previews.map((url, i) => (
+            {photoPreviews.length > 0 && (
+              <div className={`grid gap-2 ${photoPreviews.length === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'}`}>
+                {photoPreviews.map((url, i) => (
                   <div key={i} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} alt="" className="w-full h-full object-cover" />
                     <button
-                      onClick={() => removeFile(i)}
+                      onClick={() => removePhoto(i)}
                       className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
                     >
                       <XIcon className="w-3.5 h-3.5" />
@@ -211,116 +263,132 @@ export default function AddPostPanel({ projectId, userId, onPosted }: AddPostPan
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="Caption (optional)"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className={inputCls}
             />
           </div>
         )}
 
-        {/* Daily Report */}
+        {/* ── Daily Report ───────────────────────────────────────────────── */}
         {activeTab === 'daily_report' && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  Date <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={reportDate}
-                  onChange={(e) => setReportDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  Crew Members <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={crewMembers}
-                  onChange={(e) => setCrewMembers(e.target.value)}
-                  placeholder="e.g. Mike, Jason, Carlos"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+          <div className="space-y-5">
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  Epoxy Product Used
-                </label>
-                <input
-                  type="text"
-                  value={epoxyProduct}
-                  onChange={(e) => setEpoxyProduct(e.target.value)}
-                  placeholder="e.g. Rust-Oleum EpoxyShield"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  Coats Applied
-                </label>
-                <input
-                  type="text"
-                  value={coatsApplied}
-                  onChange={(e) => setCoatsApplied(e.target.value)}
-                  placeholder="e.g. 2 coats base + 1 topcoat"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
+            {/* Header section */}
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Weather Conditions
-              </label>
-              <input
-                type="text"
-                value={weather}
-                onChange={(e) => setWeather(e.target.value)}
-                placeholder="e.g. 78°F, low humidity, overcast"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Header</p>
+              <div className="space-y-3">
+                <div>
+                  <label className={labelCls}>Project Name</label>
+                  <input type="text" value={rProjectName} onChange={(e) => setRProjectName(e.target.value)} className={inputCls} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Date</label>
+                    <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Address</label>
+                    <input type="text" value={rAddress} onChange={(e) => setRAddress(e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+              </div>
             </div>
 
+            {/* Crew section */}
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Surface Prep Notes
-              </label>
-              <textarea
-                value={surfacePrep}
-                onChange={(e) => setSurfacePrep(e.target.value)}
-                placeholder="Describe surface prep performed..."
-                rows={2}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
-              />
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Crew</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Reported By</label>
+                  <input type="text" value={rReportedBy} onChange={(e) => setRReportedBy(e.target.value)} placeholder="Name" className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Project Foreman</label>
+                  <input type="text" value={rForeman} onChange={(e) => setRForeman(e.target.value)} placeholder="Name" className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Weather</label>
+                  <input type="text" value={rWeather} onChange={(e) => setRWeather(e.target.value)} placeholder="e.g. 72°F, clear" className={inputCls} />
+                </div>
+              </div>
             </div>
 
+            {/* Progress section */}
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Additional Notes
-              </label>
-              <textarea
-                value={additionalNotes}
-                onChange={(e) => setAdditionalNotes(e.target.value)}
-                placeholder="Any other notes, issues, or observations..."
-                rows={2}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
-              />
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Progress</p>
+              <div className="space-y-3">
+                <div>
+                  <label className={labelCls}>Progress</label>
+                  <textarea rows={3} value={rProgress} onChange={(e) => setRProgress(e.target.value)} placeholder="Describe work completed today..." className={textareaCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Delays</label>
+                  <textarea rows={2} value={rDelays} onChange={(e) => setRDelays(e.target.value)} placeholder="Any delays or issues..." className={textareaCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Safety</label>
+                  <textarea rows={2} value={rSafety} onChange={(e) => setRSafety(e.target.value)} placeholder="Safety observations, incidents, PPE notes..." className={textareaCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Materials Used</label>
+                  <textarea rows={2} value={rMaterials} onChange={(e) => setRMaterials(e.target.value)} placeholder="Epoxy products, quantities, other materials..." className={textareaCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Employees</label>
+                  <textarea rows={2} value={rEmployees} onChange={(e) => setREmployees(e.target.value)} placeholder="Names of employees on site today..." className={textareaCls} />
+                </div>
+              </div>
             </div>
+
+            {/* Photos section */}
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Photos</p>
+              <div
+                onClick={() => reportPhotoInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 transition"
+              >
+                <CameraIcon className="w-5 h-5 text-gray-400 mx-auto mb-1.5" />
+                <p className="text-sm text-gray-500">
+                  <span className="font-medium text-amber-600">Add photos</span> to this report
+                </p>
+                <input
+                  ref={reportPhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleReportPhotoChange}
+                />
+              </div>
+
+              {rPreviews.length > 0 && (
+                <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {rPreviews.map((url, i) => (
+                    <div key={i} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => removeReportPhoto(i)}
+                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <XIcon className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
-        <div className="mt-3 flex justify-end">
+        <div className="mt-4 flex justify-end">
           <button
             onClick={handleSubmit}
             disabled={loading}
             className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition"
           >
             <SendIcon className="w-4 h-4" />
-            {loading ? 'Posting...' : 'Post'}
+            {loading ? 'Posting…' : 'Post'}
           </button>
         </div>
       </div>
