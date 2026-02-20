@@ -1,4 +1,4 @@
-import { MapPinIcon, UserIcon, PencilIcon, Trash2Icon } from 'lucide-react'
+import { MapPinIcon, UserIcon, PencilIcon, Trash2Icon, HashIcon } from 'lucide-react'
 import { Project } from '@/types'
 
 interface ProjectCardProps {
@@ -32,9 +32,9 @@ export default function ProjectCard({
       {/* Main clickable body */}
       <button
         onClick={() => onSelect(project)}
-        className="w-full text-left p-4 pl-5"
+        className="w-full text-left p-3 pl-4"
       >
-        <div className="flex items-start gap-2 pr-12">
+        <div className="flex items-start gap-2 pr-10">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3
@@ -55,7 +55,7 @@ export default function ProjectCard({
               </span>
             </div>
 
-            <div className="mt-1.5 space-y-1">
+            <div className="mt-1 space-y-0.5">
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
                 <UserIcon className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{project.client_name}</span>
@@ -64,6 +64,12 @@ export default function ProjectCard({
                 <MapPinIcon className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{project.address}</span>
               </div>
+              {project.estimate_number && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                  <HashIcon className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">{project.estimate_number}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
