@@ -132,7 +132,7 @@ export default function ProjectFeedClient({
               <p className="text-gray-400 text-sm">No posts yet. Add the first one below.</p>
             </div>
           ) : (
-            <div className="space-y-3 mb-5">
+            <div className="space-y-0.5 mb-4">
               {unpinnedPosts.map((post) => (
                 <PostCard
                   key={post.id}
