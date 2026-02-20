@@ -35,8 +35,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
             </svg>
           </div>
           <div>
-            <div className="text-white font-semibold text-sm leading-tight">Epoxy PM</div>
-            <div className="text-gray-500 text-xs">Field Operations</div>
+            <div className="text-white font-semibold text-sm leading-tight">Peckham Coatings</div>
           </div>
         </div>
       </div>
@@ -90,7 +89,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-gray-900 border-b border-gray-800 flex items-center px-4 h-14">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-black border-b border-gray-800 flex items-center px-4 h-14">
         <button
           onClick={() => setMobileOpen(true)}
           className="text-gray-400 hover:text-white p-1"
@@ -104,7 +103,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           </div>
-          <span className="text-white font-semibold text-sm">Epoxy PM</span>
+          <span className="text-white font-semibold text-sm">Peckham Coatings</span>
         </div>
       </div>
 
@@ -118,7 +117,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
 
       {/* Mobile drawer */}
       <div
-        className={`lg:hidden fixed top-0 left-0 bottom-0 z-50 w-64 bg-gray-900 transform transition-transform duration-200 ${
+        className={`lg:hidden fixed top-0 left-0 bottom-0 z-50 w-64 bg-black transform transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -134,7 +133,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-56 bg-gray-900 border-r border-gray-800 fixed top-0 bottom-0 left-0">
+      <aside className="hidden lg:flex flex-col w-56 bg-black border-r border-gray-800 fixed top-0 bottom-0 left-0">
         {navContent}
       </aside>
     </>
