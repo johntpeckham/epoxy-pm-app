@@ -136,7 +136,7 @@ export default function ProjectFeedClient({
         {/* Add post panel */}
         <div className="sticky bottom-0 pb-4 pt-2 bg-gray-50">
           <AddPostPanel
-            projectId={project.id}
+            project={project}
             userId={userId}
             onPosted={handlePosted}
           />

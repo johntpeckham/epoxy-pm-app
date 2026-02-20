@@ -21,13 +21,22 @@ export interface PhotoContent {
 }
 
 export interface DailyReportContent {
+  // Header (auto-filled from project, editable)
+  project_name: string
   date: string
-  crew_members: string
-  surface_prep_notes: string
-  epoxy_product_used: string
-  coats_applied: string
-  weather_conditions: string
-  additional_notes: string
+  address: string
+  // Crew
+  reported_by: string
+  project_foreman: string
+  weather: string
+  // Progress (paragraph fields)
+  progress: string
+  delays: string
+  safety: string
+  materials_used: string
+  employees: string
+  // Photos embedded in the report
+  photos: string[] // storage paths
 }
 
 export type PostContent = TextContent | PhotoContent | DailyReportContent

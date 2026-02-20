@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -10,6 +11,7 @@ import {
   ExternalLinkIcon,
   PencilIcon,
   Trash2Icon,
+  DownloadIcon,
 } from 'lucide-react'
 import { DailyReportContent } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -28,9 +30,7 @@ interface DailyReportCardProps {
 }
 
 function formatReportDate(dateStr: string) {
-  // dateStr is YYYY-MM-DD from the form
-  const [year, month, day] = dateStr.split('-').map(Number)
-  return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -38,51 +38,70 @@ function formatReportDate(dateStr: string) {
   })
 }
 
-const detailFields: { label: string; key: keyof DailyReportContent }[] = [
-  { label: 'Surface Prep Notes', key: 'surface_prep_notes' },
-  { label: 'Epoxy Product Used', key: 'epoxy_product_used' },
-  { label: 'Coats Applied', key: 'coats_applied' },
-  { label: 'Weather Conditions', key: 'weather_conditions' },
-  { label: 'Additional Notes', key: 'additional_notes' },
+const progressFields: { label: string; key: keyof DailyReportContent }[] = [
+  { label: 'Progress', key: 'progress' },
+  { label: 'Delays', key: 'delays' },
+  { label: 'Safety', key: 'safety' },
+  { label: 'Materials Used', key: 'materials_used' },
+  { label: 'Employees', key: 'employees' },
 ]
 
 export default function DailyReportCard({ report }: DailyReportCardProps) {
   const router = useRouter()
+  const supabase = createClient()
   const [expanded, setExpanded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
   const { content } = report
+
+  // Resolve photo public URLs
+  const photoUrls = (content.photos ?? []).map((path) => ({
+    path,
+    url: supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl,
+  }))
 
   async function handleDelete() {
     setIsDeleting(true)
-    const supabase = createClient()
+    // Delete storage photos
+    const photos = content.photos ?? []
+    if (photos.length > 0) {
+      await supabase.storage.from('post-photos').remove(photos)
+    }
     await supabase.from('feed_posts').delete().eq('id', report.id)
     setIsDeleting(false)
     setShowDeleteConfirm(false)
     router.refresh()
   }
 
+  async function handleDownloadPdf() {
+    setPdfLoading(true)
+    try {
+      const { generateReportPdf } = await import('@/lib/generateReportPdf')
+      await generateReportPdf(content, photoUrls.map((p) => p.url))
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden group">
-        {/* Summary row — always visible, click to expand */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden group relative">
+        {/* Summary row */}
         <button
           onClick={() => setExpanded((v) => !v)}
           className="w-full text-left px-5 py-4 flex items-start gap-4 hover:bg-gray-50 transition-colors"
         >
           {/* Date block */}
-          <div className="flex-shrink-0 w-14 text-center">
+          <div className="flex-shrink-0 w-12 text-center bg-amber-50 rounded-lg py-2">
             <div className="text-xl font-bold text-gray-900 leading-none">
               {content.date ? content.date.split('-')[2] : '—'}
             </div>
-            <div className="text-xs text-gray-400 mt-0.5 uppercase tracking-wide">
+            <div className="text-xs text-amber-600 mt-0.5 font-semibold uppercase">
               {content.date
                 ? new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short' })
                 : ''}
-            </div>
-            <div className="text-xs text-gray-400">
-              {content.date ? content.date.split('-')[0] : ''}
             </div>
           </div>
 
@@ -93,30 +112,51 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
               {content.date && (
                 <span className="text-xs text-gray-400">{formatReportDate(content.date)}</span>
               )}
+              {photoUrls.length > 0 && (
+                <span className="text-xs text-amber-600 font-medium">
+                  {photoUrls.length} photo{photoUrls.length > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
-            <p className="text-sm text-gray-600 mt-0.5 truncate">
-              <span className="font-medium text-gray-700">Crew:</span> {content.crew_members || '—'}
-            </p>
-            {content.epoxy_product_used && (
-              <p className="text-xs text-gray-400 mt-0.5 truncate">
-                {content.epoxy_product_used}
-                {content.coats_applied ? ` · ${content.coats_applied}` : ''}
-              </p>
+            <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5">
+              {content.reported_by && (
+                <p className="text-xs text-gray-500">
+                  <span className="font-medium">By:</span> {content.reported_by}
+                </p>
+              )}
+              {content.project_foreman && (
+                <p className="text-xs text-gray-500">
+                  <span className="font-medium">Foreman:</span> {content.project_foreman}
+                </p>
+              )}
+              {content.weather && (
+                <p className="text-xs text-gray-500">
+                  <span className="font-medium">Weather:</span> {content.weather}
+                </p>
+              )}
+            </div>
+            {content.progress && (
+              <p className="text-xs text-gray-400 mt-1 line-clamp-1">{content.progress}</p>
             )}
           </div>
 
           {/* Expand chevron */}
-          <div className="flex-shrink-0 text-gray-400 mt-0.5">
-            {expanded ? (
-              <ChevronUpIcon className="w-4 h-4" />
-            ) : (
-              <ChevronDownIcon className="w-4 h-4" />
-            )}
+          <div className="flex-shrink-0 text-gray-400 mt-1">
+            {expanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
           </div>
         </button>
 
-        {/* Edit / Delete buttons — hover on desktop, always visible on mobile */}
-        <div className="flex items-center gap-1 px-4 pb-3 sm:absolute sm:top-3 sm:right-3 sm:pb-0 sm:px-0 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity">
+        {/* Action buttons — hover on desktop, visible on mobile */}
+        <div className="flex items-center gap-1 px-4 pb-3 sm:absolute sm:top-3 sm:right-10 sm:pb-0 sm:px-0 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity">
+          <button
+            onClick={handleDownloadPdf}
+            disabled={pdfLoading}
+            title="Download PDF"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-amber-600 border border-gray-200 hover:border-amber-300 hover:bg-amber-50 rounded-md transition sm:border-0 sm:p-1.5 disabled:opacity-40"
+          >
+            <DownloadIcon className="w-3.5 h-3.5" />
+            <span className="sm:hidden">{pdfLoading ? 'Generating…' : 'PDF'}</span>
+          </button>
           <button
             onClick={() => setShowEditModal(true)}
             title="Edit report"
@@ -137,9 +177,15 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
 
         {/* Expanded detail */}
         {expanded && (
-          <div className="border-t border-amber-100 bg-amber-50 px-5 py-4">
+          <div className="border-t border-amber-100 bg-amber-50 px-5 py-4 space-y-4">
+            {/* Address */}
+            {content.address && (
+              <p className="text-xs text-amber-700">{content.address}</p>
+            )}
+
+            {/* Progress fields */}
             <dl className="space-y-3">
-              {detailFields.map(({ label, key }) =>
+              {progressFields.map(({ label, key }) =>
                 content[key] ? (
                   <div key={key}>
                     <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
@@ -150,7 +196,41 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
                 ) : null
               )}
             </dl>
-            <div className="mt-4 pt-3 border-t border-amber-200">
+
+            {/* Embedded photos */}
+            {photoUrls.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+                  Photos
+                </p>
+                <div
+                  className={`grid gap-2 ${
+                    photoUrls.length === 1
+                      ? 'grid-cols-1'
+                      : photoUrls.length === 2
+                      ? 'grid-cols-2'
+                      : 'grid-cols-2 sm:grid-cols-3'
+                  }`}
+                >
+                  {photoUrls.map(({ path, url }) => (
+                    <a key={path} href={url} target="_blank" rel="noopener noreferrer">
+                      <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-100">
+                        <Image
+                          src={url}
+                          alt="Report photo"
+                          fill
+                          className="object-cover hover:opacity-90 transition"
+                          sizes="(max-width: 640px) 45vw, 220px"
+                        />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Footer actions */}
+            <div className="pt-3 border-t border-amber-200 flex items-center justify-between flex-wrap gap-2">
               <Link
                 href={`/projects/${report.project_id}`}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors"
@@ -158,6 +238,14 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
                 <ExternalLinkIcon className="w-3.5 h-3.5" />
                 View in project feed
               </Link>
+              <button
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors disabled:opacity-40"
+              >
+                <DownloadIcon className="w-3.5 h-3.5" />
+                {pdfLoading ? 'Generating PDF…' : 'Download PDF'}
+              </button>
             </div>
           </div>
         )}
@@ -166,7 +254,7 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
       {showDeleteConfirm && (
         <ConfirmDialog
           title="Delete Daily Report"
-          message="Are you sure you want to delete this daily report? This cannot be undone."
+          message="Are you sure you want to delete this daily report? Photos will also be removed. This cannot be undone."
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}
