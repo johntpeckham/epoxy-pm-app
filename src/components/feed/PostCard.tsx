@@ -26,10 +26,18 @@ interface PostCardProps {
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr)
+  const today = new Date()
+  const isToday =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+
+  if (isToday) {
+    return d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  }
   return d.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
@@ -40,6 +48,16 @@ function getInitials(email: string) {
   return email.split('@')[0].slice(0, 2).toUpperCase()
 }
 
+// ── Avatar ─────────────────────────────────────────────────────────────────────
+function Avatar({ initials }: { initials: string }) {
+  return (
+    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center mt-0.5">
+      <span className="text-xs font-bold text-white tracking-wide">{initials}</span>
+    </div>
+  )
+}
+
+// ── Photo post content ─────────────────────────────────────────────────────────
 function PhotoPost({ content }: { content: PhotoContent }) {
   const supabase = createClient()
   const urls = content.photos.map((path) => {
@@ -48,37 +66,44 @@ function PhotoPost({ content }: { content: PhotoContent }) {
   })
 
   return (
-    <div>
-      <div
-        className={`grid gap-2 ${
-          urls.length === 1
-            ? 'grid-cols-1'
-            : urls.length === 2
-            ? 'grid-cols-2'
-            : 'grid-cols-2 sm:grid-cols-3'
-        }`}
-      >
-        {urls.map((url, i) => (
-          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-            <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-              <Image
-                src={url}
-                alt={`Photo ${i + 1}`}
-                fill
-                className="object-cover hover:opacity-90 transition"
-                sizes="(max-width: 640px) 50vw, 300px"
-              />
-            </div>
-          </a>
-        ))}
-      </div>
+    <div className="mt-1.5">
       {content.caption && (
-        <p className="text-gray-600 text-sm mt-2 italic">{content.caption}</p>
+        <p className="text-sm text-gray-700 mb-2">{content.caption}</p>
+      )}
+      {urls.length === 1 ? (
+        <a href={urls[0]} target="_blank" rel="noopener noreferrer" className="block max-w-[260px]">
+          <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
+            <Image
+              src={urls[0]}
+              alt="Photo"
+              fill
+              className="object-cover hover:opacity-90 transition"
+              sizes="260px"
+            />
+          </div>
+        </a>
+      ) : (
+        <div className="grid grid-cols-5 gap-1">
+          {urls.map((url, i) => (
+            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+              <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                <Image
+                  src={url}
+                  alt={`Photo ${i + 1}`}
+                  fill
+                  className="object-cover hover:opacity-90 transition"
+                  sizes="72px"
+                />
+              </div>
+            </a>
+          ))}
+        </div>
       )}
     </div>
   )
 }
 
+// ── Daily report content card ──────────────────────────────────────────────────
 function DailyReportPost({
   content,
   photoUrls,
@@ -88,7 +113,7 @@ function DailyReportPost({
 }) {
   const crewFields: { label: string; key: keyof DailyReportContent }[] = [
     { label: 'Reported By', key: 'reported_by' },
-    { label: 'Project Foreman', key: 'project_foreman' },
+    { label: 'Foreman', key: 'project_foreman' },
     { label: 'Weather', key: 'weather' },
   ]
   const progressFields: { label: string; key: keyof DailyReportContent }[] = [
@@ -100,13 +125,13 @@ function DailyReportPost({
   ]
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg overflow-hidden">
-      {/* Report header */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-amber-100 border-b border-amber-200">
-        <ClipboardListIcon className="w-4 h-4 text-amber-700" />
-        <span className="text-sm font-semibold text-amber-800">Daily Field Report</span>
+    <div className="mt-1.5 border border-amber-200 rounded-xl overflow-hidden bg-white">
+      {/* Card header */}
+      <div className="flex items-center gap-2 px-3.5 py-2.5 bg-amber-50 border-b border-amber-200">
+        <ClipboardListIcon className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+        <span className="text-xs font-semibold text-amber-800">Daily Field Report</span>
         {content.date && (
-          <span className="text-xs text-amber-600 ml-auto">
+          <span className="text-xs text-amber-600 ml-auto tabular-nums">
             {new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -116,12 +141,14 @@ function DailyReportPost({
         )}
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="p-3.5 space-y-3">
         {/* Project / address */}
         {(content.project_name || content.address) && (
-          <div className="text-xs text-amber-700 space-y-0.5">
-            {content.project_name && <p className="font-semibold">{content.project_name}</p>}
-            {content.address && <p className="text-amber-600">{content.address}</p>}
+          <div className="text-xs space-y-0.5">
+            {content.project_name && (
+              <p className="font-semibold text-gray-800">{content.project_name}</p>
+            )}
+            {content.address && <p className="text-gray-500">{content.address}</p>}
           </div>
         )}
 
@@ -134,7 +161,7 @@ function DailyReportPost({
                   <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
                     {label}
                   </dt>
-                  <dd className="text-sm text-gray-700">{content[key]}</dd>
+                  <dd className="text-sm text-gray-700">{content[key] as string}</dd>
                 </div>
               ) : null
             )}
@@ -143,7 +170,7 @@ function DailyReportPost({
 
         {/* Divider */}
         {crewFields.some((f) => content[f.key]) && progressFields.some((f) => content[f.key]) && (
-          <div className="border-t border-amber-200" />
+          <div className="border-t border-gray-100" />
         )}
 
         {/* Progress fields */}
@@ -153,40 +180,48 @@ function DailyReportPost({
               <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
                 {label}
               </dt>
-              <dd className="text-sm text-gray-700 whitespace-pre-wrap">{content[key]}</dd>
+              <dd className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {content[key] as string}
+              </dd>
             </div>
           ) : null
         )}
 
-        {/* Embedded photos */}
+        {/* Photos */}
         {photoUrls.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
               Photos ({photoUrls.length})
             </p>
-            <div
-              className={`grid gap-2 ${
-                photoUrls.length === 1
-                  ? 'grid-cols-1'
-                  : photoUrls.length === 2
-                  ? 'grid-cols-2'
-                  : 'grid-cols-2 sm:grid-cols-3'
-              }`}
-            >
-              {photoUrls.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                  <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-100">
-                    <Image
-                      src={url}
-                      alt={`Report photo ${i + 1}`}
-                      fill
-                      className="object-cover hover:opacity-90 transition"
-                      sizes="(max-width: 640px) 50vw, 250px"
-                    />
-                  </div>
-                </a>
-              ))}
-            </div>
+            {photoUrls.length === 1 ? (
+              <a href={photoUrls[0]} target="_blank" rel="noopener noreferrer" className="block max-w-[200px]">
+                <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                  <Image
+                    src={photoUrls[0]}
+                    alt="Report photo"
+                    fill
+                    className="object-cover hover:opacity-90 transition"
+                    sizes="200px"
+                  />
+                </div>
+              </a>
+            ) : (
+              <div className="grid grid-cols-5 gap-1">
+                {photoUrls.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                    <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
+                      <Image
+                        src={url}
+                        alt={`Report photo ${i + 1}`}
+                        fill
+                        className="object-cover hover:opacity-90 transition"
+                        sizes="64px"
+                      />
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -194,6 +229,7 @@ function DailyReportPost({
   )
 }
 
+// ── Main PostCard ──────────────────────────────────────────────────────────────
 export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: PostCardProps) {
   const [pinning, setPinning] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -208,8 +244,9 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   )
   const [savingText, setSavingText] = useState(false)
 
-  // Resolve photo URLs for daily reports
   const supabase = createClient()
+
+  // Resolve photo URLs for daily reports
   const reportPhotoUrls: string[] =
     post.post_type === 'daily_report'
       ? ((post.content as DailyReportContent).photos ?? []).map((path) => {
@@ -230,7 +267,6 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
   async function handleDelete() {
     setIsDeleting(true)
-
     if (post.post_type === 'photo') {
       const photos = (post.content as PhotoContent).photos
       if (photos.length > 0) await supabase.storage.from('post-photos').remove(photos)
@@ -239,7 +275,6 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
       const photos = (post.content as DailyReportContent).photos ?? []
       if (photos.length > 0) await supabase.storage.from('post-photos').remove(photos)
     }
-
     await supabase.from('feed_posts').delete().eq('id', post.id)
     setIsDeleting(false)
     setShowDeleteConfirm(false)
@@ -274,38 +309,40 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   return (
     <>
       <div
-        className={`bg-white rounded-xl border transition-all group ${
-          post.is_pinned ? 'border-amber-300 shadow-sm' : 'border-gray-200'
+        className={`group relative flex gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+          post.is_pinned ? 'bg-amber-50/80' : 'hover:bg-gray-100/60'
         }`}
       >
-        <div className="p-4">
-          {/* Post header */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-white">{initials}</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900 leading-tight">{authorName}</p>
-                <p className="text-xs text-gray-400">{formatDate(post.created_at)}</p>
-              </div>
-            </div>
+        {/* Avatar */}
+        <Avatar initials={initials} />
 
-            {/* Action buttons */}
-            <div className="flex items-center gap-0.5">
-              {/* PDF download — daily reports only */}
+        {/* Content column */}
+        <div className="flex-1 min-w-0">
+
+          {/* Header: name · timestamp · actions */}
+          <div className="flex items-center gap-2 mb-1 min-w-0">
+            <span className="text-sm font-bold text-gray-900 leading-tight truncate flex-shrink-0">
+              {authorName}
+            </span>
+            {post.is_pinned && (
+              <PinIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
+            )}
+            <span className="text-xs text-gray-400 leading-tight flex-shrink-0">
+              {formatDate(post.created_at)}
+            </span>
+
+            {/* Action buttons — revealed on hover */}
+            <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
               {post.post_type === 'daily_report' && (
                 <button
                   onClick={handleDownloadPdf}
                   disabled={pdfLoading}
                   title="Download PDF"
-                  className="p-1.5 rounded-md text-gray-300 hover:text-amber-500 hover:bg-amber-50 transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100 disabled:opacity-40"
+                  className="p-1.5 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition disabled:opacity-40"
                 >
-                  <DownloadIcon className="w-4 h-4" />
+                  <DownloadIcon className="w-3.5 h-3.5" />
                 </button>
               )}
-
-              {/* Edit — text and daily_report */}
               {(post.post_type === 'text' || post.post_type === 'daily_report') && (
                 <button
                   onClick={() => {
@@ -317,22 +354,18 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
                     }
                   }}
                   title="Edit post"
-                  className="p-1.5 rounded-md text-gray-300 hover:text-amber-500 hover:bg-amber-50 transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                  className="p-1.5 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
                 >
-                  <PencilIcon className="w-4 h-4" />
+                  <PencilIcon className="w-3.5 h-3.5" />
                 </button>
               )}
-
-              {/* Delete */}
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 title="Delete post"
-                className="p-1.5 rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
               >
-                <Trash2Icon className="w-4 h-4" />
+                <Trash2Icon className="w-3.5 h-3.5" />
               </button>
-
-              {/* Pin toggle */}
               <button
                 onClick={handlePinToggle}
                 disabled={pinning}
@@ -340,28 +373,28 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
                 className={`p-1.5 rounded-md transition ${
                   post.is_pinned
                     ? 'text-amber-500 hover:bg-amber-50'
-                    : 'text-gray-300 hover:text-amber-400 hover:bg-gray-50'
+                    : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'
                 }`}
               >
                 {post.is_pinned ? (
-                  <PinOffIcon className="w-4 h-4" />
+                  <PinOffIcon className="w-3.5 h-3.5" />
                 ) : (
-                  <PinIcon className="w-4 h-4" />
+                  <PinIcon className="w-3.5 h-3.5" />
                 )}
               </button>
             </div>
           </div>
 
-          {/* Post content */}
+          {/* ── Text post ──────────────────────────────────────────────────── */}
           {post.post_type === 'text' &&
             (editingText ? (
-              <div className="space-y-2">
+              <div className="space-y-2 mt-1">
                 <textarea
                   autoFocus
-                  rows={4}
+                  rows={3}
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
-                  className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                  className="w-full border border-amber-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
                 />
                 <div className="flex gap-2 justify-end">
                   <button
@@ -380,13 +413,19 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
                 </div>
               </div>
             ) : (
-              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                {(post.content as TextContent).message}
-              </p>
+              <div className="inline-block max-w-full bg-gray-100 rounded-2xl rounded-tl-sm px-3.5 py-2.5">
+                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap break-words">
+                  {(post.content as TextContent).message}
+                </p>
+              </div>
             ))}
+
+          {/* ── Photo post ─────────────────────────────────────────────────── */}
           {post.post_type === 'photo' && (
             <PhotoPost content={post.content as PhotoContent} />
           )}
+
+          {/* ── Daily report ───────────────────────────────────────────────── */}
           {post.post_type === 'daily_report' && (
             <DailyReportPost
               content={post.content as DailyReportContent}
