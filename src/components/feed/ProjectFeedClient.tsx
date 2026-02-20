@@ -100,7 +100,12 @@ export default function ProjectFeedClient({
       {/* Feed */}
       <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-5 sm:px-6 space-y-0">
         {/* Pinned posts */}
-        <PinnedSection posts={pinnedPosts} onPinToggle={fetchPosts} />
+        <PinnedSection
+          posts={pinnedPosts}
+          onPinToggle={fetchPosts}
+          onDeleted={fetchPosts}
+          onUpdated={fetchPosts}
+        />
 
         {/* Chronological feed */}
         {unpinnedPosts.length === 0 && pinnedPosts.length === 0 ? (
@@ -115,7 +120,13 @@ export default function ProjectFeedClient({
         ) : (
           <div className="space-y-3 mb-5">
             {unpinnedPosts.map((post) => (
-              <PostCard key={post.id} post={post} onPinToggle={fetchPosts} />
+              <PostCard
+                key={post.id}
+                post={post}
+                onPinToggle={fetchPosts}
+                onDeleted={fetchPosts}
+                onUpdated={fetchPosts}
+              />
             ))}
           </div>
         )}

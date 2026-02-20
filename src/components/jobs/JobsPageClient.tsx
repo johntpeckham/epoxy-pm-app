@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { PlusIcon, SearchIcon } from 'lucide-react'
 import ProjectCard from './ProjectCard'
 import NewProjectModal from './NewProjectModal'
+import EditProjectModal from './EditProjectModal'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { Project } from '@/types'
 
 interface JobsPageClientProps {
@@ -17,6 +19,10 @@ export default function JobsPageClient({ initialProjects }: JobsPageClientProps)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Complete'>('All')
 
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const fetchProjects = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase
@@ -25,6 +31,34 @@ export default function JobsPageClient({ initialProjects }: JobsPageClientProps)
       .order('created_at', { ascending: false })
     if (data) setProjects(data)
   }, [])
+
+  async function handleDeleteProject() {
+    if (!projectToDelete) return
+    setIsDeleting(true)
+    const supabase = createClient()
+
+    // Delete storage photos for all photo posts in this project
+    const { data: photoPosts } = await supabase
+      .from('feed_posts')
+      .select('content')
+      .eq('project_id', projectToDelete.id)
+      .eq('post_type', 'photo')
+
+    if (photoPosts && photoPosts.length > 0) {
+      const paths: string[] = photoPosts.flatMap(
+        (p) => (p.content as { photos?: string[] }).photos ?? []
+      )
+      if (paths.length > 0) {
+        await supabase.storage.from('post-photos').remove(paths)
+      }
+    }
+
+    await supabase.from('projects').delete().eq('id', projectToDelete.id)
+
+    setIsDeleting(false)
+    setProjectToDelete(null)
+    fetchProjects()
+  }
 
   const filtered = projects.filter((p) => {
     const matchesStatus = statusFilter === 'All' || p.status === statusFilter
@@ -107,7 +141,12 @@ export default function JobsPageClient({ initialProjects }: JobsPageClientProps)
       ) : (
         <div className="space-y-3">
           {filtered.map((project) => (
-            <ProjectCard key={project.id} project={project} />
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onEdit={setEditingProject}
+              onDelete={setProjectToDelete}
+            />
           ))}
         </div>
       )}
@@ -119,6 +158,27 @@ export default function JobsPageClient({ initialProjects }: JobsPageClientProps)
             setShowModal(false)
             fetchProjects()
           }}
+        />
+      )}
+
+      {editingProject && (
+        <EditProjectModal
+          project={editingProject}
+          onClose={() => setEditingProject(null)}
+          onUpdated={() => {
+            setEditingProject(null)
+            fetchProjects()
+          }}
+        />
+      )}
+
+      {projectToDelete && (
+        <ConfirmDialog
+          title="Delete Project"
+          message={`Are you sure you want to delete "${projectToDelete.name}"? All posts and photos for this project will be permanently deleted.`}
+          onConfirm={handleDeleteProject}
+          onCancel={() => setProjectToDelete(null)}
+          loading={isDeleting}
         />
       )}
     </div>
