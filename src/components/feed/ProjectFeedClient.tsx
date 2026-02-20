@@ -66,7 +66,7 @@ export default function ProjectFeedClient({
         <div className="max-w-3xl mx-auto px-4 py-4 sm:px-6">
           <div className="flex items-start gap-3">
             <Link
-              href="/"
+              href="/jobs"
               className="mt-0.5 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition flex-shrink-0"
             >
               <ArrowLeftIcon className="w-5 h-5" />

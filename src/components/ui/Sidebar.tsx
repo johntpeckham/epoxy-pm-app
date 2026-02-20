@@ -21,7 +21,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
     router.push('/login')
   }
 
-  const isJobsActive = pathname === '/' || pathname.startsWith('/projects')
+  const isJobsActive = pathname === '/jobs' || pathname.startsWith('/projects')
 
   const navContent = (
     <div className="flex flex-col h-full">
@@ -43,7 +43,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         <Link
-          href="/"
+          href="/jobs"
           onClick={() => setMobileOpen(false)}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             isJobsActive
