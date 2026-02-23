@@ -12,6 +12,8 @@ import {
   CheckIcon,
   XIcon,
   DownloadIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from 'lucide-react'
 import { FeedPost, TextContent, PhotoContent, DailyReportContent } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -70,35 +72,21 @@ function PhotoPost({ content }: { content: PhotoContent }) {
       {content.caption && (
         <p className="text-sm text-gray-700 mb-2">{content.caption}</p>
       )}
-      {urls.length === 1 ? (
-        <a href={urls[0]} target="_blank" rel="noopener noreferrer" className="block max-w-[260px]">
-          <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
-            <Image
-              src={urls[0]}
-              alt="Photo"
-              fill
-              className="object-cover hover:opacity-90 transition"
-              sizes="260px"
-            />
-          </div>
-        </a>
-      ) : (
-        <div className="grid grid-cols-5 gap-1">
-          {urls.map((url, i) => (
-            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-              <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                <Image
-                  src={url}
-                  alt={`Photo ${i + 1}`}
-                  fill
-                  className="object-cover hover:opacity-90 transition"
-                  sizes="72px"
-                />
-              </div>
-            </a>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-1">
+        {urls.map((url, i) => (
+          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+            <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
+              <Image
+                src={url}
+                alt={`Photo ${i + 1}`}
+                fill
+                className="object-cover hover:opacity-90 transition"
+                sizes="60px"
+              />
+            </div>
+          </a>
+        ))}
+      </div>
     </div>
   )
 }
@@ -111,6 +99,8 @@ function DailyReportPost({
   content: DailyReportContent
   photoUrls: string[]
 }) {
+  const [expanded, setExpanded] = useState(false)
+
   const crewFields: { label: string; key: keyof DailyReportContent }[] = [
     { label: 'Reported By', key: 'reported_by' },
     { label: 'Foreman', key: 'project_foreman' },
@@ -124,107 +114,114 @@ function DailyReportPost({
     { label: 'Employees', key: 'employees' },
   ]
 
+  const formattedDate = content.date
+    ? new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null
+
   return (
     <div className="mt-1.5 border border-amber-200 rounded-xl overflow-hidden bg-white">
-      {/* Card header */}
-      <div className="flex items-center gap-2 px-3.5 py-2.5 bg-amber-50 border-b border-amber-200">
+      {/* Header row — always visible, toggles expand/collapse */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className={`w-full flex items-center gap-2 px-3.5 py-2.5 bg-amber-50 text-left hover:bg-amber-100/70 transition-colors ${
+          expanded ? 'border-b border-amber-200' : ''
+        }`}
+      >
         <ClipboardListIcon className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-        <span className="text-xs font-semibold text-amber-800">Daily Field Report</span>
-        {content.date && (
-          <span className="text-xs text-amber-600 ml-auto tabular-nums">
-            {new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </span>
+        <span className="text-xs font-semibold text-amber-800 flex-shrink-0">Daily Field Report</span>
+        {formattedDate && (
+          <span className="text-xs text-amber-600 tabular-nums flex-shrink-0">{formattedDate}</span>
         )}
-      </div>
-
-      <div className="p-3.5 space-y-3">
-        {/* Project / address */}
-        {(content.project_name || content.address) && (
-          <div className="text-xs space-y-0.5">
-            {content.project_name && (
-              <p className="font-semibold text-gray-800">{content.project_name}</p>
-            )}
-            {content.address && <p className="text-gray-500">{content.address}</p>}
-          </div>
+        {!expanded && content.reported_by && (
+          <span className="text-xs text-gray-500 truncate">· {content.reported_by}</span>
         )}
-
-        {/* Crew row */}
-        {crewFields.some((f) => content[f.key]) && (
-          <div className="grid grid-cols-3 gap-3">
-            {crewFields.map(({ label, key }) =>
-              content[key] ? (
-                <div key={key}>
-                  <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
-                    {label}
-                  </dt>
-                  <dd className="text-sm text-gray-700">{content[key] as string}</dd>
-                </div>
-              ) : null
-            )}
-          </div>
+        {!expanded && content.project_foreman && (
+          <span className="text-xs text-gray-500 truncate">· {content.project_foreman}</span>
         )}
-
-        {/* Divider */}
-        {crewFields.some((f) => content[f.key]) && progressFields.some((f) => content[f.key]) && (
-          <div className="border-t border-gray-100" />
+        {expanded ? (
+          <ChevronUpIcon className="w-3.5 h-3.5 text-amber-500 ml-auto flex-shrink-0" />
+        ) : (
+          <ChevronDownIcon className="w-3.5 h-3.5 text-amber-500 ml-auto flex-shrink-0" />
         )}
+      </button>
 
-        {/* Progress fields */}
-        {progressFields.map(({ label, key }) =>
-          content[key] ? (
-            <div key={key}>
-              <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
-                {label}
-              </dt>
-              <dd className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {content[key] as string}
-              </dd>
+      {expanded && (
+        <div className="p-3.5 space-y-3">
+          {/* Project / address */}
+          {(content.project_name || content.address) && (
+            <div className="text-xs space-y-0.5">
+              {content.project_name && (
+                <p className="font-semibold text-gray-800">{content.project_name}</p>
+              )}
+              {content.address && <p className="text-gray-500">{content.address}</p>}
             </div>
-          ) : null
-        )}
+          )}
 
-        {/* Photos */}
-        {photoUrls.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
-              Photos ({photoUrls.length})
-            </p>
-            {photoUrls.length === 1 ? (
-              <a href={photoUrls[0]} target="_blank" rel="noopener noreferrer" className="block max-w-[200px]">
-                <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                  <Image
-                    src={photoUrls[0]}
-                    alt="Report photo"
-                    fill
-                    className="object-cover hover:opacity-90 transition"
-                    sizes="200px"
-                  />
-                </div>
-              </a>
-            ) : (
-              <div className="grid grid-cols-5 gap-1">
+          {/* Crew row */}
+          {crewFields.some((f) => content[f.key]) && (
+            <div className="grid grid-cols-3 gap-3">
+              {crewFields.map(({ label, key }) =>
+                content[key] ? (
+                  <div key={key}>
+                    <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
+                      {label}
+                    </dt>
+                    <dd className="text-sm text-gray-700">{content[key] as string}</dd>
+                  </div>
+                ) : null
+              )}
+            </div>
+          )}
+
+          {/* Divider */}
+          {crewFields.some((f) => content[f.key]) && progressFields.some((f) => content[f.key]) && (
+            <div className="border-t border-gray-100" />
+          )}
+
+          {/* Progress fields */}
+          {progressFields.map(({ label, key }) =>
+            content[key] ? (
+              <div key={key}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
+                  {label}
+                </dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  {content[key] as string}
+                </dd>
+              </div>
+            ) : null
+          )}
+
+          {/* Photos */}
+          {photoUrls.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+                Photos ({photoUrls.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
                 {photoUrls.map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                    <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
+                    <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-amber-50">
                       <Image
                         src={url}
                         alt={`Report photo ${i + 1}`}
                         fill
                         className="object-cover hover:opacity-90 transition"
-                        sizes="64px"
+                        sizes="60px"
                       />
                     </div>
                   </a>
                 ))}
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
