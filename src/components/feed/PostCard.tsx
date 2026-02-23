@@ -12,6 +12,7 @@ import {
   CheckIcon,
   XIcon,
   DownloadIcon,
+  ChevronDownIcon,
 } from 'lucide-react'
 import { FeedPost, TextContent, PhotoContent, DailyReportContent } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -83,16 +84,16 @@ function PhotoPost({ content }: { content: PhotoContent }) {
           </div>
         </a>
       ) : (
-        <div className="grid grid-cols-5 gap-1">
+        <div className="flex flex-wrap gap-1">
           {urls.map((url, i) => (
-            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-              <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block flex-shrink-0">
+              <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
                 <Image
                   src={url}
                   alt={`Photo ${i + 1}`}
                   fill
                   className="object-cover hover:opacity-90 transition"
-                  sizes="72px"
+                  sizes="60px"
                 />
               </div>
             </a>
@@ -206,16 +207,16 @@ function DailyReportPost({
                 </div>
               </a>
             ) : (
-              <div className="grid grid-cols-5 gap-1">
+              <div className="flex flex-wrap gap-1">
                 {photoUrls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                    <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block flex-shrink-0">
+                    <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-amber-50">
                       <Image
                         src={url}
                         alt={`Report photo ${i + 1}`}
                         fill
                         className="object-cover hover:opacity-90 transition"
-                        sizes="64px"
+                        sizes="60px"
                       />
                     </div>
                   </a>
@@ -236,6 +237,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditReport, setShowEditReport] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [reportExpanded, setReportExpanded] = useState(false)
 
   // Inline text editing
   const [editingText, setEditingText] = useState(false)
@@ -425,13 +427,56 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
             <PhotoPost content={post.content as PhotoContent} />
           )}
 
-          {/* ── Daily report ───────────────────────────────────────────────── */}
-          {post.post_type === 'daily_report' && (
-            <DailyReportPost
-              content={post.content as DailyReportContent}
-              photoUrls={reportPhotoUrls}
-            />
-          )}
+          {/* ── Daily report (collapsed by default) ────────────────────────── */}
+          {post.post_type === 'daily_report' && (() => {
+            const c = post.content as DailyReportContent
+            const reportDate = c.date
+              ? new Date(c.date + 'T12:00:00').toLocaleDateString('en-US', {
+                  month: 'short', day: 'numeric', year: 'numeric',
+                })
+              : null
+            return (
+              <div className="mt-1">
+                {/* Collapsed summary row */}
+                <button
+                  onClick={() => setReportExpanded((v) => !v)}
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-left hover:bg-amber-100/80 transition-colors"
+                >
+                  <ClipboardListIcon className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                  {reportDate && (
+                    <span className="text-xs font-semibold text-amber-800 tabular-nums flex-shrink-0">
+                      {reportDate}
+                    </span>
+                  )}
+                  {c.reported_by && (
+                    <>
+                      <span className="text-amber-300 flex-shrink-0">·</span>
+                      <span className="text-xs text-gray-600 truncate">{c.reported_by}</span>
+                    </>
+                  )}
+                  {c.project_foreman && (
+                    <>
+                      <span className="text-amber-300 flex-shrink-0">·</span>
+                      <span className="text-xs text-gray-500 truncate">{c.project_foreman}</span>
+                    </>
+                  )}
+                  <ChevronDownIcon
+                    className={`w-3.5 h-3.5 text-amber-500 ml-auto flex-shrink-0 transition-transform duration-150 ${
+                      reportExpanded ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {/* Expanded full report */}
+                {reportExpanded && (
+                  <DailyReportPost
+                    content={c}
+                    photoUrls={reportPhotoUrls}
+                  />
+                )}
+              </div>
+            )
+          })()}
         </div>
       </div>
 
