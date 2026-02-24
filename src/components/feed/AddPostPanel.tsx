@@ -107,8 +107,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         console.error('[AddPostPanel] Upload failed:', {
           message: err.message,
           name: err.name,
-          // Supabase StorageError includes statusCode and other fields
-          ...('statusCode' in err ? { statusCode: (err as Record<string, unknown>).statusCode } : {}),
           error: err,
         })
         throw err
