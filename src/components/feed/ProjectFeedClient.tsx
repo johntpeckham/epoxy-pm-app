@@ -3,10 +3,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { ArrowLeftIcon, MapPinIcon, UserIcon, FileTextIcon, ClipboardListIcon, ImageIcon, CameraIcon } from 'lucide-react'
+import { ArrowLeftIcon, MapPinIcon, UserIcon, FileTextIcon, ClipboardListIcon, CameraIcon } from 'lucide-react'
 import PostCard from './PostCard'
 import PinnedSection from './PinnedSection'
-import AddPostPanel, { type Mode } from './AddPostPanel'
+import AddPostPanel from './AddPostPanel'
 import DocumentUploadModal from '@/components/documents/DocumentUploadModal'
 import ProjectPhotosModal from '@/components/photos/ProjectPhotosModal'
 import { FeedPost, Project, DocumentCategory } from '@/types'
@@ -27,7 +27,6 @@ export default function ProjectFeedClient({
 }: ProjectFeedClientProps) {
   const inPanel = onBack !== undefined
   const [posts, setPosts] = useState<FeedPost[]>(initialPosts)
-  const [composerMode, setComposerMode] = useState<Mode>('text')
   const [docModal, setDocModal] = useState<DocumentCategory | null>(null)
   const [showPhotosModal, setShowPhotosModal] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -111,69 +110,32 @@ export default function ProjectFeedClient({
                 </span>
               </div>
             </div>
-            {/* Quick-access document buttons */}
-            <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Action buttons — inline with header */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
-                onClick={() => setShowPhotosModal(true)}
-                className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
-                title="Photos"
+                onClick={() => setDocModal('plan')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
               >
-                <ImageIcon className="w-5 h-5" />
+                <FileTextIcon className="w-3.5 h-3.5" />
+                Plans
               </button>
               <button
                 onClick={() => setDocModal('report')}
-                className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
-                title="Reports"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
               >
-                <ClipboardListIcon className="w-5 h-5" />
+                <ClipboardListIcon className="w-3.5 h-3.5" />
+                Project Report
               </button>
               <button
-                onClick={() => setDocModal('plan')}
-                className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
-                title="Plans"
+                onClick={() => setShowPhotosModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
               >
-                <FileTextIcon className="w-5 h-5" />
+                <CameraIcon className="w-3.5 h-3.5" />
+                Pictures
               </button>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* ── Mode toolbar ──────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border-b border-gray-100">
-        <button
-          onClick={() => setComposerMode('text')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-            composerMode === 'text'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <FileTextIcon className="w-4 h-4" />
-          Plans
-        </button>
-        <button
-          onClick={() => setComposerMode('daily_report')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-            composerMode === 'daily_report'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <ClipboardListIcon className="w-4 h-4" />
-          Project Report
-        </button>
-        <button
-          onClick={() => setComposerMode('photo')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-            composerMode === 'photo'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <CameraIcon className="w-4 h-4" />
-          Pictures
-        </button>
       </div>
 
       {/* Scrollable feed */}
@@ -220,11 +182,9 @@ export default function ProjectFeedClient({
         project={project}
         userId={userId}
         onPosted={handlePosted}
-        mode={composerMode}
-        onModeChange={setComposerMode}
       />
 
-      {/* Document upload modal */}
+      {/* Document upload modal (Plans or Reports) */}
       {docModal && (
         <DocumentUploadModal
           projectId={project.id}
