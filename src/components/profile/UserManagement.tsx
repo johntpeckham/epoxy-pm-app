@@ -41,23 +41,23 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
   const [inviteError, setInviteError] = useState<string | null>(null)
 
   const fetchUsers = useCallback(async () => {
-    const { data: profiles, error: fetchError } = await supabase
-      .from('profiles')
-      .select('id, display_name, avatar_url, role')
-      .order('display_name', { ascending: true })
+    try {
+      const res = await fetch('/api/list-users')
+      const result = await res.json()
 
-    if (fetchError) {
-      setError(fetchError.message)
+      if (!res.ok) {
+        setError(result.error || 'Failed to fetch users')
+        setLoading(false)
+        return
+      }
+
+      setUsers(result.users as UserRow[])
+    } catch {
+      setError('Failed to fetch users')
+    } finally {
       setLoading(false)
-      return
     }
-
-    // Fetch emails from auth.users via edge function or fall back to profiles
-    // Since we can't directly query auth.users from the client,
-    // we'll show what we have from profiles
-    setUsers((profiles ?? []) as UserRow[])
-    setLoading(false)
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     fetchUsers()
@@ -175,17 +175,20 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
                     />
                   ) : (
                     <span className="text-[10px] font-bold text-gray-500">
-                      {(user.display_name || '?')[0].toUpperCase()}
+                      {(user.display_name || user.email || '?')[0].toUpperCase()}
                     </span>
                   )}
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
-                    {user.display_name || 'Unnamed User'}
+                    {user.display_name || user.email || 'Unnamed User'}
                     {user.id === currentUserId && (
                       <span className="text-xs text-gray-400 ml-1.5">(you)</span>
                     )}
                   </p>
+                  {user.email && user.display_name && (
+                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
