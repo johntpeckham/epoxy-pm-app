@@ -16,6 +16,7 @@ import {
 import { DailyReportContent } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from '@/components/feed/EditDailyReportModal'
+import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface DailyReportRow {
   id: string
@@ -49,6 +50,7 @@ const progressFields: { label: string; key: keyof DailyReportContent }[] = [
 export default function DailyReportCard({ report }: DailyReportCardProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { settings: companySettings } = useCompanySettings()
   const [expanded, setExpanded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -79,7 +81,7 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
     setPdfLoading(true)
     try {
       const { generateReportPdf } = await import('@/lib/generateReportPdf')
-      await generateReportPdf(content, photoUrls.map((p) => p.url))
+      await generateReportPdf(content, photoUrls.map((p) => p.url), companySettings?.logo_url)
     } finally {
       setPdfLoading(false)
     }

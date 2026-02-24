@@ -22,7 +22,8 @@ const LIGHT_BG: [number, number, number] = [249, 250, 251]  // gray-50
 
 export async function generateReportPdf(
   content: DailyReportContent,
-  photoUrls: string[]
+  photoUrls: string[],
+  logoUrl?: string | null
 ): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -77,6 +78,18 @@ export async function generateReportPdf(
   doc.setFillColor(...LIGHT_BG)
   doc.rect(M, y, CW, 26, 'F')
 
+  // Company logo – top right of header
+  if (logoUrl) {
+    try {
+      const { data: logoData, format: logoFormat } = await urlToBase64(logoUrl)
+      const logoMaxH = 14
+      const logoMaxW = 40
+      doc.addImage(logoData, logoFormat, PW - M - logoMaxW, y + 2, logoMaxW, logoMaxH)
+    } catch {
+      // skip logo if it fails to load
+    }
+  }
+
   // "DAILY FIELD REPORT" – large title
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(20)
@@ -87,7 +100,7 @@ export async function generateReportPdf(
   doc.setFillColor(...AMBER)
   doc.rect(M + 4, y + 12, 70, 1, 'F')
 
-  // Date – top right
+  // Date – top right (below logo area)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(...MED)

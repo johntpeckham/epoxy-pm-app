@@ -102,9 +102,20 @@ body {
 
   /* Print title at top of report */
   [data-report-title] {
-    display: block !important;
-    font-size: 16pt !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
     margin-bottom: 12pt !important;
+  }
+
+  [data-report-title] h1 {
+    font-size: 16pt !important;
+  }
+
+  [data-report-logo] {
+    height: 40px !important;
+    width: auto !important;
+    object-fit: contain !important;
   }
 
   [data-report-form] h3 {

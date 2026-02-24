@@ -189,6 +189,13 @@ export interface ProjectPlan {
   updated_at: string
 }
 
+export interface CompanySettings {
+  id: string
+  logo_url: string | null
+  company_name: string | null
+  updated_at: string
+}
+
 export interface CalendarEvent {
   id: string
   created_by: string
