@@ -75,6 +75,58 @@ create policy "Authenticated users can delete feed posts"
   to authenticated
   using (auth.uid() = user_id);
 
+-- Project documents table (Reports & Plans uploads)
+create table if not exists project_documents (
+  id uuid default uuid_generate_v4() primary key,
+  project_id uuid not null references projects(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  category text not null check (category in ('report', 'plan')),
+  file_name text not null,
+  storage_path text not null,
+  file_size bigint,
+  created_at timestamptz default now() not null
+);
+
+create index if not exists project_documents_project_id_idx on project_documents(project_id);
+create index if not exists project_documents_category_idx on project_documents(project_id, category);
+
+alter table project_documents enable row level security;
+
+create policy "Authenticated users can view project documents"
+  on project_documents for select
+  to authenticated
+  using (true);
+
+create policy "Authenticated users can insert project documents"
+  on project_documents for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Authenticated users can delete project documents"
+  on project_documents for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Storage bucket for project documents (reports, plans)
+insert into storage.buckets (id, name, public)
+values ('project-documents', 'project-documents', true)
+on conflict (id) do nothing;
+
+create policy "Authenticated users can upload project documents"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'project-documents');
+
+create policy "Anyone can view project documents"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'project-documents');
+
+create policy "Authenticated users can delete project documents"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'project-documents');
+
 -- Storage bucket for photos
 insert into storage.buckets (id, name, public)
 values ('post-photos', 'post-photos', true)
