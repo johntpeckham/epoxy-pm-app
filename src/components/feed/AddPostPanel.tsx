@@ -209,6 +209,43 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   return (
     <div className="bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
 
+      {/* ── Action buttons row ────────────────────────────────────────── */}
+      <div className="flex items-center justify-center gap-2 px-3 pt-3 pb-1">
+        <button
+          onClick={() => selectMode('text')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            mode === 'text'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <FileTextIcon className="w-4 h-4" />
+          Plans
+        </button>
+        <button
+          onClick={() => selectMode('daily_report')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            mode === 'daily_report'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <ClipboardListIcon className="w-4 h-4" />
+          Project Report
+        </button>
+        <button
+          onClick={() => selectMode('photo')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            mode === 'photo'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <CameraIcon className="w-4 h-4" />
+          Pictures
+        </button>
+      </div>
+
       {/* Error toast */}
       {error && (
         <div className="px-4 pt-3">
@@ -399,43 +436,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
         </div>
       )}
-
-      {/* ── Action buttons row ────────────────────────────────────────── */}
-      <div className="flex items-center justify-center gap-2 px-3 pt-3 pb-1">
-        <button
-          onClick={() => selectMode('text')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-            mode === 'text'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <FileTextIcon className="w-4 h-4" />
-          Plans
-        </button>
-        <button
-          onClick={() => selectMode('daily_report')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-            mode === 'daily_report'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <ClipboardListIcon className="w-4 h-4" />
-          Project Report
-        </button>
-        <button
-          onClick={() => selectMode('photo')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-            mode === 'photo'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <CameraIcon className="w-4 h-4" />
-          Pictures
-        </button>
-      </div>
 
       {/* ── Composer bar ──────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-3 py-2.5">
