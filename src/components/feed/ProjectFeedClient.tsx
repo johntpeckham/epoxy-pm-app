@@ -3,10 +3,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { ArrowLeftIcon, MapPinIcon, UserIcon, FileTextIcon, ClipboardListIcon, ImageIcon } from 'lucide-react'
+import { ArrowLeftIcon, MapPinIcon, UserIcon, FileTextIcon, ClipboardListIcon, ImageIcon, CameraIcon } from 'lucide-react'
 import PostCard from './PostCard'
 import PinnedSection from './PinnedSection'
-import AddPostPanel from './AddPostPanel'
+import AddPostPanel, { type Mode } from './AddPostPanel'
 import DocumentUploadModal from '@/components/documents/DocumentUploadModal'
 import ProjectPhotosModal from '@/components/photos/ProjectPhotosModal'
 import { FeedPost, Project, DocumentCategory } from '@/types'
@@ -27,6 +27,7 @@ export default function ProjectFeedClient({
 }: ProjectFeedClientProps) {
   const inPanel = onBack !== undefined
   const [posts, setPosts] = useState<FeedPost[]>(initialPosts)
+  const [composerMode, setComposerMode] = useState<Mode>('text')
   const [docModal, setDocModal] = useState<DocumentCategory | null>(null)
   const [showPhotosModal, setShowPhotosModal] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -138,6 +139,43 @@ export default function ProjectFeedClient({
         </div>
       </div>
 
+      {/* ── Mode toolbar ──────────────────────────────────────────────── */}
+      <div className="flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border-b border-gray-100">
+        <button
+          onClick={() => setComposerMode('text')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            composerMode === 'text'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <FileTextIcon className="w-4 h-4" />
+          Plans
+        </button>
+        <button
+          onClick={() => setComposerMode('daily_report')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            composerMode === 'daily_report'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <ClipboardListIcon className="w-4 h-4" />
+          Project Report
+        </button>
+        <button
+          onClick={() => setComposerMode('photo')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            composerMode === 'photo'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <CameraIcon className="w-4 h-4" />
+          Pictures
+        </button>
+      </div>
+
       {/* Scrollable feed */}
       <div className="flex-1 overflow-y-auto">
         <div className="py-4">
@@ -182,6 +220,8 @@ export default function ProjectFeedClient({
         project={project}
         userId={userId}
         onPosted={handlePosted}
+        mode={composerMode}
+        onModeChange={setComposerMode}
       />
 
       {/* Document upload modal */}
