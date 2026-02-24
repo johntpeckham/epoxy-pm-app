@@ -57,7 +57,11 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [rPreviews, setRPreviews] = useState<string[]>([])
   const reportPhotoInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Photo helpers ──────────────────────────────────────────────────────────
+  // ── File helpers ──────────────────────────────────────────────────────────
+  function isPdf(file: File) {
+    return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  }
+
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files || [])
     if (!selected.length) return
@@ -91,8 +95,23 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     for (const file of files) {
       const ext = file.name.split('.').pop()
       const path = `${project.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      console.log('[AddPostPanel] Uploading file:', {
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        bucket: 'post-photos',
+        storagePath: path,
+      })
       const { error: err } = await supabase.storage.from('post-photos').upload(path, file)
-      if (err) throw err
+      if (err) {
+        console.error('[AddPostPanel] Upload failed:', {
+          message: err.message,
+          name: err.name,
+          error: err,
+        })
+        throw err
+      }
+      console.log('[AddPostPanel] Upload succeeded:', path)
       paths.push(path)
     }
     return paths
@@ -173,7 +192,10 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
       onPosted()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to post')
+      console.error('[AddPostPanel] Submit failed:', err)
+      const message =
+        err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to post'
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -205,7 +227,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           <input
             ref={photoInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.pdf,application/pdf"
             multiple
             className="hidden"
             onChange={handlePhotoChange}
@@ -218,7 +240,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium py-1 transition"
             >
               <UploadIcon className="w-4 h-4" />
-              Select photos to upload
+              Select photos or PDFs to upload
             </button>
           ) : (
             /* Thumbnail strip */
@@ -228,8 +250,15 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                   key={i}
                   className="relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-100"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  {photoFiles[i] && isPdf(photoFiles[i]) ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-red-50">
+                      <FileTextIcon className="w-6 h-6 text-red-400" />
+                      <span className="text-[10px] text-red-400 font-medium mt-0.5">PDF</span>
+                    </div>
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  )}
                   <button
                     onClick={() => removePhoto(i)}
                     className="absolute top-0.5 right-0.5 bg-black/70 text-white rounded-full p-0.5"
@@ -331,12 +360,12 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             >
               <CameraIcon className="w-4 h-4 text-gray-400 mx-auto mb-1" />
               <p className="text-sm text-gray-500">
-                <span className="font-medium text-amber-600">Add photos</span> to this report
+                <span className="font-medium text-amber-600">Add photos or PDFs</span> to this report
               </p>
               <input
                 ref={reportPhotoInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.pdf,application/pdf"
                 multiple
                 className="hidden"
                 onChange={handleReportPhotoChange}
@@ -347,8 +376,15 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <div className="mt-2 grid grid-cols-4 gap-2">
                 {rPreviews.map((url, i) => (
                   <div key={i} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    {rFiles[i] && isPdf(rFiles[i]) ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-red-50">
+                        <FileTextIcon className="w-6 h-6 text-red-400" />
+                        <span className="text-[10px] text-red-400 font-medium mt-0.5">PDF</span>
+                      </div>
+                    ) : (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    )}
                     <button
                       onClick={() => removeReportPhoto(i)}
                       className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
