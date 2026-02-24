@@ -157,10 +157,13 @@ export interface FeedPost {
   author_avatar_url?: string
 }
 
+export type UserRole = 'admin' | 'salesman' | 'foreman' | 'crew'
+
 export interface Profile {
   id: string
   display_name: string | null
   avatar_url: string | null
+  role: UserRole
   updated_at: string
 }
 

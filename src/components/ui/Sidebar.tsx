@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { useUserRole } from '@/lib/useUserRole'
 
 interface SidebarProps {
   userEmail?: string
@@ -19,6 +20,9 @@ export default function Sidebar({ userEmail, displayName, avatarUrl }: SidebarPr
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { settings: companySettings } = useCompanySettings()
+  const { role } = useUserRole()
+
+  const isCrew = role === 'crew'
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -66,54 +70,58 @@ export default function Sidebar({ userEmail, displayName, avatarUrl }: SidebarPr
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        <Link
-          href="/jobs"
-          onClick={() => setMobileOpen(false)}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isJobsActive
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
-        >
-          <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
-          Jobs
-        </Link>
-        <Link
-          href="/daily-reports"
-          onClick={() => setMobileOpen(false)}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isReportsActive
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
-        >
-          <ClipboardListIcon className="w-5 h-5 flex-shrink-0" />
-          Daily Reports
-        </Link>
-        <Link
-          href="/photos"
-          onClick={() => setMobileOpen(false)}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isPhotosActive
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
-        >
-          <ImageIcon className="w-5 h-5 flex-shrink-0" />
-          Photos
-        </Link>
-        <Link
-          href="/tasks"
-          onClick={() => setMobileOpen(false)}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isTasksActive
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
-        >
-          <CheckSquareIcon className="w-5 h-5 flex-shrink-0" />
-          Tasks
-        </Link>
+        {!isCrew && (
+          <>
+            <Link
+              href="/jobs"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isJobsActive
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
+              Jobs
+            </Link>
+            <Link
+              href="/daily-reports"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isReportsActive
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <ClipboardListIcon className="w-5 h-5 flex-shrink-0" />
+              Daily Reports
+            </Link>
+            <Link
+              href="/photos"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isPhotosActive
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <ImageIcon className="w-5 h-5 flex-shrink-0" />
+              Photos
+            </Link>
+            <Link
+              href="/tasks"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isTasksActive
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <CheckSquareIcon className="w-5 h-5 flex-shrink-0" />
+              Tasks
+            </Link>
+          </>
+        )}
         <Link
           href="/calendar"
           onClick={() => setMobileOpen(false)}

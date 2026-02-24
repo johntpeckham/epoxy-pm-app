@@ -10,6 +10,7 @@ import type { DateClickArg } from '@fullcalendar/interaction'
 import type { EventClickArg } from '@fullcalendar/core'
 import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon } from 'lucide-react'
 import { CalendarEvent } from '@/types'
+import type { UserRole } from '@/types'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -158,9 +159,11 @@ function eventToFCEvents(evt: CalendarEvent): FCEvent[] {
 interface CalendarPageClientProps {
   initialEvents: CalendarEvent[]
   userId: string
+  userRole?: UserRole
 }
 
-export default function CalendarPageClient({ initialEvents, userId }: CalendarPageClientProps) {
+export default function CalendarPageClient({ initialEvents, userId, userRole = 'crew' }: CalendarPageClientProps) {
+  const canEditCalendar = userRole === 'admin' || userRole === 'salesman'
   const router = useRouter()
   const supabase = createClient()
 
@@ -231,9 +234,10 @@ export default function CalendarPageClient({ initialEvents, userId }: CalendarPa
   // ── Calendar callbacks ───────────────────────────────────────────────────
 
   const handleDateClick = useCallback((arg: DateClickArg) => {
+    if (!canEditCalendar) return
     openCreateForm(arg.dateStr)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [canEditCalendar])
 
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
@@ -324,13 +328,15 @@ export default function CalendarPageClient({ initialEvents, userId }: CalendarPa
               {initialEvents.length} project{initialEvents.length !== 1 ? 's' : ''} scheduled
             </p>
           </div>
-          <button
-            onClick={() => openCreateForm()}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add Project
-          </button>
+          {canEditCalendar && (
+            <button
+              onClick={() => openCreateForm()}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Add Project
+            </button>
+          )}
         </div>
       </div>
 
@@ -570,7 +576,7 @@ export default function CalendarPageClient({ initialEvents, userId }: CalendarPa
 
             {/* Footer */}
             <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0 flex gap-3">
-              {detailEvent.created_by === userId && (
+              {canEditCalendar && detailEvent.created_by === userId && (
                 <>
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
@@ -588,7 +594,7 @@ export default function CalendarPageClient({ initialEvents, userId }: CalendarPa
                   </button>
                 </>
               )}
-              {detailEvent.created_by !== userId && (
+              {(!canEditCalendar || detailEvent.created_by !== userId) && (
                 <button
                   onClick={() => setDetailEvent(null)}
                   className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
