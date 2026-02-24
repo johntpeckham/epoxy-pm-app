@@ -28,6 +28,7 @@ const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string; color: string; activeColor: string }[] = [
+  { value: 'new_task', label: 'New Task', color: 'border-blue-300 text-blue-700 bg-blue-50', activeColor: 'border-blue-500 bg-blue-500 text-white' },
   { value: 'in_progress', label: 'In Progress', color: 'border-yellow-300 text-yellow-700 bg-yellow-50', activeColor: 'border-yellow-500 bg-yellow-500 text-white' },
   { value: 'completed', label: 'Completed', color: 'border-green-300 text-green-700 bg-green-50', activeColor: 'border-green-500 bg-green-500 text-white' },
   { value: 'unable_to_complete', label: 'Unable to Complete', color: 'border-red-300 text-red-700 bg-red-50', activeColor: 'border-red-500 bg-red-500 text-white' },
@@ -69,7 +70,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [taskTitle, setTaskTitle] = useState('')
   const [taskDescription, setTaskDescription] = useState('')
   const [taskAssignedTo, setTaskAssignedTo] = useState('')
-  const [taskStatus, setTaskStatus] = useState<TaskStatus>('in_progress')
+  const [taskStatus, setTaskStatus] = useState<TaskStatus>('new_task')
   const [taskDueDate, setTaskDueDate] = useState('')
   const [taskPhotoFile, setTaskPhotoFile] = useState<File | null>(null)
   const [taskPhotoPreview, setTaskPhotoPreview] = useState<string | null>(null)
@@ -293,7 +294,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setTaskTitle('')
         setTaskDescription('')
         setTaskAssignedTo('')
-        setTaskStatus('in_progress')
+        setTaskStatus('new_task')
         setTaskDueDate('')
         setTaskPhotoFile(null)
         setTaskPhotoPreview(null)
