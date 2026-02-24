@@ -12,6 +12,7 @@ import {
   EyeIcon,
 } from 'lucide-react'
 import { DocumentCategory, ProjectDocument } from '@/types'
+import PdfThumbnail from './PdfThumbnail'
 
 interface DocumentUploadModalProps {
   projectId: string
@@ -200,8 +201,51 @@ export default function DocumentUploadModal({
               No {label.toLowerCase()} uploaded yet.
             </p>
           ) : (
-            <div className="space-y-2">
-              {docs.map((doc) => (
+            <div className="space-y-4">
+              {/* PDF thumbnail grid */}
+              {docs.some(isPdf) && (
+                <div className="grid grid-cols-3 gap-3">
+                  {docs.filter(isPdf).map((doc) => (
+                    <div key={doc.id} className="group relative">
+                      <PdfThumbnail
+                        url={getPublicUrl(doc.file_path)}
+                        onClick={() => setPreviewDoc(doc)}
+                      />
+                      <p className="text-[11px] text-gray-600 mt-1.5 truncate px-0.5" title={doc.file_name}>
+                        {doc.file_name}
+                      </p>
+                      <p className="text-[10px] text-gray-400 px-0.5">{formatDate(doc.created_at)}</p>
+                      <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                        <a
+                          href={getPublicUrl(doc.file_path)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1 bg-white/90 rounded shadow-sm text-gray-400 hover:text-amber-600 transition"
+                          title="Download"
+                        >
+                          <DownloadIcon className="w-3 h-3" />
+                        </a>
+                        <button
+                          onClick={() => handleDelete(doc)}
+                          disabled={deletingId === doc.id}
+                          className="p-1 bg-white/90 rounded shadow-sm text-gray-400 hover:text-red-600 transition disabled:opacity-50"
+                          title="Delete"
+                        >
+                          {deletingId === doc.id ? (
+                            <Loader2Icon className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Trash2Icon className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Non-PDF files as rows */}
+              {docs.filter((d) => !isPdf(d)).map((doc) => (
                 <div
                   key={doc.id}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 group cursor-pointer hover:border-amber-200 hover:bg-amber-50/30 transition"
