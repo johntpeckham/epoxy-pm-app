@@ -82,8 +82,8 @@ export async function generateReportPdf(
   if (logoUrl) {
     try {
       const { data: logoData, format: logoFormat } = await urlToBase64(logoUrl)
-      const logoMaxH = 14
-      const logoMaxW = 40
+      const logoMaxH = 22
+      const logoMaxW = 55
       doc.addImage(logoData, logoFormat, PW - M - logoMaxW, y + 2, logoMaxW, logoMaxH)
     } catch {
       // skip logo if it fails to load
