@@ -1,3 +1,4 @@
+// Epoxy PM App - Next.js configuration
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
