@@ -279,10 +279,12 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
       }
 
       onPosted()
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('[AddPostPanel] Submit failed:', err)
-      const msg =
-        err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to post'
+      let msg = 'Failed to post'
+      if (err instanceof Error) msg = err.message
+      else if (typeof err === 'string') msg = err
+      else if (err && typeof err === 'object' && 'message' in err) msg = String((err as { message: unknown }).message)
       setError(msg)
     } finally {
       setLoading(false)
