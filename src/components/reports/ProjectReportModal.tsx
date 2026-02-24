@@ -1,0 +1,340 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { XIcon, Loader2Icon } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { ProjectReportData } from '@/types'
+
+interface ProjectReportModalProps {
+  projectId: string
+  projectName: string
+  userId: string
+  onClose: () => void
+}
+
+const emptyReport: ProjectReportData = {
+  project_name: '',
+  estimate_number: '',
+  address: '',
+  client_name: '',
+  client_email: '',
+  client_phone: '',
+  site_contact: '',
+  prevailing_wage: '',
+  bonding_insurance: '',
+  bid_date: '',
+  bid_platform: '',
+  project_details_notes: '',
+  start_date: '',
+  finish_date: '',
+  num_mobilizations: '',
+  working_hours: '',
+  durations_notes: '',
+  scope_description: '',
+  num_rooms_sections: '',
+  square_footages: '',
+  linear_footage: '',
+  cove_curb_height: '',
+  room_numbers_names: '',
+  open_areas_machines: '',
+  scope_notes: '',
+  power_supplied: '',
+  lighting_requirements: '',
+  heating_cooling_requirements: '',
+  rental_requirements: '',
+  rental_location: '',
+  rental_duration: '',
+  site_notes: '',
+  hotel_name: '',
+  hotel_location: '',
+  reservation_number: '',
+  reservation_contact: '',
+  credit_card_auth: '',
+  drive_time: '',
+  per_diem: '',
+  vehicles: '',
+  trailers: '',
+  travel_notes: '',
+  material_system_1: '',
+  material_system_2: '',
+  material_system_3: '',
+  material_quantities_1: '',
+  material_quantities_2: '',
+  material_quantities_3: '',
+  prep_method: '',
+  prep_removal: '',
+  patching_materials: '',
+  joint_requirements: '',
+  sloping_requirements: '',
+  backfill_patching: '',
+  wet_area: '',
+  climate_concerns: '',
+  cooling_heating_constraints: '',
+  prep_notes: '',
+}
+
+interface FieldDef {
+  key: keyof ProjectReportData
+  label: string
+  type?: 'input' | 'textarea'
+}
+
+interface SectionDef {
+  title: string
+  fields: FieldDef[]
+}
+
+const sections: SectionDef[] = [
+  {
+    title: 'Project Details',
+    fields: [
+      { key: 'project_name', label: 'Project Name' },
+      { key: 'estimate_number', label: 'Estimate Number' },
+      { key: 'address', label: 'Address' },
+      { key: 'client_name', label: 'Client Name' },
+      { key: 'client_email', label: 'Client Email' },
+      { key: 'client_phone', label: 'Client Phone Number' },
+      { key: 'site_contact', label: 'Site Contact' },
+      { key: 'prevailing_wage', label: 'Prevailing Wage?' },
+      { key: 'bonding_insurance', label: 'Bonding / Insurance Requirements' },
+      { key: 'bid_date', label: 'Bid Date' },
+      { key: 'bid_platform', label: 'Bid Platform' },
+      { key: 'project_details_notes', label: 'Additional Notes', type: 'textarea' },
+    ],
+  },
+  {
+    title: 'Project Durations',
+    fields: [
+      { key: 'start_date', label: 'Start Date' },
+      { key: 'finish_date', label: 'Finish Date' },
+      { key: 'num_mobilizations', label: 'Number of Mobilizations' },
+      { key: 'working_hours', label: 'Working Hours (e.g. 9-5 / 24hr / Split Shift)' },
+      { key: 'durations_notes', label: 'Additional Notes', type: 'textarea' },
+    ],
+  },
+  {
+    title: 'Scope Of Work',
+    fields: [
+      { key: 'scope_description', label: 'What are we doing?', type: 'textarea' },
+      { key: 'num_rooms_sections', label: 'Number of rooms / sections' },
+      { key: 'square_footages', label: 'Square footages' },
+      { key: 'linear_footage', label: 'Linear footage (cove or curbs)' },
+      { key: 'cove_curb_height', label: 'Cove curb height measurement' },
+      { key: 'room_numbers_names', label: 'Room Numbers / Names' },
+      { key: 'open_areas_machines', label: 'Open Areas / Machines' },
+      { key: 'scope_notes', label: 'Additional Notes', type: 'textarea' },
+    ],
+  },
+  {
+    title: 'Site Information',
+    fields: [
+      { key: 'power_supplied', label: 'Power Supplied?' },
+      { key: 'lighting_requirements', label: 'Lighting Requirements' },
+      { key: 'heating_cooling_requirements', label: 'Heating Cooling Requirements' },
+      { key: 'rental_requirements', label: 'Rental Requirements' },
+      { key: 'rental_location', label: 'Rental Location' },
+      { key: 'rental_duration', label: 'Rental Duration' },
+      { key: 'site_notes', label: 'Additional Notes', type: 'textarea' },
+    ],
+  },
+  {
+    title: 'Travel Information',
+    fields: [
+      { key: 'hotel_name', label: 'Hotel Name' },
+      { key: 'hotel_location', label: 'Hotel Location' },
+      { key: 'reservation_number', label: 'Reservation Number' },
+      { key: 'reservation_contact', label: 'Reservation Contact' },
+      { key: 'credit_card_auth', label: 'Credit Card Authorization' },
+      { key: 'drive_time', label: 'Drive Time' },
+      { key: 'per_diem', label: 'Per Diem' },
+      { key: 'vehicles', label: 'Vehicles' },
+      { key: 'trailers', label: 'Trailers' },
+      { key: 'travel_notes', label: 'Additional Notes', type: 'textarea' },
+    ],
+  },
+  {
+    title: 'Material System',
+    fields: [
+      { key: 'material_system_1', label: 'Material System 1' },
+      { key: 'material_system_2', label: 'Material System 2' },
+      { key: 'material_system_3', label: 'Material System 3' },
+    ],
+  },
+  {
+    title: 'Material Quantities',
+    fields: [
+      { key: 'material_quantities_1', label: 'Material Quantities 1' },
+      { key: 'material_quantities_2', label: 'Material Quantities 2' },
+      { key: 'material_quantities_3', label: 'Material Quantities 3' },
+    ],
+  },
+  {
+    title: 'Prep',
+    fields: [
+      { key: 'prep_method', label: 'Method (Grinder / Sandblast / Scarify)' },
+      { key: 'prep_removal', label: 'Removal (Full Removal / New Concrete)' },
+      { key: 'patching_materials', label: 'Patching Materials' },
+      { key: 'joint_requirements', label: 'Joint Requirements (Pre-fill / Cut / Polyurea)' },
+      { key: 'sloping_requirements', label: 'Sloping Requirements' },
+      { key: 'backfill_patching', label: 'Backfill / Excessive Patching' },
+      { key: 'wet_area', label: 'Wet Area' },
+      { key: 'climate_concerns', label: 'Climate Concerns' },
+      { key: 'cooling_heating_constraints', label: 'Cooling Heating Constraints' },
+      { key: 'prep_notes', label: 'Additional Notes', type: 'textarea' },
+    ],
+  },
+]
+
+export default function ProjectReportModal({
+  projectId,
+  projectName,
+  userId,
+  onClose,
+}: ProjectReportModalProps) {
+  const [formData, setFormData] = useState<ProjectReportData>(emptyReport)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [savedMsg, setSavedMsg] = useState(false)
+
+  const loadReport = useCallback(async () => {
+    const supabase = createClient()
+    const { data, error: fetchError } = await supabase
+      .from('project_reports')
+      .select('*')
+      .eq('project_id', projectId)
+      .maybeSingle()
+
+    if (fetchError) {
+      setError(fetchError.message)
+    } else if (data) {
+      setFormData({ ...emptyReport, ...(data.data as ProjectReportData) })
+    }
+    setLoading(false)
+  }, [projectId])
+
+  useEffect(() => {
+    loadReport()
+  }, [loadReport])
+
+  function handleChange(key: keyof ProjectReportData, value: string) {
+    setFormData((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    setSavedMsg(false)
+
+    const supabase = createClient()
+    const { error: upsertError } = await supabase
+      .from('project_reports')
+      .upsert(
+        {
+          project_id: projectId,
+          user_id: userId,
+          data: formData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'project_id' }
+      )
+
+    if (upsertError) {
+      setError(upsertError.message)
+    } else {
+      setSavedMsg(true)
+      setTimeout(() => setSavedMsg(false), 2000)
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+
+      {/* Modal */}
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Project Report</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+          >
+            <XIcon className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-6 py-5">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {sections.map((section) => (
+                <div key={section.title}>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
+                    {section.title}
+                  </h3>
+                  <div className="space-y-2">
+                    {section.fields.map((field) => (
+                      <div
+                        key={field.key}
+                        className="grid grid-cols-[180px_1fr] gap-3 items-start"
+                      >
+                        <label className="text-xs font-medium text-gray-600 pt-2 text-right">
+                          {field.label}
+                        </label>
+                        {field.type === 'textarea' ? (
+                          <textarea
+                            value={formData[field.key]}
+                            onChange={(e) => handleChange(field.key, e.target.value)}
+                            rows={3}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none resize-vertical"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={formData[field.key]}
+                            onChange={(e) => handleChange(field.key, e.target.value)}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+          {error && <p className="text-xs text-red-600 flex-1">{error}</p>}
+          {savedMsg && <p className="text-xs text-green-600 flex-1">Saved successfully</p>}
+          {!error && !savedMsg && <div className="flex-1" />}
+          <button
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="px-6 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold transition"
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -8,8 +8,9 @@ import PostCard from './PostCard'
 import PinnedSection from './PinnedSection'
 import AddPostPanel from './AddPostPanel'
 import DocumentUploadModal from '@/components/documents/DocumentUploadModal'
+import ProjectReportModal from '@/components/reports/ProjectReportModal'
 import ProjectPhotosModal from '@/components/photos/ProjectPhotosModal'
-import { FeedPost, Project, DocumentCategory } from '@/types'
+import { FeedPost, Project } from '@/types'
 
 interface ProjectFeedClientProps {
   project: Project
@@ -27,7 +28,8 @@ export default function ProjectFeedClient({
 }: ProjectFeedClientProps) {
   const inPanel = onBack !== undefined
   const [posts, setPosts] = useState<FeedPost[]>(initialPosts)
-  const [docModal, setDocModal] = useState<DocumentCategory | null>(null)
+  const [showPlansModal, setShowPlansModal] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
   const [showPhotosModal, setShowPhotosModal] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const isFirstLoad = useRef(true)
@@ -113,14 +115,14 @@ export default function ProjectFeedClient({
             {/* Action buttons — inline with header */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
-                onClick={() => setDocModal('plan')}
+                onClick={() => setShowPlansModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
               >
                 <FileTextIcon className="w-3.5 h-3.5" />
                 Plans
               </button>
               <button
-                onClick={() => setDocModal('report')}
+                onClick={() => setShowReportModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
               >
                 <ClipboardListIcon className="w-3.5 h-3.5" />
@@ -184,14 +186,24 @@ export default function ProjectFeedClient({
         onPosted={handlePosted}
       />
 
-      {/* Document upload modal (Plans or Reports) */}
-      {docModal && (
+      {/* Plans document upload modal */}
+      {showPlansModal && (
         <DocumentUploadModal
           projectId={project.id}
           projectName={project.name}
           userId={userId}
-          category={docModal}
-          onClose={() => setDocModal(null)}
+          category="plan"
+          onClose={() => setShowPlansModal(false)}
+        />
+      )}
+
+      {/* Project report fillable form modal */}
+      {showReportModal && (
+        <ProjectReportModal
+          projectId={project.id}
+          projectName={project.name}
+          userId={userId}
+          onClose={() => setShowReportModal(false)}
         />
       )}
 
