@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
 
   const adminSupabase = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceRoleKey
+    serviceRoleKey,
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
   const { error } = await adminSupabase.auth.admin.inviteUserByEmail(email)
