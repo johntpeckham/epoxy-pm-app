@@ -32,7 +32,7 @@ export default async function DailyReportsPage() {
       created_at: row.created_at,
       content: row.content as DailyReportContent,
       project_name:
-        (row.projects as unknown as { name: string }[] | null)?.[0]?.name ?? 'Unknown Project',
+        (row.projects as unknown as { name: string } | null)?.name ?? 'Unknown Project',
     }))
     .sort((a, b) => {
       const dateA = a.content.date || a.created_at.slice(0, 10)
