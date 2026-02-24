@@ -20,13 +20,6 @@ interface DocumentUploadModalProps {
   onClose: () => void
 }
 
-function formatBytes(bytes: number | null) {
-  if (!bytes) return ''
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', {
     month: 'short',
@@ -53,6 +46,7 @@ export default function DocumentUploadModal({
 
   const label = category === 'report' ? 'Reports' : 'Plans'
   const bucket = category === 'report' ? 'project-documents' : 'project-plans'
+  const documentType = category === 'report' ? 'report' : 'plans'
 
   // Fetch existing documents on mount
   const fetchDocs = useCallback(async () => {
@@ -61,12 +55,12 @@ export default function DocumentUploadModal({
       .from('project_documents')
       .select('*')
       .eq('project_id', projectId)
-      .eq('category', category)
+      .eq('document_type', documentType)
       .order('created_at', { ascending: false })
 
     setDocs((data as ProjectDocument[]) ?? [])
     setLoadingDocs(false)
-  }, [supabase, projectId, category])
+  }, [supabase, projectId, documentType])
 
   // Fetch on first render
   useState(() => {
@@ -93,10 +87,11 @@ export default function DocumentUploadModal({
         const { error: insertErr } = await supabase.from('project_documents').insert({
           project_id: projectId,
           user_id: userId,
-          category,
+          bucket,
+          file_path: storagePath,
           file_name: file.name,
-          storage_path: storagePath,
-          file_size: file.size,
+          file_type: file.type || 'application/octet-stream',
+          document_type: documentType,
         })
         if (insertErr) throw insertErr
       }
@@ -116,7 +111,7 @@ export default function DocumentUploadModal({
     setError(null)
 
     try {
-      await supabase.storage.from(bucket).remove([doc.storage_path])
+      await supabase.storage.from(bucket).remove([doc.file_path])
       const { error: deleteErr } = await supabase
         .from('project_documents')
         .delete()
@@ -130,8 +125,8 @@ export default function DocumentUploadModal({
     }
   }
 
-  function getPublicUrl(storagePath: string) {
-    return supabase.storage.from(bucket).getPublicUrl(storagePath).data.publicUrl
+  function getPublicUrl(filePath: string) {
+    return supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl
   }
 
   return (
@@ -206,12 +201,11 @@ export default function DocumentUploadModal({
                     <p className="text-sm font-medium text-gray-800 truncate">{doc.file_name}</p>
                     <p className="text-xs text-gray-400">
                       {formatDate(doc.created_at)}
-                      {doc.file_size ? ` · ${formatBytes(doc.file_size)}` : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <a
-                      href={getPublicUrl(doc.storage_path)}
+                      href={getPublicUrl(doc.file_path)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition opacity-0 group-hover:opacity-100"
