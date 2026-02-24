@@ -164,7 +164,7 @@ export interface Profile {
   updated_at: string
 }
 
-export type TaskStatus = 'in_progress' | 'completed' | 'unable_to_complete'
+export type TaskStatus = 'new_task' | 'in_progress' | 'completed' | 'unable_to_complete'
 
 export interface Task {
   id: string

@@ -31,12 +31,14 @@ const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; bg: string; text: string; dot: string }> = {
+  new_task: { label: 'New Task', bg: 'bg-blue-100', text: 'text-blue-800', dot: 'bg-blue-500' },
   in_progress: { label: 'In Progress', bg: 'bg-yellow-100', text: 'text-yellow-800', dot: 'bg-yellow-500' },
   completed: { label: 'Completed', bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
   unable_to_complete: { label: 'Unable to Complete', bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
 }
 
 const STATUS_BUTTONS: { value: TaskStatus; label: string; inactiveColor: string; activeColor: string }[] = [
+  { value: 'new_task', label: 'New Task', inactiveColor: 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100', activeColor: 'border-blue-500 bg-blue-500 text-white' },
   { value: 'in_progress', label: 'In Progress', inactiveColor: 'border-yellow-300 text-yellow-700 bg-yellow-50 hover:bg-yellow-100', activeColor: 'border-yellow-500 bg-yellow-500 text-white' },
   { value: 'completed', label: 'Completed', inactiveColor: 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100', activeColor: 'border-green-500 bg-green-500 text-white' },
   { value: 'unable_to_complete', label: 'Unable to Complete', inactiveColor: 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100', activeColor: 'border-red-500 bg-red-500 text-white' },
@@ -81,7 +83,7 @@ export default function TasksPageClient({
   const [newTitle, setNewTitle] = useState('')
   const [newDescription, setNewDescription] = useState('')
   const [newAssignedTo, setNewAssignedTo] = useState('')
-  const [newStatus, setNewStatus] = useState<TaskStatus>('in_progress')
+  const [newStatus, setNewStatus] = useState<TaskStatus>('new_task')
   const [newDueDate, setNewDueDate] = useState('')
   const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null)
   const [newPhotoPreview, setNewPhotoPreview] = useState<string | null>(null)
@@ -119,7 +121,7 @@ export default function TasksPageClient({
     setNewTitle('')
     setNewDescription('')
     setNewAssignedTo('')
-    setNewStatus('in_progress')
+    setNewStatus('new_task')
     setNewDueDate('')
     setNewPhotoFile(null)
     setNewPhotoPreview(null)
