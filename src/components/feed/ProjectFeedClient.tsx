@@ -3,11 +3,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { ArrowLeftIcon, MapPinIcon, UserIcon, FileTextIcon, ClipboardListIcon } from 'lucide-react'
+import { ArrowLeftIcon, MapPinIcon, UserIcon, FileTextIcon, ClipboardListIcon, ImageIcon } from 'lucide-react'
 import PostCard from './PostCard'
 import PinnedSection from './PinnedSection'
 import AddPostPanel from './AddPostPanel'
 import DocumentUploadModal from '@/components/documents/DocumentUploadModal'
+import ProjectPhotosModal from '@/components/photos/ProjectPhotosModal'
 import { FeedPost, Project, DocumentCategory } from '@/types'
 
 interface ProjectFeedClientProps {
@@ -27,6 +28,7 @@ export default function ProjectFeedClient({
   const inPanel = onBack !== undefined
   const [posts, setPosts] = useState<FeedPost[]>(initialPosts)
   const [docModal, setDocModal] = useState<DocumentCategory | null>(null)
+  const [showPhotosModal, setShowPhotosModal] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const isFirstLoad = useRef(true)
 
@@ -111,6 +113,13 @@ export default function ProjectFeedClient({
             {/* Quick-access document buttons */}
             <div className="flex items-center gap-1 flex-shrink-0">
               <button
+                onClick={() => setShowPhotosModal(true)}
+                className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
+                title="Photos"
+              >
+                <ImageIcon className="w-5 h-5" />
+              </button>
+              <button
                 onClick={() => setDocModal('report')}
                 className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
                 title="Reports"
@@ -183,6 +192,15 @@ export default function ProjectFeedClient({
           userId={userId}
           category={docModal}
           onClose={() => setDocModal(null)}
+        />
+      )}
+
+      {/* Project photos modal */}
+      {showPhotosModal && (
+        <ProjectPhotosModal
+          projectId={project.id}
+          projectName={project.name}
+          onClose={() => setShowPhotosModal(false)}
         />
       )}
     </div>
