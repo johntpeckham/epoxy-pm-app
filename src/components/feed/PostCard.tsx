@@ -13,7 +13,6 @@ import {
   XIcon,
   DownloadIcon,
   ChevronDownIcon,
-  ChevronUpIcon,
 } from 'lucide-react'
 import { FeedPost, TextContent, PhotoContent, DailyReportContent } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -75,7 +74,7 @@ function PhotoPost({ content }: { content: PhotoContent }) {
       <div className="flex flex-wrap gap-1">
         {urls.map((url, i) => (
           <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-            <div className="relative w-[60px] h-[60px] rounded-md overflow-hidden bg-gray-100">
+            <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={url}
                 alt={`Photo ${i + 1}`}
@@ -113,92 +112,135 @@ function DailyReportPost({
   ]
 
   return (
-    <div className="mt-1.5 border border-amber-200 rounded-xl overflow-hidden bg-white">
-      {/* Card header */}
-      <div className="flex items-center gap-2 px-3.5 py-2.5 bg-amber-50 border-b border-amber-200">
-        <ClipboardListIcon className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-        <span className="text-xs font-semibold text-amber-800">Daily Field Report</span>
-        {content.date && (
-          <span className="text-xs text-amber-600 ml-auto tabular-nums">
-            {new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </span>
-        )}
-      </div>
+    <div className="p-3.5 space-y-3 border-t border-amber-200">
+      {/* Project / address */}
+      {(content.project_name || content.address) && (
+        <div className="text-xs space-y-0.5">
+          {content.project_name && (
+            <p className="font-semibold text-gray-800">{content.project_name}</p>
+          )}
+          {content.address && <p className="text-gray-500">{content.address}</p>}
+        </div>
+      )}
 
-      <div className="p-3.5 space-y-3">
-        {/* Project / address */}
-        {(content.project_name || content.address) && (
-          <div className="text-xs space-y-0.5">
-            {content.project_name && (
-              <p className="font-semibold text-gray-800">{content.project_name}</p>
-            )}
-            {content.address && <p className="text-gray-500">{content.address}</p>}
+      {/* Crew row */}
+      {crewFields.some((f) => content[f.key]) && (
+        <div className="grid grid-cols-3 gap-3">
+          {crewFields.map(({ label, key }) =>
+            content[key] ? (
+              <div key={key}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
+                  {label}
+                </dt>
+                <dd className="text-sm text-gray-700">{content[key] as string}</dd>
+              </div>
+            ) : null
+          )}
+        </div>
+      )}
+
+      {/* Divider */}
+      {crewFields.some((f) => content[f.key]) && progressFields.some((f) => content[f.key]) && (
+        <div className="border-t border-gray-100" />
+      )}
+
+      {/* Progress fields */}
+      {progressFields.map(({ label, key }) =>
+        content[key] ? (
+          <div key={key}>
+            <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
+              {label}
+            </dt>
+            <dd className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+              {content[key] as string}
+            </dd>
           </div>
-        )}
+        ) : null
+      )}
 
-        {/* Crew row */}
-        {crewFields.some((f) => content[f.key]) && (
-          <div className="grid grid-cols-3 gap-3">
-            {crewFields.map(({ label, key }) =>
-              content[key] ? (
-                <div key={key}>
-                  <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
-                    {label}
-                  </dt>
-                  <dd className="text-sm text-gray-700">{content[key] as string}</dd>
+      {/* Photos */}
+      {photoUrls.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+            Photos ({photoUrls.length})
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {photoUrls.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-amber-50">
+                  <Image
+                    src={url}
+                    alt={`Report photo ${i + 1}`}
+                    fill
+                    className="object-cover hover:opacity-90 transition"
+                    sizes="60px"
+                  />
                 </div>
-              ) : null
-            )}
+              </a>
+            ))}
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  )
+}
 
-        {/* Divider */}
-        {crewFields.some((f) => content[f.key]) && progressFields.some((f) => content[f.key]) && (
-          <div className="border-t border-gray-100" />
-        )}
+// ── Collapsible wrapper for daily reports in the feed ──────────────────────
+function CollapsibleDailyReport({
+  content,
+  photoUrls,
+}: {
+  content: DailyReportContent
+  photoUrls: string[]
+}) {
+  const [expanded, setExpanded] = useState(false)
 
-        {/* Progress fields */}
-        {progressFields.map(({ label, key }) =>
-          content[key] ? (
-            <div key={key}>
-              <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
-                {label}
-              </dt>
-              <dd className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {content[key] as string}
-              </dd>
-            </div>
-          ) : null
-        )}
+  const dateLabel = content.date
+    ? new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : ''
 
-        {/* Photos */}
-        {photoUrls.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
-              Photos ({photoUrls.length})
-            </p>
-            <div className="flex flex-wrap gap-1">
-              {photoUrls.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                  <div className="relative w-[60px] h-[60px] rounded-md overflow-hidden bg-amber-50">
-                    <Image
-                      src={url}
-                      alt={`Report photo ${i + 1}`}
-                      fill
-                      className="object-cover hover:opacity-90 transition"
-                      sizes="60px"
-                    />
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
+  return (
+    <div className="mt-1.5 border border-amber-200 rounded-xl overflow-hidden bg-white">
+      {/* Compact summary row — always visible */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left hover:bg-amber-100/60 transition-colors"
+      >
+        <ClipboardListIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-amber-900 flex-shrink-0">Daily Report</span>
+        {dateLabel && (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0">—</span>
+            <span className="text-sm font-medium text-gray-700 flex-shrink-0 tabular-nums">{dateLabel}</span>
+          </>
         )}
-      </div>
+        {content.reported_by && (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0">·</span>
+            <span className="text-sm text-gray-600 truncate">{content.reported_by}</span>
+          </>
+        )}
+        {content.project_foreman && (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0">·</span>
+            <span className="text-sm text-gray-500 truncate">FM: {content.project_foreman}</span>
+          </>
+        )}
+        <ChevronDownIcon
+          className={`w-4 h-4 text-amber-600 ml-auto flex-shrink-0 transition-transform ${
+            expanded ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {/* Expanded detail — hidden by default */}
+      {expanded && (
+        <DailyReportPost content={content} photoUrls={photoUrls} />
+      )}
     </div>
   )
 }
@@ -210,7 +252,6 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditReport, setShowEditReport] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
-  const [reportExpanded, setReportExpanded] = useState(false)
 
   // Inline text editing
   const [editingText, setEditingText] = useState(false)
@@ -402,45 +443,10 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
           {/* ── Daily report ───────────────────────────────────────────────── */}
           {post.post_type === 'daily_report' && (
-            <div className="mt-1.5">
-              {/* Collapsed summary row */}
-              <button
-                onClick={() => setReportExpanded((v) => !v)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100/80 transition text-left"
-              >
-                <ClipboardListIcon className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                <span className="text-xs font-semibold text-amber-800 tabular-nums flex-shrink-0">
-                  {(post.content as DailyReportContent).date
-                    ? new Date((post.content as DailyReportContent).date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    : 'Daily Report'}
-                </span>
-                {(post.content as DailyReportContent).reported_by && (
-                  <>
-                    <span className="text-xs text-gray-400">·</span>
-                    <span className="text-xs text-gray-600 truncate">{(post.content as DailyReportContent).reported_by}</span>
-                  </>
-                )}
-                {(post.content as DailyReportContent).project_foreman && (
-                  <>
-                    <span className="text-xs text-gray-400">·</span>
-                    <span className="text-xs text-gray-500 truncate">FM: {(post.content as DailyReportContent).project_foreman}</span>
-                  </>
-                )}
-                {reportExpanded ? (
-                  <ChevronUpIcon className="w-4 h-4 text-amber-500 ml-auto flex-shrink-0" />
-                ) : (
-                  <ChevronDownIcon className="w-4 h-4 text-amber-500 ml-auto flex-shrink-0" />
-                )}
-              </button>
-
-              {/* Expanded detail */}
-              {reportExpanded && (
-                <DailyReportPost
-                  content={post.content as DailyReportContent}
-                  photoUrls={reportPhotoUrls}
-                />
-              )}
-            </div>
+            <CollapsibleDailyReport
+              content={post.content as DailyReportContent}
+              photoUrls={reportPhotoUrls}
+            />
           )}
         </div>
       </div>
