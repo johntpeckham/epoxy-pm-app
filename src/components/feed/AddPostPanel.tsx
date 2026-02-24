@@ -269,7 +269,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         if (insertErr) throw insertErr
 
         // Also create a feed post so the task appears in the chat feed
-        await supabase.from('feed_posts').insert({
+        const { error: feedPostErr } = await supabase.from('feed_posts').insert({
           project_id: project.id,
           user_id: userId,
           post_type: 'task',
@@ -284,6 +284,11 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           },
           is_pinned: false,
         })
+        if (feedPostErr) {
+          console.error('[AddPostPanel] feed_posts insert failed:', feedPostErr)
+          throw feedPostErr
+        }
+        console.log('[AddPostPanel] Task feed post created successfully for task:', taskData.id)
 
         setTaskTitle('')
         setTaskDescription('')
