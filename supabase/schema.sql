@@ -162,6 +162,26 @@ create policy "Authenticated users can delete project reports"
   to authenticated
   using (auth.uid() = user_id);
 
+-- Storage bucket for project plans
+insert into storage.buckets (id, name, public)
+values ('project-plans', 'project-plans', true)
+on conflict (id) do nothing;
+
+create policy "Authenticated users can upload project plans"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'project-plans');
+
+create policy "Anyone can view project plans"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'project-plans');
+
+create policy "Authenticated users can delete project plans"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'project-plans');
+
 -- Storage bucket for photos
 insert into storage.buckets (id, name, public)
 values ('post-photos', 'post-photos', true)

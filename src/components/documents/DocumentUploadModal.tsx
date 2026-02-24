@@ -52,6 +52,7 @@ export default function DocumentUploadModal({
   const [error, setError] = useState<string | null>(null)
 
   const label = category === 'report' ? 'Reports' : 'Plans'
+  const bucket = category === 'report' ? 'project-documents' : 'project-plans'
 
   // Fetch existing documents on mount
   const fetchDocs = useCallback(async () => {
@@ -85,7 +86,7 @@ export default function DocumentUploadModal({
         const storagePath = `${projectId}/${category}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
         const { error: uploadErr } = await supabase.storage
-          .from('project-documents')
+          .from(bucket)
           .upload(storagePath, file)
         if (uploadErr) throw uploadErr
 
@@ -115,7 +116,7 @@ export default function DocumentUploadModal({
     setError(null)
 
     try {
-      await supabase.storage.from('project-documents').remove([doc.storage_path])
+      await supabase.storage.from(bucket).remove([doc.storage_path])
       const { error: deleteErr } = await supabase
         .from('project_documents')
         .delete()
@@ -130,7 +131,7 @@ export default function DocumentUploadModal({
   }
 
   function getPublicUrl(storagePath: string) {
-    return supabase.storage.from('project-documents').getPublicUrl(storagePath).data.publicUrl
+    return supabase.storage.from(bucket).getPublicUrl(storagePath).data.publicUrl
   }
 
   return (
