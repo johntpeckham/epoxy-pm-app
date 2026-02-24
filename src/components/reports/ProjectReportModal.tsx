@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Image from 'next/image'
 import { XIcon, Loader2Icon, PrinterIcon, FileDownIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ProjectReportData } from '@/types'
+import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface ProjectReportModalProps {
   projectId: string
@@ -197,6 +199,7 @@ export default function ProjectReportModal({
   userId,
   onClose,
 }: ProjectReportModalProps) {
+  const { settings: companySettings } = useCompanySettings()
   const [formData, setFormData] = useState<ProjectReportData>(emptyReport)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -279,7 +282,7 @@ export default function ProjectReportModal({
 
       // Temporarily swap inputs for plain-text print values and show title
       const titleEl = formRef.current.querySelector('[data-report-title]') as HTMLElement | null
-      if (titleEl) titleEl.style.display = 'block'
+      if (titleEl) titleEl.style.display = 'flex'
 
       const inputs = formRef.current.querySelectorAll<HTMLElement>('input, textarea')
       const printValues = formRef.current.querySelectorAll<HTMLElement>('[data-print-value]')
@@ -374,9 +377,21 @@ export default function ProjectReportModal({
             </div>
           ) : (
             <div ref={formRef} data-report-form className="space-y-6 print:space-y-4">
-              <h1 data-report-title className="hidden print:block text-xl font-bold text-gray-900 text-center pb-2 border-b border-gray-300 mb-4">
-                Project Report: {projectName}
-              </h1>
+              <div data-report-title className="hidden print:flex items-center justify-between pb-2 border-b border-gray-300 mb-4">
+                <h1 className="text-xl font-bold text-gray-900">
+                  Project Report: {projectName}
+                </h1>
+                {companySettings?.logo_url && (
+                  <Image
+                    src={companySettings.logo_url}
+                    alt="Company logo"
+                    width={80}
+                    height={40}
+                    className="h-10 w-auto object-contain"
+                    data-report-logo
+                  />
+                )}
+              </div>
               {sections.map((section) => (
                 <div key={section.title}>
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">

@@ -256,6 +256,57 @@ create policy "Users can delete their own avatars"
   to authenticated
   using (bucket_id = 'avatars');
 
+-- ── Company settings table (logo, company name) ────────────────────────────
+
+create table if not exists company_settings (
+  id uuid default uuid_generate_v4() primary key,
+  logo_url text,
+  company_name text,
+  updated_at timestamptz default now() not null
+);
+
+alter table company_settings enable row level security;
+
+create policy "Authenticated users can view company settings"
+  on company_settings for select
+  to authenticated
+  using (true);
+
+create policy "Authenticated users can insert company settings"
+  on company_settings for insert
+  to authenticated
+  with check (true);
+
+create policy "Authenticated users can update company settings"
+  on company_settings for update
+  to authenticated
+  using (true);
+
+-- Storage bucket for company assets (logos)
+insert into storage.buckets (id, name, public)
+values ('company-assets', 'company-assets', true)
+on conflict (id) do nothing;
+
+create policy "Authenticated users can upload company assets"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'company-assets');
+
+create policy "Anyone can view company assets"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'company-assets');
+
+create policy "Authenticated users can update company assets"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'company-assets');
+
+create policy "Authenticated users can delete company assets"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'company-assets');
+
 -- Auto-create a profile row when a new user signs up
 create or replace function public.handle_new_user()
 returns trigger as $$

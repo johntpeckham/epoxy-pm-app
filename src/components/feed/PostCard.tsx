@@ -20,6 +20,7 @@ import {
 import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, TaskStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
+import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface PostCardProps {
   post: FeedPost
@@ -429,6 +430,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   const [savingText, setSavingText] = useState(false)
 
   const supabase = createClient()
+  const { settings: companySettings } = useCompanySettings()
 
   // Resolve photo URLs for daily reports
   const reportPhotoUrls: string[] =
@@ -481,7 +483,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
     setPdfLoading(true)
     try {
       const { generateReportPdf } = await import('@/lib/generateReportPdf')
-      await generateReportPdf(post.content as DailyReportContent, reportPhotoUrls)
+      await generateReportPdf(post.content as DailyReportContent, reportPhotoUrls, companySettings?.logo_url)
     } finally {
       setPdfLoading(false)
     }

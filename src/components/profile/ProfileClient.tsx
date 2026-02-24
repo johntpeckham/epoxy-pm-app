@@ -4,8 +4,9 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon } from 'lucide-react'
 import { Profile } from '@/types'
+import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface ProfileClientProps {
   userId: string
@@ -36,11 +37,70 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const [passwordSuccess, setPasswordSuccess] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
+  // Company logo state
+  const { settings: companySettings, refetch: refetchCompanySettings } = useCompanySettings()
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoError, setLogoError] = useState<string | null>(null)
+  const [logoSuccess, setLogoSuccess] = useState(false)
+
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
 
   function getAvatarPublicUrl(path: string) {
     const { data } = supabase.storage.from('avatars').getPublicUrl(path)
     return data.publicUrl
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const validTypes = ['image/png', 'image/jpeg', 'image/svg+xml']
+    if (!validTypes.includes(file.type)) {
+      setLogoError('Please upload a PNG, JPG, or SVG file')
+      return
+    }
+
+    setLogoUploading(true)
+    setLogoError(null)
+    setLogoSuccess(false)
+
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `logos/${Date.now()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('company-assets')
+        .upload(path, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from('company-assets').getPublicUrl(path)
+      const logoUrl = urlData.publicUrl
+
+      // Upsert the single company_settings row
+      if (companySettings?.id) {
+        const { error: updateError } = await supabase
+          .from('company_settings')
+          .update({ logo_url: logoUrl, updated_at: new Date().toISOString() })
+          .eq('id', companySettings.id)
+        if (updateError) throw updateError
+      } else {
+        const { error: insertError } = await supabase
+          .from('company_settings')
+          .insert({ logo_url: logoUrl, updated_at: new Date().toISOString() })
+        if (insertError) throw insertError
+      }
+
+      await refetchCompanySettings()
+      setLogoSuccess(true)
+      setTimeout(() => setLogoSuccess(false), 2000)
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : 'Failed to upload logo')
+    } finally {
+      setLogoUploading(false)
+      if (logoInputRef.current) logoInputRef.current.value = ''
+    }
   }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -141,6 +201,47 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
+        </div>
+
+        {/* Company Logo Section */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Company Logo</h2>
+          <p className="text-xs text-gray-400 mb-4">This logo will appear in the sidebar and on printed reports.</p>
+          <div className="flex items-center gap-5">
+            <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+              {companySettings?.logo_url ? (
+                <Image
+                  src={companySettings.logo_url}
+                  alt="Company logo"
+                  width={80}
+                  height={80}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <BuildingIcon className="w-8 h-8 text-gray-300" />
+              )}
+            </div>
+            <div>
+              <button
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoUploading}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 transition"
+              >
+                <UploadIcon className="w-4 h-4" />
+                {logoUploading ? 'Uploading...' : 'Upload logo'}
+              </button>
+              <p className="text-xs text-gray-400 mt-1">PNG, JPG, or SVG.</p>
+              {logoError && <p className="text-xs text-red-500 mt-1">{logoError}</p>}
+              {logoSuccess && <p className="text-xs text-green-600 mt-1">Logo updated successfully</p>}
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml"
+                className="hidden"
+                onChange={handleLogoUpload}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Avatar Section */}
