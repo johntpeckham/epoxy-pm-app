@@ -8,6 +8,9 @@ import { ProjectReportData } from '@/types'
 interface ProjectReportModalProps {
   projectId: string
   projectName: string
+  clientName: string
+  address: string
+  estimateNumber: string
   userId: string
   onClose: () => void
 }
@@ -188,6 +191,9 @@ const sections: SectionDef[] = [
 export default function ProjectReportModal({
   projectId,
   projectName,
+  clientName,
+  address,
+  estimateNumber,
   userId,
   onClose,
 }: ProjectReportModalProps) {
@@ -198,6 +204,13 @@ export default function ProjectReportModal({
   const [error, setError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
+
+  const projectDefaults: Partial<ProjectReportData> = {
+    project_name: projectName,
+    client_name: clientName,
+    address: address,
+    estimate_number: estimateNumber,
+  }
 
   const loadReport = useCallback(async () => {
     const supabase = createClient()
@@ -211,8 +224,11 @@ export default function ProjectReportModal({
       setError(fetchError.message)
     } else if (data) {
       setFormData({ ...emptyReport, ...(data.data as ProjectReportData) })
+    } else {
+      setFormData({ ...emptyReport, ...projectDefaults })
     }
     setLoading(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
   useEffect(() => {
