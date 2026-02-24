@@ -3,38 +3,53 @@
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { ImageIcon, DownloadIcon, Loader2Icon } from 'lucide-react'
+import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon } from 'lucide-react'
 import type { PhotoEntry } from '@/app/(dashboard)/photos/page'
 
 interface PhotosPageClientProps {
   entries: PhotoEntry[]
 }
 
+type SortOption = 'newest' | 'oldest' | 'project_az'
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'newest', label: 'Newest First' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'project_az', label: 'Project Name (A-Z)' },
+]
+
 /** Group entries by project, then by date within each project. */
-function groupByJobAndDate(entries: PhotoEntry[]) {
+function groupByJobAndDate(entries: PhotoEntry[], sort: SortOption) {
   const jobMap = new Map<
     string,
-    { projectId: string; projectName: string; dates: Map<string, string[]> }
+    { projectId: string; projectName: string; dates: Map<string, string[]>; latestDate: string; oldestDate: string }
   >()
 
   for (const entry of entries) {
     let job = jobMap.get(entry.projectId)
     if (!job) {
-      job = { projectId: entry.projectId, projectName: entry.projectName, dates: new Map() }
+      job = { projectId: entry.projectId, projectName: entry.projectName, dates: new Map(), latestDate: entry.date, oldestDate: entry.date }
       jobMap.set(entry.projectId, job)
     }
+    if (entry.date > job.latestDate) job.latestDate = entry.date
+    if (entry.date < job.oldestDate) job.oldestDate = entry.date
     const existing = job.dates.get(entry.date) ?? []
     existing.push(...entry.photos)
     job.dates.set(entry.date, existing)
   }
 
-  // Sort jobs alphabetically, dates newest-first
+  const dateDir = sort === 'oldest' ? 1 : -1
+
   return Array.from(jobMap.values())
-    .sort((a, b) => a.projectName.localeCompare(b.projectName))
+    .sort((a, b) => {
+      if (sort === 'project_az') return a.projectName.localeCompare(b.projectName)
+      if (sort === 'newest') return b.latestDate.localeCompare(a.latestDate)
+      return a.oldestDate.localeCompare(b.oldestDate)
+    })
     .map((job) => ({
       ...job,
       dates: Array.from(job.dates.entries())
-        .sort(([a], [b]) => b.localeCompare(a))
+        .sort(([a], [b]) => a.localeCompare(b) * dateDir)
         .map(([date, photos]) => ({ date, photos })),
     }))
 }
@@ -50,9 +65,18 @@ function formatDate(dateStr: string) {
 
 export default function PhotosPageClient({ entries }: PhotosPageClientProps) {
   const supabase = createClient()
-  const grouped = useMemo(() => groupByJobAndDate(entries), [entries])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortOption, setSortOption] = useState<SortOption>('newest')
 
-  const totalPhotos = entries.reduce((sum, e) => sum + e.photos.length, 0)
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return entries
+    const q = searchQuery.toLowerCase()
+    return entries.filter((e) => e.projectName.toLowerCase().includes(q))
+  }, [entries, searchQuery])
+
+  const grouped = useMemo(() => groupByJobAndDate(filtered, sortOption), [filtered, sortOption])
+
+  const totalPhotos = filtered.reduce((sum, e) => sum + e.photos.length, 0)
 
   function getPublicUrl(path: string) {
     return supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl
@@ -69,14 +93,44 @@ export default function PhotosPageClient({ entries }: PhotosPageClientProps) {
         </p>
       </div>
 
+      {/* Search & Sort Controls */}
+      <div className="flex items-center gap-2 mb-5">
+        <div className="relative flex-1">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by project name..."
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value as SortOption)}
+            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
+
       {totalPhotos === 0 ? (
         <div className="text-center py-16">
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <ImageIcon className="w-7 h-7 text-gray-400" />
           </div>
-          <p className="text-gray-500 font-medium">No photos yet</p>
+          <p className="text-gray-500 font-medium">
+            {searchQuery.trim() ? 'No photos match your search' : 'No photos yet'}
+          </p>
           <p className="text-gray-400 text-sm mt-1">
-            Photos added to project feeds and daily reports will appear here.
+            {searchQuery.trim()
+              ? 'Try a different search term.'
+              : 'Photos added to project feeds and daily reports will appear here.'}
           </p>
         </div>
       ) : (
