@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
 
 interface SidebarProps {
   userEmail?: string
@@ -23,6 +23,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
 
   const isJobsActive = pathname === '/jobs' || pathname.startsWith('/projects')
   const isReportsActive = pathname === '/daily-reports'
+  const isPhotosActive = pathname === '/photos'
 
   const navContent = (
     <div className="flex flex-col h-full">
@@ -65,6 +66,18 @@ export default function Sidebar({ userEmail }: SidebarProps) {
         >
           <ClipboardListIcon className="w-5 h-5 flex-shrink-0" />
           Daily Reports
+        </Link>
+        <Link
+          href="/photos"
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isPhotosActive
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}
+        >
+          <ImageIcon className="w-5 h-5 flex-shrink-0" />
+          Photos
         </Link>
       </nav>
 
