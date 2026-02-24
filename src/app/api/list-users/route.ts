@@ -43,8 +43,12 @@ export async function GET() {
   }
 
   const authData = await authResponse.json()
-  const authUsers: { id: string; email: string }[] = (authData.users ?? authData).map(
-    (u: { id: string; email?: string }) => ({ id: u.id, email: u.email ?? '' })
+  const authUsers: { id: string; email: string; email_confirmed_at: string | null }[] = (authData.users ?? authData).map(
+    (u: { id: string; email?: string; email_confirmed_at?: string | null }) => ({
+      id: u.id,
+      email: u.email ?? '',
+      email_confirmed_at: u.email_confirmed_at ?? null,
+    })
   )
 
   // Fetch all profiles
@@ -62,6 +66,7 @@ export async function GET() {
     return {
       id: authUser.id,
       email: authUser.email,
+      email_confirmed_at: authUser.email_confirmed_at,
       display_name: p?.display_name ?? null,
       avatar_url: p?.avatar_url ?? null,
       role: p?.role ?? 'crew',
