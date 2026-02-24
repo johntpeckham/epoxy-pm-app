@@ -72,7 +72,7 @@ function Avatar({ initials, avatarUrl }: { initials: string; avatarUrl?: string 
 }
 
 // ── Photo post content ─────────────────────────────────────────────────────────
-function PhotoPost({ content }: { content: PhotoContent }) {
+function PhotoPost({ content, onImageClick }: { content: PhotoContent; onImageClick: (url: string) => void }) {
   const supabase = createClient()
   const urls = content.photos.map((path) => {
     const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
@@ -86,7 +86,7 @@ function PhotoPost({ content }: { content: PhotoContent }) {
       )}
       <div className="flex flex-wrap gap-1">
         {urls.map((url, i) => (
-          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+          <button key={i} onClick={() => onImageClick(url)} className="block">
             <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={url}
@@ -96,7 +96,7 @@ function PhotoPost({ content }: { content: PhotoContent }) {
                 sizes="60px"
               />
             </div>
-          </a>
+          </button>
         ))}
       </div>
     </div>
@@ -107,9 +107,11 @@ function PhotoPost({ content }: { content: PhotoContent }) {
 function DailyReportPost({
   content,
   photoUrls,
+  onImageClick,
 }: {
   content: DailyReportContent
   photoUrls: string[]
+  onImageClick: (url: string) => void
 }) {
   const crewFields: { label: string; key: keyof DailyReportContent }[] = [
     { label: 'Reported By', key: 'reported_by' },
@@ -179,7 +181,7 @@ function DailyReportPost({
           </p>
           <div className="flex flex-wrap gap-1">
             {photoUrls.map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+              <button key={i} onClick={() => onImageClick(url)} className="block">
                 <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-amber-50">
                   <Image
                     src={url}
@@ -189,7 +191,7 @@ function DailyReportPost({
                     sizes="60px"
                   />
                 </div>
-              </a>
+              </button>
             ))}
           </div>
         </div>
@@ -211,10 +213,12 @@ function TaskPost({
   content,
   postId,
   onUpdated,
+  onImageClick,
 }: {
   content: TaskContent
   postId: string
   onUpdated?: () => void
+  onImageClick: (url: string) => void
 }) {
   const supabase = createClient()
   const [status, setStatus] = useState<TaskStatus>(content.status)
@@ -291,7 +295,7 @@ function TaskPost({
 
         {/* Photo thumbnail */}
         {photoUrl && (
-          <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="block">
+          <button onClick={() => onImageClick(photoUrl)} className="block">
             <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={photoUrl}
@@ -301,7 +305,7 @@ function TaskPost({
                 sizes="60px"
               />
             </div>
-          </a>
+          </button>
         )}
 
         {/* Meta row: assigned user + due date */}
@@ -349,9 +353,11 @@ function TaskPost({
 function CollapsibleDailyReport({
   content,
   photoUrls,
+  onImageClick,
 }: {
   content: DailyReportContent
   photoUrls: string[]
+  onImageClick: (url: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -399,7 +405,7 @@ function CollapsibleDailyReport({
 
       {/* Expanded detail — hidden by default */}
       {expanded && (
-        <DailyReportPost content={content} photoUrls={photoUrls} />
+        <DailyReportPost content={content} photoUrls={photoUrls} onImageClick={onImageClick} />
       )}
     </div>
   )
@@ -412,6 +418,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditReport, setShowEditReport] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
 
   // Inline text editing
   const [editingText, setEditingText] = useState(false)
@@ -598,7 +605,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
           {/* ── Photo post ─────────────────────────────────────────────────── */}
           {post.post_type === 'photo' && (
-            <PhotoPost content={post.content as PhotoContent} />
+            <PhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} />
           )}
 
           {/* ── Daily report ───────────────────────────────────────────────── */}
@@ -606,6 +613,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
             <CollapsibleDailyReport
               content={post.content as DailyReportContent}
               photoUrls={reportPhotoUrls}
+              onImageClick={setPreviewImage}
             />
           )}
 
@@ -615,6 +623,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
               content={post.content as TaskContent}
               postId={post.id}
               onUpdated={onUpdated}
+              onImageClick={setPreviewImage}
             />
           )}
         </div>
@@ -644,6 +653,27 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
             onUpdated?.()
           }}
         />
+      )}
+
+      {/* ── Image lightbox overlay ──────────────────────────────────────── */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
+          <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewImage(null)} />
+          <div className="relative max-w-3xl max-h-[90vh]">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-3 -right-3 bg-white rounded-full p-1.5 shadow-lg text-gray-500 hover:text-gray-800 transition z-10"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewImage}
+              alt="Preview"
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+          </div>
+        </div>
       )}
     </>
   )
