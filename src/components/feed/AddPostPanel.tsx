@@ -13,12 +13,14 @@ import {
 } from 'lucide-react'
 import { Project } from '@/types'
 
-type Mode = 'text' | 'photo' | 'daily_report'
+export type Mode = 'text' | 'photo' | 'daily_report'
 
 interface AddPostPanelProps {
   project: Project
   userId: string
   onPosted: () => void
+  mode: Mode
+  onModeChange: (mode: Mode) => void
 }
 
 const inputCls =
@@ -26,8 +28,7 @@ const inputCls =
 const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
-export default function AddPostPanel({ project, userId, onPosted }: AddPostPanelProps) {
-  const [mode, setMode] = useState<Mode>('text')
+export default function AddPostPanel({ project, userId, onPosted, mode, onModeChange }: AddPostPanelProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -150,7 +151,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setPhotoPreviews([])
         setCaption('')
         if (photoInputRef.current) photoInputRef.current.value = ''
-        setMode('text')
+        onModeChange('text')
       }
 
       if (mode === 'daily_report') {
@@ -187,7 +188,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setRFiles([])
         setRPreviews([])
         if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = ''
-        setMode('text')
+        onModeChange('text')
       }
 
       onPosted()
@@ -201,50 +202,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     }
   }
 
-  function selectMode(m: Mode) {
-    setMode(m)
-    setError(null)
-  }
-
   return (
     <div className="bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
-
-      {/* ── Action buttons row ────────────────────────────────────────── */}
-      <div className="flex items-center justify-center gap-2 px-3 pt-3 pb-1">
-        <button
-          onClick={() => selectMode('text')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-            mode === 'text'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <FileTextIcon className="w-4 h-4" />
-          Plans
-        </button>
-        <button
-          onClick={() => selectMode('daily_report')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-            mode === 'daily_report'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <ClipboardListIcon className="w-4 h-4" />
-          Project Report
-        </button>
-        <button
-          onClick={() => selectMode('photo')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-            mode === 'photo'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <CameraIcon className="w-4 h-4" />
-          Pictures
-        </button>
-      </div>
 
       {/* Error toast */}
       {error && (
