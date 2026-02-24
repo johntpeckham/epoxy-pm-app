@@ -188,3 +188,16 @@ export interface ProjectPlan {
   created_at: string
   updated_at: string
 }
+
+export interface CalendarEvent {
+  id: string
+  created_by: string
+  project_name: string
+  start_date: string
+  end_date: string
+  include_weekends: boolean
+  crew: string
+  notes: string | null
+  color: string | null
+  created_at: string
+}
