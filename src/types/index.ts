@@ -153,3 +153,28 @@ export interface Profile {
   avatar_url: string | null
   updated_at: string
 }
+
+export type TaskStatus = 'in_progress' | 'completed' | 'unable_to_complete'
+
+export interface Task {
+  id: string
+  project_id: string
+  created_by: string
+  assigned_to: string | null
+  title: string
+  description: string
+  status: TaskStatus
+  photo_url: string | null
+  due_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectPlan {
+  id: string
+  project_id: string
+  user_id: string
+  content: string
+  created_at: string
+  updated_at: string
+}
