@@ -261,11 +261,18 @@ export default function ProjectReportModal({
       const html2canvas = (await import('html2canvas-pro')).default
       const { jsPDF } = await import('jspdf')
 
+      // Temporarily show the print-only title for the canvas capture
+      const titleEl = formRef.current.querySelector('[data-report-title]') as HTMLElement | null
+      if (titleEl) titleEl.style.display = 'block'
+
       const canvas = await html2canvas(formRef.current, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
       })
+
+      // Hide title again after capture
+      if (titleEl) titleEl.style.display = ''
 
       const imgData = canvas.toDataURL('image/png')
       const imgWidth = canvas.width
@@ -334,6 +341,9 @@ export default function ProjectReportModal({
             </div>
           ) : (
             <div ref={formRef} data-report-form className="space-y-6 print:space-y-4">
+              <h1 data-report-title className="hidden print:block text-xl font-bold text-gray-900 text-center pb-2 border-b border-gray-300 mb-4">
+                Project Report: {projectName}
+              </h1>
               {sections.map((section) => (
                 <div key={section.title}>
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">

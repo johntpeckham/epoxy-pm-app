@@ -58,6 +58,13 @@ body {
     padding: 0.5in !important;
   }
 
+  /* Print title at top of report */
+  [data-report-title] {
+    display: block !important;
+    font-size: 16pt !important;
+    margin-bottom: 12pt !important;
+  }
+
   [data-report-form] h3 {
     font-size: 11pt !important;
     margin-top: 12pt !important;
