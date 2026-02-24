@@ -10,6 +10,19 @@ export interface Project {
   created_at: string
 }
 
+export type DocumentCategory = 'report' | 'plan'
+
+export interface ProjectDocument {
+  id: string
+  project_id: string
+  user_id: string
+  category: DocumentCategory
+  file_name: string
+  storage_path: string
+  file_size: number | null
+  created_at: string
+}
+
 export type PostType = 'text' | 'photo' | 'daily_report'
 
 export interface TextContent {
