@@ -23,6 +23,84 @@ export interface ProjectDocument {
   created_at: string
 }
 
+export interface ProjectReportData {
+  // Project Details
+  project_name: string
+  estimate_number: string
+  address: string
+  client_name: string
+  client_email: string
+  client_phone: string
+  site_contact: string
+  prevailing_wage: string
+  bonding_insurance: string
+  bid_date: string
+  bid_platform: string
+  project_details_notes: string
+  // Project Durations
+  start_date: string
+  finish_date: string
+  num_mobilizations: string
+  working_hours: string
+  durations_notes: string
+  // Scope Of Work
+  scope_description: string
+  num_rooms_sections: string
+  square_footages: string
+  linear_footage: string
+  cove_curb_height: string
+  room_numbers_names: string
+  open_areas_machines: string
+  scope_notes: string
+  // Site Information
+  power_supplied: string
+  lighting_requirements: string
+  heating_cooling_requirements: string
+  rental_requirements: string
+  rental_location: string
+  rental_duration: string
+  site_notes: string
+  // Travel Information
+  hotel_name: string
+  hotel_location: string
+  reservation_number: string
+  reservation_contact: string
+  credit_card_auth: string
+  drive_time: string
+  per_diem: string
+  vehicles: string
+  trailers: string
+  travel_notes: string
+  // Material System (3 open text rows)
+  material_system_1: string
+  material_system_2: string
+  material_system_3: string
+  // Material Quantities (3 open text rows)
+  material_quantities_1: string
+  material_quantities_2: string
+  material_quantities_3: string
+  // Prep
+  prep_method: string
+  prep_removal: string
+  patching_materials: string
+  joint_requirements: string
+  sloping_requirements: string
+  backfill_patching: string
+  wet_area: string
+  climate_concerns: string
+  cooling_heating_constraints: string
+  prep_notes: string
+}
+
+export interface ProjectReport {
+  id: string
+  project_id: string
+  user_id: string
+  data: ProjectReportData
+  updated_at: string
+  created_at: string
+}
+
 export type PostType = 'text' | 'photo' | 'daily_report'
 
 export interface TextContent {

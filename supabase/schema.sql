@@ -127,6 +127,41 @@ create policy "Authenticated users can delete project documents"
   to authenticated
   using (bucket_id = 'project-documents');
 
+-- Project reports table (fillable form data per project)
+create table if not exists project_reports (
+  id uuid default uuid_generate_v4() primary key,
+  project_id uuid not null references projects(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  data jsonb not null default '{}',
+  updated_at timestamptz default now() not null,
+  created_at timestamptz default now() not null,
+  unique (project_id)
+);
+
+create index if not exists project_reports_project_id_idx on project_reports(project_id);
+
+alter table project_reports enable row level security;
+
+create policy "Authenticated users can view project reports"
+  on project_reports for select
+  to authenticated
+  using (true);
+
+create policy "Authenticated users can insert project reports"
+  on project_reports for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Authenticated users can update project reports"
+  on project_reports for update
+  to authenticated
+  using (true);
+
+create policy "Authenticated users can delete project reports"
+  on project_reports for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
 -- Storage bucket for photos
 insert into storage.buckets (id, name, public)
 values ('post-photos', 'post-photos', true)
