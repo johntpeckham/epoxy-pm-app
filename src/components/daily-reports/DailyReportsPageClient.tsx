@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { PlusIcon, ClipboardListIcon } from 'lucide-react'
 import { Project, DailyReportContent } from '@/types'
@@ -21,6 +21,46 @@ interface DailyReportsPageClientProps {
   userId: string
 }
 
+function formatGroupDate(dateStr: string) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/** Group reports by project, then by date within each project. */
+function groupByProjectAndDate(reports: DailyReportRow[]) {
+  const projectMap = new Map<
+    string,
+    { projectName: string; dates: Map<string, DailyReportRow[]> }
+  >()
+
+  for (const report of reports) {
+    let project = projectMap.get(report.project_id)
+    if (!project) {
+      project = { projectName: report.project_name, dates: new Map() }
+      projectMap.set(report.project_id, project)
+    }
+    const dateKey = report.content.date || report.created_at.slice(0, 10)
+    const existing = project.dates.get(dateKey) ?? []
+    existing.push(report)
+    project.dates.set(dateKey, existing)
+  }
+
+  // Sort projects alphabetically, dates newest-first
+  return Array.from(projectMap.entries())
+    .sort(([, a], [, b]) => a.projectName.localeCompare(b.projectName))
+    .map(([projectId, project]) => ({
+      projectId,
+      projectName: project.projectName,
+      dates: Array.from(project.dates.entries())
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([date, reports]) => ({ date, reports })),
+    }))
+}
+
 export default function DailyReportsPageClient({
   initialReports,
   projects,
@@ -28,6 +68,7 @@ export default function DailyReportsPageClient({
 }: DailyReportsPageClientProps) {
   const router = useRouter()
   const [showModal, setShowModal] = useState(false)
+  const grouped = useMemo(() => groupByProjectAndDate(initialReports), [initialReports])
 
   function handleCreated() {
     setShowModal(false)
@@ -41,7 +82,8 @@ export default function DailyReportsPageClient({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Daily Reports</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {initialReports.length} report{initialReports.length !== 1 ? 's' : ''} across all projects
+            {initialReports.length} report{initialReports.length !== 1 ? 's' : ''} across {grouped.length} project
+            {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
         <button
@@ -55,7 +97,7 @@ export default function DailyReportsPageClient({
         </button>
       </div>
 
-      {/* List */}
+      {/* List — grouped by project then date */}
       {initialReports.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -69,9 +111,35 @@ export default function DailyReportsPageClient({
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {initialReports.map((report) => (
-            <DailyReportCard key={report.id} report={report} />
+        <div className="space-y-8">
+          {grouped.map((project) => (
+            <div key={project.projectId}>
+              {/* Project heading */}
+              <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
+
+              <div className="space-y-4">
+                {project.dates.map(({ date, reports }) => (
+                  <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    {/* Date header */}
+                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                      <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
+                      <span className="text-sm text-gray-400">&middot;</span>
+                      <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
+                      <span className="text-xs text-gray-400">
+                        ({reports.length} report{reports.length !== 1 ? 's' : ''})
+                      </span>
+                    </div>
+
+                    {/* Report cards within this date */}
+                    <div className="divide-y divide-gray-100">
+                      {reports.map((report) => (
+                        <DailyReportCard key={report.id} report={report} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
