@@ -113,7 +113,8 @@ body {
   }
 
   [data-report-logo] {
-    height: 40px !important;
+    height: 75px !important;
+    max-width: 150px !important;
     width: auto !important;
     object-fit: contain !important;
   }
