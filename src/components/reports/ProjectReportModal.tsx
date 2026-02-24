@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { XIcon, Loader2Icon, PrinterIcon, FileDownIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ProjectReportData } from '@/types'
+import type { UserRole } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface ProjectReportModalProps {
@@ -14,6 +15,7 @@ interface ProjectReportModalProps {
   address: string
   estimateNumber: string
   userId: string
+  userRole?: UserRole
   onClose: () => void
 }
 
@@ -197,8 +199,10 @@ export default function ProjectReportModal({
   address,
   estimateNumber,
   userId,
+  userRole = 'crew',
   onClose,
 }: ProjectReportModalProps) {
+  const readOnly = userRole === 'foreman'
   const { settings: companySettings } = useCompanySettings()
   const [formData, setFormData] = useState<ProjectReportData>(emptyReport)
   const [loading, setLoading] = useState(true)
@@ -412,14 +416,16 @@ export default function ProjectReportModal({
                               value={formData[field.key]}
                               onChange={(e) => handleChange(field.key, e.target.value)}
                               rows={3}
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none resize-vertical"
+                              readOnly={readOnly}
+                              className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none resize-vertical ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
                             />
                           ) : (
                             <input
                               type="text"
                               value={formData[field.key]}
                               onChange={(e) => handleChange(field.key, e.target.value)}
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none"
+                              readOnly={readOnly}
+                              className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
                             />
                           )}
                           <div
@@ -463,15 +469,17 @@ export default function ProjectReportModal({
             onClick={onClose}
             className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
           >
-            Cancel
+            {readOnly ? 'Close' : 'Cancel'}
           </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || loading}
-            className="px-6 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold transition"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleSave}
+              disabled={saving || loading}
+              className="px-6 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold transition"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          )}
         </div>
       </div>
     </div>

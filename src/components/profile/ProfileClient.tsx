@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon } from 'lucide-react'
 import { Profile } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { useUserRole } from '@/lib/useUserRole'
+import UserManagement from './UserManagement'
 
 interface ProfileClientProps {
   userId: string
@@ -18,6 +20,9 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const router = useRouter()
   const supabase = createClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { role } = useUserRole()
+  const isAdmin = role === 'admin'
+  const isCrew = role === 'crew'
 
   // Display name state
   const [displayName, setDisplayName] = useState(initialProfile.display_name ?? '')
@@ -203,46 +208,48 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
           <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
         </div>
 
-        {/* Company Logo Section */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Company Logo</h2>
-          <p className="text-xs text-gray-400 mb-4">This logo will appear in the sidebar and on printed reports.</p>
-          <div className="flex items-center gap-5">
-            <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-              {companySettings?.logo_url ? (
-                <Image
-                  src={companySettings.logo_url}
-                  alt="Company logo"
-                  width={80}
-                  height={80}
-                  className="w-full h-full object-contain"
+        {/* Company Logo Section — Admin only */}
+        {isAdmin && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Company Logo</h2>
+            <p className="text-xs text-gray-400 mb-4">This logo will appear in the sidebar and on printed reports.</p>
+            <div className="flex items-center gap-5">
+              <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                {companySettings?.logo_url ? (
+                  <Image
+                    src={companySettings.logo_url}
+                    alt="Company logo"
+                    width={80}
+                    height={80}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <BuildingIcon className="w-8 h-8 text-gray-300" />
+                )}
+              </div>
+              <div>
+                <button
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={logoUploading}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 transition"
+                >
+                  <UploadIcon className="w-4 h-4" />
+                  {logoUploading ? 'Uploading...' : 'Upload logo'}
+                </button>
+                <p className="text-xs text-gray-400 mt-1">PNG, JPG, or SVG.</p>
+                {logoError && <p className="text-xs text-red-500 mt-1">{logoError}</p>}
+                {logoSuccess && <p className="text-xs text-green-600 mt-1">Logo updated successfully</p>}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml"
+                  className="hidden"
+                  onChange={handleLogoUpload}
                 />
-              ) : (
-                <BuildingIcon className="w-8 h-8 text-gray-300" />
-              )}
-            </div>
-            <div>
-              <button
-                onClick={() => logoInputRef.current?.click()}
-                disabled={logoUploading}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 transition"
-              >
-                <UploadIcon className="w-4 h-4" />
-                {logoUploading ? 'Uploading...' : 'Upload logo'}
-              </button>
-              <p className="text-xs text-gray-400 mt-1">PNG, JPG, or SVG.</p>
-              {logoError && <p className="text-xs text-red-500 mt-1">{logoError}</p>}
-              {logoSuccess && <p className="text-xs text-green-600 mt-1">Logo updated successfully</p>}
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/svg+xml"
-                className="hidden"
-                onChange={handleLogoUpload}
-              />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Avatar Section */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -291,47 +298,51 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
           </div>
         </div>
 
-        {/* Display Name Section */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Display Name</h2>
-          <p className="text-xs text-gray-400 mb-3">This name will appear in the chat feed instead of your email.</p>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder={userEmail.split('@')[0]}
-              className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-            />
-            <button
-              onClick={handleSaveDisplayName}
-              disabled={nameSaving}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
-            >
-              {nameSuccess ? (
-                <>
-                  <CheckIcon className="w-4 h-4" />
-                  Saved
-                </>
-              ) : nameSaving ? (
-                'Saving...'
-              ) : (
-                'Save'
-              )}
-            </button>
+        {/* Display Name Section — hidden for Crew */}
+        {!isCrew && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Display Name</h2>
+            <p className="text-xs text-gray-400 mb-3">This name will appear in the chat feed instead of your email.</p>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder={userEmail.split('@')[0]}
+                className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+              />
+              <button
+                onClick={handleSaveDisplayName}
+                disabled={nameSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+              >
+                {nameSuccess ? (
+                  <>
+                    <CheckIcon className="w-4 h-4" />
+                    Saved
+                  </>
+                ) : nameSaving ? (
+                  'Saving...'
+                ) : (
+                  'Save'
+                )}
+              </button>
+            </div>
+            {nameError && <p className="text-xs text-red-500 mt-2">{nameError}</p>}
           </div>
-          {nameError && <p className="text-xs text-red-500 mt-2">{nameError}</p>}
-        </div>
+        )}
 
-        {/* Email Section (read-only) */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Email</h2>
-          <p className="text-sm text-gray-900">{userEmail}</p>
-          <p className="text-xs text-gray-400 mt-1">Contact your administrator to change your email address.</p>
-        </div>
+        {/* Email Section (read-only) — hidden for Crew */}
+        {!isCrew && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Email</h2>
+            <p className="text-sm text-gray-900">{userEmail}</p>
+            <p className="text-xs text-gray-400 mt-1">Contact your administrator to change your email address.</p>
+          </div>
+        )}
 
         {/* Change Password Section */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Change Password</h2>
           <div className="space-y-3 max-w-sm">
             <div>
@@ -381,6 +392,9 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
             </button>
           </div>
         </div>
+
+        {/* User Management — Admin only */}
+        {isAdmin && <UserManagement currentUserId={userId} />}
       </div>
     </div>
   )
