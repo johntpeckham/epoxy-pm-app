@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
 
 interface SidebarProps {
   userEmail?: string
@@ -28,6 +28,7 @@ export default function Sidebar({ userEmail, displayName, avatarUrl }: SidebarPr
   const isReportsActive = pathname === '/daily-reports'
   const isPhotosActive = pathname === '/photos'
   const isTasksActive = pathname === '/tasks'
+  const isCalendarActive = pathname === '/calendar'
   const isProfileActive = pathname === '/profile'
 
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
@@ -98,6 +99,18 @@ export default function Sidebar({ userEmail, displayName, avatarUrl }: SidebarPr
         >
           <CheckSquareIcon className="w-5 h-5 flex-shrink-0" />
           Tasks
+        </Link>
+        <Link
+          href="/calendar"
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isCalendarActive
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}
+        >
+          <CalendarIcon className="w-5 h-5 flex-shrink-0" />
+          Calendar
         </Link>
       </nav>
 
