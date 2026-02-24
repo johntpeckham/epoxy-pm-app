@@ -6,10 +6,14 @@ import {
   SendIcon,
   XIcon,
   CameraIcon,
+  ClipboardListIcon,
+  UploadIcon,
   FileTextIcon,
   PlusIcon,
 } from 'lucide-react'
 import { Project } from '@/types'
+
+type Mode = 'text' | 'photo' | 'daily_report'
 
 interface AddPostPanelProps {
   project: Project
@@ -17,16 +21,57 @@ interface AddPostPanelProps {
   onPosted: () => void
 }
 
+const inputCls =
+  'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+const textareaCls = inputCls + ' resize-none'
+const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
+
 export default function AddPostPanel({ project, userId, onPosted }: AddPostPanelProps) {
+  const [mode, setMode] = useState<Mode>('text')
+  const [showMenu, setShowMenu] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // ── Text post ──────────────────────────────────────────────────────────────
   const [message, setMessage] = useState('')
+
+  // ── Photo post ─────────────────────────────────────────────────────────────
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [caption, setCaption] = useState('')
   const photoInputRef = useRef<HTMLInputElement>(null)
 
+  // ── Daily report ───────────────────────────────────────────────────────────
+  const today = new Date().toISOString().split('T')[0]
+  const [rProjectName, setRProjectName] = useState(project.name)
+  const [rDate, setRDate] = useState(today)
+  const [rAddress, setRAddress] = useState(project.address)
+  const [rReportedBy, setRReportedBy] = useState('')
+  const [rForeman, setRForeman] = useState('')
+  const [rWeather, setRWeather] = useState('')
+  const [rProgress, setRProgress] = useState('')
+  const [rDelays, setRDelays] = useState('')
+  const [rSafety, setRSafety] = useState('')
+  const [rMaterials, setRMaterials] = useState('')
+  const [rEmployees, setREmployees] = useState('')
+  const [rFiles, setRFiles] = useState<File[]>([])
+  const [rPreviews, setRPreviews] = useState<string[]>([])
+  const reportPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function isPdf(file: File) {
     return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  }
+
+  function selectMode(m: Mode) {
+    setMode(m)
+    setShowMenu(false)
+    setError(null)
+  }
+
+  function cancelMode() {
+    setMode('text')
+    setError(null)
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -42,12 +87,25 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     setPhotoPreviews((p) => p.filter((_, idx) => idx !== i))
   }
 
-  async function uploadFiles(files: File[]): Promise<string[]> {
+  function handleReportPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files || [])
+    if (!selected.length) return
+    setRFiles((p) => [...p, ...selected])
+    setRPreviews((p) => [...p, ...selected.map((f) => URL.createObjectURL(f))])
+  }
+
+  function removeReportPhoto(i: number) {
+    setRFiles((p) => p.filter((_, idx) => idx !== i))
+    setRPreviews((p) => p.filter((_, idx) => idx !== i))
+  }
+
+  // ── Upload helper ──────────────────────────────────────────────────────────
+  async function uploadFiles(files: File[], folder: string): Promise<string[]> {
     const supabase = createClient()
     const paths: string[] = []
     for (const file of files) {
       const ext = file.name.split('.').pop()
-      const path = `${project.id}/photos/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const path = `${project.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       console.log('[AddPostPanel] Uploading file:', {
         fileName: file.name,
         fileType: file.type,
@@ -70,28 +128,15 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     return paths
   }
 
+  // ── Submit ─────────────────────────────────────────────────────────────────
   async function handleSubmit() {
-    if (!message.trim() && !photoFiles.length) return
     setLoading(true)
     setError(null)
     const supabase = createClient()
 
     try {
-      if (photoFiles.length > 0) {
-        // Photo post (with optional caption from message field)
-        const paths = await uploadFiles(photoFiles)
-        await supabase.from('feed_posts').insert({
-          project_id: project.id,
-          user_id: userId,
-          post_type: 'photo',
-          content: { photos: paths, caption: message.trim() || undefined },
-          is_pinned: false,
-        })
-        setPhotoFiles([])
-        setPhotoPreviews([])
-        if (photoInputRef.current) photoInputRef.current.value = ''
-      } else {
-        // Text post
+      if (mode === 'text') {
+        if (!message.trim()) throw new Error('Please enter a message')
         await supabase.from('feed_posts').insert({
           project_id: project.id,
           user_id: userId,
@@ -99,8 +144,63 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           content: { message: message.trim() },
           is_pinned: false,
         })
+        setMessage('')
       }
-      setMessage('')
+
+      if (mode === 'photo') {
+        if (!photoFiles.length) throw new Error('Please select at least one photo')
+        const paths = await uploadFiles(photoFiles, 'photos')
+        await supabase.from('feed_posts').insert({
+          project_id: project.id,
+          user_id: userId,
+          post_type: 'photo',
+          content: { photos: paths, caption: caption.trim() || undefined },
+          is_pinned: false,
+        })
+        setPhotoFiles([])
+        setPhotoPreviews([])
+        setCaption('')
+        if (photoInputRef.current) photoInputRef.current.value = ''
+        setMode('text')
+      }
+
+      if (mode === 'daily_report') {
+        const photoPaths = rFiles.length ? await uploadFiles(rFiles, 'reports') : []
+        await supabase.from('feed_posts').insert({
+          project_id: project.id,
+          user_id: userId,
+          post_type: 'daily_report',
+          content: {
+            project_name: rProjectName.trim(),
+            date: rDate,
+            address: rAddress.trim(),
+            reported_by: rReportedBy.trim(),
+            project_foreman: rForeman.trim(),
+            weather: rWeather.trim(),
+            progress: rProgress.trim(),
+            delays: rDelays.trim(),
+            safety: rSafety.trim(),
+            materials_used: rMaterials.trim(),
+            employees: rEmployees.trim(),
+            photos: photoPaths,
+          },
+          is_pinned: false,
+        })
+        setRDate(new Date().toISOString().split('T')[0])
+        setRReportedBy('')
+        setRForeman('')
+        setRWeather('')
+        setRProgress('')
+        setRDelays('')
+        setRSafety('')
+        setRMaterials('')
+        setREmployees('')
+        setRFiles([])
+        setRPreviews([])
+        if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = ''
+        setMode('text')
+      }
+
       onPosted()
     } catch (err) {
       console.error('[AddPostPanel] Submit failed:', err)
@@ -127,83 +227,280 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </div>
       )}
 
-      {/* Photo thumbnails strip */}
-      {photoPreviews.length > 0 && (
+      {/* ── Photo upload thumbnail strip ────────────────────────────────────── */}
+      {mode === 'photo' && (
         <div className="px-3 pt-3 pb-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            {photoPreviews.map((url, i) => (
-              <div
-                key={i}
-                className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100"
-              >
-                {photoFiles[i] && isPdf(photoFiles[i]) ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-red-50">
-                    <FileTextIcon className="w-5 h-5 text-red-400" />
-                    <span className="text-[10px] text-red-400 font-medium mt-0.5">PDF</span>
-                  </div>
-                ) : (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                )}
-                <button
-                  onClick={() => removePhoto(i)}
-                  className="absolute top-0.5 right-0.5 bg-black/70 text-white rounded-full p-0.5"
-                >
-                  <XIcon className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*,.pdf,application/pdf"
+            multiple
+            className="hidden"
+            onChange={handlePhotoChange}
+          />
+
+          {photoPreviews.length === 0 ? (
             <button
               onClick={() => photoInputRef.current?.click()}
-              className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-amber-400 hover:text-amber-500 transition"
+              className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium py-1 transition"
             >
-              <PlusIcon className="w-4 h-4" />
-              <span className="text-[10px] mt-0.5">Add</span>
+              <UploadIcon className="w-4 h-4" />
+              Select photos or PDFs to upload
             </button>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              {photoPreviews.map((url, i) => (
+                <div
+                  key={i}
+                  className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100"
+                >
+                  {photoFiles[i] && isPdf(photoFiles[i]) ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-red-50">
+                      <FileTextIcon className="w-5 h-5 text-red-400" />
+                      <span className="text-[10px] text-red-400 font-medium mt-0.5">PDF</span>
+                    </div>
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  )}
+                  <button
+                    onClick={() => removePhoto(i)}
+                    className="absolute top-0.5 right-0.5 bg-black/70 text-white rounded-full p-0.5"
+                  >
+                    <XIcon className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-amber-400 hover:text-amber-500 transition"
+              >
+                <PlusIcon className="w-4 h-4" />
+                <span className="text-[10px] mt-0.5">Add</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Composer bar */}
+      {/* ── Daily report expanded form ──────────────────────────────────────── */}
+      {mode === 'daily_report' && (
+        <div className="px-4 pt-3 pb-2 max-h-[52vh] overflow-y-auto space-y-5">
+
+          {/* Header */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Header</p>
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Project Name</label>
+                <input type="text" value={rProjectName} onChange={(e) => setRProjectName(e.target.value)} className={inputCls} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Date</label>
+                  <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Address</label>
+                  <input type="text" value={rAddress} onChange={(e) => setRAddress(e.target.value)} className={inputCls} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Crew */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Crew</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Reported By</label>
+                <input type="text" value={rReportedBy} onChange={(e) => setRReportedBy(e.target.value)} placeholder="Name" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Project Foreman</label>
+                <input type="text" value={rForeman} onChange={(e) => setRForeman(e.target.value)} placeholder="Name" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Weather</label>
+                <input type="text" value={rWeather} onChange={(e) => setRWeather(e.target.value)} placeholder="e.g. 72°F, clear" className={inputCls} />
+              </div>
+            </div>
+          </div>
+
+          {/* Progress */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Progress</p>
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Progress</label>
+                <textarea rows={3} value={rProgress} onChange={(e) => setRProgress(e.target.value)} placeholder="Describe work completed today..." className={textareaCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Delays</label>
+                <textarea rows={2} value={rDelays} onChange={(e) => setRDelays(e.target.value)} placeholder="Any delays or issues..." className={textareaCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Safety</label>
+                <textarea rows={2} value={rSafety} onChange={(e) => setRSafety(e.target.value)} placeholder="Safety observations, incidents, PPE notes..." className={textareaCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Materials Used</label>
+                <textarea rows={2} value={rMaterials} onChange={(e) => setRMaterials(e.target.value)} placeholder="Epoxy products, quantities, other materials..." className={textareaCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Employees</label>
+                <textarea rows={2} value={rEmployees} onChange={(e) => setREmployees(e.target.value)} placeholder="Names of employees on site today..." className={textareaCls} />
+              </div>
+            </div>
+          </div>
+
+          {/* Photos */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Photos</p>
+            <div
+              onClick={() => reportPhotoInputRef.current?.click()}
+              className="border-2 border-dashed border-gray-200 rounded-lg p-3 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 transition"
+            >
+              <CameraIcon className="w-4 h-4 text-gray-400 mx-auto mb-1" />
+              <p className="text-sm text-gray-500">
+                <span className="font-medium text-amber-600">Add photos or PDFs</span> to this report
+              </p>
+              <input
+                ref={reportPhotoInputRef}
+                type="file"
+                accept="image/*,.pdf,application/pdf"
+                multiple
+                className="hidden"
+                onChange={handleReportPhotoChange}
+              />
+            </div>
+
+            {rPreviews.length > 0 && (
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                {rPreviews.map((url, i) => (
+                  <div key={i} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100">
+                    {rFiles[i] && isPdf(rFiles[i]) ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-red-50">
+                        <FileTextIcon className="w-6 h-6 text-red-400" />
+                        <span className="text-[10px] text-red-400 font-medium mt-0.5">PDF</span>
+                      </div>
+                    ) : (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    )}
+                    <button
+                      onClick={() => removeReportPhoto(i)}
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
+                    >
+                      <XIcon className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
+
+      {/* ── Composer bar ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-3 py-2.5">
-        {/* Hidden file input */}
-        <input
-          ref={photoInputRef}
-          type="file"
-          accept="image/*,.pdf,application/pdf"
-          multiple
-          className="hidden"
-          onChange={handlePhotoChange}
-        />
 
-        {/* Camera / attach button */}
-        <button
-          onClick={() => photoInputRef.current?.click()}
-          className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-amber-600 flex items-center justify-center transition"
-        >
-          <CameraIcon className="w-4 h-4" />
-        </button>
+        {/* + menu button */}
+        <div className="relative flex-shrink-0">
+          <button
+            onClick={() => setShowMenu((v) => !v)}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition ${
+              showMenu
+                ? 'bg-amber-500 text-white'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            <PlusIcon className="w-4 h-4" />
+          </button>
 
-        {/* Text input */}
-        <input
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              handleSubmit()
-            }
-          }}
-          placeholder={photoFiles.length > 0 ? 'Add a caption... (optional)' : 'Write a message...'}
-          className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors"
-        />
+          {showMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+              <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-20 w-44">
+                <button
+                  onClick={() => selectMode('photo')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                    mode === 'photo'
+                      ? 'text-amber-600 bg-amber-50 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <CameraIcon className="w-4 h-4 flex-shrink-0" />
+                  Upload Photos
+                </button>
+                <button
+                  onClick={() => selectMode('daily_report')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                    mode === 'daily_report'
+                      ? 'text-amber-600 bg-amber-50 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
+                  Daily Report
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Input area */}
+        {mode === 'text' && (
+          <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleSubmit()
+              }
+            }}
+            placeholder="Write a message..."
+            className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors"
+          />
+        )}
+
+        {mode === 'photo' && (
+          <input
+            type="text"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            placeholder="Add a caption... (optional)"
+            className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors"
+          />
+        )}
+
+        {mode === 'daily_report' && (
+          <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full border border-amber-200">
+            <ClipboardListIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <span className="text-sm text-amber-700 font-medium truncate">
+              Daily Report — {rDate}
+            </span>
+          </div>
+        )}
+
+        {/* Cancel button for expanded modes */}
+        {(mode === 'photo' || mode === 'daily_report') && (
+          <button
+            onClick={cancelMode}
+            className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Send button */}
         <button
           onClick={handleSubmit}
-          disabled={loading || (!message.trim() && !photoFiles.length)}
-          className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-white flex items-center justify-center transition"
+          disabled={loading}
+          className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white flex items-center justify-center transition"
         >
           <SendIcon className="w-4 h-4" />
         </button>
