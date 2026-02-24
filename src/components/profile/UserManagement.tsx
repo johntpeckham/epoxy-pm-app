@@ -321,10 +321,10 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
                 {user.id !== currentUserId && (
                   <button
                     onClick={() => openEditModal(user)}
-                    className="p-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-amber-600 transition"
-                    title="Edit user"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
                   >
-                    <PencilIcon className="w-4 h-4" />
+                    <PencilIcon className="w-3.5 h-3.5" />
+                    Edit
                   </button>
                 )}
               </div>
