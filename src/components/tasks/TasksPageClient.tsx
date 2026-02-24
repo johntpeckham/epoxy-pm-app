@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
@@ -63,6 +63,46 @@ function formatTimestamp(dateStr: string) {
   })
 }
 
+function formatGroupDate(dateStr: string) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/** Group tasks by project, then by date within each project. */
+function groupByProjectAndDate(tasks: TaskWithProject[]) {
+  const projectMap = new Map<
+    string,
+    { projectName: string; dates: Map<string, TaskWithProject[]> }
+  >()
+
+  for (const task of tasks) {
+    let project = projectMap.get(task.project_id)
+    if (!project) {
+      project = { projectName: task.project_name, dates: new Map() }
+      projectMap.set(task.project_id, project)
+    }
+    const dateKey = task.created_at.slice(0, 10) // YYYY-MM-DD
+    const existing = project.dates.get(dateKey) ?? []
+    existing.push(task)
+    project.dates.set(dateKey, existing)
+  }
+
+  // Sort projects alphabetically, dates newest-first
+  return Array.from(projectMap.entries())
+    .sort(([, a], [, b]) => a.projectName.localeCompare(b.projectName))
+    .map(([projectId, project]) => ({
+      projectId,
+      projectName: project.projectName,
+      dates: Array.from(project.dates.entries())
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([date, tasks]) => ({ date, tasks })),
+    }))
+}
+
 export default function TasksPageClient({
   initialTasks,
   profiles,
@@ -89,6 +129,7 @@ export default function TasksPageClient({
   const [newPhotoPreview, setNewPhotoPreview] = useState<string | null>(null)
   const newPhotoInputRef = useRef<HTMLInputElement>(null)
 
+  const grouped = useMemo(() => groupByProjectAndDate(initialTasks), [initialTasks])
   const profileMap = new Map(profiles.map((p) => [p.id, p]))
 
   function getProfileName(uid: string | null) {
@@ -192,7 +233,8 @@ export default function TasksPageClient({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {initialTasks.length} task{initialTasks.length !== 1 ? 's' : ''} across all projects
+            {initialTasks.length} task{initialTasks.length !== 1 ? 's' : ''} across {grouped.length} project
+            {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
         <button
@@ -206,7 +248,7 @@ export default function TasksPageClient({
         </button>
       </div>
 
-      {/* Task list */}
+      {/* Task list — grouped by project then date */}
       {initialTasks.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -220,61 +262,84 @@ export default function TasksPageClient({
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {initialTasks.map((task) => {
-            const statusCfg = STATUS_CONFIG[task.status]
-            const assignedName = getProfileName(task.assigned_to)
+        <div className="space-y-8">
+          {grouped.map((project) => (
+            <div key={project.projectId}>
+              {/* Project heading */}
+              <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
 
-            return (
-              <button
-                key={task.id}
-                onClick={() => setSelectedTask(task)}
-                className="w-full text-left bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-amber-300 hover:shadow-sm transition group"
-              >
-                <div className="px-5 py-4 flex items-start gap-4">
-                  {/* Photo thumbnail */}
-                  {task.photo_url && (
-                    <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
-                      <Image
-                        src={getPhotoUrl(task.photo_url)}
-                        alt=""
-                        width={56}
-                        height={56}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  {/* Main content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-sm font-semibold text-gray-900">{task.title}</span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.text}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
-                        {statusCfg.label}
+              <div className="space-y-4">
+                {project.dates.map(({ date, tasks }) => (
+                  <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    {/* Date header */}
+                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                      <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
+                      <span className="text-sm text-gray-400">&middot;</span>
+                      <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
+                      <span className="text-xs text-gray-400">
+                        ({tasks.length} task{tasks.length !== 1 ? 's' : ''})
                       </span>
                     </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-0.5">
-                      <span className="text-xs text-gray-500">{task.project_name}</span>
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <UserIcon className="w-3 h-3" />
-                        {assignedName}
-                      </span>
-                      {task.due_date && (
-                        <span className="flex items-center gap-1 text-xs text-gray-500">
-                          <CalendarIcon className="w-3 h-3" />
-                          {formatDate(task.due_date)}
-                        </span>
-                      )}
+
+                    {/* Task cards within this date */}
+                    <div className="divide-y divide-gray-100">
+                      {tasks.map((task) => {
+                        const statusCfg = STATUS_CONFIG[task.status]
+                        const assignedName = getProfileName(task.assigned_to)
+
+                        return (
+                          <button
+                            key={task.id}
+                            onClick={() => setSelectedTask(task)}
+                            className="w-full text-left px-5 py-4 flex items-start gap-4 hover:bg-gray-50 transition-colors"
+                          >
+                            {/* Photo thumbnail */}
+                            {task.photo_url && (
+                              <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
+                                <Image
+                                  src={getPhotoUrl(task.photo_url)}
+                                  alt=""
+                                  width={56}
+                                  height={56}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+
+                            {/* Main content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="text-sm font-semibold text-gray-900">{task.title}</span>
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.text}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+                                  {statusCfg.label}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                                <span className="flex items-center gap-1 text-xs text-gray-500">
+                                  <UserIcon className="w-3 h-3" />
+                                  {assignedName}
+                                </span>
+                                {task.due_date && (
+                                  <span className="flex items-center gap-1 text-xs text-gray-500">
+                                    <CalendarIcon className="w-3 h-3" />
+                                    {formatDate(task.due_date)}
+                                  </span>
+                                )}
+                              </div>
+                              {task.description && (
+                                <p className="text-xs text-gray-400 mt-1 line-clamp-1">{task.description}</p>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })}
                     </div>
-                    {task.description && (
-                      <p className="text-xs text-gray-400 mt-1 line-clamp-1">{task.description}</p>
-                    )}
                   </div>
-                </div>
-              </button>
-            )
-          })}
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

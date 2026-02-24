@@ -87,7 +87,7 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden group relative">
+      <div className="bg-white overflow-hidden group relative">
         {/* Summary row */}
         <button
           onClick={() => setExpanded((v) => !v)}
