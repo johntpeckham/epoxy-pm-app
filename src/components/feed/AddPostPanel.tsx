@@ -3,13 +3,13 @@
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  PlusIcon,
   SendIcon,
   XIcon,
   CameraIcon,
-  MessageSquareIcon,
   ClipboardListIcon,
   UploadIcon,
+  FileTextIcon,
+  PlusIcon,
 } from 'lucide-react'
 import { Project } from '@/types'
 
@@ -28,7 +28,6 @@ const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-w
 
 export default function AddPostPanel({ project, userId, onPosted }: AddPostPanelProps) {
   const [mode, setMode] = useState<Mode>('text')
-  const [showMenu, setShowMenu] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -182,7 +181,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
   function selectMode(m: Mode) {
     setMode(m)
-    setShowMenu(false)
     setError(null)
   }
 
@@ -366,63 +364,45 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </div>
       )}
 
+      {/* ── Action buttons row ────────────────────────────────────────── */}
+      <div className="flex items-center justify-center gap-2 px-3 pt-3 pb-1">
+        <button
+          onClick={() => selectMode('text')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            mode === 'text'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <FileTextIcon className="w-4 h-4" />
+          Plans
+        </button>
+        <button
+          onClick={() => selectMode('daily_report')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            mode === 'daily_report'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <ClipboardListIcon className="w-4 h-4" />
+          Project Report
+        </button>
+        <button
+          onClick={() => selectMode('photo')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            mode === 'photo'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <CameraIcon className="w-4 h-4" />
+          Pictures
+        </button>
+      </div>
+
       {/* ── Composer bar ──────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-3 py-2.5">
-
-        {/* + menu button */}
-        <div className="relative flex-shrink-0">
-          <button
-            onClick={() => setShowMenu((v) => !v)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition ${
-              showMenu
-                ? 'bg-amber-500 text-white'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            <PlusIcon className="w-4 h-4" />
-          </button>
-
-          {showMenu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-              <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-20 w-44">
-                <button
-                  onClick={() => selectMode('text')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                    mode === 'text'
-                      ? 'text-amber-600 bg-amber-50 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <MessageSquareIcon className="w-4 h-4 flex-shrink-0" />
-                  Text Post
-                </button>
-                <button
-                  onClick={() => selectMode('photo')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                    mode === 'photo'
-                      ? 'text-amber-600 bg-amber-50 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <CameraIcon className="w-4 h-4 flex-shrink-0" />
-                  Photo Upload
-                </button>
-                <button
-                  onClick={() => selectMode('daily_report')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                    mode === 'daily_report'
-                      ? 'text-amber-600 bg-amber-50 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
-                  Daily Report
-                </button>
-              </div>
-            </>
-          )}
-        </div>
 
         {/* Input area */}
         {mode === 'text' && (
@@ -455,19 +435,9 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full border border-amber-200">
             <ClipboardListIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />
             <span className="text-sm text-amber-700 font-medium truncate">
-              Daily Report — {rDate}
+              Project Report — {rDate}
             </span>
           </div>
-        )}
-
-        {/* Cancel button for expanded modes */}
-        {(mode === 'photo' || mode === 'daily_report') && (
-          <button
-            onClick={() => { setMode('text'); setError(null) }}
-            className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition"
-          >
-            <XIcon className="w-4 h-4" />
-          </button>
         )}
 
         {/* Send button */}
