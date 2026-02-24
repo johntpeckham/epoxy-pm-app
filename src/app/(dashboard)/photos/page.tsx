@@ -38,7 +38,7 @@ export default async function PhotosPage() {
     })
     .map((row) => {
       const projectName =
-        (row.projects as unknown as { name: string }[] | null)?.[0]?.name ?? 'Unknown Project'
+        (row.projects as unknown as { name: string } | null)?.name ?? 'Unknown Project'
 
       const photos =
         row.post_type === 'photo'
