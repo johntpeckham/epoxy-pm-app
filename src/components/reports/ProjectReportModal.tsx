@@ -277,9 +277,19 @@ export default function ProjectReportModal({
       const html2canvas = (await import('html2canvas-pro')).default
       const { jsPDF } = await import('jspdf')
 
-      // Temporarily show the print-only title for the canvas capture
+      // Temporarily swap inputs for plain-text print values and show title
       const titleEl = formRef.current.querySelector('[data-report-title]') as HTMLElement | null
       if (titleEl) titleEl.style.display = 'block'
+
+      const inputs = formRef.current.querySelectorAll<HTMLElement>('input, textarea')
+      const printValues = formRef.current.querySelectorAll<HTMLElement>('[data-print-value]')
+      inputs.forEach((el) => { el.style.display = 'none' })
+      printValues.forEach((el) => {
+        el.style.display = 'block'
+        el.style.borderBottom = '1px solid #e5e7eb'
+        el.style.padding = '4px 0'
+        el.style.fontSize = '9pt'
+      })
 
       const canvas = await html2canvas(formRef.current, {
         scale: 2,
@@ -287,8 +297,15 @@ export default function ProjectReportModal({
         backgroundColor: '#ffffff',
       })
 
-      // Hide title again after capture
+      // Restore original visibility
       if (titleEl) titleEl.style.display = ''
+      inputs.forEach((el) => { el.style.display = '' })
+      printValues.forEach((el) => {
+        el.style.display = ''
+        el.style.borderBottom = ''
+        el.style.padding = ''
+        el.style.fontSize = ''
+      })
 
       const imgData = canvas.toDataURL('image/png')
       const imgWidth = canvas.width
@@ -374,21 +391,29 @@ export default function ProjectReportModal({
                         <label className="text-xs font-medium text-gray-600 pt-2 text-right">
                           {field.label}
                         </label>
-                        {field.type === 'textarea' ? (
-                          <textarea
-                            value={formData[field.key]}
-                            onChange={(e) => handleChange(field.key, e.target.value)}
-                            rows={3}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none resize-vertical"
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            value={formData[field.key]}
-                            onChange={(e) => handleChange(field.key, e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none"
-                          />
-                        )}
+                        <div className="relative">
+                          {field.type === 'textarea' ? (
+                            <textarea
+                              value={formData[field.key]}
+                              onChange={(e) => handleChange(field.key, e.target.value)}
+                              rows={3}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none resize-vertical"
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              value={formData[field.key]}
+                              onChange={(e) => handleChange(field.key, e.target.value)}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none"
+                            />
+                          )}
+                          <div
+                            data-print-value
+                            className="hidden text-sm text-gray-900 py-2 whitespace-pre-wrap"
+                          >
+                            {formData[field.key] || '\u00A0'}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>

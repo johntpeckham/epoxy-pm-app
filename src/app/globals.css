@@ -75,14 +75,22 @@ body {
     font-size: 9pt !important;
   }
 
+  /* Hide actual input/textarea elements when printing */
   [data-report-form] input,
   [data-report-form] textarea {
-    border: 1px solid #d1d5db !important;
-    border-radius: 4px !important;
+    display: none !important;
+  }
+
+  /* Show the plain-text print value divs */
+  [data-report-form] [data-print-value] {
+    display: block !important;
     font-size: 9pt !important;
-    padding: 4px 6px !important;
-    background: white !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+    padding: 4px 0 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    min-height: 1.4em !important;
+    text-align: left !important;
+    color: #111827 !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
   }
 }
