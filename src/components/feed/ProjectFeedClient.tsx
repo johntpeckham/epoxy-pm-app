@@ -38,16 +38,25 @@ export default function ProjectFeedClient({
     const supabase = createClient()
     const { data } = await supabase
       .from('feed_posts')
-      .select('*, profiles:user_id(display_name, avatar_url)')
+      .select('*')
       .eq('project_id', project.id)
       .order('created_at', { ascending: true })
 
     if (data) {
+      // Fetch profiles for all post authors
+      const userIds = [...new Set(data.map((p) => p.user_id))]
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url')
+        .in('id', userIds)
+      const profileMap = new Map(
+        (profiles ?? []).map((p: { id: string; display_name: string | null; avatar_url: string | null }) => [p.id, p])
+      )
+
       const enriched = data.map((post) => {
-        const profile = post.profiles as { display_name: string | null; avatar_url: string | null } | null
+        const profile = profileMap.get(post.user_id)
         return {
           ...post,
-          profiles: undefined,
           author_name: profile?.display_name ?? post.author_name,
           author_avatar_url: profile?.avatar_url ?? undefined,
         } as FeedPost
