@@ -28,17 +28,45 @@ const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-w
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+function toDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function isWeekend(d: Date): boolean {
+  return d.getDay() === 0 || d.getDay() === 6
+}
+
+/** Advance to next weekday if the date falls on a weekend. */
+function skipToWeekday(d: Date): Date {
+  const r = new Date(d)
+  while (isWeekend(r)) r.setDate(r.getDate() + 1)
+  return r
+}
+
+/**
+ * Calculate end date from start + duration.
+ * When includeWeekends is false, the start date is snapped to the next weekday
+ * and only weekdays are counted.
+ */
 function addBusinessDays(start: string, days: number, includeWeekends: boolean): string {
   const d = new Date(start + 'T12:00:00')
-  let remaining = days - 1 // start date counts as day 1
-  if (remaining <= 0) return start
-  while (remaining > 0) {
-    d.setDate(d.getDate() + 1)
-    if (includeWeekends || (d.getDay() !== 0 && d.getDay() !== 6)) {
-      remaining--
-    }
+
+  if (includeWeekends) {
+    d.setDate(d.getDate() + days - 1)
+    return toDateStr(d)
   }
-  return d.toISOString().slice(0, 10)
+
+  // Snap start to a weekday
+  const cur = skipToWeekday(d)
+  let remaining = days - 1 // start date counts as day 1
+  while (remaining > 0) {
+    cur.setDate(cur.getDate() + 1)
+    if (!isWeekend(cur)) remaining--
+  }
+  return toDateStr(cur)
 }
 
 function countDuration(start: string, end: string, includeWeekends: boolean): number {
@@ -47,19 +75,17 @@ function countDuration(start: string, end: string, includeWeekends: boolean): nu
   let count = 0
   const cur = new Date(s)
   while (cur <= e) {
-    if (includeWeekends || (cur.getDay() !== 0 && cur.getDay() !== 6)) {
-      count++
-    }
+    if (includeWeekends || !isWeekend(cur)) count++
     cur.setDate(cur.getDate() + 1)
   }
   return Math.max(count, 1)
 }
 
 /** FullCalendar end dates are exclusive, so add 1 day for display. */
-function fcEndDate(endDate: string): string {
+function fcEndDateExclusive(endDate: string): string {
   const d = new Date(endDate + 'T12:00:00')
   d.setDate(d.getDate() + 1)
-  return d.toISOString().slice(0, 10)
+  return toDateStr(d)
 }
 
 function formatDisplayDate(dateStr: string) {
@@ -69,6 +95,62 @@ function formatDisplayDate(dateStr: string) {
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+interface FCEvent {
+  id: string
+  title: string
+  start: string
+  end: string
+  backgroundColor: string
+  borderColor: string
+  extendedProps: CalendarEvent
+}
+
+/**
+ * For events that exclude weekends, split the date range into per-week
+ * Mon–Fri segments so FullCalendar never draws a bar through Sat/Sun.
+ */
+function eventToFCEvents(evt: CalendarEvent): FCEvent[] {
+  const color = evt.color || PRESET_COLORS[0].value
+  const base = { title: evt.project_name, backgroundColor: color, borderColor: color, extendedProps: evt }
+
+  if (evt.include_weekends) {
+    return [{ id: evt.id, ...base, start: evt.start_date, end: fcEndDateExclusive(evt.end_date) }]
+  }
+
+  const segments: FCEvent[] = []
+  const endDate = new Date(evt.end_date + 'T12:00:00')
+
+  let segStart = skipToWeekday(new Date(evt.start_date + 'T12:00:00'))
+
+  while (segStart <= endDate) {
+    // Find Friday of this week
+    const dayOfWeek = segStart.getDay() // 1=Mon .. 5=Fri
+    const daysUntilFri = 5 - dayOfWeek
+    const friday = new Date(segStart)
+    if (daysUntilFri > 0) friday.setDate(friday.getDate() + daysUntilFri)
+
+    // Segment ends at Friday or the event end date, whichever is earlier
+    const segEnd = friday <= endDate ? friday : endDate
+
+    // Only add if segment end is a weekday
+    if (!isWeekend(segEnd)) {
+      segments.push({
+        id: evt.id + (segments.length > 0 ? `-${segments.length}` : ''),
+        ...base,
+        start: toDateStr(segStart),
+        end: fcEndDateExclusive(toDateStr(segEnd)),
+      })
+    }
+
+    // Advance past the weekend to next Monday
+    const nextMon = new Date(segEnd)
+    nextMon.setDate(nextMon.getDate() + 1)
+    segStart = skipToWeekday(nextMon)
+  }
+
+  return segments
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -106,18 +188,9 @@ export default function CalendarPageClient({ initialEvents, userId }: CalendarPa
     [formStartDate, formDuration, formIncludeWeekends],
   )
 
-  // Map DB events to FullCalendar events
+  // Map DB events to FullCalendar events, splitting weekday-only events into Mon–Fri segments
   const fcEvents = useMemo(
-    () =>
-      initialEvents.map((evt) => ({
-        id: evt.id,
-        title: evt.project_name,
-        start: evt.start_date,
-        end: fcEndDate(evt.end_date),
-        backgroundColor: evt.color || PRESET_COLORS[0].value,
-        borderColor: evt.color || PRESET_COLORS[0].value,
-        extendedProps: evt,
-      })),
+    () => initialEvents.flatMap((evt) => eventToFCEvents(evt)),
     [initialEvents],
   )
 
