@@ -16,10 +16,11 @@ export interface ProjectDocument {
   id: string
   project_id: string
   user_id: string
-  category: DocumentCategory
+  bucket: string
+  file_path: string
   file_name: string
-  storage_path: string
-  file_size: number | null
+  file_type: string
+  document_type: string
   created_at: string
 }
 
