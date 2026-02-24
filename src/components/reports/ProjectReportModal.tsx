@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { XIcon, Loader2Icon } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { XIcon, Loader2Icon, PrinterIcon, FileDownIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ProjectReportData } from '@/types'
 
@@ -194,8 +194,10 @@ export default function ProjectReportModal({
   const [formData, setFormData] = useState<ProjectReportData>(emptyReport)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState(false)
+  const formRef = useRef<HTMLDivElement>(null)
 
   const loadReport = useCallback(async () => {
     const supabase = createClient()
@@ -248,15 +250,70 @@ export default function ProjectReportModal({
     setSaving(false)
   }
 
+  function handlePrint() {
+    window.print()
+  }
+
+  async function handleSavePdf() {
+    if (!formRef.current) return
+    setGeneratingPdf(true)
+    try {
+      const html2canvas = (await import('html2canvas-pro')).default
+      const { jsPDF } = await import('jspdf')
+
+      const canvas = await html2canvas(formRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      const imgWidth = canvas.width
+      const imgHeight = canvas.height
+
+      const pdf = new jsPDF({
+        orientation: imgWidth > imgHeight ? 'landscape' : 'portrait',
+        unit: 'pt',
+        format: 'letter',
+      })
+
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const margin = 28
+      const contentWidth = pageWidth - margin * 2
+      const scaledHeight = (imgHeight * contentWidth) / imgWidth
+      let yOffset = 0
+
+      while (yOffset < scaledHeight) {
+        if (yOffset > 0) pdf.addPage()
+        pdf.addImage(
+          imgData,
+          'PNG',
+          margin,
+          margin - yOffset,
+          contentWidth,
+          scaledHeight
+        )
+        yOffset += pageHeight - margin * 2
+      }
+
+      const safeName = projectName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim()
+      pdf.save(`${safeName} - Project Report.pdf`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate PDF')
+    }
+    setGeneratingPdf(false)
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+    <div data-report-print className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div data-report-overlay className="absolute inset-0 bg-black/60" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div data-report-modal className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+        <div data-report-header className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0 print:hidden">
           <div>
             <h2 className="text-base font-bold text-gray-900">Project Report</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
@@ -270,13 +327,13 @@ export default function ProjectReportModal({
         </div>
 
         {/* Scrollable body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5">
+        <div data-report-body className="overflow-y-auto flex-1 px-6 py-5 print:overflow-visible">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
             </div>
           ) : (
-            <div className="space-y-6">
+            <div ref={formRef} data-report-form className="space-y-6 print:space-y-4">
               {sections.map((section) => (
                 <div key={section.title}>
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
@@ -316,10 +373,26 @@ export default function ProjectReportModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+        <div data-report-footer className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0 print:hidden">
           {error && <p className="text-xs text-red-600 flex-1">{error}</p>}
           {savedMsg && <p className="text-xs text-green-600 flex-1">Saved successfully</p>}
           {!error && !savedMsg && <div className="flex-1" />}
+          <button
+            onClick={handlePrint}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
+          >
+            <PrinterIcon className="w-4 h-4" />
+            Print
+          </button>
+          <button
+            onClick={handleSavePdf}
+            disabled={loading || generatingPdf}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
+          >
+            <FileDownIcon className="w-4 h-4" />
+            {generatingPdf ? 'Generating...' : 'Save as PDF'}
+          </button>
           <button
             onClick={onClose}
             className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
