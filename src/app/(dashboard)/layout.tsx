@@ -16,9 +16,19 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name, avatar_url')
+    .eq('id', user.id)
+    .single()
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar userEmail={user.email} />
+      <Sidebar
+        userEmail={user.email}
+        displayName={profile?.display_name ?? undefined}
+        avatarUrl={profile?.avatar_url ?? undefined}
+      />
       {/* Desktop: offset for sidebar */}
       <div className="lg:pl-56 pt-14 lg:pt-0">
         <main className="min-h-screen">

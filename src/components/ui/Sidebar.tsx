@@ -2,15 +2,18 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
 
 interface SidebarProps {
   userEmail?: string
+  displayName?: string
+  avatarUrl?: string
 }
 
-export default function Sidebar({ userEmail }: SidebarProps) {
+export default function Sidebar({ userEmail, displayName, avatarUrl }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -24,6 +27,10 @@ export default function Sidebar({ userEmail }: SidebarProps) {
   const isJobsActive = pathname === '/jobs' || pathname.startsWith('/projects')
   const isReportsActive = pathname === '/daily-reports'
   const isPhotosActive = pathname === '/photos'
+  const isProfileActive = pathname === '/profile'
+
+  const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
+  const userName = displayName || userEmail?.split('@')[0] || 'User'
 
   const navContent = (
     <div className="flex flex-col h-full">
@@ -81,13 +88,37 @@ export default function Sidebar({ userEmail }: SidebarProps) {
         </Link>
       </nav>
 
-      {/* User / Sign Out */}
+      {/* User / Profile / Sign Out */}
       <div className="px-3 py-4 border-t border-gray-800">
-        {userEmail && (
-          <div className="px-3 py-2 mb-2">
-            <p className="text-gray-500 text-xs truncate">{userEmail}</p>
+        <Link
+          href="/profile"
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full mb-1 ${
+            isProfileActive
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}
+        >
+          <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt="Avatar"
+                width={28}
+                height={28}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-[10px] font-bold text-white">{initials}</span>
+            )}
           </div>
-        )}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium truncate leading-tight">{userName}</p>
+            {userEmail && displayName && (
+              <p className="text-gray-500 text-xs truncate leading-tight">{userEmail}</p>
+            )}
+          </div>
+        </Link>
         <button
           onClick={handleSignOut}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800 transition-colors w-full"
@@ -102,22 +133,39 @@ export default function Sidebar({ userEmail }: SidebarProps) {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-black border-b border-gray-800 flex items-center px-4 h-14">
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="text-gray-400 hover:text-white p-1"
-          aria-label="Open menu"
-        >
-          <MenuIcon className="w-6 h-6" />
-        </button>
-        <div className="flex items-center gap-2 ml-3">
-          <div className="w-7 h-7 bg-amber-500 rounded-md flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-black border-b border-gray-800 flex items-center justify-between px-4 h-14">
+        <div className="flex items-center">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="text-gray-400 hover:text-white p-1"
+            aria-label="Open menu"
+          >
+            <MenuIcon className="w-6 h-6" />
+          </button>
+          <div className="flex items-center gap-2 ml-3">
+            <div className="w-7 h-7 bg-amber-500 rounded-md flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <span className="text-white font-semibold text-sm">Peckham Coatings</span>
           </div>
-          <span className="text-white font-semibold text-sm">Peckham Coatings</span>
         </div>
+        <Link href="/profile" className="flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt="Avatar"
+                width={32}
+                height={32}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-[10px] font-bold text-white">{initials}</span>
+            )}
+          </div>
+        </Link>
       </div>
 
       {/* Mobile overlay */}

@@ -50,10 +50,20 @@ function getInitials(email: string) {
 }
 
 // ── Avatar ─────────────────────────────────────────────────────────────────────
-function Avatar({ initials }: { initials: string }) {
+function Avatar({ initials, avatarUrl }: { initials: string; avatarUrl?: string }) {
   return (
-    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center mt-0.5">
-      <span className="text-xs font-bold text-white tracking-wide">{initials}</span>
+    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center mt-0.5 overflow-hidden">
+      {avatarUrl ? (
+        <Image
+          src={avatarUrl}
+          alt="Avatar"
+          width={36}
+          height={36}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <span className="text-xs font-bold text-white tracking-wide">{initials}</span>
+      )}
     </div>
   )
 }
@@ -330,7 +340,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
         }`}
       >
         {/* Avatar */}
-        <Avatar initials={initials} />
+        <Avatar initials={initials} avatarUrl={post.author_avatar_url} />
 
         {/* Content column */}
         <div className="flex-1 min-w-0">
