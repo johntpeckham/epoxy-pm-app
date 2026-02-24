@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -13,8 +13,11 @@ import {
   XIcon,
   DownloadIcon,
   ChevronDownIcon,
+  CheckSquareIcon,
+  UserIcon,
+  CalendarIcon,
 } from 'lucide-react'
-import { FeedPost, TextContent, PhotoContent, DailyReportContent } from '@/types'
+import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, TaskStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
 
@@ -191,6 +194,153 @@ function DailyReportPost({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Task post content card ──────────────────────────────────────────────────
+const TASK_STATUS_CONFIG: Record<TaskStatus, { label: string; bg: string; text: string; dot: string }> = {
+  in_progress: { label: 'In Progress', bg: 'bg-yellow-100', text: 'text-yellow-800', dot: 'bg-yellow-500' },
+  completed: { label: 'Completed', bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
+  unable_to_complete: { label: 'Unable to Complete', bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
+}
+
+const TASK_STATUS_ORDER: TaskStatus[] = ['in_progress', 'completed', 'unable_to_complete']
+
+function TaskPost({
+  content,
+  postId,
+  onUpdated,
+}: {
+  content: TaskContent
+  postId: string
+  onUpdated?: () => void
+}) {
+  const supabase = createClient()
+  const [status, setStatus] = useState<TaskStatus>(content.status)
+  const [updating, setUpdating] = useState(false)
+  const [assignedName, setAssignedName] = useState<string | null>(null)
+
+  // Fetch assigned user's display name
+  useEffect(() => {
+    if (!content.assigned_to) return
+    supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', content.assigned_to)
+      .single()
+      .then(({ data }) => {
+        setAssignedName(data?.display_name || content.assigned_to?.slice(0, 8) || null)
+      })
+  }, [content.assigned_to]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleStatusChange(newStatus: TaskStatus) {
+    if (newStatus === status || updating) return
+    setUpdating(true)
+
+    // Update the task record
+    const { error: taskErr } = await supabase
+      .from('tasks')
+      .update({ status: newStatus })
+      .eq('id', content.task_id)
+    if (taskErr) {
+      console.error('[TaskPost] Failed to update task status:', taskErr)
+      setUpdating(false)
+      return
+    }
+
+    // Update the feed post content to keep it in sync
+    await supabase
+      .from('feed_posts')
+      .update({ content: { ...content, status: newStatus } })
+      .eq('id', postId)
+
+    setStatus(newStatus)
+    setUpdating(false)
+    onUpdated?.()
+  }
+
+  const photoUrl = content.photo_url
+    ? supabase.storage.from('post-photos').getPublicUrl(content.photo_url).data.publicUrl
+    : null
+
+  const dueDateLabel = content.due_date
+    ? new Date(content.due_date + 'T12:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null
+
+  return (
+    <div className="mt-1.5 border border-blue-200 rounded-xl overflow-hidden bg-white">
+      <div className="px-3.5 py-3 bg-blue-50 flex items-center gap-2.5">
+        <CheckSquareIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-blue-900">Task</span>
+        <span className="text-sm text-gray-400">—</span>
+        <span className="text-sm font-medium text-gray-800 truncate">{content.title}</span>
+      </div>
+
+      <div className="p-3.5 space-y-3 border-t border-blue-200">
+        {/* Description */}
+        {content.description && (
+          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+            {content.description}
+          </p>
+        )}
+
+        {/* Photo thumbnail */}
+        {photoUrl && (
+          <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="block">
+            <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
+              <Image
+                src={photoUrl}
+                alt="Task photo"
+                fill
+                className="object-cover hover:opacity-90 transition"
+                sizes="60px"
+              />
+            </div>
+          </a>
+        )}
+
+        {/* Meta row: assigned user + due date */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+          <span className="flex items-center gap-1">
+            <UserIcon className="w-3 h-3" />
+            {assignedName || (content.assigned_to ? content.assigned_to.slice(0, 8) : 'Unassigned')}
+          </span>
+          {dueDateLabel && (
+            <span className="flex items-center gap-1">
+              <CalendarIcon className="w-3 h-3" />
+              {dueDateLabel}
+            </span>
+          )}
+        </div>
+
+        {/* Clickable status badges */}
+        <div className="flex gap-1.5">
+          {TASK_STATUS_ORDER.map((s) => {
+            const cfg = TASK_STATUS_CONFIG[s]
+            const isActive = s === status
+            return (
+              <button
+                key={s}
+                onClick={() => handleStatusChange(s)}
+                disabled={updating}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition disabled:opacity-60 ${
+                  isActive
+                    ? `${cfg.bg} ${cfg.text} ring-1 ring-current`
+                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? cfg.dot : 'bg-gray-300'}`} />
+                {cfg.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -456,6 +606,15 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
             <CollapsibleDailyReport
               content={post.content as DailyReportContent}
               photoUrls={reportPhotoUrls}
+            />
+          )}
+
+          {/* ── Task ────────────────────────────────────────────────────────── */}
+          {post.post_type === 'task' && (
+            <TaskPost
+              content={post.content as TaskContent}
+              postId={post.id}
+              onUpdated={onUpdated}
             />
           )}
         </div>

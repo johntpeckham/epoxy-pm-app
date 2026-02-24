@@ -256,7 +256,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           photoUrl = paths[0]
         }
 
-        const { error: insertErr } = await supabase.from('tasks').insert({
+        const { data: taskData, error: insertErr } = await supabase.from('tasks').insert({
           project_id: project.id,
           created_by: userId,
           assigned_to: taskAssignedTo || null,
@@ -265,8 +265,25 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           status: taskStatus,
           photo_url: photoUrl,
           due_date: taskDueDate || null,
-        })
+        }).select().single()
         if (insertErr) throw insertErr
+
+        // Also create a feed post so the task appears in the chat feed
+        await supabase.from('feed_posts').insert({
+          project_id: project.id,
+          user_id: userId,
+          post_type: 'task',
+          content: {
+            task_id: taskData.id,
+            title: taskData.title,
+            description: taskData.description,
+            status: taskData.status,
+            assigned_to: taskData.assigned_to,
+            due_date: taskData.due_date,
+            photo_url: taskData.photo_url,
+          },
+          is_pinned: false,
+        })
 
         setTaskTitle('')
         setTaskDescription('')

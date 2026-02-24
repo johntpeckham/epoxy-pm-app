@@ -102,7 +102,7 @@ export interface ProjectReport {
   created_at: string
 }
 
-export type PostType = 'text' | 'photo' | 'daily_report'
+export type PostType = 'text' | 'photo' | 'daily_report' | 'task'
 
 export interface TextContent {
   message: string
@@ -132,7 +132,17 @@ export interface DailyReportContent {
   photos: string[] // storage paths
 }
 
-export type PostContent = TextContent | PhotoContent | DailyReportContent
+export interface TaskContent {
+  task_id: string
+  title: string
+  description: string
+  status: TaskStatus
+  assigned_to: string | null
+  due_date: string | null
+  photo_url: string | null
+}
+
+export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent
 
 export interface FeedPost {
   id: string
