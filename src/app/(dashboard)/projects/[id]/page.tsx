@@ -24,16 +24,26 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   if (!project) notFound()
 
-  const { data: posts } = await supabase
+  const { data: rawPosts } = await supabase
     .from('feed_posts')
-    .select('*')
+    .select('*, profiles:user_id(display_name, avatar_url)')
     .eq('project_id', id)
     .order('created_at', { ascending: true })
+
+  const posts = (rawPosts ?? []).map((post) => {
+    const profile = post.profiles as { display_name: string | null; avatar_url: string | null } | null
+    return {
+      ...post,
+      profiles: undefined,
+      author_name: profile?.display_name ?? undefined,
+      author_avatar_url: profile?.avatar_url ?? undefined,
+    }
+  })
 
   return (
     <ProjectFeedClient
       project={project as Project}
-      initialPosts={(posts as FeedPost[]) ?? []}
+      initialPosts={posts as FeedPost[]}
       userId={user.id}
     />
   )

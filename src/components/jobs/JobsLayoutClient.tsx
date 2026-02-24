@@ -87,10 +87,19 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     const supabase = createClient()
     const { data } = await supabase
       .from('feed_posts')
-      .select('*')
+      .select('*, profiles:user_id(display_name, avatar_url)')
       .eq('project_id', project.id)
       .order('created_at', { ascending: true })
-    setFeedPosts((data as FeedPost[]) ?? [])
+    const enriched = (data ?? []).map((post) => {
+      const profile = post.profiles as { display_name: string | null; avatar_url: string | null } | null
+      return {
+        ...post,
+        profiles: undefined,
+        author_name: profile?.display_name ?? post.author_name,
+        author_avatar_url: profile?.avatar_url ?? undefined,
+      } as FeedPost
+    })
+    setFeedPosts(enriched)
     setFeedLoading(false)
   }
 

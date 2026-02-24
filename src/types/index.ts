@@ -144,4 +144,12 @@ export interface FeedPost {
   created_at: string
   author_email?: string
   author_name?: string
+  author_avatar_url?: string
+}
+
+export interface Profile {
+  id: string
+  display_name: string | null
+  avatar_url: string | null
+  updated_at: string
 }
