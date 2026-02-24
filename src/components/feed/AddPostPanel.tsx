@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   SendIcon,
@@ -10,10 +10,11 @@ import {
   UploadIcon,
   FileTextIcon,
   PlusIcon,
+  CheckSquareIcon,
 } from 'lucide-react'
-import { Project } from '@/types'
+import { Project, TaskStatus, Profile } from '@/types'
 
-type Mode = 'text' | 'photo' | 'daily_report'
+type Mode = 'text' | 'photo' | 'daily_report' | 'task'
 
 interface AddPostPanelProps {
   project: Project
@@ -25,6 +26,12 @@ const inputCls =
   'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
 const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
+
+const STATUS_OPTIONS: { value: TaskStatus; label: string; color: string; activeColor: string }[] = [
+  { value: 'in_progress', label: 'In Progress', color: 'border-yellow-300 text-yellow-700 bg-yellow-50', activeColor: 'border-yellow-500 bg-yellow-500 text-white' },
+  { value: 'completed', label: 'Completed', color: 'border-green-300 text-green-700 bg-green-50', activeColor: 'border-green-500 bg-green-500 text-white' },
+  { value: 'unable_to_complete', label: 'Unable to Complete', color: 'border-red-300 text-red-700 bg-red-50', activeColor: 'border-red-500 bg-red-500 text-white' },
+]
 
 export default function AddPostPanel({ project, userId, onPosted }: AddPostPanelProps) {
   const [mode, setMode] = useState<Mode>('text')
@@ -57,6 +64,32 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [rFiles, setRFiles] = useState<File[]>([])
   const [rPreviews, setRPreviews] = useState<string[]>([])
   const reportPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // ── Task ─────────────────────────────────────────────────────────────────
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDescription, setTaskDescription] = useState('')
+  const [taskAssignedTo, setTaskAssignedTo] = useState('')
+  const [taskStatus, setTaskStatus] = useState<TaskStatus>('in_progress')
+  const [taskDueDate, setTaskDueDate] = useState('')
+  const [taskPhotoFile, setTaskPhotoFile] = useState<File | null>(null)
+  const [taskPhotoPreview, setTaskPhotoPreview] = useState<string | null>(null)
+  const taskPhotoInputRef = useRef<HTMLInputElement>(null)
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [profilesLoaded, setProfilesLoaded] = useState(false)
+
+  // Fetch profiles when task mode is activated
+  useEffect(() => {
+    if (mode === 'task' && !profilesLoaded) {
+      const supabase = createClient()
+      supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, updated_at')
+        .then(({ data }) => {
+          setProfiles((data as Profile[]) ?? [])
+          setProfilesLoaded(true)
+        })
+    }
+  }, [mode, profilesLoaded])
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function isPdf(file: File) {
@@ -97,6 +130,19 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   function removeReportPhoto(i: number) {
     setRFiles((p) => p.filter((_, idx) => idx !== i))
     setRPreviews((p) => p.filter((_, idx) => idx !== i))
+  }
+
+  function handleTaskPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setTaskPhotoFile(file)
+    setTaskPhotoPreview(URL.createObjectURL(file))
+    e.target.value = ''
+  }
+
+  function removeTaskPhoto() {
+    setTaskPhotoFile(null)
+    setTaskPhotoPreview(null)
   }
 
   // ── Upload helper ──────────────────────────────────────────────────────────
@@ -198,6 +244,37 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setRFiles([])
         setRPreviews([])
         if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = ''
+        setMode('text')
+      }
+
+      if (mode === 'task') {
+        if (!taskTitle.trim()) throw new Error('Please enter a task title')
+
+        let photoUrl: string | null = null
+        if (taskPhotoFile) {
+          const paths = await uploadFiles([taskPhotoFile], 'tasks')
+          photoUrl = paths[0]
+        }
+
+        const { error: insertErr } = await supabase.from('tasks').insert({
+          project_id: project.id,
+          created_by: userId,
+          assigned_to: taskAssignedTo || null,
+          title: taskTitle.trim(),
+          description: taskDescription.trim(),
+          status: taskStatus,
+          photo_url: photoUrl,
+          due_date: taskDueDate || null,
+        })
+        if (insertErr) throw insertErr
+
+        setTaskTitle('')
+        setTaskDescription('')
+        setTaskAssignedTo('')
+        setTaskStatus('in_progress')
+        setTaskDueDate('')
+        setTaskPhotoFile(null)
+        setTaskPhotoPreview(null)
         setMode('text')
       }
 
@@ -403,6 +480,120 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </div>
       )}
 
+      {/* ── Task creation form ────────────────────────────────────────────────── */}
+      {mode === 'task' && (
+        <div className="px-4 pt-3 pb-2 max-h-[52vh] overflow-y-auto space-y-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">New Task</p>
+
+          {/* Title */}
+          <div>
+            <label className={labelCls}>Title *</label>
+            <input
+              type="text"
+              value={taskTitle}
+              onChange={(e) => setTaskTitle(e.target.value)}
+              placeholder="Task title..."
+              className={inputCls}
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className={labelCls}>Description</label>
+            <textarea
+              rows={3}
+              value={taskDescription}
+              onChange={(e) => setTaskDescription(e.target.value)}
+              placeholder="Task details..."
+              className={textareaCls}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Assign To */}
+            <div>
+              <label className={labelCls}>Assign To</label>
+              <select
+                value={taskAssignedTo}
+                onChange={(e) => setTaskAssignedTo(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Unassigned</option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.display_name || p.id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Due Date */}
+            <div>
+              <label className={labelCls}>Due Date</label>
+              <input
+                type="date"
+                value={taskDueDate}
+                onChange={(e) => setTaskDueDate(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className={labelCls}>Status</label>
+            <div className="flex gap-2">
+              {STATUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setTaskStatus(opt.value)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition ${
+                    taskStatus === opt.value ? opt.activeColor : opt.color
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Photo */}
+          <div>
+            <label className={labelCls}>Photo</label>
+            <input
+              ref={taskPhotoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleTaskPhotoChange}
+            />
+            {taskPhotoPreview ? (
+              <div className="relative inline-block">
+                <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={taskPhotoPreview} alt="" className="w-full h-full object-cover" />
+                </div>
+                <button
+                  onClick={removeTaskPhoto}
+                  className="absolute -top-1.5 -right-1.5 bg-black/70 text-white rounded-full p-0.5"
+                >
+                  <XIcon className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => taskPhotoInputRef.current?.click()}
+                className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium py-1 transition"
+              >
+                <CameraIcon className="w-4 h-4" />
+                Add photo
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Composer bar ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-3 py-2.5">
 
@@ -445,6 +636,17 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                   <ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
                   Daily Report
                 </button>
+                <button
+                  onClick={() => selectMode('task')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                    mode === 'task'
+                      ? 'text-amber-600 bg-amber-50 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <CheckSquareIcon className="w-4 h-4 flex-shrink-0" />
+                  Task
+                </button>
               </div>
             </>
           )}
@@ -486,8 +688,17 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           </div>
         )}
 
+        {mode === 'task' && (
+          <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full border border-amber-200">
+            <CheckSquareIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <span className="text-sm text-amber-700 font-medium truncate">
+              New Task{taskTitle ? ` — ${taskTitle}` : ''}
+            </span>
+          </div>
+        )}
+
         {/* Cancel button for expanded modes */}
-        {(mode === 'photo' || mode === 'daily_report') && (
+        {(mode === 'photo' || mode === 'daily_report' || mode === 'task') && (
           <button
             onClick={cancelMode}
             className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition"
