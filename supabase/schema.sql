@@ -19,7 +19,7 @@ create table if not exists feed_posts (
   id uuid default uuid_generate_v4() primary key,
   project_id uuid not null references projects(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  post_type text not null check (post_type in ('text', 'photo', 'daily_report')),
+  post_type text not null check (post_type in ('text', 'photo', 'daily_report', 'task')),
   content jsonb not null default '{}',
   is_pinned boolean not null default false,
   created_at timestamptz default now() not null
