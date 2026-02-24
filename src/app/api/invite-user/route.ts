@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   // Verify the requesting user is an admin
@@ -27,22 +26,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Email is required' }, { status: 400 })
   }
 
-  // Use service role key to invite user
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceRoleKey) {
     return NextResponse.json({ error: 'Server configuration error: missing service role key' }, { status: 500 })
   }
 
-  const adminSupabase = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceRoleKey,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  // Call Supabase Auth Admin API directly with service role key as Bearer token
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/invite`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': serviceRoleKey,
+      'Authorization': `Bearer ${serviceRoleKey}`,
+    },
+    body: JSON.stringify({ email }),
+  })
 
-  const { error } = await adminSupabase.auth.admin.inviteUserByEmail(email)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({ msg: 'Failed to invite user' }))
+    return NextResponse.json({ error: result.msg || result.message || 'Failed to invite user' }, { status: response.status })
   }
 
   return NextResponse.json({ success: true })
