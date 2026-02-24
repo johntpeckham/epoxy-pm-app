@@ -12,6 +12,8 @@ import {
   CheckIcon,
   XIcon,
   DownloadIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from 'lucide-react'
 import { FeedPost, TextContent, PhotoContent, DailyReportContent } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -70,35 +72,21 @@ function PhotoPost({ content }: { content: PhotoContent }) {
       {content.caption && (
         <p className="text-sm text-gray-700 mb-2">{content.caption}</p>
       )}
-      {urls.length === 1 ? (
-        <a href={urls[0]} target="_blank" rel="noopener noreferrer" className="block max-w-[260px]">
-          <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
-            <Image
-              src={urls[0]}
-              alt="Photo"
-              fill
-              className="object-cover hover:opacity-90 transition"
-              sizes="260px"
-            />
-          </div>
-        </a>
-      ) : (
-        <div className="grid grid-cols-5 gap-1">
-          {urls.map((url, i) => (
-            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-              <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                <Image
-                  src={url}
-                  alt={`Photo ${i + 1}`}
-                  fill
-                  className="object-cover hover:opacity-90 transition"
-                  sizes="72px"
-                />
-              </div>
-            </a>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-1">
+        {urls.map((url, i) => (
+          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+            <div className="relative w-[60px] h-[60px] rounded-md overflow-hidden bg-gray-100">
+              <Image
+                src={url}
+                alt={`Photo ${i + 1}`}
+                fill
+                className="object-cover hover:opacity-90 transition"
+                sizes="60px"
+              />
+            </div>
+          </a>
+        ))}
+      </div>
     </div>
   )
 }
@@ -193,35 +181,21 @@ function DailyReportPost({
             <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
               Photos ({photoUrls.length})
             </p>
-            {photoUrls.length === 1 ? (
-              <a href={photoUrls[0]} target="_blank" rel="noopener noreferrer" className="block max-w-[200px]">
-                <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                  <Image
-                    src={photoUrls[0]}
-                    alt="Report photo"
-                    fill
-                    className="object-cover hover:opacity-90 transition"
-                    sizes="200px"
-                  />
-                </div>
-              </a>
-            ) : (
-              <div className="grid grid-cols-5 gap-1">
-                {photoUrls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                    <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
-                      <Image
-                        src={url}
-                        alt={`Report photo ${i + 1}`}
-                        fill
-                        className="object-cover hover:opacity-90 transition"
-                        sizes="64px"
-                      />
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-1">
+              {photoUrls.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                  <div className="relative w-[60px] h-[60px] rounded-md overflow-hidden bg-amber-50">
+                    <Image
+                      src={url}
+                      alt={`Report photo ${i + 1}`}
+                      fill
+                      className="object-cover hover:opacity-90 transition"
+                      sizes="60px"
+                    />
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -236,6 +210,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditReport, setShowEditReport] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [reportExpanded, setReportExpanded] = useState(false)
 
   // Inline text editing
   const [editingText, setEditingText] = useState(false)
@@ -427,10 +402,45 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
           {/* ── Daily report ───────────────────────────────────────────────── */}
           {post.post_type === 'daily_report' && (
-            <DailyReportPost
-              content={post.content as DailyReportContent}
-              photoUrls={reportPhotoUrls}
-            />
+            <div className="mt-1.5">
+              {/* Collapsed summary row */}
+              <button
+                onClick={() => setReportExpanded((v) => !v)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100/80 transition text-left"
+              >
+                <ClipboardListIcon className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                <span className="text-xs font-semibold text-amber-800 tabular-nums flex-shrink-0">
+                  {(post.content as DailyReportContent).date
+                    ? new Date((post.content as DailyReportContent).date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Daily Report'}
+                </span>
+                {(post.content as DailyReportContent).reported_by && (
+                  <>
+                    <span className="text-xs text-gray-400">·</span>
+                    <span className="text-xs text-gray-600 truncate">{(post.content as DailyReportContent).reported_by}</span>
+                  </>
+                )}
+                {(post.content as DailyReportContent).project_foreman && (
+                  <>
+                    <span className="text-xs text-gray-400">·</span>
+                    <span className="text-xs text-gray-500 truncate">FM: {(post.content as DailyReportContent).project_foreman}</span>
+                  </>
+                )}
+                {reportExpanded ? (
+                  <ChevronUpIcon className="w-4 h-4 text-amber-500 ml-auto flex-shrink-0" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4 text-amber-500 ml-auto flex-shrink-0" />
+                )}
+              </button>
+
+              {/* Expanded detail */}
+              {reportExpanded && (
+                <DailyReportPost
+                  content={post.content as DailyReportContent}
+                  photoUrls={reportPhotoUrls}
+                />
+              )}
+            </div>
           )}
         </div>
       </div>
