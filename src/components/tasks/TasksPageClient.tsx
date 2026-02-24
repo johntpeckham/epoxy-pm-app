@@ -11,6 +11,8 @@ import {
   XIcon,
   PlusIcon,
   CameraIcon,
+  SearchIcon,
+  ChevronDownIcon,
 } from 'lucide-react'
 import { Task, TaskStatus, Profile, Project } from '@/types'
 
@@ -37,11 +39,22 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; bg: string; text: strin
   unable_to_complete: { label: 'Unable to Complete', bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
 }
 
+const STATUS_ORDER: TaskStatus[] = ['new_task', 'in_progress', 'completed', 'unable_to_complete']
+
 const STATUS_BUTTONS: { value: TaskStatus; label: string; inactiveColor: string; activeColor: string }[] = [
   { value: 'new_task', label: 'New Task', inactiveColor: 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100', activeColor: 'border-blue-500 bg-blue-500 text-white' },
   { value: 'in_progress', label: 'In Progress', inactiveColor: 'border-yellow-300 text-yellow-700 bg-yellow-50 hover:bg-yellow-100', activeColor: 'border-yellow-500 bg-yellow-500 text-white' },
   { value: 'completed', label: 'Completed', inactiveColor: 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100', activeColor: 'border-green-500 bg-green-500 text-white' },
   { value: 'unable_to_complete', label: 'Unable to Complete', inactiveColor: 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100', activeColor: 'border-red-500 bg-red-500 text-white' },
+]
+
+type SortOption = 'newest' | 'oldest' | 'project_az' | 'status'
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'newest', label: 'Newest First' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'project_az', label: 'Project Name (A-Z)' },
+  { value: 'status', label: 'Status' },
 ]
 
 function formatDate(dateStr: string) {
@@ -72,34 +85,77 @@ function formatGroupDate(dateStr: string) {
   })
 }
 
+interface GroupedByProject {
+  kind: 'project'
+  projectId: string
+  projectName: string
+  dates: { date: string; tasks: TaskWithProject[] }[]
+}
+
+interface GroupedByStatus {
+  kind: 'status'
+  status: TaskStatus
+  statusLabel: string
+  tasks: TaskWithProject[]
+}
+
+type GroupedResult = GroupedByProject[] | GroupedByStatus[]
+
 /** Group tasks by project, then by date within each project. */
-function groupByProjectAndDate(tasks: TaskWithProject[]) {
+function groupByProjectAndDate(tasks: TaskWithProject[], sort: SortOption): GroupedByProject[] {
   const projectMap = new Map<
     string,
-    { projectName: string; dates: Map<string, TaskWithProject[]> }
+    { projectName: string; dates: Map<string, TaskWithProject[]>; latestDate: string; oldestDate: string }
   >()
 
   for (const task of tasks) {
     let project = projectMap.get(task.project_id)
+    const dateKey = task.created_at.slice(0, 10)
     if (!project) {
-      project = { projectName: task.project_name, dates: new Map() }
+      project = { projectName: task.project_name, dates: new Map(), latestDate: dateKey, oldestDate: dateKey }
       projectMap.set(task.project_id, project)
     }
-    const dateKey = task.created_at.slice(0, 10) // YYYY-MM-DD
+    if (dateKey > project.latestDate) project.latestDate = dateKey
+    if (dateKey < project.oldestDate) project.oldestDate = dateKey
     const existing = project.dates.get(dateKey) ?? []
     existing.push(task)
     project.dates.set(dateKey, existing)
   }
 
-  // Sort projects alphabetically, dates newest-first
+  const dateDir = sort === 'oldest' ? 1 : -1
+
   return Array.from(projectMap.entries())
-    .sort(([, a], [, b]) => a.projectName.localeCompare(b.projectName))
+    .sort(([, a], [, b]) => {
+      if (sort === 'project_az') return a.projectName.localeCompare(b.projectName)
+      if (sort === 'newest') return b.latestDate.localeCompare(a.latestDate)
+      return a.oldestDate.localeCompare(b.oldestDate)
+    })
     .map(([projectId, project]) => ({
+      kind: 'project' as const,
       projectId,
       projectName: project.projectName,
       dates: Array.from(project.dates.entries())
-        .sort(([a], [b]) => b.localeCompare(a))
+        .sort(([a], [b]) => a.localeCompare(b) * dateDir)
         .map(([date, tasks]) => ({ date, tasks })),
+    }))
+}
+
+/** Group tasks by status. */
+function groupByStatus(tasks: TaskWithProject[]): GroupedByStatus[] {
+  const statusMap = new Map<TaskStatus, TaskWithProject[]>()
+  for (const task of tasks) {
+    const existing = statusMap.get(task.status) ?? []
+    existing.push(task)
+    statusMap.set(task.status, existing)
+  }
+
+  return STATUS_ORDER
+    .filter((s) => statusMap.has(s))
+    .map((s) => ({
+      kind: 'status' as const,
+      status: s,
+      statusLabel: STATUS_CONFIG[s].label,
+      tasks: (statusMap.get(s) ?? []).sort((a, b) => b.created_at.localeCompare(a.created_at)),
     }))
 }
 
@@ -114,6 +170,8 @@ export default function TasksPageClient({
   const [selectedTask, setSelectedTask] = useState<TaskWithProject | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortOption, setSortOption] = useState<SortOption>('newest')
 
   // ── New Task modal state ─────────────────────────────────────────────────
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -129,7 +187,6 @@ export default function TasksPageClient({
   const [newPhotoPreview, setNewPhotoPreview] = useState<string | null>(null)
   const newPhotoInputRef = useRef<HTMLInputElement>(null)
 
-  const grouped = useMemo(() => groupByProjectAndDate(initialTasks), [initialTasks])
   const profileMap = new Map(profiles.map((p) => [p.id, p]))
 
   function getProfileName(uid: string | null) {
@@ -137,6 +194,29 @@ export default function TasksPageClient({
     const profile = profileMap.get(uid)
     return profile?.display_name || uid.slice(0, 8)
   }
+
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return initialTasks
+    const q = searchQuery.toLowerCase()
+    return initialTasks.filter((t) => {
+      const projectMatch = t.project_name.toLowerCase().includes(q)
+      const titleMatch = t.title.toLowerCase().includes(q)
+      const assignedName = getProfileName(t.assigned_to).toLowerCase()
+      const assignedMatch = assignedName.includes(q)
+      return projectMatch || titleMatch || assignedMatch
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTasks, searchQuery, profiles])
+
+  const grouped: GroupedResult = useMemo(() => {
+    if (sortOption === 'status') return groupByStatus(filtered)
+    return groupByProjectAndDate(filtered, sortOption)
+  }, [filtered, sortOption])
+
+  const groupCount = useMemo(() => {
+    if (sortOption === 'status') return (grouped as GroupedByStatus[]).length
+    return (grouped as GroupedByProject[]).length
+  }, [grouped, sortOption])
 
   function getPhotoUrl(path: string) {
     return supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl
@@ -226,6 +306,58 @@ export default function TasksPageClient({
     }
   }
 
+  function renderTaskCard(task: TaskWithProject) {
+    const statusCfg = STATUS_CONFIG[task.status]
+    const assignedName = getProfileName(task.assigned_to)
+
+    return (
+      <button
+        key={task.id}
+        onClick={() => setSelectedTask(task)}
+        className="w-full text-left px-5 py-4 flex items-start gap-4 hover:bg-gray-50 transition-colors"
+      >
+        {/* Photo thumbnail */}
+        {task.photo_url && (
+          <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
+            <Image
+              src={getPhotoUrl(task.photo_url)}
+              alt=""
+              width={56}
+              height={56}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-sm font-semibold text-gray-900">{task.title}</span>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.text}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+              {statusCfg.label}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <UserIcon className="w-3 h-3" />
+              {assignedName}
+            </span>
+            {task.due_date && (
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <CalendarIcon className="w-3 h-3" />
+                {formatDate(task.due_date)}
+              </span>
+            )}
+          </div>
+          {task.description && (
+            <p className="text-xs text-gray-400 mt-1 line-clamp-1">{task.description}</p>
+          )}
+        </div>
+      </button>
+    )
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
       {/* Header */}
@@ -233,8 +365,9 @@ export default function TasksPageClient({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {initialTasks.length} task{initialTasks.length !== 1 ? 's' : ''} across {grouped.length} project
-            {grouped.length !== 1 ? 's' : ''}
+            {filtered.length} task{filtered.length !== 1 ? 's' : ''} across {groupCount}{' '}
+            {sortOption === 'status' ? 'status group' : 'project'}
+            {groupCount !== 1 ? 's' : ''}
           </p>
         </div>
         <button
@@ -248,22 +381,74 @@ export default function TasksPageClient({
         </button>
       </div>
 
-      {/* Task list — grouped by project then date */}
-      {initialTasks.length === 0 ? (
+      {/* Search & Sort Controls */}
+      <div className="flex items-center gap-2 mb-5">
+        <div className="relative flex-1">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by project, task title, or assignee..."
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value as SortOption)}
+            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Task list */}
+      {filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckSquareIcon className="w-7 h-7 text-gray-400" />
           </div>
-          <p className="text-gray-500 font-medium">No tasks yet</p>
+          <p className="text-gray-500 font-medium">
+            {searchQuery.trim() ? 'No tasks match your search' : 'No tasks yet'}
+          </p>
           <p className="text-gray-400 text-sm mt-1">
-            {projects.length > 0
-              ? 'Click "New Task" to create the first one.'
-              : 'Create a project first, then add tasks.'}
+            {searchQuery.trim()
+              ? 'Try a different search term.'
+              : projects.length > 0
+                ? 'Click "New Task" to create the first one.'
+                : 'Create a project first, then add tasks.'}
           </p>
         </div>
-      ) : (
+      ) : sortOption === 'status' ? (
+        /* ── Status-grouped view ────────────────────────────────────────── */
         <div className="space-y-8">
-          {grouped.map((project) => (
+          {(grouped as GroupedByStatus[]).map((group) => {
+            const cfg = STATUS_CONFIG[group.status]
+            return (
+              <div key={group.status}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
+                  <h2 className="text-lg font-bold text-gray-900">{group.statusLabel}</h2>
+                  <span className="text-sm text-gray-400">({group.tasks.length})</span>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="divide-y divide-gray-100">
+                    {group.tasks.map((task) => renderTaskCard(task))}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        /* ── Project-grouped view (default) ─────────────────────────────── */
+        <div className="space-y-8">
+          {(grouped as GroupedByProject[]).map((project) => (
             <div key={project.projectId}>
               {/* Project heading */}
               <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
@@ -283,57 +468,7 @@ export default function TasksPageClient({
 
                     {/* Task cards within this date */}
                     <div className="divide-y divide-gray-100">
-                      {tasks.map((task) => {
-                        const statusCfg = STATUS_CONFIG[task.status]
-                        const assignedName = getProfileName(task.assigned_to)
-
-                        return (
-                          <button
-                            key={task.id}
-                            onClick={() => setSelectedTask(task)}
-                            className="w-full text-left px-5 py-4 flex items-start gap-4 hover:bg-gray-50 transition-colors"
-                          >
-                            {/* Photo thumbnail */}
-                            {task.photo_url && (
-                              <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
-                                <Image
-                                  src={getPhotoUrl(task.photo_url)}
-                                  alt=""
-                                  width={56}
-                                  height={56}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            )}
-
-                            {/* Main content */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className="text-sm font-semibold text-gray-900">{task.title}</span>
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.text}`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
-                                  {statusCfg.label}
-                                </span>
-                              </div>
-                              <div className="flex flex-wrap gap-x-4 gap-y-0.5">
-                                <span className="flex items-center gap-1 text-xs text-gray-500">
-                                  <UserIcon className="w-3 h-3" />
-                                  {assignedName}
-                                </span>
-                                {task.due_date && (
-                                  <span className="flex items-center gap-1 text-xs text-gray-500">
-                                    <CalendarIcon className="w-3 h-3" />
-                                    {formatDate(task.due_date)}
-                                  </span>
-                                )}
-                              </div>
-                              {task.description && (
-                                <p className="text-xs text-gray-400 mt-1 line-clamp-1">{task.description}</p>
-                              )}
-                            </div>
-                          </button>
-                        )
-                      })}
+                      {tasks.map((task) => renderTaskCard(task))}
                     </div>
                   </div>
                 ))}

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusIcon, ClipboardListIcon } from 'lucide-react'
+import { PlusIcon, ClipboardListIcon, SearchIcon, ChevronDownIcon } from 'lucide-react'
 import { Project, DailyReportContent } from '@/types'
 import DailyReportCard from './DailyReportCard'
 import NewDailyReportModal from './NewDailyReportModal'
@@ -21,6 +21,14 @@ interface DailyReportsPageClientProps {
   userId: string
 }
 
+type SortOption = 'newest' | 'oldest' | 'project_az'
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'newest', label: 'Newest First' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'project_az', label: 'Project Name (A-Z)' },
+]
+
 function formatGroupDate(dateStr: string) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'short',
@@ -31,32 +39,39 @@ function formatGroupDate(dateStr: string) {
 }
 
 /** Group reports by project, then by date within each project. */
-function groupByProjectAndDate(reports: DailyReportRow[]) {
+function groupByProjectAndDate(reports: DailyReportRow[], sort: SortOption) {
   const projectMap = new Map<
     string,
-    { projectName: string; dates: Map<string, DailyReportRow[]> }
+    { projectName: string; dates: Map<string, DailyReportRow[]>; latestDate: string; oldestDate: string }
   >()
 
   for (const report of reports) {
     let project = projectMap.get(report.project_id)
+    const dateKey = report.content.date || report.created_at.slice(0, 10)
     if (!project) {
-      project = { projectName: report.project_name, dates: new Map() }
+      project = { projectName: report.project_name, dates: new Map(), latestDate: dateKey, oldestDate: dateKey }
       projectMap.set(report.project_id, project)
     }
-    const dateKey = report.content.date || report.created_at.slice(0, 10)
+    if (dateKey > project.latestDate) project.latestDate = dateKey
+    if (dateKey < project.oldestDate) project.oldestDate = dateKey
     const existing = project.dates.get(dateKey) ?? []
     existing.push(report)
     project.dates.set(dateKey, existing)
   }
 
-  // Sort projects alphabetically, dates newest-first
+  const dateDir = sort === 'oldest' ? 1 : -1
+
   return Array.from(projectMap.entries())
-    .sort(([, a], [, b]) => a.projectName.localeCompare(b.projectName))
+    .sort(([, a], [, b]) => {
+      if (sort === 'project_az') return a.projectName.localeCompare(b.projectName)
+      if (sort === 'newest') return b.latestDate.localeCompare(a.latestDate)
+      return a.oldestDate.localeCompare(b.oldestDate)
+    })
     .map(([projectId, project]) => ({
       projectId,
       projectName: project.projectName,
       dates: Array.from(project.dates.entries())
-        .sort(([a], [b]) => b.localeCompare(a))
+        .sort(([a], [b]) => a.localeCompare(b) * dateDir)
         .map(([date, reports]) => ({ date, reports })),
     }))
 }
@@ -68,7 +83,22 @@ export default function DailyReportsPageClient({
 }: DailyReportsPageClientProps) {
   const router = useRouter()
   const [showModal, setShowModal] = useState(false)
-  const grouped = useMemo(() => groupByProjectAndDate(initialReports), [initialReports])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortOption, setSortOption] = useState<SortOption>('newest')
+
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return initialReports
+    const q = searchQuery.toLowerCase()
+    return initialReports.filter((r) => {
+      const projectMatch = r.project_name.toLowerCase().includes(q)
+      const dateKey = r.content.date || r.created_at.slice(0, 10)
+      const dateFormatted = formatGroupDate(dateKey).toLowerCase()
+      const dateMatch = dateKey.includes(q) || dateFormatted.includes(q)
+      return projectMatch || dateMatch
+    })
+  }, [initialReports, searchQuery])
+
+  const grouped = useMemo(() => groupByProjectAndDate(filtered, sortOption), [filtered, sortOption])
 
   function handleCreated() {
     setShowModal(false)
@@ -82,7 +112,7 @@ export default function DailyReportsPageClient({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Daily Reports</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {initialReports.length} report{initialReports.length !== 1 ? 's' : ''} across {grouped.length} project
+            {filtered.length} report{filtered.length !== 1 ? 's' : ''} across {grouped.length} project
             {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
@@ -97,17 +127,47 @@ export default function DailyReportsPageClient({
         </button>
       </div>
 
+      {/* Search & Sort Controls */}
+      <div className="flex items-center gap-2 mb-5">
+        <div className="relative flex-1">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by project name or date..."
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value as SortOption)}
+            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
+
       {/* List — grouped by project then date */}
-      {initialReports.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <ClipboardListIcon className="w-7 h-7 text-gray-400" />
           </div>
-          <p className="text-gray-500 font-medium">No daily reports yet</p>
+          <p className="text-gray-500 font-medium">
+            {searchQuery.trim() ? 'No reports match your search' : 'No daily reports yet'}
+          </p>
           <p className="text-gray-400 text-sm mt-1">
-            {projects.length > 0
-              ? 'Click "New Report" to submit the first one.'
-              : 'Create a project first, then submit daily reports.'}
+            {searchQuery.trim()
+              ? 'Try a different search term.'
+              : projects.length > 0
+                ? 'Click "New Report" to submit the first one.'
+                : 'Create a project first, then submit daily reports.'}
           </p>
         </div>
       ) : (
