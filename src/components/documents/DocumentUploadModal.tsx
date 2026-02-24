@@ -9,6 +9,7 @@ import {
   Trash2Icon,
   Loader2Icon,
   DownloadIcon,
+  EyeIcon,
 } from 'lucide-react'
 import { DocumentCategory, ProjectDocument } from '@/types'
 
@@ -43,6 +44,7 @@ export default function DocumentUploadModal({
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [previewDoc, setPreviewDoc] = useState<ProjectDocument | null>(null)
 
   const label = category === 'report' ? 'Reports' : 'Plans'
   const bucket = category === 'report' ? 'project-documents' : 'project-plans'
@@ -129,6 +131,14 @@ export default function DocumentUploadModal({
     return supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl
   }
 
+  function isPdf(doc: ProjectDocument) {
+    return doc.file_type === 'application/pdf' || doc.file_name.toLowerCase().endsWith('.pdf')
+  }
+
+  function isImage(doc: ProjectDocument) {
+    return doc.file_type.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|bmp)$/i.test(doc.file_name)
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -194,7 +204,8 @@ export default function DocumentUploadModal({
               {docs.map((doc) => (
                 <div
                   key={doc.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 group"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 group cursor-pointer hover:border-amber-200 hover:bg-amber-50/30 transition"
+                  onClick={() => setPreviewDoc(doc)}
                 >
                   <FileTextIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -204,17 +215,25 @@ export default function DocumentUploadModal({
                     </p>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setPreviewDoc(doc) }}
+                      className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition opacity-0 group-hover:opacity-100"
+                      title="Preview"
+                    >
+                      <EyeIcon className="w-4 h-4" />
+                    </button>
                     <a
                       href={getPublicUrl(doc.file_path)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
                       className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition opacity-0 group-hover:opacity-100"
                       title="Download"
                     >
                       <DownloadIcon className="w-4 h-4" />
                     </a>
                     <button
-                      onClick={() => handleDelete(doc)}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(doc) }}
                       disabled={deletingId === doc.id}
                       className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition opacity-0 group-hover:opacity-100 disabled:opacity-50"
                       title="Delete"
@@ -242,6 +261,74 @@ export default function DocumentUploadModal({
           </button>
         </div>
       </div>
+
+      {/* Preview overlay */}
+      {previewDoc && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center px-4 py-6">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setPreviewDoc(null)} />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh]">
+            {/* Preview header */}
+            <div className="flex items-center justify-between px-6 pt-4 pb-3 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileTextIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                <p className="text-sm font-semibold text-gray-900 truncate">{previewDoc.file_name}</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a
+                  href={getPublicUrl(previewDoc.file_path)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition"
+                  title="Download"
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                </a>
+                <button
+                  onClick={() => setPreviewDoc(null)}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                >
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Preview content */}
+            <div className="flex-1 overflow-hidden">
+              {isPdf(previewDoc) ? (
+                <iframe
+                  src={getPublicUrl(previewDoc.file_path)}
+                  className="w-full h-full min-h-[60vh]"
+                  title={previewDoc.file_name}
+                />
+              ) : isImage(previewDoc) ? (
+                <div className="flex items-center justify-center p-6 overflow-auto max-h-[70vh]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getPublicUrl(previewDoc.file_path)}
+                    alt={previewDoc.file_name}
+                    className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 px-6">
+                  <FileTextIcon className="w-12 h-12 text-gray-300 mb-4" />
+                  <p className="text-sm text-gray-500 mb-1">Preview not available for this file type</p>
+                  <p className="text-xs text-gray-400 mb-6">{previewDoc.file_name}</p>
+                  <a
+                    href={getPublicUrl(previewDoc.file_path)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                    Download File
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
