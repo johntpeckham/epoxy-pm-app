@@ -14,11 +14,13 @@ async function urlToBase64(url: string): Promise<{ data: string; format: 'JPEG' 
   })
 }
 
-const AMBER: [number, number, number] = [180, 93, 0]       // amber-700 for text
-const AMBER_BG: [number, number, number] = [254, 243, 199]  // amber-100 for backgrounds
-const DARK: [number, number, number] = [17, 24, 39]         // gray-900
-const MED: [number, number, number] = [107, 114, 128]       // gray-500
-const LIGHT_BG: [number, number, number] = [249, 250, 251]  // gray-50
+// Color palette — matches ProjectReportModal form styles
+const AMBER: [number, number, number] = [180, 83, 9]          // amber-700  (section titles)
+const AMBER_LIGHT: [number, number, number] = [254, 243, 199] // amber-100  (section border)
+const DARK: [number, number, number] = [17, 24, 39]           // gray-900   (values / title)
+const LABEL_GRAY: [number, number, number] = [75, 85, 99]     // gray-600   (field labels)
+const MED: [number, number, number] = [107, 114, 128]         // gray-500   (footer / meta)
+const BORDER: [number, number, number] = [209, 213, 219]      // gray-300   (header divider)
 
 export async function generateReportPdf(
   content: DailyReportContent,
@@ -29,8 +31,11 @@ export async function generateReportPdf(
 
   const PW = doc.internal.pageSize.getWidth()   // 215.9
   const PH = doc.internal.pageSize.getHeight()  // 279.4
-  const M = 18      // margin
-  const CW = PW - M * 2  // content width ~179.9
+  const M = 20      // page margin
+  const CW = PW - M * 2  // content width
+  const LABEL_W = 50 // label column width (≈180px equivalent)
+  const VALUE_X = M + LABEL_W + 4  // value column start
+  const VALUE_W = CW - LABEL_W - 6 // value column width
   let y = M
 
   // ─── helpers ──────────────────────────────────────────────────────────────
@@ -42,68 +47,84 @@ export async function generateReportPdf(
     }
   }
 
-  function sectionBar(title: string) {
+  /** Section header — uppercase amber text with amber-100 bottom border
+   *  (matches ProjectReportModal section headers). */
+  function sectionTitle(title: string) {
     checkPage(14)
-    doc.setFillColor(...AMBER_BG)
-    doc.rect(M, y, CW, 8, 'F')
+    y += 5
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
     doc.setTextColor(...AMBER)
-    doc.text(title, M + 3, y + 5.5)
-    y += 11
+    doc.text(title, M, y)
+    y += 2.5
+    doc.setDrawColor(...AMBER_LIGHT)
+    doc.setLineWidth(0.4)
+    doc.line(M, y, M + CW, y)
+    y += 5
   }
 
-  function labelValue(label: string, value: string, xOffset = 0) {
+  /** Two-column field row — label right-aligned, value left-aligned
+   *  (matches ProjectReportModal grid-cols-[180px_1fr] layout). */
+  function fieldRow(label: string, value: string) {
     if (!value) return
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...MED)
-    doc.text(label, M + xOffset, y)
-    y += 4.5
+    checkPage(10)
+
+    // Label — right-aligned in label column
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...LABEL_GRAY)
+    doc.text(label, M + LABEL_W - 2, y, { align: 'right' })
+
+    // Value
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9.5)
     doc.setTextColor(...DARK)
-    const lines = doc.splitTextToSize(value, CW - xOffset - 4)
-    lines.forEach((line: string) => {
-      checkPage(6)
-      doc.text(line, M + xOffset, y)
-      y += 5.5
+    const lines = doc.splitTextToSize(value, VALUE_W)
+    lines.forEach((line: string, i: number) => {
+      if (i > 0) checkPage(5)
+      doc.text(line, VALUE_X, y)
+      if (i < lines.length - 1) y += 4.5
     })
-    y += 2
+    y += 6
   }
 
   // ─── HEADER ───────────────────────────────────────────────────────────────
+  // Matches ProjectReportModal title area: title + logo, bottom border
 
-  // Title block background
-  doc.setFillColor(...LIGHT_BG)
-  doc.rect(M, y, CW, 26, 'F')
-
-  // Company logo – top right of header
+  // Company logo – top right
   if (logoUrl) {
     try {
       const { data: logoData, format: logoFormat } = await urlToBase64(logoUrl)
-      const logoMaxH = 22
-      const logoMaxW = 55
-      doc.addImage(logoData, logoFormat, PW - M - logoMaxW, y + 2, logoMaxW, logoMaxH)
+      doc.addImage(logoData, logoFormat, PW - M - 45, y, 45, 18)
     } catch {
       // skip logo if it fails to load
     }
   }
 
-  // "DAILY FIELD REPORT" – large title
+  // Title
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(20)
+  doc.setFontSize(16)
   doc.setTextColor(...DARK)
-  doc.text('DAILY FIELD REPORT', M + 4, y + 10)
+  doc.text('Daily Field Report', M, y + 8)
 
-  // Amber accent bar under title text
-  doc.setFillColor(...AMBER)
-  doc.rect(M + 4, y + 12, 70, 1, 'F')
-
-  // Date – top right (below logo area)
+  // Project name subtitle
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
+  doc.setFontSize(10)
   doc.setTextColor(...MED)
+  doc.text(content.project_name || '—', M, y + 14)
+
+  y += 18
+
+  // Header divider — matches border-b border-gray-300
+  doc.setDrawColor(...BORDER)
+  doc.setLineWidth(0.3)
+  doc.line(M, y, M + CW, y)
+  y += 4
+
+  // ─── PROJECT DETAILS ────────────────────────────────────────────────────
+
+  sectionTitle('PROJECT DETAILS')
+
   const displayDate = content.date
     ? new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
         weekday: 'long',
@@ -112,84 +133,33 @@ export async function generateReportPdf(
         year: 'numeric',
       })
     : '—'
-  doc.text(displayDate, PW - M - 4, y + 8, { align: 'right' })
 
-  // Project + address
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(...MED)
-  doc.text('PROJECT', M + 4, y + 19)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9.5)
-  doc.setTextColor(...DARK)
-  doc.text(content.project_name || '—', M + 22, y + 19)
-
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(...MED)
-  doc.text('ADDRESS', M + 4, y + 25)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9.5)
-  doc.setTextColor(...DARK)
-  doc.text(content.address || '—', M + 22, y + 25)
-
-  y += 30
+  fieldRow('Date', displayDate)
+  fieldRow('Project', content.project_name || '—')
+  fieldRow('Address', content.address || '—')
 
   // ─── CREW ─────────────────────────────────────────────────────────────────
 
-  sectionBar('CREW')
+  sectionTitle('CREW')
 
-  // Three-column crew row
-  const colW = CW / 3
-  const crewItems = [
-    { label: 'REPORTED BY', value: content.reported_by },
-    { label: 'PROJECT FOREMAN', value: content.project_foreman },
-    { label: 'WEATHER', value: content.weather },
-  ]
-  const crewRowY = y
-  crewItems.forEach(({ label, value }, i) => {
-    const x = M + i * colW
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7)
-    doc.setTextColor(...MED)
-    doc.text(label, x, crewRowY)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9.5)
-    doc.setTextColor(...DARK)
-    const lines = doc.splitTextToSize(value || '—', colW - 5)
-    lines.forEach((line: string, li: number) => {
-      doc.text(line, x, crewRowY + 5 + li * 5)
-    })
-  })
-  y = crewRowY + 16
+  fieldRow('Reported By', content.reported_by || '—')
+  fieldRow('Project Foreman', content.project_foreman || '—')
+  fieldRow('Weather', content.weather || '—')
 
   // ─── PROGRESS ─────────────────────────────────────────────────────────────
 
-  sectionBar('PROGRESS')
+  sectionTitle('PROGRESS')
 
-  const progressItems = [
-    { label: 'PROGRESS', value: content.progress },
-    { label: 'DELAYS', value: content.delays },
-    { label: 'SAFETY', value: content.safety },
-    { label: 'MATERIALS USED', value: content.materials_used },
-    { label: 'EMPLOYEES', value: content.employees },
-  ]
-  for (const item of progressItems) {
-    if (!item.value) continue
-    checkPage(18)
-    labelValue(item.label, item.value)
-    // subtle divider between fields
-    doc.setDrawColor(229, 231, 235)
-    doc.setLineWidth(0.2)
-    doc.line(M, y - 1, M + CW, y - 1)
-    y += 1
-  }
+  fieldRow('Progress', content.progress || '')
+  fieldRow('Delays', content.delays || '')
+  fieldRow('Safety', content.safety || '')
+  fieldRow('Materials Used', content.materials_used || '')
+  fieldRow('Employees', content.employees || '')
 
   // ─── PHOTOS ───────────────────────────────────────────────────────────────
 
   if (photoUrls.length > 0) {
-    checkPage(20)
-    sectionBar('PHOTOS')
+    sectionTitle('PHOTOS')
 
     const gap = 4
     const photoW = (CW - gap) / 2
@@ -229,7 +199,7 @@ export async function generateReportPdf(
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p)
     const footerY = PH - 10
-    doc.setDrawColor(...AMBER_BG)
+    doc.setDrawColor(...AMBER_LIGHT)
     doc.setLineWidth(0.4)
     doc.line(M, footerY - 4, PW - M, footerY - 4)
 
