@@ -134,7 +134,7 @@ function DailyReportPost({
   ]
 
   return (
-    <div className="p-3.5 space-y-3 border-t border-amber-200">
+    <div className="p-3.5 space-y-3 border-t border-amber-200 max-w-full overflow-hidden">
       {/* Project / address */}
       {(content.project_name || content.address) && (
         <div className="text-xs space-y-0.5">
@@ -147,7 +147,7 @@ function DailyReportPost({
 
       {/* Crew row */}
       {crewFields.some((f) => content[f.key]) && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
           {crewFields.map(({ label, key }) =>
             content[key] ? (
               <div key={key}>
@@ -285,7 +285,7 @@ function TaskPostDetail({
     : null
 
   return (
-    <div className="p-3.5 space-y-3 border-t border-blue-200">
+    <div className="p-3.5 space-y-3 border-t border-blue-200 max-w-full overflow-hidden">
       {/* Description */}
       {content.description && (
         <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
@@ -323,7 +323,7 @@ function TaskPostDetail({
       </div>
 
       {/* Clickable status badges */}
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {TASK_STATUS_ORDER.map((s) => {
           const cfg = TASK_STATUS_CONFIG[s]
           const isActive = s === status
@@ -366,19 +366,19 @@ function CollapsibleTask({
   const statusCfg = TASK_STATUS_CONFIG[content.status]
 
   return (
-    <div className="mt-1.5 border border-blue-200 rounded-xl overflow-hidden bg-white">
+    <div className="mt-1.5 border border-blue-200 rounded-xl overflow-hidden bg-white max-w-full w-full">
       <div
         onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
         role={isPinned ? undefined : 'button'}
-        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-blue-50 text-left transition-colors ${
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-blue-50 text-left transition-colors min-w-0 overflow-hidden ${
           isPinned ? '' : 'hover:bg-blue-100/60 cursor-pointer'
         }`}
       >
         <CheckSquareIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
         <span className="text-sm font-bold text-blue-900 flex-shrink-0">Task</span>
         <span className="text-sm text-gray-400 flex-shrink-0">—</span>
-        <span className="text-sm font-medium text-gray-800 truncate">{content.title}</span>
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusCfg.bg} ${statusCfg.text}`}>
+        <span className="text-sm font-medium text-gray-800 truncate min-w-0">{content.title}</span>
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 hidden sm:inline-flex ${statusCfg.bg} ${statusCfg.text}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
           {statusCfg.label}
         </span>
@@ -426,12 +426,12 @@ function CollapsibleDailyReport({
     : ''
 
   return (
-    <div className="mt-1.5 border border-amber-200 rounded-xl overflow-hidden bg-white">
+    <div className="mt-1.5 border border-amber-200 rounded-xl overflow-hidden bg-white max-w-full w-full">
       {/* Compact summary row — always visible */}
       <div
         onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
         role={isPinned ? undefined : 'button'}
-        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left transition-colors ${
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left transition-colors min-w-0 overflow-hidden ${
           isPinned ? '' : 'hover:bg-amber-100/60 cursor-pointer'
         }`}
       >
@@ -439,20 +439,20 @@ function CollapsibleDailyReport({
         <span className="text-sm font-bold text-amber-900 flex-shrink-0">Daily Report</span>
         {dateLabel && (
           <>
-            <span className="text-sm text-gray-400 flex-shrink-0">—</span>
-            <span className="text-sm font-medium text-gray-700 flex-shrink-0 tabular-nums">{dateLabel}</span>
+            <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">—</span>
+            <span className="text-sm font-medium text-gray-700 flex-shrink-0 tabular-nums hidden sm:inline">{dateLabel}</span>
           </>
         )}
         {content.reported_by && (
           <>
-            <span className="text-sm text-gray-400 flex-shrink-0">·</span>
-            <span className="text-sm text-gray-600 truncate">{content.reported_by}</span>
+            <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">·</span>
+            <span className="text-sm text-gray-600 truncate hidden sm:inline">{content.reported_by}</span>
           </>
         )}
         {content.project_foreman && (
           <>
-            <span className="text-sm text-gray-400 flex-shrink-0">·</span>
-            <span className="text-sm text-gray-500 truncate">FM: {content.project_foreman}</span>
+            <span className="text-sm text-gray-400 flex-shrink-0 hidden md:inline">·</span>
+            <span className="text-sm text-gray-500 truncate hidden md:inline">FM: {content.project_foreman}</span>
           </>
         )}
         {!isPinned && (
@@ -768,9 +768,9 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
 
   return (
     <>
-      <div className="group relative flex px-4 py-1 justify-start">
+      <div className="group relative flex px-4 py-1 justify-start max-w-full overflow-hidden">
         {/* Row: avatar + bubble */}
-        <div className={`flex gap-2 items-end ${isText ? 'max-w-[80%]' : 'max-w-[75%]'}`}>
+        <div className={`flex gap-2 items-end min-w-0 ${isText ? 'max-w-[80%]' : 'max-w-full sm:max-w-[75%]'}`}>
           {/* Avatar */}
           <div className="flex-shrink-0 self-end mb-5">
             <Avatar initials={initials} avatarUrl={post.author_avatar_url} />

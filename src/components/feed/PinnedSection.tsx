@@ -19,7 +19,7 @@ export default function PinnedSection({ posts, userId, onPinToggle, onDeleted, o
   if (posts.length === 0) return null
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden mb-4">
+    <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden mb-4 max-w-full">
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-amber-100/50 transition"
