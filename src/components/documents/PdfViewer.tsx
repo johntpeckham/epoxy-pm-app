@@ -13,9 +13,12 @@ import {
 
 interface PdfViewerProps {
   url: string
+  /** When true the viewer fills its parent with no max-width constraints and
+   *  renders controls with a dark theme suited for fullscreen overlays. */
+  fullscreen?: boolean
 }
 
-export default function PdfViewer({ url }: PdfViewerProps) {
+export default function PdfViewer({ url, fullscreen = false }: PdfViewerProps) {
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [scale, setScale] = useState(1)
@@ -143,24 +146,24 @@ export default function PdfViewer({ url }: PdfViewerProps) {
 
       {/* Controls bar — page navigation + zoom */}
       {numPages > 0 && (
-        <div className="flex-none flex items-center justify-between px-3 py-2 bg-white border-t border-gray-200">
+        <div className={`flex-none flex items-center justify-between px-3 py-2 ${fullscreen ? 'bg-gray-900 border-t border-gray-700' : 'bg-white border-t border-gray-200'}`}>
           {/* Page navigation */}
           <div className="flex items-center gap-1">
             <button
               onClick={() => goToPage(Math.max(1, currentPage - 1))}
               disabled={currentPage <= 1}
-              className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
+              className={`p-1.5 rounded-md disabled:opacity-30 transition ${fullscreen ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}
               aria-label="Previous page"
             >
               <ChevronLeftIcon className="w-5 h-5" />
             </button>
-            <span className="text-xs text-gray-600 tabular-nums min-w-[50px] text-center">
+            <span className={`text-xs tabular-nums min-w-[50px] text-center ${fullscreen ? 'text-gray-300' : 'text-gray-600'}`}>
               {currentPage} / {numPages}
             </span>
             <button
               onClick={() => goToPage(Math.min(numPages, currentPage + 1))}
               disabled={currentPage >= numPages}
-              className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
+              className={`p-1.5 rounded-md disabled:opacity-30 transition ${fullscreen ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}
               aria-label="Next page"
             >
               <ChevronRightIcon className="w-5 h-5" />
@@ -172,14 +175,14 @@ export default function PdfViewer({ url }: PdfViewerProps) {
             <button
               onClick={() => setScale((s) => Math.max(0.5, +(s - 0.25).toFixed(2)))}
               disabled={scale <= 0.5}
-              className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
+              className={`p-1.5 rounded-md disabled:opacity-30 transition ${fullscreen ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}
               aria-label="Zoom out"
             >
               <ZoomOutIcon className="w-4 h-4" />
             </button>
             <button
               onClick={resetZoom}
-              className="px-2 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 transition tabular-nums min-w-[44px] text-center"
+              className={`px-2 py-1 rounded-md text-xs font-medium transition tabular-nums min-w-[44px] text-center ${fullscreen ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}
               title="Reset to fit width"
             >
               {Math.round(scale * 100)}%
@@ -187,7 +190,7 @@ export default function PdfViewer({ url }: PdfViewerProps) {
             <button
               onClick={() => setScale((s) => Math.min(4, +(s + 0.25).toFixed(2)))}
               disabled={scale >= 4}
-              className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
+              className={`p-1.5 rounded-md disabled:opacity-30 transition ${fullscreen ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}
               aria-label="Zoom in"
             >
               <ZoomInIcon className="w-4 h-4" />

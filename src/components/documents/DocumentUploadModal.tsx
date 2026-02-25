@@ -321,7 +321,7 @@ export default function DocumentUploadModal({
             </button>
           </div>
           <div className="flex-1 min-h-0">
-            <PdfViewer url={getPublicUrl(previewDoc.file_path)} />
+            <PdfViewer url={getPublicUrl(previewDoc.file_path)} fullscreen />
           </div>
         </div>
       )}
