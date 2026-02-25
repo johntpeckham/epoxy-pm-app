@@ -5,10 +5,20 @@ export const metadata: Metadata = {
   title: "Peckham Coatings",
   description: "Field project management for Peckham Coatings crews",
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Peckham Coatings",
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#f59e0b",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -20,8 +30,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="apple-touch-startup-image" href="/icon-512.png" />
       </head>
       <body className="antialiased">
         {children}

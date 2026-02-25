@@ -180,8 +180,8 @@ export default function Sidebar({ userEmail, displayName, avatarUrl }: SidebarPr
 
   return (
     <>
-      {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-black border-b border-gray-800 flex items-center justify-between px-4 h-14">
+      {/* Mobile top bar — safe-area-aware for notch */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-black border-b border-gray-800 flex items-center justify-between px-4 h-14" style={{ paddingTop: 'env(safe-area-inset-top)', height: 'calc(3.5rem + env(safe-area-inset-top))' }}>
         <div className="flex items-center">
           <button
             onClick={() => setMobileOpen(true)}
