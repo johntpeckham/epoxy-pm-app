@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { DocumentCategory, ProjectDocument } from '@/types'
 import PdfThumbnail from './PdfThumbnail'
+import PdfViewer from './PdfViewer'
 
 interface DocumentUploadModalProps {
   projectId: string
@@ -306,14 +307,14 @@ export default function DocumentUploadModal({
         </div>
       </div>
 
-      {/* Preview overlay */}
+      {/* Preview overlay — fullscreen on mobile, windowed on desktop */}
       {previewDoc && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center lg:p-6">
           <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewDoc(null)} />
-          <div className="relative bg-white rounded-xl shadow-2xl flex flex-col" style={{ width: '80vw', height: '85vh' }}>
+          <div className="relative bg-white lg:rounded-xl shadow-2xl flex flex-col w-full h-full lg:w-[80vw] lg:h-[85vh]">
             {/* Preview header */}
-            <div className="flex items-center justify-between px-6 pt-4 pb-3 border-b border-gray-100 flex-shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center justify-between px-4 lg:px-6 pt-3 lg:pt-4 pb-2 lg:pb-3 border-b border-gray-100 flex-none">
+              <div className="flex items-center gap-2 lg:gap-3 min-w-0">
                 <FileTextIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
                 <p className="text-sm font-semibold text-gray-900 truncate">{previewDoc.file_name}</p>
               </div>
@@ -337,13 +338,9 @@ export default function DocumentUploadModal({
             </div>
 
             {/* Preview content */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden">
               {isPdf(previewDoc) ? (
-                <iframe
-                  src={getPublicUrl(previewDoc.file_path)}
-                  className="w-full h-full"
-                  title={previewDoc.file_name}
-                />
+                <PdfViewer url={getPublicUrl(previewDoc.file_path)} />
               ) : isImage(previewDoc) ? (
                 <div className="flex items-center justify-center p-6 overflow-auto h-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
