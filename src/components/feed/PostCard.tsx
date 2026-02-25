@@ -439,15 +439,15 @@ function PdfPost({ content }: { content: PdfContent }) {
 
   return (
     <>
-      <div className="mt-1.5 border border-red-200 rounded-xl overflow-hidden bg-white">
-        <div className="px-3.5 py-3 bg-red-50 flex items-center gap-2.5">
-          <FileTextIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <span className="text-sm font-bold text-red-900">PDF</span>
+      <div className="mt-1.5 border border-green-200 rounded-xl overflow-hidden bg-white">
+        <div className="px-3.5 py-3 bg-green-50 flex items-center gap-2.5">
+          <FileTextIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
+          <span className="text-sm font-bold text-green-900">PDF</span>
           <span className="text-sm text-gray-400">—</span>
           <span className="text-sm font-medium text-gray-800 truncate">{content.filename}</span>
         </div>
 
-        <div className="p-3.5 space-y-3 border-t border-red-200">
+        <div className="p-3.5 space-y-3 border-t border-green-200">
           {content.caption && (
             <p className="text-sm text-gray-700">{content.caption}</p>
           )}
