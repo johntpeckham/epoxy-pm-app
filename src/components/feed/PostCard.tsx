@@ -18,6 +18,7 @@ import {
   CalendarIcon,
   FileTextIcon,
   PrinterIcon,
+  CameraIcon,
 } from 'lucide-react'
 import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, TaskStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -75,8 +76,8 @@ function Avatar({ initials, avatarUrl }: { initials: string; avatarUrl?: string 
   )
 }
 
-// ── Photo post content ─────────────────────────────────────────────────────────
-function PhotoPost({ content, onImageClick }: { content: PhotoContent; onImageClick: (url: string) => void }) {
+// ── Photo post content (inner detail) ─────────────────────────────────────────
+function PhotoPostDetail({ content, onImageClick }: { content: PhotoContent; onImageClick: (url: string) => void }) {
   const supabase = createClient()
   const urls = content.photos.map((path) => {
     const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
@@ -84,14 +85,14 @@ function PhotoPost({ content, onImageClick }: { content: PhotoContent; onImageCl
   })
 
   return (
-    <div className="mt-1.5">
+    <div className="p-3.5 space-y-3 border-t border-purple-200">
       {content.caption && (
-        <p className="text-sm text-gray-700 mb-2">{content.caption}</p>
+        <p className="text-sm text-gray-700">{content.caption}</p>
       )}
       <div className="flex flex-wrap gap-1">
         {urls.map((url, i) => (
           <button key={i} onClick={() => onImageClick(url)} className="block">
-            <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
+            <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-purple-50">
               <Image
                 src={url}
                 alt={`Photo ${i + 1}`}
@@ -103,6 +104,46 @@ function PhotoPost({ content, onImageClick }: { content: PhotoContent; onImageCl
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── Collapsible wrapper for photo posts ─────────────────────────────────────
+function CollapsiblePhotoPost({
+  content,
+  onImageClick,
+}: {
+  content: PhotoContent
+  onImageClick: (url: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="mt-1.5 border border-purple-200 rounded-xl overflow-hidden bg-white">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-2.5 px-3.5 py-3 bg-purple-50 text-left hover:bg-purple-100/60 transition-colors"
+      >
+        <CameraIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-purple-900 flex-shrink-0">Photos</span>
+        <span className="text-sm text-gray-400 flex-shrink-0">—</span>
+        <span className="text-sm font-medium text-gray-700 flex-shrink-0">{content.photos.length} photo{content.photos.length !== 1 ? 's' : ''}</span>
+        {content.caption && (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0">·</span>
+            <span className="text-sm text-gray-600 truncate">{content.caption}</span>
+          </>
+        )}
+        <ChevronDownIcon
+          className={`w-4 h-4 text-purple-600 ml-auto flex-shrink-0 transition-transform ${
+            expanded ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {expanded && (
+        <PhotoPostDetail content={content} onImageClick={onImageClick} />
+      )}
     </div>
   )
 }
@@ -214,7 +255,7 @@ const TASK_STATUS_CONFIG: Record<TaskStatus, { label: string; bg: string; text: 
 
 const TASK_STATUS_ORDER: TaskStatus[] = ['new_task', 'in_progress', 'completed', 'unable_to_complete']
 
-function TaskPost({
+function TaskPostDetail({
   content,
   postId,
   onUpdated,
@@ -282,74 +323,113 @@ function TaskPost({
     : null
 
   return (
-    <div className="mt-1.5 border border-blue-200 rounded-xl overflow-hidden bg-white">
-      <div className="px-3.5 py-3 bg-blue-50 flex items-center gap-2.5">
-        <CheckSquareIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
-        <span className="text-sm font-bold text-blue-900">Task</span>
-        <span className="text-sm text-gray-400">—</span>
-        <span className="text-sm font-medium text-gray-800 truncate">{content.title}</span>
-      </div>
+    <div className="p-3.5 space-y-3 border-t border-blue-200">
+      {/* Description */}
+      {content.description && (
+        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+          {content.description}
+        </p>
+      )}
 
-      <div className="p-3.5 space-y-3 border-t border-blue-200">
-        {/* Description */}
-        {content.description && (
-          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-            {content.description}
-          </p>
-        )}
+      {/* Photo thumbnail */}
+      {photoUrl && (
+        <button onClick={() => onImageClick(photoUrl)} className="block">
+          <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
+            <Image
+              src={photoUrl}
+              alt="Task photo"
+              fill
+              className="object-cover hover:opacity-90 transition"
+              sizes="60px"
+            />
+          </div>
+        </button>
+      )}
 
-        {/* Photo thumbnail */}
-        {photoUrl && (
-          <button onClick={() => onImageClick(photoUrl)} className="block">
-            <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
-              <Image
-                src={photoUrl}
-                alt="Task photo"
-                fill
-                className="object-cover hover:opacity-90 transition"
-                sizes="60px"
-              />
-            </div>
-          </button>
-        )}
-
-        {/* Meta row: assigned user + due date */}
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+      {/* Meta row: assigned user + due date */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+        <span className="flex items-center gap-1">
+          <UserIcon className="w-3 h-3" />
+          {assignedName || (content.assigned_to ? content.assigned_to.slice(0, 8) : 'Unassigned')}
+        </span>
+        {dueDateLabel && (
           <span className="flex items-center gap-1">
-            <UserIcon className="w-3 h-3" />
-            {assignedName || (content.assigned_to ? content.assigned_to.slice(0, 8) : 'Unassigned')}
+            <CalendarIcon className="w-3 h-3" />
+            {dueDateLabel}
           </span>
-          {dueDateLabel && (
-            <span className="flex items-center gap-1">
-              <CalendarIcon className="w-3 h-3" />
-              {dueDateLabel}
-            </span>
-          )}
-        </div>
-
-        {/* Clickable status badges */}
-        <div className="flex gap-1.5">
-          {TASK_STATUS_ORDER.map((s) => {
-            const cfg = TASK_STATUS_CONFIG[s]
-            const isActive = s === status
-            return (
-              <button
-                key={s}
-                onClick={() => handleStatusChange(s)}
-                disabled={updating}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition disabled:opacity-60 ${
-                  isActive
-                    ? `${cfg.bg} ${cfg.text} ring-1 ring-current`
-                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? cfg.dot : 'bg-gray-300'}`} />
-                {cfg.label}
-              </button>
-            )
-          })}
-        </div>
+        )}
       </div>
+
+      {/* Clickable status badges */}
+      <div className="flex gap-1.5">
+        {TASK_STATUS_ORDER.map((s) => {
+          const cfg = TASK_STATUS_CONFIG[s]
+          const isActive = s === status
+          return (
+            <button
+              key={s}
+              onClick={() => handleStatusChange(s)}
+              disabled={updating}
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition disabled:opacity-60 ${
+                isActive
+                  ? `${cfg.bg} ${cfg.text} ring-1 ring-current`
+                  : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isActive ? cfg.dot : 'bg-gray-300'}`} />
+              {cfg.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Collapsible wrapper for tasks in the feed ───────────────────────────────
+function CollapsibleTask({
+  content,
+  postId,
+  onUpdated,
+  onImageClick,
+}: {
+  content: TaskContent
+  postId: string
+  onUpdated?: () => void
+  onImageClick: (url: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const statusCfg = TASK_STATUS_CONFIG[content.status]
+
+  return (
+    <div className="mt-1.5 border border-blue-200 rounded-xl overflow-hidden bg-white">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-2.5 px-3.5 py-3 bg-blue-50 text-left hover:bg-blue-100/60 transition-colors"
+      >
+        <CheckSquareIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-blue-900 flex-shrink-0">Task</span>
+        <span className="text-sm text-gray-400 flex-shrink-0">—</span>
+        <span className="text-sm font-medium text-gray-800 truncate">{content.title}</span>
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusCfg.bg} ${statusCfg.text}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+          {statusCfg.label}
+        </span>
+        <ChevronDownIcon
+          className={`w-4 h-4 text-blue-600 ml-auto flex-shrink-0 transition-transform ${
+            expanded ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {expanded && (
+        <TaskPostDetail
+          content={content}
+          postId={postId}
+          onUpdated={onUpdated}
+          onImageClick={onImageClick}
+        />
+      )}
     </div>
   )
 }
@@ -416,8 +496,8 @@ function CollapsibleDailyReport({
   )
 }
 
-// ── PDF post content card ──────────────────────────────────────────────────────
-function PdfPost({ content }: { content: PdfContent }) {
+// ── PDF post content (inner detail) ──────────────────────────────────────────
+function PdfPostDetail({ content }: { content: PdfContent }) {
   const supabase = createClient()
   const publicUrl = supabase.storage.from('post-photos').getPublicUrl(content.file_url).data.publicUrl
   const [showPreview, setShowPreview] = useState(false)
@@ -439,36 +519,27 @@ function PdfPost({ content }: { content: PdfContent }) {
 
   return (
     <>
-      <div className="mt-1.5 border border-green-200 rounded-xl overflow-hidden bg-white">
-        <div className="px-3.5 py-3 bg-green-50 flex items-center gap-2.5">
-          <FileTextIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
-          <span className="text-sm font-bold text-green-900">PDF</span>
-          <span className="text-sm text-gray-400">—</span>
-          <span className="text-sm font-medium text-gray-800 truncate">{content.filename}</span>
-        </div>
-
-        <div className="p-3.5 space-y-3 border-t border-green-200">
-          {content.caption && (
-            <p className="text-sm text-gray-700">{content.caption}</p>
-          )}
-          <PdfThumbnail url={publicUrl} onClick={() => setShowPreview(true)} />
-          <p className="text-xs text-gray-500 truncate">{content.filename}</p>
-          <div className="flex gap-2">
-            <button
-              onClick={handleDownload}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
-            >
-              <DownloadIcon className="w-3.5 h-3.5" />
-              Download
-            </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
-            >
-              <PrinterIcon className="w-3.5 h-3.5" />
-              Print
-            </button>
-          </div>
+      <div className="p-3.5 space-y-3 border-t border-green-200">
+        {content.caption && (
+          <p className="text-sm text-gray-700">{content.caption}</p>
+        )}
+        <PdfThumbnail url={publicUrl} onClick={() => setShowPreview(true)} />
+        <p className="text-xs text-gray-500 truncate">{content.filename}</p>
+        <div className="flex gap-2">
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
+          >
+            <DownloadIcon className="w-3.5 h-3.5" />
+            Download
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
+          >
+            <PrinterIcon className="w-3.5 h-3.5" />
+            Print
+          </button>
         </div>
       </div>
 
@@ -492,6 +563,40 @@ function PdfPost({ content }: { content: PdfContent }) {
         </div>
       )}
     </>
+  )
+}
+
+// ── Collapsible wrapper for PDF posts in the feed ───────────────────────────
+function CollapsiblePdf({ content }: { content: PdfContent }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="mt-1.5 border border-green-200 rounded-xl overflow-hidden bg-white">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-2.5 px-3.5 py-3 bg-green-50 text-left hover:bg-green-100/60 transition-colors"
+      >
+        <FileTextIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-green-900 flex-shrink-0">PDF</span>
+        <span className="text-sm text-gray-400 flex-shrink-0">—</span>
+        <span className="text-sm font-medium text-gray-800 truncate">{content.filename}</span>
+        {content.caption && (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0">·</span>
+            <span className="text-sm text-gray-600 truncate">{content.caption}</span>
+          </>
+        )}
+        <ChevronDownIcon
+          className={`w-4 h-4 text-green-600 ml-auto flex-shrink-0 transition-transform ${
+            expanded ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {expanded && (
+        <PdfPostDetail content={content} />
+      )}
+    </div>
   )
 }
 
@@ -694,7 +799,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
           {/* ── Photo post ─────────────────────────────────────────────────── */}
           {post.post_type === 'photo' && (
-            <PhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} />
+            <CollapsiblePhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} />
           )}
 
           {/* ── Daily report ───────────────────────────────────────────────── */}
@@ -708,7 +813,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
           {/* ── Task ────────────────────────────────────────────────────────── */}
           {post.post_type === 'task' && (
-            <TaskPost
+            <CollapsibleTask
               content={post.content as TaskContent}
               postId={post.id}
               onUpdated={onUpdated}
@@ -718,7 +823,7 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
           {/* ── PDF ─────────────────────────────────────────────────────────── */}
           {post.post_type === 'pdf' && (
-            <PdfPost content={post.content as PdfContent} />
+            <CollapsiblePdf content={post.content as PdfContent} />
           )}
         </div>
       </div>
