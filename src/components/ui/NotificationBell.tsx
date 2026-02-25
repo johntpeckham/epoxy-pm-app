@@ -14,7 +14,6 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [open, setOpen] = useState(false)
-  const panelRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabaseRef = useRef(createClient())
 
@@ -38,17 +37,6 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     const interval = setInterval(fetchNotifications, 30_000)
     return () => clearInterval(interval)
   }, [fetchNotifications])
-
-  // Close panel on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    if (open) document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
 
   async function markAsRead(id: string) {
     await supabaseRef.current.from('notifications').update({ read: true }).eq('id', id)
@@ -88,7 +76,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   }
 
   return (
-    <div className="relative" ref={panelRef}>
+    <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative p-1.5 text-gray-400 hover:text-white transition-colors"
@@ -103,49 +91,55 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
       </button>
 
       {open && (
-        <div className="absolute right-0 lg:right-auto lg:left-0 top-full mt-2 w-80 max-h-96 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden z-50">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1"
-              >
-                <CheckIcon className="w-3 h-3" />
-                Mark all read
-              </button>
-            )}
-          </div>
+        <>
+          {/* Backdrop overlay — closes dropdown, prevents click-through */}
+          <div className="fixed inset-0 z-[99]" onClick={() => setOpen(false)} />
 
-          {/* List */}
-          <div className="overflow-y-auto max-h-80">
-            {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-400">
-                No notifications yet
-              </div>
-            ) : (
-              notifications.map((n) => (
+          {/* Dropdown panel */}
+          <div className="absolute right-0 lg:right-auto lg:left-0 top-full mt-2 w-80 max-h-96 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-[100]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
+              {unreadCount > 0 && (
                 <button
-                  key={n.id}
-                  onClick={() => handleNotificationClick(n)}
-                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 ${
-                    !n.read ? 'bg-amber-50/50' : ''
-                  }`}
+                  onClick={markAllAsRead}
+                  className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${!n.read ? 'bg-amber-500' : 'bg-transparent'}`} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">{n.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">{formatTime(n.created_at)}</p>
-                    </div>
-                  </div>
+                  <CheckIcon className="w-3 h-3" />
+                  Mark all read
                 </button>
-              ))
-            )}
+              )}
+            </div>
+
+            {/* List */}
+            <div className="overflow-y-auto max-h-80">
+              {notifications.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-gray-400">
+                  No notifications yet
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => handleNotificationClick(n)}
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 ${
+                      !n.read ? 'bg-amber-50/50' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${!n.read ? 'bg-amber-500' : 'bg-transparent'}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{n.title}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">{formatTime(n.created_at)}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
