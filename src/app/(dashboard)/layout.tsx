@@ -31,7 +31,7 @@ export default async function DashboardLayout({
       />
       {/* Main content — offset for mobile top bar (+ safe area on iOS) / desktop sidebar */}
       <div className="flex-1 min-h-0 safe-top lg:pl-56 overflow-hidden">
-        <main className="h-full overflow-hidden">
+        <main className="h-full overflow-y-auto">
           {children}
         </main>
       </div>
