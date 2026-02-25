@@ -115,17 +115,22 @@ function PhotoPostDetail({ content, onImageClick }: { content: PhotoContent; onI
 function CollapsiblePhotoPost({
   content,
   onImageClick,
+  isPinned,
 }: {
   content: PhotoContent
   onImageClick: (url: string) => void
+  isPinned?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
     <div className="mt-1.5 border border-purple-200 rounded-xl overflow-hidden bg-white">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-3.5 py-3 bg-purple-50 text-left hover:bg-purple-100/60 transition-colors"
+      <div
+        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
+        role={isPinned ? undefined : 'button'}
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-purple-50 text-left transition-colors ${
+          isPinned ? '' : 'hover:bg-purple-100/60 cursor-pointer'
+        }`}
       >
         <CameraIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
         <span className="text-sm font-bold text-purple-900 flex-shrink-0">Photos</span>
@@ -137,14 +142,16 @@ function CollapsiblePhotoPost({
             <span className="text-sm text-gray-600 truncate">{content.caption}</span>
           </>
         )}
-        <ChevronDownIcon
-          className={`w-4 h-4 text-purple-600 ml-auto flex-shrink-0 transition-transform ${
-            expanded ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
+        {!isPinned && (
+          <ChevronDownIcon
+            className={`w-4 h-4 text-purple-600 ml-auto flex-shrink-0 transition-transform ${
+              expanded ? 'rotate-180' : ''
+            }`}
+          />
+        )}
+      </div>
 
-      {expanded && (
+      {(isPinned || expanded) && (
         <PhotoPostDetail content={content} onImageClick={onImageClick} />
       )}
     </div>
@@ -395,20 +402,25 @@ function CollapsibleTask({
   postId,
   onUpdated,
   onImageClick,
+  isPinned,
 }: {
   content: TaskContent
   postId: string
   onUpdated?: () => void
   onImageClick: (url: string) => void
+  isPinned?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const statusCfg = TASK_STATUS_CONFIG[content.status]
 
   return (
     <div className="mt-1.5 border border-blue-200 rounded-xl overflow-hidden bg-white">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-3.5 py-3 bg-blue-50 text-left hover:bg-blue-100/60 transition-colors"
+      <div
+        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
+        role={isPinned ? undefined : 'button'}
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-blue-50 text-left transition-colors ${
+          isPinned ? '' : 'hover:bg-blue-100/60 cursor-pointer'
+        }`}
       >
         <CheckSquareIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
         <span className="text-sm font-bold text-blue-900 flex-shrink-0">Task</span>
@@ -418,14 +430,16 @@ function CollapsibleTask({
           <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
           {statusCfg.label}
         </span>
-        <ChevronDownIcon
-          className={`w-4 h-4 text-blue-600 ml-auto flex-shrink-0 transition-transform ${
-            expanded ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
+        {!isPinned && (
+          <ChevronDownIcon
+            className={`w-4 h-4 text-blue-600 ml-auto flex-shrink-0 transition-transform ${
+              expanded ? 'rotate-180' : ''
+            }`}
+          />
+        )}
+      </div>
 
-      {expanded && (
+      {(isPinned || expanded) && (
         <TaskPostDetail
           content={content}
           postId={postId}
@@ -442,10 +456,12 @@ function CollapsibleDailyReport({
   content,
   photoUrls,
   onImageClick,
+  isPinned,
 }: {
   content: DailyReportContent
   photoUrls: string[]
   onImageClick: (url: string) => void
+  isPinned?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -460,9 +476,12 @@ function CollapsibleDailyReport({
   return (
     <div className="mt-1.5 border border-amber-200 rounded-xl overflow-hidden bg-white">
       {/* Compact summary row — always visible */}
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left hover:bg-amber-100/60 transition-colors"
+      <div
+        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
+        role={isPinned ? undefined : 'button'}
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left transition-colors ${
+          isPinned ? '' : 'hover:bg-amber-100/60 cursor-pointer'
+        }`}
       >
         <ClipboardListIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
         <span className="text-sm font-bold text-amber-900 flex-shrink-0">Daily Report</span>
@@ -484,15 +503,17 @@ function CollapsibleDailyReport({
             <span className="text-sm text-gray-500 truncate">FM: {content.project_foreman}</span>
           </>
         )}
-        <ChevronDownIcon
-          className={`w-4 h-4 text-amber-600 ml-auto flex-shrink-0 transition-transform ${
-            expanded ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
+        {!isPinned && (
+          <ChevronDownIcon
+            className={`w-4 h-4 text-amber-600 ml-auto flex-shrink-0 transition-transform ${
+              expanded ? 'rotate-180' : ''
+            }`}
+          />
+        )}
+      </div>
 
-      {/* Expanded detail — hidden by default */}
-      {expanded && (
+      {/* Expanded detail — hidden by default, always visible when pinned */}
+      {(isPinned || expanded) && (
         <DailyReportPost content={content} photoUrls={photoUrls} onImageClick={onImageClick} />
       )}
     </div>
@@ -570,14 +591,17 @@ function PdfPostDetail({ content }: { content: PdfContent }) {
 }
 
 // ── Collapsible wrapper for PDF posts in the feed ───────────────────────────
-function CollapsiblePdf({ content }: { content: PdfContent }) {
+function CollapsiblePdf({ content, isPinned }: { content: PdfContent; isPinned?: boolean }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
     <div className="mt-1.5 border border-green-200 rounded-xl overflow-hidden bg-white">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-3.5 py-3 bg-green-50 text-left hover:bg-green-100/60 transition-colors"
+      <div
+        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
+        role={isPinned ? undefined : 'button'}
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-green-50 text-left transition-colors ${
+          isPinned ? '' : 'hover:bg-green-100/60 cursor-pointer'
+        }`}
       >
         <FileTextIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
         <span className="text-sm font-bold text-green-900 flex-shrink-0">PDF</span>
@@ -589,14 +613,16 @@ function CollapsiblePdf({ content }: { content: PdfContent }) {
             <span className="text-sm text-gray-600 truncate">{content.caption}</span>
           </>
         )}
-        <ChevronDownIcon
-          className={`w-4 h-4 text-green-600 ml-auto flex-shrink-0 transition-transform ${
-            expanded ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
+        {!isPinned && (
+          <ChevronDownIcon
+            className={`w-4 h-4 text-green-600 ml-auto flex-shrink-0 transition-transform ${
+              expanded ? 'rotate-180' : ''
+            }`}
+          />
+        )}
+      </div>
 
-      {expanded && (
+      {(isPinned || expanded) && (
         <PdfPostDetail content={content} />
       )}
     </div>
@@ -839,7 +865,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
 
           {/* ── Photo post ─────────────────────────────────────────────────── */}
           {post.post_type === 'photo' && (
-            <CollapsiblePhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} />
+            <CollapsiblePhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} isPinned={post.is_pinned} />
           )}
 
           {/* ── Daily report ───────────────────────────────────────────────── */}
@@ -848,6 +874,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
               content={post.content as DailyReportContent}
               photoUrls={reportPhotoUrls}
               onImageClick={setPreviewImage}
+              isPinned={post.is_pinned}
             />
           )}
 
@@ -858,12 +885,13 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
               postId={post.id}
               onUpdated={onUpdated}
               onImageClick={setPreviewImage}
+              isPinned={post.is_pinned}
             />
           )}
 
           {/* ── PDF ─────────────────────────────────────────────────────────── */}
           {post.post_type === 'pdf' && (
-            <CollapsiblePdf content={post.content as PdfContent} />
+            <CollapsiblePdf content={post.content as PdfContent} isPinned={post.is_pinned} />
           )}
 
           {/* ── Comment toggle + section ─────────────────────────────────── */}
