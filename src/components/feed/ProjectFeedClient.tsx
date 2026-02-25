@@ -90,8 +90,8 @@ export default function ProjectFeedClient({
 
   return (
     <div className="flex flex-col bg-gray-50 h-full w-full max-w-full overflow-x-hidden">
-      {/* Project header */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200">
+      {/* Project header — sticky on mobile, flex-shrink-0 keeps it fixed in the flex column */}
+      <div className="flex-shrink-0 sticky top-0 z-10 bg-white border-b border-gray-200">
         <div className="px-4 py-4">
           {/* Top row: back button + project info (+ action buttons on md+) */}
           <div className="flex items-start gap-3">
