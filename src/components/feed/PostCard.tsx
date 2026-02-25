@@ -24,6 +24,7 @@ import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, P
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
 import PostCommentsSection from './PostCommentsSection'
+import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface PostCardProps {
@@ -471,7 +472,7 @@ function CollapsibleDailyReport({
   )
 }
 
-// ── Inline PDF post (clean row, no card wrapper) ────────────────────────────
+// ── Inline PDF post (thumbnail + metadata, no card wrapper) ─────────────────
 function InlinePdfPost({ content }: { content: PdfContent }) {
   const supabase = createClient()
   const publicUrl = supabase.storage.from('post-photos').getPublicUrl(content.file_url).data.publicUrl
@@ -495,19 +496,15 @@ function InlinePdfPost({ content }: { content: PdfContent }) {
   return (
     <>
       <div className="mt-1 space-y-1.5">
-        {/* Filename row — clickable to preview */}
-        <button
-          onClick={() => setShowPreview(true)}
-          className="flex items-center gap-2 text-left hover:opacity-80 transition"
-        >
-          <FileTextIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-          <span className="text-sm font-medium text-gray-800 truncate">{content.filename}</span>
-        </button>
+        {/* PDF first-page thumbnail */}
+        <PdfThumbnail url={publicUrl} onClick={() => setShowPreview(true)} width={150} />
+        {/* Filename + caption */}
+        <p className="text-xs text-gray-500 truncate">{content.filename}</p>
         {content.caption && (
-          <p className="text-sm text-gray-500 ml-6">{content.caption}</p>
+          <p className="text-xs text-gray-400">{content.caption}</p>
         )}
         {/* Action buttons */}
-        <div className="flex gap-2 ml-6">
+        <div className="flex gap-2">
           <button
             onClick={handleDownload}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-amber-700 hover:bg-gray-100 transition"
