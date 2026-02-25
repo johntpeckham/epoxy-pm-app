@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { DocumentCategory, ProjectDocument } from '@/types'
 import PdfThumbnail from './PdfThumbnail'
-import PlansViewer from './PlansViewer'
+import PdfViewer from './PdfViewer'
 
 interface DocumentUploadModalProps {
   projectId: string
@@ -307,13 +307,23 @@ export default function DocumentUploadModal({
         </div>
       </div>
 
-      {/* Full-screen PDF viewer */}
+      {/* Full-screen PDF viewer — uses the same PdfViewer component as the chat feed */}
       {previewDoc && isPdf(previewDoc) && (
-        <PlansViewer
-          url={getPublicUrl(previewDoc.file_path)}
-          fileName={previewDoc.file_name}
-          onClose={() => setPreviewDoc(null)}
-        />
+        <div className="fixed inset-0 z-[60] flex flex-col bg-black">
+          <div className="flex-none flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700">
+            <p className="text-sm text-gray-300 truncate mr-3">{previewDoc.file_name}</p>
+            <button
+              onClick={() => setPreviewDoc(null)}
+              className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition flex-shrink-0"
+              aria-label="Close"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <PdfViewer url={getPublicUrl(previewDoc.file_path)} />
+          </div>
+        </div>
       )}
 
       {/* Non-PDF preview overlay */}
