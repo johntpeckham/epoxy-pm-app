@@ -111,9 +111,9 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           {/* Notification panel */}
           <div style={{
             position: 'fixed',
-            top: isMobile ? '10px' : '60px',
-            left: isMobile ? '10px' : '250px',
-            right: isMobile ? '10px' : 'auto',
+            top: isMobile ? '70px' : '60px',
+            left: isMobile ? '16px' : '250px',
+            right: isMobile ? '16px' : 'auto',
             width: isMobile ? 'auto' : '360px',
             maxHeight: '500px',
             backgroundColor: '#ffffff',
