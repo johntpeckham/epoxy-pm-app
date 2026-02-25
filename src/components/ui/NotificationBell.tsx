@@ -16,6 +16,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [open, setOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const router = useRouter()
   const supabaseRef = useRef(createClient())
 
@@ -125,8 +126,20 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
             flexDirection: 'column' as const,
           }}>
             {/* Header */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: '16px', color: '#111' }}>Notifications</span>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontWeight: 700, fontSize: '18px', color: '#111827' }}>Notifications</span>
+                {unreadCount > 0 && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    minWidth: '22px', height: '22px', padding: '0 6px',
+                    borderRadius: '11px', backgroundColor: '#d97706', color: '#ffffff',
+                    fontSize: '12px', fontWeight: 700, lineHeight: 1,
+                  }}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </div>
               {unreadCount > 0 && (
                 <button onClick={markAllAsRead} style={{ fontSize: '13px', color: '#d97706', background: 'none', border: 'none', cursor: 'pointer' }}>
                   Mark all read
@@ -140,21 +153,35 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                   No notifications yet
                 </div>
               ) : (
-                notifications.map(n => (
-                  <button
-                    key={n.id}
-                    onClick={() => handleNotificationClick(n)}
-                    style={{
-                      display: 'block', width: '100%', padding: '12px 16px', textAlign: 'left' as const,
-                      borderBottom: '1px solid #f3f4f6', cursor: 'pointer', border: 'none',
-                      backgroundColor: n.read ? '#ffffff' : '#fffbeb',
-                    }}
-                  >
-                    <div style={{ fontWeight: n.read ? 400 : 600, fontSize: '14px', color: '#111' }}>{n.title}</div>
-                    <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>{n.message}</div>
-                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>{formatTime(n.created_at)}</div>
-                  </button>
-                ))
+                notifications.map(n => {
+                  const isHovered = hoveredId === n.id
+                  const unread = !n.read
+                  let bg: string
+                  if (unread) {
+                    bg = isHovered ? '#fef3c7' : '#fffbeb'
+                  } else {
+                    bg = isHovered ? '#f9fafb' : '#ffffff'
+                  }
+                  return (
+                    <button
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      onMouseEnter={() => setHoveredId(n.id)}
+                      onMouseLeave={() => setHoveredId(null)}
+                      style={{
+                        display: 'block', width: '100%', padding: '12px 16px', textAlign: 'left' as const,
+                        borderTop: 'none', borderRight: 'none', borderBottom: '1px solid #f3f4f6',
+                        borderLeft: unread ? '3px solid #d97706' : '3px solid transparent',
+                        cursor: 'pointer', backgroundColor: bg,
+                        transition: 'background-color 150ms ease',
+                      }}
+                    >
+                      <div style={{ fontWeight: unread ? 700 : 400, fontSize: '14px', color: unread ? '#111827' : '#6b7280' }}>{n.title}</div>
+                      <div style={{ fontSize: '13px', color: unread ? '#374151' : '#9ca3af', marginTop: '2px' }}>{n.message}</div>
+                      <div style={{ fontSize: '11px', color: unread ? '#9ca3af' : '#d1d5db', marginTop: '4px' }}>{formatTime(n.created_at)}</div>
+                    </button>
+                  )
+                })
               )}
             </div>
           </div>
