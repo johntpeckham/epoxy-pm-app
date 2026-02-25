@@ -14,7 +14,10 @@ import {
   AlertCircleIcon,
 } from 'lucide-react'
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString()
 
 interface PdfViewerModalProps {
   url: string
@@ -142,7 +145,8 @@ export default function PdfViewerModal({ url, fileName, onClose }: PdfViewerModa
     setError(null)
   }
 
-  function onDocumentLoadError() {
+  function onDocumentLoadError(err: Error) {
+    console.error('PDF load error:', err)
     setLoading(false)
     setError('Failed to load PDF. The file may be corrupted or unavailable.')
   }
