@@ -96,9 +96,15 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           <div className="fixed inset-0 z-[199]" onClick={() => setOpen(false)} />
 
           {/* Dropdown panel */}
-          <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl z-[200] overflow-hidden">
+          <div
+            className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl z-[200] overflow-hidden"
+            style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', zIndex: 200, position: 'absolute', width: '320px' }}
+          >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
+            <div
+              className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white"
+              style={{ backgroundColor: 'white' }}
+            >
               <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
               {unreadCount > 0 && (
                 <button
@@ -112,9 +118,9 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
             </div>
 
             {/* List */}
-            <div className="overflow-y-auto max-h-80 bg-white">
+            <div className="overflow-y-auto max-h-80 bg-white" style={{ backgroundColor: 'white' }}>
               {notifications.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-gray-400">
+                <div className="px-4 py-8 text-center text-sm text-gray-400" style={{ backgroundColor: 'white' }}>
                   No notifications yet
                 </div>
               ) : (
@@ -125,6 +131,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                     className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 ${
                       !n.read ? 'bg-amber-50' : 'bg-white'
                     }`}
+                    style={{ backgroundColor: n.read ? 'white' : '#fffbeb' }}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${!n.read ? 'bg-amber-500' : 'bg-transparent'}`} />
