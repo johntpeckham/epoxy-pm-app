@@ -89,7 +89,7 @@ export default function ProjectFeedClient({
   const unpinnedPosts = posts.filter((p) => !p.is_pinned)
 
   return (
-    <div className="flex flex-col bg-gray-50 h-full">
+    <div className="flex flex-col bg-gray-50 h-full w-full max-w-full overflow-x-hidden">
       {/* Project header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200">
         <div className="px-4 py-4">
@@ -158,7 +158,7 @@ export default function ProjectFeedClient({
             </div>
           </div>
           {/* Action buttons — mobile only (below header info) */}
-          <div className="flex md:hidden items-center gap-1.5 mt-3 overflow-x-auto">
+          <div className="flex md:hidden items-center gap-1.5 mt-3 overflow-x-auto max-w-full">
             <button
               onClick={() => setShowPlansModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
@@ -185,7 +185,7 @@ export default function ProjectFeedClient({
       </div>
 
       {/* Scrollable feed — iMessage style */}
-      <div className="flex-1 overflow-y-auto bg-white">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
         <div className="py-3">
           {/* Pinned posts */}
           <PinnedSection

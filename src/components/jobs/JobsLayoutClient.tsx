@@ -134,11 +134,11 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
   return (
     // Full viewport height; panels scroll independently
-    <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen overflow-hidden">
+    <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen overflow-hidden overflow-x-hidden w-full max-w-full">
 
       {/* ── Panel 2: Project List ───────────────────────────────────────── */}
       <div
-        className={`flex-shrink-0 w-full lg:w-80 xl:w-96 bg-white border-r border-gray-200 flex-col overflow-hidden ${
+        className={`flex-shrink-0 w-screen max-w-full lg:w-80 xl:w-96 min-w-0 bg-white border-r border-gray-200 flex-col overflow-hidden ${
           mobileView === 'feed' ? 'hidden lg:flex' : 'flex'
         }`}
       >
@@ -225,7 +225,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
       {/* ── Panel 3: Project Feed ───────────────────────────────────────── */}
       <div
-        className={`flex-1 overflow-hidden bg-gray-50 ${
+        className={`flex-1 w-screen max-w-full min-w-0 overflow-hidden overflow-x-hidden bg-gray-50 ${
           mobileView === 'list' ? 'hidden lg:flex' : 'flex'
         } flex-col`}
       >
