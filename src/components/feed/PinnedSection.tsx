@@ -47,7 +47,6 @@ export default function PinnedSection({ posts, userId, onPinToggle, onDeleted, o
               onPinToggle={onPinToggle}
               onDeleted={onDeleted}
               onUpdated={onUpdated}
-              pinned
             />
           ))}
         </div>
