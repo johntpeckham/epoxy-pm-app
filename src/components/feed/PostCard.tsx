@@ -497,7 +497,10 @@ function InlinePdfPost({ content }: { content: PdfContent }) {
     <>
       <div className="mt-1 space-y-1.5">
         {/* PDF first-page thumbnail */}
-        <PdfThumbnail url={publicUrl} onClick={() => setShowPreview(true)} width={150} />
+        <PdfThumbnail url={publicUrl} onClick={() => {
+          if (window.innerWidth < 768) { window.open(publicUrl, '_blank'); return }
+          setShowPreview(true)
+        }} width={150} />
         {/* Filename + caption */}
         <p className="text-xs text-gray-500 truncate">{content.filename}</p>
         {content.caption && (
