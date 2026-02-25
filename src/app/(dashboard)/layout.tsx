@@ -23,15 +23,15 @@ export default async function DashboardLayout({
     .single()
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-gray-50 overflow-x-hidden max-w-[100vw]">
+    <div className="h-[100dvh] flex flex-col bg-gray-50 overflow-hidden">
       <Sidebar
         userEmail={user.email}
         displayName={profile?.display_name ?? undefined}
         avatarUrl={profile?.avatar_url ?? undefined}
       />
       {/* Main content — offset for mobile top bar (+ safe area on iOS) / desktop sidebar */}
-      <div className="flex-1 min-h-0 safe-top lg:pl-56 overflow-x-hidden">
-        <main className="h-full overflow-x-hidden">
+      <div className="flex-1 min-h-0 safe-top lg:pl-56 overflow-hidden">
+        <main className="h-full overflow-hidden">
           {children}
         </main>
       </div>
