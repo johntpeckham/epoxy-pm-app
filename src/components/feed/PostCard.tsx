@@ -34,6 +34,8 @@ interface PostCardProps {
   onPinToggle: () => void
   onDeleted?: () => void
   onUpdated?: () => void
+  /** Whether this card is rendered inside the pinned section (skip alignment) */
+  pinned?: boolean
 }
 
 function formatDate(dateStr: string) {
@@ -63,17 +65,17 @@ function getInitials(email: string) {
 // ── Avatar ─────────────────────────────────────────────────────────────────────
 function Avatar({ initials, avatarUrl }: { initials: string; avatarUrl?: string }) {
   return (
-    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center mt-0.5 overflow-hidden">
+    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center overflow-hidden">
       {avatarUrl ? (
         <Image
           src={avatarUrl}
           alt="Avatar"
-          width={36}
-          height={36}
+          width={32}
+          height={32}
           className="w-full h-full object-cover"
         />
       ) : (
-        <span className="text-xs font-bold text-white tracking-wide">{initials}</span>
+        <span className="text-[11px] font-bold text-white tracking-wide">{initials}</span>
       )}
     </div>
   )
@@ -630,7 +632,7 @@ function CollapsiblePdf({ content, isPinned }: { content: PdfContent; isPinned?:
 }
 
 // ── Main PostCard ──────────────────────────────────────────────────────────────
-export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdated }: PostCardProps) {
+export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdated, pinned }: PostCardProps) {
   const [pinning, setPinning] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -748,165 +750,202 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
 
   const authorName = post.author_name || post.author_email?.split('@')[0] || 'User'
   const initials = post.author_email ? getInitials(post.author_email) : 'U'
+  const isOwn = userId === post.user_id
+  const isText = post.post_type === 'text'
+  // In pinned section, always use left-aligned layout
+  const alignRight = pinned ? false : isOwn
+
+  // ── Action buttons (shared) ──────────────────────────────────────────────
+  const actionButtons = (
+    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+      {post.post_type === 'daily_report' && (
+        <button
+          onClick={handleDownloadPdf}
+          disabled={pdfLoading}
+          title="Download PDF"
+          className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition disabled:opacity-40"
+        >
+          <DownloadIcon className="w-3.5 h-3.5" />
+        </button>
+      )}
+      {(post.post_type === 'text' || post.post_type === 'daily_report') && (
+        <button
+          onClick={() => {
+            if (post.post_type === 'text') {
+              setEditText((post.content as TextContent).message)
+              setEditingText(true)
+            } else {
+              setShowEditReport(true)
+            }
+          }}
+          title="Edit post"
+          className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
+        >
+          <PencilIcon className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <button
+        onClick={() => setShowDeleteConfirm(true)}
+        title="Delete post"
+        className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
+      >
+        <Trash2Icon className="w-3.5 h-3.5" />
+      </button>
+      <button
+        onClick={handlePinToggle}
+        disabled={pinning}
+        title={post.is_pinned ? 'Unpin post' : 'Pin post'}
+        className={`p-1 rounded-md transition ${
+          post.is_pinned
+            ? 'text-amber-500 hover:bg-amber-50'
+            : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'
+        }`}
+      >
+        {post.is_pinned ? (
+          <PinOffIcon className="w-3.5 h-3.5" />
+        ) : (
+          <PinIcon className="w-3.5 h-3.5" />
+        )}
+      </button>
+    </div>
+  )
+
+  // ── Structured card content (non-text posts) ────────────────────────────
+  const structuredContent = (
+    <>
+      {post.post_type === 'photo' && (
+        <CollapsiblePhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} isPinned={post.is_pinned} />
+      )}
+      {post.post_type === 'daily_report' && (
+        <CollapsibleDailyReport
+          content={post.content as DailyReportContent}
+          photoUrls={reportPhotoUrls}
+          onImageClick={setPreviewImage}
+          isPinned={post.is_pinned}
+        />
+      )}
+      {post.post_type === 'task' && (
+        <CollapsibleTask
+          content={post.content as TaskContent}
+          postId={post.id}
+          onUpdated={onUpdated}
+          onImageClick={setPreviewImage}
+          isPinned={post.is_pinned}
+        />
+      )}
+      {post.post_type === 'pdf' && (
+        <CollapsiblePdf content={post.content as PdfContent} isPinned={post.is_pinned} />
+      )}
+    </>
+  )
+
+  // ── Comment section ──────────────────────────────────────────────────────
+  const commentSection = (
+    <div className="mt-1">
+      <button
+        onClick={() => setShowComments((v) => !v)}
+        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-amber-600 transition py-0.5"
+      >
+        <MessageCircleIcon className="w-3 h-3" />
+        <span>{commentCount > 0 ? commentCount : ''} {commentCount === 1 ? 'comment' : commentCount > 1 ? 'comments' : 'Comment'}</span>
+      </button>
+      {showComments && userId && (
+        <PostCommentsSection postId={post.id} userId={userId} />
+      )}
+    </div>
+  )
 
   return (
     <>
       <div
-        className={`group relative flex gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-          post.is_pinned ? 'bg-amber-50/80' : 'hover:bg-gray-100/60'
+        className={`group relative flex px-4 py-1 ${
+          alignRight ? 'justify-end' : 'justify-start'
         }`}
       >
-        {/* Avatar */}
-        <Avatar initials={initials} avatarUrl={post.author_avatar_url} />
-
-        {/* Content column */}
-        <div className="flex-1 min-w-0">
-
-          {/* Header: name · timestamp · actions */}
-          <div className="flex items-center gap-2 mb-1 min-w-0">
-            <span className="text-sm font-bold text-gray-900 leading-tight truncate flex-shrink-0">
-              {authorName}
-            </span>
-            {post.is_pinned && (
-              <PinIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
-            )}
-            <span className="text-xs text-gray-400 leading-tight flex-shrink-0">
-              {formatDate(post.created_at)}
-            </span>
-
-            {/* Action buttons — revealed on hover */}
-            <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-              {post.post_type === 'daily_report' && (
-                <button
-                  onClick={handleDownloadPdf}
-                  disabled={pdfLoading}
-                  title="Download PDF"
-                  className="p-1.5 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition disabled:opacity-40"
-                >
-                  <DownloadIcon className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {(post.post_type === 'text' || post.post_type === 'daily_report') && (
-                <button
-                  onClick={() => {
-                    if (post.post_type === 'text') {
-                      setEditText((post.content as TextContent).message)
-                      setEditingText(true)
-                    } else {
-                      setShowEditReport(true)
-                    }
-                  }}
-                  title="Edit post"
-                  className="p-1.5 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
-                >
-                  <PencilIcon className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                title="Delete post"
-                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
-              >
-                <Trash2Icon className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={handlePinToggle}
-                disabled={pinning}
-                title={post.is_pinned ? 'Unpin post' : 'Pin post'}
-                className={`p-1.5 rounded-md transition ${
-                  post.is_pinned
-                    ? 'text-amber-500 hover:bg-amber-50'
-                    : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'
-                }`}
-              >
-                {post.is_pinned ? (
-                  <PinOffIcon className="w-3.5 h-3.5" />
-                ) : (
-                  <PinIcon className="w-3.5 h-3.5" />
-                )}
-              </button>
+        {/* Row: avatar + bubble */}
+        <div
+          className={`flex gap-2 items-end ${
+            isText ? 'max-w-[80%]' : 'max-w-[75%]'
+          } ${alignRight ? 'flex-row-reverse' : 'flex-row'}`}
+        >
+          {/* Avatar — only for other users (left side) */}
+          {!alignRight && (
+            <div className="flex-shrink-0 self-end mb-5">
+              <Avatar initials={initials} avatarUrl={post.author_avatar_url} />
             </div>
-          </div>
-
-          {/* ── Text post ──────────────────────────────────────────────────── */}
-          {post.post_type === 'text' &&
-            (editingText ? (
-              <div className="space-y-2 mt-1">
-                <textarea
-                  autoFocus
-                  rows={3}
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  className="w-full border border-amber-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-                />
-                <div className="flex gap-2 justify-end">
-                  <button
-                    onClick={() => setEditingText(false)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition"
-                  >
-                    <XIcon className="w-3.5 h-3.5" /> Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveText}
-                    disabled={savingText || !editText.trim()}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-md transition"
-                  >
-                    <CheckIcon className="w-3.5 h-3.5" /> {savingText ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="inline-block max-w-full bg-gray-100 rounded-2xl rounded-tl-sm px-3.5 py-2.5">
-                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap break-words">
-                  {(post.content as TextContent).message}
-                </p>
-              </div>
-            ))}
-
-          {/* ── Photo post ─────────────────────────────────────────────────── */}
-          {post.post_type === 'photo' && (
-            <CollapsiblePhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} isPinned={post.is_pinned} />
           )}
 
-          {/* ── Daily report ───────────────────────────────────────────────── */}
-          {post.post_type === 'daily_report' && (
-            <CollapsibleDailyReport
-              content={post.content as DailyReportContent}
-              photoUrls={reportPhotoUrls}
-              onImageClick={setPreviewImage}
-              isPinned={post.is_pinned}
-            />
-          )}
-
-          {/* ── Task ────────────────────────────────────────────────────────── */}
-          {post.post_type === 'task' && (
-            <CollapsibleTask
-              content={post.content as TaskContent}
-              postId={post.id}
-              onUpdated={onUpdated}
-              onImageClick={setPreviewImage}
-              isPinned={post.is_pinned}
-            />
-          )}
-
-          {/* ── PDF ─────────────────────────────────────────────────────────── */}
-          {post.post_type === 'pdf' && (
-            <CollapsiblePdf content={post.content as PdfContent} isPinned={post.is_pinned} />
-          )}
-
-          {/* ── Comment toggle + section ─────────────────────────────────── */}
-          <div className="mt-1.5">
-            <button
-              onClick={() => setShowComments((v) => !v)}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-amber-600 transition py-0.5"
-            >
-              <MessageCircleIcon className="w-3.5 h-3.5" />
-              <span>{commentCount > 0 ? commentCount : ''} {commentCount === 1 ? 'comment' : commentCount > 1 ? 'comments' : 'Comment'}</span>
-            </button>
-
-            {showComments && userId && (
-              <PostCommentsSection postId={post.id} userId={userId} />
+          {/* Content column */}
+          <div className={`min-w-0 ${alignRight ? 'items-end' : 'items-start'} flex flex-col`}>
+            {/* Name — only for other users */}
+            {!alignRight && (
+              <span className="text-[11px] font-semibold text-gray-500 mb-0.5 ml-1">
+                {authorName}
+              </span>
             )}
+
+            {/* Hover action buttons */}
+            <div className={`flex items-center gap-1 ${alignRight ? 'flex-row-reverse' : 'flex-row'}`}>
+              {/* Bubble / card content */}
+              <div className="min-w-0">
+                {isText ? (
+                  editingText ? (
+                    <div className="space-y-2">
+                      <textarea
+                        autoFocus
+                        rows={3}
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full border border-amber-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => setEditingText(false)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition"
+                        >
+                          <XIcon className="w-3.5 h-3.5" /> Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveText}
+                          disabled={savingText || !editText.trim()}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-md transition"
+                        >
+                          <CheckIcon className="w-3.5 h-3.5" /> {savingText ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`inline-block px-3.5 py-2 ${
+                        alignRight
+                          ? 'bg-amber-500 text-white rounded-2xl rounded-br-sm'
+                          : 'bg-gray-200 text-gray-900 rounded-2xl rounded-bl-sm'
+                      }`}
+                    >
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                        {(post.content as TextContent).message}
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  structuredContent
+                )}
+              </div>
+
+              {/* Actions float beside the bubble */}
+              {actionButtons}
+            </div>
+
+            {/* Timestamp + pin icon */}
+            <div className={`flex items-center gap-1 mt-0.5 ${alignRight ? 'mr-1 self-end' : 'ml-1 self-start'}`}>
+              {post.is_pinned && <PinIcon className="w-2.5 h-2.5 text-amber-500" />}
+              <span className="text-[10px] text-gray-400">
+                {formatDate(post.created_at)}
+              </span>
+            </div>
+
+            {/* Comments */}
+            {commentSection}
           </div>
         </div>
       </div>
