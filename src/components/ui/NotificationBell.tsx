@@ -93,12 +93,12 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
       {open && (
         <>
           {/* Backdrop overlay — closes dropdown, prevents click-through */}
-          <div className="fixed inset-0 z-[99]" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[199]" onClick={() => setOpen(false)} />
 
           {/* Dropdown panel */}
-          <div className="absolute right-0 lg:right-auto lg:left-0 top-full mt-2 w-80 max-h-96 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-[100]">
+          <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl z-[200] overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
               <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
               {unreadCount > 0 && (
                 <button
@@ -112,7 +112,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
             </div>
 
             {/* List */}
-            <div className="overflow-y-auto max-h-80">
+            <div className="overflow-y-auto max-h-80 bg-white">
               {notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-gray-400">
                   No notifications yet
@@ -123,7 +123,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
                     className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 ${
-                      !n.read ? 'bg-amber-50/50' : ''
+                      !n.read ? 'bg-amber-50' : 'bg-white'
                     }`}
                   >
                     <div className="flex items-start gap-3">
