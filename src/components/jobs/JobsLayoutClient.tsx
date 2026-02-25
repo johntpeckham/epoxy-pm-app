@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import {
   PlusIcon,
   SearchIcon,
-  ChevronDownIcon,
   BriefcaseIcon,
 } from 'lucide-react'
 import { Project, FeedPost } from '@/types'
@@ -14,30 +13,6 @@ import NewProjectModal from './NewProjectModal'
 import EditProjectModal from './EditProjectModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import ProjectFeedClient from '@/components/feed/ProjectFeedClient'
-
-type SortBy = 'date' | 'active_first' | 'complete_first'
-
-const SORT_OPTIONS: { value: SortBy; label: string }[] = [
-  { value: 'date', label: 'Date Created' },
-  { value: 'active_first', label: 'In Progress First' },
-  { value: 'complete_first', label: 'Completed First' },
-]
-
-function sortProjects(projects: Project[], sortBy: SortBy): Project[] {
-  const list = [...projects]
-  if (sortBy === 'active_first') {
-    list.sort((a, b) => {
-      if (a.status !== b.status) return a.status === 'Active' ? -1 : 1
-      return 0
-    })
-  } else if (sortBy === 'complete_first') {
-    list.sort((a, b) => {
-      if (a.status !== b.status) return a.status === 'Complete' ? -1 : 1
-      return 0
-    })
-  }
-  return list // 'date' stays in server order (created_at DESC)
-}
 
 interface JobsLayoutClientProps {
   initialProjects: Project[]
@@ -51,8 +26,6 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
   // List controls
   const [search, setSearch] = useState('')
-  const [sortBy, setSortBy] = useState<SortBy>('date')
-  const [showSortMenu, setShowSortMenu] = useState(false)
 
   // Modals
   const [showNewProject, setShowNewProject] = useState(false)
@@ -142,19 +115,20 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     fetchProjects()
   }
 
-  // Filter then sort
-  const filtered = sortProjects(
-    projects.filter((p) => {
-      const q = search.toLowerCase()
-      return (
-        !q ||
-        p.name.toLowerCase().includes(q) ||
-        p.client_name.toLowerCase().includes(q) ||
-        p.address.toLowerCase().includes(q)
-      )
-    }),
-    sortBy
-  )
+  // Filter then split into active / completed sections
+  const filtered = projects.filter((p) => {
+    const q = search.toLowerCase()
+    return (
+      !q ||
+      p.name.toLowerCase().includes(q) ||
+      p.client_name.toLowerCase().includes(q) ||
+      p.address.toLowerCase().includes(q)
+    )
+  })
+
+  const activeProjects = filtered.filter((p) => p.status === 'Active')
+  const completedProjects = [...filtered.filter((p) => p.status === 'Complete')]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   const activeCount = projects.filter((p) => p.status === 'Active').length
 
@@ -198,42 +172,6 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
             />
           </div>
 
-          {/* Arrange By */}
-          <div className="relative">
-            <button
-              onClick={() => setShowSortMenu((v) => !v)}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition"
-            >
-              <span>
-                Arrange by:{' '}
-                <span className="font-semibold text-gray-700">
-                  {SORT_OPTIONS.find((o) => o.value === sortBy)?.label}
-                </span>
-              </span>
-              <ChevronDownIcon className="w-3.5 h-3.5" />
-            </button>
-
-            {showSortMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowSortMenu(false)} />
-                <div className="absolute top-full left-0 mt-1.5 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[190px]">
-                  {SORT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => { setSortBy(opt.value); setShowSortMenu(false) }}
-                      className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                        sortBy === opt.value
-                          ? 'text-amber-600 bg-amber-50 font-medium'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Scrollable project list */}
@@ -246,16 +184,41 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
               </p>
             </div>
           ) : (
-            filtered.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                isSelected={selectedProject?.id === project.id}
-                onSelect={selectProject}
-                onEdit={setEditingProject}
-                onDelete={setProjectToDelete}
-              />
-            ))
+            <>
+              {/* Active section */}
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Active</p>
+              {activeProjects.length === 0 ? (
+                <p className="text-xs text-gray-400 pb-2">No active projects</p>
+              ) : (
+                activeProjects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    isSelected={selectedProject?.id === project.id}
+                    onSelect={selectProject}
+                    onEdit={setEditingProject}
+                    onDelete={setProjectToDelete}
+                  />
+                ))
+              )}
+
+              {/* Completed section — hidden when empty */}
+              {completedProjects.length > 0 && (
+                <>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-4 mb-2">Completed</p>
+                  {completedProjects.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      isSelected={selectedProject?.id === project.id}
+                      onSelect={selectProject}
+                      onEdit={setEditingProject}
+                      onDelete={setProjectToDelete}
+                    />
+                  ))}
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
