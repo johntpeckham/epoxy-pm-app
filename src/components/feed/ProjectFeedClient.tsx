@@ -93,6 +93,7 @@ export default function ProjectFeedClient({
       {/* Project header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200">
         <div className="px-4 py-4">
+          {/* Top row: back button + project info (+ action buttons on md+) */}
           <div className="flex items-start gap-3">
             {inPanel ? (
               <button
@@ -110,8 +111,8 @@ export default function ProjectFeedClient({
               </Link>
             )}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-lg font-bold text-gray-900 leading-tight">{project.name}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg font-bold text-gray-900 leading-tight truncate">{project.name}</h1>
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
                     project.status === 'Active'
@@ -123,16 +124,16 @@ export default function ProjectFeedClient({
                 </span>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
-                <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                  <UserIcon className="w-3 h-3" /> {project.client_name}
+                <span className="flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
+                  <UserIcon className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{project.client_name}</span>
                 </span>
-                <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                  <MapPinIcon className="w-3 h-3" /> {project.address}
+                <span className="flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
+                  <MapPinIcon className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{project.address}</span>
                 </span>
               </div>
             </div>
-            {/* Action buttons — inline with header */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Action buttons — desktop only (inline with header) */}
+            <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
               <button
                 onClick={() => setShowPlansModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
@@ -145,7 +146,7 @@ export default function ProjectFeedClient({
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
               >
                 <ClipboardListIcon className="w-3.5 h-3.5" />
-                Project Report
+                Report
               </button>
               <button
                 onClick={() => setShowPhotosModal(true)}
@@ -155,6 +156,30 @@ export default function ProjectFeedClient({
                 Pictures
               </button>
             </div>
+          </div>
+          {/* Action buttons — mobile only (below header info) */}
+          <div className="flex md:hidden items-center gap-1.5 mt-3 overflow-x-auto">
+            <button
+              onClick={() => setShowPlansModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
+            >
+              <FileTextIcon className="w-3.5 h-3.5" />
+              Plans
+            </button>
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
+            >
+              <ClipboardListIcon className="w-3.5 h-3.5" />
+              Project Report
+            </button>
+            <button
+              onClick={() => setShowPhotosModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
+            >
+              <CameraIcon className="w-3.5 h-3.5" />
+              Pictures
+            </button>
           </div>
         </div>
       </div>

@@ -194,7 +194,7 @@ export default function ProjectPhotosModal({
                       ({photos.length} photo{photos.length !== 1 ? 's' : ''})
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
                     {photos.map((path, i) => {
                       const url = getPublicUrl(path)
                       return (
@@ -205,13 +205,13 @@ export default function ProjectPhotosModal({
                           rel="noopener noreferrer"
                           className="block"
                         >
-                          <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
+                          <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
                             <Image
                               src={url}
                               alt={`Photo ${i + 1}`}
                               fill
                               className="object-cover hover:opacity-90 transition"
-                              sizes="60px"
+                              sizes="(min-width: 640px) 60px, 25vw"
                             />
                           </div>
                         </a>
