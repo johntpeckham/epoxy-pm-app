@@ -91,16 +91,16 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
       {content.caption && (
         <p className="text-sm text-gray-600">{content.caption}</p>
       )}
-      <div className="flex flex-wrap gap-1">
+      <div className="grid grid-cols-4 sm:grid-cols-5 gap-1">
         {urls.map((url, i) => (
           <button key={i} onClick={() => onImageClick(url)} className="block">
-            <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
+            <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={url}
                 alt={`Photo ${i + 1}`}
                 fill
                 className="object-cover hover:opacity-90 transition"
-                sizes="60px"
+                sizes="(min-width: 640px) 60px, 25vw"
               />
             </div>
           </button>
@@ -186,16 +186,16 @@ function DailyReportPost({
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
             Photos ({photoUrls.length})
           </p>
-          <div className="flex flex-wrap gap-1">
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-1">
             {photoUrls.map((url, i) => (
               <button key={i} onClick={() => onImageClick(url)} className="block">
-                <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-amber-50">
+                <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
                   <Image
                     src={url}
                     alt={`Report photo ${i + 1}`}
                     fill
                     className="object-cover hover:opacity-90 transition"
-                    sizes="60px"
+                    sizes="(min-width: 640px) 60px, 25vw"
                   />
                 </div>
               </button>

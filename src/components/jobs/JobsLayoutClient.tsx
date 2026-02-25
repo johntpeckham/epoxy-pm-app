@@ -138,7 +138,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
       {/* ── Panel 2: Project List ───────────────────────────────────────── */}
       <div
-        className={`flex-shrink-0 w-full lg:w-80 xl:w-96 bg-white border-r border-gray-200 flex flex-col overflow-hidden ${
+        className={`flex-shrink-0 w-full lg:w-80 xl:w-96 bg-white border-r border-gray-200 flex-col overflow-hidden ${
           mobileView === 'feed' ? 'hidden lg:flex' : 'flex'
         }`}
       >
