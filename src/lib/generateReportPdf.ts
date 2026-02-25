@@ -1,26 +1,38 @@
 import { jsPDF } from 'jspdf'
 import { DailyReportContent } from '@/types'
 
-/** Fetch an image URL and return a base64 data URL + format string for jsPDF. */
-async function urlToBase64(url: string): Promise<{ data: string; format: 'JPEG' | 'PNG' }> {
+/** Fetch an image URL and return a base64 data URL, format, and natural dimensions. */
+async function loadImage(url: string): Promise<{
+  data: string
+  format: 'JPEG' | 'PNG'
+  width: number
+  height: number
+}> {
   const res = await fetch(url)
   const blob = await res.blob()
   const format: 'JPEG' | 'PNG' = blob.type.includes('png') ? 'PNG' : 'JPEG'
-  return new Promise((resolve, reject) => {
+  const data = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => resolve({ data: reader.result as string, format })
+    reader.onload = () => resolve(reader.result as string)
     reader.onerror = reject
     reader.readAsDataURL(blob)
   })
+  // Get natural dimensions to preserve aspect ratio
+  const img = document.createElement('img')
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve()
+    img.onerror = reject
+    img.src = data
+  })
+  return { data, format, width: img.naturalWidth, height: img.naturalHeight }
 }
 
 // Color palette — matches ProjectReportModal form styles
-const AMBER: [number, number, number] = [180, 83, 9]          // amber-700  (section titles)
+const AMBER: [number, number, number] = [180, 83, 9]          // amber-700  (section titles + header line)
 const AMBER_LIGHT: [number, number, number] = [254, 243, 199] // amber-100  (section border)
 const DARK: [number, number, number] = [17, 24, 39]           // gray-900   (values / title)
 const LABEL_GRAY: [number, number, number] = [75, 85, 99]     // gray-600   (field labels)
 const MED: [number, number, number] = [107, 114, 128]         // gray-500   (footer / meta)
-const BORDER: [number, number, number] = [209, 213, 219]      // gray-300   (header divider)
 
 export async function generateReportPdf(
   content: DailyReportContent,
@@ -33,9 +45,9 @@ export async function generateReportPdf(
   const PH = doc.internal.pageSize.getHeight()  // 279.4
   const M = 20      // page margin
   const CW = PW - M * 2  // content width
-  const LABEL_W = 50 // label column width (≈180px equivalent)
-  const VALUE_X = M + LABEL_W + 4  // value column start
-  const VALUE_W = CW - LABEL_W - 6 // value column width
+  const LABEL_W = 50 // label column width for fieldRow
+  const VALUE_X = M + LABEL_W + 4
+  const VALUE_W = CW - LABEL_W - 6
   let y = M
 
   // ─── helpers ──────────────────────────────────────────────────────────────
@@ -47,8 +59,8 @@ export async function generateReportPdf(
     }
   }
 
-  /** Section header — uppercase amber text with amber-100 bottom border
-   *  (matches ProjectReportModal section headers). */
+  /** Section header — uppercase amber-700 text with amber-100 bottom border
+   *  (matches ProjectReportModal: text-amber-700 border-b border-amber-100). */
   function sectionTitle(title: string) {
     checkPage(14)
     y += 5
@@ -63,19 +75,17 @@ export async function generateReportPdf(
     y += 5
   }
 
-  /** Two-column field row — label right-aligned, value left-aligned
-   *  (matches ProjectReportModal grid-cols-[180px_1fr] layout). */
+  /** Two-column field row — label right-aligned, value left-aligned.
+   *  Used for short fields (Date, Project, Address, Crew fields). */
   function fieldRow(label: string, value: string) {
     if (!value) return
     checkPage(10)
 
-    // Label — right-aligned in label column
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
     doc.setTextColor(...LABEL_GRAY)
     doc.text(label, M + LABEL_W - 2, y, { align: 'right' })
 
-    // Value
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9.5)
     doc.setTextColor(...DARK)
@@ -88,14 +98,46 @@ export async function generateReportPdf(
     y += 6
   }
 
-  // ─── HEADER ───────────────────────────────────────────────────────────────
-  // Matches ProjectReportModal title area: title + logo, bottom border
+  /** Paragraph block — bold label above, then wrapped value text below.
+   *  Used for long-form fields (Progress, Delays, Safety, etc). */
+  function paragraphBlock(label: string, value: string) {
+    if (!value) return
+    checkPage(14)
 
-  // Company logo – top right
+    // Bold label header
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...DARK)
+    doc.text(label, M, y)
+    y += 5
+
+    // Wrapped value text
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9.5)
+    doc.setTextColor(...DARK)
+    const lines = doc.splitTextToSize(value, CW)
+    lines.forEach((line: string) => {
+      checkPage(5)
+      doc.text(line, M, y)
+      y += 4.5
+    })
+    y += 4
+  }
+
+  // ─── HEADER ───────────────────────────────────────────────────────────────
+  // Title left, logo right (preserving aspect ratio), amber separator
+
+  // Company logo – top right, preserving aspect ratio within 40×20mm
+  // (matches ProjectReportModal: h-[75px] w-auto max-w-[150px] object-contain)
+  const LOGO_MAX_W = 40  // ~150px
+  const LOGO_MAX_H = 20  // ~75px
   if (logoUrl) {
     try {
-      const { data: logoData, format: logoFormat } = await urlToBase64(logoUrl)
-      doc.addImage(logoData, logoFormat, PW - M - 45, y, 45, 18)
+      const logo = await loadImage(logoUrl)
+      const ratio = Math.min(LOGO_MAX_W / logo.width, LOGO_MAX_H / logo.height)
+      const drawW = logo.width * ratio
+      const drawH = logo.height * ratio
+      doc.addImage(logo.data, logo.format, PW - M - drawW, y, drawW, drawH)
     } catch {
       // skip logo if it fails to load
     }
@@ -115,9 +157,9 @@ export async function generateReportPdf(
 
   y += 18
 
-  // Header divider — matches border-b border-gray-300
-  doc.setDrawColor(...BORDER)
-  doc.setLineWidth(0.3)
+  // Amber horizontal separator
+  doc.setDrawColor(...AMBER)
+  doc.setLineWidth(0.5)
   doc.line(M, y, M + CW, y)
   y += 4
 
@@ -146,15 +188,15 @@ export async function generateReportPdf(
   fieldRow('Project Foreman', content.project_foreman || '—')
   fieldRow('Weather', content.weather || '—')
 
-  // ─── PROGRESS ─────────────────────────────────────────────────────────────
+  // ─── WORK SUMMARY ──────────────────────────────────────────────────────
 
-  sectionTitle('PROGRESS')
+  sectionTitle('WORK SUMMARY')
 
-  fieldRow('Progress', content.progress || '')
-  fieldRow('Delays', content.delays || '')
-  fieldRow('Safety', content.safety || '')
-  fieldRow('Materials Used', content.materials_used || '')
-  fieldRow('Employees', content.employees || '')
+  paragraphBlock('Progress', content.progress || '')
+  paragraphBlock('Delays', content.delays || '')
+  paragraphBlock('Safety', content.safety || '')
+  paragraphBlock('Materials Used', content.materials_used || '')
+  paragraphBlock('Employees', content.employees || '')
 
   // ─── PHOTOS ───────────────────────────────────────────────────────────────
 
@@ -170,7 +212,7 @@ export async function generateReportPdf(
 
     for (const url of photoUrls) {
       try {
-        const { data, format } = await urlToBase64(url)
+        const { data, format } = await loadImage(url)
         const x = M + col * (photoW + gap)
 
         checkPage(photoH + 6)
