@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Document, Page, pdfjs } from 'react-pdf'
+import { Document, Page } from 'react-pdf'
+import '@/lib/pdfWorker'
 import {
   Loader2Icon,
   ChevronLeftIcon,
@@ -9,11 +10,6 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react'
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString()
 
 interface PdfViewerProps {
   url: string

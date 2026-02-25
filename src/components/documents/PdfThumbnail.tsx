@@ -1,13 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Document, Page, pdfjs } from 'react-pdf'
+import { Document, Page } from 'react-pdf'
+import '@/lib/pdfWorker'
 import { Loader2Icon, FileTextIcon } from 'lucide-react'
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString()
 
 interface PdfThumbnailProps {
   url: string
