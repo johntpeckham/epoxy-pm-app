@@ -50,6 +50,10 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [resending, setResending] = useState(false)
   const [resendSuccess, setResendSuccess] = useState(false)
+  // Row-level resend invite state
+  const [resendingRowId, setResendingRowId] = useState<string | null>(null)
+  const [resendRowSuccessId, setResendRowSuccessId] = useState<string | null>(null)
+  const [resendRowError, setResendRowError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -176,6 +180,32 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
       setEditError(err instanceof Error ? err.message : 'Failed to resend invite')
     } finally {
       setResending(false)
+    }
+  }
+
+  async function handleResendInviteRow(user: UserRow) {
+    if (!user.email) return
+    setResendingRowId(user.id)
+    setResendRowError(null)
+    setResendRowSuccessId(null)
+
+    try {
+      const res = await fetch('/api/invite-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      })
+
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Failed to resend invite')
+
+      setResendRowSuccessId(user.id)
+      setTimeout(() => setResendRowSuccessId(null), 3000)
+    } catch (err) {
+      setResendRowError(err instanceof Error ? err.message : 'Failed to resend invite')
+      setTimeout(() => setResendRowError(null), 5000)
+    } finally {
+      setResendingRowId(null)
     }
   }
 
@@ -318,6 +348,30 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${ROLE_BADGE_COLORS[user.role]}`}>
                   {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                 </span>
+                {user.id !== currentUserId && !user.email_confirmed_at && (
+                  <button
+                    onClick={() => handleResendInviteRow(user)}
+                    disabled={resendingRowId === user.id}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 hover:bg-gray-100 disabled:opacity-50 text-gray-600 text-xs font-medium rounded-lg transition"
+                  >
+                    {resendRowSuccessId === user.id ? (
+                      <>
+                        <CheckIcon className="w-3.5 h-3.5 text-green-600" />
+                        <span className="text-green-600">Sent</span>
+                      </>
+                    ) : resendingRowId === user.id ? (
+                      <>
+                        <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <MailIcon className="w-3.5 h-3.5" />
+                        Resend Invite
+                      </>
+                    )}
+                  </button>
+                )}
                 {user.id !== currentUserId && (
                   <button
                     onClick={() => openEditModal(user)}
@@ -330,6 +384,9 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
               </div>
             </div>
           ))}
+          {resendRowError && (
+            <p className="text-xs text-red-500 mt-2">{resendRowError}</p>
+          )}
           {users.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-4">No users found.</p>
           )}
