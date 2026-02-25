@@ -34,8 +34,6 @@ interface PostCardProps {
   onPinToggle: () => void
   onDeleted?: () => void
   onUpdated?: () => void
-  /** Whether this card is rendered inside the pinned section (skip alignment) */
-  pinned?: boolean
 }
 
 function formatDate(dateStr: string) {
@@ -632,7 +630,7 @@ function CollapsiblePdf({ content, isPinned }: { content: PdfContent; isPinned?:
 }
 
 // ── Main PostCard ──────────────────────────────────────────────────────────────
-export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdated, pinned }: PostCardProps) {
+export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdated }: PostCardProps) {
   const [pinning, setPinning] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -750,10 +748,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
 
   const authorName = post.author_name || post.author_email?.split('@')[0] || 'User'
   const initials = post.author_email ? getInitials(post.author_email) : 'U'
-  const isOwn = userId === post.user_id
   const isText = post.post_type === 'text'
-  // In pinned section, always use left-aligned layout
-  const alignRight = pinned ? false : isOwn
 
   // ── Action buttons (shared) ──────────────────────────────────────────────
   const actionButtons = (
@@ -857,35 +852,23 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
 
   return (
     <>
-      <div
-        className={`group relative flex px-4 py-1 ${
-          alignRight ? 'justify-end' : 'justify-start'
-        }`}
-      >
+      <div className="group relative flex px-4 py-1 justify-start">
         {/* Row: avatar + bubble */}
-        <div
-          className={`flex gap-2 items-end ${
-            isText ? 'max-w-[80%]' : 'max-w-[75%]'
-          } ${alignRight ? 'flex-row-reverse' : 'flex-row'}`}
-        >
-          {/* Avatar — only for other users (left side) */}
-          {!alignRight && (
-            <div className="flex-shrink-0 self-end mb-5">
-              <Avatar initials={initials} avatarUrl={post.author_avatar_url} />
-            </div>
-          )}
+        <div className={`flex gap-2 items-end ${isText ? 'max-w-[80%]' : 'max-w-[75%]'}`}>
+          {/* Avatar */}
+          <div className="flex-shrink-0 self-end mb-5">
+            <Avatar initials={initials} avatarUrl={post.author_avatar_url} />
+          </div>
 
           {/* Content column */}
-          <div className={`min-w-0 ${alignRight ? 'items-end' : 'items-start'} flex flex-col`}>
-            {/* Name — only for other users */}
-            {!alignRight && (
-              <span className="text-[11px] font-semibold text-gray-500 mb-0.5 ml-1">
-                {authorName}
-              </span>
-            )}
+          <div className="min-w-0 items-start flex flex-col">
+            {/* Name */}
+            <span className="text-[11px] font-semibold text-gray-500 mb-0.5 ml-1">
+              {authorName}
+            </span>
 
             {/* Hover action buttons */}
-            <div className={`flex items-center gap-1 ${alignRight ? 'flex-row-reverse' : 'flex-row'}`}>
+            <div className="flex items-center gap-1">
               {/* Bubble / card content */}
               <div className="min-w-0">
                 {isText ? (
@@ -915,13 +898,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
                       </div>
                     </div>
                   ) : (
-                    <div
-                      className={`inline-block px-3.5 py-2 ${
-                        alignRight
-                          ? 'bg-amber-500 text-white rounded-2xl rounded-br-sm'
-                          : 'bg-gray-200 text-gray-900 rounded-2xl rounded-bl-sm'
-                      }`}
-                    >
+                    <div className="inline-block px-3.5 py-2 bg-gray-200 text-gray-900 rounded-2xl rounded-bl-sm">
                       <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                         {(post.content as TextContent).message}
                       </p>
@@ -937,7 +914,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
             </div>
 
             {/* Timestamp + pin icon */}
-            <div className={`flex items-center gap-1 mt-0.5 ${alignRight ? 'mr-1 self-end' : 'ml-1 self-start'}`}>
+            <div className="flex items-center gap-1 mt-0.5 ml-1 self-start">
               {post.is_pinned && <PinIcon className="w-2.5 h-2.5 text-amber-500" />}
               <span className="text-[10px] text-gray-400">
                 {formatDate(post.created_at)}
