@@ -80,6 +80,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
   // ── PDF post ──────────────────────────────────────────────────────────────
   const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [pdfCaption, setPdfCaption] = useState('')
   const pdfInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch profiles when task mode is activated
@@ -312,10 +313,11 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           project_id: project.id,
           user_id: userId,
           post_type: 'pdf',
-          content: { file_url: paths[0], filename: pdfFile.name },
+          content: { file_url: paths[0], filename: pdfFile.name, caption: pdfCaption.trim() || undefined },
           is_pinned: false,
         })
         setPdfFile(null)
+        setPdfCaption('')
         if (pdfInputRef.current) pdfInputRef.current.value = ''
         setMode('text')
       }
@@ -662,15 +664,24 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               Select a PDF to upload
             </button>
           ) : (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              <FileTextIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
-              <span className="text-sm text-gray-700 truncate flex-1">{pdfFile.name}</span>
-              <button
-                onClick={() => { setPdfFile(null); if (pdfInputRef.current) pdfInputRef.current.value = '' }}
-                className="p-0.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
-              >
-                <XIcon className="w-3.5 h-3.5" />
-              </button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <FileTextIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
+                <span className="text-sm text-gray-700 truncate flex-1">{pdfFile.name}</span>
+                <button
+                  onClick={() => { setPdfFile(null); setPdfCaption(''); if (pdfInputRef.current) pdfInputRef.current.value = '' }}
+                  className="p-0.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                >
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <input
+                type="text"
+                value={pdfCaption}
+                onChange={(e) => setPdfCaption(e.target.value)}
+                placeholder="Add a caption..."
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              />
             </div>
           )}
         </div>
