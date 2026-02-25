@@ -448,6 +448,9 @@ function PdfPost({ content }: { content: PdfContent }) {
         </div>
 
         <div className="p-3.5 space-y-3 border-t border-red-200">
+          {content.caption && (
+            <p className="text-sm text-gray-700">{content.caption}</p>
+          )}
           <PdfThumbnail url={publicUrl} onClick={() => setShowPreview(true)} />
           <p className="text-xs text-gray-500 truncate">{content.filename}</p>
           <div className="flex gap-2">

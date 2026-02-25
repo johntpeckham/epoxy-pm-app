@@ -145,6 +145,7 @@ export interface TaskContent {
 export interface PdfContent {
   file_url: string  // storage path
   filename: string
+  caption?: string
 }
 
 export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent
