@@ -19,15 +19,18 @@ import {
   FileTextIcon,
   PrinterIcon,
   CameraIcon,
+  MessageCircleIcon,
 } from 'lucide-react'
 import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, TaskStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
+import PostCommentsSection from './PostCommentsSection'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface PostCardProps {
   post: FeedPost
+  userId?: string
   onPinToggle: () => void
   onDeleted?: () => void
   onUpdated?: () => void
@@ -601,13 +604,15 @@ function CollapsiblePdf({ content }: { content: PdfContent }) {
 }
 
 // ── Main PostCard ──────────────────────────────────────────────────────────────
-export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: PostCardProps) {
+export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdated }: PostCardProps) {
   const [pinning, setPinning] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditReport, setShowEditReport] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [showComments, setShowComments] = useState(false)
+  const [commentCount, setCommentCount] = useState<number>(0)
 
   // Inline text editing
   const [editingText, setEditingText] = useState(false)
@@ -618,6 +623,41 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
 
   const supabase = createClient()
   const { settings: companySettings } = useCompanySettings()
+
+  // Fetch comment count
+  useEffect(() => {
+    let mounted = true
+    supabase
+      .from('post_comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('post_id', post.id)
+      .then(({ count }) => {
+        if (mounted && count !== null) setCommentCount(count)
+      })
+
+    // Subscribe to comment changes to keep count in sync
+    const channel = supabase
+      .channel(`comment-count-${post.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'post_comments', filter: `post_id=eq.${post.id}` },
+        () => {
+          supabase
+            .from('post_comments')
+            .select('id', { count: 'exact', head: true })
+            .eq('post_id', post.id)
+            .then(({ count }) => {
+              if (mounted && count !== null) setCommentCount(count)
+            })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      mounted = false
+      supabase.removeChannel(channel)
+    }
+  }, [post.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Resolve photo URLs for daily reports
   const reportPhotoUrls: string[] =
@@ -825,6 +865,21 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
           {post.post_type === 'pdf' && (
             <CollapsiblePdf content={post.content as PdfContent} />
           )}
+
+          {/* ── Comment toggle + section ─────────────────────────────────── */}
+          <div className="mt-1.5">
+            <button
+              onClick={() => setShowComments((v) => !v)}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-amber-600 transition py-0.5"
+            >
+              <MessageCircleIcon className="w-3.5 h-3.5" />
+              <span>{commentCount > 0 ? commentCount : ''} {commentCount === 1 ? 'comment' : commentCount > 1 ? 'comments' : 'Comment'}</span>
+            </button>
+
+            {showComments && userId && (
+              <PostCommentsSection postId={post.id} userId={userId} />
+            )}
+          </div>
         </div>
       </div>
 

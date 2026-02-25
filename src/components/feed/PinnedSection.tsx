@@ -7,12 +7,13 @@ import { FeedPost } from '@/types'
 
 interface PinnedSectionProps {
   posts: FeedPost[]
+  userId?: string
   onPinToggle: () => void
   onDeleted?: () => void
   onUpdated?: () => void
 }
 
-export default function PinnedSection({ posts, onPinToggle, onDeleted, onUpdated }: PinnedSectionProps) {
+export default function PinnedSection({ posts, userId, onPinToggle, onDeleted, onUpdated }: PinnedSectionProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   if (posts.length === 0) return null
@@ -42,6 +43,7 @@ export default function PinnedSection({ posts, onPinToggle, onDeleted, onUpdated
             <PostCard
               key={post.id}
               post={post}
+              userId={userId}
               onPinToggle={onPinToggle}
               onDeleted={onDeleted}
               onUpdated={onUpdated}
