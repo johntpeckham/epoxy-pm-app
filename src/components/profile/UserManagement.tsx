@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon } from 'lucide-react'
+import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon } from 'lucide-react'
 import type { UserRole } from '@/types'
 
 interface UserRow {
@@ -56,6 +56,12 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
   const [resendRowError, setResendRowError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  // Change password state
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchUsers = useCallback(async () => {
@@ -89,6 +95,10 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
     setEditError(null)
     setShowDeleteConfirm(false)
     setResendSuccess(false)
+    setNewPassword('')
+    setConfirmPassword('')
+    setPasswordSuccess(false)
+    setPasswordError(null)
   }
 
   function closeEditModal() {
@@ -96,6 +106,10 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
     setEditError(null)
     setShowDeleteConfirm(false)
     setResendSuccess(false)
+    setNewPassword('')
+    setConfirmPassword('')
+    setPasswordSuccess(false)
+    setPasswordError(null)
   }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -206,6 +220,43 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
       setTimeout(() => setResendRowError(null), 5000)
     } finally {
       setResendingRowId(null)
+    }
+  }
+
+  async function handleChangePassword() {
+    if (!editingUser) return
+    setPasswordError(null)
+    setPasswordSuccess(false)
+
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match')
+      return
+    }
+
+    setPasswordSaving(true)
+
+    try {
+      const res = await fetch('/api/update-user-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: editingUser.id, new_password: newPassword }),
+      })
+
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Failed to update password')
+
+      setPasswordSuccess(true)
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPasswordSuccess(false), 3000)
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Failed to update password')
+    } finally {
+      setPasswordSaving(false)
     }
   }
 
@@ -526,6 +577,62 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
               )}
 
               {editError && <p className="text-xs text-red-500">{editError}</p>}
+
+              {/* Change Password — only for admins */}
+              {users.find((u) => u.id === currentUserId)?.role === 'admin' && (
+                <div className="pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <LockIcon className="w-3.5 h-3.5 text-gray-400" />
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Change Password</h4>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label htmlFor="new-password" className="block text-xs font-medium text-gray-500 mb-1">
+                        New Password
+                      </label>
+                      <input
+                        id="new-password"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="confirm-password" className="block text-xs font-medium text-gray-500 mb-1">
+                        Confirm Password
+                      </label>
+                      <input
+                        id="confirm-password"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm new password"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                      />
+                    </div>
+                    <button
+                      onClick={handleChangePassword}
+                      disabled={passwordSaving || !newPassword || !confirmPassword}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition"
+                    >
+                      {passwordSuccess ? (
+                        <>
+                          <CheckIcon className="w-3.5 h-3.5" />
+                          Password Updated
+                        </>
+                      ) : passwordSaving ? (
+                        'Updating...'
+                      ) : (
+                        'Update Password'
+                      )}
+                    </button>
+                    {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
+                    {passwordSuccess && <p className="text-xs text-green-600">Password updated successfully!</p>}
+                  </div>
+                </div>
+              )}
 
               {/* Delete User */}
               <div className="pt-3 border-t border-gray-100">
