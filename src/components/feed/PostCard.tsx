@@ -18,14 +18,12 @@ import {
   CalendarIcon,
   FileTextIcon,
   PrinterIcon,
-  CameraIcon,
   MessageCircleIcon,
 } from 'lucide-react'
 import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, TaskStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
 import PostCommentsSection from './PostCommentsSection'
-import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface PostCardProps {
@@ -79,8 +77,8 @@ function Avatar({ initials, avatarUrl }: { initials: string; avatarUrl?: string 
   )
 }
 
-// ── Photo post content (inner detail) ─────────────────────────────────────────
-function PhotoPostDetail({ content, onImageClick }: { content: PhotoContent; onImageClick: (url: string) => void }) {
+// ── Inline photo post (clean grid, no card wrapper) ─────────────────────────
+function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onImageClick: (url: string) => void }) {
   const supabase = createClient()
   const urls = content.photos.map((path) => {
     const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
@@ -88,14 +86,14 @@ function PhotoPostDetail({ content, onImageClick }: { content: PhotoContent; onI
   })
 
   return (
-    <div className="p-3.5 space-y-3 border-t border-purple-200">
+    <div className="mt-1 space-y-1.5">
       {content.caption && (
-        <p className="text-sm text-gray-700">{content.caption}</p>
+        <p className="text-sm text-gray-600">{content.caption}</p>
       )}
       <div className="flex flex-wrap gap-1">
         {urls.map((url, i) => (
           <button key={i} onClick={() => onImageClick(url)} className="block">
-            <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-purple-50">
+            <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={url}
                 alt={`Photo ${i + 1}`}
@@ -107,53 +105,6 @@ function PhotoPostDetail({ content, onImageClick }: { content: PhotoContent; onI
           </button>
         ))}
       </div>
-    </div>
-  )
-}
-
-// ── Collapsible wrapper for photo posts ─────────────────────────────────────
-function CollapsiblePhotoPost({
-  content,
-  onImageClick,
-  isPinned,
-}: {
-  content: PhotoContent
-  onImageClick: (url: string) => void
-  isPinned?: boolean
-}) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div className="mt-1.5 border border-purple-200 rounded-xl overflow-hidden bg-white">
-      <div
-        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
-        role={isPinned ? undefined : 'button'}
-        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-purple-50 text-left transition-colors ${
-          isPinned ? '' : 'hover:bg-purple-100/60 cursor-pointer'
-        }`}
-      >
-        <CameraIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
-        <span className="text-sm font-bold text-purple-900 flex-shrink-0">Photos</span>
-        <span className="text-sm text-gray-400 flex-shrink-0">—</span>
-        <span className="text-sm font-medium text-gray-700 flex-shrink-0">{content.photos.length} photo{content.photos.length !== 1 ? 's' : ''}</span>
-        {content.caption && (
-          <>
-            <span className="text-sm text-gray-400 flex-shrink-0">·</span>
-            <span className="text-sm text-gray-600 truncate">{content.caption}</span>
-          </>
-        )}
-        {!isPinned && (
-          <ChevronDownIcon
-            className={`w-4 h-4 text-purple-600 ml-auto flex-shrink-0 transition-transform ${
-              expanded ? 'rotate-180' : ''
-            }`}
-          />
-        )}
-      </div>
-
-      {(isPinned || expanded) && (
-        <PhotoPostDetail content={content} onImageClick={onImageClick} />
-      )}
     </div>
   )
 }
@@ -520,8 +471,8 @@ function CollapsibleDailyReport({
   )
 }
 
-// ── PDF post content (inner detail) ──────────────────────────────────────────
-function PdfPostDetail({ content }: { content: PdfContent }) {
+// ── Inline PDF post (clean row, no card wrapper) ────────────────────────────
+function InlinePdfPost({ content }: { content: PdfContent }) {
   const supabase = createClient()
   const publicUrl = supabase.storage.from('post-photos').getPublicUrl(content.file_url).data.publicUrl
   const [showPreview, setShowPreview] = useState(false)
@@ -543,25 +494,32 @@ function PdfPostDetail({ content }: { content: PdfContent }) {
 
   return (
     <>
-      <div className="p-3.5 space-y-3 border-t border-green-200">
+      <div className="mt-1 space-y-1.5">
+        {/* Filename row — clickable to preview */}
+        <button
+          onClick={() => setShowPreview(true)}
+          className="flex items-center gap-2 text-left hover:opacity-80 transition"
+        >
+          <FileTextIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <span className="text-sm font-medium text-gray-800 truncate">{content.filename}</span>
+        </button>
         {content.caption && (
-          <p className="text-sm text-gray-700">{content.caption}</p>
+          <p className="text-sm text-gray-500 ml-6">{content.caption}</p>
         )}
-        <PdfThumbnail url={publicUrl} onClick={() => setShowPreview(true)} />
-        <p className="text-xs text-gray-500 truncate">{content.filename}</p>
-        <div className="flex gap-2">
+        {/* Action buttons */}
+        <div className="flex gap-2 ml-6">
           <button
             onClick={handleDownload}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-amber-700 hover:bg-gray-100 transition"
           >
-            <DownloadIcon className="w-3.5 h-3.5" />
+            <DownloadIcon className="w-3 h-3" />
             Download
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-amber-700 hover:bg-gray-100 transition"
           >
-            <PrinterIcon className="w-3.5 h-3.5" />
+            <PrinterIcon className="w-3 h-3" />
             Print
           </button>
         </div>
@@ -587,45 +545,6 @@ function PdfPostDetail({ content }: { content: PdfContent }) {
         </div>
       )}
     </>
-  )
-}
-
-// ── Collapsible wrapper for PDF posts in the feed ───────────────────────────
-function CollapsiblePdf({ content, isPinned }: { content: PdfContent; isPinned?: boolean }) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div className="mt-1.5 border border-green-200 rounded-xl overflow-hidden bg-white">
-      <div
-        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
-        role={isPinned ? undefined : 'button'}
-        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-green-50 text-left transition-colors ${
-          isPinned ? '' : 'hover:bg-green-100/60 cursor-pointer'
-        }`}
-      >
-        <FileTextIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
-        <span className="text-sm font-bold text-green-900 flex-shrink-0">PDF</span>
-        <span className="text-sm text-gray-400 flex-shrink-0">—</span>
-        <span className="text-sm font-medium text-gray-800 truncate">{content.filename}</span>
-        {content.caption && (
-          <>
-            <span className="text-sm text-gray-400 flex-shrink-0">·</span>
-            <span className="text-sm text-gray-600 truncate">{content.caption}</span>
-          </>
-        )}
-        {!isPinned && (
-          <ChevronDownIcon
-            className={`w-4 h-4 text-green-600 ml-auto flex-shrink-0 transition-transform ${
-              expanded ? 'rotate-180' : ''
-            }`}
-          />
-        )}
-      </div>
-
-      {(isPinned || expanded) && (
-        <PdfPostDetail content={content} />
-      )}
-    </div>
   )
 }
 
@@ -809,7 +728,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const structuredContent = (
     <>
       {post.post_type === 'photo' && (
-        <CollapsiblePhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} isPinned={post.is_pinned} />
+        <InlinePhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} />
       )}
       {post.post_type === 'daily_report' && (
         <CollapsibleDailyReport
@@ -829,7 +748,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
         />
       )}
       {post.post_type === 'pdf' && (
-        <CollapsiblePdf content={post.content as PdfContent} isPinned={post.is_pinned} />
+        <InlinePdfPost content={post.content as PdfContent} />
       )}
     </>
   )
