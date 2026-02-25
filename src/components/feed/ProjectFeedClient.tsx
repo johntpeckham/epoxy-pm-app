@@ -165,6 +165,7 @@ export default function ProjectFeedClient({
           {/* Pinned posts */}
           <PinnedSection
             posts={pinnedPosts}
+            userId={userId}
             onPinToggle={fetchPosts}
             onDeleted={fetchPosts}
             onUpdated={fetchPosts}
@@ -186,6 +187,7 @@ export default function ProjectFeedClient({
                 <PostCard
                   key={post.id}
                   post={post}
+                  userId={userId}
                   onPinToggle={fetchPosts}
                   onDeleted={fetchPosts}
                   onUpdated={fetchPosts}

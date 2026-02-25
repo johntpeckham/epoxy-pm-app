@@ -205,6 +205,17 @@ export interface CompanySettings {
   updated_at: string
 }
 
+export interface PostComment {
+  id: string
+  post_id: string
+  user_id: string
+  content: string
+  created_at: string
+  // Joined from profiles
+  author_name?: string
+  author_avatar_url?: string
+}
+
 export interface CalendarEvent {
   id: string
   created_by: string
