@@ -32,7 +32,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="apple-touch-startup-image" href="/icon-512.png" />
       </head>
-      <body className="antialiased overflow-x-hidden">
+      <body className="antialiased h-full overflow-hidden">
         {children}
       </body>
     </html>

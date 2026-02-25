@@ -89,9 +89,9 @@ export default function ProjectFeedClient({
   const unpinnedPosts = posts.filter((p) => !p.is_pinned)
 
   return (
-    <div className="flex flex-col bg-gray-50 h-full w-full max-w-full overflow-x-hidden">
-      {/* Project header — sticky on mobile, flex-shrink-0 keeps it fixed in the flex column */}
-      <div className="flex-shrink-0 sticky top-0 z-10 bg-white border-b border-gray-200">
+    <div className="flex flex-col bg-gray-50 h-full w-full max-w-full overflow-hidden">
+      {/* Project header — flex-none keeps it at natural height, never scrolls */}
+      <div className="flex-none bg-white border-b border-gray-200 z-10">
         <div className="px-4 py-4">
           {/* Top row: back button + project info (+ action buttons on md+) */}
           <div className="flex items-start gap-3">
@@ -184,8 +184,8 @@ export default function ProjectFeedClient({
         </div>
       </div>
 
-      {/* Scrollable feed — iMessage style */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
+      {/* Scrollable feed — flex-1 takes remaining space, min-h-0 allows shrinking, overflow-y-auto scrolls */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-white">
         <div className="py-3">
           {/* Pinned posts */}
           <PinnedSection
