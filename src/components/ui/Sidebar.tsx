@@ -46,26 +46,31 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     <div className="flex flex-col h-full">
       {/* Brand */}
       <div className="px-5 py-5 border-b border-gray-800">
-        <div className="flex items-center gap-3">
-          {companySettings?.logo_url ? (
-            <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-white flex items-center justify-center">
-              <Image
-                src={companySettings.logo_url}
-                alt="Company logo"
-                width={36}
-                height={36}
-                className="w-full h-full object-contain"
-              />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {companySettings?.logo_url ? (
+              <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-white flex items-center justify-center">
+                <Image
+                  src={companySettings.logo_url}
+                  alt="Company logo"
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="w-9 h-9 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+            )}
+            <div>
+              <div className="text-white font-semibold text-sm leading-tight">Peckham Coatings</div>
             </div>
-          ) : (
-            <div className="w-9 h-9 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-          )}
-          <div>
-            <div className="text-white font-semibold text-sm leading-tight">Peckham Coatings</div>
+          </div>
+          <div className="hidden lg:block">
+            <NotificationBell userId={userId} />
           </div>
         </div>
       </div>
@@ -137,11 +142,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           Calendar
         </Link>
       </nav>
-
-      {/* Notifications (desktop sidebar) */}
-      <div className="hidden lg:flex px-5 py-2 border-t border-gray-800">
-        <NotificationBell userId={userId} />
-      </div>
 
       {/* User / Profile / Sign Out */}
       <div className="px-3 py-4 border-t border-gray-800">
