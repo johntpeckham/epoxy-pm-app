@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon } from 'lucide-react'
+import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon, UserPlusIcon } from 'lucide-react'
 import type { UserRole } from '@/types'
 
 interface UserRow {
@@ -34,11 +34,14 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Invite state
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviting, setInviting] = useState(false)
-  const [inviteSuccess, setInviteSuccess] = useState(false)
-  const [inviteError, setInviteError] = useState<string | null>(null)
+  // Add user state
+  const [addEmail, setAddEmail] = useState('')
+  const [addDisplayName, setAddDisplayName] = useState('')
+  const [addPassword, setAddPassword] = useState('')
+  const [addRole, setAddRole] = useState<UserRole>('crew')
+  const [adding, setAdding] = useState(false)
+  const [addSuccess, setAddSuccess] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
 
   // Edit modal state
   const [editingUser, setEditingUser] = useState<UserRow | null>(null)
@@ -48,12 +51,6 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
-  const [resending, setResending] = useState(false)
-  const [resendSuccess, setResendSuccess] = useState(false)
-  // Row-level resend invite state
-  const [resendingRowId, setResendingRowId] = useState<string | null>(null)
-  const [resendRowSuccessId, setResendRowSuccessId] = useState<string | null>(null)
-  const [resendRowError, setResendRowError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   // Change password state
@@ -94,7 +91,6 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
     setEditAvatarUrl(user.avatar_url)
     setEditError(null)
     setShowDeleteConfirm(false)
-    setResendSuccess(false)
     setNewPassword('')
     setConfirmPassword('')
     setPasswordSuccess(false)
@@ -105,7 +101,6 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
     setEditingUser(null)
     setEditError(null)
     setShowDeleteConfirm(false)
-    setResendSuccess(false)
     setNewPassword('')
     setConfirmPassword('')
     setPasswordSuccess(false)
@@ -172,57 +167,6 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
     }
   }
 
-  async function handleResendInvite() {
-    if (!editingUser?.email) return
-    setResending(true)
-    setEditError(null)
-    setResendSuccess(false)
-
-    try {
-      const res = await fetch('/api/invite-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: editingUser.email }),
-      })
-
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Failed to resend invite')
-
-      setResendSuccess(true)
-      setTimeout(() => setResendSuccess(false), 3000)
-    } catch (err) {
-      setEditError(err instanceof Error ? err.message : 'Failed to resend invite')
-    } finally {
-      setResending(false)
-    }
-  }
-
-  async function handleResendInviteRow(user: UserRow) {
-    if (!user.email) return
-    setResendingRowId(user.id)
-    setResendRowError(null)
-    setResendRowSuccessId(null)
-
-    try {
-      const res = await fetch('/api/invite-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email }),
-      })
-
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Failed to resend invite')
-
-      setResendRowSuccessId(user.id)
-      setTimeout(() => setResendRowSuccessId(null), 3000)
-    } catch (err) {
-      setResendRowError(err instanceof Error ? err.message : 'Failed to resend invite')
-      setTimeout(() => setResendRowError(null), 5000)
-    } finally {
-      setResendingRowId(null)
-    }
-  }
-
   async function handleChangePassword() {
     if (!editingUser) return
     setPasswordError(null)
@@ -284,29 +228,48 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
     }
   }
 
-  async function handleInviteUser() {
-    if (!inviteEmail.trim()) return
-    setInviting(true)
-    setInviteError(null)
-    setInviteSuccess(false)
+  async function handleAddUser() {
+    if (!addEmail.trim() || !addDisplayName.trim() || !addPassword) return
+    setAdding(true)
+    setAddError(null)
+    setAddSuccess(false)
+
+    if (addPassword.length < 8) {
+      setAddError('Password must be at least 8 characters')
+      setAdding(false)
+      return
+    }
 
     try {
-      const res = await fetch('/api/invite-user', {
+      const res = await fetch('/api/create-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail.trim() }),
+        body: JSON.stringify({
+          email: addEmail.trim(),
+          password: addPassword,
+          display_name: addDisplayName.trim(),
+          role: addRole,
+        }),
       })
 
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Failed to invite user')
+      if (!res.ok) throw new Error(result.error || 'Failed to create user')
 
-      setInviteEmail('')
-      setInviteSuccess(true)
-      setTimeout(() => setInviteSuccess(false), 3000)
+      // Add the new user to the list
+      if (result.user) {
+        setUsers((prev) => [...prev, result.user as UserRow])
+      }
+
+      setAddEmail('')
+      setAddDisplayName('')
+      setAddPassword('')
+      setAddRole('crew')
+      setAddSuccess(true)
+      setTimeout(() => setAddSuccess(false), 3000)
     } catch (err) {
-      setInviteError(err instanceof Error ? err.message : 'Failed to invite user')
+      setAddError(err instanceof Error ? err.message : 'Failed to create user')
     } finally {
-      setInviting(false)
+      setAdding(false)
     }
   }
 
@@ -316,44 +279,75 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
         <UsersIcon className="w-5 h-5 text-gray-400" />
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">User Management</h2>
       </div>
-      <p className="text-xs text-gray-400 mb-5">Manage user roles and invite new team members.</p>
+      <p className="text-xs text-gray-400 mb-5">Manage user roles and add new team members.</p>
 
-      {/* Invite Section */}
+      {/* Add New User Section */}
       <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-          Invite New User
-        </h3>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <MailIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <div className="flex items-center gap-1.5 mb-3">
+          <UserPlusIcon className="w-3.5 h-3.5 text-gray-500" />
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Add New User
+          </h3>
+        </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="relative">
+              <MailIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="email"
+                value={addEmail}
+                onChange={(e) => setAddEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+              />
+            </div>
             <input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="email@example.com"
-              className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-              onKeyDown={(e) => e.key === 'Enter' && handleInviteUser()}
+              type="text"
+              value={addDisplayName}
+              onChange={(e) => setAddDisplayName(e.target.value)}
+              placeholder="Display Name"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
             />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="password"
+              value={addPassword}
+              onChange={(e) => setAddPassword(e.target.value)}
+              placeholder="Password (min 8 chars)"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+            />
+            <select
+              value={addRole}
+              onChange={(e) => setAddRole(e.target.value as UserRole)}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+            >
+              {ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
-            onClick={handleInviteUser}
-            disabled={inviting || !inviteEmail.trim()}
+            onClick={handleAddUser}
+            disabled={adding || !addEmail.trim() || !addDisplayName.trim() || !addPassword}
             className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
           >
-            {inviteSuccess ? (
+            {addSuccess ? (
               <>
                 <CheckIcon className="w-4 h-4" />
-                Sent
+                User Created
               </>
-            ) : inviting ? (
-              'Sending...'
+            ) : adding ? (
+              'Creating...'
             ) : (
-              'Invite'
+              'Add User'
             )}
           </button>
         </div>
-        {inviteError && <p className="text-xs text-red-500 mt-2">{inviteError}</p>}
-        {inviteSuccess && <p className="text-xs text-green-600 mt-2">Invitation sent successfully!</p>}
+        {addError && <p className="text-xs text-red-500 mt-2">{addError}</p>}
+        {addSuccess && <p className="text-xs text-green-600 mt-2">User created successfully!</p>}
       </div>
 
       {/* User List */}
@@ -399,30 +393,6 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${ROLE_BADGE_COLORS[user.role]}`}>
                   {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                 </span>
-                {user.id !== currentUserId && !user.email_confirmed_at && (
-                  <button
-                    onClick={() => handleResendInviteRow(user)}
-                    disabled={resendingRowId === user.id}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 hover:bg-gray-100 disabled:opacity-50 text-gray-600 text-xs font-medium rounded-lg transition"
-                  >
-                    {resendRowSuccessId === user.id ? (
-                      <>
-                        <CheckIcon className="w-3.5 h-3.5 text-green-600" />
-                        <span className="text-green-600">Sent</span>
-                      </>
-                    ) : resendingRowId === user.id ? (
-                      <>
-                        <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <MailIcon className="w-3.5 h-3.5" />
-                        Resend Invite
-                      </>
-                    )}
-                  </button>
-                )}
                 {user.id !== currentUserId && (
                   <button
                     onClick={() => openEditModal(user)}
@@ -435,9 +405,6 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
               </div>
             </div>
           ))}
-          {resendRowError && (
-            <p className="text-xs text-red-500 mt-2">{resendRowError}</p>
-          )}
           {users.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-4">No users found.</p>
           )}
@@ -549,32 +516,6 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
                   {editingUser.email || 'No email'}
                 </p>
               </div>
-
-              {/* Resend Invite — only for unconfirmed users */}
-              {!editingUser.email_confirmed_at && (
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
-                  <p className="text-xs text-amber-700 mb-2">This user has not confirmed their email yet.</p>
-                  <button
-                    onClick={handleResendInvite}
-                    disabled={resending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition"
-                  >
-                    {resendSuccess ? (
-                      <>
-                        <CheckIcon className="w-3.5 h-3.5" />
-                        Invite Sent
-                      </>
-                    ) : resending ? (
-                      'Sending...'
-                    ) : (
-                      <>
-                        <MailIcon className="w-3.5 h-3.5" />
-                        Resend Invite
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
 
               {editError && <p className="text-xs text-red-500">{editError}</p>}
 
