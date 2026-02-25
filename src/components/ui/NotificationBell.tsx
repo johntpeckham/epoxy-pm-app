@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { BellIcon, CheckIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Notification } from '@/types'
@@ -14,6 +15,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [open, setOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const router = useRouter()
   const supabaseRef = useRef(createClient())
 
@@ -37,6 +39,14 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     const interval = setInterval(fetchNotifications, 30_000)
     return () => clearInterval(interval)
   }, [fetchNotifications])
+
+  // Track mobile viewport
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   async function markAsRead(id: string) {
     await supabaseRef.current.from('notifications').update({ read: true }).eq('id', id)
@@ -90,63 +100,66 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         )}
       </button>
 
-      {open && (
+      {open && createPortal(
         <>
-          {/* Backdrop overlay — closes dropdown, prevents click-through */}
-          <div className="fixed inset-0 z-[199]" onClick={() => setOpen(false)} />
-
-          {/* Dropdown panel */}
+          {/* Dark backdrop */}
           <div
-            className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl z-[200] overflow-hidden"
-            style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', zIndex: 200, position: 'absolute', width: '320px' }}
-          >
+            onClick={() => setOpen(false)}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 9998 }}
+          />
+          {/* Notification panel */}
+          <div style={{
+            position: 'fixed',
+            top: isMobile ? '10px' : '60px',
+            left: isMobile ? '10px' : '250px',
+            right: isMobile ? '10px' : 'auto',
+            width: isMobile ? 'auto' : '360px',
+            maxHeight: '500px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #d1d5db',
+            borderRadius: '12px',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
+            zIndex: 9999,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column' as const,
+          }}>
             {/* Header */}
-            <div
-              className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white"
-              style={{ backgroundColor: 'white' }}
-            >
-              <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 600, fontSize: '16px', color: '#111' }}>Notifications</span>
               {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1"
-                >
-                  <CheckIcon className="w-3 h-3" />
+                <button onClick={markAllAsRead} style={{ fontSize: '13px', color: '#d97706', background: 'none', border: 'none', cursor: 'pointer' }}>
                   Mark all read
                 </button>
               )}
             </div>
-
-            {/* List */}
-            <div className="overflow-y-auto max-h-80 bg-white" style={{ backgroundColor: 'white' }}>
+            {/* Notification list */}
+            <div style={{ overflowY: 'auto', maxHeight: '420px', backgroundColor: '#ffffff' }}>
               {notifications.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-gray-400" style={{ backgroundColor: 'white' }}>
+                <div style={{ padding: '32px 16px', textAlign: 'center', color: '#9ca3af', backgroundColor: '#ffffff' }}>
                   No notifications yet
                 </div>
               ) : (
-                notifications.map((n) => (
+                notifications.map(n => (
                   <button
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 ${
-                      !n.read ? 'bg-amber-50' : 'bg-white'
-                    }`}
-                    style={{ backgroundColor: n.read ? 'white' : '#fffbeb' }}
+                    style={{
+                      display: 'block', width: '100%', padding: '12px 16px', textAlign: 'left' as const,
+                      borderBottom: '1px solid #f3f4f6', cursor: 'pointer', border: 'none',
+                      backgroundColor: n.read ? '#ffffff' : '#fffbeb',
+                    }}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${!n.read ? 'bg-amber-500' : 'bg-transparent'}`} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">{n.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
-                        <p className="text-xs text-gray-400 mt-1">{formatTime(n.created_at)}</p>
-                      </div>
-                    </div>
+                    <div style={{ fontWeight: n.read ? 400 : 600, fontSize: '14px', color: '#111' }}>{n.title}</div>
+                    <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>{n.message}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>{formatTime(n.created_at)}</div>
                   </button>
                 ))
               )}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   )
