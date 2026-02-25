@@ -753,29 +753,13 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
     </>
   )
 
-  // ── Comment section ──────────────────────────────────────────────────────
-  const commentSection = (
-    <div className="mt-1">
-      <button
-        onClick={() => setShowComments((v) => !v)}
-        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-amber-600 transition py-0.5"
-      >
-        <MessageCircleIcon className="w-3 h-3" />
-        <span>{commentCount > 0 ? commentCount : ''} {commentCount === 1 ? 'comment' : commentCount > 1 ? 'comments' : 'Comment'}</span>
-      </button>
-      {showComments && userId && (
-        <PostCommentsSection postId={post.id} userId={userId} />
-      )}
-    </div>
-  )
-
   return (
     <>
       <div className="group relative flex px-4 py-1 justify-start max-w-full overflow-hidden">
         {/* Row: avatar + bubble */}
-        <div className={`flex gap-2 items-end min-w-0 ${isText ? 'max-w-[80%]' : 'max-w-full sm:max-w-[75%]'}`}>
+        <div className={`flex gap-2 items-start min-w-0 ${isText ? 'max-w-[80%]' : 'max-w-full sm:max-w-[75%]'}`}>
           {/* Avatar */}
-          <div className="flex-shrink-0 self-end mb-5">
+          <div className="flex-shrink-0">
             <Avatar initials={initials} avatarUrl={post.author_avatar_url} />
           </div>
 
@@ -832,16 +816,25 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
               {actionButtons}
             </div>
 
-            {/* Timestamp + pin icon */}
-            <div className="flex items-center gap-1 mt-0.5 ml-1 self-start">
-              {post.is_pinned && <PinIcon className="w-2.5 h-2.5 text-amber-500" />}
-              <span className="text-[10px] text-gray-400">
-                {formatDate(post.created_at)}
-              </span>
+            {/* Timestamp · Comment — single subtle line */}
+            <div className="ml-1 mt-0.5">
+              <div className="flex items-center gap-1 text-xs text-gray-400">
+                {post.is_pinned && <PinIcon className="w-2.5 h-2.5 text-amber-500" />}
+                <span>{formatDate(post.created_at)}</span>
+                <span>·</span>
+                <button
+                  onClick={() => setShowComments((v) => !v)}
+                  className="hover:text-amber-600 transition"
+                >
+                  {commentCount > 0
+                    ? `${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`
+                    : 'Comment'}
+                </button>
+              </div>
+              {showComments && userId && (
+                <PostCommentsSection postId={post.id} userId={userId} />
+              )}
             </div>
-
-            {/* Comments */}
-            {commentSection}
           </div>
         </div>
       </div>
