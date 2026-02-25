@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { DocumentCategory, ProjectDocument } from '@/types'
 import PdfThumbnail from './PdfThumbnail'
-import PdfViewerModal from './PdfViewerModal'
+import PlansViewer from './PlansViewer'
 
 interface DocumentUploadModalProps {
   projectId: string
@@ -307,9 +307,9 @@ export default function DocumentUploadModal({
         </div>
       </div>
 
-      {/* PDF viewer modal — full-screen with thumbnails, zoom, navigation */}
+      {/* Full-screen PDF viewer */}
       {previewDoc && isPdf(previewDoc) && (
-        <PdfViewerModal
+        <PlansViewer
           url={getPublicUrl(previewDoc.file_path)}
           fileName={previewDoc.file_name}
           onClose={() => setPreviewDoc(null)}
