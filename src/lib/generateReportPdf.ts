@@ -75,17 +75,19 @@ export async function generateReportPdf(
     y += 5
   }
 
-  /** Two-column field row — label right-aligned, value left-aligned.
+  /** Two-column field row — bold label left-aligned, value at fixed x position.
    *  Used for short fields (Date, Project, Address, Crew fields). */
   function fieldRow(label: string, value: string) {
     if (!value) return
     checkPage(10)
 
-    doc.setFont('helvetica', 'normal')
+    // Bold label — left-aligned
+    doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
     doc.setTextColor(...LABEL_GRAY)
-    doc.text(label, M + LABEL_W - 2, y, { align: 'right' })
+    doc.text(label, M, y)
 
+    // Value — left-aligned at fixed x position
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9.5)
     doc.setTextColor(...DARK)
@@ -131,13 +133,16 @@ export async function generateReportPdf(
   // (matches ProjectReportModal: h-[75px] w-auto max-w-[150px] object-contain)
   const LOGO_MAX_W = 40  // ~150px
   const LOGO_MAX_H = 20  // ~75px
+  const headerStartY = y
+  let logoBottomY = headerStartY
   if (logoUrl) {
     try {
       const logo = await loadImage(logoUrl)
       const ratio = Math.min(LOGO_MAX_W / logo.width, LOGO_MAX_H / logo.height)
       const drawW = logo.width * ratio
       const drawH = logo.height * ratio
-      doc.addImage(logo.data, logo.format, PW - M - drawW, y, drawW, drawH)
+      doc.addImage(logo.data, logo.format, PW - M - drawW, headerStartY, drawW, drawH)
+      logoBottomY = headerStartY + drawH
     } catch {
       // skip logo if it fails to load
     }
@@ -147,15 +152,16 @@ export async function generateReportPdf(
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
   doc.setTextColor(...DARK)
-  doc.text('Daily Field Report', M, y + 8)
+  doc.text('Daily Field Report', M, headerStartY + 8)
 
   // Project name subtitle
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(...MED)
-  doc.text(content.project_name || '—', M, y + 14)
+  doc.text(content.project_name || '—', M, headerStartY + 14)
 
-  y += 18
+  const textBottomY = headerStartY + 16
+  y = Math.max(logoBottomY, textBottomY) + 4
 
   // Amber horizontal separator
   doc.setDrawColor(...AMBER)
