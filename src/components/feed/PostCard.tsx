@@ -16,10 +16,13 @@ import {
   CheckSquareIcon,
   UserIcon,
   CalendarIcon,
+  FileTextIcon,
+  PrinterIcon,
 } from 'lucide-react'
-import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, TaskStatus } from '@/types'
+import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, TaskStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
+import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface PostCardProps {
@@ -413,6 +416,82 @@ function CollapsibleDailyReport({
   )
 }
 
+// ── PDF post content card ──────────────────────────────────────────────────────
+function PdfPost({ content }: { content: PdfContent }) {
+  const supabase = createClient()
+  const publicUrl = supabase.storage.from('post-photos').getPublicUrl(content.file_url).data.publicUrl
+  const [showPreview, setShowPreview] = useState(false)
+
+  function handleDownload() {
+    const a = document.createElement('a')
+    a.href = publicUrl
+    a.download = content.filename
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  function handlePrint() {
+    window.open(publicUrl, '_blank')
+  }
+
+  return (
+    <>
+      <div className="mt-1.5 border border-red-200 rounded-xl overflow-hidden bg-white">
+        <div className="px-3.5 py-3 bg-red-50 flex items-center gap-2.5">
+          <FileTextIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <span className="text-sm font-bold text-red-900">PDF</span>
+          <span className="text-sm text-gray-400">—</span>
+          <span className="text-sm font-medium text-gray-800 truncate">{content.filename}</span>
+        </div>
+
+        <div className="p-3.5 space-y-3 border-t border-red-200">
+          <PdfThumbnail url={publicUrl} onClick={() => setShowPreview(true)} />
+          <p className="text-xs text-gray-500 truncate">{content.filename}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
+            >
+              <DownloadIcon className="w-3.5 h-3.5" />
+              Download
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
+            >
+              <PrinterIcon className="w-3.5 h-3.5" />
+              Print
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* PDF preview modal */}
+      {showPreview && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
+          <div className="absolute inset-0 bg-black/80" onClick={() => setShowPreview(false)} />
+          <div className="relative w-full max-w-4xl h-[85vh] bg-white rounded-lg overflow-hidden shadow-xl z-10">
+            <button
+              onClick={() => setShowPreview(false)}
+              className="absolute top-3 right-3 bg-white rounded-full p-1.5 shadow-lg text-gray-500 hover:text-gray-800 transition z-20"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+            <iframe
+              src={publicUrl}
+              className="w-full h-full"
+              title={content.filename}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ── Main PostCard ──────────────────────────────────────────────────────────────
 export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: PostCardProps) {
   const [pinning, setPinning] = useState(false)
@@ -460,6 +539,10 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
     if (post.post_type === 'daily_report') {
       const photos = (post.content as DailyReportContent).photos ?? []
       if (photos.length > 0) await supabase.storage.from('post-photos').remove(photos)
+    }
+    if (post.post_type === 'pdf') {
+      const fileUrl = (post.content as PdfContent).file_url
+      if (fileUrl) await supabase.storage.from('post-photos').remove([fileUrl])
     }
     await supabase.from('feed_posts').delete().eq('id', post.id)
     setIsDeleting(false)
@@ -628,6 +711,11 @@ export default function PostCard({ post, onPinToggle, onDeleted, onUpdated }: Po
               onUpdated={onUpdated}
               onImageClick={setPreviewImage}
             />
+          )}
+
+          {/* ── PDF ─────────────────────────────────────────────────────────── */}
+          {post.post_type === 'pdf' && (
+            <PdfPost content={post.content as PdfContent} />
           )}
         </div>
       </div>

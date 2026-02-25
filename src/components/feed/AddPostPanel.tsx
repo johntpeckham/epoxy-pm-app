@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { Project, TaskStatus, Profile } from '@/types'
 
-type Mode = 'text' | 'photo' | 'daily_report' | 'task'
+type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf'
 
 interface AddPostPanelProps {
   project: Project
@@ -77,6 +77,10 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const taskPhotoInputRef = useRef<HTMLInputElement>(null)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [profilesLoaded, setProfilesLoaded] = useState(false)
+
+  // ── PDF post ──────────────────────────────────────────────────────────────
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const pdfInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch profiles when task mode is activated
   useEffect(() => {
@@ -298,6 +302,21 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setTaskDueDate('')
         setTaskPhotoFile(null)
         setTaskPhotoPreview(null)
+        setMode('text')
+      }
+
+      if (mode === 'pdf') {
+        if (!pdfFile) throw new Error('Please select a PDF file')
+        const paths = await uploadFiles([pdfFile], 'pdfs')
+        await supabase.from('feed_posts').insert({
+          project_id: project.id,
+          user_id: userId,
+          post_type: 'pdf',
+          content: { file_url: paths[0], filename: pdfFile.name },
+          is_pinned: false,
+        })
+        setPdfFile(null)
+        if (pdfInputRef.current) pdfInputRef.current.value = ''
         setMode('text')
       }
 
@@ -619,6 +638,44 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </div>
       )}
 
+      {/* ── PDF upload strip ──────────────────────────────────────────────────── */}
+      {mode === 'pdf' && (
+        <div className="px-3 pt-3 pb-1">
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) setPdfFile(file)
+              e.target.value = ''
+            }}
+          />
+
+          {!pdfFile ? (
+            <button
+              onClick={() => pdfInputRef.current?.click()}
+              className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium py-1 transition"
+            >
+              <UploadIcon className="w-4 h-4" />
+              Select a PDF to upload
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <FileTextIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <span className="text-sm text-gray-700 truncate flex-1">{pdfFile.name}</span>
+              <button
+                onClick={() => { setPdfFile(null); if (pdfInputRef.current) pdfInputRef.current.value = '' }}
+                className="p-0.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
+              >
+                <XIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Composer bar ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-3 py-2.5">
 
@@ -672,6 +729,17 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                   <CheckSquareIcon className="w-4 h-4 flex-shrink-0" />
                   Task
                 </button>
+                <button
+                  onClick={() => selectMode('pdf')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                    mode === 'pdf'
+                      ? 'text-amber-600 bg-amber-50 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <FileTextIcon className="w-4 h-4 flex-shrink-0" />
+                  PDF
+                </button>
               </div>
             </>
           )}
@@ -722,8 +790,17 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           </div>
         )}
 
+        {mode === 'pdf' && (
+          <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-red-50 rounded-full border border-red-200">
+            <FileTextIcon className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <span className="text-sm text-red-600 font-medium truncate">
+              PDF{pdfFile ? ` — ${pdfFile.name}` : ''}
+            </span>
+          </div>
+        )}
+
         {/* Cancel button for expanded modes */}
-        {(mode === 'photo' || mode === 'daily_report' || mode === 'task') && (
+        {(mode === 'photo' || mode === 'daily_report' || mode === 'task' || mode === 'pdf') && (
           <button
             onClick={cancelMode}
             className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition"
