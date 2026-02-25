@@ -8,14 +8,16 @@ import { createClient } from '@/lib/supabase/client'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
+import NotificationBell from '@/components/ui/NotificationBell'
 
 interface SidebarProps {
+  userId: string
   userEmail?: string
   displayName?: string
   avatarUrl?: string
 }
 
-export default function Sidebar({ userEmail, displayName, avatarUrl }: SidebarProps) {
+export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -136,6 +138,11 @@ export default function Sidebar({ userEmail, displayName, avatarUrl }: SidebarPr
         </Link>
       </nav>
 
+      {/* Notifications (desktop sidebar) */}
+      <div className="hidden lg:flex px-5 py-2 border-t border-gray-800">
+        <NotificationBell userId={userId} />
+      </div>
+
       {/* User / Profile / Sign Out */}
       <div className="px-3 py-4 border-t border-gray-800">
         <Link
@@ -211,21 +218,24 @@ export default function Sidebar({ userEmail, displayName, avatarUrl }: SidebarPr
             <span className="text-white font-semibold text-sm">Peckham Coatings</span>
           </div>
         </div>
-        <Link href="/profile" className="flex-shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-            {avatarUrl ? (
-              <Image
-                src={avatarUrl}
-                alt="Avatar"
-                width={32}
-                height={32}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-[10px] font-bold text-white">{initials}</span>
-            )}
-          </div>
-        </Link>
+        <div className="flex items-center gap-2">
+          <NotificationBell userId={userId} />
+          <Link href="/profile" className="flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt="Avatar"
+                  width={32}
+                  height={32}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-[10px] font-bold text-white">{initials}</span>
+              )}
+            </div>
+          </Link>
+        </div>
       </div>
 
       {/* Mobile overlay */}

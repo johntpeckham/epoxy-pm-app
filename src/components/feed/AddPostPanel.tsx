@@ -296,6 +296,19 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         }
         console.log('[AddPostPanel] Task feed post created successfully for task:', taskData.id)
 
+        // Send notification to assigned user
+        if (taskAssignedTo && taskAssignedTo !== userId) {
+          const creatorProfile = profiles.find((p) => p.id === userId)
+          const creatorName = creatorProfile?.display_name || 'Someone'
+          await supabase.from('notifications').insert({
+            user_id: taskAssignedTo,
+            type: 'task_assigned',
+            title: 'New task assigned',
+            message: `${creatorName} assigned you: ${taskTitle.trim()}`,
+            link: '/tasks',
+          })
+        }
+
         setTaskTitle('')
         setTaskDescription('')
         setTaskAssignedTo('')
