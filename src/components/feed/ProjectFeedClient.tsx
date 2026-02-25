@@ -159,9 +159,9 @@ export default function ProjectFeedClient({
         </div>
       </div>
 
-      {/* Scrollable feed */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="py-4">
+      {/* Scrollable feed — iMessage style */}
+      <div className="flex-1 overflow-y-auto bg-white">
+        <div className="py-3">
           {/* Pinned posts */}
           <PinnedSection
             posts={pinnedPosts}
@@ -182,7 +182,7 @@ export default function ProjectFeedClient({
               <p className="text-gray-400 text-sm">No posts yet. Add the first one below.</p>
             </div>
           ) : (
-            <div className="space-y-0.5 mb-4">
+            <div className="space-y-1 mb-4">
               {unpinnedPosts.map((post) => (
                 <PostCard
                   key={post.id}
