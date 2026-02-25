@@ -353,14 +353,14 @@ export default function ProjectReportModal({
   }
 
   return (
-    <div data-report-print className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+    <div data-report-print className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4 py-3 sm:py-6">
       {/* Overlay */}
       <div data-report-overlay className="absolute inset-0 bg-black/60" onClick={onClose} />
 
       {/* Modal */}
-      <div data-report-modal className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div data-report-modal className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
         {/* Header */}
-        <div data-report-header className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0 print:hidden">
+        <div data-report-header className="flex items-center justify-between px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 border-b border-gray-100 flex-shrink-0 print:hidden">
           <div>
             <h2 className="text-base font-bold text-gray-900">Project Report</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
@@ -374,7 +374,7 @@ export default function ProjectReportModal({
         </div>
 
         {/* Scrollable body */}
-        <div data-report-body className="overflow-y-auto flex-1 px-6 py-5 print:overflow-visible">
+        <div data-report-body className="overflow-y-auto flex-1 px-4 lg:px-6 py-4 lg:py-5 print:overflow-visible">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
@@ -398,16 +398,16 @@ export default function ProjectReportModal({
               </div>
               {sections.map((section) => (
                 <div key={section.title}>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
                     {section.title}
                   </h3>
                   <div className="space-y-2">
                     {section.fields.map((field) => (
                       <div
                         key={field.key}
-                        className="grid grid-cols-[180px_1fr] gap-3 items-start"
+                        className="flex flex-col gap-1 lg:grid lg:grid-cols-[180px_1fr] lg:gap-3 lg:items-start"
                       >
-                        <label className="text-xs font-medium text-gray-600 pt-2 text-right">
+                        <label className="text-xs font-medium text-gray-600 lg:pt-2 lg:text-right">
                           {field.label}
                         </label>
                         <div className="relative">
@@ -445,14 +445,14 @@ export default function ProjectReportModal({
         </div>
 
         {/* Footer */}
-        <div data-report-footer className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0 print:hidden">
-          {error && <p className="text-xs text-red-600 flex-1">{error}</p>}
-          {savedMsg && <p className="text-xs text-green-600 flex-1">Saved successfully</p>}
-          {!error && !savedMsg && <div className="flex-1" />}
+        <div data-report-footer className="flex flex-wrap items-center gap-2 lg:gap-3 px-4 lg:px-6 py-3 lg:py-4 border-t border-gray-100 flex-shrink-0 print:hidden">
+          {error && <p className="text-xs text-red-600 w-full lg:w-auto lg:flex-1">{error}</p>}
+          {savedMsg && <p className="text-xs text-green-600 w-full lg:w-auto lg:flex-1">Saved successfully</p>}
+          {!error && !savedMsg && <div className="hidden lg:block flex-1" />}
           <button
             onClick={handlePrint}
             disabled={loading}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
+            className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
           >
             <PrinterIcon className="w-4 h-4" />
             Print
@@ -460,14 +460,14 @@ export default function ProjectReportModal({
           <button
             onClick={handleSavePdf}
             disabled={loading || generatingPdf}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
+            className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
           >
             <FileDownIcon className="w-4 h-4" />
-            {generatingPdf ? 'Generating...' : 'Save as PDF'}
+            {generatingPdf ? 'Generating...' : 'PDF'}
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+            className="px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
           >
             {readOnly ? 'Close' : 'Cancel'}
           </button>
@@ -475,7 +475,7 @@ export default function ProjectReportModal({
             <button
               onClick={handleSave}
               disabled={saving || loading}
-              className="px-6 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold transition"
+              className="px-4 lg:px-6 py-2 lg:py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold transition ml-auto"
             >
               {saving ? 'Saving...' : 'Save'}
             </button>
