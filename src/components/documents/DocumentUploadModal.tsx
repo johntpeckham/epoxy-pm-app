@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 import { DocumentCategory, ProjectDocument } from '@/types'
 import PdfThumbnail from './PdfThumbnail'
-import PdfViewer from './PdfViewer'
 
 interface DocumentUploadModalProps {
   projectId: string
@@ -141,6 +140,15 @@ export default function DocumentUploadModal({
     return doc.file_type.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|bmp)$/i.test(doc.file_name)
   }
 
+  function handlePdfPreview(doc: ProjectDocument) {
+    // On mobile, iframes don't render PDFs well — open in native viewer instead
+    if (window.innerWidth < 768) {
+      window.open(getPublicUrl(doc.file_path), '_blank')
+      return
+    }
+    setPreviewDoc(doc)
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -210,7 +218,7 @@ export default function DocumentUploadModal({
                     <div key={doc.id} className="group relative">
                       <PdfThumbnail
                         url={getPublicUrl(doc.file_path)}
-                        onClick={() => setPreviewDoc(doc)}
+                        onClick={() => handlePdfPreview(doc)}
                       />
                       <p className="text-[11px] text-gray-600 mt-1.5 truncate px-0.5" title={doc.file_name}>
                         {doc.file_name}
@@ -307,22 +315,23 @@ export default function DocumentUploadModal({
         </div>
       </div>
 
-      {/* Full-screen PDF viewer — uses the same PdfViewer component as the chat feed */}
+      {/* Full-screen PDF viewer — iframe lets the browser handle zoom, scroll, nav */}
       {previewDoc && isPdf(previewDoc) && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-black">
-          <div className="flex-none flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700">
-            <p className="text-sm text-gray-300 truncate mr-3">{previewDoc.file_name}</p>
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="flex items-center justify-between px-4 py-2 bg-gray-900 text-white">
+            <span className="truncate text-sm">{previewDoc.file_name}</span>
             <button
               onClick={() => setPreviewDoc(null)}
-              className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition flex-shrink-0"
-              aria-label="Close"
+              className="text-white hover:text-gray-300"
             >
-              <XIcon className="w-5 h-5" />
+              <XIcon className="w-6 h-6" />
             </button>
           </div>
-          <div className="flex-1 min-h-0">
-            <PdfViewer url={getPublicUrl(previewDoc.file_path)} fullscreen />
-          </div>
+          <iframe
+            src={getPublicUrl(previewDoc.file_path)}
+            className="flex-1 w-full"
+            title={previewDoc.file_name}
+          />
         </div>
       )}
 
