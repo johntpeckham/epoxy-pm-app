@@ -89,7 +89,7 @@ export default function ProjectFeedClient({
   const unpinnedPosts = posts.filter((p) => !p.is_pinned)
 
   return (
-    <div className={`flex flex-col bg-gray-50 ${inPanel ? 'h-full' : 'h-screen'}`}>
+    <div className="flex flex-col bg-gray-50 h-full">
       {/* Project header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200">
         <div className="px-4 py-4">
