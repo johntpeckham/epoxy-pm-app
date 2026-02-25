@@ -308,9 +308,9 @@ export default function DocumentUploadModal({
 
       {/* Preview overlay */}
       {previewDoc && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setPreviewDoc(null)} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewDoc(null)} />
+          <div className="relative bg-white rounded-xl shadow-2xl flex flex-col" style={{ width: '80vw', height: '85vh' }}>
             {/* Preview header */}
             <div className="flex items-center justify-between px-6 pt-4 pb-3 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -341,16 +341,16 @@ export default function DocumentUploadModal({
               {isPdf(previewDoc) ? (
                 <iframe
                   src={getPublicUrl(previewDoc.file_path)}
-                  className="w-full h-full min-h-[60vh]"
+                  className="w-full h-full"
                   title={previewDoc.file_name}
                 />
               ) : isImage(previewDoc) ? (
-                <div className="flex items-center justify-center p-6 overflow-auto max-h-[70vh]">
+                <div className="flex items-center justify-center p-6 overflow-auto h-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={getPublicUrl(previewDoc.file_path)}
                     alt={previewDoc.file_name}
-                    className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                    className="max-w-full max-h-full object-contain rounded-lg"
                   />
                 </div>
               ) : (
