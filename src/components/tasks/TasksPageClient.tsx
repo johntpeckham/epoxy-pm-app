@@ -292,15 +292,16 @@ export default function TasksPageClient({
       if (insertErr) throw insertErr
 
       // Send notification to assigned user
-      if (newAssignedTo && newAssignedTo !== userId) {
+      if (newAssignedTo) {
         const creatorName = getProfileName(userId)
-        await supabase.from('notifications').insert({
+        const { error: notifErr } = await supabase.from('notifications').insert({
           user_id: newAssignedTo,
           type: 'task_assigned',
           title: 'New task assigned',
           message: `${creatorName} assigned you: ${newTitle.trim()}`,
           link: '/tasks',
         })
+        if (notifErr) console.error('[TasksPageClient] Notification insert failed:', notifErr)
       }
 
       setShowCreateModal(false)
