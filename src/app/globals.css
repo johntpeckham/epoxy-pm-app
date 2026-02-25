@@ -69,19 +69,6 @@ body {
   color: #111827;
 }
 
-/* PDF viewer sidebar slide-in animation */
-@keyframes pdf-sidebar-slide-in {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-.animate-pdf-sidebar-slide-in {
-  animation: pdf-sidebar-slide-in 0.2s ease-out;
-}
-
 /* Print styles for Project Report modal */
 @media print {
   /* Hide everything except the printable form */
