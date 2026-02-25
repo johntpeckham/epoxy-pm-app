@@ -25,6 +25,7 @@ export default async function DashboardLayout({
   return (
     <div className="h-[100dvh] flex flex-col bg-gray-50 overflow-hidden">
       <Sidebar
+        userId={user.id}
         userEmail={user.email}
         displayName={profile?.display_name ?? undefined}
         avatarUrl={profile?.avatar_url ?? undefined}

@@ -279,7 +279,7 @@ export default function TasksPageClient({
         photoUrl = path
       }
 
-      const { error: insertErr } = await supabase.from('tasks').insert({
+      const { data: taskData, error: insertErr } = await supabase.from('tasks').insert({
         project_id: newProjectId,
         created_by: userId,
         assigned_to: newAssignedTo || null,
@@ -288,8 +288,20 @@ export default function TasksPageClient({
         status: newStatus,
         photo_url: photoUrl,
         due_date: newDueDate || null,
-      })
+      }).select().single()
       if (insertErr) throw insertErr
+
+      // Send notification to assigned user
+      if (newAssignedTo && newAssignedTo !== userId) {
+        const creatorName = getProfileName(userId)
+        await supabase.from('notifications').insert({
+          user_id: newAssignedTo,
+          type: 'task_assigned',
+          title: 'New task assigned',
+          message: `${creatorName} assigned you: ${newTitle.trim()}`,
+          link: '/tasks',
+        })
+      }
 
       setShowCreateModal(false)
       resetCreateForm()
