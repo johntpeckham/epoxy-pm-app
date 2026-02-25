@@ -671,7 +671,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
 
   // ── Action buttons (shared) ──────────────────────────────────────────────
   const actionButtons = (
-    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+    <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex-shrink-0">
       {post.post_type === 'daily_report' && (
         <button
           onClick={handleDownloadPdf}
