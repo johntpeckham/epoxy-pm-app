@@ -178,46 +178,72 @@ export async function generateJsaPdf(
     }
   }
 
-  // ─── SIGNATURE LINES ─────────────────────────────────────────────────
+  // ─── EMPLOYEE ACKNOWLEDGMENT & SIGNATURES ──────────────────────────
   checkPage(50)
   y += 8
-  sectionTitle('ACKNOWLEDGMENT')
+  sectionTitle('EMPLOYEE ACKNOWLEDGMENT & SIGNATURES')
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(...DARK)
   doc.text(
-    'By signing below, I acknowledge that I have reviewed and understand the hazards, precautions, and PPE requirements outlined in this Job Safety Analysis.',
+    'I acknowledge that the Job Safety Analysis has been reviewed with me, I understand the hazards and required controls, and I agree to follow all safety procedures outlined.',
     M,
     y,
     { maxWidth: CW }
   )
   y += 14
 
-  const sigLineWidth = (CW - 10) / 2
-  const sigLabels = ['Prepared By', 'Site Supervisor', 'Competent Person', 'Employee']
+  if (content.signatures && content.signatures.length > 0) {
+    const SIG_IMG_W = 60
+    const SIG_IMG_H = 20
 
-  for (let i = 0; i < sigLabels.length; i += 2) {
-    checkPage(20)
-    // Left signature
-    doc.setDrawColor(...LABEL_GRAY)
-    doc.setLineWidth(0.3)
-    doc.line(M, y + 8, M + sigLineWidth, y + 8)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...LABEL_GRAY)
-    doc.text(sigLabels[i], M, y + 12)
-    doc.text('Date: _______________', M, y + 16)
-
-    // Right signature
-    if (i + 1 < sigLabels.length) {
-      const rightX = M + sigLineWidth + 10
-      doc.line(rightX, y + 8, rightX + sigLineWidth, y + 8)
-      doc.text(sigLabels[i + 1], rightX, y + 12)
-      doc.text('Date: _______________', rightX, y + 16)
+    for (const sig of content.signatures) {
+      checkPage(SIG_IMG_H + 14)
+      // Draw the signature image
+      if (sig.signature) {
+        try {
+          doc.addImage(sig.signature, 'PNG', M, y, SIG_IMG_W, SIG_IMG_H)
+        } catch {
+          // skip if image fails
+        }
+      }
+      // Underline
+      doc.setDrawColor(...LABEL_GRAY)
+      doc.setLineWidth(0.3)
+      doc.line(M, y + SIG_IMG_H + 1, M + SIG_IMG_W, y + SIG_IMG_H + 1)
+      // Name label
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(...DARK)
+      doc.text(sig.name, M, y + SIG_IMG_H + 5.5)
+      y += SIG_IMG_H + 12
     }
+  } else {
+    // Fallback: blank signature lines if no digital signatures
+    const sigLineWidth = (CW - 10) / 2
+    const sigLabels = ['Prepared By', 'Site Supervisor', 'Competent Person', 'Employee']
 
-    y += 24
+    for (let i = 0; i < sigLabels.length; i += 2) {
+      checkPage(20)
+      doc.setDrawColor(...LABEL_GRAY)
+      doc.setLineWidth(0.3)
+      doc.line(M, y + 8, M + sigLineWidth, y + 8)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      doc.setTextColor(...LABEL_GRAY)
+      doc.text(sigLabels[i], M, y + 12)
+      doc.text('Date: _______________', M, y + 16)
+
+      if (i + 1 < sigLabels.length) {
+        const rightX = M + sigLineWidth + 10
+        doc.line(rightX, y + 8, rightX + sigLineWidth, y + 8)
+        doc.text(sigLabels[i + 1], rightX, y + 12)
+        doc.text('Date: _______________', rightX, y + 16)
+      }
+
+      y += 24
+    }
   }
 
   // ─── FOOTER ───────────────────────────────────────────────────────────

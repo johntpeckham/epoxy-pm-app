@@ -156,6 +156,11 @@ export interface JsaTaskEntry {
   ppe: string
 }
 
+export interface JsaSignatureEntry {
+  name: string
+  signature: string // base64 PNG data URL
+}
+
 export interface JsaReportContent {
   projectName: string
   date: string
@@ -165,6 +170,7 @@ export interface JsaReportContent {
   siteSupervisor: string
   competentPerson: string
   tasks: JsaTaskEntry[]
+  signatures?: JsaSignatureEntry[]
 }
 
 export interface JsaTaskTemplate {

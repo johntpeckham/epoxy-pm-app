@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, createRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   SendIcon,
@@ -15,9 +15,10 @@ import {
   LoaderIcon,
   SettingsIcon,
 } from 'lucide-react'
-import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry } from '@/types'
+import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
+import SignaturePad, { SignaturePadRef } from '@/components/ui/SignaturePad'
 
 type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report'
 
@@ -100,6 +101,9 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [jsaTemplates, setJsaTemplates] = useState<JsaTaskTemplate[]>([])
   const [jsaTemplatesLoaded, setJsaTemplatesLoaded] = useState(false)
   const [jsaSelectedTasks, setJsaSelectedTasks] = useState<Record<string, JsaTaskEntry>>({})
+  const [jsaSignatures, setJsaSignatures] = useState<{ name: string; ref: React.RefObject<SignaturePadRef | null> }[]>([
+    { name: '', ref: createRef<SignaturePadRef>() },
+  ])
   const [showTemplateManager, setShowTemplateManager] = useState(false)
 
   // Fetch JSA templates when mode activates
@@ -411,6 +415,9 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
       if (mode === 'jsa_report') {
         const tasks = Object.values(jsaSelectedTasks)
+        const signatures: JsaSignatureEntry[] = jsaSignatures
+          .map((s) => ({ name: s.name.trim(), signature: s.ref.current?.toDataURL() ?? '' }))
+          .filter((s) => s.name && s.signature)
         await supabase.from('feed_posts').insert({
           project_id: project.id,
           user_id: userId,
@@ -424,6 +431,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             siteSupervisor: jsaSiteSupervisor.trim(),
             competentPerson: jsaCompetentPerson.trim(),
             tasks,
+            signatures,
           },
           is_pinned: false,
         })
@@ -433,6 +441,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setJsaSiteSupervisor('')
         setJsaCompetentPerson('')
         setJsaSelectedTasks({})
+        setJsaSignatures([{ name: '', ref: createRef<SignaturePadRef>() }])
         setMode('text')
       }
 
@@ -893,6 +902,58 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               </div>
             </div>
           ))}
+
+          {/* Employee Acknowledgment & Signatures */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Employee Acknowledgment &amp; Signatures</p>
+            <p className="text-xs text-gray-500 mb-3">
+              I acknowledge that the Job Safety Analysis has been reviewed with me, I understand the hazards and required controls, and I agree to follow all safety procedures outlined.
+            </p>
+            <div className="space-y-4">
+              {jsaSignatures.map((sig, i) => (
+                <div key={i} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={sig.name}
+                      onChange={(e) => {
+                        const next = [...jsaSignatures]
+                        next[i] = { ...next[i], name: e.target.value }
+                        setJsaSignatures(next)
+                      }}
+                      placeholder="Print Name"
+                      className={inputCls}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => sig.ref.current?.clear()}
+                      className="text-xs text-gray-400 hover:text-amber-600 font-medium flex-shrink-0"
+                    >
+                      Clear
+                    </button>
+                    {jsaSignatures.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setJsaSignatures((s) => s.filter((_, idx) => idx !== i))}
+                        className="text-xs text-gray-400 hover:text-red-500 font-medium flex-shrink-0"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <SignaturePad ref={sig.ref} height={150} />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setJsaSignatures((s) => [...s, { name: '', ref: createRef<SignaturePadRef>() }])}
+                className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-700 font-medium transition"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add Signature
+              </button>
+            </div>
+          </div>
 
         </div>
       )}
