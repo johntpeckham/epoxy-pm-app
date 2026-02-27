@@ -194,11 +194,13 @@ export async function generateJsaPdf(
   )
   y += 14
 
-  if (content.signatures && content.signatures.length > 0) {
+  const filledSigs = (content.signatures ?? []).filter((s) => s.name || s.signature)
+
+  if (filledSigs.length > 0) {
     const SIG_IMG_W = 60
     const SIG_IMG_H = 20
 
-    for (const sig of content.signatures) {
+    for (const sig of filledSigs) {
       checkPage(SIG_IMG_H + 14)
       // Draw the signature image
       if (sig.signature) {

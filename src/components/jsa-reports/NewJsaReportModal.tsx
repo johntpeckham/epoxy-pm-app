@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, createRef } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, SettingsIcon, LoaderIcon, PlusIcon } from 'lucide-react'
+import { XIcon, SettingsIcon, LoaderIcon } from 'lucide-react'
 import { Project, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import JsaTemplateManagerModal from './JsaTemplateManagerModal'
-import SignaturePad, { SignaturePadRef } from '@/components/ui/SignaturePad'
+import JsaSignatureSection from './JsaSignatureSection'
 
 interface NewJsaReportModalProps {
   projects: Project[]
@@ -41,9 +41,7 @@ export default function NewJsaReportModal({
   const [templates, setTemplates] = useState<JsaTaskTemplate[]>([])
   const [templatesLoaded, setTemplatesLoaded] = useState(false)
   const [selectedTasks, setSelectedTasks] = useState<Record<string, JsaTaskEntry>>({})
-  const [signatures, setSignatures] = useState<{ name: string; ref: React.RefObject<SignaturePadRef | null> }[]>([
-    { name: '', ref: createRef<SignaturePadRef>() },
-  ])
+  const [signatures, setSignatures] = useState<JsaSignatureEntry[]>([])
   const [showTemplateManager, setShowTemplateManager] = useState(false)
 
   const [loading, setLoading] = useState(false)
@@ -132,9 +130,6 @@ export default function NewJsaReportModal({
 
     try {
       const tasks = Object.values(selectedTasks)
-      const sigs: JsaSignatureEntry[] = signatures
-        .map((s) => ({ name: s.name.trim(), signature: s.ref.current?.toDataURL() ?? '' }))
-        .filter((s) => s.name && s.signature)
 
       const { error: insertErr } = await supabase.from('feed_posts').insert({
         project_id: selectedProjectId,
@@ -150,7 +145,7 @@ export default function NewJsaReportModal({
           siteSupervisor: siteSupervisor.trim(),
           competentPerson: competentPerson.trim(),
           tasks,
-          signatures: sigs,
+          signatures,
         },
       })
 
@@ -344,56 +339,7 @@ export default function NewJsaReportModal({
             ))}
 
             {/* Employee Acknowledgment & Signatures */}
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Employee Acknowledgment &amp; Signatures</p>
-              <p className="text-xs text-gray-500 mb-3">
-                I acknowledge that the Job Safety Analysis has been reviewed with me, I understand the hazards and required controls, and I agree to follow all safety procedures outlined.
-              </p>
-              <div className="space-y-4">
-                {signatures.map((sig, i) => (
-                  <div key={i} className="border border-gray-200 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={sig.name}
-                        onChange={(e) => {
-                          const next = [...signatures]
-                          next[i] = { ...next[i], name: e.target.value }
-                          setSignatures(next)
-                        }}
-                        placeholder="Print Name"
-                        className={inputCls}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => sig.ref.current?.clear()}
-                        className="text-xs text-gray-400 hover:text-amber-600 font-medium flex-shrink-0"
-                      >
-                        Clear
-                      </button>
-                      {signatures.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setSignatures((s) => s.filter((_, idx) => idx !== i))}
-                          className="text-xs text-gray-400 hover:text-red-500 font-medium flex-shrink-0"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    <SignaturePad ref={sig.ref} height={150} />
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setSignatures((s) => [...s, { name: '', ref: createRef<SignaturePadRef>() }])}
-                  className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-700 font-medium transition"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Add Signature
-                </button>
-              </div>
-            </div>
+            <JsaSignatureSection onChange={setSignatures} />
           </div>
 
           {/* Footer */}
