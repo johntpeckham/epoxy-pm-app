@@ -19,10 +19,12 @@ import {
   FileTextIcon,
   PrinterIcon,
   MessageCircleIcon,
+  ShieldIcon,
 } from 'lucide-react'
-import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, TaskStatus } from '@/types'
+import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, TaskStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
+import EditJsaReportModal from './EditJsaReportModal'
 import PostCommentsSection from './PostCommentsSection'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -472,6 +474,131 @@ function CollapsibleDailyReport({
   )
 }
 
+// ── JSA Report content card ─────────────────────────────────────────────────
+function JsaReportPost({ content }: { content: JsaReportContent }) {
+  const personnelFields: { label: string; value: string }[] = [
+    { label: 'Prepared By', value: content.preparedBy },
+    { label: 'Site Supervisor', value: content.siteSupervisor },
+    { label: 'Competent Person', value: content.competentPerson },
+  ]
+
+  return (
+    <div className="p-3.5 space-y-3 border-t border-amber-200 max-w-full overflow-hidden">
+      {(content.projectName || content.address) && (
+        <div className="text-xs space-y-0.5">
+          {content.projectName && <p className="font-semibold text-gray-800">{content.projectName}</p>}
+          {content.address && <p className="text-gray-500">{content.address}</p>}
+        </div>
+      )}
+
+      {content.weather && (
+        <div>
+          <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Weather</dt>
+          <dd className="text-sm text-gray-700">{content.weather}</dd>
+        </div>
+      )}
+
+      {personnelFields.some((f) => f.value) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+          {personnelFields.map(({ label, value }) =>
+            value ? (
+              <div key={label}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{label}</dt>
+                <dd className="text-sm text-gray-700">{value}</dd>
+              </div>
+            ) : null
+          )}
+        </div>
+      )}
+
+      {content.tasks && content.tasks.length > 0 && (
+        <>
+          <div className="border-t border-gray-100" />
+          {content.tasks.map((task, i) => (
+            <div key={i} className="space-y-2">
+              <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">{task.name}</p>
+              {task.hazards && (
+                <div>
+                  <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Hazards</dt>
+                  <dd className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{task.hazards}</dd>
+                </div>
+              )}
+              {task.precautions && (
+                <div>
+                  <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Precautions</dt>
+                  <dd className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{task.precautions}</dd>
+                </div>
+              )}
+              {task.ppe && (
+                <div>
+                  <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">PPE Required</dt>
+                  <dd className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{task.ppe}</dd>
+                </div>
+              )}
+              {i < content.tasks.length - 1 && <div className="border-t border-gray-100" />}
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Collapsible wrapper for JSA reports in the feed ──────────────────────────
+function CollapsibleJsaReport({
+  content,
+  isPinned,
+}: {
+  content: JsaReportContent
+  isPinned?: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  const dateLabel = content.date
+    ? new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : ''
+
+  return (
+    <div className="mt-1.5 border border-amber-200 rounded-xl overflow-hidden bg-white max-w-full w-full">
+      <div
+        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
+        role={isPinned ? undefined : 'button'}
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left transition-colors min-w-0 overflow-hidden ${
+          isPinned ? '' : 'hover:bg-amber-100/60 cursor-pointer'
+        }`}
+      >
+        <ShieldIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-amber-900 flex-shrink-0">JSA Report</span>
+        {dateLabel && (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">—</span>
+            <span className="text-sm font-medium text-gray-700 flex-shrink-0 tabular-nums hidden sm:inline">{dateLabel}</span>
+          </>
+        )}
+        {content.preparedBy && (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">·</span>
+            <span className="text-sm text-gray-600 truncate hidden sm:inline">{content.preparedBy}</span>
+          </>
+        )}
+        {!isPinned && (
+          <ChevronDownIcon
+            className={`w-4 h-4 text-amber-600 ml-auto flex-shrink-0 transition-transform ${
+              expanded ? 'rotate-180' : ''
+            }`}
+          />
+        )}
+      </div>
+
+      {(isPinned || expanded) && <JsaReportPost content={content} />}
+    </div>
+  )
+}
+
 // ── Inline PDF post (thumbnail + metadata, no card wrapper) ─────────────────
 function InlinePdfPost({ content }: { content: PdfContent }) {
   const supabase = createClient()
@@ -554,6 +681,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditReport, setShowEditReport] = useState(false)
+  const [showEditJsaReport, setShowEditJsaReport] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [showComments, setShowComments] = useState(false)
@@ -658,8 +786,13 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   async function handleDownloadPdf() {
     setPdfLoading(true)
     try {
-      const { generateReportPdf } = await import('@/lib/generateReportPdf')
-      await generateReportPdf(post.content as DailyReportContent, reportPhotoUrls, companySettings?.logo_url)
+      if (post.post_type === 'jsa_report') {
+        const { generateJsaPdf } = await import('@/lib/generateJsaPdf')
+        await generateJsaPdf(post.content as JsaReportContent, companySettings?.logo_url)
+      } else {
+        const { generateReportPdf } = await import('@/lib/generateReportPdf')
+        await generateReportPdf(post.content as DailyReportContent, reportPhotoUrls, companySettings?.logo_url)
+      }
     } finally {
       setPdfLoading(false)
     }
@@ -672,7 +805,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   // ── Action buttons (shared) ──────────────────────────────────────────────
   const actionButtons = (
     <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex-shrink-0">
-      {post.post_type === 'daily_report' && (
+      {(post.post_type === 'daily_report' || post.post_type === 'jsa_report') && (
         <button
           onClick={handleDownloadPdf}
           disabled={pdfLoading}
@@ -682,12 +815,14 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           <DownloadIcon className="w-3.5 h-3.5" />
         </button>
       )}
-      {(post.post_type === 'text' || post.post_type === 'daily_report') && (
+      {(post.post_type === 'text' || post.post_type === 'daily_report' || post.post_type === 'jsa_report') && (
         <button
           onClick={() => {
             if (post.post_type === 'text') {
               setEditText((post.content as TextContent).message)
               setEditingText(true)
+            } else if (post.post_type === 'jsa_report') {
+              setShowEditJsaReport(true)
             } else {
               setShowEditReport(true)
             }
@@ -744,6 +879,12 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           postId={post.id}
           onUpdated={onUpdated}
           onImageClick={setPreviewImage}
+          isPinned={post.is_pinned}
+        />
+      )}
+      {post.post_type === 'jsa_report' && (
+        <CollapsibleJsaReport
+          content={post.content as JsaReportContent}
           isPinned={post.is_pinned}
         />
       )}
@@ -860,6 +1001,18 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           onClose={() => setShowEditReport(false)}
           onUpdated={() => {
             setShowEditReport(false)
+            onUpdated?.()
+          }}
+        />
+      )}
+
+      {showEditJsaReport && post.post_type === 'jsa_report' && (
+        <EditJsaReportModal
+          postId={post.id}
+          initialContent={post.content as JsaReportContent}
+          onClose={() => setShowEditJsaReport(false)}
+          onUpdated={() => {
+            setShowEditJsaReport(false)
             onUpdated?.()
           }}
         />

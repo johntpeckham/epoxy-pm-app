@@ -11,10 +11,15 @@ import {
   FileTextIcon,
   PlusIcon,
   CheckSquareIcon,
+  ShieldIcon,
+  LoaderIcon,
+  SettingsIcon,
 } from 'lucide-react'
-import { Project, TaskStatus, Profile } from '@/types'
+import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry } from '@/types'
+import { fetchWeatherForAddress } from '@/lib/fetchWeather'
+import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
 
-type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf'
+type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report'
 
 interface AddPostPanelProps {
   project: Project
@@ -82,6 +87,72 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [pdfCaption, setPdfCaption] = useState('')
   const pdfInputRef = useRef<HTMLInputElement>(null)
+
+  // ── JSA Report ──────────────────────────────────────────────────────────
+  const [jsaProjectName, setJsaProjectName] = useState(project.name)
+  const [jsaDate, setJsaDate] = useState(today)
+  const [jsaAddress, setJsaAddress] = useState(project.address)
+  const [jsaWeather, setJsaWeather] = useState('')
+  const [jsaWeatherLoading, setJsaWeatherLoading] = useState(false)
+  const [jsaPreparedBy, setJsaPreparedBy] = useState('')
+  const [jsaSiteSupervisor, setJsaSiteSupervisor] = useState('')
+  const [jsaCompetentPerson, setJsaCompetentPerson] = useState('')
+  const [jsaTemplates, setJsaTemplates] = useState<JsaTaskTemplate[]>([])
+  const [jsaTemplatesLoaded, setJsaTemplatesLoaded] = useState(false)
+  const [jsaSelectedTasks, setJsaSelectedTasks] = useState<Record<string, JsaTaskEntry>>({})
+  const [showTemplateManager, setShowTemplateManager] = useState(false)
+
+  // Fetch JSA templates when mode activates
+  useEffect(() => {
+    if (mode === 'jsa_report' && !jsaTemplatesLoaded) {
+      const supabase = createClient()
+      supabase
+        .from('jsa_task_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .then(({ data }) => {
+          setJsaTemplates((data as JsaTaskTemplate[]) ?? [])
+          setJsaTemplatesLoaded(true)
+        })
+    }
+  }, [mode, jsaTemplatesLoaded])
+
+  // Auto-fetch weather when JSA mode activates
+  useEffect(() => {
+    if (mode === 'jsa_report' && !jsaWeather && project.address) {
+      setJsaWeatherLoading(true)
+      fetchWeatherForAddress(project.address).then((w) => {
+        if (w) setJsaWeather(w)
+        setJsaWeatherLoading(false)
+      })
+    }
+  }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleJsaTask(template: JsaTaskTemplate) {
+    setJsaSelectedTasks((prev) => {
+      const next = { ...prev }
+      if (next[template.id]) {
+        delete next[template.id]
+      } else {
+        next[template.id] = {
+          templateId: template.id,
+          name: template.name,
+          hazards: template.default_hazards ?? '',
+          precautions: template.default_precautions ?? '',
+          ppe: template.default_ppe ?? '',
+        }
+      }
+      return next
+    })
+  }
+
+  function updateJsaTask(templateId: string, field: keyof JsaTaskEntry, value: string) {
+    setJsaSelectedTasks((prev) => ({
+      ...prev,
+      [templateId]: { ...prev[templateId], [field]: value },
+    }))
+  }
 
   // Fetch profiles when task mode is activated
   useEffect(() => {
@@ -333,6 +404,33 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setPdfFile(null)
         setPdfCaption('')
         if (pdfInputRef.current) pdfInputRef.current.value = ''
+        setMode('text')
+      }
+
+      if (mode === 'jsa_report') {
+        const tasks = Object.values(jsaSelectedTasks)
+        await supabase.from('feed_posts').insert({
+          project_id: project.id,
+          user_id: userId,
+          post_type: 'jsa_report',
+          content: {
+            projectName: jsaProjectName.trim(),
+            date: jsaDate,
+            address: jsaAddress.trim(),
+            weather: jsaWeather.trim(),
+            preparedBy: jsaPreparedBy.trim(),
+            siteSupervisor: jsaSiteSupervisor.trim(),
+            competentPerson: jsaCompetentPerson.trim(),
+            tasks,
+          },
+          is_pinned: false,
+        })
+        setJsaDate(new Date().toISOString().split('T')[0])
+        setJsaWeather('')
+        setJsaPreparedBy('')
+        setJsaSiteSupervisor('')
+        setJsaCompetentPerson('')
+        setJsaSelectedTasks({})
         setMode('text')
       }
 
@@ -654,6 +752,159 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </div>
       )}
 
+      {/* ── JSA Report expanded form ─────────────────────────────────────────── */}
+      {mode === 'jsa_report' && (
+        <div className="px-4 pt-3 pb-2 max-h-[52vh] overflow-y-auto space-y-5">
+
+          {/* Base Section */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Project Info</p>
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Project Name</label>
+                <input type="text" value={jsaProjectName} onChange={(e) => setJsaProjectName(e.target.value)} className={inputCls} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Date</label>
+                  <input type="date" value={jsaDate} onChange={(e) => setJsaDate(e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Address</label>
+                  <input type="text" value={jsaAddress} onChange={(e) => setJsaAddress(e.target.value)} className={inputCls} />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Weather</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={jsaWeather}
+                    onChange={(e) => setJsaWeather(e.target.value)}
+                    placeholder={jsaWeatherLoading ? 'Fetching weather...' : 'e.g. 72°F, Partly Cloudy, Wind 8 mph'}
+                    className={inputCls}
+                  />
+                  {jsaWeatherLoading && (
+                    <LoaderIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 animate-spin" />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Personnel */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Personnel</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Prepared By</label>
+                <input type="text" value={jsaPreparedBy} onChange={(e) => setJsaPreparedBy(e.target.value)} placeholder="Name" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Site Supervisor</label>
+                <input type="text" value={jsaSiteSupervisor} onChange={(e) => setJsaSiteSupervisor(e.target.value)} placeholder="Name" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Competent Person</label>
+                <input type="text" value={jsaCompetentPerson} onChange={(e) => setJsaCompetentPerson(e.target.value)} placeholder="Name" className={inputCls} />
+              </div>
+            </div>
+          </div>
+
+          {/* Task Checkboxes */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Tasks</p>
+              <button
+                type="button"
+                onClick={() => setShowTemplateManager(true)}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-amber-600 transition"
+              >
+                <SettingsIcon className="w-3 h-3" />
+                Manage Tasks
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {jsaTemplates.map((t) => (
+                <label
+                  key={t.id}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition ${
+                    jsaSelectedTasks[t.id]
+                      ? 'border-amber-400 bg-amber-50 text-amber-800 font-medium'
+                      : 'border-gray-200 text-gray-600 hover:border-amber-300 hover:bg-amber-50/50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!jsaSelectedTasks[t.id]}
+                    onChange={() => toggleJsaTask(t)}
+                    className="sr-only"
+                  />
+                  <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                    jsaSelectedTasks[t.id] ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
+                  }`}>
+                    {jsaSelectedTasks[t.id] && (
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </span>
+                  {t.name}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Dynamic Task Sections */}
+          {jsaTemplates.filter((t) => jsaSelectedTasks[t.id]).map((t) => (
+            <div key={t.id} className="border border-amber-200 rounded-xl p-4 bg-amber-50/30 space-y-3">
+              <p className="text-sm font-bold text-amber-800">{t.name}</p>
+              <div>
+                <label className={labelCls}>Hazards</label>
+                <textarea
+                  rows={3}
+                  value={jsaSelectedTasks[t.id]?.hazards ?? ''}
+                  onChange={(e) => updateJsaTask(t.id, 'hazards', e.target.value)}
+                  placeholder="Identified hazards..."
+                  className={textareaCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Precautions</label>
+                <textarea
+                  rows={3}
+                  value={jsaSelectedTasks[t.id]?.precautions ?? ''}
+                  onChange={(e) => updateJsaTask(t.id, 'precautions', e.target.value)}
+                  placeholder="Safety precautions..."
+                  className={textareaCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>PPE Required</label>
+                <textarea
+                  rows={2}
+                  value={jsaSelectedTasks[t.id]?.ppe ?? ''}
+                  onChange={(e) => updateJsaTask(t.id, 'ppe', e.target.value)}
+                  placeholder="Required PPE..."
+                  className={textareaCls}
+                />
+              </div>
+            </div>
+          ))}
+
+        </div>
+      )}
+
+      {showTemplateManager && (
+        <JsaTemplateManagerModal
+          onClose={() => {
+            setShowTemplateManager(false)
+            // Reload templates
+            setJsaTemplatesLoaded(false)
+          }}
+        />
+      )}
+
       {/* ── PDF upload strip ──────────────────────────────────────────────────── */}
       {mode === 'pdf' && (
         <div className="px-3 pt-3 pb-1">
@@ -744,6 +995,17 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                   Daily Report
                 </button>
                 <button
+                  onClick={() => selectMode('jsa_report')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                    mode === 'jsa_report'
+                      ? 'text-amber-600 bg-amber-50 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <ShieldIcon className="w-4 h-4 flex-shrink-0" />
+                  JSA Report
+                </button>
+                <button
                   onClick={() => selectMode('task')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
                     mode === 'task'
@@ -824,8 +1086,17 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           </div>
         )}
 
+        {mode === 'jsa_report' && (
+          <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full border border-amber-200">
+            <ShieldIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <span className="text-sm text-amber-700 font-medium truncate">
+              JSA Report — {jsaDate}
+            </span>
+          </div>
+        )}
+
         {/* Cancel button for expanded modes */}
-        {(mode === 'photo' || mode === 'daily_report' || mode === 'task' || mode === 'pdf') && (
+        {(mode === 'photo' || mode === 'daily_report' || mode === 'task' || mode === 'pdf' || mode === 'jsa_report') && (
           <button
             onClick={cancelMode}
             className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition"
