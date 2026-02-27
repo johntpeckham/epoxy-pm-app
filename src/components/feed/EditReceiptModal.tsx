@@ -30,7 +30,7 @@ export default function EditReceiptModal({
   const [vendorName, setVendorName] = useState(initialContent.vendor_name ?? '')
   const [receiptDate, setReceiptDate] = useState(initialContent.receipt_date ?? '')
   const [totalAmount, setTotalAmount] = useState(String(initialContent.total_amount ?? ''))
-  const [category, setCategory] = useState<ReceiptCategory>(initialContent.category ?? 'Materials')
+  const [category, setCategory] = useState<ReceiptCategory | ''>(initialContent.category ?? '')
 
   // Photo: existing path, new file
   const [existingPhoto, setExistingPhoto] = useState<string | null>(initialContent.receipt_photo ?? null)
@@ -232,9 +232,10 @@ export default function EditReceiptModal({
                 <label className={labelCls}>Category</label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as ReceiptCategory)}
+                  onChange={(e) => setCategory(e.target.value as ReceiptCategory | '')}
                   className={inputCls}
                 >
+                  <option value="">Select a category...</option>
                   {RECEIPT_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
