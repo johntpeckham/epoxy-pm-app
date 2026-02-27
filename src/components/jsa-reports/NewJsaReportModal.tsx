@@ -64,8 +64,10 @@ export default function NewJsaReportModal({
   // Auto-fetch weather for initial project
   useEffect(() => {
     if (projects[0]?.address) {
+      console.log('[NewJsaReportModal] Fetching weather for initial project:', projects[0].address)
       setWeatherLoading(true)
       fetchWeatherForAddress(projects[0].address).then((w) => {
+        console.log('[NewJsaReportModal] Weather result:', w)
         if (w) setWeather(w)
         setWeatherLoading(false)
       })
@@ -79,9 +81,11 @@ export default function NewJsaReportModal({
       setProjectName(project.name)
       setAddress(project.address)
       // Fetch weather for new project address
+      console.log('[NewJsaReportModal] Project changed, fetching weather for:', project.address)
       setWeatherLoading(true)
       setWeather('')
       fetchWeatherForAddress(project.address).then((w) => {
+        console.log('[NewJsaReportModal] Weather result for changed project:', w)
         if (w) setWeather(w)
         setWeatherLoading(false)
       })

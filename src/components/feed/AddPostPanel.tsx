@@ -121,8 +121,10 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   // Auto-fetch weather when JSA mode activates
   useEffect(() => {
     if (mode === 'jsa_report' && !jsaWeather && project.address) {
+      console.log('[AddPostPanel] JSA mode activated, fetching weather for:', project.address)
       setJsaWeatherLoading(true)
       fetchWeatherForAddress(project.address).then((w) => {
+        console.log('[AddPostPanel] Weather result:', w)
         if (w) setJsaWeather(w)
         setJsaWeatherLoading(false)
       })
