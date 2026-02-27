@@ -468,7 +468,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   }
 
   return (
-    <div className="flex-none bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+    <div className="flex-none bg-blue-500 border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] border-4 border-red-500">
 
       {/* Error toast */}
       {error && (

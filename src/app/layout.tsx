@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import ViewportDebug from "@/components/ui/ViewportDebug";
 
 export const metadata: Metadata = {
   title: "Peckham Coatings",
@@ -32,8 +33,9 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="apple-touch-startup-image" href="/icon-512.png" />
       </head>
-      <body className="antialiased h-full overflow-hidden">
+      <body className="antialiased h-full overflow-hidden border-4 border-red-500">
         {children}
+        <ViewportDebug />
       </body>
     </html>
   );
