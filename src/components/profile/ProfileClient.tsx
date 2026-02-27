@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, ShieldIcon } from 'lucide-react'
 import { Profile } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
@@ -205,7 +205,16 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
           >
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex-1">Profile Settings</h1>
+          {isAdmin && (
+            <button
+              onClick={() => router.push('/permissions')}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-700 hover:text-amber-700 text-sm font-medium rounded-lg transition"
+            >
+              <ShieldIcon className="w-4 h-4" />
+              Permissions
+            </button>
+          )}
         </div>
 
         {/* Company Logo Section — Admin only */}

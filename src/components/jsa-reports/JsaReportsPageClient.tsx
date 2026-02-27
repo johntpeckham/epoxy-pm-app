@@ -6,6 +6,8 @@ import { PlusIcon, ShieldIcon, SearchIcon, ChevronDownIcon } from 'lucide-react'
 import { Project, JsaReportContent } from '@/types'
 import JsaReportCard from './JsaReportCard'
 import NewJsaReportModal from './NewJsaReportModal'
+import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 
 interface JsaReportRow {
   id: string
@@ -81,6 +83,8 @@ export default function JsaReportsPageClient({
   userId,
 }: JsaReportsPageClientProps) {
   const router = useRouter()
+  const { role } = useUserRole()
+  const { canEdit } = usePermissions(role)
   const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
@@ -115,15 +119,17 @@ export default function JsaReportsPageClient({
             {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          disabled={projects.length === 0}
-          title={projects.length === 0 ? 'Create a project first' : undefined}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
-        >
-          <PlusIcon className="w-4 h-4" />
-          New JSA Report
-        </button>
+        {canEdit('jsa_reports') && (
+          <button
+            onClick={() => setShowModal(true)}
+            disabled={projects.length === 0}
+            title={projects.length === 0 ? 'Create a project first' : undefined}
+            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
+          >
+            <PlusIcon className="w-4 h-4" />
+            New JSA Report
+          </button>
+        )}
       </div>
 
       {/* Search & Sort Controls */}

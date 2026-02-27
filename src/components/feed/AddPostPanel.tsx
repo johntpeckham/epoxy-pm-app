@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
+import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
 import JsaSignatureSection from '@/components/jsa-reports/JsaSignatureSection'
 
@@ -45,6 +47,10 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [showMenu, setShowMenu] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // ── Permissions ──────────────────────────────────────────────────────────────
+  const { role } = useUserRole()
+  const { canEdit } = usePermissions(role)
 
   // ── Text post ──────────────────────────────────────────────────────────────
   const [message, setMessage] = useState('')
@@ -1060,50 +1066,58 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
               <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-20 w-44">
-                <button
-                  onClick={() => selectMode('photo')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                    mode === 'photo'
-                      ? 'text-amber-600 bg-amber-50 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <CameraIcon className="w-4 h-4 flex-shrink-0" />
-                  Upload Photos
-                </button>
-                <button
-                  onClick={() => selectMode('daily_report')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                    mode === 'daily_report'
-                      ? 'text-amber-600 bg-amber-50 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
-                  Daily Report
-                </button>
-                <button
-                  onClick={() => selectMode('jsa_report')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                    mode === 'jsa_report'
-                      ? 'text-amber-600 bg-amber-50 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <ShieldIcon className="w-4 h-4 flex-shrink-0" />
-                  JSA Report
-                </button>
-                <button
-                  onClick={() => selectMode('task')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                    mode === 'task'
-                      ? 'text-amber-600 bg-amber-50 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <CheckSquareIcon className="w-4 h-4 flex-shrink-0" />
-                  Task
-                </button>
+                {canEdit('photos') && (
+                  <button
+                    onClick={() => selectMode('photo')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                      mode === 'photo'
+                        ? 'text-amber-600 bg-amber-50 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <CameraIcon className="w-4 h-4 flex-shrink-0" />
+                    Upload Photos
+                  </button>
+                )}
+                {canEdit('daily_reports') && (
+                  <button
+                    onClick={() => selectMode('daily_report')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                      mode === 'daily_report'
+                        ? 'text-amber-600 bg-amber-50 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
+                    Daily Report
+                  </button>
+                )}
+                {canEdit('jsa_reports') && (
+                  <button
+                    onClick={() => selectMode('jsa_report')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                      mode === 'jsa_report'
+                        ? 'text-amber-600 bg-amber-50 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <ShieldIcon className="w-4 h-4 flex-shrink-0" />
+                    JSA Report
+                  </button>
+                )}
+                {canEdit('tasks') && (
+                  <button
+                    onClick={() => selectMode('task')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                      mode === 'task'
+                        ? 'text-amber-600 bg-amber-50 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <CheckSquareIcon className="w-4 h-4 flex-shrink-0" />
+                    Task
+                  </button>
+                )}
                 <button
                   onClick={() => selectMode('pdf')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
