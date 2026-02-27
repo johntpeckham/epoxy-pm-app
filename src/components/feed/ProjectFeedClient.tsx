@@ -186,7 +186,7 @@ export default function ProjectFeedClient({
 
       {/* Scrollable feed — flex-1 takes remaining space, min-h-0 allows shrinking, overflow-y-auto scrolls */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-white">
-        <div className="py-3 pb-20 lg:pb-3">
+        <div className="py-3">
           {/* Pinned posts */}
           <PinnedSection
             posts={pinnedPosts}
