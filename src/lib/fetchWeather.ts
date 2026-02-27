@@ -1,15 +1,50 @@
 /**
+ * Extract city and state from a full address for geocoding.
+ * Open-Meteo geocoding works best with city/place names, not street addresses.
+ * "123 Main St, Dallas, TX 75201" → "Dallas, TX"
+ * "Dallas, TX" → "Dallas, TX"
+ * "Houston" → "Houston"
+ */
+function extractCityState(address: string): string {
+  const parts = address.split(',').map((p) => p.trim()).filter(Boolean)
+  if (parts.length >= 3) {
+    // 3+ parts: likely "Street, City, State ZIP" — drop the street portion
+    const cityState = parts.slice(1).join(', ')
+    // Remove ZIP codes (5 digits or 5+4 format) and trailing commas
+    return cityState
+      .replace(/\b\d{5}(-\d{4})?\b/g, '')
+      .replace(/,\s*$/g, '')
+      .trim()
+  }
+  if (parts.length === 2) {
+    // 2 parts: likely "City, State ZIP" — keep both, just strip ZIP
+    return parts
+      .join(', ')
+      .replace(/\b\d{5}(-\d{4})?\b/g, '')
+      .trim()
+      .replace(/,\s*$/g, '')
+      .trim()
+  }
+  // Single segment — return as-is
+  return address.trim()
+}
+
+/**
  * Fetches current weather for a given address using Open-Meteo free APIs.
- * 1. Geocodes the address to lat/lon
- * 2. Fetches current weather conditions
+ * 1. Extracts city/state from address for geocoding
+ * 2. Geocodes to lat/lon
+ * 3. Fetches current weather conditions
  */
 export async function fetchWeatherForAddress(address: string): Promise<string | null> {
   if (!address.trim()) return null
 
   try {
-    // Geocode the address
+    const query = extractCityState(address)
+    if (!query) return null
+
+    // Geocode using city/state (Open-Meteo geocoding works best with place names)
     const geoRes = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(address)}&count=1&language=en&format=json`
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`
     )
     if (!geoRes.ok) return null
     const geoData = await geoRes.json()
