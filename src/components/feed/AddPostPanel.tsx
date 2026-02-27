@@ -50,7 +50,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
   // ── Permissions ──────────────────────────────────────────────────────────────
   const { role } = useUserRole()
-  const { canEdit } = usePermissions(role)
+  const { canCreate } = usePermissions(role)
 
   // ── Text post ──────────────────────────────────────────────────────────────
   const [message, setMessage] = useState('')
@@ -1066,7 +1066,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
               <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-20 w-44">
-                {canEdit('photos') && (
+                {canCreate('photos') && (
                   <button
                     onClick={() => selectMode('photo')}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
@@ -1079,7 +1079,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                     Upload Photos
                   </button>
                 )}
-                {canEdit('daily_reports') && (
+                {canCreate('daily_reports') && (
                   <button
                     onClick={() => selectMode('daily_report')}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
@@ -1092,7 +1092,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                     Daily Report
                   </button>
                 )}
-                {canEdit('jsa_reports') && (
+                {canCreate('jsa_reports') && (
                   <button
                     onClick={() => selectMode('jsa_report')}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
@@ -1105,7 +1105,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                     JSA Report
                   </button>
                 )}
-                {canEdit('tasks') && (
+                {canCreate('tasks') && (
                   <button
                     onClick={() => selectMode('task')}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${

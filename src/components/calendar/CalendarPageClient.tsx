@@ -164,7 +164,8 @@ interface CalendarPageClientProps {
 }
 
 export default function CalendarPageClient({ initialEvents, userId, userRole = 'crew' }: CalendarPageClientProps) {
-  const { canEdit: canEditPerm } = usePermissions(userRole)
+  const { canCreate: canCreatePerm, canEdit: canEditPerm } = usePermissions(userRole)
+  const canCreateCalendar = canCreatePerm('calendar')
   const canEditCalendar = canEditPerm('calendar')
   const router = useRouter()
   const supabase = createClient()
@@ -236,10 +237,10 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   // ── Calendar callbacks ───────────────────────────────────────────────────
 
   const handleDateClick = useCallback((arg: DateClickArg) => {
-    if (!canEditCalendar) return
+    if (!canCreateCalendar) return
     openCreateForm(arg.dateStr)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canEditCalendar])
+  }, [canCreateCalendar])
 
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
@@ -330,7 +331,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
               {initialEvents.length} project{initialEvents.length !== 1 ? 's' : ''} scheduled
             </p>
           </div>
-          {canEditCalendar && (
+          {canCreateCalendar && (
             <button
               onClick={() => openCreateForm()}
               className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"

@@ -170,7 +170,7 @@ export default function TasksPageClient({
   const router = useRouter()
   const supabase = createClient()
   const { role } = useUserRole()
-  const { canEdit } = usePermissions(role)
+  const { canCreate } = usePermissions(role)
   const [selectedTask, setSelectedTask] = useState<TaskWithProject | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -387,7 +387,7 @@ export default function TasksPageClient({
             {groupCount !== 1 ? 's' : ''}
           </p>
         </div>
-        {canEdit('tasks') && (
+        {canCreate('tasks') && (
           <button
             onClick={openCreateModal}
             disabled={projects.length === 0}
