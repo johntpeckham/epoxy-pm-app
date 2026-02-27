@@ -23,7 +23,7 @@ export default async function DashboardLayout({
     .single()
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-gray-50 overflow-hidden">
       <Sidebar
         userId={user.id}
         userEmail={user.email}
