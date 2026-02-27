@@ -540,7 +540,15 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
       {/* ── Daily report expanded form ──────────────────────────────────────── */}
       {mode === 'daily_report' && (
-        <div className="px-4 pt-3 pb-2 max-h-[52vh] overflow-y-auto space-y-5">
+        <div className="fixed inset-0 z-50 flex flex-col bg-white lg:relative lg:inset-auto lg:z-auto lg:block">
+          {/* Mobile header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
+            <h2 className="text-lg font-bold text-gray-900">Daily Report</h2>
+            <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-5 lg:flex-none lg:max-h-[52vh] lg:pt-3 lg:pb-2">
 
           {/* Header */}
           <div>
@@ -550,7 +558,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <label className={labelCls}>Project Name</label>
                 <input type="text" value={rProjectName} onChange={(e) => setRProjectName(e.target.value)} className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <div>
                   <label className={labelCls}>Date</label>
                   <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className={inputCls} />
@@ -566,7 +574,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           {/* Crew */}
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Crew</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
               <div>
                 <label className={labelCls}>Reported By</label>
                 <input type="text" value={rReportedBy} onChange={(e) => setRReportedBy(e.target.value)} placeholder="Name" className={inputCls} />
@@ -660,6 +668,25 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             )}
           </div>
 
+          </div>
+          {/* Mobile submit footer */}
+          <div className="flex-none border-t border-gray-200 px-4 py-3 safe-bottom bg-white lg:hidden">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white font-semibold text-sm transition"
+            >
+              {loading ? <LoaderIcon className="w-5 h-5 animate-spin mx-auto" /> : 'Submit Daily Report'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -779,7 +806,15 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
       {/* ── JSA Report expanded form ─────────────────────────────────────────── */}
       {mode === 'jsa_report' && (
-        <div className="px-4 pt-3 pb-2 max-h-[52vh] overflow-y-auto space-y-5">
+        <div className="fixed inset-0 z-50 flex flex-col bg-white lg:relative lg:inset-auto lg:z-auto lg:block">
+          {/* Mobile header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
+            <h2 className="text-lg font-bold text-gray-900">JSA Report</h2>
+            <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-5 lg:flex-none lg:max-h-[52vh] lg:pt-3 lg:pb-2">
 
           {/* Base Section */}
           <div>
@@ -789,7 +824,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <label className={labelCls}>Project Name</label>
                 <input type="text" value={jsaProjectName} onChange={(e) => setJsaProjectName(e.target.value)} className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <div>
                   <label className={labelCls}>Date</label>
                   <input type="date" value={jsaDate} onChange={(e) => setJsaDate(e.target.value)} className={inputCls} />
@@ -820,7 +855,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           {/* Personnel */}
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Personnel</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
               <div>
                 <label className={labelCls}>Prepared By</label>
                 <input type="text" value={jsaPreparedBy} onChange={(e) => setJsaPreparedBy(e.target.value)} placeholder="Name" className={inputCls} />
@@ -920,6 +955,25 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           {/* Employee Acknowledgment & Signatures */}
           <JsaSignatureSection onChange={setJsaSignatures} />
 
+          </div>
+          {/* Mobile submit footer */}
+          <div className="flex-none border-t border-gray-200 px-4 py-3 safe-bottom bg-white lg:hidden">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white font-semibold text-sm transition"
+            >
+              {loading ? <LoaderIcon className="w-5 h-5 animate-spin mx-auto" /> : 'Submit JSA Report'}
+            </button>
+          </div>
         </div>
       )}
 
