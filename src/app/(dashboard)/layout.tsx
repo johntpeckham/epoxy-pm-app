@@ -31,8 +31,8 @@ export default async function DashboardLayout({
         avatarUrl={profile?.avatar_url ?? undefined}
       />
       {/* Main content — offset for mobile top bar (+ safe area on iOS) / desktop sidebar */}
-      <div className="flex-1 min-h-0 safe-top lg:pl-56 overflow-hidden">
-        <main className="h-full overflow-y-auto">
+      <div className="flex-1 min-h-0 safe-top lg:pl-56 overflow-hidden flex flex-col">
+        <main className="flex-1 min-h-0 overflow-y-auto">
           {children}
         </main>
       </div>
