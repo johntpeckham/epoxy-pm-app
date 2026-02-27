@@ -562,7 +562,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <input type="text" value={rProjectName} onChange={(e) => setRProjectName(e.target.value)} className={inputCls} />
               </div>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <div>
+                <div className="min-w-0">
                   <label className={labelCls}>Date</label>
                   <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className={inputCls} />
                 </div>
@@ -722,7 +722,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {/* Assign To */}
             <div>
               <label className={labelCls}>Assign To</label>
@@ -741,7 +741,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             </div>
 
             {/* Due Date */}
-            <div>
+            <div className="min-w-0">
               <label className={labelCls}>Due Date</label>
               <input
                 type="date"
@@ -831,7 +831,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <input type="text" value={jsaProjectName} onChange={(e) => setJsaProjectName(e.target.value)} className={inputCls} />
               </div>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <div>
+                <div className="min-w-0">
                   <label className={labelCls}>Date</label>
                   <input type="date" value={jsaDate} onChange={(e) => setJsaDate(e.target.value)} className={inputCls} />
                 </div>
