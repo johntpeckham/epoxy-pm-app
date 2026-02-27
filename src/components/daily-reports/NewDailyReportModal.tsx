@@ -252,7 +252,7 @@ export default function NewDailyReportModal({
                   className={inputCls}
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className={labelCls}>Weather</label>
                 <div className="relative">
                   <input
