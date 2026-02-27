@@ -89,7 +89,7 @@ export default function ProjectFeedClient({
   const unpinnedPosts = posts.filter((p) => !p.is_pinned)
 
   return (
-    <div className="flex flex-col bg-gray-50 h-full w-full max-w-full overflow-hidden border-4 border-red-500">
+    <div className="flex flex-col bg-gray-50 h-full w-full max-w-full overflow-hidden">
       {/* Project header — flex-none keeps it at natural height, never scrolls */}
       <div className="flex-none bg-white border-b border-gray-200 z-10">
         <div className="px-4 py-4">
