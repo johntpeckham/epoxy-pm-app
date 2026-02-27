@@ -30,7 +30,7 @@ export default function EditReceiptModal({
   const [vendorName, setVendorName] = useState(initialContent.vendor_name ?? '')
   const [receiptDate, setReceiptDate] = useState(initialContent.receipt_date ?? '')
   const [totalAmount, setTotalAmount] = useState(String(initialContent.total_amount ?? ''))
-  const [category, setCategory] = useState<ReceiptCategory>(initialContent.category ?? 'Materials')
+  const [category, setCategory] = useState<ReceiptCategory | ''>(initialContent.category ?? '')
 
   // Photo: existing path, new file
   const [existingPhoto, setExistingPhoto] = useState<string | null>(initialContent.receipt_photo ?? null)
@@ -64,15 +64,13 @@ export default function EditReceiptModal({
   }
 
   async function handleSubmit() {
-    if (!vendorName.trim()) { setError('Please enter a vendor name'); return }
-    if (!totalAmount.trim()) { setError('Please enter a total amount'); return }
-    const amount = parseFloat(totalAmount)
-    if (isNaN(amount) || amount < 0) { setError('Please enter a valid amount'); return }
-
-    // Must have a photo
+    // Only the photo is required
     const hasExisting = existingPhoto && !removedPhoto
     const hasNew = !!newPhotoFile
     if (!hasExisting && !hasNew) { setError('Please upload a receipt photo'); return }
+
+    const amount = totalAmount.trim() ? parseFloat(totalAmount) : 0
+    if (totalAmount.trim() && (isNaN(amount) || amount < 0)) { setError('Please enter a valid amount'); return }
 
     setLoading(true)
     setError(null)
@@ -234,9 +232,10 @@ export default function EditReceiptModal({
                 <label className={labelCls}>Category</label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as ReceiptCategory)}
+                  onChange={(e) => setCategory(e.target.value as ReceiptCategory | '')}
                   className={inputCls}
                 >
+                  <option value="">Select a category...</option>
                   {RECEIPT_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}

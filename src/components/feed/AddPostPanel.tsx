@@ -117,7 +117,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [rcptVendor, setRcptVendor] = useState('')
   const [rcptDate, setRcptDate] = useState(today)
   const [rcptAmount, setRcptAmount] = useState('')
-  const [rcptCategory, setRcptCategory] = useState<ReceiptCategory>('Materials')
+  const [rcptCategory, setRcptCategory] = useState<ReceiptCategory | ''>('')
   const [rcptPhotoFile, setRcptPhotoFile] = useState<File | null>(null)
   const [rcptPhotoPreview, setRcptPhotoPreview] = useState<string | null>(null)
   const rcptPhotoInputRef = useRef<HTMLInputElement>(null)
@@ -486,13 +486,11 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
       if (mode === 'receipt') {
         if (!rcptPhotoFile) throw new Error('Please upload a receipt photo')
-        if (!rcptVendor.trim()) throw new Error('Please enter a vendor name')
-        if (!rcptAmount.trim()) throw new Error('Please enter a total amount')
-        const amount = parseFloat(rcptAmount)
-        if (isNaN(amount) || amount < 0) throw new Error('Please enter a valid amount')
+        const amount = rcptAmount.trim() ? parseFloat(rcptAmount) : 0
+        if (rcptAmount.trim() && (isNaN(amount) || amount < 0)) throw new Error('Please enter a valid amount')
 
         const paths = await uploadFiles([rcptPhotoFile], 'receipts')
-        await supabase.from('feed_posts').insert({
+        const { error: receiptErr } = await supabase.from('feed_posts').insert({
           project_id: project.id,
           user_id: userId,
           post_type: 'receipt',
@@ -505,10 +503,14 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           },
           is_pinned: false,
         })
+        if (receiptErr) {
+          console.error('[AddPostPanel] Receipt insert failed:', receiptErr)
+          throw receiptErr
+        }
         setRcptVendor('')
         setRcptDate(new Date().toISOString().split('T')[0])
         setRcptAmount('')
-        setRcptCategory('Materials')
+        setRcptCategory('')
         setRcptPhotoFile(null)
         setRcptPhotoPreview(null)
         if (rcptPhotoInputRef.current) rcptPhotoInputRef.current.value = ''
@@ -1111,16 +1113,16 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Details</p>
             <div className="space-y-3">
               <div>
-                <label className={labelCls}>Vendor / Store Name *</label>
+                <label className={labelCls}>Vendor / Store Name</label>
                 <input type="text" value={rcptVendor} onChange={(e) => setRcptVendor(e.target.value)} placeholder="e.g. Home Depot, Shell, Sunbelt Rentals" className={inputCls} />
               </div>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 overflow-hidden">
                 <div className="min-w-0">
-                  <label className={labelCls}>Date on Receipt *</label>
+                  <label className={labelCls}>Date on Receipt</label>
                   <input type="date" value={rcptDate} onChange={(e) => setRcptDate(e.target.value)} className={`${inputCls} min-w-0 max-w-full`} style={{ maxWidth: '100%' }} />
                 </div>
                 <div>
-                  <label className={labelCls}>Total Amount *</label>
+                  <label className={labelCls}>Total Amount</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
                     <input
@@ -1136,12 +1138,13 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 </div>
               </div>
               <div>
-                <label className={labelCls}>Category *</label>
+                <label className={labelCls}>Category</label>
                 <select
                   value={rcptCategory}
-                  onChange={(e) => setRcptCategory(e.target.value as ReceiptCategory)}
+                  onChange={(e) => setRcptCategory(e.target.value as ReceiptCategory | '')}
                   className={inputCls}
                 >
+                  <option value="">Select a category...</option>
                   {RECEIPT_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}

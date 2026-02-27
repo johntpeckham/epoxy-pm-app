@@ -105,15 +105,21 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
               )}
             </div>
             <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5">
-              <p className="text-xs text-gray-500">
-                <span className="font-medium">Vendor:</span> {content.vendor_name}
-              </p>
-              <p className="text-xs text-gray-900 font-bold tabular-nums">
-                ${content.total_amount.toFixed(2)}
-              </p>
-              <p className="text-xs text-green-600 font-medium">
-                {content.category}
-              </p>
+              {content.vendor_name ? (
+                <p className="text-xs text-gray-500">
+                  <span className="font-medium">Vendor:</span> {content.vendor_name}
+                </p>
+              ) : null}
+              {content.total_amount ? (
+                <p className="text-xs text-gray-900 font-bold tabular-nums">
+                  ${content.total_amount.toFixed(2)}
+                </p>
+              ) : null}
+              {content.category ? (
+                <p className="text-xs text-green-600 font-medium">
+                  {content.category}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -169,23 +175,31 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
         {expanded && (
           <div className="border-t border-green-100 bg-green-50 px-5 py-4 space-y-4">
             <dl className="space-y-3">
-              <div>
-                <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Vendor / Store</dt>
-                <dd className="text-sm text-gray-700">{content.vendor_name}</dd>
-              </div>
+              {content.vendor_name ? (
+                <div>
+                  <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Vendor / Store</dt>
+                  <dd className="text-sm text-gray-700">{content.vendor_name}</dd>
+                </div>
+              ) : null}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div>
-                  <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Date</dt>
-                  <dd className="text-sm text-gray-700 tabular-nums">{content.receipt_date ? formatReceiptDate(content.receipt_date) : '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Total Amount</dt>
-                  <dd className="text-sm text-gray-900 font-bold tabular-nums">${content.total_amount.toFixed(2)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Category</dt>
-                  <dd className="text-sm text-gray-700">{content.category}</dd>
-                </div>
+                {content.receipt_date ? (
+                  <div>
+                    <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Date</dt>
+                    <dd className="text-sm text-gray-700 tabular-nums">{formatReceiptDate(content.receipt_date)}</dd>
+                  </div>
+                ) : null}
+                {content.total_amount ? (
+                  <div>
+                    <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Total Amount</dt>
+                    <dd className="text-sm text-gray-900 font-bold tabular-nums">${content.total_amount.toFixed(2)}</dd>
+                  </div>
+                ) : null}
+                {content.category ? (
+                  <div>
+                    <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Category</dt>
+                    <dd className="text-sm text-gray-700">{content.category}</dd>
+                  </div>
+                ) : null}
               </div>
             </dl>
 
