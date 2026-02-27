@@ -222,20 +222,25 @@ export default function JsaReportCard({ report }: JsaReportCardProps) {
             )}
 
             {/* Signatures */}
-            {content.signatures && content.signatures.length > 0 && (
-              <div>
-                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Employee Signatures</dt>
-                <div className="space-y-3">
-                  {content.signatures.map((sig, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={sig.signature} alt={`Signature of ${sig.name}`} className="h-12 border border-gray-200 rounded bg-white" />
-                      <span className="text-sm text-gray-700 font-medium">{sig.name}</span>
-                    </div>
-                  ))}
+            {(() => {
+              const filled = (content.signatures ?? []).filter((s) => s.name || s.signature)
+              return filled.length > 0 ? (
+                <div>
+                  <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Employee Signatures</dt>
+                  <div className="space-y-3">
+                    {filled.map((sig, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        {sig.signature && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={sig.signature} alt={`Signature of ${sig.name}`} className="h-12 border border-gray-200 rounded bg-white" />
+                        )}
+                        {sig.name && <span className="text-sm text-gray-700 font-medium">{sig.name}</span>}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : null
+            })()}
 
             {/* Footer actions */}
             <div className="pt-3 border-t border-amber-200 flex items-center justify-between flex-wrap gap-2">
