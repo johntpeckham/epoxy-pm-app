@@ -36,13 +36,13 @@ function SignatureModal({
   const isDrawing = useRef(false)
   const hasStrokes = useRef(false)
 
+  // Coordinates are in CSS pixels because ctx.scale(dpr, dpr) maps them to canvas pixels.
+  // Do NOT multiply by canvas.width/rect.width — that would double-scale on retina displays.
   const getPos = useCallback((e: { clientX: number; clientY: number }, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
     }
   }, [])
 
