@@ -468,7 +468,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   }
 
   return (
-    <div className="flex-none bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] safe-bottom">
+    <div className="flex-none bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
 
       {/* Error toast */}
       {error && (
@@ -981,7 +981,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
       )}
 
       {/* ── Composer bar ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-2.5">
+      <div className="flex items-center gap-2 px-3 py-2.5 safe-bottom">
 
         {/* + menu button */}
         <div className="relative flex-shrink-0">
