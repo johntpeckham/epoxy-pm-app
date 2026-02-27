@@ -134,7 +134,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
   return (
     // Full viewport height; panels scroll independently
-    <div className="flex flex-1 min-h-0 h-full overflow-hidden w-full max-w-full">
+    <div className="flex h-full overflow-hidden w-full max-w-full">
 
       {/* ── Panel 2: Project List ───────────────────────────────────────── */}
       <div
