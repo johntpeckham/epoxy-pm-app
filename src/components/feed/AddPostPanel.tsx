@@ -561,10 +561,10 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <label className={labelCls}>Project Name</label>
                 <input type="text" value={rProjectName} onChange={(e) => setRProjectName(e.target.value)} className={inputCls} />
               </div>
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 overflow-hidden">
                 <div className="min-w-0">
                   <label className={labelCls}>Date</label>
-                  <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className={`${inputCls} min-w-0`} />
+                  <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className={`${inputCls} min-w-0 max-w-full`} style={{ maxWidth: '100%' }} />
                 </div>
                 <div>
                   <label className={labelCls}>Address</label>
