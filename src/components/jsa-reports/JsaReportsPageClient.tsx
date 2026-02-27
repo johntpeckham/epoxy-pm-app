@@ -84,7 +84,7 @@ export default function JsaReportsPageClient({
 }: JsaReportsPageClientProps) {
   const router = useRouter()
   const { role } = useUserRole()
-  const { canEdit } = usePermissions(role)
+  const { canCreate } = usePermissions(role)
   const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
@@ -119,7 +119,7 @@ export default function JsaReportsPageClient({
             {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
-        {canEdit('jsa_reports') && (
+        {canCreate('jsa_reports') && (
           <button
             onClick={() => setShowModal(true)}
             disabled={projects.length === 0}

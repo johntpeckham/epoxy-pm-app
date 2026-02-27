@@ -85,7 +85,7 @@ export default function DailyReportsPageClient({
 }: DailyReportsPageClientProps) {
   const router = useRouter()
   const { role } = useUserRole()
-  const { canEdit } = usePermissions(role)
+  const { canCreate } = usePermissions(role)
   const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
@@ -120,7 +120,7 @@ export default function DailyReportsPageClient({
             {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
-        {canEdit('daily_reports') && (
+        {canCreate('daily_reports') && (
           <button
             onClick={() => setShowModal(true)}
             disabled={projects.length === 0}

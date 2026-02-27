@@ -278,7 +278,7 @@ export interface Notification {
 
 export type FeatureKey = 'jobs' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports'
 
-export type AccessLevel = 'full' | 'view_only' | 'off'
+export type AccessLevel = 'full' | 'create' | 'view_only' | 'off'
 
 export interface RolePermission {
   id: string

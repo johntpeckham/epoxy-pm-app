@@ -30,6 +30,7 @@ const FEATURES = [
 
 const ACCESS_OPTIONS: { value: AccessLevel; label: string; color: string; activeColor: string }[] = [
   { value: 'full', label: 'Full', color: 'border-green-200 text-green-700 bg-green-50', activeColor: 'border-green-500 bg-green-500 text-white' },
+  { value: 'create', label: 'Create', color: 'border-blue-200 text-blue-700 bg-blue-50', activeColor: 'border-blue-500 bg-blue-500 text-white' },
   { value: 'view_only', label: 'View', color: 'border-amber-200 text-amber-700 bg-amber-50', activeColor: 'border-amber-500 bg-amber-500 text-white' },
   { value: 'off', label: 'Off', color: 'border-gray-200 text-gray-500 bg-gray-50', activeColor: 'border-gray-500 bg-gray-500 text-white' },
 ]
@@ -220,6 +221,10 @@ export default function PermissionsClient() {
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-green-500" />
                   <span><strong>Full</strong> — View, create, edit, and delete</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span><strong>Create</strong> — View and create, but no edit or delete</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-amber-500" />

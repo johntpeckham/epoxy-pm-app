@@ -7,9 +7,11 @@ import type { UserRole, FeatureKey, AccessLevel, RolePermission } from '@/types'
 interface UsePermissionsReturn {
   /** Check access level for a feature. Admin always returns 'full'. */
   access: (feature: FeatureKey) => AccessLevel
-  /** True if the user can view the feature (full or view_only). */
+  /** True if the user can view the feature (full, create, or view_only). */
   canView: (feature: FeatureKey) => boolean
-  /** True if the user has full (create/edit/delete) access. */
+  /** True if the user can create new items (full or create). */
+  canCreate: (feature: FeatureKey) => boolean
+  /** True if the user has full (edit/delete) access. */
   canEdit: (feature: FeatureKey) => boolean
   /** All permission rows (for admin UI). */
   permissions: RolePermission[]
@@ -54,7 +56,15 @@ export function usePermissions(role: UserRole): UsePermissionsReturn {
   const canView = useCallback(
     (feature: FeatureKey): boolean => {
       const level = access(feature)
-      return level === 'full' || level === 'view_only'
+      return level === 'full' || level === 'create' || level === 'view_only'
+    },
+    [access]
+  )
+
+  const canCreate = useCallback(
+    (feature: FeatureKey): boolean => {
+      const level = access(feature)
+      return level === 'full' || level === 'create'
     },
     [access]
   )
@@ -66,5 +76,5 @@ export function usePermissions(role: UserRole): UsePermissionsReturn {
     [access]
   )
 
-  return { access, canView, canEdit, permissions, refetch: fetchPermissions, loading }
+  return { access, canView, canCreate, canEdit, permissions, refetch: fetchPermissions, loading }
 }

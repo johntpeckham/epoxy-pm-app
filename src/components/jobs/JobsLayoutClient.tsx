@@ -23,7 +23,7 @@ interface JobsLayoutClientProps {
 
 export default function JobsLayoutClient({ initialProjects, userId }: JobsLayoutClientProps) {
   const { role } = useUserRole()
-  const { canEdit } = usePermissions(role)
+  const { canCreate } = usePermissions(role)
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [mobileView, setMobileView] = useState<'list' | 'feed'>('list')
@@ -155,7 +155,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
                 {activeCount} active · {projects.length} total
               </p>
             </div>
-            {canEdit('jobs') && (
+            {canCreate('jobs') && (
               <button
                 onClick={() => setShowNewProject(true)}
                 className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition"

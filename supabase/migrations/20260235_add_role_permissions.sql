@@ -6,7 +6,7 @@ create table if not exists role_permissions (
   id uuid primary key default gen_random_uuid(),
   role text not null check (role in ('salesman', 'foreman', 'crew')),
   feature text not null,
-  access_level text not null default 'full' check (access_level in ('full', 'view_only', 'off')),
+  access_level text not null default 'full' check (access_level in ('full', 'create', 'view_only', 'off')),
   updated_at timestamptz not null default now(),
   unique (role, feature)
 );
