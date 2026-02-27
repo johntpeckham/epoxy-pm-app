@@ -102,7 +102,7 @@ export interface ProjectReport {
   created_at: string
 }
 
-export type PostType = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt'
+export type PostType = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt' | 'timecard'
 
 export interface TextContent {
   message: string
@@ -194,7 +194,30 @@ export interface ReceiptContent {
   category: ReceiptCategory | ''
 }
 
-export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent | ReceiptContent
+export interface TimecardEntry {
+  employee_name: string
+  time_in: string   // HH:MM format
+  time_out: string   // HH:MM format
+  lunch_minutes: number
+  total_hours: number
+}
+
+export interface TimecardContent {
+  date: string           // ISO format (YYYY-MM-DD)
+  project_name: string
+  address: string
+  entries: TimecardEntry[]
+  grand_total_hours: number
+}
+
+export interface Employee {
+  id: string
+  name: string
+  is_active: boolean
+  created_at: string
+}
+
+export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent | ReceiptContent | TimecardContent
 
 export interface FeedPost {
   id: string
@@ -286,7 +309,7 @@ export interface Notification {
   created_at: string
 }
 
-export type FeatureKey = 'jobs' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports' | 'receipts'
+export type FeatureKey = 'jobs' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports' | 'receipts' | 'timesheets'
 
 export type AccessLevel = 'full' | 'create' | 'view_only' | 'off'
 

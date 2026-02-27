@@ -15,15 +15,18 @@ import {
   LoaderIcon,
   SettingsIcon,
   ReceiptIcon,
+  ClockIcon,
 } from 'lucide-react'
-import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, ReceiptCategory } from '@/types'
+import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, ReceiptCategory, Employee, TimecardEntry } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
 import JsaSignatureSection from '@/components/jsa-reports/JsaSignatureSection'
 
-type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt'
+import ManageEmployeesModal from '@/components/timesheets/ManageEmployeesModal'
+
+type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt' | 'timecard'
 
 interface AddPostPanelProps {
   project: Project
@@ -121,6 +124,54 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [rcptPhotoFile, setRcptPhotoFile] = useState<File | null>(null)
   const [rcptPhotoPreview, setRcptPhotoPreview] = useState<string | null>(null)
   const rcptPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // ── Timecard ──────────────────────────────────────────────────────────────
+  const [tcProjectName, setTcProjectName] = useState(project.name)
+  const [tcDate, setTcDate] = useState(today)
+  const [tcAddress, setTcAddress] = useState(project.address)
+  const [tcEmployees, setTcEmployees] = useState<Employee[]>([])
+  const [tcEmployeesLoaded, setTcEmployeesLoaded] = useState(false)
+  const [tcSelectedEmployees, setTcSelectedEmployees] = useState<Record<string, { time_in: string; time_out: string; lunch_minutes: number }>>({})
+  const [tcExtraRows, setTcExtraRows] = useState<{ name: string; time_in: string; time_out: string; lunch_minutes: number }[]>([])
+  const [showManageEmployees, setShowManageEmployees] = useState(false)
+
+  const LUNCH_OPTIONS = [0, 15, 30, 45, 60]
+
+  function calcHours(timeIn: string, timeOut: string, lunchMinutes: number): number {
+    if (!timeIn || !timeOut) return 0
+    const [inH, inM] = timeIn.split(':').map(Number)
+    const [outH, outM] = timeOut.split(':').map(Number)
+    const totalMinutes = (outH * 60 + outM) - (inH * 60 + inM) - lunchMinutes
+    return Math.max(0, Math.round((totalMinutes / 60) * 100) / 100)
+  }
+
+  function tcGrandTotal(): number {
+    let total = 0
+    for (const empId of Object.keys(tcSelectedEmployees)) {
+      const e = tcSelectedEmployees[empId]
+      total += calcHours(e.time_in, e.time_out, e.lunch_minutes)
+    }
+    for (const row of tcExtraRows) {
+      total += calcHours(row.time_in, row.time_out, row.lunch_minutes)
+    }
+    return Math.round(total * 100) / 100
+  }
+
+  // Fetch employees when timecard mode activates
+  useEffect(() => {
+    if (mode === 'timecard' && !tcEmployeesLoaded) {
+      const supabase = createClient()
+      supabase
+        .from('employees')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+        .then(({ data }) => {
+          setTcEmployees((data as Employee[]) ?? [])
+          setTcEmployeesLoaded(true)
+        })
+    }
+  }, [mode, tcEmployeesLoaded])
 
   // Fetch JSA templates when mode activates
   useEffect(() => {
@@ -514,6 +565,59 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setRcptPhotoFile(null)
         setRcptPhotoPreview(null)
         if (rcptPhotoInputRef.current) rcptPhotoInputRef.current.value = ''
+        setMode('text')
+      }
+
+      if (mode === 'timecard') {
+        const entries: TimecardEntry[] = []
+
+        // Roster employees
+        for (const empId of Object.keys(tcSelectedEmployees)) {
+          const e = tcSelectedEmployees[empId]
+          const emp = tcEmployees.find((x) => x.id === empId)
+          if (!emp || !e.time_in || !e.time_out) continue
+          entries.push({
+            employee_name: emp.name,
+            time_in: e.time_in,
+            time_out: e.time_out,
+            lunch_minutes: e.lunch_minutes,
+            total_hours: calcHours(e.time_in, e.time_out, e.lunch_minutes),
+          })
+        }
+
+        // Extra rows
+        for (const row of tcExtraRows) {
+          if (!row.name.trim() || !row.time_in || !row.time_out) continue
+          entries.push({
+            employee_name: row.name.trim(),
+            time_in: row.time_in,
+            time_out: row.time_out,
+            lunch_minutes: row.lunch_minutes,
+            total_hours: calcHours(row.time_in, row.time_out, row.lunch_minutes),
+          })
+        }
+
+        if (entries.length === 0) throw new Error('Please add at least one employee with time entries')
+
+        const grandTotal = entries.reduce((s, e) => s + e.total_hours, 0)
+
+        await supabase.from('feed_posts').insert({
+          project_id: project.id,
+          user_id: userId,
+          post_type: 'timecard',
+          content: {
+            date: tcDate,
+            project_name: tcProjectName.trim(),
+            address: tcAddress.trim(),
+            entries,
+            grand_total_hours: Math.round(grandTotal * 100) / 100,
+          },
+          is_pinned: false,
+        })
+
+        setTcDate(new Date().toISOString().split('T')[0])
+        setTcSelectedEmployees({})
+        setTcExtraRows([])
         setMode('text')
       }
 
@@ -1046,6 +1150,264 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </div>
       )}
 
+      {/* ── Timecard form ────────────────────────────────────────────────────── */}
+      {mode === 'timecard' && (
+        <div
+          className="fixed left-0 right-0 bottom-0 z-50 flex flex-col bg-white w-full max-w-full overflow-x-hidden overscroll-none lg:static lg:z-auto lg:block lg:overscroll-auto"
+          style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
+        >
+          {/* Mobile header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
+            <h2 className="text-lg font-bold text-gray-900">Timecard</h2>
+            <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 space-y-5 lg:flex-none lg:max-h-[52vh] lg:pt-3 lg:pb-2">
+
+          {/* Header info */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Project Info</p>
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Project Name</label>
+                <input type="text" value={tcProjectName} onChange={(e) => setTcProjectName(e.target.value)} className={inputCls} />
+              </div>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 overflow-hidden">
+                <div className="min-w-0">
+                  <label className={labelCls}>Date</label>
+                  <input type="date" value={tcDate} onChange={(e) => setTcDate(e.target.value)} className={`${inputCls} min-w-0 max-w-full`} style={{ maxWidth: '100%' }} />
+                </div>
+                <div>
+                  <label className={labelCls}>Address</label>
+                  <input type="text" value={tcAddress} onChange={(e) => setTcAddress(e.target.value)} className={inputCls} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Employee roster checkboxes */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Employees</p>
+              <button
+                type="button"
+                onClick={() => setShowManageEmployees(true)}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-amber-600 transition"
+              >
+                <SettingsIcon className="w-3 h-3" />
+                Manage
+              </button>
+            </div>
+            {tcEmployees.length === 0 && tcEmployeesLoaded && (
+              <p className="text-sm text-gray-400 py-2">No employees in roster. Click &quot;Manage&quot; to add employees.</p>
+            )}
+            <div className="space-y-2">
+              {tcEmployees.map((emp) => {
+                const isSelected = !!tcSelectedEmployees[emp.id]
+                const entry = tcSelectedEmployees[emp.id]
+                const hours = entry ? calcHours(entry.time_in, entry.time_out, entry.lunch_minutes) : 0
+                return (
+                  <div key={emp.id}>
+                    <label
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition ${
+                        isSelected
+                          ? 'border-blue-400 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          setTcSelectedEmployees((prev) => {
+                            const next = { ...prev }
+                            if (next[emp.id]) {
+                              delete next[emp.id]
+                            } else {
+                              next[emp.id] = { time_in: '07:00', time_out: '15:30', lunch_minutes: 30 }
+                            }
+                            return next
+                          })
+                        }}
+                        className="sr-only"
+                      />
+                      <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                        isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
+                      }`}>
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 flex-1">{emp.name}</span>
+                      {isSelected && hours > 0 && (
+                        <span className="text-xs font-bold text-blue-700 tabular-nums">{hours.toFixed(2)} hrs</span>
+                      )}
+                    </label>
+                    {isSelected && (
+                      <div className="ml-6 mt-1 grid grid-cols-3 gap-2 mb-1">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
+                          <input
+                            type="time"
+                            value={entry?.time_in ?? ''}
+                            onChange={(e) => setTcSelectedEmployees((prev) => ({
+                              ...prev,
+                              [emp.id]: { ...prev[emp.id], time_in: e.target.value },
+                            }))}
+                            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time Out</label>
+                          <input
+                            type="time"
+                            value={entry?.time_out ?? ''}
+                            onChange={(e) => setTcSelectedEmployees((prev) => ({
+                              ...prev,
+                              [emp.id]: { ...prev[emp.id], time_out: e.target.value },
+                            }))}
+                            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Lunch</label>
+                          <select
+                            value={entry?.lunch_minutes ?? 30}
+                            onChange={(e) => setTcSelectedEmployees((prev) => ({
+                              ...prev,
+                              [emp.id]: { ...prev[emp.id], lunch_minutes: Number(e.target.value) },
+                            }))}
+                            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            {LUNCH_OPTIONS.map((m) => (
+                              <option key={m} value={m}>{m} min</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Extra (non-roster) employees */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Additional Workers</p>
+              <button
+                type="button"
+                onClick={() => setTcExtraRows((prev) => [...prev, { name: '', time_in: '07:00', time_out: '15:30', lunch_minutes: 30 }])}
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition"
+              >
+                <PlusIcon className="w-3 h-3" />
+                Add
+              </button>
+            </div>
+            <div className="space-y-2">
+              {tcExtraRows.map((row, idx) => {
+                const hours = calcHours(row.time_in, row.time_out, row.lunch_minutes)
+                return (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2 relative">
+                    <button
+                      type="button"
+                      onClick={() => setTcExtraRows((prev) => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition"
+                    >
+                      <XIcon className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={row.name}
+                        onChange={(e) => setTcExtraRows((prev) => prev.map((r, i) => i === idx ? { ...r, name: e.target.value } : r))}
+                        placeholder="Employee name"
+                        className="flex-1 border border-gray-200 rounded-md px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {hours > 0 && (
+                        <span className="text-xs font-bold text-blue-700 tabular-nums">{hours.toFixed(2)} hrs</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
+                        <input
+                          type="time"
+                          value={row.time_in}
+                          onChange={(e) => setTcExtraRows((prev) => prev.map((r, i) => i === idx ? { ...r, time_in: e.target.value } : r))}
+                          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time Out</label>
+                        <input
+                          type="time"
+                          value={row.time_out}
+                          onChange={(e) => setTcExtraRows((prev) => prev.map((r, i) => i === idx ? { ...r, time_out: e.target.value } : r))}
+                          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Lunch</label>
+                        <select
+                          value={row.lunch_minutes}
+                          onChange={(e) => setTcExtraRows((prev) => prev.map((r, i) => i === idx ? { ...r, lunch_minutes: Number(e.target.value) } : r))}
+                          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {LUNCH_OPTIONS.map((m) => (
+                            <option key={m} value={m}>{m} min</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Grand total */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
+            <span className="text-sm font-semibold text-blue-800">Grand Total</span>
+            <span className="text-lg font-bold text-blue-900 tabular-nums">{tcGrandTotal().toFixed(2)} hrs</span>
+          </div>
+
+          </div>
+          {/* Mobile submit footer */}
+          <div className="flex-none border-t border-gray-200 px-4 py-3 safe-bottom bg-white lg:hidden">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white font-semibold text-sm transition"
+            >
+              {loading ? <LoaderIcon className="w-5 h-5 animate-spin mx-auto" /> : 'Submit Timecard'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showManageEmployees && (
+        <ManageEmployeesModal
+          onClose={() => {
+            setShowManageEmployees(false)
+            // Reload employees
+            setTcEmployeesLoaded(false)
+          }}
+        />
+      )}
+
       {showTemplateManager && (
         <JsaTemplateManagerModal
           onClose={() => {
@@ -1294,6 +1656,19 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                     Receipt
                   </button>
                 )}
+                {canCreate('timesheets') && (
+                  <button
+                    onClick={() => selectMode('timecard')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                      mode === 'timecard'
+                        ? 'text-amber-600 bg-amber-50 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <ClockIcon className="w-4 h-4 flex-shrink-0" />
+                    Timecard
+                  </button>
+                )}
                 {canCreate('tasks') && (
                   <button
                     onClick={() => selectMode('task')}
@@ -1395,8 +1770,17 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           </div>
         )}
 
+        {mode === 'timecard' && (
+          <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full border border-blue-200">
+            <ClockIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <span className="text-sm text-blue-700 font-medium truncate">
+              Timecard — {tcDate}{tcGrandTotal() > 0 ? ` — ${tcGrandTotal().toFixed(2)} hrs` : ''}
+            </span>
+          </div>
+        )}
+
         {/* Cancel button for expanded modes */}
-        {(mode === 'photo' || mode === 'daily_report' || mode === 'task' || mode === 'pdf' || mode === 'jsa_report' || mode === 'receipt') && (
+        {(mode === 'photo' || mode === 'daily_report' || mode === 'task' || mode === 'pdf' || mode === 'jsa_report' || mode === 'receipt' || mode === 'timecard') && (
           <button
             onClick={cancelMode}
             className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition"
