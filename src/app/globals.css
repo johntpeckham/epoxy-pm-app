@@ -2,8 +2,14 @@
 
 html, body {
   height: 100%;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
   overflow-x: hidden;
+}
+
+#__next {
+  min-height: 100dvh;
 }
 
 body {
