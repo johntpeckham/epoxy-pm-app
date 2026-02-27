@@ -155,7 +155,7 @@ export default function EditDailyReportModal({
                 <label className={labelCls}>Project Name</label>
                 <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Date</label>
                   <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
