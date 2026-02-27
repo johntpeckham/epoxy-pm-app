@@ -102,7 +102,7 @@ export interface ProjectReport {
   created_at: string
 }
 
-export type PostType = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf'
+export type PostType = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report'
 
 export interface TextContent {
   message: string
@@ -148,7 +148,37 @@ export interface PdfContent {
   caption?: string
 }
 
-export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent
+export interface JsaTaskEntry {
+  templateId: string
+  name: string
+  hazards: string
+  precautions: string
+  ppe: string
+}
+
+export interface JsaReportContent {
+  projectName: string
+  date: string
+  address: string
+  weather: string
+  preparedBy: string
+  siteSupervisor: string
+  competentPerson: string
+  tasks: JsaTaskEntry[]
+}
+
+export interface JsaTaskTemplate {
+  id: string
+  name: string
+  sort_order: number
+  default_hazards: string | null
+  default_precautions: string | null
+  default_ppe: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent
 
 export interface FeedPost {
   id: string
