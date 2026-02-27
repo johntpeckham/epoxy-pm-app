@@ -540,7 +540,10 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
       {/* ── Daily report expanded form ──────────────────────────────────────── */}
       {mode === 'daily_report' && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white lg:relative lg:inset-auto lg:z-auto lg:block">
+        <div
+          className="fixed left-0 right-0 bottom-0 z-50 flex flex-col bg-white w-full max-w-full overflow-x-hidden overscroll-none lg:static lg:z-auto lg:block lg:overscroll-auto"
+          style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
+        >
           {/* Mobile header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
             <h2 className="text-lg font-bold text-gray-900">Daily Report</h2>
@@ -548,7 +551,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <XIcon className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-5 lg:flex-none lg:max-h-[52vh] lg:pt-3 lg:pb-2">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 space-y-5 lg:flex-none lg:max-h-[52vh] lg:pt-3 lg:pb-2">
 
           {/* Header */}
           <div>
@@ -806,7 +809,10 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
       {/* ── JSA Report expanded form ─────────────────────────────────────────── */}
       {mode === 'jsa_report' && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white lg:relative lg:inset-auto lg:z-auto lg:block">
+        <div
+          className="fixed left-0 right-0 bottom-0 z-50 flex flex-col bg-white w-full max-w-full overflow-x-hidden overscroll-none lg:static lg:z-auto lg:block lg:overscroll-auto"
+          style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
+        >
           {/* Mobile header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
             <h2 className="text-lg font-bold text-gray-900">JSA Report</h2>
@@ -814,7 +820,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <XIcon className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-5 lg:flex-none lg:max-h-[52vh] lg:pt-3 lg:pb-2">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 space-y-5 lg:flex-none lg:max-h-[52vh] lg:pt-3 lg:pb-2">
 
           {/* Base Section */}
           <div>
