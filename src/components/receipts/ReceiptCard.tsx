@@ -142,8 +142,8 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
           </div>
         </button>
 
-        {/* Action buttons — hover on desktop, visible on mobile */}
-        <div className="flex items-center gap-1 px-4 pb-3 sm:absolute sm:top-3 sm:right-10 sm:pb-0 sm:px-0 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity">
+        {/* Action buttons — visible on mobile, hover-reveal on desktop */}
+        <div className="flex items-center gap-1 px-4 pb-3 sm:px-5 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity">
           <button
             onClick={handleDownloadPdf}
             disabled={pdfLoading}

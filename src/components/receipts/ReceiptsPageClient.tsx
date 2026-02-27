@@ -35,6 +35,56 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 
 const ALL_CATEGORIES: ReceiptCategory[] = ['Materials', 'Fuel', 'Tools', 'Equipment Rental', 'Subcontractor', 'Office Supplies', 'Other']
 
+function formatGroupDate(dateStr: string) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/** Group receipts by project, then by date within each project. */
+function groupByProjectAndDate(receipts: ReceiptRow[], sort: SortOption) {
+  const projectMap = new Map<
+    string,
+    { projectName: string; dates: Map<string, ReceiptRow[]>; latestDate: string; oldestDate: string; totalAmount: number }
+  >()
+
+  for (const receipt of receipts) {
+    let project = projectMap.get(receipt.project_id)
+    const dateKey = receipt.content.receipt_date || receipt.created_at.slice(0, 10)
+    if (!project) {
+      project = { projectName: receipt.project_name, dates: new Map(), latestDate: dateKey, oldestDate: dateKey, totalAmount: 0 }
+      projectMap.set(receipt.project_id, project)
+    }
+    if (dateKey > project.latestDate) project.latestDate = dateKey
+    if (dateKey < project.oldestDate) project.oldestDate = dateKey
+    project.totalAmount += receipt.content.total_amount
+    const existing = project.dates.get(dateKey) ?? []
+    existing.push(receipt)
+    project.dates.set(dateKey, existing)
+  }
+
+  const dateDir = sort === 'oldest' ? 1 : -1
+
+  return Array.from(projectMap.entries())
+    .sort(([, a], [, b]) => {
+      if (sort === 'project_az') return a.projectName.localeCompare(b.projectName)
+      if (sort === 'amount_high') return b.totalAmount - a.totalAmount
+      if (sort === 'amount_low') return a.totalAmount - b.totalAmount
+      if (sort === 'newest') return b.latestDate.localeCompare(a.latestDate)
+      return a.oldestDate.localeCompare(b.oldestDate)
+    })
+    .map(([projectId, project]) => ({
+      projectId,
+      projectName: project.projectName,
+      dates: Array.from(project.dates.entries())
+        .sort(([a], [b]) => a.localeCompare(b) * dateDir)
+        .map(([date, receipts]) => ({ date, receipts })),
+    }))
+}
+
 export default function ReceiptsPageClient({
   initialReceipts,
   projects,
@@ -114,6 +164,8 @@ export default function ReceiptsPageClient({
     [filtered]
   )
 
+  const grouped = useMemo(() => groupByProjectAndDate(filtered, sortOption), [filtered, sortOption])
+
   function handleCreated() {
     setShowModal(false)
     router.refresh()
@@ -126,7 +178,8 @@ export default function ReceiptsPageClient({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Receipts</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {filtered.length} receipt{filtered.length !== 1 ? 's' : ''}
+            {filtered.length} receipt{filtered.length !== 1 ? 's' : ''} across {grouped.length} project
+            {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
         {canCreate('receipts') && (
@@ -228,9 +281,35 @@ export default function ReceiptsPageClient({
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
-          {filtered.map((receipt) => (
-            <ReceiptCard key={receipt.id} receipt={receipt} />
+        <div className="space-y-8">
+          {grouped.map((project) => (
+            <div key={project.projectId}>
+              {/* Project heading */}
+              <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
+
+              <div className="space-y-4">
+                {project.dates.map(({ date, receipts }) => (
+                  <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    {/* Date header */}
+                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                      <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
+                      <span className="text-sm text-gray-400">&middot;</span>
+                      <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
+                      <span className="text-xs text-gray-400">
+                        ({receipts.length} receipt{receipts.length !== 1 ? 's' : ''})
+                      </span>
+                    </div>
+
+                    {/* Receipt cards within this date */}
+                    <div className="divide-y divide-gray-100">
+                      {receipts.map((receipt) => (
+                        <ReceiptCard key={receipt.id} receipt={receipt} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
