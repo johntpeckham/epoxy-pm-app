@@ -63,6 +63,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [rReportedBy, setRReportedBy] = useState('')
   const [rForeman, setRForeman] = useState('')
   const [rWeather, setRWeather] = useState('')
+  const [rWeatherLoading, setRWeatherLoading] = useState(false)
   const [rProgress, setRProgress] = useState('')
   const [rDelays, setRDelays] = useState('')
   const [rSafety, setRSafety] = useState('')
@@ -119,6 +120,19 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         })
     }
   }, [mode, jsaTemplatesLoaded])
+
+  // Auto-fetch weather when Daily Report mode activates
+  useEffect(() => {
+    if (mode === 'daily_report' && !rWeather && project.address) {
+      console.log('[AddPostPanel] Daily Report mode activated, fetching weather for:', project.address)
+      setRWeatherLoading(true)
+      fetchWeatherForAddress(project.address).then((w) => {
+        console.log('[AddPostPanel] Daily Report weather result:', w)
+        if (w) setRWeather(w)
+        setRWeatherLoading(false)
+      })
+    }
+  }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-fetch weather when JSA mode activates
   useEffect(() => {
@@ -563,7 +577,12 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               </div>
               <div>
                 <label className={labelCls}>Weather</label>
-                <input type="text" value={rWeather} onChange={(e) => setRWeather(e.target.value)} placeholder="e.g. 72°F, clear" className={inputCls} />
+                <div className="relative">
+                  <input type="text" value={rWeather} onChange={(e) => setRWeather(e.target.value)} placeholder={rWeatherLoading ? 'Fetching weather...' : 'e.g. 72°F, Partly Cloudy, Wind 8 mph'} className={inputCls} />
+                  {rWeatherLoading && (
+                    <LoaderIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 animate-spin" />
+                  )}
+                </div>
               </div>
             </div>
           </div>
