@@ -205,7 +205,7 @@ export default function NewDailyReportModal({
                   className={inputCls}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Date</label>
                   <input
@@ -252,7 +252,7 @@ export default function NewDailyReportModal({
                   className={inputCls}
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className={labelCls}>Weather</label>
                 <div className="relative">
                   <input
