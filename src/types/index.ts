@@ -102,7 +102,7 @@ export interface ProjectReport {
   created_at: string
 }
 
-export type PostType = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report'
+export type PostType = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt'
 
 export interface TextContent {
   message: string
@@ -184,7 +184,17 @@ export interface JsaTaskTemplate {
   created_at: string
 }
 
-export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent
+export type ReceiptCategory = 'Materials' | 'Fuel' | 'Tools' | 'Equipment Rental' | 'Subcontractor' | 'Office Supplies' | 'Other'
+
+export interface ReceiptContent {
+  receipt_photo: string  // storage path in 'post-photos' bucket
+  vendor_name: string
+  receipt_date: string   // ISO format (YYYY-MM-DD)
+  total_amount: number
+  category: ReceiptCategory
+}
+
+export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent | ReceiptContent
 
 export interface FeedPost {
   id: string
@@ -276,7 +286,7 @@ export interface Notification {
   created_at: string
 }
 
-export type FeatureKey = 'jobs' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports'
+export type FeatureKey = 'jobs' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports' | 'receipts'
 
 export type AccessLevel = 'full' | 'create' | 'view_only' | 'off'
 
