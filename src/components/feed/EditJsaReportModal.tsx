@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, createRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, SettingsIcon, LoaderIcon } from 'lucide-react'
-import { JsaReportContent, JsaTaskTemplate, JsaTaskEntry } from '@/types'
+import { XIcon, SettingsIcon, LoaderIcon, PlusIcon } from 'lucide-react'
+import { JsaReportContent, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
+import SignaturePad, { SignaturePadRef } from '@/components/ui/SignaturePad'
 
 interface EditJsaReportModalProps {
   postId: string
@@ -44,6 +45,11 @@ export default function EditJsaReportModal({
       map[task.templateId] = task
     }
     return map
+  })
+  const [signatures, setSignatures] = useState<{ name: string; initialData: string | null; ref: React.RefObject<SignaturePadRef | null> }[]>(() => {
+    const existing = initialContent.signatures ?? []
+    if (existing.length === 0) return [{ name: '', initialData: null, ref: createRef<SignaturePadRef>() }]
+    return existing.map((s) => ({ name: s.name, initialData: s.signature, ref: createRef<SignaturePadRef>() }))
   })
   const [showTemplateManager, setShowTemplateManager] = useState(false)
 
@@ -102,6 +108,9 @@ export default function EditJsaReportModal({
     setError(null)
 
     try {
+      const sigs: JsaSignatureEntry[] = signatures
+        .map((s) => ({ name: s.name.trim(), signature: s.ref.current?.toDataURL() ?? s.initialData ?? '' }))
+        .filter((s) => s.name && s.signature)
       const updatedContent: JsaReportContent = {
         projectName: projectName.trim(),
         date,
@@ -111,6 +120,7 @@ export default function EditJsaReportModal({
         siteSupervisor: siteSupervisor.trim(),
         competentPerson: competentPerson.trim(),
         tasks: Object.values(selectedTasks),
+        signatures: sigs,
       }
 
       const { error: updateErr } = await supabase
@@ -287,6 +297,58 @@ export default function EditJsaReportModal({
                 </div>
               </div>
             ))}
+
+            {/* Employee Acknowledgment & Signatures */}
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Employee Acknowledgment &amp; Signatures</p>
+              <p className="text-xs text-gray-500 mb-3">
+                I acknowledge that the Job Safety Analysis has been reviewed with me, I understand the hazards and required controls, and I agree to follow all safety procedures outlined.
+              </p>
+              <div className="space-y-4">
+                {signatures.map((sig, i) => (
+                  <div key={i} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={sig.name}
+                        onChange={(e) => {
+                          const next = [...signatures]
+                          next[i] = { ...next[i], name: e.target.value }
+                          setSignatures(next)
+                        }}
+                        placeholder="Print Name"
+                        className={inputCls}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => sig.ref.current?.clear()}
+                        className="text-xs text-gray-400 hover:text-amber-600 font-medium flex-shrink-0"
+                      >
+                        Clear
+                      </button>
+                      {signatures.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setSignatures((s) => s.filter((_, idx) => idx !== i))}
+                          className="text-xs text-gray-400 hover:text-red-500 font-medium flex-shrink-0"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <SignaturePad ref={sig.ref} initialData={sig.initialData} height={150} />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSignatures((s) => [...s, { name: '', initialData: null, ref: createRef<SignaturePadRef>() }])}
+                  className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-700 font-medium transition"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Add Signature
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Footer */}
