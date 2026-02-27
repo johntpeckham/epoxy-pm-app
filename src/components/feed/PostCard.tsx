@@ -21,12 +21,14 @@ import {
   MessageCircleIcon,
   ShieldIcon,
   ReceiptIcon,
+  ClockIcon,
 } from 'lucide-react'
-import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, ReceiptContent, TaskStatus } from '@/types'
+import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, ReceiptContent, TimecardContent, TaskStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
 import EditJsaReportModal from './EditJsaReportModal'
 import EditReceiptModal from './EditReceiptModal'
+import EditTimecardModal from './EditTimecardModal'
 import PostCommentsSection from './PostCommentsSection'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -745,6 +747,120 @@ function CollapsibleReceipt({
   )
 }
 
+// ── Timecard content card ──────────────────────────────────────────────────
+function TimecardPost({ content }: { content: TimecardContent }) {
+  const dateLabel = content.date
+    ? new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : ''
+
+  return (
+    <div className="p-3.5 space-y-3 border-t border-blue-200 max-w-full overflow-hidden">
+      {(content.project_name || content.address) && (
+        <div className="text-xs space-y-0.5">
+          {content.project_name && <p className="font-semibold text-gray-800">{content.project_name}</p>}
+          {content.address && <p className="text-gray-500">{content.address}</p>}
+          {dateLabel && <p className="text-gray-500">{dateLabel}</p>}
+        </div>
+      )}
+
+      {content.entries && content.entries.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-blue-200">
+                <th className="text-left py-1.5 px-2 font-semibold text-blue-700 uppercase tracking-wide">Employee</th>
+                <th className="text-center py-1.5 px-2 font-semibold text-blue-700 uppercase tracking-wide">In</th>
+                <th className="text-center py-1.5 px-2 font-semibold text-blue-700 uppercase tracking-wide">Out</th>
+                <th className="text-center py-1.5 px-2 font-semibold text-blue-700 uppercase tracking-wide">Lunch</th>
+                <th className="text-right py-1.5 px-2 font-semibold text-blue-700 uppercase tracking-wide">Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {content.entries.map((entry, i) => (
+                <tr key={i} className={i < content.entries.length - 1 ? 'border-b border-gray-100' : ''}>
+                  <td className="py-1.5 px-2 text-gray-900 font-medium">{entry.employee_name}</td>
+                  <td className="py-1.5 px-2 text-gray-700 text-center tabular-nums">{entry.time_in}</td>
+                  <td className="py-1.5 px-2 text-gray-700 text-center tabular-nums">{entry.time_out}</td>
+                  <td className="py-1.5 px-2 text-gray-700 text-center tabular-nums">{entry.lunch_minutes}m</td>
+                  <td className="py-1.5 px-2 text-gray-900 text-right font-bold tabular-nums">{entry.total_hours.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-blue-200">
+                <td colSpan={4} className="py-2 px-2 text-sm font-semibold text-blue-800">Grand Total</td>
+                <td className="py-2 px-2 text-sm font-bold text-blue-900 text-right tabular-nums">{content.grand_total_hours.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Collapsible wrapper for timecards in the feed ──────────────────────────
+function CollapsibleTimecard({
+  content,
+  isPinned,
+}: {
+  content: TimecardContent
+  isPinned?: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  const dateLabel = content.date
+    ? new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : ''
+
+  return (
+    <div className="mt-1.5 border border-blue-200 rounded-xl overflow-hidden bg-white max-w-full w-full">
+      <div
+        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
+        role={isPinned ? undefined : 'button'}
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-blue-50 text-left transition-colors min-w-0 overflow-hidden ${
+          isPinned ? '' : 'hover:bg-blue-100/60 cursor-pointer'
+        }`}
+      >
+        <ClockIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-blue-900 flex-shrink-0">Timecard</span>
+        {dateLabel && (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">—</span>
+            <span className="text-sm font-medium text-gray-700 flex-shrink-0 tabular-nums hidden sm:inline">{dateLabel}</span>
+          </>
+        )}
+        <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">·</span>
+        <span className="text-sm text-gray-600 flex-shrink-0 hidden sm:inline">
+          {content.entries.length} employee{content.entries.length !== 1 ? 's' : ''}
+        </span>
+        <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">·</span>
+        <span className="text-sm font-bold text-blue-800 flex-shrink-0 tabular-nums hidden sm:inline">
+          {content.grand_total_hours.toFixed(1)} hrs
+        </span>
+        {!isPinned && (
+          <ChevronDownIcon
+            className={`w-4 h-4 text-blue-600 ml-auto flex-shrink-0 transition-transform ${
+              expanded ? 'rotate-180' : ''
+            }`}
+          />
+        )}
+      </div>
+
+      {(isPinned || expanded) && <TimecardPost content={content} />}
+    </div>
+  )
+}
+
 // ── Inline PDF post (thumbnail + metadata, no card wrapper) ─────────────────
 function InlinePdfPost({ content }: { content: PdfContent }) {
   const supabase = createClient()
@@ -829,6 +945,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const [showEditReport, setShowEditReport] = useState(false)
   const [showEditJsaReport, setShowEditJsaReport] = useState(false)
   const [showEditReceipt, setShowEditReceipt] = useState(false)
+  const [showEditTimecard, setShowEditTimecard] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [showComments, setShowComments] = useState(false)
@@ -949,6 +1066,9 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       } else if (post.post_type === 'receipt') {
         const { generateReceiptPdf } = await import('@/lib/generateReceiptPdf')
         await generateReceiptPdf(post.content as ReceiptContent, receiptPhotoUrl, companySettings?.logo_url)
+      } else if (post.post_type === 'timecard') {
+        const { generateTimecardPdf } = await import('@/lib/generateTimecardPdf')
+        await generateTimecardPdf(post.content as TimecardContent, companySettings?.logo_url)
       } else {
         const { generateReportPdf } = await import('@/lib/generateReportPdf')
         await generateReportPdf(post.content as DailyReportContent, reportPhotoUrls, companySettings?.logo_url)
@@ -965,7 +1085,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   // ── Action buttons (shared) ──────────────────────────────────────────────
   const actionButtons = (
     <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex-shrink-0">
-      {(post.post_type === 'daily_report' || post.post_type === 'jsa_report' || post.post_type === 'receipt') && (
+      {(post.post_type === 'daily_report' || post.post_type === 'jsa_report' || post.post_type === 'receipt' || post.post_type === 'timecard') && (
         <button
           onClick={handleDownloadPdf}
           disabled={pdfLoading}
@@ -975,7 +1095,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           <DownloadIcon className="w-3.5 h-3.5" />
         </button>
       )}
-      {(post.post_type === 'text' || post.post_type === 'daily_report' || post.post_type === 'jsa_report' || post.post_type === 'receipt') && (
+      {(post.post_type === 'text' || post.post_type === 'daily_report' || post.post_type === 'jsa_report' || post.post_type === 'receipt' || post.post_type === 'timecard') && (
         <button
           onClick={() => {
             if (post.post_type === 'text') {
@@ -985,6 +1105,8 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
               setShowEditJsaReport(true)
             } else if (post.post_type === 'receipt') {
               setShowEditReceipt(true)
+            } else if (post.post_type === 'timecard') {
+              setShowEditTimecard(true)
             } else {
               setShowEditReport(true)
             }
@@ -1054,6 +1176,12 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
         <CollapsibleReceipt
           content={post.content as ReceiptContent}
           onImageClick={setPreviewImage}
+          isPinned={post.is_pinned}
+        />
+      )}
+      {post.post_type === 'timecard' && (
+        <CollapsibleTimecard
+          content={post.content as TimecardContent}
           isPinned={post.is_pinned}
         />
       )}
@@ -1194,6 +1322,18 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           onClose={() => setShowEditReceipt(false)}
           onUpdated={() => {
             setShowEditReceipt(false)
+            onUpdated?.()
+          }}
+        />
+      )}
+
+      {showEditTimecard && post.post_type === 'timecard' && (
+        <EditTimecardModal
+          postId={post.id}
+          initialContent={post.content as TimecardContent}
+          onClose={() => setShowEditTimecard(false)}
+          onUpdated={() => {
+            setShowEditTimecard(false)
             onUpdated?.()
           }}
         />
