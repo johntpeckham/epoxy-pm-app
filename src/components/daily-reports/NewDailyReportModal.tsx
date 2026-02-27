@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, CameraIcon } from 'lucide-react'
+import { XIcon, CameraIcon, LoaderIcon } from 'lucide-react'
 import { Project } from '@/types'
+import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 
 interface NewDailyReportModalProps {
   projects: Project[]
@@ -37,6 +38,7 @@ export default function NewDailyReportModal({
   const [reportedBy, setReportedBy] = useState('')
   const [foreman, setForeman] = useState('')
   const [weather, setWeather] = useState('')
+  const [weatherLoading, setWeatherLoading] = useState(false)
 
   // Progress
   const [progress, setProgress] = useState('')
@@ -53,12 +55,34 @@ export default function NewDailyReportModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Auto-fetch weather for initial project
+  useEffect(() => {
+    if (projects[0]?.address) {
+      console.log('[NewDailyReportModal] Fetching weather for initial project:', projects[0].address)
+      setWeatherLoading(true)
+      fetchWeatherForAddress(projects[0].address).then((w) => {
+        console.log('[NewDailyReportModal] Weather result:', w)
+        if (w) setWeather(w)
+        setWeatherLoading(false)
+      })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleProjectChange(projectId: string) {
     setSelectedProjectId(projectId)
     const project = projects.find((p) => p.id === projectId)
     if (project) {
       setProjectName(project.name)
       setAddress(project.address)
+      // Fetch weather for new project address
+      console.log('[NewDailyReportModal] Project changed, fetching weather for:', project.address)
+      setWeatherLoading(true)
+      setWeather('')
+      fetchWeatherForAddress(project.address).then((w) => {
+        console.log('[NewDailyReportModal] Weather result for changed project:', w)
+        if (w) setWeather(w)
+        setWeatherLoading(false)
+      })
     }
   }
 
@@ -230,13 +254,18 @@ export default function NewDailyReportModal({
               </div>
               <div>
                 <label className={labelCls}>Weather</label>
-                <input
-                  type="text"
-                  value={weather}
-                  onChange={(e) => setWeather(e.target.value)}
-                  placeholder="e.g. 72°F, clear"
-                  className={inputCls}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={weather}
+                    onChange={(e) => setWeather(e.target.value)}
+                    placeholder={weatherLoading ? 'Fetching weather...' : 'e.g. 72°F, Partly Cloudy, Wind 8 mph'}
+                    className={inputCls}
+                  />
+                  {weatherLoading && (
+                    <LoaderIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 animate-spin" />
+                  )}
+                </div>
               </div>
             </div>
           </div>
