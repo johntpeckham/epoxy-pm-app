@@ -8,6 +8,8 @@ import {
   BriefcaseIcon,
 } from 'lucide-react'
 import { Project, FeedPost } from '@/types'
+import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import ProjectCard from './ProjectCard'
 import NewProjectModal from './NewProjectModal'
 import EditProjectModal from './EditProjectModal'
@@ -20,6 +22,8 @@ interface JobsLayoutClientProps {
 }
 
 export default function JobsLayoutClient({ initialProjects, userId }: JobsLayoutClientProps) {
+  const { role } = useUserRole()
+  const { canEdit } = usePermissions(role)
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [mobileView, setMobileView] = useState<'list' | 'feed'>('list')
@@ -151,13 +155,15 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
                 {activeCount} active · {projects.length} total
               </p>
             </div>
-            <button
-              onClick={() => setShowNewProject(true)}
-              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition"
-            >
-              <PlusIcon className="w-3.5 h-3.5" />
-              New
-            </button>
+            {canEdit('jobs') && (
+              <button
+                onClick={() => setShowNewProject(true)}
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                New
+              </button>
+            )}
           </div>
 
           {/* Search */}

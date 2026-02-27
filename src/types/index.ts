@@ -275,3 +275,15 @@ export interface Notification {
   read: boolean
   created_at: string
 }
+
+export type FeatureKey = 'jobs' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports'
+
+export type AccessLevel = 'full' | 'view_only' | 'off'
+
+export interface RolePermission {
+  id: string
+  role: string
+  feature: FeatureKey
+  access_level: AccessLevel
+  updated_at: string
+}

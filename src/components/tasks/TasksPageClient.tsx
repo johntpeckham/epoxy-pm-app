@@ -15,6 +15,8 @@ import {
   ChevronDownIcon,
 } from 'lucide-react'
 import { Task, TaskStatus, Profile, Project } from '@/types'
+import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 
 interface TaskWithProject extends Task {
   project_name: string
@@ -167,6 +169,8 @@ export default function TasksPageClient({
 }: TasksPageClientProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { role } = useUserRole()
+  const { canEdit } = usePermissions(role)
   const [selectedTask, setSelectedTask] = useState<TaskWithProject | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -383,15 +387,17 @@ export default function TasksPageClient({
             {groupCount !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={openCreateModal}
-          disabled={projects.length === 0}
-          title={projects.length === 0 ? 'Create a project first' : undefined}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
-        >
-          <PlusIcon className="w-4 h-4" />
-          New Task
-        </button>
+        {canEdit('tasks') && (
+          <button
+            onClick={openCreateModal}
+            disabled={projects.length === 0}
+            title={projects.length === 0 ? 'Create a project first' : undefined}
+            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
+          >
+            <PlusIcon className="w-4 h-4" />
+            New Task
+          </button>
+        )}
       </div>
 
       {/* Search & Sort Controls */}

@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import NotificationBell from '@/components/ui/NotificationBell'
 
 interface SidebarProps {
@@ -23,8 +24,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const [mobileOpen, setMobileOpen] = useState(false)
   const { settings: companySettings } = useCompanySettings()
   const { role } = useUserRole()
-
-  const isCrew = role === 'crew'
+  const { canView } = usePermissions(role)
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -78,82 +78,90 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {!isCrew && (
-          <>
-            <Link
-              href="/jobs"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isJobsActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
-              Jobs
-            </Link>
-            <Link
-              href="/daily-reports"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isReportsActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <ClipboardListIcon className="w-5 h-5 flex-shrink-0" />
-              Daily Reports
-            </Link>
-            <Link
-              href="/jsa-reports"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isJsaReportsActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <ShieldIcon className="w-5 h-5 flex-shrink-0" />
-              JSA Reports
-            </Link>
-            <Link
-              href="/photos"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isPhotosActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <ImageIcon className="w-5 h-5 flex-shrink-0" />
-              Photos
-            </Link>
-            <Link
-              href="/tasks"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isTasksActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <CheckSquareIcon className="w-5 h-5 flex-shrink-0" />
-              Tasks
-            </Link>
-          </>
+        {canView('jobs') && (
+          <Link
+            href="/jobs"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isJobsActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
+            Jobs
+          </Link>
         )}
-        <Link
-          href="/calendar"
-          onClick={() => setMobileOpen(false)}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isCalendarActive
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
-        >
-          <CalendarIcon className="w-5 h-5 flex-shrink-0" />
-          Calendar
-        </Link>
+        {canView('daily_reports') && (
+          <Link
+            href="/daily-reports"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isReportsActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <ClipboardListIcon className="w-5 h-5 flex-shrink-0" />
+            Daily Reports
+          </Link>
+        )}
+        {canView('jsa_reports') && (
+          <Link
+            href="/jsa-reports"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isJsaReportsActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <ShieldIcon className="w-5 h-5 flex-shrink-0" />
+            JSA Reports
+          </Link>
+        )}
+        {canView('photos') && (
+          <Link
+            href="/photos"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isPhotosActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <ImageIcon className="w-5 h-5 flex-shrink-0" />
+            Photos
+          </Link>
+        )}
+        {canView('tasks') && (
+          <Link
+            href="/tasks"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isTasksActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <CheckSquareIcon className="w-5 h-5 flex-shrink-0" />
+            Tasks
+          </Link>
+        )}
+        {canView('calendar') && (
+          <Link
+            href="/calendar"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isCalendarActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <CalendarIcon className="w-5 h-5 flex-shrink-0" />
+            Calendar
+          </Link>
+        )}
       </nav>
 
       {/* User / Profile / Sign Out */}

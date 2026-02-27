@@ -11,6 +11,7 @@ import type { EventClickArg } from '@fullcalendar/core'
 import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon } from 'lucide-react'
 import { CalendarEvent } from '@/types'
 import type { UserRole } from '@/types'
+import { usePermissions } from '@/lib/usePermissions'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -163,7 +164,8 @@ interface CalendarPageClientProps {
 }
 
 export default function CalendarPageClient({ initialEvents, userId, userRole = 'crew' }: CalendarPageClientProps) {
-  const canEditCalendar = userRole === 'admin' || userRole === 'salesman'
+  const { canEdit: canEditPerm } = usePermissions(userRole)
+  const canEditCalendar = canEditPerm('calendar')
   const router = useRouter()
   const supabase = createClient()
 
