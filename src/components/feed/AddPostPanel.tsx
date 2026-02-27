@@ -564,7 +564,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <div className="min-w-0">
                   <label className={labelCls}>Date</label>
-                  <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className={inputCls} />
+                  <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className={`${inputCls} min-w-0`} />
                 </div>
                 <div>
                   <label className={labelCls}>Address</label>
@@ -747,7 +747,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 type="date"
                 value={taskDueDate}
                 onChange={(e) => setTaskDueDate(e.target.value)}
-                className={inputCls}
+                className={`${inputCls} min-w-0`}
               />
             </div>
           </div>
@@ -833,7 +833,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <div className="min-w-0">
                   <label className={labelCls}>Date</label>
-                  <input type="date" value={jsaDate} onChange={(e) => setJsaDate(e.target.value)} className={inputCls} />
+                  <input type="date" value={jsaDate} onChange={(e) => setJsaDate(e.target.value)} className={`${inputCls} min-w-0`} />
                 </div>
                 <div>
                   <label className={labelCls}>Address</label>
