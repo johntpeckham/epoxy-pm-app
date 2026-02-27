@@ -64,15 +64,13 @@ export default function EditReceiptModal({
   }
 
   async function handleSubmit() {
-    if (!vendorName.trim()) { setError('Please enter a vendor name'); return }
-    if (!totalAmount.trim()) { setError('Please enter a total amount'); return }
-    const amount = parseFloat(totalAmount)
-    if (isNaN(amount) || amount < 0) { setError('Please enter a valid amount'); return }
-
-    // Must have a photo
+    // Only the photo is required
     const hasExisting = existingPhoto && !removedPhoto
     const hasNew = !!newPhotoFile
     if (!hasExisting && !hasNew) { setError('Please upload a receipt photo'); return }
+
+    const amount = totalAmount.trim() ? parseFloat(totalAmount) : 0
+    if (totalAmount.trim() && (isNaN(amount) || amount < 0)) { setError('Please enter a valid amount'); return }
 
     setLoading(true)
     setError(null)

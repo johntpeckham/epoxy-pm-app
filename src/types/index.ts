@@ -187,11 +187,11 @@ export interface JsaTaskTemplate {
 export type ReceiptCategory = 'Materials' | 'Fuel' | 'Tools' | 'Equipment Rental' | 'Subcontractor' | 'Office Supplies' | 'Other'
 
 export interface ReceiptContent {
-  receipt_photo: string  // storage path in 'post-photos' bucket
+  receipt_photo: string  // storage path in 'post-photos' bucket (required)
   vendor_name: string
   receipt_date: string   // ISO format (YYYY-MM-DD)
-  total_amount: number
-  category: ReceiptCategory
+  total_amount: number   // defaults to 0 if not provided
+  category: ReceiptCategory | ''
 }
 
 export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent | ReceiptContent

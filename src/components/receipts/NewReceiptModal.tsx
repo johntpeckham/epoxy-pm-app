@@ -33,7 +33,7 @@ export default function NewReceiptModal({
   const [vendorName, setVendorName] = useState('')
   const [receiptDate, setReceiptDate] = useState(today)
   const [totalAmount, setTotalAmount] = useState('')
-  const [category, setCategory] = useState<ReceiptCategory>('Materials')
+  const [category, setCategory] = useState<ReceiptCategory | ''>('')
 
   // Photo
   const [photoFile, setPhotoFile] = useState<File | null>(null)
@@ -63,10 +63,8 @@ export default function NewReceiptModal({
   async function handleSubmit() {
     if (!selectedProjectId) { setError('Please select a project'); return }
     if (!photoFile) { setError('Please upload a receipt photo'); return }
-    if (!vendorName.trim()) { setError('Please enter a vendor name'); return }
-    if (!totalAmount.trim()) { setError('Please enter a total amount'); return }
-    const amount = parseFloat(totalAmount)
-    if (isNaN(amount) || amount < 0) { setError('Please enter a valid amount'); return }
+    const amount = totalAmount.trim() ? parseFloat(totalAmount) : 0
+    if (totalAmount.trim() && (isNaN(amount) || amount < 0)) { setError('Please enter a valid amount'); return }
 
     setLoading(true)
     setError(null)
@@ -182,16 +180,16 @@ export default function NewReceiptModal({
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Details</p>
             <div className="space-y-3">
               <div>
-                <label className={labelCls}>Vendor / Store Name *</label>
+                <label className={labelCls}>Vendor / Store Name</label>
                 <input type="text" value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="e.g. Home Depot, Shell, Sunbelt Rentals" className={inputCls} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Date on Receipt *</label>
+                  <label className={labelCls}>Date on Receipt</label>
                   <input type="date" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>Total Amount *</label>
+                  <label className={labelCls}>Total Amount</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
                     <input
@@ -207,12 +205,13 @@ export default function NewReceiptModal({
                 </div>
               </div>
               <div>
-                <label className={labelCls}>Category *</label>
+                <label className={labelCls}>Category</label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as ReceiptCategory)}
+                  onChange={(e) => setCategory(e.target.value as ReceiptCategory | '')}
                   className={inputCls}
                 >
+                  <option value="">Select a category...</option>
                   {RECEIPT_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}

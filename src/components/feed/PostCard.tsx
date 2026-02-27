@@ -662,10 +662,12 @@ function ReceiptPost({
           </button>
         )}
         <div className="flex-1 min-w-0 space-y-1.5">
-          <div>
-            <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Vendor</dt>
-            <dd className="text-sm text-gray-700 font-medium">{content.vendor_name}</dd>
-          </div>
+          {content.vendor_name ? (
+            <div>
+              <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Vendor</dt>
+              <dd className="text-sm text-gray-700 font-medium">{content.vendor_name}</dd>
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {dateLabel && (
               <div>
@@ -673,14 +675,18 @@ function ReceiptPost({
                 <dd className="text-sm text-gray-700 tabular-nums">{dateLabel}</dd>
               </div>
             )}
-            <div>
-              <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Total</dt>
-              <dd className="text-sm text-gray-900 font-bold tabular-nums">${content.total_amount.toFixed(2)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Category</dt>
-              <dd className="text-sm text-gray-700">{content.category}</dd>
-            </div>
+            {content.total_amount ? (
+              <div>
+                <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Total</dt>
+                <dd className="text-sm text-gray-900 font-bold tabular-nums">${content.total_amount.toFixed(2)}</dd>
+              </div>
+            ) : null}
+            {content.category ? (
+              <div>
+                <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Category</dt>
+                <dd className="text-sm text-gray-700">{content.category}</dd>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -711,10 +717,18 @@ function CollapsibleReceipt({
       >
         <ReceiptIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
         <span className="text-sm font-bold text-green-900 flex-shrink-0">Receipt</span>
-        <span className="text-sm text-gray-400 flex-shrink-0">—</span>
-        <span className="text-sm font-medium text-gray-800 truncate min-w-0">{content.vendor_name}</span>
-        <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">—</span>
-        <span className="text-sm font-bold text-gray-800 flex-shrink-0 tabular-nums hidden sm:inline">${content.total_amount.toFixed(2)}</span>
+        {content.vendor_name ? (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0">—</span>
+            <span className="text-sm font-medium text-gray-800 truncate min-w-0">{content.vendor_name}</span>
+          </>
+        ) : null}
+        {content.total_amount ? (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">—</span>
+            <span className="text-sm font-bold text-gray-800 flex-shrink-0 tabular-nums hidden sm:inline">${content.total_amount.toFixed(2)}</span>
+          </>
+        ) : null}
         {!isPinned && (
           <ChevronDownIcon
             className={`w-4 h-4 text-green-600 ml-auto flex-shrink-0 transition-transform ${
