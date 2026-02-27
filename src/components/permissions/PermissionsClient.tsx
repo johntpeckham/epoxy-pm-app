@@ -22,6 +22,7 @@ const FEATURES = [
   { key: 'jobs', label: 'Jobs' },
   { key: 'daily_reports', label: 'Daily Reports' },
   { key: 'jsa_reports', label: 'JSA Reports' },
+  { key: 'receipts', label: 'Receipts' },
   { key: 'photos', label: 'Photos' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'calendar', label: 'Calendar' },

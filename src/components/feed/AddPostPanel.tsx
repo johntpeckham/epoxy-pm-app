@@ -14,15 +14,16 @@ import {
   ShieldIcon,
   LoaderIcon,
   SettingsIcon,
+  ReceiptIcon,
 } from 'lucide-react'
-import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry } from '@/types'
+import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, ReceiptCategory } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
 import JsaSignatureSection from '@/components/jsa-reports/JsaSignatureSection'
 
-type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report'
+type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt'
 
 interface AddPostPanelProps {
   project: Project
@@ -110,6 +111,16 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [jsaSelectedTasks, setJsaSelectedTasks] = useState<Record<string, JsaTaskEntry>>({})
   const [jsaSignatures, setJsaSignatures] = useState<JsaSignatureEntry[]>([])
   const [showTemplateManager, setShowTemplateManager] = useState(false)
+
+  // ── Receipt ──────────────────────────────────────────────────────────────
+  const RECEIPT_CATEGORIES: ReceiptCategory[] = ['Materials', 'Fuel', 'Tools', 'Equipment Rental', 'Subcontractor', 'Office Supplies', 'Other']
+  const [rcptVendor, setRcptVendor] = useState('')
+  const [rcptDate, setRcptDate] = useState(today)
+  const [rcptAmount, setRcptAmount] = useState('')
+  const [rcptCategory, setRcptCategory] = useState<ReceiptCategory>('Materials')
+  const [rcptPhotoFile, setRcptPhotoFile] = useState<File | null>(null)
+  const [rcptPhotoPreview, setRcptPhotoPreview] = useState<string | null>(null)
+  const rcptPhotoInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch JSA templates when mode activates
   useEffect(() => {
@@ -244,6 +255,19 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   function removeTaskPhoto() {
     setTaskPhotoFile(null)
     setTaskPhotoPreview(null)
+  }
+
+  function handleRcptPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setRcptPhotoFile(file)
+    setRcptPhotoPreview(URL.createObjectURL(file))
+    e.target.value = ''
+  }
+
+  function removeRcptPhoto() {
+    setRcptPhotoFile(null)
+    setRcptPhotoPreview(null)
   }
 
   // ── Upload helper ──────────────────────────────────────────────────────────
@@ -457,6 +481,37 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setJsaCompetentPerson('')
         setJsaSelectedTasks({})
         setJsaSignatures([])
+        setMode('text')
+      }
+
+      if (mode === 'receipt') {
+        if (!rcptPhotoFile) throw new Error('Please upload a receipt photo')
+        if (!rcptVendor.trim()) throw new Error('Please enter a vendor name')
+        if (!rcptAmount.trim()) throw new Error('Please enter a total amount')
+        const amount = parseFloat(rcptAmount)
+        if (isNaN(amount) || amount < 0) throw new Error('Please enter a valid amount')
+
+        const paths = await uploadFiles([rcptPhotoFile], 'receipts')
+        await supabase.from('feed_posts').insert({
+          project_id: project.id,
+          user_id: userId,
+          post_type: 'receipt',
+          content: {
+            receipt_photo: paths[0],
+            vendor_name: rcptVendor.trim(),
+            receipt_date: rcptDate,
+            total_amount: amount,
+            category: rcptCategory,
+          },
+          is_pinned: false,
+        })
+        setRcptVendor('')
+        setRcptDate(new Date().toISOString().split('T')[0])
+        setRcptAmount('')
+        setRcptCategory('Materials')
+        setRcptPhotoFile(null)
+        setRcptPhotoPreview(null)
+        if (rcptPhotoInputRef.current) rcptPhotoInputRef.current.value = ''
         setMode('text')
       }
 
@@ -999,6 +1054,124 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         />
       )}
 
+      {/* ── Receipt form ────────────────────────────────────────────────────── */}
+      {mode === 'receipt' && (
+        <div
+          className="fixed left-0 right-0 bottom-0 z-50 flex flex-col bg-white w-full max-w-full overflow-x-hidden overscroll-none lg:static lg:z-auto lg:block lg:overscroll-auto"
+          style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
+        >
+          {/* Mobile header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
+            <h2 className="text-lg font-bold text-gray-900">Receipt</h2>
+            <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 space-y-5 lg:flex-none lg:max-h-[52vh] lg:pt-3 lg:pb-2">
+
+          {/* Receipt Photo */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Photo</p>
+            <input
+              ref={rcptPhotoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleRcptPhotoChange}
+            />
+            {rcptPhotoPreview ? (
+              <div className="relative inline-block">
+                <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={rcptPhotoPreview} alt="" className="w-full h-full object-cover" />
+                </div>
+                <button
+                  onClick={removeRcptPhoto}
+                  className="absolute -top-1.5 -right-1.5 bg-black/70 text-white rounded-full p-0.5"
+                >
+                  <XIcon className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => rcptPhotoInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 transition"
+              >
+                <CameraIcon className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+                <p className="text-sm text-gray-500">
+                  <span className="font-medium text-amber-600">Take photo or upload</span> receipt image
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Receipt Details */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Details</p>
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Vendor / Store Name *</label>
+                <input type="text" value={rcptVendor} onChange={(e) => setRcptVendor(e.target.value)} placeholder="e.g. Home Depot, Shell, Sunbelt Rentals" className={inputCls} />
+              </div>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 overflow-hidden">
+                <div className="min-w-0">
+                  <label className={labelCls}>Date on Receipt *</label>
+                  <input type="date" value={rcptDate} onChange={(e) => setRcptDate(e.target.value)} className={`${inputCls} min-w-0 max-w-full`} style={{ maxWidth: '100%' }} />
+                </div>
+                <div>
+                  <label className={labelCls}>Total Amount *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={rcptAmount}
+                      onChange={(e) => setRcptAmount(e.target.value)}
+                      placeholder="0.00"
+                      className={`${inputCls} pl-7`}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Category *</label>
+                <select
+                  value={rcptCategory}
+                  onChange={(e) => setRcptCategory(e.target.value as ReceiptCategory)}
+                  className={inputCls}
+                >
+                  {RECEIPT_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          </div>
+          {/* Mobile submit footer */}
+          <div className="flex-none border-t border-gray-200 px-4 py-3 safe-bottom bg-white lg:hidden">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white font-semibold text-sm transition"
+            >
+              {loading ? <LoaderIcon className="w-5 h-5 animate-spin mx-auto" /> : 'Submit Receipt'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── PDF upload strip ──────────────────────────────────────────────────── */}
       {mode === 'pdf' && (
         <div className="px-3 pt-3 pb-1">
@@ -1105,6 +1278,19 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                     JSA Report
                   </button>
                 )}
+                {canCreate('receipts') && (
+                  <button
+                    onClick={() => selectMode('receipt')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                      mode === 'receipt'
+                        ? 'text-amber-600 bg-amber-50 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <ReceiptIcon className="w-4 h-4 flex-shrink-0" />
+                    Receipt
+                  </button>
+                )}
                 {canCreate('tasks') && (
                   <button
                     onClick={() => selectMode('task')}
@@ -1197,8 +1383,17 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           </div>
         )}
 
+        {mode === 'receipt' && (
+          <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full border border-green-200">
+            <ReceiptIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
+            <span className="text-sm text-green-700 font-medium truncate">
+              Receipt{rcptVendor ? ` — ${rcptVendor}` : ''}{rcptAmount ? ` — $${rcptAmount}` : ''}
+            </span>
+          </div>
+        )}
+
         {/* Cancel button for expanded modes */}
-        {(mode === 'photo' || mode === 'daily_report' || mode === 'task' || mode === 'pdf' || mode === 'jsa_report') && (
+        {(mode === 'photo' || mode === 'daily_report' || mode === 'task' || mode === 'pdf' || mode === 'jsa_report' || mode === 'receipt') && (
           <button
             onClick={cancelMode}
             className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition"

@@ -20,11 +20,13 @@ import {
   PrinterIcon,
   MessageCircleIcon,
   ShieldIcon,
+  ReceiptIcon,
 } from 'lucide-react'
-import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, TaskStatus } from '@/types'
+import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, ReceiptContent, TaskStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
 import EditJsaReportModal from './EditJsaReportModal'
+import EditReceiptModal from './EditReceiptModal'
 import PostCommentsSection from './PostCommentsSection'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -622,6 +624,113 @@ function CollapsibleJsaReport({
   )
 }
 
+// ── Receipt content card ──────────────────────────────────────────────────
+function ReceiptPost({
+  content,
+  onImageClick,
+}: {
+  content: ReceiptContent
+  onImageClick: (url: string) => void
+}) {
+  const supabase = createClient()
+  const photoUrl = content.receipt_photo
+    ? supabase.storage.from('post-photos').getPublicUrl(content.receipt_photo).data.publicUrl
+    : null
+
+  const dateLabel = content.receipt_date
+    ? new Date(content.receipt_date + 'T12:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : ''
+
+  return (
+    <div className="p-3.5 space-y-3 border-t border-green-200 max-w-full overflow-hidden">
+      <div className="flex gap-3">
+        {photoUrl && (
+          <button onClick={() => onImageClick(photoUrl)} className="block flex-shrink-0">
+            <div className="relative w-[72px] h-[72px] rounded-lg overflow-hidden bg-green-50">
+              <Image
+                src={photoUrl}
+                alt="Receipt photo"
+                fill
+                className="object-cover hover:opacity-90 transition"
+                sizes="72px"
+              />
+            </div>
+          </button>
+        )}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div>
+            <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Vendor</dt>
+            <dd className="text-sm text-gray-700 font-medium">{content.vendor_name}</dd>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {dateLabel && (
+              <div>
+                <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Date</dt>
+                <dd className="text-sm text-gray-700 tabular-nums">{dateLabel}</dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Total</dt>
+              <dd className="text-sm text-gray-900 font-bold tabular-nums">${content.total_amount.toFixed(2)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Category</dt>
+              <dd className="text-sm text-gray-700">{content.category}</dd>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Collapsible wrapper for receipts in the feed ──────────────────────────
+function CollapsibleReceipt({
+  content,
+  onImageClick,
+  isPinned,
+}: {
+  content: ReceiptContent
+  onImageClick: (url: string) => void
+  isPinned?: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="mt-1.5 border border-green-200 rounded-xl overflow-hidden bg-white max-w-full w-full">
+      <div
+        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
+        role={isPinned ? undefined : 'button'}
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-green-50 text-left transition-colors min-w-0 overflow-hidden ${
+          isPinned ? '' : 'hover:bg-green-100/60 cursor-pointer'
+        }`}
+      >
+        <ReceiptIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-green-900 flex-shrink-0">Receipt</span>
+        <span className="text-sm text-gray-400 flex-shrink-0">—</span>
+        <span className="text-sm font-medium text-gray-800 truncate min-w-0">{content.vendor_name}</span>
+        <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">—</span>
+        <span className="text-sm font-bold text-gray-800 flex-shrink-0 tabular-nums hidden sm:inline">${content.total_amount.toFixed(2)}</span>
+        {!isPinned && (
+          <ChevronDownIcon
+            className={`w-4 h-4 text-green-600 ml-auto flex-shrink-0 transition-transform ${
+              expanded ? 'rotate-180' : ''
+            }`}
+          />
+        )}
+      </div>
+
+      {(isPinned || expanded) && (
+        <ReceiptPost content={content} onImageClick={onImageClick} />
+      )}
+    </div>
+  )
+}
+
 // ── Inline PDF post (thumbnail + metadata, no card wrapper) ─────────────────
 function InlinePdfPost({ content }: { content: PdfContent }) {
   const supabase = createClient()
@@ -705,6 +814,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditReport, setShowEditReport] = useState(false)
   const [showEditJsaReport, setShowEditJsaReport] = useState(false)
+  const [showEditReceipt, setShowEditReceipt] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [showComments, setShowComments] = useState(false)
@@ -788,6 +898,10 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       const fileUrl = (post.content as PdfContent).file_url
       if (fileUrl) await supabase.storage.from('post-photos').remove([fileUrl])
     }
+    if (post.post_type === 'receipt') {
+      const receiptPhoto = (post.content as ReceiptContent).receipt_photo
+      if (receiptPhoto) await supabase.storage.from('post-photos').remove([receiptPhoto])
+    }
     await supabase.from('feed_posts').delete().eq('id', post.id)
     setIsDeleting(false)
     setShowDeleteConfirm(false)
@@ -806,12 +920,21 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
     onUpdated?.()
   }
 
+  // Resolve receipt photo URL
+  const receiptPhotoUrl: string | null =
+    post.post_type === 'receipt' && (post.content as ReceiptContent).receipt_photo
+      ? supabase.storage.from('post-photos').getPublicUrl((post.content as ReceiptContent).receipt_photo).data.publicUrl
+      : null
+
   async function handleDownloadPdf() {
     setPdfLoading(true)
     try {
       if (post.post_type === 'jsa_report') {
         const { generateJsaPdf } = await import('@/lib/generateJsaPdf')
         await generateJsaPdf(post.content as JsaReportContent, companySettings?.logo_url)
+      } else if (post.post_type === 'receipt') {
+        const { generateReceiptPdf } = await import('@/lib/generateReceiptPdf')
+        await generateReceiptPdf(post.content as ReceiptContent, receiptPhotoUrl, companySettings?.logo_url)
       } else {
         const { generateReportPdf } = await import('@/lib/generateReportPdf')
         await generateReportPdf(post.content as DailyReportContent, reportPhotoUrls, companySettings?.logo_url)
@@ -828,7 +951,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   // ── Action buttons (shared) ──────────────────────────────────────────────
   const actionButtons = (
     <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex-shrink-0">
-      {(post.post_type === 'daily_report' || post.post_type === 'jsa_report') && (
+      {(post.post_type === 'daily_report' || post.post_type === 'jsa_report' || post.post_type === 'receipt') && (
         <button
           onClick={handleDownloadPdf}
           disabled={pdfLoading}
@@ -838,7 +961,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           <DownloadIcon className="w-3.5 h-3.5" />
         </button>
       )}
-      {(post.post_type === 'text' || post.post_type === 'daily_report' || post.post_type === 'jsa_report') && (
+      {(post.post_type === 'text' || post.post_type === 'daily_report' || post.post_type === 'jsa_report' || post.post_type === 'receipt') && (
         <button
           onClick={() => {
             if (post.post_type === 'text') {
@@ -846,6 +969,8 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
               setEditingText(true)
             } else if (post.post_type === 'jsa_report') {
               setShowEditJsaReport(true)
+            } else if (post.post_type === 'receipt') {
+              setShowEditReceipt(true)
             } else {
               setShowEditReport(true)
             }
@@ -908,6 +1033,13 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       {post.post_type === 'jsa_report' && (
         <CollapsibleJsaReport
           content={post.content as JsaReportContent}
+          isPinned={post.is_pinned}
+        />
+      )}
+      {post.post_type === 'receipt' && (
+        <CollapsibleReceipt
+          content={post.content as ReceiptContent}
+          onImageClick={setPreviewImage}
           isPinned={post.is_pinned}
         />
       )}
@@ -1036,6 +1168,18 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           onClose={() => setShowEditJsaReport(false)}
           onUpdated={() => {
             setShowEditJsaReport(false)
+            onUpdated?.()
+          }}
+        />
+      )}
+
+      {showEditReceipt && post.post_type === 'receipt' && (
+        <EditReceiptModal
+          postId={post.id}
+          initialContent={post.content as ReceiptContent}
+          onClose={() => setShowEditReceipt(false)}
+          onUpdated={() => {
+            setShowEditReceipt(false)
             onUpdated?.()
           }}
         />
