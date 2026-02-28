@@ -718,7 +718,7 @@ function CollapsibleReceipt({
         }`}
       >
         <ReceiptIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
-        <span className="text-sm font-bold text-green-900 flex-shrink-0">Receipt</span>
+        <span className="text-sm font-bold text-green-900 flex-shrink-0">Expense</span>
         {content.vendor_name ? (
           <>
             <span className="text-sm text-gray-400 flex-shrink-0">—</span>

@@ -540,17 +540,20 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
       }
 
       if (mode === 'receipt') {
-        if (!rcptPhotoFile) throw new Error('Please upload a receipt photo')
         const amount = rcptAmount.trim() ? parseFloat(rcptAmount) : 0
         if (rcptAmount.trim() && (isNaN(amount) || amount < 0)) throw new Error('Please enter a valid amount')
 
-        const paths = await uploadFiles([rcptPhotoFile], 'receipts')
+        let photoPath = ''
+        if (rcptPhotoFile) {
+          const paths = await uploadFiles([rcptPhotoFile], 'receipts')
+          photoPath = paths[0]
+        }
         const { error: receiptErr } = await supabase.from('feed_posts').insert({
           project_id: project.id,
           user_id: userId,
           post_type: 'receipt',
           content: {
-            receipt_photo: paths[0],
+            receipt_photo: photoPath,
             vendor_name: rcptVendor.trim(),
             receipt_date: rcptDate,
             total_amount: amount,
@@ -1435,7 +1438,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         >
           {/* Mobile header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
-            <h2 className="text-lg font-bold text-gray-900">Receipt</h2>
+            <h2 className="text-lg font-bold text-gray-900">Expense / Receipt</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
             </button>
@@ -1444,7 +1447,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
           {/* Receipt Photo */}
           <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Photo</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Photo <span className="normal-case font-medium">(optional)</span></p>
             <input
               ref={rcptPhotoInputRef}
               type="file"
@@ -1540,7 +1543,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               disabled={loading}
               className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white font-semibold text-sm transition"
             >
-              {loading ? <LoaderIcon className="w-5 h-5 animate-spin mx-auto" /> : 'Submit Receipt'}
+              {loading ? <LoaderIcon className="w-5 h-5 animate-spin mx-auto" /> : 'Submit Expense'}
             </button>
           </div>
         </div>
@@ -1662,7 +1665,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                     }`}
                   >
                     <ReceiptIcon className="w-4 h-4 flex-shrink-0" />
-                    Receipt
+                    Expense / Receipt
                   </button>
                 )}
                 {canCreate('timesheets') && (
@@ -1774,7 +1777,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full border border-green-200">
             <ReceiptIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
             <span className="text-sm text-green-700 font-medium truncate">
-              Receipt{rcptVendor ? ` — ${rcptVendor}` : ''}{rcptAmount ? ` — $${rcptAmount}` : ''}
+              Expense{rcptVendor ? ` — ${rcptVendor}` : ''}{rcptAmount ? ` — $${rcptAmount}` : ''}
             </span>
           </div>
         )}
