@@ -155,7 +155,7 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
           </button>
           <button
             onClick={() => setShowEditModal(true)}
-            title="Edit receipt"
+            title="Edit expense"
             className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-green-600 border border-gray-200 hover:border-green-300 hover:bg-green-50 rounded-md transition sm:border-0 sm:p-1.5"
           >
             <PencilIcon className="w-3.5 h-3.5" />
@@ -163,7 +163,7 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
           </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            title="Delete receipt"
+            title="Delete expense"
             className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-300 hover:bg-red-50 rounded-md transition sm:border-0 sm:p-1.5"
           >
             <Trash2Icon className="w-3.5 h-3.5" />
@@ -245,8 +245,8 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
 
       {showDeleteConfirm && (
         <ConfirmDialog
-          title="Delete Receipt"
-          message="Are you sure you want to delete this receipt? The receipt photo will also be removed. This cannot be undone."
+          title="Delete Expense"
+          message="Are you sure you want to delete this expense? The receipt photo will also be removed. This cannot be undone."
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}

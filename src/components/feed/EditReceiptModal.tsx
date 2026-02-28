@@ -64,11 +64,6 @@ export default function EditReceiptModal({
   }
 
   async function handleSubmit() {
-    // Only the photo is required
-    const hasExisting = existingPhoto && !removedPhoto
-    const hasNew = !!newPhotoFile
-    if (!hasExisting && !hasNew) { setError('Please upload a receipt photo'); return }
-
     const amount = totalAmount.trim() ? parseFloat(totalAmount) : 0
     if (totalAmount.trim() && (isNaN(amount) || amount < 0)) { setError('Please enter a valid amount'); return }
 
@@ -118,7 +113,7 @@ export default function EditReceiptModal({
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
         {/* Modal header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900">Edit Receipt</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Edit Expense</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
@@ -137,7 +132,7 @@ export default function EditReceiptModal({
 
           {/* Photo section */}
           <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Photo</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Photo <span className="normal-case font-medium">(optional)</span></p>
 
             {existingPhotoUrl && !removedPhoto && !newPhotoPreview && (
               <div className="relative group inline-block">

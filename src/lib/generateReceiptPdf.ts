@@ -110,7 +110,7 @@ export async function generateReceiptPdf(
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
   doc.setTextColor(...DARK)
-  doc.text('Receipt', M, headerStartY + 8)
+  doc.text('Expense', M, headerStartY + 8)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
@@ -126,7 +126,7 @@ export async function generateReceiptPdf(
   y += 4
 
   // ─── RECEIPT DETAILS ──────────────────────────────────────────────────
-  sectionTitle('RECEIPT DETAILS')
+  sectionTitle('EXPENSE DETAILS')
 
   fieldRow('Vendor / Store', content.vendor_name || '—')
 

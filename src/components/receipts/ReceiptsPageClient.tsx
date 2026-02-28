@@ -76,13 +76,18 @@ function groupByProjectAndDate(receipts: ReceiptRow[], sort: SortOption) {
       if (sort === 'newest') return b.latestDate.localeCompare(a.latestDate)
       return a.oldestDate.localeCompare(b.oldestDate)
     })
-    .map(([projectId, project]) => ({
-      projectId,
-      projectName: project.projectName,
-      dates: Array.from(project.dates.entries())
-        .sort(([a], [b]) => a.localeCompare(b) * dateDir)
-        .map(([date, receipts]) => ({ date, receipts })),
-    }))
+    .map(([projectId, project]) => {
+      const receiptCount = Array.from(project.dates.values()).reduce((sum, arr) => sum + arr.length, 0)
+      return {
+        projectId,
+        projectName: project.projectName,
+        totalAmount: project.totalAmount,
+        receiptCount,
+        dates: Array.from(project.dates.entries())
+          .sort(([a], [b]) => a.localeCompare(b) * dateDir)
+          .map(([date, receipts]) => ({ date, receipts })),
+      }
+    })
 }
 
 export default function ReceiptsPageClient({
@@ -176,9 +181,9 @@ export default function ReceiptsPageClient({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Receipts</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Expenses &amp; Receipts</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {filtered.length} receipt{filtered.length !== 1 ? 's' : ''} across {grouped.length} project
+            {filtered.length} expense{filtered.length !== 1 ? 's' : ''} across {grouped.length} project
             {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
@@ -190,7 +195,7 @@ export default function ReceiptsPageClient({
             className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
           >
             <PlusIcon className="w-4 h-4" />
-            New Receipt
+            New Expense
           </button>
         )}
       </div>
@@ -202,7 +207,7 @@ export default function ReceiptsPageClient({
           <p className="text-2xl font-bold text-gray-900 tabular-nums">${runningTotal.toFixed(2)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-green-600">{filtered.length} receipt{filtered.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-green-600">{filtered.length} expense{filtered.length !== 1 ? 's' : ''}</p>
           {(filterProject || filterCategory) && (
             <p className="text-xs text-green-500 mt-0.5">Filtered</p>
           )}
@@ -269,23 +274,28 @@ export default function ReceiptsPageClient({
           </div>
           <p className="text-gray-500 font-medium">
             {searchQuery.trim() || filterProject || filterCategory
-              ? 'No receipts match your filters'
-              : 'No receipts yet'}
+              ? 'No expenses match your filters'
+              : 'No expenses yet'}
           </p>
           <p className="text-gray-400 text-sm mt-1">
             {searchQuery.trim() || filterProject || filterCategory
               ? 'Try a different search or filter.'
               : projects.length > 0
-                ? 'Click "New Receipt" to add the first one.'
-                : 'Create a project first, then add receipts.'}
+                ? 'Click "New Expense" to add the first one.'
+                : 'Create a project first, then add expenses.'}
           </p>
         </div>
       ) : (
         <div className="space-y-8">
           {grouped.map((project) => (
             <div key={project.projectId}>
-              {/* Project heading */}
-              <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
+              {/* Project heading with subtotal */}
+              <div className="flex items-baseline justify-between mb-3">
+                <h2 className="text-lg font-bold text-gray-900">{project.projectName}</h2>
+                <span className="text-sm text-gray-500 tabular-nums">
+                  ${project.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({project.receiptCount} expense{project.receiptCount !== 1 ? 's' : ''})
+                </span>
+              </div>
 
               <div className="space-y-4">
                 {project.dates.map(({ date, receipts }) => (
@@ -296,7 +306,7 @@ export default function ReceiptsPageClient({
                       <span className="text-sm text-gray-400">&middot;</span>
                       <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
                       <span className="text-xs text-gray-400">
-                        ({receipts.length} receipt{receipts.length !== 1 ? 's' : ''})
+                        ({receipts.length} expense{receipts.length !== 1 ? 's' : ''})
                       </span>
                     </div>
 

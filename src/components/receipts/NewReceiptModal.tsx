@@ -62,7 +62,6 @@ export default function NewReceiptModal({
 
   async function handleSubmit() {
     if (!selectedProjectId) { setError('Please select a project'); return }
-    if (!photoFile) { setError('Please upload a receipt photo'); return }
     const amount = totalAmount.trim() ? parseFloat(totalAmount) : 0
     if (totalAmount.trim() && (isNaN(amount) || amount < 0)) { setError('Please enter a valid amount'); return }
 
@@ -72,11 +71,15 @@ export default function NewReceiptModal({
     try {
       const supabase = createClient()
 
-      // Upload photo
-      const ext = photoFile.name.split('.').pop()
-      const path = `${selectedProjectId}/receipts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error: uploadErr } = await supabase.storage.from('post-photos').upload(path, photoFile)
-      if (uploadErr) throw uploadErr
+      // Upload photo if provided
+      let photoPath = ''
+      if (photoFile) {
+        const ext = photoFile.name.split('.').pop()
+        const path = `${selectedProjectId}/receipts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const { error: uploadErr } = await supabase.storage.from('post-photos').upload(path, photoFile)
+        if (uploadErr) throw uploadErr
+        photoPath = path
+      }
 
       const { error: insertErr } = await supabase.from('feed_posts').insert({
         project_id: selectedProjectId,
@@ -84,7 +87,7 @@ export default function NewReceiptModal({
         post_type: 'receipt',
         is_pinned: false,
         content: {
-          receipt_photo: path,
+          receipt_photo: photoPath,
           vendor_name: vendorName.trim(),
           receipt_date: receiptDate,
           total_amount: amount,
@@ -95,7 +98,7 @@ export default function NewReceiptModal({
       if (insertErr) throw insertErr
       onCreated()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create receipt')
+      setError(err instanceof Error ? err.message : 'Failed to create expense')
       setLoading(false)
     }
   }
@@ -106,7 +109,7 @@ export default function NewReceiptModal({
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900">New Receipt</h2>
+          <h2 className="text-lg font-semibold text-gray-900">New Expense</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
@@ -139,7 +142,7 @@ export default function NewReceiptModal({
 
           {/* Receipt Photo */}
           <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Photo *</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Photo <span className="normal-case font-medium">(optional)</span></p>
             <input
               ref={fileInputRef}
               type="file"
@@ -241,7 +244,7 @@ export default function NewReceiptModal({
                 Submitting…
               </>
             ) : (
-              'Submit Receipt'
+              'Submit Expense'
             )}
           </button>
         </div>
