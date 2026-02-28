@@ -52,7 +52,10 @@ export default function EditTimecardModal({
         .select('*')
         .eq('is_active', true)
         .order('name', { ascending: true })
-        .then(({ data }) => {
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('[EditTimecardModal] Fetch employees failed:', error)
+          }
           setEmployees((data as Employee[]) ?? [])
           setEmployeesLoaded(true)
         })
@@ -109,9 +112,14 @@ export default function EditTimecardModal({
         .update({ content: updatedContent })
         .eq('id', postId)
 
-      if (updateErr) throw updateErr
+      if (updateErr) {
+        console.error('[EditTimecardModal] Update failed:', updateErr)
+        console.error('[EditTimecardModal] Error details — code:', updateErr.code, 'message:', updateErr.message, 'details:', updateErr.details, 'hint:', updateErr.hint)
+        throw updateErr
+      }
       onUpdated()
     } catch (err) {
+      console.error('[EditTimecardModal] Submit error:', err)
       setError(err instanceof Error ? err.message : 'Failed to save')
       setLoading(false)
     }
