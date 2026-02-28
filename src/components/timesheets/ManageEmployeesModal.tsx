@@ -26,10 +26,14 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
   const [deleting, setDeleting] = useState(false)
 
   const fetchEmployees = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('employees')
       .select('*')
       .order('name', { ascending: true })
+    if (error) {
+      console.error('[ManageEmployees] Fetch employees failed:', error)
+      console.error('[ManageEmployees] Fetch error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
+    }
     setEmployees((data as Employee[]) ?? [])
     setLoading(false)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -42,7 +46,10 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
     if (!newName.trim()) return
     setAdding(true)
     const { error } = await supabase.from('employees').insert({ name: newName.trim() })
-    if (!error) {
+    if (error) {
+      console.error('[ManageEmployees] Insert employee failed:', error)
+      console.error('[ManageEmployees] Error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
+    } else {
       setNewName('')
       await fetchEmployees()
     }
@@ -52,22 +59,35 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
   async function handleSaveEdit() {
     if (!editingId || !editName.trim()) return
     setSavingEdit(true)
-    await supabase.from('employees').update({ name: editName.trim() }).eq('id', editingId)
-    setEditingId(null)
-    setEditName('')
-    await fetchEmployees()
+    const { error } = await supabase.from('employees').update({ name: editName.trim() }).eq('id', editingId)
+    if (error) {
+      console.error('[ManageEmployees] Update employee failed:', error)
+      console.error('[ManageEmployees] Error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
+    } else {
+      setEditingId(null)
+      setEditName('')
+      await fetchEmployees()
+    }
     setSavingEdit(false)
   }
 
   async function handleToggleActive(emp: Employee) {
-    await supabase.from('employees').update({ is_active: !emp.is_active }).eq('id', emp.id)
+    const { error } = await supabase.from('employees').update({ is_active: !emp.is_active }).eq('id', emp.id)
+    if (error) {
+      console.error('[ManageEmployees] Toggle active failed:', error)
+      console.error('[ManageEmployees] Error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
+    }
     await fetchEmployees()
   }
 
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from('employees').delete().eq('id', deleteTarget.id)
+    const { error } = await supabase.from('employees').delete().eq('id', deleteTarget.id)
+    if (error) {
+      console.error('[ManageEmployees] Delete employee failed:', error)
+      console.error('[ManageEmployees] Error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
+    }
     setDeleteTarget(null)
     setDeleting(false)
     await fetchEmployees()

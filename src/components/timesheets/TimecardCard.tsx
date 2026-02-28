@@ -51,7 +51,11 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
   async function handleDelete() {
     setIsDeleting(true)
     const supabase = createClient()
-    await supabase.from('feed_posts').delete().eq('id', timecard.id)
+    const { error } = await supabase.from('feed_posts').delete().eq('id', timecard.id)
+    if (error) {
+      console.error('[TimecardCard] Delete failed:', error)
+      console.error('[TimecardCard] Error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
+    }
     setIsDeleting(false)
     setShowDeleteConfirm(false)
     router.refresh()

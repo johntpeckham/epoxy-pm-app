@@ -166,7 +166,11 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         .select('*')
         .eq('is_active', true)
         .order('name', { ascending: true })
-        .then(({ data }) => {
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('[AddPostPanel] Fetch employees failed:', error)
+            console.error('[AddPostPanel] Fetch employees error details — code:', error.code, 'message:', error.message)
+          }
           setTcEmployees((data as Employee[]) ?? [])
           setTcEmployeesLoaded(true)
         })
@@ -601,7 +605,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
         const grandTotal = entries.reduce((s, e) => s + e.total_hours, 0)
 
-        await supabase.from('feed_posts').insert({
+        const { error: timecardErr } = await supabase.from('feed_posts').insert({
           project_id: project.id,
           user_id: userId,
           post_type: 'timecard',
@@ -614,6 +618,11 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           },
           is_pinned: false,
         })
+        if (timecardErr) {
+          console.error('[AddPostPanel] Timecard insert failed:', timecardErr)
+          console.error('[AddPostPanel] Timecard error details — code:', timecardErr.code, 'message:', timecardErr.message, 'details:', timecardErr.details, 'hint:', timecardErr.hint)
+          throw timecardErr
+        }
 
         setTcDate(new Date().toISOString().split('T')[0])
         setTcSelectedEmployees({})
