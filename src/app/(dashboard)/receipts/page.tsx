@@ -18,6 +18,12 @@ export default async function ReceiptsPage() {
     .eq('status', 'Active')
     .order('name', { ascending: true })
 
+  // Fetch all projects (including completed) for status grouping
+  const { data: allProjectRows } = await supabase
+    .from('projects')
+    .select('*')
+    .order('name', { ascending: true })
+
   // Fetch all receipt posts with joined project name
   const { data: posts } = await supabase
     .from('feed_posts')
@@ -44,6 +50,7 @@ export default async function ReceiptsPage() {
     <ReceiptsPageClient
       initialReceipts={receipts}
       projects={(projectRows as Project[]) ?? []}
+      allProjects={(allProjectRows as Project[]) ?? []}
       userId={user.id}
     />
   )

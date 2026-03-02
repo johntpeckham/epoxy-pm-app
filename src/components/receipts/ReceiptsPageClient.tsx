@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusIcon, ReceiptIcon, SearchIcon, ChevronDownIcon } from 'lucide-react'
+import { PlusIcon, ReceiptIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import { Project, ReceiptContent, ReceiptCategory } from '@/types'
 import ReceiptCard from './ReceiptCard'
 import NewReceiptModal from './NewReceiptModal'
@@ -20,6 +20,7 @@ interface ReceiptRow {
 interface ReceiptsPageClientProps {
   initialReceipts: ReceiptRow[]
   projects: Project[]
+  allProjects: Project[]
   userId: string
 }
 
@@ -93,6 +94,7 @@ function groupByProjectAndDate(receipts: ReceiptRow[], sort: SortOption) {
 export default function ReceiptsPageClient({
   initialReceipts,
   projects,
+  allProjects,
   userId,
 }: ReceiptsPageClientProps) {
   const router = useRouter()
@@ -103,6 +105,13 @@ export default function ReceiptsPageClient({
   const [sortOption, setSortOption] = useState<SortOption>('newest')
   const [filterProject, setFilterProject] = useState<string>('')
   const [filterCategory, setFilterCategory] = useState<string>('')
+  const [showCompleted, setShowCompleted] = useState(false)
+
+  const projectStatusMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of allProjects) map.set(p.id, p.status)
+    return map
+  }, [allProjects])
 
   // Unique project names from receipts for filter dropdown
   const projectNames = useMemo(() => {
@@ -170,6 +179,15 @@ export default function ReceiptsPageClient({
   )
 
   const grouped = useMemo(() => groupByProjectAndDate(filtered, sortOption), [filtered, sortOption])
+
+  const inProgressGroups = useMemo(
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) !== 'Complete'),
+    [grouped, projectStatusMap]
+  )
+  const completedGroups = useMemo(
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) === 'Complete'),
+    [grouped, projectStatusMap]
+  )
 
   function handleCreated() {
     setShowModal(false)
@@ -286,41 +304,93 @@ export default function ReceiptsPageClient({
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {grouped.map((project) => (
-            <div key={project.projectId}>
-              {/* Project heading with subtotal */}
-              <div className="flex items-baseline justify-between mb-3">
-                <h2 className="text-lg font-bold text-gray-900">{project.projectName}</h2>
-                <span className="text-sm text-gray-500 tabular-nums">
-                  ${project.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({project.receiptCount} expense{project.receiptCount !== 1 ? 's' : ''})
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                {project.dates.map(({ date, receipts }) => (
-                  <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    {/* Date header */}
-                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-                      <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
-                      <span className="text-sm text-gray-400">&middot;</span>
-                      <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
-                      <span className="text-xs text-gray-400">
-                        ({receipts.length} expense{receipts.length !== 1 ? 's' : ''})
+        <div>
+          {/* In Progress section */}
+          {inProgressGroups.length > 0 && (
+            <>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">In Progress</p>
+              <div className="space-y-8">
+                {inProgressGroups.map((project) => (
+                  <div key={project.projectId}>
+                    <div className="flex items-baseline justify-between mb-3">
+                      <h2 className="text-lg font-bold text-gray-900">{project.projectName}</h2>
+                      <span className="text-sm text-gray-500 tabular-nums">
+                        ${project.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({project.receiptCount} expense{project.receiptCount !== 1 ? 's' : ''})
                       </span>
                     </div>
-
-                    {/* Receipt cards within this date */}
-                    <div className="divide-y divide-gray-100">
-                      {receipts.map((receipt) => (
-                        <ReceiptCard key={receipt.id} receipt={receipt} />
+                    <div className="space-y-4">
+                      {project.dates.map(({ date, receipts }) => (
+                        <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                            <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
+                            <span className="text-sm text-gray-400">&middot;</span>
+                            <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
+                            <span className="text-xs text-gray-400">
+                              ({receipts.length} expense{receipts.length !== 1 ? 's' : ''})
+                            </span>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {receipts.map((receipt) => (
+                              <ReceiptCard key={receipt.id} receipt={receipt} />
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
+            </>
+          )}
+
+          {/* Completed section — collapsible */}
+          {completedGroups.length > 0 && (
+            <div className={inProgressGroups.length > 0 ? 'border-t border-gray-200 mt-8 pt-4' : ''}>
+              <button
+                onClick={() => setShowCompleted(!showCompleted)}
+                className="flex items-center gap-2 w-full text-left mb-4"
+              >
+                <ChevronRightIcon
+                  className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
+                />
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
+                <span className="text-xs text-gray-400">({completedGroups.length})</span>
+              </button>
+              {showCompleted && (
+                <div className="space-y-8">
+                  {completedGroups.map((project) => (
+                    <div key={project.projectId}>
+                      <div className="flex items-baseline justify-between mb-3">
+                        <h2 className="text-lg font-bold text-gray-900">{project.projectName}</h2>
+                        <span className="text-sm text-gray-500 tabular-nums">
+                          ${project.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({project.receiptCount} expense{project.receiptCount !== 1 ? 's' : ''})
+                        </span>
+                      </div>
+                      <div className="space-y-4">
+                        {project.dates.map(({ date, receipts }) => (
+                          <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                              <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
+                              <span className="text-sm text-gray-400">&middot;</span>
+                              <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
+                              <span className="text-xs text-gray-400">
+                                ({receipts.length} expense{receipts.length !== 1 ? 's' : ''})
+                              </span>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                              {receipts.map((receipt) => (
+                                <ReceiptCard key={receipt.id} receipt={receipt} />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+          )}
         </div>
       )}
 
