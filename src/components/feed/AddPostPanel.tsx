@@ -673,6 +673,12 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
       {/* ── Photo upload thumbnail strip ────────────────────────────────────── */}
       {mode === 'photo' && (
         <div className="px-3 pt-3 pb-1">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Photos</p>
+            <button onClick={cancelMode} className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
             {photoPreviews.map((url, i) => (
               <div
@@ -713,8 +719,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           className="fixed left-0 right-0 bottom-0 z-50 flex flex-col bg-white w-full max-w-full overflow-x-hidden overscroll-none lg:static lg:z-auto lg:block lg:overscroll-auto"
           style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
         >
-          {/* Mobile header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
+          {/* Header with close button */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h2 className="text-lg font-bold text-gray-900">Daily Report</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
@@ -865,7 +871,12 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
       {/* ── Task creation form ────────────────────────────────────────────────── */}
       {mode === 'task' && (
         <div className="px-4 pt-3 pb-2 max-h-[52vh] overflow-y-auto space-y-4">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">New Task</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">New Task</p>
+            <button onClick={cancelMode} className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
 
           {/* Title */}
           <div>
@@ -982,8 +993,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           className="fixed left-0 right-0 bottom-0 z-50 flex flex-col bg-white w-full max-w-full overflow-x-hidden overscroll-none lg:static lg:z-auto lg:block lg:overscroll-auto"
           style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
         >
-          {/* Mobile header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
+          {/* Header with close button */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h2 className="text-lg font-bold text-gray-900">JSA Report</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
@@ -1158,8 +1169,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           className="fixed left-0 right-0 bottom-0 z-50 flex flex-col bg-white w-full max-w-full overflow-x-hidden overscroll-none lg:static lg:z-auto lg:block lg:overscroll-auto"
           style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
         >
-          {/* Mobile header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
+          {/* Header with close button */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h2 className="text-lg font-bold text-gray-900">Timecard</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
@@ -1426,8 +1437,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           className="fixed left-0 right-0 bottom-0 z-50 flex flex-col bg-white w-full max-w-full overflow-x-hidden overscroll-none lg:static lg:z-auto lg:block lg:overscroll-auto"
           style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
         >
-          {/* Mobile header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
+          {/* Header with close button */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h2 className="text-lg font-bold text-gray-900">Expense / Receipt</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
@@ -1555,6 +1566,12 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
       {/* ── PDF upload strip ──────────────────────────────────────────────────── */}
       {mode === 'pdf' && pdfFile && (
         <div className="px-3 pt-3 pb-1">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">PDF Upload</p>
+            <button onClick={cancelMode} className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               <FileTextIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
@@ -1778,16 +1795,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               Timecard — {tcDate}{tcGrandTotal() > 0 ? ` — ${tcGrandTotal().toFixed(2)} hrs` : ''}
             </span>
           </div>
-        )}
-
-        {/* Cancel button for expanded modes */}
-        {(mode === 'photo' || mode === 'daily_report' || mode === 'task' || mode === 'pdf' || mode === 'jsa_report' || mode === 'receipt' || mode === 'timecard') && (
-          <button
-            onClick={cancelMode}
-            className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition"
-          >
-            <XIcon className="w-4 h-4" />
-          </button>
         )}
 
         {/* Send button */}
