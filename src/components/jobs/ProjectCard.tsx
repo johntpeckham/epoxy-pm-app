@@ -1,4 +1,4 @@
-import { MapPinIcon, UserIcon, PencilIcon, Trash2Icon, HashIcon } from 'lucide-react'
+import { MapPinIcon, UserIcon, PencilIcon, Trash2Icon } from 'lucide-react'
 import { Project } from '@/types'
 
 interface ProjectCardProps {
@@ -42,7 +42,9 @@ export default function ProjectCard({
                   isSelected ? 'text-amber-700' : 'text-gray-900 group-hover:text-amber-600'
                 }`}
               >
-                {project.name}
+                {project.estimate_number
+                  ? `Bid #${project.estimate_number} / ${project.name}`
+                  : project.name}
               </h3>
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
@@ -64,12 +66,6 @@ export default function ProjectCard({
                 <MapPinIcon className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{project.address}</span>
               </div>
-              {project.estimate_number && (
-                <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                  <HashIcon className="w-3 h-3 flex-shrink-0" />
-                  <span className="truncate">{project.estimate_number}</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
