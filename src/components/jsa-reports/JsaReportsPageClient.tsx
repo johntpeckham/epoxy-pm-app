@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusIcon, ShieldIcon, SearchIcon, ChevronDownIcon } from 'lucide-react'
+import { PlusIcon, ShieldIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import { Project, JsaReportContent } from '@/types'
 import JsaReportCard from './JsaReportCard'
 import NewJsaReportModal from './NewJsaReportModal'
@@ -20,6 +20,7 @@ interface JsaReportRow {
 interface JsaReportsPageClientProps {
   initialReports: JsaReportRow[]
   projects: Project[]
+  allProjects: Project[]
   userId: string
 }
 
@@ -80,6 +81,7 @@ function groupByProjectAndDate(reports: JsaReportRow[], sort: SortOption) {
 export default function JsaReportsPageClient({
   initialReports,
   projects,
+  allProjects,
   userId,
 }: JsaReportsPageClientProps) {
   const router = useRouter()
@@ -88,6 +90,13 @@ export default function JsaReportsPageClient({
   const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
+  const [showCompleted, setShowCompleted] = useState(false)
+
+  const projectStatusMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of allProjects) map.set(p.id, p.status)
+    return map
+  }, [allProjects])
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return initialReports
@@ -102,6 +111,15 @@ export default function JsaReportsPageClient({
   }, [initialReports, searchQuery])
 
   const grouped = useMemo(() => groupByProjectAndDate(filtered, sortOption), [filtered, sortOption])
+
+  const inProgressGroups = useMemo(
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) !== 'Complete'),
+    [grouped, projectStatusMap]
+  )
+  const completedGroups = useMemo(
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) === 'Complete'),
+    [grouped, projectStatusMap]
+  )
 
   function handleCreated() {
     setShowModal(false)
@@ -176,34 +194,85 @@ export default function JsaReportsPageClient({
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {grouped.map((project) => (
-            <div key={project.projectId}>
-              <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
-
-              <div className="space-y-4">
-                {project.dates.map(({ date, reports }) => (
-                  <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-                      <ShieldIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                      <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
-                      <span className="text-sm text-gray-400">&middot;</span>
-                      <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
-                      <span className="text-xs text-gray-400">
-                        ({reports.length} report{reports.length !== 1 ? 's' : ''})
-                      </span>
-                    </div>
-
-                    <div className="divide-y divide-gray-100">
-                      {reports.map((report) => (
-                        <JsaReportCard key={report.id} report={report} />
+        <div>
+          {/* In Progress section */}
+          {inProgressGroups.length > 0 && (
+            <>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">In Progress</p>
+              <div className="space-y-8">
+                {inProgressGroups.map((project) => (
+                  <div key={project.projectId}>
+                    <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
+                    <div className="space-y-4">
+                      {project.dates.map(({ date, reports }) => (
+                        <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                            <ShieldIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                            <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
+                            <span className="text-sm text-gray-400">&middot;</span>
+                            <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
+                            <span className="text-xs text-gray-400">
+                              ({reports.length} report{reports.length !== 1 ? 's' : ''})
+                            </span>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {reports.map((report) => (
+                              <JsaReportCard key={report.id} report={report} />
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
+            </>
+          )}
+
+          {/* Completed section — collapsible */}
+          {completedGroups.length > 0 && (
+            <div className={inProgressGroups.length > 0 ? 'border-t border-gray-200 mt-8 pt-4' : ''}>
+              <button
+                onClick={() => setShowCompleted(!showCompleted)}
+                className="flex items-center gap-2 w-full text-left mb-4"
+              >
+                <ChevronRightIcon
+                  className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
+                />
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
+                <span className="text-xs text-gray-400">({completedGroups.length})</span>
+              </button>
+              {showCompleted && (
+                <div className="space-y-8">
+                  {completedGroups.map((project) => (
+                    <div key={project.projectId}>
+                      <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
+                      <div className="space-y-4">
+                        {project.dates.map(({ date, reports }) => (
+                          <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                              <ShieldIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                              <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
+                              <span className="text-sm text-gray-400">&middot;</span>
+                              <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
+                              <span className="text-xs text-gray-400">
+                                ({reports.length} report{reports.length !== 1 ? 's' : ''})
+                              </span>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                              {reports.map((report) => (
+                                <JsaReportCard key={report.id} report={report} />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+          )}
         </div>
       )}
 
