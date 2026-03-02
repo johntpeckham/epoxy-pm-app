@@ -43,7 +43,7 @@ export default function ProjectCard({
                 }`}
               >
                 {project.estimate_number
-                  ? `Est. #${project.estimate_number} / ${project.name}`
+                  ? `Est. #${project.estimate_number} - ${project.name}`
                   : project.name}
               </h3>
               <span
