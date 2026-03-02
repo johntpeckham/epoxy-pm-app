@@ -247,6 +247,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
               initialPosts={feedPosts}
               userId={userId}
               onBack={() => setMobileView('list')}
+              onEdit={() => setEditingProject(selectedProject)}
             />
           )
         ) : (

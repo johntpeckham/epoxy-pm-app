@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { ArrowLeftIcon, MapPinIcon, UserIcon, FileTextIcon, ClipboardListIcon, CameraIcon } from 'lucide-react'
+import { ArrowLeftIcon, MapPinIcon, UserIcon, FileTextIcon, ClipboardListIcon, CameraIcon, PencilIcon } from 'lucide-react'
 import PostCard from './PostCard'
 import PinnedSection from './PinnedSection'
 import AddPostPanel from './AddPostPanel'
@@ -19,6 +19,8 @@ interface ProjectFeedClientProps {
   userId: string
   /** When provided, renders in panel mode: compact layout, no Link navigation */
   onBack?: () => void
+  /** Opens the project edit modal */
+  onEdit?: () => void
 }
 
 export default function ProjectFeedClient({
@@ -26,6 +28,7 @@ export default function ProjectFeedClient({
   initialPosts,
   userId,
   onBack,
+  onEdit,
 }: ProjectFeedClientProps) {
   const inPanel = onBack !== undefined
   const { role: userRole } = useUserRole()
@@ -134,6 +137,15 @@ export default function ProjectFeedClient({
             </div>
             {/* Action buttons — desktop only (inline with header) */}
             <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
+              {onEdit && (
+                <button
+                  onClick={onEdit}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
+                >
+                  <PencilIcon className="w-3.5 h-3.5" />
+                  Edit
+                </button>
+              )}
               <button
                 onClick={() => setShowPlansModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
@@ -159,6 +171,15 @@ export default function ProjectFeedClient({
           </div>
           {/* Action buttons — mobile only (below header info) */}
           <div className="flex md:hidden items-center gap-1.5 mt-3 overflow-x-auto max-w-full">
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
+              >
+                <PencilIcon className="w-3.5 h-3.5" />
+                Edit
+              </button>
+            )}
             <button
               onClick={() => setShowPlansModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
