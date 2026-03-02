@@ -3,11 +3,13 @@
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon } from 'lucide-react'
+import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import type { PhotoEntry } from '@/app/(dashboard)/photos/page'
+import { Project } from '@/types'
 
 interface PhotosPageClientProps {
   entries: PhotoEntry[]
+  allProjects: Project[]
 }
 
 type SortOption = 'newest' | 'oldest' | 'project_az'
@@ -63,10 +65,17 @@ function formatDate(dateStr: string) {
   })
 }
 
-export default function PhotosPageClient({ entries }: PhotosPageClientProps) {
+export default function PhotosPageClient({ entries, allProjects }: PhotosPageClientProps) {
   const supabase = createClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
+  const [showCompleted, setShowCompleted] = useState(false)
+
+  const projectStatusMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of allProjects) map.set(p.id, p.status)
+    return map
+  }, [allProjects])
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return entries
@@ -75,6 +84,15 @@ export default function PhotosPageClient({ entries }: PhotosPageClientProps) {
   }, [entries, searchQuery])
 
   const grouped = useMemo(() => groupByJobAndDate(filtered, sortOption), [filtered, sortOption])
+
+  const inProgressGroups = useMemo(
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) !== 'Complete'),
+    [grouped, projectStatusMap]
+  )
+  const completedGroups = useMemo(
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) === 'Complete'),
+    [grouped, projectStatusMap]
+  )
 
   const totalPhotos = filtered.reduce((sum, e) => sum + e.photos.length, 0)
 
@@ -134,25 +152,67 @@ export default function PhotosPageClient({ entries }: PhotosPageClientProps) {
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {grouped.map((job) => (
-            <div key={job.projectId}>
-              {/* Job heading */}
-              <h2 className="text-lg font-bold text-gray-900 mb-3">{job.projectName}</h2>
-
-              <div className="space-y-4">
-                {job.dates.map(({ date, photos }) => (
-                  <DaySection
-                    key={date}
-                    jobName={job.projectName}
-                    date={date}
-                    photos={photos}
-                    getPublicUrl={getPublicUrl}
-                  />
+        <div>
+          {/* In Progress section */}
+          {inProgressGroups.length > 0 && (
+            <>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">In Progress</p>
+              <div className="space-y-8">
+                {inProgressGroups.map((job) => (
+                  <div key={job.projectId}>
+                    <h2 className="text-lg font-bold text-gray-900 mb-3">{job.projectName}</h2>
+                    <div className="space-y-4">
+                      {job.dates.map(({ date, photos }) => (
+                        <DaySection
+                          key={date}
+                          jobName={job.projectName}
+                          date={date}
+                          photos={photos}
+                          getPublicUrl={getPublicUrl}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
+            </>
+          )}
+
+          {/* Completed section — collapsible */}
+          {completedGroups.length > 0 && (
+            <div className={inProgressGroups.length > 0 ? 'border-t border-gray-200 mt-8 pt-4' : ''}>
+              <button
+                onClick={() => setShowCompleted(!showCompleted)}
+                className="flex items-center gap-2 w-full text-left mb-4"
+              >
+                <ChevronRightIcon
+                  className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
+                />
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
+                <span className="text-xs text-gray-400">({completedGroups.length})</span>
+              </button>
+              {showCompleted && (
+                <div className="space-y-8">
+                  {completedGroups.map((job) => (
+                    <div key={job.projectId}>
+                      <h2 className="text-lg font-bold text-gray-900 mb-3">{job.projectName}</h2>
+                      <div className="space-y-4">
+                        {job.dates.map(({ date, photos }) => (
+                          <DaySection
+                            key={date}
+                            jobName={job.projectName}
+                            date={date}
+                            photos={photos}
+                            getPublicUrl={getPublicUrl}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

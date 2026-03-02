@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { PhotoContent, DailyReportContent } from '@/types'
+import { PhotoContent, DailyReportContent, Project } from '@/types'
 import PhotosPageClient from '@/components/photos/PhotosPageClient'
 
 export interface PhotoEntry {
@@ -18,6 +18,12 @@ export default async function PhotosPage() {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  // Fetch all projects for status grouping
+  const { data: projectRows } = await supabase
+    .from('projects')
+    .select('*')
+    .order('name', { ascending: true })
 
   // Fetch all photo and daily_report posts with project names
   const { data: posts } = await supabase
@@ -60,5 +66,5 @@ export default async function PhotosPage() {
       }
     })
 
-  return <PhotosPageClient entries={entries} />
+  return <PhotosPageClient entries={entries} allProjects={(projectRows as Project[]) ?? []} />
 }

@@ -18,6 +18,12 @@ export default async function DailyReportsPage() {
     .eq('status', 'Active')
     .order('name', { ascending: true })
 
+  // Fetch all projects (including completed) for status grouping
+  const { data: allProjectRows } = await supabase
+    .from('projects')
+    .select('*')
+    .order('name', { ascending: true })
+
   // Fetch all daily report posts with joined project name
   const { data: posts } = await supabase
     .from('feed_posts')
@@ -44,6 +50,7 @@ export default async function DailyReportsPage() {
     <DailyReportsPageClient
       initialReports={reports}
       projects={(projectRows as Project[]) ?? []}
+      allProjects={(allProjectRows as Project[]) ?? []}
       userId={user.id}
     />
   )
