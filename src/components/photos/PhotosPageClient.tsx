@@ -1,15 +1,21 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
+import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon, ChevronRightIcon, PlusIcon } from 'lucide-react'
 import type { PhotoEntry } from '@/app/(dashboard)/photos/page'
 import { Project } from '@/types'
+import NewPhotoModal from './NewPhotoModal'
+import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 
 interface PhotosPageClientProps {
   entries: PhotoEntry[]
+  projects: Project[]
   allProjects: Project[]
+  userId: string
 }
 
 type SortOption = 'newest' | 'oldest' | 'project_az'
@@ -65,8 +71,12 @@ function formatDate(dateStr: string) {
   })
 }
 
-export default function PhotosPageClient({ entries, allProjects }: PhotosPageClientProps) {
+export default function PhotosPageClient({ entries, projects, allProjects, userId }: PhotosPageClientProps) {
+  const router = useRouter()
   const supabase = createClient()
+  const { role } = useUserRole()
+  const { canCreate } = usePermissions(role)
+  const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
   const [showCompleted, setShowCompleted] = useState(false)
@@ -100,15 +110,33 @@ export default function PhotosPageClient({ entries, allProjects }: PhotosPageCli
     return supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl
   }
 
+  function handleCreated() {
+    setShowModal(false)
+    router.refresh()
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Photos</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {totalPhotos} photo{totalPhotos !== 1 ? 's' : ''} across {grouped.length} job
-          {grouped.length !== 1 ? 's' : ''}
-        </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Photos</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {totalPhotos} photo{totalPhotos !== 1 ? 's' : ''} across {grouped.length} job
+            {grouped.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        {canCreate('photos') && (
+          <button
+            onClick={() => setShowModal(true)}
+            disabled={projects.length === 0}
+            title={projects.length === 0 ? 'Create a project first' : undefined}
+            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
+          >
+            <PlusIcon className="w-4 h-4" />
+            New Photo
+          </button>
+        )}
       </div>
 
       {/* Search & Sort Controls */}
@@ -214,6 +242,15 @@ export default function PhotosPageClient({ entries, allProjects }: PhotosPageCli
             </div>
           )}
         </div>
+      )}
+
+      {showModal && (
+        <NewPhotoModal
+          projects={projects}
+          userId={userId}
+          onClose={() => setShowModal(false)}
+          onCreated={handleCreated}
+        />
       )}
     </div>
   )
