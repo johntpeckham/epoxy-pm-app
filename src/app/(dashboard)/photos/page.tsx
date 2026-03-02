@@ -19,7 +19,14 @@ export default async function PhotosPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Fetch all projects for status grouping
+  // Fetch active projects for the "New Photo" dropdown
+  const { data: activeProjectRows } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('status', 'Active')
+    .order('name', { ascending: true })
+
+  // Fetch all projects (including completed) for status grouping
   const { data: projectRows } = await supabase
     .from('projects')
     .select('*')
@@ -66,5 +73,12 @@ export default async function PhotosPage() {
       }
     })
 
-  return <PhotosPageClient entries={entries} allProjects={(projectRows as Project[]) ?? []} />
+  return (
+    <PhotosPageClient
+      entries={entries}
+      projects={(activeProjectRows as Project[]) ?? []}
+      allProjects={(projectRows as Project[]) ?? []}
+      userId={user.id}
+    />
+  )
 }

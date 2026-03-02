@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon } from 'lucide-react'
+import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon, PlusIcon } from 'lucide-react'
 import { Project, TimecardContent } from '@/types'
 import TimecardCard from './TimecardCard'
 import ManageEmployeesModal from './ManageEmployeesModal'
+import NewTimecardModal from './NewTimecardModal'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 
@@ -93,6 +94,7 @@ export default function TimesheetsPageClient({
   const { role } = useUserRole()
   const { canCreate } = usePermissions(role)
   const [showManageEmployees, setShowManageEmployees] = useState(false)
+  const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
   const [filterProject, setFilterProject] = useState<string>('')
@@ -200,13 +202,26 @@ export default function TimesheetsPageClient({
             {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={() => setShowManageEmployees(true)}
-          className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition"
-        >
-          <SettingsIcon className="w-4 h-4" />
-          Manage Employees
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowManageEmployees(true)}
+            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition"
+          >
+            <SettingsIcon className="w-4 h-4" />
+            Manage Employees
+          </button>
+          {canCreate('timesheets') && (
+            <button
+              onClick={() => setShowModal(true)}
+              disabled={projects.length === 0}
+              title={projects.length === 0 ? 'Create a project first' : undefined}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
+            >
+              <PlusIcon className="w-4 h-4" />
+              New Timesheet
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Summary */}
@@ -393,6 +408,18 @@ export default function TimesheetsPageClient({
 
       {showManageEmployees && (
         <ManageEmployeesModal onClose={() => setShowManageEmployees(false)} />
+      )}
+
+      {showModal && (
+        <NewTimecardModal
+          projects={projects}
+          userId={userId}
+          onClose={() => setShowModal(false)}
+          onCreated={() => {
+            setShowModal(false)
+            router.refresh()
+          }}
+        />
       )}
     </div>
   )
