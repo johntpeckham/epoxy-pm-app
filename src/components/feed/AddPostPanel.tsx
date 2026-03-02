@@ -7,7 +7,6 @@ import {
   XIcon,
   CameraIcon,
   ClipboardListIcon,
-  UploadIcon,
   FileTextIcon,
   PlusIcon,
   CheckSquareIcon,
@@ -1540,50 +1539,41 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </div>
       )}
 
-      {/* ── PDF upload strip ──────────────────────────────────────────────────── */}
-      {mode === 'pdf' && (
-        <div className="px-3 pt-3 pb-1">
-          <input
-            ref={pdfInputRef}
-            type="file"
-            accept=".pdf,application/pdf"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) setPdfFile(file)
-              e.target.value = ''
-            }}
-          />
+      {/* Hidden file input for PDF uploads — always in DOM so it can be triggered immediately */}
+      <input
+        ref={pdfInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) setPdfFile(file)
+          e.target.value = ''
+        }}
+      />
 
-          {!pdfFile ? (
-            <button
-              onClick={() => pdfInputRef.current?.click()}
-              className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium py-1 transition"
-            >
-              <UploadIcon className="w-4 h-4" />
-              Select a PDF to upload
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                <FileTextIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <span className="text-sm text-gray-700 truncate flex-1">{pdfFile.name}</span>
-                <button
-                  onClick={() => { setPdfFile(null); setPdfCaption(''); if (pdfInputRef.current) pdfInputRef.current.value = '' }}
-                  className="p-0.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
-                >
-                  <XIcon className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <input
-                type="text"
-                value={pdfCaption}
-                onChange={(e) => setPdfCaption(e.target.value)}
-                placeholder="Add a caption..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
+      {/* ── PDF upload strip ──────────────────────────────────────────────────── */}
+      {mode === 'pdf' && pdfFile && (
+        <div className="px-3 pt-3 pb-1">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <FileTextIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <span className="text-sm text-gray-700 truncate flex-1">{pdfFile.name}</span>
+              <button
+                onClick={() => { setPdfFile(null); setPdfCaption(''); if (pdfInputRef.current) pdfInputRef.current.value = '' }}
+                className="p-0.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
+              >
+                <XIcon className="w-3.5 h-3.5" />
+              </button>
             </div>
-          )}
+            <input
+              type="text"
+              value={pdfCaption}
+              onChange={(e) => setPdfCaption(e.target.value)}
+              placeholder="Add a caption..."
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            />
+          </div>
         </div>
       )}
 
@@ -1690,7 +1680,11 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                   </button>
                 )}
                 <button
-                  onClick={() => selectMode('pdf')}
+                  onClick={() => {
+                    selectMode('pdf')
+                    // Immediately open native file picker — no intermediate step
+                    setTimeout(() => pdfInputRef.current?.click(), 0)
+                  }}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
                     mode === 'pdf'
                       ? 'text-amber-600 bg-amber-50 font-medium'
