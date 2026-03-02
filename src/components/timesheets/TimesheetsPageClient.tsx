@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClockIcon, SearchIcon, ChevronDownIcon, SettingsIcon } from 'lucide-react'
+import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon } from 'lucide-react'
 import { Project, TimecardContent } from '@/types'
 import TimecardCard from './TimecardCard'
 import ManageEmployeesModal from './ManageEmployeesModal'
@@ -20,6 +20,7 @@ interface TimecardRow {
 interface TimesheetsPageClientProps {
   initialTimecards: TimecardRow[]
   projects: Project[]
+  allProjects: Project[]
   userId: string
 }
 
@@ -85,6 +86,7 @@ function groupByProjectAndDate(timecards: TimecardRow[], sort: SortOption) {
 export default function TimesheetsPageClient({
   initialTimecards,
   projects,
+  allProjects,
   userId,
 }: TimesheetsPageClientProps) {
   const router = useRouter()
@@ -96,6 +98,13 @@ export default function TimesheetsPageClient({
   const [filterProject, setFilterProject] = useState<string>('')
   const [filterDateFrom, setFilterDateFrom] = useState<string>('')
   const [filterDateTo, setFilterDateTo] = useState<string>('')
+  const [showCompleted, setShowCompleted] = useState(false)
+
+  const projectStatusMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of allProjects) map.set(p.id, p.status)
+    return map
+  }, [allProjects])
 
   const projectNames = useMemo(() => {
     const names = new Set<string>()
@@ -170,6 +179,15 @@ export default function TimesheetsPageClient({
   )
 
   const grouped = useMemo(() => groupByProjectAndDate(filtered, sortOption), [filtered, sortOption])
+
+  const inProgressGroups = useMemo(
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) !== 'Complete'),
+    [grouped, projectStatusMap]
+  )
+  const completedGroups = useMemo(
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) === 'Complete'),
+    [grouped, projectStatusMap]
+  )
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
@@ -293,35 +311,83 @@ export default function TimesheetsPageClient({
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {grouped.map((project) => (
-            <div key={project.projectId}>
-              <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
-
-              <div className="space-y-4">
-                {project.dates.map(({ date, timecards }) => (
-                  <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    {/* Date header */}
-                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-                      <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
-                      <span className="text-sm text-gray-400">&middot;</span>
-                      <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
-                      <span className="text-xs text-gray-400">
-                        ({timecards.length} timecard{timecards.length !== 1 ? 's' : ''})
-                      </span>
-                    </div>
-
-                    {/* Timecard cards within this date */}
-                    <div className="divide-y divide-gray-100">
-                      {timecards.map((tc) => (
-                        <TimecardCard key={tc.id} timecard={tc} />
+        <div>
+          {/* In Progress section */}
+          {inProgressGroups.length > 0 && (
+            <>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">In Progress</p>
+              <div className="space-y-8">
+                {inProgressGroups.map((project) => (
+                  <div key={project.projectId}>
+                    <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
+                    <div className="space-y-4">
+                      {project.dates.map(({ date, timecards }) => (
+                        <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                            <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
+                            <span className="text-sm text-gray-400">&middot;</span>
+                            <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
+                            <span className="text-xs text-gray-400">
+                              ({timecards.length} timecard{timecards.length !== 1 ? 's' : ''})
+                            </span>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {timecards.map((tc) => (
+                              <TimecardCard key={tc.id} timecard={tc} />
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
+            </>
+          )}
+
+          {/* Completed section — collapsible */}
+          {completedGroups.length > 0 && (
+            <div className={inProgressGroups.length > 0 ? 'border-t border-gray-200 mt-8 pt-4' : ''}>
+              <button
+                onClick={() => setShowCompleted(!showCompleted)}
+                className="flex items-center gap-2 w-full text-left mb-4"
+              >
+                <ChevronRightIcon
+                  className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
+                />
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
+                <span className="text-xs text-gray-400">({completedGroups.length})</span>
+              </button>
+              {showCompleted && (
+                <div className="space-y-8">
+                  {completedGroups.map((project) => (
+                    <div key={project.projectId}>
+                      <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
+                      <div className="space-y-4">
+                        {project.dates.map(({ date, timecards }) => (
+                          <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                              <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
+                              <span className="text-sm text-gray-400">&middot;</span>
+                              <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
+                              <span className="text-xs text-gray-400">
+                                ({timecards.length} timecard{timecards.length !== 1 ? 's' : ''})
+                              </span>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                              {timecards.map((tc) => (
+                                <TimecardCard key={tc.id} timecard={tc} />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+          )}
         </div>
       )}
 
