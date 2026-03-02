@@ -661,59 +661,50 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </div>
       )}
 
+      {/* Hidden file input for photo uploads — always in DOM so it can be triggered immediately */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*,.pdf,application/pdf"
+        multiple
+        className="hidden"
+        onChange={handlePhotoChange}
+      />
+
       {/* ── Photo upload thumbnail strip ────────────────────────────────────── */}
       {mode === 'photo' && (
         <div className="px-3 pt-3 pb-1">
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*,.pdf,application/pdf"
-            multiple
-            className="hidden"
-            onChange={handlePhotoChange}
-          />
-
-          {photoPreviews.length === 0 ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            {photoPreviews.map((url, i) => (
+              <div
+                key={i}
+                className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100"
+              >
+                {photoFiles[i] && isPdf(photoFiles[i]) ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-red-50">
+                    <FileTextIcon className="w-5 h-5 text-red-400" />
+                    <span className="text-[10px] text-red-400 font-medium mt-0.5">PDF</span>
+                  </div>
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                )}
+                <button
+                  onClick={() => removePhoto(i)}
+                  className="absolute top-0.5 right-0.5 bg-black/70 text-white rounded-full p-0.5"
+                >
+                  <XIcon className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
             <button
               onClick={() => photoInputRef.current?.click()}
-              className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium py-1 transition"
+              className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-amber-400 hover:text-amber-500 transition"
             >
-              <UploadIcon className="w-4 h-4" />
-              Select photos or PDFs to upload
+              <PlusIcon className="w-4 h-4" />
+              <span className="text-[10px] mt-0.5">Add</span>
             </button>
-          ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              {photoPreviews.map((url, i) => (
-                <div
-                  key={i}
-                  className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100"
-                >
-                  {photoFiles[i] && isPdf(photoFiles[i]) ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-red-50">
-                      <FileTextIcon className="w-5 h-5 text-red-400" />
-                      <span className="text-[10px] text-red-400 font-medium mt-0.5">PDF</span>
-                    </div>
-                  ) : (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                  )}
-                  <button
-                    onClick={() => removePhoto(i)}
-                    className="absolute top-0.5 right-0.5 bg-black/70 text-white rounded-full p-0.5"
-                  >
-                    <XIcon className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => photoInputRef.current?.click()}
-                className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-amber-400 hover:text-amber-500 transition"
-              >
-                <PlusIcon className="w-4 h-4" />
-                <span className="text-[10px] mt-0.5">Add</span>
-              </button>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -1618,7 +1609,11 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-20 w-44">
                 {canCreate('photos') && (
                   <button
-                    onClick={() => selectMode('photo')}
+                    onClick={() => {
+                      selectMode('photo')
+                      // Immediately open native file picker — no intermediate step
+                      setTimeout(() => photoInputRef.current?.click(), 0)
+                    }}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
                       mode === 'photo'
                         ? 'text-amber-600 bg-amber-50 font-medium'
