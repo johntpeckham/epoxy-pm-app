@@ -35,34 +35,91 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'project_az', label: 'Project Name (A-Z)' },
 ]
 
-function formatGroupDate(dateStr: string) {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+// ── Week helpers ──────────────────────────────────────────────────────────────
+
+/** Get the Monday of the week containing dateStr (YYYY-MM-DD) */
+function getWeekMonday(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  const day = d.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  return d.toISOString().split('T')[0]
 }
 
-function groupByProjectAndDate(timecards: TimecardRow[], sort: SortOption) {
+/** Format a week range like "Week of Feb 24 - Mar 2, 2026" */
+function formatWeekRange(weekMonday: string): string {
+  const start = new Date(weekMonday + 'T12:00:00')
+  const end = new Date(weekMonday + 'T12:00:00')
+  end.setDate(end.getDate() + 6)
+  const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return `Week of ${startStr} – ${endStr}`
+}
+
+// ── Grouping ──────────────────────────────────────────────────────────────────
+
+interface WeekGroup {
+  weekMonday: string
+  weekHours: number
+  weekEntries: number
+  timecards: TimecardRow[]
+}
+
+interface ProjectGroup {
+  projectId: string
+  projectName: string
+  totalHours: number
+  totalTimecards: number
+  totalEntries: number
+  weeks: WeekGroup[]
+}
+
+function groupByProjectAndWeek(timecards: TimecardRow[], sort: SortOption): ProjectGroup[] {
   const projectMap = new Map<
     string,
-    { projectName: string; dates: Map<string, TimecardRow[]>; latestDate: string; oldestDate: string; totalHours: number }
+    {
+      projectName: string
+      weekMap: Map<string, { hours: number; entries: number; timecards: TimecardRow[] }>
+      totalHours: number
+      totalTimecards: number
+      totalEntries: number
+      latestDate: string
+      oldestDate: string
+    }
   >()
 
   for (const tc of timecards) {
-    let project = projectMap.get(tc.project_id)
     const dateKey = tc.content.date || tc.created_at.slice(0, 10)
+    const weekKey = getWeekMonday(dateKey)
+    let project = projectMap.get(tc.project_id)
+
     if (!project) {
-      project = { projectName: tc.project_name, dates: new Map(), latestDate: dateKey, oldestDate: dateKey, totalHours: 0 }
+      project = {
+        projectName: tc.project_name,
+        weekMap: new Map(),
+        totalHours: 0,
+        totalTimecards: 0,
+        totalEntries: 0,
+        latestDate: dateKey,
+        oldestDate: dateKey,
+      }
       projectMap.set(tc.project_id, project)
     }
+
     if (dateKey > project.latestDate) project.latestDate = dateKey
     if (dateKey < project.oldestDate) project.oldestDate = dateKey
     project.totalHours += tc.content.grand_total_hours
-    const existing = project.dates.get(dateKey) ?? []
-    existing.push(tc)
-    project.dates.set(dateKey, existing)
+    project.totalTimecards += 1
+    project.totalEntries += tc.content.entries.length
+
+    let week = project.weekMap.get(weekKey)
+    if (!week) {
+      week = { hours: 0, entries: 0, timecards: [] }
+      project.weekMap.set(weekKey, week)
+    }
+    week.hours += tc.content.grand_total_hours
+    week.entries += tc.content.entries.length
+    week.timecards.push(tc)
   }
 
   const dateDir = sort === 'oldest' ? 1 : -1
@@ -78,11 +135,25 @@ function groupByProjectAndDate(timecards: TimecardRow[], sort: SortOption) {
     .map(([projectId, project]) => ({
       projectId,
       projectName: project.projectName,
-      dates: Array.from(project.dates.entries())
+      totalHours: Math.round(project.totalHours * 100) / 100,
+      totalTimecards: project.totalTimecards,
+      totalEntries: project.totalEntries,
+      weeks: Array.from(project.weekMap.entries())
         .sort(([a], [b]) => a.localeCompare(b) * dateDir)
-        .map(([date, timecards]) => ({ date, timecards })),
+        .map(([weekMonday, week]) => ({
+          weekMonday,
+          weekHours: Math.round(week.hours * 100) / 100,
+          weekEntries: week.entries,
+          timecards: [...week.timecards].sort((a, b) => {
+            const dA = a.content.date || a.created_at.slice(0, 10)
+            const dB = b.content.date || b.created_at.slice(0, 10)
+            return dA.localeCompare(dB) * dateDir
+          }),
+        })),
     }))
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TimesheetsPageClient({
   initialTimecards,
@@ -100,7 +171,7 @@ export default function TimesheetsPageClient({
   const [filterProject, setFilterProject] = useState<string>('')
   const [filterDateFrom, setFilterDateFrom] = useState<string>('')
   const [filterDateTo, setFilterDateTo] = useState<string>('')
-  const [showCompleted, setShowCompleted] = useState(false)
+  const [collapsedProjects, setCollapsedProjects] = useState<Record<string, boolean>>({})
 
   const projectStatusMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -170,17 +241,7 @@ export default function TimesheetsPageClient({
     })
   }, [initialTimecards, searchQuery, sortOption, filterProject, filterDateFrom, filterDateTo])
 
-  const totalHours = useMemo(
-    () => Math.round(filtered.reduce((sum, tc) => sum + tc.content.grand_total_hours, 0) * 100) / 100,
-    [filtered]
-  )
-
-  const totalEmployeeEntries = useMemo(
-    () => filtered.reduce((sum, tc) => sum + tc.content.entries.length, 0),
-    [filtered]
-  )
-
-  const grouped = useMemo(() => groupByProjectAndDate(filtered, sortOption), [filtered, sortOption])
+  const grouped = useMemo(() => groupByProjectAndWeek(filtered, sortOption), [filtered, sortOption])
 
   const inProgressGroups = useMemo(
     () => grouped.filter((g) => projectStatusMap.get(g.projectId) !== 'Complete'),
@@ -190,6 +251,67 @@ export default function TimesheetsPageClient({
     () => grouped.filter((g) => projectStatusMap.get(g.projectId) === 'Complete'),
     [grouped, projectStatusMap]
   )
+
+  function isProjectCollapsed(projectId: string, isCompleted: boolean) {
+    if (projectId in collapsedProjects) return collapsedProjects[projectId]
+    return isCompleted
+  }
+
+  function toggleProject(projectId: string, isCompleted: boolean) {
+    setCollapsedProjects((prev) => ({
+      ...prev,
+      [projectId]: !(prev[projectId] ?? isCompleted),
+    }))
+  }
+
+  function renderProjectGroup(project: ProjectGroup, isCompleted: boolean) {
+    const collapsed = isProjectCollapsed(project.projectId, isCompleted)
+
+    return (
+      <div key={project.projectId}>
+        {/* Project header — collapsible with inline summary */}
+        <button
+          onClick={() => toggleProject(project.projectId, isCompleted)}
+          className="flex items-center gap-2 w-full text-left py-1.5 group/proj"
+        >
+          <ChevronRightIcon
+            className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${
+              !collapsed ? 'rotate-90' : ''
+            }`}
+          />
+          <h2 className="text-base font-bold text-gray-900 truncate">{project.projectName}</h2>
+          <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+            — {project.totalHours.toFixed(2)} hrs · {project.totalTimecards} timecard{project.totalTimecards !== 1 ? 's' : ''} · {project.totalEntries} {project.totalEntries === 1 ? 'entry' : 'entries'}
+          </span>
+        </button>
+
+        {/* Week groups — shown when expanded */}
+        {!collapsed && (
+          <div className="ml-2 mt-1 space-y-2 mb-4">
+            {project.weeks.map((week) => (
+              <div key={week.weekMonday} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                {/* Week header */}
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
+                  <span className="text-xs font-semibold text-gray-600">
+                    {formatWeekRange(week.weekMonday)}
+                  </span>
+                  <span className="text-xs font-bold text-blue-700 tabular-nums">
+                    {week.weekHours.toFixed(2)} hrs
+                  </span>
+                </div>
+                {/* Timecard rows */}
+                <div className="divide-y divide-gray-100">
+                  {week.timecards.map((tc) => (
+                    <TimecardCard key={tc.id} timecard={tc} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
@@ -220,21 +342,6 @@ export default function TimesheetsPageClient({
               <PlusIcon className="w-4 h-4" />
               New Timesheet
             </button>
-          )}
-        </div>
-      </div>
-
-      {/* Summary */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 mb-5 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Total Hours</p>
-          <p className="text-2xl font-bold text-gray-900 tabular-nums">{totalHours.toFixed(2)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-blue-600">{filtered.length} timecard{filtered.length !== 1 ? 's' : ''}</p>
-          <p className="text-xs text-blue-600">{totalEmployeeEntries} employee entries</p>
-          {(filterProject || filterDateFrom || filterDateTo) && (
-            <p className="text-xs text-blue-500 mt-0.5">Filtered</p>
           )}
         </div>
       </div>
@@ -330,77 +437,20 @@ export default function TimesheetsPageClient({
           {/* In Progress section */}
           {inProgressGroups.length > 0 && (
             <>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">In Progress</p>
-              <div className="space-y-8">
-                {inProgressGroups.map((project) => (
-                  <div key={project.projectId}>
-                    <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
-                    <div className="space-y-4">
-                      {project.dates.map(({ date, timecards }) => (
-                        <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                          <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-                            <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
-                            <span className="text-sm text-gray-400">&middot;</span>
-                            <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
-                            <span className="text-xs text-gray-400">
-                              ({timecards.length} timecard{timecards.length !== 1 ? 's' : ''})
-                            </span>
-                          </div>
-                          <div className="divide-y divide-gray-100">
-                            {timecards.map((tc) => (
-                              <TimecardCard key={tc.id} timecard={tc} />
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">In Progress</p>
+              <div className="space-y-3">
+                {inProgressGroups.map((project) => renderProjectGroup(project, false))}
               </div>
             </>
           )}
 
-          {/* Completed section — collapsible */}
+          {/* Completed section */}
           {completedGroups.length > 0 && (
-            <div className={inProgressGroups.length > 0 ? 'border-t border-gray-200 mt-8 pt-4' : ''}>
-              <button
-                onClick={() => setShowCompleted(!showCompleted)}
-                className="flex items-center gap-2 w-full text-left mb-4"
-              >
-                <ChevronRightIcon
-                  className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
-                />
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
-                <span className="text-xs text-gray-400">({completedGroups.length})</span>
-              </button>
-              {showCompleted && (
-                <div className="space-y-8">
-                  {completedGroups.map((project) => (
-                    <div key={project.projectId}>
-                      <h2 className="text-lg font-bold text-gray-900 mb-3">{project.projectName}</h2>
-                      <div className="space-y-4">
-                        {project.dates.map(({ date, timecards }) => (
-                          <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-                              <span className="text-sm font-semibold text-gray-800">{project.projectName}</span>
-                              <span className="text-sm text-gray-400">&middot;</span>
-                              <span className="text-sm text-gray-600">{formatGroupDate(date)}</span>
-                              <span className="text-xs text-gray-400">
-                                ({timecards.length} timecard{timecards.length !== 1 ? 's' : ''})
-                              </span>
-                            </div>
-                            <div className="divide-y divide-gray-100">
-                              {timecards.map((tc) => (
-                                <TimecardCard key={tc.id} timecard={tc} />
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className={inProgressGroups.length > 0 ? 'border-t border-gray-200 mt-6 pt-4' : ''}>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Completed</p>
+              <div className="space-y-3">
+                {completedGroups.map((project) => renderProjectGroup(project, true))}
+              </div>
             </div>
           )}
         </div>
