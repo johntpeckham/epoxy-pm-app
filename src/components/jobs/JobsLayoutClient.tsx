@@ -6,6 +6,7 @@ import {
   PlusIcon,
   SearchIcon,
   BriefcaseIcon,
+  ChevronRightIcon,
 } from 'lucide-react'
 import { Project, FeedPost } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
@@ -30,6 +31,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
   // List controls
   const [search, setSearch] = useState('')
+  const [showCompleted, setShowCompleted] = useState(true)
 
   // Modals
   const [showNewProject, setShowNewProject] = useState(false)
@@ -208,21 +210,34 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
                 ))
               )}
 
-              {/* Completed section — hidden when empty */}
+              {/* Completed section — collapsible, hidden when empty */}
               {completedProjects.length > 0 && (
-                <>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-4 mb-2">Completed</p>
-                  {completedProjects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      isSelected={selectedProject?.id === project.id}
-                      onSelect={selectProject}
-                      onEdit={setEditingProject}
-                      onDelete={setProjectToDelete}
+                <div className="border-t border-gray-200 mt-4 pt-4">
+                  <button
+                    onClick={() => setShowCompleted(!showCompleted)}
+                    className="flex items-center gap-2 w-full text-left mb-2"
+                  >
+                    <ChevronRightIcon
+                      className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
                     />
-                  ))}
-                </>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
+                    <span className="text-xs text-gray-400">({completedProjects.length})</span>
+                  </button>
+                  {showCompleted && (
+                    <div className="space-y-2">
+                      {completedProjects.map((project) => (
+                        <ProjectCard
+                          key={project.id}
+                          project={project}
+                          isSelected={selectedProject?.id === project.id}
+                          onSelect={selectProject}
+                          onEdit={setEditingProject}
+                          onDelete={setProjectToDelete}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </>
           )}
