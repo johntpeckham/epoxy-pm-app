@@ -106,9 +106,13 @@ export default function NewReceiptModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-4 sm:py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-white sm:rounded-xl shadow-2xl w-full max-w-lg flex flex-col h-full sm:h-auto sm:max-h-[90vh]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <div className="relative bg-white rounded-t-2xl sm:rounded-xl shadow-2xl w-full max-w-lg flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh]" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)' }}>
+        {/* Mobile drag handle — provides visual spacing below status bar */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 pt-3 sm:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">New Expense</h2>
           <button
             onClick={onClose}
