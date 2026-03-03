@@ -152,9 +152,9 @@ export default function DocumentUploadModal({
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+    <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]">
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
           <div>
@@ -319,7 +319,7 @@ export default function DocumentUploadModal({
 
       {/* Full-screen PDF viewer — iframe lets the browser handle zoom, scroll, nav */}
       {previewDoc && isPdf(previewDoc) && (
-        <div className="fixed inset-0 z-[60] overflow-x-hidden bg-black flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+        <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] bg-black flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
           <div className="flex items-center justify-between px-4 py-2 bg-gray-900 text-white">
             <span className="truncate text-sm">{previewDoc.file_name}</span>
             <button
@@ -339,9 +339,9 @@ export default function DocumentUploadModal({
 
       {/* Non-PDF preview overlay */}
       {previewDoc && !isPdf(previewDoc) && (
-        <div className="fixed inset-0 z-[70] overflow-x-hidden flex items-center justify-center lg:p-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+        <div className="fixed inset-0 z-[70] overflow-x-hidden max-w-[100vw] flex items-center justify-center lg:p-6">
           <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewDoc(null)} />
-          <div className="relative bg-white lg:rounded-xl shadow-2xl flex flex-col w-full h-full lg:w-[80vw] lg:h-[85vh]">
+          <div className="relative bg-white lg:rounded-xl shadow-2xl flex flex-col w-full h-full lg:w-[80vw] lg:h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
             <div className="flex items-center justify-between px-4 lg:px-6 pt-3 lg:pt-4 pb-2 lg:pb-3 border-b border-gray-100 flex-none">
               <div className="flex items-center gap-2 lg:gap-3 min-w-0">
                 <FileTextIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />

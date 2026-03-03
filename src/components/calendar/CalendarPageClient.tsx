@@ -368,9 +368,9 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {/* ── Add/Edit Project Modal ──────────────────────────────────────────── */}
       {showFormModal && (
         <Portal>
-        <div className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+        <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => { setShowFormModal(false); resetForm() }} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]">
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -528,9 +528,9 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {/* ── Event Detail Modal ──────────────────────────────────────────────── */}
       {detailEvent && !showDeleteConfirm && (
         <Portal>
-        <div className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+        <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => setDetailEvent(null)} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]">
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
             {/* Header with color bar */}
             <div
               className="rounded-t-xl px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0"
@@ -618,9 +618,9 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {/* ── Delete Confirmation ─────────────────────────────────────────────── */}
       {showDeleteConfirm && detailEvent && (
         <Portal>
-        <div className="fixed inset-0 z-[70] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+        <div className="fixed inset-0 z-[70] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
             <div className="flex flex-col items-center text-center">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
                 <Trash2Icon className="w-6 h-6 text-red-500" />

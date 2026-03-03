@@ -106,9 +106,9 @@ export default function NewReceiptModal({
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-[60] overflow-x-hidden flex items-end sm:items-center justify-center sm:px-4 sm:py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+    <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-end sm:items-center justify-center sm:px-4 sm:py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-white rounded-t-2xl sm:rounded-xl shadow-2xl w-full max-w-lg flex flex-col h-full sm:h-auto sm:max-h-[90vh]">
+      <div className="relative bg-white rounded-t-2xl sm:rounded-xl shadow-2xl w-full max-w-lg flex flex-col h-full sm:h-auto sm:max-h-[90vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
         {/* Mobile drag handle — provides visual spacing below status bar */}
         <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-10 h-1 rounded-full bg-gray-300" />

@@ -148,9 +148,9 @@ function SignatureModal({
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-[80] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+    <div className="fixed inset-0 z-[80] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4">
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">
             Sign: {name || 'Employee'}
