@@ -46,7 +46,7 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-20 md:pt-0">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">

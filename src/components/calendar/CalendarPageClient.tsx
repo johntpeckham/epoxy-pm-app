@@ -366,7 +366,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
       {/* ── Add/Edit Project Modal ──────────────────────────────────────────── */}
       {showFormModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pb-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-20 md:pt-6 pb-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => { setShowFormModal(false); resetForm() }} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]">
             {/* Header */}
@@ -524,7 +524,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
       {/* ── Event Detail Modal ──────────────────────────────────────────────── */}
       {detailEvent && !showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pb-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-20 md:pt-6 pb-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => setDetailEvent(null)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]">
             {/* Header with color bar */}
@@ -612,7 +612,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
       {/* ── Delete Confirmation ─────────────────────────────────────────────── */}
       {showDeleteConfirm && detailEvent && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 pb-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 pt-20 md:pt-6 pb-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowDeleteConfirm(false)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex flex-col items-center text-center">
