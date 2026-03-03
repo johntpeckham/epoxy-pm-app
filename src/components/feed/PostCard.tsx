@@ -918,10 +918,10 @@ function InlinePdfPost({ content }: { content: PdfContent }) {
       {/* PDF preview modal */}
       {showPreview && (
         <Portal>
-        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50" onClick={() => setShowPreview(false)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={() => setShowPreview(false)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Title bar */}
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900 truncate">{content.filename}</h2>
               <button
                 onClick={() => setShowPreview(false)}
@@ -1351,10 +1351,10 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       {/* ── Image lightbox overlay ──────────────────────────────────────── */}
       {previewImage && (
         <Portal>
-        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50" onClick={() => setPreviewImage(null)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={() => setPreviewImage(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Title bar */}
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900">Image Preview</h2>
               <button
                 onClick={() => setPreviewImage(null)}

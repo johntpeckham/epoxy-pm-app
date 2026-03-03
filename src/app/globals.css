@@ -29,6 +29,13 @@ body {
   }
 }
 
+/* Modal positioning below mobile header */
+@media (max-width: 1023px) {
+  .modal-below-header {
+    top: calc(3.5rem + env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }

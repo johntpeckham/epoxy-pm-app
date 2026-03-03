@@ -355,11 +355,11 @@ export default function ProjectReportModal({
 
   return (
     <Portal>
-    <div data-report-print className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={onClose}>
+    <div data-report-print className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={onClose}>
       {/* Modal */}
-      <div data-report-modal className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div data-report-modal className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div data-report-header className="flex-none flex items-center justify-between px-4 border-b print:hidden" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+        <div data-report-header className="flex-none flex items-center justify-between px-4 border-b print:hidden" style={{ minHeight: '56px' }}>
           <div>
             <h2 className="text-base font-bold text-gray-900">Project Report</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
