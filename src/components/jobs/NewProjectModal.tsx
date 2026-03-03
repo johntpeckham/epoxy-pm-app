@@ -43,7 +43,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center px-4" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">

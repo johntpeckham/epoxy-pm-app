@@ -22,7 +22,7 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Portal>
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
+    <div className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center p-4 bg-black/50" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
       <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
