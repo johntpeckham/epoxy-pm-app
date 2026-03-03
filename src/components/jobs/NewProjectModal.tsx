@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon } from 'lucide-react'
+import Portal from '@/components/ui/Portal'
 
 interface NewProjectModalProps {
   onClose: () => void
@@ -41,6 +42,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   }
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
@@ -149,5 +151,6 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
         </form>
       </div>
     </div>
+    </Portal>
   )
 }

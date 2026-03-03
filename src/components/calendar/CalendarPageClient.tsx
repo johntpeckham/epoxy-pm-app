@@ -9,6 +9,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { DateClickArg } from '@fullcalendar/interaction'
 import type { EventClickArg } from '@fullcalendar/core'
 import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon } from 'lucide-react'
+import Portal from '@/components/ui/Portal'
 import { CalendarEvent } from '@/types'
 import type { UserRole } from '@/types'
 import { usePermissions } from '@/lib/usePermissions'
@@ -366,6 +367,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
       {/* ── Add/Edit Project Modal ──────────────────────────────────────────── */}
       {showFormModal && (
+        <Portal>
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => { setShowFormModal(false); resetForm() }} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]">
@@ -520,10 +522,12 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── Event Detail Modal ──────────────────────────────────────────────── */}
       {detailEvent && !showDeleteConfirm && (
+        <Portal>
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => setDetailEvent(null)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]">
@@ -608,10 +612,12 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── Delete Confirmation ─────────────────────────────────────────────── */}
       {showDeleteConfirm && detailEvent && (
+        <Portal>
         <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowDeleteConfirm(false)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
@@ -641,6 +647,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )

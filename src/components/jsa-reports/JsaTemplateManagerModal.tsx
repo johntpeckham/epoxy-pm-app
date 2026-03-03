@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, PlusIcon, PencilIcon, Trash2Icon, ChevronUpIcon, ChevronDownIcon, CheckIcon } from 'lucide-react'
 import { JsaTaskTemplate } from '@/types'
+import Portal from '@/components/ui/Portal'
 
 interface JsaTemplateManagerModalProps {
   onClose: () => void
@@ -124,6 +125,7 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
   const isFormVisible = showAddForm || editingId !== null
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
@@ -281,5 +283,6 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
         </div>
       </div>
     </div>
+    </Portal>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { AlertTriangleIcon } from 'lucide-react'
+import Portal from '@/components/ui/Portal'
 
 interface ConfirmDialogProps {
   title: string
@@ -20,6 +21,7 @@ export default function ConfirmDialog({
   loading = false,
 }: ConfirmDialogProps) {
   return (
+    <Portal>
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
         <div className="flex items-start gap-4">
@@ -49,5 +51,6 @@ export default function ConfirmDialog({
         </div>
       </div>
     </div>
+    </Portal>
   )
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon, UserPlusIcon } from 'lucide-react'
+import Portal from '@/components/ui/Portal'
 import type { UserRole } from '@/types'
 
 interface UserRow {
@@ -413,6 +414,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
 
       {/* Edit User Modal */}
       {editingUser && (
+        <Portal>
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/60" onClick={closeEditModal} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]">
@@ -629,6 +631,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )

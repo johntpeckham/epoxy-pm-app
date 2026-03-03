@@ -18,6 +18,7 @@ import {
 import { Task, TaskStatus, Profile, Project } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
+import Portal from '@/components/ui/Portal'
 
 interface TaskWithProject extends Task {
   project_name: string
@@ -561,6 +562,7 @@ export default function TasksPageClient({
 
       {/* ── New Task modal ───────────────────────────────────────────────────── */}
       {showCreateModal && (
+        <Portal>
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowCreateModal(false)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]">
@@ -727,10 +729,12 @@ export default function TasksPageClient({
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── Task detail modal ─────────────────────────────────────────────────── */}
       {selectedTask && (
+        <Portal>
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => setSelectedTask(null)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
@@ -832,10 +836,12 @@ export default function TasksPageClient({
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── Image preview overlay ─────────────────────────────────────────────── */}
       {previewImage && (
+        <Portal>
         <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewImage(null)} />
           <div className="relative max-w-3xl max-h-[90vh]">
@@ -853,6 +859,7 @@ export default function TasksPageClient({
             />
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )

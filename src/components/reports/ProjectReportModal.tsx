@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ProjectReportData } from '@/types'
 import type { UserRole } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import Portal from '@/components/ui/Portal'
 
 interface ProjectReportModalProps {
   projectId: string
@@ -353,6 +354,7 @@ export default function ProjectReportModal({
   }
 
   return (
+    <Portal>
     <div data-report-print className="fixed inset-0 z-[60] flex items-center justify-center px-2 sm:px-4 py-3 sm:py-6">
       {/* Overlay */}
       <div data-report-overlay className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -483,5 +485,6 @@ export default function ProjectReportModal({
         </div>
       </div>
     </div>
+    </Portal>
   )
 }

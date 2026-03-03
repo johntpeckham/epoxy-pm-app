@@ -7,6 +7,7 @@ import { JsaReportContent, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry } fr
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
 import JsaSignatureSection from '@/components/jsa-reports/JsaSignatureSection'
+import Portal from '@/components/ui/Portal'
 
 interface EditJsaReportModalProps {
   postId: string
@@ -130,7 +131,7 @@ export default function EditJsaReportModal({
   }
 
   return (
-    <>
+    <Portal>
       <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
         <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
@@ -326,6 +327,6 @@ export default function EditJsaReportModal({
           }}
         />
       )}
-    </>
+    </Portal>
   )
 }
