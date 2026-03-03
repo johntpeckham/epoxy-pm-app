@@ -21,10 +21,5 @@ export default function Portal({ children }: { children: React.ReactNode }) {
 
   if (!mounted) return null
 
-  return createPortal(
-    <div style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
-      {children}
-    </div>,
-    document.body
-  )
+  return createPortal(children, document.body)
 }

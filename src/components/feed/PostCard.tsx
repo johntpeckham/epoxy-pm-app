@@ -918,20 +918,26 @@ function InlinePdfPost({ content }: { content: PdfContent }) {
       {/* PDF preview modal */}
       {showPreview && (
         <Portal>
-        <div className="fixed inset-0 z-[70] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/80" onClick={() => setShowPreview(false)} />
-          <div className="relative w-full max-w-4xl h-[85vh] bg-white rounded-lg overflow-hidden shadow-xl z-10" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
-            <button
-              onClick={() => setShowPreview(false)}
-              className="absolute top-3 right-3 bg-white rounded-full p-1.5 shadow-lg text-gray-500 hover:text-gray-800 transition z-20"
-            >
-              <XIcon className="w-5 h-5" />
-            </button>
-            <iframe
-              src={publicUrl}
-              className="w-full h-full"
-              title={content.filename}
-            />
+        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50" onClick={() => setShowPreview(false)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Title bar */}
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+              <h2 className="text-lg font-semibold text-gray-900 truncate">{content.filename}</h2>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <iframe
+                src={publicUrl}
+                className="w-full h-full min-h-[60vh]"
+                title={content.filename}
+              />
+            </div>
           </div>
         </div>
         </Portal>
@@ -1345,21 +1351,27 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       {/* ── Image lightbox overlay ──────────────────────────────────────── */}
       {previewImage && (
         <Portal>
-        <div className="fixed inset-0 z-[70] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewImage(null)} />
-          <div className="relative max-w-3xl max-h-[90vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-3 -right-3 bg-white rounded-full p-1.5 shadow-lg text-gray-500 hover:text-gray-800 transition z-10"
-            >
-              <XIcon className="w-5 h-5" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewImage}
-              alt="Preview"
-              className="max-w-full max-h-[85vh] object-contain rounded-lg"
-            />
+        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50" onClick={() => setPreviewImage(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Title bar */}
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+              <h2 className="text-lg font-semibold text-gray-900">Image Preview</h2>
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewImage}
+                alt="Preview"
+                className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              />
+            </div>
           </div>
         </div>
         </Portal>

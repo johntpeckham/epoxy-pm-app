@@ -152,11 +152,10 @@ export default function DocumentUploadModal({
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+    <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={onClose}>
+      <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">{label}</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
@@ -170,7 +169,7 @@ export default function DocumentUploadModal({
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-4">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
               {error}
@@ -307,7 +306,7 @@ export default function DocumentUploadModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
+        <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <button
             onClick={onClose}
             className="w-full border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
@@ -319,31 +318,34 @@ export default function DocumentUploadModal({
 
       {/* Full-screen PDF viewer — iframe lets the browser handle zoom, scroll, nav */}
       {previewDoc && isPdf(previewDoc) && (
-        <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] bg-black flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
-          <div className="flex items-center justify-between px-4 py-2 bg-gray-900 text-white">
-            <span className="truncate text-sm">{previewDoc.file_name}</span>
-            <button
-              onClick={() => setPreviewDoc(null)}
-              className="text-white hover:text-gray-300"
-            >
-              <XIcon className="w-6 h-6" />
-            </button>
+        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={() => setPreviewDoc(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+              <span className="truncate text-sm font-semibold text-gray-900">{previewDoc.file_name}</span>
+              <button
+                onClick={() => setPreviewDoc(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <iframe
+                src={getPublicUrl(previewDoc.file_path)}
+                className="w-full h-full min-h-[60vh]"
+                title={previewDoc.file_name}
+              />
+            </div>
           </div>
-          <iframe
-            src={getPublicUrl(previewDoc.file_path)}
-            className="flex-1 w-full"
-            title={previewDoc.file_name}
-          />
         </div>
       )}
 
       {/* Non-PDF preview overlay */}
       {previewDoc && !isPdf(previewDoc) && (
-        <div className="fixed inset-0 z-[70] overflow-x-hidden max-w-[100vw] flex items-center justify-center lg:p-6">
-          <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewDoc(null)} />
-          <div className="relative bg-white lg:rounded-xl shadow-2xl flex flex-col w-full h-full lg:w-[80vw] lg:h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
-            <div className="flex items-center justify-between px-4 lg:px-6 pt-3 lg:pt-4 pb-2 lg:pb-3 border-b border-gray-100 flex-none">
-              <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50" onClick={() => setPreviewDoc(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+              <div className="flex items-center gap-2 min-w-0">
                 <FileTextIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
                 <p className="text-sm font-semibold text-gray-900 truncate">{previewDoc.file_name}</p>
               </div>
@@ -365,9 +367,9 @@ export default function DocumentUploadModal({
                 </button>
               </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
               {isImage(previewDoc) ? (
-                <div className="flex items-center justify-center p-6 overflow-auto h-full">
+                <div className="flex items-center justify-center overflow-auto h-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={getPublicUrl(previewDoc.file_path)}

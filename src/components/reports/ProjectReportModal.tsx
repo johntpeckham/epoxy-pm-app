@@ -355,14 +355,11 @@ export default function ProjectReportModal({
 
   return (
     <Portal>
-    <div data-report-print className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-2 sm:px-4 py-3 sm:py-6">
-      {/* Overlay */}
-      <div data-report-overlay className="absolute inset-0 bg-black/60" onClick={onClose} />
-
+    <div data-report-print className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={onClose}>
       {/* Modal */}
-      <div data-report-modal className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+      <div data-report-modal className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div data-report-header className="flex items-center justify-between px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 border-b border-gray-100 flex-shrink-0 print:hidden">
+        <div data-report-header className="flex-none flex items-center justify-between px-4 border-b print:hidden" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
           <div>
             <h2 className="text-base font-bold text-gray-900">Project Report</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
@@ -376,7 +373,7 @@ export default function ProjectReportModal({
         </div>
 
         {/* Scrollable body */}
-        <div data-report-body className="overflow-y-auto flex-1 px-4 lg:px-6 py-4 lg:py-5 print:overflow-visible">
+        <div data-report-body className="flex-1 overflow-y-auto p-4 md:p-6 print:overflow-visible">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
@@ -447,7 +444,7 @@ export default function ProjectReportModal({
         </div>
 
         {/* Footer */}
-        <div data-report-footer className="flex flex-wrap items-center gap-2 lg:gap-3 px-4 lg:px-6 py-3 lg:py-4 border-t border-gray-100 flex-shrink-0 print:hidden">
+        <div data-report-footer className="flex-none flex flex-wrap items-center gap-2 lg:gap-3 p-4 border-t print:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           {error && <p className="text-xs text-red-600 w-full lg:w-auto lg:flex-1">{error}</p>}
           {savedMsg && <p className="text-xs text-green-600 w-full lg:w-auto lg:flex-1">Saved successfully</p>}
           {!error && !savedMsg && <div className="hidden lg:block flex-1" />}
