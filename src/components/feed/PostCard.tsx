@@ -97,16 +97,16 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
       {content.caption && (
         <p className="text-sm text-gray-600">{content.caption}</p>
       )}
-      <div className="grid grid-cols-4 sm:grid-cols-5 gap-1 w-full">
+      <div className="grid grid-cols-2 gap-2 w-full">
         {urls.map((url, i) => (
-          <button key={i} onClick={() => onImageClick(url)} className="block w-full">
-            <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+          <button key={i} onClick={() => onImageClick(url)} className="block">
+            <div className="relative w-36 h-36 md:w-48 md:h-48 rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={url}
                 alt={`Photo ${i + 1}`}
                 fill
                 className="object-cover hover:opacity-90 transition"
-                sizes="(min-width: 640px) 60px, 25vw"
+                sizes="(min-width: 768px) 192px, 144px"
               />
             </div>
           </button>
@@ -192,16 +192,16 @@ function DailyReportPost({
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
             Photos ({photoUrls.length})
           </p>
-          <div className="grid grid-cols-4 sm:grid-cols-5 gap-1">
+          <div className="grid grid-cols-2 gap-2">
             {photoUrls.map((url, i) => (
               <button key={i} onClick={() => onImageClick(url)} className="block">
-                <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
+                <div className="relative w-36 h-36 md:w-48 md:h-48 rounded-lg overflow-hidden bg-amber-50">
                   <Image
                     src={url}
                     alt={`Report photo ${i + 1}`}
                     fill
                     className="object-cover hover:opacity-90 transition"
-                    sizes="(min-width: 640px) 60px, 25vw"
+                    sizes="(min-width: 768px) 192px, 144px"
                   />
                 </div>
               </button>
