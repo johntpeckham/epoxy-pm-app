@@ -72,11 +72,11 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
 
   return (
     <>
-      <div className="group relative">
+      <div className="group relative w-full max-w-full">
         {/* Compact summary row */}
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-gray-50 transition-colors"
+          className="w-full max-w-full text-left px-2 md:px-3 py-2 flex items-center gap-1.5 md:gap-3 hover:bg-gray-50 transition-colors flex-wrap"
         >
           <span className="text-sm text-gray-700 whitespace-nowrap">
             {content.date ? formatCompactDate(content.date) : '—'}
@@ -92,32 +92,32 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
 
           {/* Action buttons — inline on mobile, hover-reveal on desktop */}
           <span
-            className="ml-auto flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity"
+            className="ml-auto flex items-center gap-0 md:gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity flex-shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             <span
               role="button"
               onClick={handleDownloadPdf}
-              className="p-1 text-gray-400 hover:text-blue-600 rounded transition"
+              className="p-0.5 md:p-1 text-gray-400 hover:text-blue-600 rounded transition"
               title="Download PDF"
             >
-              <DownloadIcon className="w-3.5 h-3.5" />
+              <DownloadIcon className="w-3 h-3 md:w-3.5 md:h-3.5" />
             </span>
             <span
               role="button"
               onClick={() => setShowEditModal(true)}
-              className="p-1 text-gray-400 hover:text-blue-600 rounded transition"
+              className="p-0.5 md:p-1 text-gray-400 hover:text-blue-600 rounded transition"
               title="Edit"
             >
-              <PencilIcon className="w-3.5 h-3.5" />
+              <PencilIcon className="w-3 h-3 md:w-3.5 md:h-3.5" />
             </span>
             <span
               role="button"
               onClick={() => setShowDeleteConfirm(true)}
-              className="p-1 text-gray-400 hover:text-red-600 rounded transition"
+              className="p-0.5 md:p-1 text-gray-400 hover:text-red-600 rounded transition"
               title="Delete"
             >
-              <Trash2Icon className="w-3.5 h-3.5" />
+              <Trash2Icon className="w-3 h-3 md:w-3.5 md:h-3.5" />
             </span>
           </span>
 
@@ -128,7 +128,7 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
 
         {/* Expanded detail */}
         {expanded && (
-          <div className="border-t border-blue-100 bg-blue-50 px-4 py-3 space-y-3">
+          <div className="border-t border-blue-100 bg-blue-50 px-2 md:px-4 py-3 space-y-3 max-w-full">
             {content.address && (
               <p className="text-xs text-blue-700">{content.address}</p>
             )}
