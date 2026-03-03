@@ -355,12 +355,12 @@ export default function ProjectReportModal({
 
   return (
     <Portal>
-    <div data-report-print className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center px-2 sm:px-4 py-3 sm:py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+    <div data-report-print className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-2 sm:px-4 py-3 sm:py-6">
       {/* Overlay */}
       <div data-report-overlay className="absolute inset-0 bg-black/60" onClick={onClose} />
 
       {/* Modal */}
-      <div data-report-modal className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+      <div data-report-modal className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
         {/* Header */}
         <div data-report-header className="flex items-center justify-between px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 border-b border-gray-100 flex-shrink-0 print:hidden">
           <div>

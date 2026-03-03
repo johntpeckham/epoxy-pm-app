@@ -129,9 +129,9 @@ export default function ProjectPhotosModal({
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+    <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
           <div>
