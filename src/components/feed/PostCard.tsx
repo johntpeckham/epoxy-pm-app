@@ -93,13 +93,13 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
   })
 
   return (
-    <div className="mt-1 space-y-1.5">
+    <div className="mt-1 space-y-1.5 w-full">
       {content.caption && (
         <p className="text-sm text-gray-600">{content.caption}</p>
       )}
-      <div className="grid grid-cols-4 sm:grid-cols-5 gap-1">
+      <div className="grid grid-cols-4 sm:grid-cols-5 gap-1 w-full">
         {urls.map((url, i) => (
-          <button key={i} onClick={() => onImageClick(url)} className="block">
+          <button key={i} onClick={() => onImageClick(url)} className="block w-full">
             <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={url}
@@ -1202,16 +1202,16 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           </div>
 
           {/* Content column */}
-          <div className="min-w-0 items-start flex flex-col">
+          <div className={`min-w-0 flex flex-col ${isText ? 'items-start' : ''}`}>
             {/* Name */}
             <span className="text-[11px] font-semibold text-gray-500 mb-0.5 ml-1">
               {authorName}
             </span>
 
             {/* Hover action buttons */}
-            <div className="flex items-center gap-1">
+            <div className={`flex items-center gap-1 ${!isText ? 'w-full' : ''}`}>
               {/* Bubble / card content */}
-              <div className="min-w-0">
+              <div className={`min-w-0 ${!isText ? 'flex-1' : ''}`}>
                 {isText ? (
                   editingText ? (
                     <div className="space-y-2">
