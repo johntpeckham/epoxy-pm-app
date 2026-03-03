@@ -272,7 +272,7 @@ export default function TimesheetsPageClient({
         {/* Project header — collapsible with inline summary */}
         <button
           onClick={() => toggleProject(project.projectId, isCompleted)}
-          className="flex items-center gap-2 w-full text-left py-1.5 group/proj"
+          className="flex items-center flex-wrap gap-1 md:gap-2 w-full max-w-full text-left py-1.5 group/proj"
         >
           <ChevronRightIcon
             className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${
@@ -280,16 +280,16 @@ export default function TimesheetsPageClient({
             }`}
           />
           <h2 className="text-base font-bold text-gray-900 truncate">{project.projectName}</h2>
-          <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+          <span className="text-xs text-gray-400 md:whitespace-nowrap flex-shrink min-w-0">
             — {project.totalHours.toFixed(2)} hrs · {project.totalTimecards} timecard{project.totalTimecards !== 1 ? 's' : ''} · {project.totalEntries} {project.totalEntries === 1 ? 'entry' : 'entries'}
           </span>
         </button>
 
         {/* Week groups — shown when expanded */}
         {!collapsed && (
-          <div className="ml-2 mt-1 space-y-2 mb-4">
+          <div className="ml-2 mt-1 space-y-2 mb-4 max-w-full">
             {project.weeks.map((week) => (
-              <div key={week.weekMonday} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div key={week.weekMonday} className="bg-white border border-gray-200 rounded-lg overflow-hidden w-full max-w-full">
                 {/* Week header */}
                 <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
                   <span className="text-xs font-semibold text-gray-600">
@@ -314,9 +314,9 @@ export default function TimesheetsPageClient({
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
+    <div className="w-full max-w-full md:max-w-3xl mx-auto px-4 py-6 sm:px-6 overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-2">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Timesheets</h1>
           <p className="text-sm text-gray-500 mt-0.5">
@@ -324,10 +324,10 @@ export default function TimesheetsPageClient({
             {grouped.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowManageEmployees(true)}
-            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition"
+            className="flex items-center gap-1.5 md:gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 md:px-4 md:py-2.5 rounded-lg text-sm font-semibold transition"
           >
             <SettingsIcon className="w-4 h-4" />
             Manage Employees
@@ -337,7 +337,7 @@ export default function TimesheetsPageClient({
               onClick={() => setShowModal(true)}
               disabled={projects.length === 0}
               title={projects.length === 0 ? 'Create a project first' : undefined}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
+              className="flex items-center gap-1.5 md:gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 md:px-4 md:py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
             >
               <PlusIcon className="w-4 h-4" />
               New Timesheet
@@ -348,7 +348,7 @@ export default function TimesheetsPageClient({
 
       {/* Search, Filter & Sort Controls */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
-        <div className="relative flex-1 min-w-[180px]">
+        <div className="relative flex-1 min-w-0 md:min-w-[180px]">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
