@@ -129,11 +129,10 @@ export default function ProjectPhotosModal({
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+    <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={onClose}>
+      <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Photos</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
@@ -163,7 +162,7 @@ export default function ProjectPhotosModal({
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-4">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
               {error}
@@ -227,7 +226,7 @@ export default function ProjectPhotosModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
+        <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-400">
               {totalPhotos} photo{totalPhotos !== 1 ? 's' : ''} total

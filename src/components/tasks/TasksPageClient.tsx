@@ -563,11 +563,10 @@ export default function TasksPageClient({
       {/* ── New Task modal ───────────────────────────────────────────────────── */}
       {showCreateModal && (
         <Portal>
-        <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowCreateModal(false)} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={() => setShowCreateModal(false)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900">New Task</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
@@ -578,7 +577,7 @@ export default function TasksPageClient({
             </div>
 
             {/* Body */}
-            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
               {createError && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm flex items-center justify-between">
                   <span>{createError}</span>
@@ -712,7 +711,7 @@ export default function TasksPageClient({
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0 flex gap-3">
+            <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
@@ -735,11 +734,10 @@ export default function TasksPageClient({
       {/* ── Task detail modal ─────────────────────────────────────────────────── */}
       {selectedTask && (
         <Portal>
-        <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setSelectedTask(null)} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={() => setSelectedTask(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-gray-900 truncate">{selectedTask.title}</h2>
                 <p className="text-xs text-gray-500 mt-0.5">{selectedTask.project_name}</p>
@@ -753,7 +751,7 @@ export default function TasksPageClient({
             </div>
 
             {/* Body */}
-            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
               {/* Status buttons */}
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Status</p>
@@ -826,7 +824,7 @@ export default function TasksPageClient({
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
+            <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
               <button
                 onClick={() => setSelectedTask(null)}
                 className="w-full border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
@@ -842,21 +840,27 @@ export default function TasksPageClient({
       {/* ── Image preview overlay ─────────────────────────────────────────────── */}
       {previewImage && (
         <Portal>
-        <div className="fixed inset-0 z-[70] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewImage(null)} />
-          <div className="relative max-w-3xl max-h-[90vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-3 -right-3 bg-white rounded-full p-1.5 shadow-lg text-gray-500 hover:text-gray-800 transition z-10"
-            >
-              <XIcon className="w-5 h-5" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewImage}
-              alt="Task photo preview"
-              className="max-w-full max-h-[85vh] object-contain rounded-lg"
-            />
+        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50" onClick={() => setPreviewImage(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Title bar */}
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+              <h2 className="text-lg font-semibold text-gray-900">Image Preview</h2>
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewImage}
+                alt="Task photo preview"
+                className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              />
+            </div>
           </div>
         </div>
         </Portal>

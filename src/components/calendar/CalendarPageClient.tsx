@@ -368,11 +368,10 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {/* ── Add/Edit Project Modal ──────────────────────────────────────────── */}
       {showFormModal && (
         <Portal>
-        <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/60" onClick={() => { setShowFormModal(false); resetForm() }} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={() => { setShowFormModal(false); resetForm() }}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900">
                 {editingEvent ? 'Edit Project' : 'Add Project'}
               </h2>
@@ -385,7 +384,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             </div>
 
             {/* Body */}
-            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
               {formError && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm flex items-center justify-between">
                   <span>{formError}</span>
@@ -505,7 +504,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0 flex gap-3">
+            <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
               <button
                 onClick={() => { setShowFormModal(false); resetForm() }}
                 className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
@@ -528,27 +527,24 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {/* ── Event Detail Modal ──────────────────────────────────────────────── */}
       {detailEvent && !showDeleteConfirm && (
         <Portal>
-        <div className="fixed inset-0 z-[60] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setDetailEvent(null)} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
+        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={() => setDetailEvent(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header with color bar */}
             <div
-              className="rounded-t-xl px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0"
-              style={{ borderTop: `4px solid ${detailEvent.color || PRESET_COLORS[0].value}` }}
+              className="flex-none flex items-center justify-between px-4 border-b"
+              style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px', borderTop: `4px solid ${detailEvent.color || PRESET_COLORS[0].value}` }}
             >
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">{detailEvent.project_name}</h2>
-                <button
-                  onClick={() => setDetailEvent(null)}
-                  className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition flex-shrink-0"
-                >
-                  <XIcon className="w-5 h-5" />
-                </button>
-              </div>
+              <h2 className="text-lg font-semibold text-gray-900">{detailEvent.project_name}</h2>
+              <button
+                onClick={() => setDetailEvent(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition flex-shrink-0"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Body */}
-            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
               {/* Dates */}
               <div className="flex items-start gap-3">
                 <CalendarIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -582,7 +578,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0 flex gap-3">
+            <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
               {canEditCalendar && detailEvent.created_by === userId && (
                 <>
                   <button
@@ -618,32 +614,44 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {/* ── Delete Confirmation ─────────────────────────────────────────────── */}
       {showDeleteConfirm && detailEvent && (
         <Portal>
-        <div className="fixed inset-0 z-[70] overflow-x-hidden max-w-[100vw] flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
-            <div className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <Trash2Icon className="w-6 h-6 text-red-500" />
+        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Title bar */}
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+              <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                  <Trash2Icon className="w-6 h-6 text-red-500" />
+                </div>
+                <p className="text-sm text-gray-500">
+                  Are you sure you want to delete &ldquo;{detailEvent.project_name}&rdquo; from the calendar? This cannot be undone.
+                </p>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Delete Project</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Are you sure you want to delete &ldquo;{detailEvent.project_name}&rdquo; from the calendar? This cannot be undone.
-              </p>
-              <div className="flex gap-3 w-full">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="flex-1 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-semibold transition"
-                >
-                  {deleting ? 'Deleting...' : 'Delete'}
-                </button>
-              </div>
+            </div>
+            {/* Footer */}
+            <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-semibold transition"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
             </div>
           </div>
         </div>
