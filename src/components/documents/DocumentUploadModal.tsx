@@ -152,10 +152,10 @@ export default function DocumentUploadModal({
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={onClose}>
-      <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={onClose}>
+      <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+        <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">{label}</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
@@ -318,9 +318,9 @@ export default function DocumentUploadModal({
 
       {/* Full-screen PDF viewer — iframe lets the browser handle zoom, scroll, nav */}
       {previewDoc && isPdf(previewDoc) && (
-        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={() => setPreviewDoc(null)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={() => setPreviewDoc(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <span className="truncate text-sm font-semibold text-gray-900">{previewDoc.file_name}</span>
               <button
                 onClick={() => setPreviewDoc(null)}
@@ -342,9 +342,9 @@ export default function DocumentUploadModal({
 
       {/* Non-PDF preview overlay */}
       {previewDoc && !isPdf(previewDoc) && (
-        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50" onClick={() => setPreviewDoc(null)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={() => setPreviewDoc(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <div className="flex items-center gap-2 min-w-0">
                 <FileTextIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
                 <p className="text-sm font-semibold text-gray-900 truncate">{previewDoc.file_name}</p>

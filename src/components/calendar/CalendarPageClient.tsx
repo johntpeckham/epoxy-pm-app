@@ -368,10 +368,10 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {/* ── Add/Edit Project Modal ──────────────────────────────────────────── */}
       {showFormModal && (
         <Portal>
-        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={() => { setShowFormModal(false); resetForm() }}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={() => { setShowFormModal(false); resetForm() }}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900">
                 {editingEvent ? 'Edit Project' : 'Add Project'}
               </h2>
@@ -527,12 +527,12 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {/* ── Event Detail Modal ──────────────────────────────────────────────── */}
       {detailEvent && !showDeleteConfirm && (
         <Portal>
-        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50" onClick={() => setDetailEvent(null)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={() => setDetailEvent(null)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header with color bar */}
             <div
               className="flex-none flex items-center justify-between px-4 border-b"
-              style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px', borderTop: `4px solid ${detailEvent.color || PRESET_COLORS[0].value}` }}
+              style={{ minHeight: '56px', borderTop: `4px solid ${detailEvent.color || PRESET_COLORS[0].value}` }}
             >
               <h2 className="text-lg font-semibold text-gray-900">{detailEvent.project_name}</h2>
               <button
@@ -614,10 +614,10 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {/* ── Delete Confirmation ─────────────────────────────────────────────── */}
       {showDeleteConfirm && detailEvent && (
         <Portal>
-        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-[100dvh] md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Title bar */}
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '56px' }}>
+            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
