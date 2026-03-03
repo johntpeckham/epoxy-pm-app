@@ -159,7 +159,7 @@ export default function NewJsaReportModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pb-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}>
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
         <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
           {/* Header */}

@@ -150,7 +150,7 @@ export default function DocumentUploadModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pb-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]">
         {/* Header */}
@@ -317,7 +317,7 @@ export default function DocumentUploadModal({
 
       {/* Full-screen PDF viewer — iframe lets the browser handle zoom, scroll, nav */}
       {previewDoc && isPdf(previewDoc) && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+        <div className="fixed inset-0 z-50 bg-black flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <div className="flex items-center justify-between px-4 py-2 bg-gray-900 text-white">
             <span className="truncate text-sm">{previewDoc.file_name}</span>
             <button
@@ -337,7 +337,7 @@ export default function DocumentUploadModal({
 
       {/* Non-PDF preview overlay */}
       {previewDoc && !isPdf(previewDoc) && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center lg:p-6">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center lg:p-6" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewDoc(null)} />
           <div className="relative bg-white lg:rounded-xl shadow-2xl flex flex-col w-full h-full lg:w-[80vw] lg:h-[85vh]">
             <div className="flex items-center justify-between px-4 lg:px-6 pt-3 lg:pt-4 pb-2 lg:pb-3 border-b border-gray-100 flex-none">
