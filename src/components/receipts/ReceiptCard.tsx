@@ -76,137 +76,81 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
     }
   }
 
+  const shortDate = content.receipt_date
+    ? new Date(content.receipt_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : '—'
+
   return (
     <>
-      <div className="bg-white overflow-hidden group relative">
-        {/* Summary row */}
+      <div className="bg-white overflow-hidden">
+        {/* Compact summary row */}
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="w-full text-left px-5 py-4 flex items-start gap-4 hover:bg-gray-50 transition-colors"
+          className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-gray-50 transition-colors"
         >
-          {/* Date block */}
-          <div className="flex-shrink-0 w-12 text-center bg-green-50 rounded-lg py-2">
-            <div className="text-xl font-bold text-gray-900 leading-none">
-              {content.receipt_date ? content.receipt_date.split('-')[2] : '—'}
-            </div>
-            <div className="text-xs text-green-600 mt-0.5 font-semibold uppercase">
-              {content.receipt_date
-                ? new Date(content.receipt_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short' })
-                : ''}
-            </div>
-          </div>
+          {/* Date */}
+          <span className="flex-shrink-0 text-xs text-gray-500 tabular-nums w-12">{shortDate}</span>
 
-          {/* Main info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold text-gray-900">{receipt.project_name}</span>
-              {content.receipt_date && (
-                <span className="text-xs text-gray-400">{formatReceiptDate(content.receipt_date)}</span>
-              )}
-            </div>
-            <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5">
-              {content.vendor_name ? (
-                <p className="text-xs text-gray-500">
-                  <span className="font-medium">Vendor:</span> {content.vendor_name}
-                </p>
-              ) : null}
-              {content.total_amount ? (
-                <p className="text-xs text-gray-900 font-bold tabular-nums">
-                  ${content.total_amount.toFixed(2)}
-                </p>
-              ) : null}
-              {content.category ? (
-                <p className="text-xs text-green-600 font-medium">
-                  {content.category}
-                </p>
-              ) : null}
-            </div>
-          </div>
+          {/* Vendor + category */}
+          <span className="flex-1 min-w-0 flex items-center gap-2 truncate">
+            <span className="text-sm text-gray-900 truncate">{content.vendor_name || '—'}</span>
+            {content.category && (
+              <span className="flex-shrink-0 text-[11px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded font-medium">{content.category}</span>
+            )}
+          </span>
+
+          {/* Amount */}
+          <span className="flex-shrink-0 text-sm font-semibold text-gray-900 tabular-nums">
+            {content.total_amount ? `$${content.total_amount.toFixed(2)}` : ''}
+          </span>
 
           {/* Thumbnail */}
           {photoUrl && (
-            <div className="flex-shrink-0 w-10 h-10 rounded-md overflow-hidden bg-green-50 hidden sm:block">
-              <Image
-                src={photoUrl}
-                alt="Receipt"
-                width={40}
-                height={40}
-                className="w-full h-full object-cover"
-              />
+            <div className="flex-shrink-0 w-8 h-8 rounded overflow-hidden bg-gray-100">
+              <Image src={photoUrl} alt="" width={32} height={32} className="w-full h-full object-cover" />
             </div>
           )}
 
           {/* Expand chevron */}
-          <div className="flex-shrink-0 text-gray-400 mt-1">
-            {expanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
+          <div className="flex-shrink-0 text-gray-400">
+            {expanded ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
           </div>
         </button>
 
-        {/* Action buttons — visible on mobile, hover-reveal on desktop */}
-        <div className="flex items-center gap-1 px-4 pb-3 sm:px-5 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity">
-          <button
-            onClick={handleDownloadPdf}
-            disabled={pdfLoading}
-            title="Download PDF"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-green-600 border border-gray-200 hover:border-green-300 hover:bg-green-50 rounded-md transition sm:border-0 sm:p-1.5 disabled:opacity-40"
-          >
-            <DownloadIcon className="w-3.5 h-3.5" />
-            <span className="sm:hidden">{pdfLoading ? 'Generating…' : 'PDF'}</span>
-          </button>
-          <button
-            onClick={() => setShowEditModal(true)}
-            title="Edit expense"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-green-600 border border-gray-200 hover:border-green-300 hover:bg-green-50 rounded-md transition sm:border-0 sm:p-1.5"
-          >
-            <PencilIcon className="w-3.5 h-3.5" />
-            <span className="sm:hidden">Edit</span>
-          </button>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            title="Delete expense"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-300 hover:bg-red-50 rounded-md transition sm:border-0 sm:p-1.5"
-          >
-            <Trash2Icon className="w-3.5 h-3.5" />
-            <span className="sm:hidden">Delete</span>
-          </button>
-        </div>
-
         {/* Expanded detail */}
         {expanded && (
-          <div className="border-t border-green-100 bg-green-50 px-5 py-4 space-y-4">
-            <dl className="space-y-3">
+          <div className="border-t border-green-100 bg-green-50 px-4 py-3 space-y-3">
+            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {content.vendor_name ? (
-                <div>
+                <div className="col-span-2 sm:col-span-3">
                   <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Vendor / Store</dt>
                   <dd className="text-sm text-gray-700">{content.vendor_name}</dd>
                 </div>
               ) : null}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {content.receipt_date ? (
-                  <div>
-                    <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Date</dt>
-                    <dd className="text-sm text-gray-700 tabular-nums">{formatReceiptDate(content.receipt_date)}</dd>
-                  </div>
-                ) : null}
-                {content.total_amount ? (
-                  <div>
-                    <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Total Amount</dt>
-                    <dd className="text-sm text-gray-900 font-bold tabular-nums">${content.total_amount.toFixed(2)}</dd>
-                  </div>
-                ) : null}
-                {content.category ? (
-                  <div>
-                    <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Category</dt>
-                    <dd className="text-sm text-gray-700">{content.category}</dd>
-                  </div>
-                ) : null}
-              </div>
+              {content.receipt_date ? (
+                <div>
+                  <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Date</dt>
+                  <dd className="text-sm text-gray-700 tabular-nums">{formatReceiptDate(content.receipt_date)}</dd>
+                </div>
+              ) : null}
+              {content.total_amount ? (
+                <div>
+                  <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Total Amount</dt>
+                  <dd className="text-sm text-gray-900 font-bold tabular-nums">${content.total_amount.toFixed(2)}</dd>
+                </div>
+              ) : null}
+              {content.category ? (
+                <div>
+                  <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">Category</dt>
+                  <dd className="text-sm text-gray-700">{content.category}</dd>
+                </div>
+              ) : null}
             </dl>
 
             {/* Receipt photo */}
             {photoUrl && (
               <div>
-                <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Receipt Image</p>
+                <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1.5">Receipt Image</p>
                 <a href={photoUrl} target="_blank" rel="noopener noreferrer">
                   <div className="relative w-48 h-48 rounded-lg overflow-hidden bg-green-100">
                     <Image
@@ -221,15 +165,8 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
               </div>
             )}
 
-            {/* Footer actions */}
-            <div className="pt-3 border-t border-green-200 flex items-center justify-between flex-wrap gap-2">
-              <Link
-                href={`/projects/${receipt.project_id}`}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 hover:text-green-900 transition-colors"
-              >
-                <ExternalLinkIcon className="w-3.5 h-3.5" />
-                View in project feed
-              </Link>
+            {/* Actions */}
+            <div className="pt-2 border-t border-green-200 flex items-center gap-3 flex-wrap">
               <button
                 onClick={handleDownloadPdf}
                 disabled={pdfLoading}
@@ -238,6 +175,27 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
                 <DownloadIcon className="w-3.5 h-3.5" />
                 {pdfLoading ? 'Generating PDF…' : 'Download PDF'}
               </button>
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 hover:text-green-900 transition-colors"
+              >
+                <PencilIcon className="w-3.5 h-3.5" />
+                Edit
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-800 transition-colors"
+              >
+                <Trash2Icon className="w-3.5 h-3.5" />
+                Delete
+              </button>
+              <Link
+                href={`/projects/${receipt.project_id}`}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 hover:text-green-900 transition-colors ml-auto"
+              >
+                <ExternalLinkIcon className="w-3.5 h-3.5" />
+                View in project
+              </Link>
             </div>
           </div>
         )}
