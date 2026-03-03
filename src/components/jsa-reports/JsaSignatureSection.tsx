@@ -146,7 +146,7 @@ function SignatureModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 pt-20 md:pt-6 pb-6">
+    <div className="fixed inset-x-0 bottom-0 modal-top z-[70] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4">
         <div className="flex items-center justify-between">
