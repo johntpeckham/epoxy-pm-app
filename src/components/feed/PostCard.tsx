@@ -918,7 +918,7 @@ function InlinePdfPost({ content }: { content: PdfContent }) {
       {/* PDF preview modal */}
       {showPreview && (
         <Portal>
-        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6">
+        <div className="fixed inset-0 z-[70] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
           <div className="absolute inset-0 bg-black/80" onClick={() => setShowPreview(false)} />
           <div className="relative w-full max-w-4xl h-[85vh] bg-white rounded-lg overflow-hidden shadow-xl z-10">
             <button
@@ -1345,7 +1345,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       {/* ── Image lightbox overlay ──────────────────────────────────────── */}
       {previewImage && (
         <Portal>
-        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6">
+        <div className="fixed inset-0 z-[70] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
           <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewImage(null)} />
           <div className="relative max-w-3xl max-h-[90vh]">
             <button

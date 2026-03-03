@@ -355,7 +355,7 @@ export default function ProjectReportModal({
 
   return (
     <Portal>
-    <div data-report-print className="fixed inset-0 z-[60] flex items-center justify-center px-2 sm:px-4 py-3 sm:py-6">
+    <div data-report-print className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center px-2 sm:px-4 py-3 sm:py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
       {/* Overlay */}
       <div data-report-overlay className="absolute inset-0 bg-black/60" onClick={onClose} />
 

@@ -563,7 +563,7 @@ export default function TasksPageClient({
       {/* ── New Task modal ───────────────────────────────────────────────────── */}
       {showCreateModal && (
         <Portal>
-        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
+        <div className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowCreateModal(false)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]">
             {/* Header */}
@@ -735,7 +735,7 @@ export default function TasksPageClient({
       {/* ── Task detail modal ─────────────────────────────────────────────────── */}
       {selectedTask && (
         <Portal>
-        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
+        <div className="fixed inset-0 z-[60] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setSelectedTask(null)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
             {/* Header */}
@@ -842,7 +842,7 @@ export default function TasksPageClient({
       {/* ── Image preview overlay ─────────────────────────────────────────────── */}
       {previewImage && (
         <Portal>
-        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6">
+        <div className="fixed inset-0 z-[70] overflow-x-hidden flex items-center justify-center px-4 py-6" style={{ paddingTop: 'env(safe-area-inset-top, 20px)' }}>
           <div className="absolute inset-0 bg-black/80" onClick={() => setPreviewImage(null)} />
           <div className="relative max-w-3xl max-h-[90vh]">
             <button
