@@ -38,16 +38,6 @@ body {
   }
 }
 
-/* Modal top offset — clears the mobile header bar (safe-area + 3.5rem nav) */
-.modal-top {
-  top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
-}
-@media (min-width: 1024px) {
-  .modal-top {
-    top: 0;
-  }
-}
-
 /* FullCalendar theme overrides */
 .calendar-wrapper .fc .fc-button-primary {
   background-color: #f59e0b;

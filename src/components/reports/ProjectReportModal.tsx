@@ -353,7 +353,7 @@ export default function ProjectReportModal({
   }
 
   return (
-    <div data-report-print className="fixed inset-x-0 bottom-0 modal-top z-50 flex items-center justify-center px-2 sm:px-4 py-3 sm:py-6">
+    <div data-report-print className="fixed inset-0 z-[60] flex items-center justify-center px-2 sm:px-4 py-3 sm:py-6">
       {/* Overlay */}
       <div data-report-overlay className="absolute inset-0 bg-black/60" onClick={onClose} />
 
