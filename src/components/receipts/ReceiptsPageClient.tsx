@@ -268,7 +268,7 @@ export default function ReceiptsPageClient({
             {searchQuery.trim() || filterProject
               ? 'Try a different search or filter.'
               : projects.length > 0
-                ? 'Click "New Expense" to add the first one.'
+                ? 'Click "+ New" to add the first one.'
                 : 'Create a project first, then add expenses.'}
           </p>
         </div>
@@ -281,24 +281,26 @@ export default function ReceiptsPageClient({
               <div className="space-y-8">
                 {inProgressGroups.map((project) => (
                   <div key={project.projectId}>
-                    <div className="flex items-baseline justify-between mb-1">
-                      <h2 className="text-lg font-bold text-gray-900">{project.projectName}</h2>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-lg font-bold text-gray-900">{project.projectName}</h2>
+                        <button
+                          onClick={() => handleDownloadReport(project.projectId, project.projectName)}
+                          disabled={downloadingProject === project.projectId}
+                          className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 font-medium disabled:opacity-50 transition"
+                        >
+                          {downloadingProject === project.projectId ? (
+                            <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <DownloadIcon className="w-3.5 h-3.5" />
+                          )}
+                          PDF
+                        </button>
+                      </div>
                       <span className="text-sm text-gray-500 tabular-nums">
                         ${project.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({project.receiptCount} expense{project.receiptCount !== 1 ? 's' : ''})
                       </span>
                     </div>
-                    <button
-                      onClick={() => handleDownloadReport(project.projectId, project.projectName)}
-                      disabled={downloadingProject === project.projectId}
-                      className="flex items-center gap-1.5 text-xs text-green-700 hover:text-green-900 font-medium mb-3 disabled:opacity-50 transition"
-                    >
-                      {downloadingProject === project.projectId ? (
-                        <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <DownloadIcon className="w-3.5 h-3.5" />
-                      )}
-                      Download Report
-                    </button>
                     <div className="space-y-4">
                       {project.dates.map(({ date, receipts }) => (
                         <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -341,24 +343,26 @@ export default function ReceiptsPageClient({
                 <div className="space-y-8">
                   {completedGroups.map((project) => (
                     <div key={project.projectId}>
-                      <div className="flex items-baseline justify-between mb-1">
-                        <h2 className="text-lg font-bold text-gray-900">{project.projectName}</h2>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <h2 className="text-lg font-bold text-gray-900">{project.projectName}</h2>
+                          <button
+                            onClick={() => handleDownloadReport(project.projectId, project.projectName)}
+                            disabled={downloadingProject === project.projectId}
+                            className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 font-medium disabled:opacity-50 transition"
+                          >
+                            {downloadingProject === project.projectId ? (
+                              <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <DownloadIcon className="w-3.5 h-3.5" />
+                            )}
+                            PDF
+                          </button>
+                        </div>
                         <span className="text-sm text-gray-500 tabular-nums">
                           ${project.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({project.receiptCount} expense{project.receiptCount !== 1 ? 's' : ''})
                         </span>
                       </div>
-                      <button
-                        onClick={() => handleDownloadReport(project.projectId, project.projectName)}
-                        disabled={downloadingProject === project.projectId}
-                        className="flex items-center gap-1.5 text-xs text-green-700 hover:text-green-900 font-medium mb-3 disabled:opacity-50 transition"
-                      >
-                        {downloadingProject === project.projectId ? (
-                          <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <DownloadIcon className="w-3.5 h-3.5" />
-                        )}
-                        Download Report
-                      </button>
                       <div className="space-y-4">
                         {project.dates.map(({ date, receipts }) => (
                           <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
