@@ -9,7 +9,7 @@ html, body {
   min-height: 100dvh;
   overflow: hidden;
   overflow-x: hidden;
-  background-color: #f9fafb;
+  background-color: #000;
 }
 
 body {
@@ -17,6 +17,10 @@ body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
   -webkit-text-size-adjust: 100%;
+}
+
+#__next {
+  background-color: #000;
 }
 
 /* PWA safe-area utilities */
