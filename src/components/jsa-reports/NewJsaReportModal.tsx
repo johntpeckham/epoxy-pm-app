@@ -7,6 +7,7 @@ import { Project, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry } from '@/typ
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import JsaTemplateManagerModal from './JsaTemplateManagerModal'
 import JsaSignatureSection from './JsaSignatureSection'
+import Portal from '@/components/ui/Portal'
 
 interface NewJsaReportModalProps {
   projects: Project[]
@@ -158,7 +159,7 @@ export default function NewJsaReportModal({
   }
 
   return (
-    <>
+    <Portal>
       <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
         <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
@@ -370,6 +371,6 @@ export default function NewJsaReportModal({
           }}
         />
       )}
-    </>
+    </Portal>
   )
 }

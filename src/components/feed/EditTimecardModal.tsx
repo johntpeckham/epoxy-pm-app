@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, PlusIcon, LoaderIcon } from 'lucide-react'
 import { TimecardContent, TimecardEntry, Employee } from '@/types'
+import Portal from '@/components/ui/Portal'
 
 interface EditTimecardModalProps {
   postId: string
@@ -126,6 +127,7 @@ export default function EditTimecardModal({
   }
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
@@ -275,5 +277,6 @@ export default function EditTimecardModal({
         </div>
       </div>
     </div>
+    </Portal>
   )
 }

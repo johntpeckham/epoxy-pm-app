@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { XIcon, PlusIcon, PencilIcon, Trash2Icon, CheckIcon, LoaderIcon } from 'lucide-react'
 import { Employee } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import Portal from '@/components/ui/Portal'
 
 interface ManageEmployeesModalProps {
   onClose: () => void
@@ -94,6 +95,7 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
   }
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
@@ -225,5 +227,6 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
         />
       )}
     </div>
+    </Portal>
   )
 }

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { DocumentCategory, ProjectDocument } from '@/types'
 import PdfThumbnail from './PdfThumbnail'
+import Portal from '@/components/ui/Portal'
 
 interface DocumentUploadModalProps {
   projectId: string
@@ -150,6 +151,7 @@ export default function DocumentUploadModal({
   }
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]">
@@ -394,5 +396,6 @@ export default function DocumentUploadModal({
         </div>
       )}
     </div>
+    </Portal>
   )
 }

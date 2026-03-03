@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { PlusIcon, XIcon, PenLineIcon } from 'lucide-react'
 import { JsaSignatureEntry } from '@/types'
+import Portal from '@/components/ui/Portal'
 
 interface SignatureRow {
   name: string
@@ -146,6 +147,7 @@ function SignatureModal({
   }
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4">
@@ -197,6 +199,7 @@ function SignatureModal({
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 
