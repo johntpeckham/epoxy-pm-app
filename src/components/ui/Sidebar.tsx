@@ -302,8 +302,9 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         className={`lg:hidden fixed top-0 left-0 bottom-0 z-50 w-64 bg-black transform transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        <div className="absolute top-3 right-3">
+        <div className="absolute right-3" style={{ top: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
           <button
             onClick={() => setMobileOpen(false)}
             className="text-gray-400 hover:text-white p-1.5 rounded-md hover:bg-gray-800"
