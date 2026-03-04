@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PlusIcon, RulerIcon, SquareIcon, HashIcon, FileTextIcon, PencilLineIcon } from 'lucide-react'
+import { PlusIcon, RulerIcon, SquareIcon, HashIcon, FileTextIcon, PencilLineIcon, XIcon, Loader2Icon, AlertCircleIcon } from 'lucide-react'
 import type { TakeoffPage, TakeoffItem } from './types'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -17,6 +17,8 @@ interface TakeoffDashboardProps {
   pageScales: Record<string, number>
   onAddPages: (pages: TakeoffPage[]) => void
   onOpenPage: (page: TakeoffPage) => void
+  onDeletePage: (pdfIndex: number, pageIndex: number) => void
+  onDeleteAllPages: () => void
 }
 
 // ─── Thumbnail card ───
@@ -24,12 +26,15 @@ interface TakeoffDashboardProps {
 function PageThumbnail({
   page,
   onClick,
+  onDelete,
 }: {
   page: TakeoffPage
   onClick: () => void
+  onDelete: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [loading, setLoading] = useState(true)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     if (page.thumbnailDataUrl && canvasRef.current) {
@@ -74,19 +79,51 @@ function PageThumbnail({
   }, [page])
 
   return (
-    <button
-      onClick={onClick}
-      className="group flex flex-col items-center bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-amber-400 hover:shadow-md transition-all cursor-pointer"
-      style={{ width: 180 }}
-    >
-      <div className="w-full h-[220px] bg-gray-100 flex items-center justify-center overflow-hidden relative">
-        {loading && <div className="absolute inset-0 bg-gray-100 animate-pulse" />}
-        <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
-      </div>
-      <div className="w-full px-2 py-1.5 text-[11px] text-gray-500 font-medium text-center truncate border-t border-gray-100 group-hover:text-amber-600">
-        Page {page.pageIndex + 1}
-      </div>
-    </button>
+    <div className="relative group" style={{ width: 180 }}>
+      {/* Delete button — top right, visible on hover */}
+      {!confirmDelete && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
+          className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-full bg-black/60 hover:bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <XIcon className="w-3.5 h-3.5" />
+        </button>
+      )}
+
+      {/* Delete confirmation overlay */}
+      {confirmDelete && (
+        <div className="absolute inset-0 z-20 bg-black/70 rounded-lg flex flex-col items-center justify-center gap-2">
+          <p className="text-white text-xs font-medium">Remove this page?</p>
+          <div className="flex gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); setConfirmDelete(false) }}
+              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-[11px] font-semibold rounded transition-colors"
+            >
+              Yes
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}
+              className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white text-[11px] font-semibold rounded transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={onClick}
+        className="w-full flex flex-col items-center bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-amber-400 hover:shadow-md transition-all cursor-pointer"
+      >
+        <div className="w-full h-[220px] bg-gray-100 flex items-center justify-center overflow-hidden relative">
+          {loading && <div className="absolute inset-0 bg-gray-100 animate-pulse" />}
+          <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
+        </div>
+        <div className="w-full px-2 py-1.5 text-[11px] text-gray-500 font-medium text-center truncate border-t border-gray-100 group-hover:text-amber-600">
+          Page {page.pageIndex + 1}
+        </div>
+      </button>
+    </div>
   )
 }
 
@@ -123,8 +160,12 @@ export default function TakeoffDashboard({
   pageScales,
   onAddPages,
   onOpenPage,
+  onDeletePage,
+  onDeleteAllPages,
 }: TakeoffDashboardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const totalLinear = items
     .filter((i) => i.type === 'linear')
@@ -140,34 +181,51 @@ export default function TakeoffDashboard({
     const file = e.target.files?.[0]
     if (!file) return
 
-    const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as ArrayBuffer)
-      reader.onerror = reject
-      reader.readAsArrayBuffer(file)
-    })
-
-    const pdfBase64 = arrayBufferToBase64(arrayBuffer)
-
-    const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
-    const pdfIndex = pages.length > 0 ? Math.max(...pages.map((p) => p.pdfIndex)) + 1 : 0
-
-    const newPages: TakeoffPage[] = []
-    for (let i = 0; i < doc.numPages; i++) {
-      const pdfPage = await doc.getPage(i + 1)
-      const viewport = pdfPage.getViewport({ scale: 0.3 })
-      const canvas = document.createElement('canvas')
-      canvas.width = viewport.width
-      canvas.height = viewport.height
-      const ctx = canvas.getContext('2d')!
-      await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
-      const thumbnailDataUrl = canvas.toDataURL('image/png')
-
-      newPages.push({ pdfIndex, pageIndex: i, pdfName: file.name, thumbnailDataUrl, arrayBuffer, pdfBase64 })
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+      setUploadError('Please select a PDF file.')
+      setTimeout(() => setUploadError(null), 4000)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
     }
 
-    onAddPages(newPages)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setUploading(true)
+    setUploadError(null)
+
+    try {
+      const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as ArrayBuffer)
+        reader.onerror = reject
+        reader.readAsArrayBuffer(file)
+      })
+
+      const pdfBase64 = arrayBufferToBase64(arrayBuffer)
+
+      const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
+      const pdfIndex = pages.length > 0 ? Math.max(...pages.map((p) => p.pdfIndex)) + 1 : 0
+
+      const newPages: TakeoffPage[] = []
+      for (let i = 0; i < doc.numPages; i++) {
+        const pdfPage = await doc.getPage(i + 1)
+        const viewport = pdfPage.getViewport({ scale: 0.3 })
+        const canvas = document.createElement('canvas')
+        canvas.width = viewport.width
+        canvas.height = viewport.height
+        const ctx = canvas.getContext('2d')!
+        await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
+        const thumbnailDataUrl = canvas.toDataURL('image/png')
+
+        newPages.push({ pdfIndex, pageIndex: i, pdfName: file.name, thumbnailDataUrl, arrayBuffer, pdfBase64 })
+      }
+
+      onAddPages(newPages)
+    } catch {
+      setUploadError('Failed to load PDF. Please try a different file.')
+      setTimeout(() => setUploadError(null), 4000)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }, [pages, onAddPages])
 
   const cards = [
@@ -186,6 +244,14 @@ export default function TakeoffDashboard({
         <p className="text-sm text-gray-500 mt-0.5">{projectName}</p>
       </div>
 
+      {/* Upload error toast */}
+      {uploadError && (
+        <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+          <AlertCircleIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <span className="text-sm text-red-700">{uploadError}</span>
+        </div>
+      )}
+
       {/* Section 1 — Measurement Items Summary */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-5">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -202,7 +268,6 @@ export default function TakeoffDashboard({
           </div>
         ) : (
           <div>
-            {/* Item rows */}
             {items.map((item, idx) => {
               const itemTotal = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
               const isLast = idx === items.length - 1
@@ -211,14 +276,11 @@ export default function TakeoffDashboard({
                   key={item.id}
                   className={`flex items-center gap-3 px-4 py-2.5 ${!isLast ? 'border-b border-gray-50' : ''}`}
                 >
-                  {/* Color dot */}
                   <div
                     className="w-3 h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  {/* Name */}
                   <span className="text-sm font-semibold text-gray-900 flex-1 truncate">{item.name}</span>
-                  {/* Type badge */}
                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
                     item.type === 'linear'
                       ? 'bg-blue-50 text-blue-600'
@@ -226,11 +288,9 @@ export default function TakeoffDashboard({
                   }`}>
                     {item.type === 'linear' ? 'Linear' : 'Area'}
                   </span>
-                  {/* Measurement count */}
                   <span className="text-xs text-gray-400 flex-shrink-0 w-28 text-right">
                     {item.measurements.length} measurement{item.measurements.length !== 1 ? 's' : ''}
                   </span>
-                  {/* Total value */}
                   <span className="text-sm font-bold text-gray-900 flex-shrink-0 w-28 text-right">
                     {item.type === 'linear' ? fmtFtIn(itemTotal) : fmtArea(itemTotal)}
                   </span>
@@ -238,7 +298,6 @@ export default function TakeoffDashboard({
               )
             })}
 
-            {/* Grand totals */}
             <div className="border-t border-gray-200 bg-gray-50/50">
               {totalLinear > 0 && (
                 <div className="flex items-center justify-between px-4 py-2">
@@ -289,6 +348,14 @@ export default function TakeoffDashboard({
             {pages.length}
           </span>
         </div>
+        {pages.length > 0 && (
+          <button
+            onClick={onDeleteAllPages}
+            className="text-[11px] text-red-400 hover:text-red-600 font-medium transition-colors"
+          >
+            Remove All Pages
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -297,20 +364,32 @@ export default function TakeoffDashboard({
             key={`${page.pdfIndex}-${page.pageIndex}`}
             page={page}
             onClick={() => onOpenPage(page)}
+            onDelete={() => onDeletePage(page.pdfIndex, page.pageIndex)}
           />
         ))}
 
+        {/* Add PDF card */}
         <button
-          onClick={() => fileInputRef.current?.click()}
-          className="flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer"
+          onClick={() => { if (!uploading) fileInputRef.current?.click() }}
+          disabled={uploading}
+          className="flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer disabled:cursor-wait disabled:opacity-70"
           style={{ width: 180, height: 252 }}
         >
-          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
-            <PlusIcon className="w-5 h-5 text-gray-400" />
-          </div>
-          <span className="text-xs font-medium text-gray-400">Add PDF</span>
-          <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
+          {uploading ? (
+            <>
+              <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin mb-2" />
+              <span className="text-xs font-medium text-amber-500">Processing...</span>
+            </>
+          ) : (
+            <>
+              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+                <PlusIcon className="w-5 h-5 text-gray-400" />
+              </div>
+              <span className="text-xs font-medium text-gray-400">Add PDF</span>
+            </>
+          )}
         </button>
+        <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
       </div>
     </div>
   )
