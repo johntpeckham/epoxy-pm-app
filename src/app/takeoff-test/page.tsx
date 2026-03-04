@@ -1,23 +1,31 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import * as pdfjsLib from 'pdfjs-dist'
-import type { PDFPageProxy } from 'pdfjs-dist'
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString()
 
 interface Point {
   x: number
   y: number
 }
 
+// Lazy-loaded pdfjs-dist to avoid SSR issues (DOMMatrix not available in Node)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pdfjsLib: any = null
+async function getPdfjs() {
+  if (!pdfjsLib) {
+    pdfjsLib = await import('pdfjs-dist')
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString()
+  }
+  return pdfjsLib
+}
+
 export default function TakeoffTestPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const pageRef = useRef<PDFPageProxy | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pageRef = useRef<any>(null)
 
   const [scale, setScale] = useState(1)
   const scaleRef = useRef(1)
@@ -98,9 +106,10 @@ export default function TakeoffTestPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    const pdfjs = await getPdfjs()
     const arrayBuffer = await file.arrayBuffer()
     const data = new Uint8Array(arrayBuffer)
-    const doc = await pdfjsLib.getDocument({ data }).promise
+    const doc = await pdfjs.getDocument({ data }).promise
     const pdfPage = await doc.getPage(1)
     pageRef.current = pdfPage
 
