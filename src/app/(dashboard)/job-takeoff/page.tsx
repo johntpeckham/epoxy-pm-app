@@ -50,6 +50,7 @@ function serializeProjects(projects: TakeoffProject[]): string {
       pdfIndex: pg.pdfIndex,
       pageIndex: pg.pageIndex,
       pdfName: pg.pdfName,
+      displayName: pg.displayName,
       thumbnailDataUrl: pg.thumbnailDataUrl,
       pdfBase64: pg.pdfBase64 ?? (pg.arrayBuffer ? arrayBufferToBase64(pg.arrayBuffer) : null),
     })),
@@ -71,6 +72,7 @@ function deserializeProjects(json: string): TakeoffProject[] {
         pdfIndex: pg.pdfIndex,
         pageIndex: pg.pageIndex,
         pdfName: pg.pdfName,
+        displayName: pg.displayName,
         thumbnailDataUrl: pg.thumbnailDataUrl,
         pdfBase64: pg.pdfBase64 ?? null,
         arrayBuffer: pg.pdfBase64 ? base64ToArrayBuffer(pg.pdfBase64) : null,
@@ -190,6 +192,20 @@ export default function JobTakeoffPage() {
     updateSelected({ pages: [] })
   }, [selectedProject, updateSelected])
 
+  const handleRenamePage = useCallback(
+    (pdfIndex: number, pageIndex: number, displayName: string) => {
+      if (!selectedProject) return
+      updateSelected({
+        pages: selectedProject.pages.map((p) =>
+          p.pdfIndex === pdfIndex && p.pageIndex === pageIndex
+            ? { ...p, displayName }
+            : p
+        ),
+      })
+    },
+    [selectedProject, updateSelected]
+  )
+
   const handleOpenPage = useCallback((page: TakeoffPage) => {
     setActivePage(page)
     setViewMode('viewer')
@@ -278,7 +294,7 @@ export default function JobTakeoffPage() {
         onAddPages={handleAddPages}
         onOpenPage={handleOpenPage}
         onDeletePage={handleDeletePage}
-        onDeleteAllPages={handleDeleteAllPages}
+        onRenamePage={handleRenamePage}
       />
     )
   }

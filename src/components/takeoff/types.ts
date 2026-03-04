@@ -51,6 +51,7 @@ export interface TakeoffPage {
   pdfIndex: number
   pageIndex: number
   pdfName: string
+  displayName?: string
   thumbnailDataUrl: string | null
   arrayBuffer: ArrayBuffer | null
   pdfBase64: string | null
@@ -72,6 +73,7 @@ export interface SerializedTakeoffPage {
   pdfIndex: number
   pageIndex: number
   pdfName: string
+  displayName?: string
   thumbnailDataUrl: string | null
   pdfBase64: string | null
 }

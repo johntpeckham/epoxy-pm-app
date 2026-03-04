@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PlusIcon, RulerIcon, SquareIcon, HashIcon, FileTextIcon, PencilLineIcon, XIcon, Loader2Icon, AlertCircleIcon } from 'lucide-react'
+import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon } from 'lucide-react'
 import type { TakeoffPage, TakeoffItem } from './types'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -18,7 +18,7 @@ interface TakeoffDashboardProps {
   onAddPages: (pages: TakeoffPage[]) => void
   onOpenPage: (page: TakeoffPage) => void
   onDeletePage: (pdfIndex: number, pageIndex: number) => void
-  onDeleteAllPages: () => void
+  onRenamePage: (pdfIndex: number, pageIndex: number, displayName: string) => void
 }
 
 // ─── Thumbnail card ───
@@ -27,14 +27,21 @@ function PageThumbnail({
   page,
   onClick,
   onDelete,
+  onRename,
 }: {
   page: TakeoffPage
   onClick: () => void
   onDelete: () => void
+  onRename: (name: string) => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editValue, setEditValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const displayName = page.displayName || `Page ${page.pageIndex + 1}`
 
   useEffect(() => {
     if (page.thumbnailDataUrl && canvasRef.current) {
@@ -78,6 +85,27 @@ function PageThumbnail({
     return () => { cancelled = true }
   }, [page])
 
+  function startEditing() {
+    setEditValue(displayName)
+    setEditing(true)
+    setTimeout(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }, 0)
+  }
+
+  function commitEdit() {
+    const trimmed = editValue.trim()
+    if (trimmed && trimmed !== displayName) {
+      onRename(trimmed)
+    }
+    setEditing(false)
+  }
+
+  function cancelEdit() {
+    setEditing(false)
+  }
+
   return (
     <div className="relative group" style={{ width: 180 }}>
       {/* Delete button — top right, visible on hover */}
@@ -119,10 +147,32 @@ function PageThumbnail({
           {loading && <div className="absolute inset-0 bg-gray-100 animate-pulse" />}
           <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
         </div>
-        <div className="w-full px-2 py-1.5 text-[11px] text-gray-500 font-medium text-center truncate border-t border-gray-100 group-hover:text-amber-600">
-          Page {page.pageIndex + 1}
-        </div>
       </button>
+
+      {/* Editable name below thumbnail */}
+      <div className="mt-1 px-1">
+        {editing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.currentTarget.blur() }
+              if (e.key === 'Escape') { cancelEdit() }
+            }}
+            className="w-full text-center text-[11px] font-medium text-gray-700 bg-transparent border-b-2 border-amber-400 outline-none py-0.5 px-1"
+          />
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); startEditing() }}
+            className="w-full text-center text-[11px] font-medium text-gray-500 hover:text-amber-600 transition-colors py-0.5 truncate cursor-text"
+          >
+            {displayName}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -161,7 +211,7 @@ export default function TakeoffDashboard({
   onAddPages,
   onOpenPage,
   onDeletePage,
-  onDeleteAllPages,
+  onRenamePage,
 }: TakeoffDashboardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -174,8 +224,6 @@ export default function TakeoffDashboard({
   const totalArea = items
     .filter((i) => i.type === 'area')
     .reduce((sum, i) => sum + i.measurements.reduce((s, m) => s + m.valueInFeet, 0), 0)
-
-  const totalMeasurements = items.reduce((sum, i) => sum + i.measurements.length, 0)
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -227,14 +275,6 @@ export default function TakeoffDashboard({
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }, [pages, onAddPages])
-
-  const cards = [
-    { label: 'Items', value: String(items.length), icon: <HashIcon className="w-4 h-4 text-amber-500" /> },
-    { label: 'Measurements', value: String(totalMeasurements), icon: <PencilLineIcon className="w-4 h-4 text-amber-500" /> },
-    { label: 'Pages', value: String(pages.length), icon: <FileTextIcon className="w-4 h-4 text-amber-500" /> },
-    { label: 'Linear Total', value: totalLinear > 0 ? fmtFtIn(totalLinear) : "0'-0\"", icon: <RulerIcon className="w-4 h-4 text-amber-500" /> },
-    { label: 'Area Total', value: totalArea > 0 ? fmtArea(totalArea) : '0 sq ft', icon: <SquareIcon className="w-4 h-4 text-amber-500" /> },
-  ]
 
   return (
     <div className="flex-1 overflow-y-auto p-5 bg-gray-50">
@@ -327,20 +367,7 @@ export default function TakeoffDashboard({
         )}
       </div>
 
-      {/* Section 2 — Stat widget row */}
-      <div className="grid grid-cols-5 gap-3 mb-5">
-        {cards.map((c) => (
-          <div key={c.label} className="bg-white rounded-lg border border-gray-200 shadow-sm px-3 py-3 flex flex-col gap-1.5">
-            <div className="flex items-center gap-1.5">
-              {c.icon}
-              <span className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">{c.label}</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900 leading-tight">{c.value}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Section 3 — PDF Pages grid */}
+      {/* Section 2 — PDF Pages grid */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Plan Pages</h2>
@@ -348,14 +375,6 @@ export default function TakeoffDashboard({
             {pages.length}
           </span>
         </div>
-        {pages.length > 0 && (
-          <button
-            onClick={onDeleteAllPages}
-            className="text-[11px] text-red-400 hover:text-red-600 font-medium transition-colors"
-          >
-            Remove All Pages
-          </button>
-        )}
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -365,6 +384,7 @@ export default function TakeoffDashboard({
             page={page}
             onClick={() => onOpenPage(page)}
             onDelete={() => onDeletePage(page.pdfIndex, page.pageIndex)}
+            onRename={(name) => onRenamePage(page.pdfIndex, page.pageIndex, name)}
           />
         ))}
 
