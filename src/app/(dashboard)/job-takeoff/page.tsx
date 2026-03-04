@@ -254,6 +254,7 @@ export default function JobTakeoffPage() {
     column3Content = (
       <TakeoffDashboard
         key={selectedProject.id}
+        projectName={selectedProject.name}
         pages={selectedProject.pages}
         items={selectedProject.items}
         pageScales={selectedProject.pageScales}
