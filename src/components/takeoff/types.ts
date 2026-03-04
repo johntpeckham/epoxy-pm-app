@@ -46,3 +46,14 @@ export interface Markup {
   color: string
   pageIndex: number
 }
+
+export interface TakeoffProject {
+  id: string
+  name: string
+  createdAt: string
+  pdfData: ArrayBuffer | null
+  pageCount: number
+  pageScales: PageScale[]
+  items: TakeoffItem[]
+  markups: Markup[]
+}

@@ -69,7 +69,31 @@ function centroid(pts: Point[]): Point {
   return { x: cx, y: cy }
 }
 
-export default function TakeoffViewer() {
+interface TakeoffViewerProps {
+  pdfData: ArrayBuffer | null
+  pageScales: PageScale[]
+  items: TakeoffItem[]
+  markups: Markup[]
+  isFullscreen: boolean
+  onPdfLoaded: (data: ArrayBuffer, pageCount: number) => void
+  onPageScalesChange: (scales: PageScale[]) => void
+  onItemsChange: (items: TakeoffItem[]) => void
+  onMarkupsChange: (markups: Markup[]) => void
+  onToggleFullscreen: () => void
+}
+
+export default function TakeoffViewer({
+  pdfData,
+  pageScales,
+  items,
+  markups,
+  isFullscreen,
+  onPdfLoaded,
+  onPageScalesChange,
+  onItemsChange,
+  onMarkupsChange,
+  onToggleFullscreen,
+}: TakeoffViewerProps) {
   // PDF state
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
@@ -90,10 +114,7 @@ export default function TakeoffViewer() {
   const [scaleUnit, setScaleUnit] = useState<'feet' | 'inches'>('feet')
 
   // Measurement state
-  const [items, setItems] = useState<TakeoffItem[]>([])
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
-  const [pageScales, setPageScales] = useState<PageScale[]>([])
-  const [markups, setMarkups] = useState<Markup[]>([])
 
   // Drawing-in-progress state
   const [tempPoints, setTempPoints] = useState<Point[]>([])
@@ -113,7 +134,28 @@ export default function TakeoffViewer() {
 
   const currentPageScale = pageScales.find((s) => s.pageIndex === currentPage)
 
-  // ─── PDF Loading ───
+  // ─── Load PDF from project data ───
+
+  useEffect(() => {
+    if (!pdfData) {
+      setPdfDoc(null)
+      setTotalPages(0)
+      setCurrentPage(0)
+      return
+    }
+    let cancelled = false
+    pdfjsLib.getDocument({ data: pdfData.slice(0) }).promise.then((doc) => {
+      if (!cancelled) {
+        setPdfDoc(doc)
+        setTotalPages(doc.numPages)
+        setCurrentPage(0)
+        setPanOffset({ x: 0, y: 0 })
+      }
+    })
+    return () => { cancelled = true }
+  }, [pdfData])
+
+  // ─── PDF Upload ───
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -124,6 +166,7 @@ export default function TakeoffViewer() {
     setTotalPages(doc.numPages)
     setCurrentPage(0)
     setPanOffset({ x: 0, y: 0 })
+    onPdfLoaded(arrayBuffer, doc.numPages)
   }
 
   // ─── Render PDF page ───
@@ -176,7 +219,6 @@ export default function TakeoffViewer() {
         } else if (m.type === 'area' && m.points.length >= 3) {
           drawPolygon(ctx, m.points, color, m.label)
         } else if (m.type === 'area' && m.points.length === 2) {
-          // Rectangle stored as 2 corners
           const [a, b] = m.points
           const rectPts: Point[] = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }]
           drawPolygon(ctx, rectPts, color, m.label)
@@ -208,7 +250,6 @@ export default function TakeoffViewer() {
       const color = activeItem?.color || '#3b82f6'
 
       if (activeTool === 'set-scale') {
-        // Scale calibration points
         for (const p of tempPoints) {
           ctx.fillStyle = '#f59e0b'
           ctx.beginPath()
@@ -228,7 +269,6 @@ export default function TakeoffViewer() {
       } else if (activeTool === 'linear' && tempPoints.length === 1 && mousePos) {
         drawLine(ctx, tempPoints[0], mousePos, color, '')
       } else if (activeTool === 'area-polygon') {
-        // Draw polygon in progress
         if (tempPoints.length >= 1) {
           ctx.strokeStyle = color
           ctx.lineWidth = 2
@@ -240,7 +280,6 @@ export default function TakeoffViewer() {
           if (mousePos) ctx.lineTo(mousePos.x, mousePos.y)
           ctx.stroke()
 
-          // Draw points
           for (const p of tempPoints) {
             ctx.fillStyle = color
             ctx.beginPath()
@@ -251,7 +290,7 @@ export default function TakeoffViewer() {
       }
     }
 
-    // Drag previews for rect tools
+    // Drag previews
     if (dragStart && mousePos && isDragging) {
       if (activeTool === 'area-rect') {
         const activeItem = items.find((i) => i.id === activeItemId)
@@ -295,7 +334,6 @@ export default function TakeoffViewer() {
     ctx.lineTo(b.x, b.y)
     ctx.stroke()
 
-    // Endpoints
     ctx.fillStyle = color
     ctx.beginPath()
     ctx.arc(a.x, a.y, 4, 0, Math.PI * 2)
@@ -306,7 +344,7 @@ export default function TakeoffViewer() {
 
     if (label) {
       const mid = midpoint(a, b)
-      drawMeasurementLabel(ctx, mid, label, color)
+      drawMeasurementLabel(ctx, mid, label)
     }
   }
 
@@ -325,11 +363,11 @@ export default function TakeoffViewer() {
 
     if (label) {
       const c = centroid(pts)
-      drawMeasurementLabel(ctx, c, label, color)
+      drawMeasurementLabel(ctx, c, label)
     }
   }
 
-  function drawMeasurementLabel(ctx: CanvasRenderingContext2D, pos: Point, label: string, color: string) {
+  function drawMeasurementLabel(ctx: CanvasRenderingContext2D, pos: Point, label: string) {
     ctx.font = 'bold 12px sans-serif'
     const metrics = ctx.measureText(label)
     const pad = 4
@@ -402,7 +440,6 @@ export default function TakeoffViewer() {
     const item = items.find((i) => i.id === activeItemId)
     if (!item) return false
 
-    // Check type compatibility
     if (activeTool === 'linear' && item.type !== 'linear') {
       setWarning('Active item is an area type. Select a linear item or create one.')
       setTimeout(() => setWarning(null), 3000)
@@ -442,11 +479,6 @@ export default function TakeoffViewer() {
       const dx = e.clientX - panStart.x
       const dy = e.clientY - panStart.y
       setPanOffset({ x: panStartOffset.x + dx, y: panStartOffset.y + dy })
-      return
-    }
-
-    if (isDragging) {
-      // Handled by redrawOverlay via mousePos update
     }
   }
 
@@ -485,7 +517,7 @@ export default function TakeoffViewer() {
           color: '#f59e0b',
           pageIndex: currentPage,
         }
-        setMarkups((prev) => [...prev, mk])
+        onMarkupsChange([...markups, mk])
       } else if (activeTool === 'markup-arrow') {
         const mk: Markup = {
           id: genId(),
@@ -494,7 +526,7 @@ export default function TakeoffViewer() {
           color: '#f59e0b',
           pageIndex: currentPage,
         }
-        setMarkups((prev) => [...prev, mk])
+        onMarkupsChange([...markups, mk])
       }
       setDragStart(null)
     }
@@ -551,7 +583,7 @@ export default function TakeoffViewer() {
     }
   }
 
-  function handleDoubleClick(e: React.MouseEvent) {
+  function handleDoubleClick() {
     if (activeTool === 'area-polygon' && tempPoints.length >= 3) {
       const ppf = currentPageScale!.pixelsPerFoot
       const pxArea = polygonArea(tempPoints)
@@ -579,10 +611,8 @@ export default function TakeoffViewer() {
     const pxDist = distance(scalePoints[0], scalePoints[1])
     const ppf = pxDist / realDistFeet
 
-    setPageScales((prev) => {
-      const filtered = prev.filter((s) => s.pageIndex !== currentPage)
-      return [...filtered, { pageIndex: currentPage, pixelsPerFoot: ppf, calibrated: true }]
-    })
+    const filtered = pageScales.filter((s) => s.pageIndex !== currentPage)
+    onPageScalesChange([...filtered, { pageIndex: currentPage, pixelsPerFoot: ppf, calibrated: true }])
 
     setShowScaleModal(false)
     setScalePoints([])
@@ -594,8 +624,8 @@ export default function TakeoffViewer() {
   // ─── Add measurement to active item ───
 
   function addMeasurementToActiveItem(measurement: Measurement) {
-    setItems((prev) =>
-      prev.map((item) =>
+    onItemsChange(
+      items.map((item) =>
         item.id === activeItemId
           ? { ...item, measurements: [...item.measurements, measurement] }
           : item
@@ -613,26 +643,24 @@ export default function TakeoffViewer() {
       measurements: [],
       color: getNextColor(),
     }
-    setItems((prev) => [...prev, newItem])
+    onItemsChange([...items, newItem])
     setActiveItemId(newItem.id)
   }
 
   function handleDeleteItem(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id))
+    onItemsChange(items.filter((i) => i.id !== id))
     if (activeItemId === id) {
       setActiveItemId(null)
     }
   }
 
   function handleRenameItem(id: string, name: string) {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, name } : i))
-    )
+    onItemsChange(items.map((i) => (i.id === id ? { ...i, name } : i)))
   }
 
   function handleDeleteMeasurement(itemId: string, measurementId: string) {
-    setItems((prev) =>
-      prev.map((item) =>
+    onItemsChange(
+      items.map((item) =>
         item.id === itemId
           ? { ...item, measurements: item.measurements.filter((m) => m.id !== measurementId) }
           : item
@@ -655,7 +683,7 @@ export default function TakeoffViewer() {
       color: '#f59e0b',
       pageIndex: currentPage,
     }
-    setMarkups((prev) => [...prev, mk])
+    onMarkupsChange([...markups, mk])
     setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false })
     setMarkupTextValue('')
   }
@@ -698,7 +726,7 @@ export default function TakeoffViewer() {
     setIsDragging(false)
   }
 
-  // ─── Escape key to cancel in-progress drawing ───
+  // ─── Escape key ───
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -719,27 +747,21 @@ export default function TakeoffViewer() {
 
   function getCursor(): string {
     if (activeTool === 'pan') return panStart ? 'grabbing' : 'grab'
-    if (activeTool === 'set-scale') return 'crosshair'
-    if (activeTool === 'linear') return 'crosshair'
-    if (activeTool === 'area-rect') return 'crosshair'
-    if (activeTool === 'area-polygon') return 'crosshair'
-    if (activeTool === 'markup-rect') return 'crosshair'
     if (activeTool === 'markup-text') return 'text'
-    if (activeTool === 'markup-arrow') return 'crosshair'
-    return 'default'
+    return 'crosshair'
   }
 
   // ─── Upload prompt ───
 
   if (!pdfDoc) {
     return (
-      <div className="flex items-center justify-center h-full bg-gray-100">
+      <div className="flex items-center justify-center h-full bg-gray-50">
         <div className="text-center">
-          <UploadCloudIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">Upload Construction Plans</h2>
-          <p className="text-gray-500 mb-6 text-sm">Upload a PDF to begin taking measurements</p>
-          <label className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 text-white rounded-lg cursor-pointer hover:bg-amber-600 transition-colors font-medium">
-            <UploadCloudIcon className="w-5 h-5" />
+          <UploadCloudIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-gray-700 mb-2">Upload Construction Plans</h2>
+          <p className="text-gray-400 mb-6 text-sm">Upload a PDF to begin taking measurements</p>
+          <label className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-lg cursor-pointer hover:bg-amber-400 transition text-sm font-semibold">
+            <UploadCloudIcon className="w-4 h-4" />
             Choose PDF
             <input
               type="file"
@@ -754,7 +776,7 @@ export default function TakeoffViewer() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-100">
+    <div className="flex flex-col h-full bg-gray-50">
       {/* Toolbar */}
       <TakeoffToolbar
         activeTool={activeTool}
@@ -767,6 +789,8 @@ export default function TakeoffViewer() {
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         pageScale={currentPageScale}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={onToggleFullscreen}
       />
 
       {/* Warning banner */}
