@@ -21,7 +21,7 @@ export interface Measurement {
   points: Point[]
   valueInFeet: number
   label: string
-  pageIndex: number
+  pageKey: string
 }
 
 export interface TakeoffItem {
@@ -32,28 +32,35 @@ export interface TakeoffItem {
   color: string
 }
 
-export interface PageScale {
-  pageIndex: number
-  pixelsPerFoot: number
-  calibrated: boolean
-}
-
 export interface Markup {
   id: string
   type: 'rect' | 'text' | 'arrow'
   points: Point[]
   text?: string
   color: string
+  pageKey: string
+}
+
+export interface PageScale {
   pageIndex: number
+  pixelsPerFoot: number
+  calibrated: boolean
+}
+
+export interface TakeoffPage {
+  pdfIndex: number
+  pageIndex: number
+  pdfName: string
+  thumbnailDataUrl: string | null
+  arrayBuffer: ArrayBuffer
 }
 
 export interface TakeoffProject {
   id: string
   name: string
   createdAt: string
-  pdfData: ArrayBuffer | null
-  pageCount: number
-  pageScales: PageScale[]
+  pages: TakeoffPage[]
   items: TakeoffItem[]
+  pageScales: Record<string, number>
   markups: Markup[]
 }
