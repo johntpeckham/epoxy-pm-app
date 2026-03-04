@@ -106,6 +106,12 @@ export default function TakeoffViewer({
 
   const [zoom, setZoom] = useState(1)
 
+  // Container size tracked via ResizeObserver so fitScale recalculates on layout changes
+  const [containerSize, setContainerSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 })
+
+  // Pinch-to-zoom touch tracking
+  const pinchRef = useRef<{ initialDist: number; initialZoom: number } | null>(null)
+
   const [activeTool, setActiveTool] = useState<ToolMode>('pan')
   const [scalePoints, setScalePoints] = useState<Point[]>([])
   const [showScaleModal, setShowScaleModal] = useState(false)
@@ -135,6 +141,26 @@ export default function TakeoffViewer({
     return () => clearInterval(id)
   }, [activeTool, scalePoints.length])
 
+  // ─── ResizeObserver to track container dimensions ───
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        const { width, height } = entry.contentRect
+        if (width > 0 && height > 0) {
+          setContainerSize((prev) => {
+            if (prev.w === Math.round(width) && prev.h === Math.round(height)) return prev
+            return { w: Math.round(width), h: Math.round(height) }
+          })
+        }
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   // ─── Scale instruction banner text ───
 
   function getScaleBannerText(): string | null {
@@ -149,8 +175,9 @@ export default function TakeoffViewer({
 
   const renderPage = useCallback(async () => {
     const canvas = canvasRef.current
-    const container = containerRef.current
-    if (!canvas || !container || !page.arrayBuffer) return
+    if (!canvas || !page.arrayBuffer) return
+    // Wait until the container has been measured by the ResizeObserver
+    if (containerSize.w === 0 || containerSize.h === 0) return
 
     try {
       const doc = await pdfjsLib.getDocument({ data: page.arrayBuffer.slice(0) }).promise
@@ -158,9 +185,7 @@ export default function TakeoffViewer({
       pageRef.current = pdfPage
 
       const rawVp = pdfPage.getViewport({ scale: 1 })
-      const cw = container.clientWidth
-      const ch = container.clientHeight
-      const fitScale = Math.min(cw / rawVp.width, ch / rawVp.height) * 0.95
+      const fitScale = Math.min(containerSize.w / rawVp.width, containerSize.h / rawVp.height) * 0.95
 
       const renderScale = fitScale * zoom
       const viewport = pdfPage.getViewport({ scale: renderScale })
@@ -181,7 +206,7 @@ export default function TakeoffViewer({
     } catch {
       // PDF render failed
     }
-  }, [page.arrayBuffer, page.pageIndex, zoom])
+  }, [page.arrayBuffer, page.pageIndex, zoom, containerSize])
 
   useEffect(() => {
     renderPage()
@@ -599,6 +624,36 @@ export default function TakeoffViewer({
     return () => window.removeEventListener('keydown', onKey)
   }, [showScaleModal, markupTextInput.visible])
 
+  // ─── Pinch-to-zoom touch handlers ───
+
+  function getTouchDist(t1: React.Touch, t2: React.Touch): number {
+    return Math.sqrt((t2.clientX - t1.clientX) ** 2 + (t2.clientY - t1.clientY) ** 2)
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      e.preventDefault()
+      const dist = getTouchDist(e.touches[0], e.touches[1])
+      pinchRef.current = { initialDist: dist, initialZoom: zoom }
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (e.touches.length === 2 && pinchRef.current) {
+      e.preventDefault()
+      const dist = getTouchDist(e.touches[0], e.touches[1])
+      const ratio = dist / pinchRef.current.initialDist
+      const newZoom = Math.min(5, Math.max(0.3, pinchRef.current.initialZoom * ratio))
+      setZoom(newZoom)
+    }
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (e.touches.length < 2) {
+      pinchRef.current = null
+    }
+  }
+
   const cursor = activeTool === 'pan' ? (panStart ? 'grabbing' : 'grab') : activeTool === 'markup-text' ? 'text' : 'crosshair'
   const canOverflow = zoom > 1
 
@@ -707,12 +762,15 @@ export default function TakeoffViewer({
               <canvas
                 ref={overlayCanvasRef}
                 className="absolute inset-0 w-full h-full"
-                style={{ cursor, pointerEvents: 'auto' }}
+                style={{ cursor, pointerEvents: 'auto', touchAction: 'none' }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onClick={handleClick}
                 onDoubleClick={handleDoubleClick}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               />
             </div>
           </div>
