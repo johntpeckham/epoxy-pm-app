@@ -11,9 +11,9 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => {
+    const supabase = createClient()
     // Supabase automatically picks up the recovery token from the URL hash
     // and establishes a session. We listen for that event.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -28,7 +28,7 @@ export default function ResetPasswordPage() {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -47,6 +47,7 @@ export default function ResetPasswordPage() {
       return
     }
 
+    const supabase = createClient()
     const { error } = await supabase.auth.updateUser({ password: newPassword })
 
     if (error) {
