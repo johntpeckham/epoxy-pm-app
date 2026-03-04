@@ -13,6 +13,8 @@ import {
   ZoomOutIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  Maximize2Icon,
+  Minimize2Icon,
 } from 'lucide-react'
 import type { ToolMode, PageScale } from './types'
 
@@ -27,6 +29,8 @@ interface TakeoffToolbarProps {
   onZoomIn: () => void
   onZoomOut: () => void
   pageScale: PageScale | undefined
+  isFullscreen: boolean
+  onToggleFullscreen: () => void
 }
 
 const tools: { mode: ToolMode; label: string; icon: React.ReactNode; group: string }[] = [
@@ -51,6 +55,8 @@ export default function TakeoffToolbar({
   onZoomIn,
   onZoomOut,
   pageScale,
+  isFullscreen,
+  onToggleFullscreen,
 }: TakeoffToolbarProps) {
   return (
     <div className="flex items-center gap-1 px-3 py-2 bg-gray-900 border-b border-gray-700 flex-wrap">
@@ -130,6 +136,21 @@ export default function TakeoffToolbar({
         {pageScale?.calibrated
           ? `Scale: 1' = ${pageScale.pixelsPerFoot.toFixed(1)}px`
           : 'Scale: Not set'}
+      </div>
+
+      {/* Fullscreen toggle — pushed to far right */}
+      <div className="ml-auto">
+        <button
+          onClick={onToggleFullscreen}
+          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+          className="p-2 rounded text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+        >
+          {isFullscreen ? (
+            <Minimize2Icon className="w-4 h-4" />
+          ) : (
+            <Maximize2Icon className="w-4 h-4" />
+          )}
+        </button>
       </div>
     </div>
   )
