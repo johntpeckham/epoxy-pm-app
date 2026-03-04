@@ -52,7 +52,7 @@ export interface TakeoffPage {
   pageIndex: number
   pdfName: string
   thumbnailDataUrl: string | null
-  arrayBuffer: ArrayBuffer
+  arrayBuffer: ArrayBuffer | null
 }
 
 export interface TakeoffProject {
@@ -60,6 +60,25 @@ export interface TakeoffProject {
   name: string
   createdAt: string
   pages: TakeoffPage[]
+  items: TakeoffItem[]
+  pageScales: Record<string, number>
+  markups: Markup[]
+}
+
+// ─── Serializable types for localStorage (no ArrayBuffer) ───
+
+export interface SerializedTakeoffPage {
+  pdfIndex: number
+  pageIndex: number
+  pdfName: string
+  thumbnailDataUrl: string | null
+}
+
+export interface SerializedTakeoffProject {
+  id: string
+  name: string
+  createdAt: string
+  pages: SerializedTakeoffPage[]
   items: TakeoffItem[]
   pageScales: Record<string, number>
   markups: Markup[]

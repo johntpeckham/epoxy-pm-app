@@ -131,7 +131,7 @@ export default function TakeoffViewer({
   const renderPage = useCallback(async () => {
     const canvas = canvasRef.current
     const container = containerRef.current
-    if (!canvas || !container) return
+    if (!canvas || !container || !page.arrayBuffer) return
 
     try {
       const doc = await pdfjsLib.getDocument({ data: page.arrayBuffer.slice(0) }).promise
