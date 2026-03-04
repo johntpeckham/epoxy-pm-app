@@ -1,26 +1,94 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { RulerIcon } from 'lucide-react'
 import TakeoffProjectList from '@/components/takeoff/TakeoffProjectList'
 import TakeoffDashboard from '@/components/takeoff/TakeoffDashboard'
 import TakeoffViewer from '@/components/takeoff/TakeoffViewer'
-import type { TakeoffProject, TakeoffItem, TakeoffPage, Markup } from '@/components/takeoff/types'
+import type {
+  TakeoffProject,
+  TakeoffItem,
+  TakeoffPage,
+  Markup,
+  SerializedTakeoffProject,
+} from '@/components/takeoff/types'
+
+const LS_KEY = 'takeoff-projects'
 
 function genId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
+// ─── Serialization helpers ───
+
+function serializeProjects(projects: TakeoffProject[]): string {
+  const serialized: SerializedTakeoffProject[] = projects.map((p) => ({
+    id: p.id,
+    name: p.name,
+    createdAt: p.createdAt,
+    pages: p.pages.map((pg) => ({
+      pdfIndex: pg.pdfIndex,
+      pageIndex: pg.pageIndex,
+      pdfName: pg.pdfName,
+      thumbnailDataUrl: pg.thumbnailDataUrl,
+    })),
+    items: p.items,
+    pageScales: p.pageScales,
+    markups: p.markups,
+  }))
+  return JSON.stringify(serialized)
+}
+
+function deserializeProjects(json: string): TakeoffProject[] {
+  try {
+    const parsed: SerializedTakeoffProject[] = JSON.parse(json)
+    return parsed.map((p) => ({
+      id: p.id,
+      name: p.name,
+      createdAt: p.createdAt,
+      pages: p.pages.map((pg) => ({
+        pdfIndex: pg.pdfIndex,
+        pageIndex: pg.pageIndex,
+        pdfName: pg.pdfName,
+        thumbnailDataUrl: pg.thumbnailDataUrl,
+        arrayBuffer: null, // Not persisted
+      })),
+      items: p.items,
+      pageScales: p.pageScales,
+      markups: p.markups,
+    }))
+  } catch {
+    return []
+  }
+}
+
 export default function JobTakeoffPage() {
-  const [projects, setProjects] = useState<TakeoffProject[]>([])
+  const [projects, setProjects] = useState<TakeoffProject[]>(() => {
+    if (typeof window === 'undefined') return []
+    const saved = localStorage.getItem(LS_KEY)
+    return saved ? deserializeProjects(saved) : []
+  })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-
-  // View mode: dashboard shows summary + thumbnails, viewer shows single page
   const [viewMode, setViewMode] = useState<'dashboard' | 'viewer'>('dashboard')
   const [activePage, setActivePage] = useState<TakeoffPage | null>(null)
 
   const selectedProject = projects.find((p) => p.id === selectedId) ?? null
+
+  // ─── Persist to localStorage on every change ───
+
+  const isInitialMount = useRef(true)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    try {
+      localStorage.setItem(LS_KEY, serializeProjects(projects))
+    } catch {
+      // localStorage full or unavailable
+    }
+  }, [projects])
 
   // ─── Project CRUD ───
 
@@ -83,6 +151,20 @@ export default function JobTakeoffPage() {
     [selectedProject, updateSelected]
   )
 
+  // ─── Re-upload PDF handler: replaces arrayBuffer on all pages with matching pdfName ───
+
+  const handleReuploadPdf = useCallback(
+    (arrayBuffer: ArrayBuffer, pdfName: string) => {
+      if (!selectedProject) return
+      updateSelected({
+        pages: selectedProject.pages.map((pg) =>
+          pg.pdfName === pdfName ? { ...pg, arrayBuffer } : pg
+        ),
+      })
+    },
+    [selectedProject, updateSelected]
+  )
+
   const handleOpenPage = useCallback((page: TakeoffPage) => {
     setActivePage(page)
     setViewMode('viewer')
@@ -141,10 +223,14 @@ export default function JobTakeoffPage() {
     )
   } else if (viewMode === 'viewer' && activePage) {
     const pageKey = `${activePage.pdfIndex}-${activePage.pageIndex}`
+    // Find the latest page data (may have been re-uploaded since activePage was set)
+    const latestPage = selectedProject.pages.find(
+      (p) => p.pdfIndex === activePage.pdfIndex && p.pageIndex === activePage.pageIndex
+    ) ?? activePage
     column3Content = (
       <TakeoffViewer
         key={pageKey}
-        page={activePage}
+        page={latestPage}
         pageScale={selectedProject.pageScales[pageKey]}
         items={selectedProject.items}
         markups={selectedProject.markups}
@@ -165,6 +251,7 @@ export default function JobTakeoffPage() {
         pageScales={selectedProject.pageScales}
         onAddPages={handleAddPages}
         onOpenPage={handleOpenPage}
+        onReuploadPdf={handleReuploadPdf}
       />
     )
   }
@@ -179,11 +266,8 @@ export default function JobTakeoffPage() {
     )
   }
 
-  // ─── Normal two-column layout ───
-
   return (
     <div className="flex h-full overflow-hidden w-full max-w-full">
-      {/* Column 2: Project list */}
       <TakeoffProjectList
         projects={projects}
         selectedId={selectedId}
@@ -192,8 +276,6 @@ export default function JobTakeoffPage() {
         onDelete={handleDeleteProject}
         onRename={handleRenameProject}
       />
-
-      {/* Column 3: Dashboard or Viewer */}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
         {column3Content}
       </div>
