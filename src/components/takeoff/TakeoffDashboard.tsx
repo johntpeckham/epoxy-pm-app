@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, PencilIcon } from 'lucide-react'
+import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil } from 'lucide-react'
 import type { TakeoffPage, TakeoffItem } from './types'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -162,16 +162,16 @@ function PageThumbnail({
               if (e.key === 'Enter') { e.currentTarget.blur() }
               if (e.key === 'Escape') { cancelEdit() }
             }}
-            className="w-full text-center text-sm font-semibold text-gray-700 bg-transparent border-b-2 border-amber-400 outline-none py-1 px-1"
+            className="text-base font-semibold text-center border-b-2 border-amber-500 outline-none bg-transparent w-full"
           />
         ) : (
-          <button
+          <div
             onClick={(e) => { e.stopPropagation(); startEditing() }}
-            className="w-full flex items-center justify-center gap-1.5 py-1 px-2 rounded hover:bg-gray-100 transition-colors cursor-text group/name"
+            className="group flex items-center gap-1 justify-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 transition-colors"
           >
-            <span className="text-sm font-semibold text-gray-700 truncate">{displayName}</span>
-            <PencilIcon className="w-3 h-3 text-gray-400 group-hover/name:text-amber-500 flex-shrink-0 transition-colors" />
-          </button>
+            <span className="text-base font-semibold text-gray-800 truncate">{displayName}</span>
+            <Pencil size={12} className="text-gray-400 group-hover:text-amber-500 flex-shrink-0 transition-colors" />
+          </div>
         )}
       </div>
     </div>
