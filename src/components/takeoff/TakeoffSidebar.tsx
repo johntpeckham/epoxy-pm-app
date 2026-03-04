@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PlusIcon, Trash2Icon, PencilIcon, CheckIcon } from 'lucide-react'
+import { PlusIcon, Trash2Icon, CheckIcon, XIcon } from 'lucide-react'
 import type { TakeoffItem, MeasurementType } from './types'
 
 interface TakeoffSidebarProps {
@@ -14,11 +14,11 @@ interface TakeoffSidebarProps {
   onDeleteMeasurement: (itemId: string, measurementId: string) => void
 }
 
-function formatFeetInches(totalFeet: number): string {
-  const feet = Math.floor(totalFeet)
-  const inches = Math.round((totalFeet - feet) * 12)
-  if (inches === 12) return `${feet + 1}'-0"`
-  return `${feet}'-${inches}"`
+function fmtFtIn(ft: number): string {
+  const f = Math.floor(ft)
+  const i = Math.round((ft - f) * 12)
+  if (i === 12) return `${f + 1}'-0"`
+  return `${f}'-${i}"`
 }
 
 export default function TakeoffSidebar({
@@ -30,7 +30,7 @@ export default function TakeoffSidebar({
   onRenameItem,
   onDeleteMeasurement,
 }: TakeoffSidebarProps) {
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<MeasurementType>('linear')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -41,65 +41,78 @@ export default function TakeoffSidebar({
     onAddItem(newName.trim(), newType)
     setNewName('')
     setNewType('linear')
-    setShowAddForm(false)
+    setShowAdd(false)
   }
 
-  function handleStartRename(item: TakeoffItem) {
+  function startRename(item: TakeoffItem) {
     setEditingId(item.id)
     setEditName(item.name)
   }
 
-  function handleFinishRename(id: string) {
-    if (editName.trim()) {
-      onRenameItem(id, editName.trim())
-    }
+  function finishRename(id: string) {
+    if (editName.trim()) onRenameItem(id, editName.trim())
     setEditingId(null)
   }
 
   return (
-    <div className="w-[300px] bg-gray-900 border-l border-gray-700 flex flex-col h-full overflow-hidden">
+    <div className="w-[260px] flex-shrink-0 bg-[#111] border-l border-gray-800 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-        <h3 className="text-white font-semibold text-sm">Measurement Items</h3>
+      <div className="px-3 py-2.5 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+        <span className="text-gray-300 font-semibold text-xs tracking-wide uppercase">Measurement Items</span>
         <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+          onClick={() => setShowAdd(!showAdd)}
+          className="w-6 h-6 flex items-center justify-center rounded bg-amber-500 hover:bg-amber-400 text-white transition-colors"
           title="Add Item"
         >
-          <PlusIcon className="w-4 h-4" />
+          <PlusIcon className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Add form */}
-      {showAddForm && (
-        <div className="px-4 py-3 border-b border-gray-700 space-y-2">
+      {/* Inline add form */}
+      {showAdd && (
+        <div className="px-3 py-2.5 border-b border-gray-800 space-y-2 flex-shrink-0">
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            placeholder="Item name..."
-            className="w-full px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+            placeholder="Item name"
+            className="w-full px-2.5 py-1.5 bg-[#222] border border-gray-700 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
             autoFocus
           />
-          <div className="flex items-center gap-2">
-            <select
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as MeasurementType)}
-              className="flex-1 px-2 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-white focus:outline-none focus:border-amber-500"
+          {/* Type pill toggle */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setNewType('linear')}
+              className={`flex-1 py-1 text-xs font-medium rounded transition-colors ${
+                newType === 'linear'
+                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                  : 'bg-[#222] text-gray-500 border border-gray-700 hover:text-gray-300'
+              }`}
             >
-              <option value="linear">Linear (ft)</option>
-              <option value="area">Area (sq ft)</option>
-            </select>
+              Linear
+            </button>
+            <button
+              onClick={() => setNewType('area')}
+              className={`flex-1 py-1 text-xs font-medium rounded transition-colors ${
+                newType === 'area'
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/40'
+                  : 'bg-[#222] text-gray-500 border border-gray-700 hover:text-gray-300'
+              }`}
+            >
+              Area
+            </button>
+          </div>
+          <div className="flex gap-1.5">
             <button
               onClick={handleAdd}
-              className="px-3 py-1.5 bg-amber-500 text-white text-sm rounded hover:bg-amber-600 transition-colors"
+              className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded transition-colors"
             >
               Add
             </button>
             <button
-              onClick={() => setShowAddForm(false)}
-              className="px-2 py-1.5 text-gray-400 text-sm hover:text-white transition-colors"
+              onClick={() => setShowAdd(false)}
+              className="px-3 py-1.5 text-gray-500 hover:text-gray-300 text-xs transition-colors"
             >
               Cancel
             </button>
@@ -109,109 +122,85 @@ export default function TakeoffSidebar({
 
       {/* Items list */}
       <div className="flex-1 overflow-y-auto">
-        {items.length === 0 && (
-          <div className="px-4 py-8 text-center text-gray-500 text-sm">
-            No items yet. Click + to add a measurement item.
+        {items.length === 0 && !showAdd && (
+          <div className="px-4 py-10 text-center">
+            <p className="text-gray-600 text-xs">Click + to add your first measurement item</p>
           </div>
         )}
+
         {items.map((item) => {
           const isActive = item.id === activeItemId
-          const total = item.measurements.reduce((sum, m) => sum + m.valueInFeet, 0)
+          const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
+
           return (
             <div
               key={item.id}
               onClick={() => onSelectItem(item.id)}
-              className={`border-b border-gray-800 cursor-pointer transition-colors ${
-                isActive ? 'bg-gray-800' : 'hover:bg-gray-800/50'
+              className={`cursor-pointer transition-colors border-b border-gray-800/60 ${
+                isActive
+                  ? 'bg-[#1a1a1a] border-l-2 border-l-amber-500'
+                  : 'bg-[#111] hover:bg-[#161616] border-l-2 border-l-transparent'
               }`}
             >
-              {/* Item header */}
-              <div className="px-4 py-2.5 flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: item.color }}
-                />
+              {/* Top row: dot + name + badge + delete */}
+              <div className="px-3 py-2 flex items-center gap-2 min-w-0">
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+
                 {editingId === item.id ? (
-                  <div className="flex-1 flex items-center gap-1">
+                  <div className="flex-1 flex items-center gap-1 min-w-0">
                     <input
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleFinishRename(item.id)
+                        if (e.key === 'Enter') finishRename(item.id)
                         if (e.key === 'Escape') setEditingId(null)
                       }}
-                      className="flex-1 px-2 py-0.5 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:outline-none focus:border-amber-500"
+                      className="flex-1 min-w-0 px-1.5 py-0.5 bg-[#222] border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
                       autoFocus
                       onClick={(e) => e.stopPropagation()}
                     />
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleFinishRename(item.id)
-                      }}
-                      className="p-1 text-green-400 hover:text-green-300"
+                      onClick={(e) => { e.stopPropagation(); finishRename(item.id) }}
+                      className="p-0.5 text-green-400 hover:text-green-300"
                     >
-                      <CheckIcon className="w-3.5 h-3.5" />
+                      <CheckIcon className="w-3 h-3" />
                     </button>
                   </div>
                 ) : (
                   <>
-                    <span className={`flex-1 text-sm font-medium truncate ${isActive ? 'text-white' : 'text-gray-300'}`}>
+                    <span
+                      onDoubleClick={(e) => { e.stopPropagation(); startRename(item) }}
+                      className={`flex-1 text-xs font-medium truncate ${isActive ? 'text-white' : 'text-gray-400'}`}
+                    >
                       {item.name}
                     </span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                      item.type === 'linear' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
+                      item.type === 'linear' ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
                     }`}>
-                      {item.type === 'linear' ? 'LIN' : 'AREA'}
+                      {item.type === 'linear' ? 'LINEAR' : 'AREA'}
                     </span>
-                    {isActive && (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleStartRename(item)
-                          }}
-                          className="p-1 text-gray-500 hover:text-white"
-                          title="Rename"
-                        >
-                          <PencilIcon className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onDeleteItem(item.id)
-                          }}
-                          className="p-1 text-gray-500 hover:text-red-400"
-                          title="Delete"
-                        >
-                          <Trash2Icon className="w-3 h-3" />
-                        </button>
-                      </>
-                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id) }}
+                      className="p-0.5 text-gray-700 hover:text-red-400 flex-shrink-0 transition-colors"
+                    >
+                      <Trash2Icon className="w-3 h-3" />
+                    </button>
                   </>
                 )}
               </div>
 
-              {/* Measurements list (only when active) */}
+              {/* Measurements (always visible when active) */}
               {isActive && item.measurements.length > 0 && (
-                <div className="px-4 pb-2">
+                <div className="px-3 pb-1">
                   {item.measurements.map((m, idx) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between py-1 text-xs text-gray-400 group"
-                    >
-                      <span>
-                        #{idx + 1}: {m.label}
-                      </span>
+                    <div key={m.id} className="flex items-center justify-between py-0.5 group">
+                      <span className="text-[10px] text-gray-500">{m.label}</span>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onDeleteMeasurement(item.id, m.id)
-                        }}
-                        className="p-0.5 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => { e.stopPropagation(); onDeleteMeasurement(item.id, m.id) }}
+                        className="p-0.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <Trash2Icon className="w-3 h-3" />
+                        <XIcon className="w-2.5 h-2.5" />
                       </button>
                     </div>
                   ))}
@@ -219,9 +208,8 @@ export default function TakeoffSidebar({
               )}
 
               {/* Total */}
-              <div className={`px-4 py-1.5 text-xs font-medium ${isActive ? 'text-amber-400' : 'text-gray-500'}`}>
-                Total: {item.type === 'linear' ? formatFeetInches(total) : `${total.toFixed(1)} sq ft`}
-                {item.measurements.length > 0 && ` (${item.measurements.length})`}
+              <div className={`px-3 pb-2 text-[11px] font-bold ${isActive ? 'text-amber-400' : 'text-gray-600'}`}>
+                Total: {item.type === 'linear' ? fmtFtIn(total) : `${total.toFixed(1)} sq ft`}
               </div>
             </div>
           )

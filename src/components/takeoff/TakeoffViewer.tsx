@@ -21,7 +21,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString()
 
-// Color palette for items
 const ITEM_COLORS = [
   '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
   '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#a855f7',
@@ -38,35 +37,35 @@ function genId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
-function distance(a: Point, b: Point): number {
+function dist(a: Point, b: Point): number {
   return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2)
 }
 
-function formatFeetInches(totalFeet: number): string {
-  const feet = Math.floor(totalFeet)
-  const inches = Math.round((totalFeet - feet) * 12)
-  if (inches === 12) return `${feet + 1}'-0"`
-  return `${feet}'-${inches}"`
+function fmtFtIn(ft: number): string {
+  const f = Math.floor(ft)
+  const i = Math.round((ft - f) * 12)
+  if (i === 12) return `${f + 1}'-0"`
+  return `${f}'-${i}"`
 }
 
-function polygonArea(pts: Point[]): number {
-  let area = 0
+function polyArea(pts: Point[]): number {
+  let a = 0
   for (let i = 0; i < pts.length; i++) {
     const j = (i + 1) % pts.length
-    area += pts[i].x * pts[j].y
-    area -= pts[j].x * pts[i].y
+    a += pts[i].x * pts[j].y - pts[j].x * pts[i].y
   }
-  return Math.abs(area) / 2
+  return Math.abs(a) / 2
 }
 
-function midpoint(a: Point, b: Point): Point {
+function mid(a: Point, b: Point): Point {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
 }
 
-function centroid(pts: Point[]): Point {
-  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length
-  const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length
-  return { x: cx, y: cy }
+function center(pts: Point[]): Point {
+  return {
+    x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
+    y: pts.reduce((s, p) => s + p.y, 0) / pts.length,
+  }
 }
 
 interface TakeoffViewerProps {
@@ -97,26 +96,23 @@ export default function TakeoffViewer({
   const pageKey = `${page.pdfIndex}-${page.pageIndex}`
   const scaleCalibrated = pageScale !== undefined
 
-  // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<PDFPageProxy | null>(null)
 
-  // Zoom
+  // Base scale = fit-to-window. zoom=1 means "fit". zoom=2 means 2x fit size.
+  const [baseScale, setBaseScale] = useState(1)
   const [zoom, setZoom] = useState(1)
 
-  // Tool state
   const [activeTool, setActiveTool] = useState<ToolMode>('pan')
   const [scalePoints, setScalePoints] = useState<Point[]>([])
   const [showScaleModal, setShowScaleModal] = useState(false)
   const [scaleInput, setScaleInput] = useState('')
   const [scaleUnit, setScaleUnit] = useState<'feet' | 'inches'>('feet')
 
-  // Measurement state
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
 
-  // Drawing-in-progress state
   const [tempPoints, setTempPoints] = useState<Point[]>([])
   const [mousePos, setMousePos] = useState<Point | null>(null)
   const [dragStart, setDragStart] = useState<Point | null>(null)
@@ -124,25 +120,35 @@ export default function TakeoffViewer({
   const [markupTextInput, setMarkupTextInput] = useState<{ pos: Point; visible: boolean }>({ pos: { x: 0, y: 0 }, visible: false })
   const [markupTextValue, setMarkupTextValue] = useState('')
 
-  // Warning banner
   const [warning, setWarning] = useState<string | null>(null)
 
-  // Pan state
   const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 })
   const [panStart, setPanStart] = useState<Point | null>(null)
   const [panStartOffset, setPanStartOffset] = useState<Point>({ x: 0, y: 0 })
 
-  // ─── Render PDF page ───
+  // ─── Compute fit-to-window base scale then render ───
 
   const renderPage = useCallback(async () => {
-    if (!canvasRef.current) return
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!canvas || !container) return
+
     try {
       const doc = await pdfjsLib.getDocument({ data: page.arrayBuffer.slice(0) }).promise
       const pdfPage = await doc.getPage(page.pageIndex + 1)
       pageRef.current = pdfPage
 
-      const viewport = pdfPage.getViewport({ scale: zoom * 1.5 })
-      const canvas = canvasRef.current
+      // Get raw page size at scale=1
+      const rawVp = pdfPage.getViewport({ scale: 1 })
+      const cw = container.clientWidth
+      const ch = container.clientHeight
+
+      // Fit-to-window scale (95% of container)
+      const fitScale = Math.min(cw / rawVp.width, ch / rawVp.height) * 0.95
+      setBaseScale(fitScale)
+
+      const renderScale = fitScale * zoom
+      const viewport = pdfPage.getViewport({ scale: renderScale })
       canvas.width = viewport.width
       canvas.height = viewport.height
 
@@ -150,19 +156,25 @@ export default function TakeoffViewer({
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
 
-      // Resize overlay
       if (overlayCanvasRef.current) {
         overlayCanvasRef.current.width = viewport.width
         overlayCanvasRef.current.height = viewport.height
       }
     } catch {
-      // PDF render failed silently
+      // PDF render failed
     }
   }, [page.arrayBuffer, page.pageIndex, zoom])
 
   useEffect(() => {
     renderPage()
   }, [renderPage])
+
+  // Reset pan when zoom changes back to fit
+  useEffect(() => {
+    if (zoom <= 1) {
+      setPanOffset({ x: 0, y: 0 })
+    }
+  }, [zoom])
 
   // ─── Redraw overlay ───
 
@@ -172,7 +184,6 @@ export default function TakeoffViewer({
     const ctx = canvas.getContext('2d')!
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Draw all measurements for this page
     for (const item of items) {
       const isActive = item.id === activeItemId
       const color = isActive ? item.color : '#6b7280'
@@ -188,14 +199,12 @@ export default function TakeoffViewer({
           drawPolygon(ctx, m.points, color, m.label)
         } else if (m.type === 'area' && m.points.length === 2) {
           const [a, b] = m.points
-          const rectPts: Point[] = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }]
-          drawPolygon(ctx, rectPts, color, m.label)
+          drawPolygon(ctx, [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }], color, m.label)
         }
       }
     }
     ctx.globalAlpha = 1
 
-    // Draw markups
     for (const mk of markups) {
       if (mk.pageKey !== pageKey) continue
       if (mk.type === 'rect' && mk.points.length === 2) {
@@ -212,7 +221,7 @@ export default function TakeoffViewer({
       }
     }
 
-    // Draw in-progress shapes
+    // In-progress shapes
     if (tempPoints.length > 0) {
       const activeItem = items.find((i) => i.id === activeItemId)
       const color = activeItem?.color || '#3b82f6'
@@ -236,24 +245,19 @@ export default function TakeoffViewer({
         }
       } else if (activeTool === 'linear' && tempPoints.length === 1 && mousePos) {
         drawLine(ctx, tempPoints[0], mousePos, color, '')
-      } else if (activeTool === 'area-polygon') {
-        if (tempPoints.length >= 1) {
-          ctx.strokeStyle = color
-          ctx.lineWidth = 2
+      } else if (activeTool === 'area-polygon' && tempPoints.length >= 1) {
+        ctx.strokeStyle = color
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(tempPoints[0].x, tempPoints[0].y)
+        for (let i = 1; i < tempPoints.length; i++) ctx.lineTo(tempPoints[i].x, tempPoints[i].y)
+        if (mousePos) ctx.lineTo(mousePos.x, mousePos.y)
+        ctx.stroke()
+        for (const p of tempPoints) {
+          ctx.fillStyle = color
           ctx.beginPath()
-          ctx.moveTo(tempPoints[0].x, tempPoints[0].y)
-          for (let i = 1; i < tempPoints.length; i++) {
-            ctx.lineTo(tempPoints[i].x, tempPoints[i].y)
-          }
-          if (mousePos) ctx.lineTo(mousePos.x, mousePos.y)
-          ctx.stroke()
-
-          for (const p of tempPoints) {
-            ctx.fillStyle = color
-            ctx.beginPath()
-            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2)
-            ctx.fill()
-          }
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2)
+          ctx.fill()
         }
       }
     }
@@ -268,19 +272,15 @@ export default function TakeoffViewer({
         ctx.fillStyle = color + '20'
         const x = Math.min(dragStart.x, mousePos.x)
         const y = Math.min(dragStart.y, mousePos.y)
-        const w = Math.abs(mousePos.x - dragStart.x)
-        const h = Math.abs(mousePos.y - dragStart.y)
-        ctx.fillRect(x, y, w, h)
-        ctx.strokeRect(x, y, w, h)
+        ctx.fillRect(x, y, Math.abs(mousePos.x - dragStart.x), Math.abs(mousePos.y - dragStart.y))
+        ctx.strokeRect(x, y, Math.abs(mousePos.x - dragStart.x), Math.abs(mousePos.y - dragStart.y))
       } else if (activeTool === 'markup-rect') {
         ctx.strokeStyle = '#f59e0b'
         ctx.lineWidth = 2
         ctx.setLineDash([6, 3])
         const x = Math.min(dragStart.x, mousePos.x)
         const y = Math.min(dragStart.y, mousePos.y)
-        const w = Math.abs(mousePos.x - dragStart.x)
-        const h = Math.abs(mousePos.y - dragStart.y)
-        ctx.strokeRect(x, y, w, h)
+        ctx.strokeRect(x, y, Math.abs(mousePos.x - dragStart.x), Math.abs(mousePos.y - dragStart.y))
         ctx.setLineDash([])
       } else if (activeTool === 'markup-arrow') {
         drawArrow(ctx, dragStart, mousePos, '#f59e0b')
@@ -292,7 +292,7 @@ export default function TakeoffViewer({
     redrawOverlay()
   }, [redrawOverlay])
 
-  // ─── Canvas drawing helpers ───
+  // ─── Drawing helpers ───
 
   function drawLine(ctx: CanvasRenderingContext2D, a: Point, b: Point, color: string, label: string) {
     ctx.strokeStyle = color
@@ -301,19 +301,13 @@ export default function TakeoffViewer({
     ctx.moveTo(a.x, a.y)
     ctx.lineTo(b.x, b.y)
     ctx.stroke()
-
     ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.arc(a.x, a.y, 4, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.beginPath()
-    ctx.arc(b.x, b.y, 4, 0, Math.PI * 2)
-    ctx.fill()
-
-    if (label) {
-      const mid = midpoint(a, b)
-      drawMeasurementLabel(ctx, mid, label)
+    for (const p of [a, b]) {
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2)
+      ctx.fill()
     }
+    if (label) drawLabel(ctx, mid(a, b), label)
   }
 
   function drawPolygon(ctx: CanvasRenderingContext2D, pts: Point[], color: string, label: string) {
@@ -322,35 +316,26 @@ export default function TakeoffViewer({
     ctx.lineWidth = 2
     ctx.beginPath()
     ctx.moveTo(pts[0].x, pts[0].y)
-    for (let i = 1; i < pts.length; i++) {
-      ctx.lineTo(pts[i].x, pts[i].y)
-    }
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
-
-    if (label) {
-      const c = centroid(pts)
-      drawMeasurementLabel(ctx, c, label)
-    }
+    if (label) drawLabel(ctx, center(pts), label)
   }
 
-  function drawMeasurementLabel(ctx: CanvasRenderingContext2D, pos: Point, label: string) {
+  function drawLabel(ctx: CanvasRenderingContext2D, pos: Point, label: string) {
     ctx.font = 'bold 12px sans-serif'
-    const metrics = ctx.measureText(label)
+    const m = ctx.measureText(label)
     const pad = 4
-    const w = metrics.width + pad * 2
-    const h = 18
     ctx.fillStyle = 'rgba(0,0,0,0.75)'
-    ctx.fillRect(pos.x - w / 2, pos.y - h / 2, w, h)
-    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(pos.x - (m.width + pad * 2) / 2, pos.y - 9, m.width + pad * 2, 18)
+    ctx.fillStyle = '#fff'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(label, pos.x, pos.y)
   }
 
   function drawArrow(ctx: CanvasRenderingContext2D, from: Point, to: Point, color: string) {
-    const headLen = 12
     const angle = Math.atan2(to.y - from.y, to.x - from.x)
     ctx.strokeStyle = color
     ctx.lineWidth = 2
@@ -358,63 +343,58 @@ export default function TakeoffViewer({
     ctx.moveTo(from.x, from.y)
     ctx.lineTo(to.x, to.y)
     ctx.stroke()
-
     ctx.fillStyle = color
     ctx.beginPath()
     ctx.moveTo(to.x, to.y)
-    ctx.lineTo(to.x - headLen * Math.cos(angle - Math.PI / 6), to.y - headLen * Math.sin(angle - Math.PI / 6))
-    ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6))
+    ctx.lineTo(to.x - 12 * Math.cos(angle - Math.PI / 6), to.y - 12 * Math.sin(angle - Math.PI / 6))
+    ctx.lineTo(to.x - 12 * Math.cos(angle + Math.PI / 6), to.y - 12 * Math.sin(angle + Math.PI / 6))
     ctx.closePath()
     ctx.fill()
   }
 
   function drawTextLabel(ctx: CanvasRenderingContext2D, pos: Point, text: string, color: string) {
     ctx.font = 'bold 14px sans-serif'
-    const metrics = ctx.measureText(text)
-    const pad = 6
+    const m = ctx.measureText(text)
     ctx.fillStyle = 'rgba(255,255,255,0.85)'
-    ctx.fillRect(pos.x - 2, pos.y - 16, metrics.width + pad * 2, 22)
+    ctx.fillRect(pos.x - 2, pos.y - 16, m.width + 12, 22)
     ctx.fillStyle = color
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.fillText(text, pos.x + pad - 2, pos.y - 5)
+    ctx.fillText(text, pos.x + 4, pos.y - 5)
   }
 
-  // ─── Get canvas coordinates ───
+  // ─── Canvas coordinates ───
 
   function getCanvasPoint(e: React.MouseEvent): Point {
     const rect = overlayCanvasRef.current!.getBoundingClientRect()
-    const scaleX = overlayCanvasRef.current!.width / rect.width
-    const scaleY = overlayCanvasRef.current!.height / rect.height
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: (e.clientX - rect.left) * (overlayCanvasRef.current!.width / rect.width),
+      y: (e.clientY - rect.top) * (overlayCanvasRef.current!.height / rect.height),
     }
   }
 
-  // ─── Check prerequisites for measurement ───
+  // ─── Prereqs ───
 
-  function checkMeasurePrereqs(): boolean {
+  function checkPrereqs(): boolean {
     if (!scaleCalibrated) {
-      setWarning('Please set the page scale before measuring.')
+      setWarning('Set page scale before measuring.')
       setTimeout(() => setWarning(null), 3000)
       return false
     }
     if (!activeItemId) {
-      setWarning('Please select or create a measurement item first.')
+      setWarning('Select or create a measurement item first.')
       setTimeout(() => setWarning(null), 3000)
       return false
     }
     const item = items.find((i) => i.id === activeItemId)
     if (!item) return false
-
     if (activeTool === 'linear' && item.type !== 'linear') {
-      setWarning('Active item is an area type. Select a linear item or create one.')
+      setWarning('Active item is area type. Select a linear item.')
       setTimeout(() => setWarning(null), 3000)
       return false
     }
     if ((activeTool === 'area-rect' || activeTool === 'area-polygon') && item.type !== 'area') {
-      setWarning('Active item is a linear type. Select an area item or create one.')
+      setWarning('Active item is linear type. Select an area item.')
       setTimeout(() => setWarning(null), 3000)
       return false
     }
@@ -425,162 +405,96 @@ export default function TakeoffViewer({
 
   function handleMouseDown(e: React.MouseEvent) {
     const pt = getCanvasPoint(e)
-
     if (activeTool === 'pan') {
       setPanStart({ x: e.clientX, y: e.clientY })
       setPanStartOffset({ ...panOffset })
       return
     }
-
     if (activeTool === 'area-rect' || activeTool === 'markup-rect' || activeTool === 'markup-arrow') {
-      if (activeTool === 'area-rect' && !checkMeasurePrereqs()) return
+      if (activeTool === 'area-rect' && !checkPrereqs()) return
       setDragStart(pt)
       setIsDragging(true)
     }
   }
 
   function handleMouseMove(e: React.MouseEvent) {
-    const pt = getCanvasPoint(e)
-    setMousePos(pt)
-
+    setMousePos(getCanvasPoint(e))
     if (activeTool === 'pan' && panStart) {
-      const dx = e.clientX - panStart.x
-      const dy = e.clientY - panStart.y
-      setPanOffset({ x: panStartOffset.x + dx, y: panStartOffset.y + dy })
+      setPanOffset({
+        x: panStartOffset.x + e.clientX - panStart.x,
+        y: panStartOffset.y + e.clientY - panStart.y,
+      })
     }
   }
 
   function handleMouseUp(e: React.MouseEvent) {
-    if (activeTool === 'pan' && panStart) {
-      setPanStart(null)
-      return
-    }
-
+    if (activeTool === 'pan' && panStart) { setPanStart(null); return }
     const pt = getCanvasPoint(e)
 
     if (isDragging && dragStart) {
       setIsDragging(false)
-
       if (activeTool === 'area-rect') {
         const ppf = pageScale!
-        const w = Math.abs(pt.x - dragStart.x) / ppf
-        const h = Math.abs(pt.y - dragStart.y) / ppf
-        const area = w * h
+        const area = (Math.abs(pt.x - dragStart.x) / ppf) * (Math.abs(pt.y - dragStart.y) / ppf)
         if (area < 0.01) { setDragStart(null); return }
-        const label = `${area.toFixed(1)} sq ft`
-        const measurement: Measurement = {
-          id: genId(),
-          type: 'area',
-          points: [dragStart, pt],
-          valueInFeet: area,
-          label,
-          pageKey,
-        }
-        addMeasurementToActiveItem(measurement)
+        addMeasurement({ id: genId(), type: 'area', points: [dragStart, pt], valueInFeet: area, label: `${area.toFixed(1)} sq ft`, pageKey })
       } else if (activeTool === 'markup-rect') {
-        const mk: Markup = {
-          id: genId(),
-          type: 'rect',
-          points: [dragStart, pt],
-          color: '#f59e0b',
-          pageKey,
-        }
-        onMarkupsChange([...markups, mk])
+        onMarkupsChange([...markups, { id: genId(), type: 'rect', points: [dragStart, pt], color: '#f59e0b', pageKey }])
       } else if (activeTool === 'markup-arrow') {
-        const mk: Markup = {
-          id: genId(),
-          type: 'arrow',
-          points: [dragStart, pt],
-          color: '#f59e0b',
-          pageKey,
-        }
-        onMarkupsChange([...markups, mk])
+        onMarkupsChange([...markups, { id: genId(), type: 'arrow', points: [dragStart, pt], color: '#f59e0b', pageKey }])
       }
       setDragStart(null)
     }
   }
 
   function handleClick(e: React.MouseEvent) {
-    if (activeTool === 'pan') return
-    if (isDragging) return
-
+    if (activeTool === 'pan' || isDragging) return
     const pt = getCanvasPoint(e)
 
     if (activeTool === 'set-scale') {
       const newPts = [...scalePoints, pt]
       setScalePoints(newPts)
       setTempPoints(newPts)
-      if (newPts.length === 2) {
-        setShowScaleModal(true)
-      }
+      if (newPts.length === 2) setShowScaleModal(true)
       return
     }
-
     if (activeTool === 'linear') {
-      if (!checkMeasurePrereqs()) return
+      if (!checkPrereqs()) return
       const newPts = [...tempPoints, pt]
       setTempPoints(newPts)
       if (newPts.length === 2) {
-        const ppf = pageScale!
-        const dist = distance(newPts[0], newPts[1]) / ppf
-        const label = formatFeetInches(dist)
-        const measurement: Measurement = {
-          id: genId(),
-          type: 'linear',
-          points: newPts,
-          valueInFeet: dist,
-          label,
-          pageKey,
-        }
-        addMeasurementToActiveItem(measurement)
+        const d = dist(newPts[0], newPts[1]) / pageScale!
+        addMeasurement({ id: genId(), type: 'linear', points: newPts, valueInFeet: d, label: fmtFtIn(d), pageKey })
         setTempPoints([])
       }
       return
     }
-
     if (activeTool === 'area-polygon') {
-      if (!checkMeasurePrereqs()) return
-      setTempPoints((prev) => [...prev, pt])
+      if (!checkPrereqs()) return
+      setTempPoints((p) => [...p, pt])
       return
     }
-
     if (activeTool === 'markup-text') {
       setMarkupTextInput({ pos: pt, visible: true })
       setMarkupTextValue('')
-      return
     }
   }
 
   function handleDoubleClick() {
     if (activeTool === 'area-polygon' && tempPoints.length >= 3) {
       const ppf = pageScale!
-      const pxArea = polygonArea(tempPoints)
-      const realArea = pxArea / (ppf * ppf)
-      const label = `${realArea.toFixed(1)} sq ft`
-      const measurement: Measurement = {
-        id: genId(),
-        type: 'area',
-        points: [...tempPoints],
-        valueInFeet: realArea,
-        label,
-        pageKey,
-      }
-      addMeasurementToActiveItem(measurement)
+      const area = polyArea(tempPoints) / (ppf * ppf)
+      addMeasurement({ id: genId(), type: 'area', points: [...tempPoints], valueInFeet: area, label: `${area.toFixed(1)} sq ft`, pageKey })
       setTempPoints([])
     }
   }
 
-  // ─── Scale calibration ───
+  // ─── Scale modal ───
 
   function handleScaleSubmit() {
     if (!scaleInput || isNaN(Number(scaleInput))) return
-    const realDist = Number(scaleInput)
-    const realDistFeet = scaleUnit === 'inches' ? realDist / 12 : realDist
-    const pxDist = distance(scalePoints[0], scalePoints[1])
-    const ppf = pxDist / realDistFeet
-
-    onPageScaleChange(ppf)
-
+    const realFt = scaleUnit === 'inches' ? Number(scaleInput) / 12 : Number(scaleInput)
+    onPageScaleChange(dist(scalePoints[0], scalePoints[1]) / realFt)
     setShowScaleModal(false)
     setScalePoints([])
     setTempPoints([])
@@ -588,84 +502,37 @@ export default function TakeoffViewer({
     setActiveTool('pan')
   }
 
-  // ─── Add measurement to active item ───
-
-  function addMeasurementToActiveItem(measurement: Measurement) {
-    onItemsChange(
-      items.map((item) =>
-        item.id === activeItemId
-          ? { ...item, measurements: [...item.measurements, measurement] }
-          : item
-      )
-    )
+  function addMeasurement(m: Measurement) {
+    onItemsChange(items.map((it) => it.id === activeItemId ? { ...it, measurements: [...it.measurements, m] } : it))
   }
 
-  // ─── Item management ───
+  // ─── Item management (delegated from sidebar) ───
 
   function handleAddItem(name: string, type: MeasurementType) {
-    const newItem: TakeoffItem = {
-      id: genId(),
-      name,
-      type,
-      measurements: [],
-      color: getNextColor(),
-    }
+    const newItem: TakeoffItem = { id: genId(), name, type, measurements: [], color: getNextColor() }
     onItemsChange([...items, newItem])
     setActiveItemId(newItem.id)
   }
 
   function handleDeleteItem(id: string) {
     onItemsChange(items.filter((i) => i.id !== id))
-    if (activeItemId === id) {
-      setActiveItemId(null)
-    }
+    if (activeItemId === id) setActiveItemId(null)
   }
 
   function handleRenameItem(id: string, name: string) {
     onItemsChange(items.map((i) => (i.id === id ? { ...i, name } : i)))
   }
 
-  function handleDeleteMeasurement(itemId: string, measurementId: string) {
-    onItemsChange(
-      items.map((item) =>
-        item.id === itemId
-          ? { ...item, measurements: item.measurements.filter((m) => m.id !== measurementId) }
-          : item
-      )
-    )
+  function handleDeleteMeasurement(itemId: string, mId: string) {
+    onItemsChange(items.map((it) => it.id === itemId ? { ...it, measurements: it.measurements.filter((m) => m.id !== mId) } : it))
   }
 
-  // ─── Markup text submit ───
-
   function handleMarkupTextSubmit() {
-    if (!markupTextValue.trim()) {
-      setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false })
-      return
-    }
-    const mk: Markup = {
-      id: genId(),
-      type: 'text',
-      points: [markupTextInput.pos],
-      text: markupTextValue.trim(),
-      color: '#f59e0b',
-      pageKey,
-    }
-    onMarkupsChange([...markups, mk])
+    if (!markupTextValue.trim()) { setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false }); return }
+    onMarkupsChange([...markups, { id: genId(), type: 'text', points: [markupTextInput.pos], text: markupTextValue.trim(), color: '#f59e0b', pageKey }])
     setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false })
     setMarkupTextValue('')
   }
-
-  // ─── Zoom ───
-
-  function handleZoomIn() {
-    setZoom((z) => Math.min(z + 0.25, 5))
-  }
-
-  function handleZoomOut() {
-    setZoom((z) => Math.max(z - 0.25, 0.25))
-  }
-
-  // ─── Tool change ───
 
   function handleToolChange(tool: ToolMode) {
     setActiveTool(tool)
@@ -675,10 +542,8 @@ export default function TakeoffViewer({
     setIsDragging(false)
   }
 
-  // ─── Escape key ───
-
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
+    function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         setTempPoints([])
         setScalePoints([])
@@ -688,30 +553,27 @@ export default function TakeoffViewer({
         if (markupTextInput.visible) setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false })
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [showScaleModal, markupTextInput.visible])
 
-  // ─── Cursor ───
+  const cursor = activeTool === 'pan' ? (panStart ? 'grabbing' : 'grab') : activeTool === 'markup-text' ? 'text' : 'crosshair'
 
-  function getCursor(): string {
-    if (activeTool === 'pan') return panStart ? 'grabbing' : 'grab'
-    if (activeTool === 'markup-text') return 'text'
-    return 'crosshair'
-  }
+  // Whether canvas exceeds container (scrollable)
+  const canOverflow = zoom > 1
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
-      {/* Back button + Toolbar */}
-      <div className="flex items-center bg-gray-900 border-b border-gray-700">
+    <div className="flex flex-col h-full bg-gray-100">
+      {/* Back + Toolbar */}
+      <div className="flex items-center bg-gray-900 flex-shrink-0">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 px-4 py-2 text-gray-300 hover:text-white text-sm font-medium transition-colors border-r border-gray-700"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors border-r border-gray-700"
         >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Back to Dashboard
+          <ArrowLeftIcon className="w-3.5 h-3.5" />
+          Dashboard
         </button>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <TakeoffToolbar
             activeTool={activeTool}
             onToolChange={handleToolChange}
@@ -720,8 +582,8 @@ export default function TakeoffViewer({
             onPrevPage={() => {}}
             onNextPage={() => {}}
             zoom={zoom}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
+            onZoomIn={() => setZoom((z) => Math.min(z + 0.25, 5))}
+            onZoomOut={() => setZoom((z) => Math.max(z - 0.25, 0.25))}
             pageScale={scaleCalibrated ? { pageIndex: page.pageIndex, pixelsPerFoot: pageScale!, calibrated: true } : undefined}
             isFullscreen={isFullscreen}
             onToggleFullscreen={onToggleFullscreen}
@@ -730,9 +592,8 @@ export default function TakeoffViewer({
         </div>
       </div>
 
-      {/* Warning banner */}
       {warning && (
-        <div className="bg-amber-500/90 text-white text-sm px-4 py-2 text-center font-medium">
+        <div className="bg-amber-500/90 text-white text-xs px-3 py-1.5 text-center font-medium flex-shrink-0">
           {warning}
         </div>
       )}
@@ -741,28 +602,30 @@ export default function TakeoffViewer({
         {/* Canvas area */}
         <div
           ref={containerRef}
-          className="flex-1 overflow-auto relative bg-gray-300"
+          className={`flex-1 relative bg-gray-200 ${canOverflow ? 'overflow-auto' : 'overflow-hidden'}`}
         >
           <div
-            className="relative inline-block"
+            className={`relative ${canOverflow ? 'inline-block' : 'flex items-center justify-center w-full h-full'}`}
             style={{
-              transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
-              cursor: getCursor(),
+              transform: canOverflow ? `translate(${panOffset.x}px, ${panOffset.y}px)` : undefined,
+              cursor,
             }}
           >
-            <canvas ref={canvasRef} className="block" />
-            <canvas
-              ref={overlayCanvasRef}
-              className="absolute top-0 left-0 block"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onClick={handleClick}
-              onDoubleClick={handleDoubleClick}
-            />
+            <div className="relative inline-block">
+              <canvas ref={canvasRef} className="block" />
+              <canvas
+                ref={overlayCanvasRef}
+                className="absolute top-0 left-0 block"
+                style={{ cursor }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onClick={handleClick}
+                onDoubleClick={handleDoubleClick}
+              />
+            </div>
           </div>
 
-          {/* Markup text input overlay */}
           {markupTextInput.visible && (
             <div
               className="absolute z-10"
@@ -787,7 +650,7 @@ export default function TakeoffViewer({
           )}
         </div>
 
-        {/* Right sidebar */}
+        {/* Sidebar */}
         <TakeoffSidebar
           items={items}
           activeItemId={activeItemId}
@@ -799,14 +662,12 @@ export default function TakeoffViewer({
         />
       </div>
 
-      {/* Scale calibration modal */}
+      {/* Scale modal */}
       {showScaleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-96">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Set Scale</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Enter the real-world distance between the two points you selected.
-            </p>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Set Scale</h3>
+            <p className="text-sm text-gray-500 mb-4">Enter the real-world distance between the two points.</p>
             <div className="flex items-center gap-2 mb-4">
               <input
                 type="number"
@@ -828,12 +689,8 @@ export default function TakeoffViewer({
             </div>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => {
-                  setShowScaleModal(false)
-                  setScalePoints([])
-                  setTempPoints([])
-                }}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                onClick={() => { setShowScaleModal(false); setScalePoints([]); setTempPoints([]) }}
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
               >
                 Cancel
               </button>
