@@ -14,7 +14,7 @@ import type {
   Markup,
   TakeoffPage,
 } from './types'
-import { ArrowLeftIcon } from 'lucide-react'
+import { ArrowLeftIcon, AlertTriangleIcon } from 'lucide-react'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -37,7 +37,7 @@ function genId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
-function dist(a: Point, b: Point): number {
+function ptDist(a: Point, b: Point): number {
   return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2)
 }
 
@@ -57,11 +57,11 @@ function polyArea(pts: Point[]): number {
   return Math.abs(a) / 2
 }
 
-function mid(a: Point, b: Point): Point {
+function midPt(a: Point, b: Point): Point {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
 }
 
-function center(pts: Point[]): Point {
+function centerPt(pts: Point[]): Point {
   return {
     x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
     y: pts.reduce((s, p) => s + p.y, 0) / pts.length,
@@ -101,8 +101,9 @@ export default function TakeoffViewer({
   const containerRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<PDFPageProxy | null>(null)
 
-  // Base scale = fit-to-window. zoom=1 means "fit". zoom=2 means 2x fit size.
-  const [baseScale, setBaseScale] = useState(1)
+  // Track the actual canvas buffer dimensions so the overlay always matches
+  const [canvasDims, setCanvasDims] = useState<{ w: number; h: number }>({ w: 300, h: 150 })
+
   const [zoom, setZoom] = useState(1)
 
   const [activeTool, setActiveTool] = useState<ToolMode>('pan')
@@ -126,7 +127,25 @@ export default function TakeoffViewer({
   const [panStart, setPanStart] = useState<Point | null>(null)
   const [panStartOffset, setPanStartOffset] = useState<Point>({ x: 0, y: 0 })
 
-  // ─── Compute fit-to-window base scale then render ───
+  // Pulsing animation for first scale point
+  const [pulsePhase, setPulsePhase] = useState(0)
+  useEffect(() => {
+    if (activeTool !== 'set-scale' || scalePoints.length !== 1) return
+    const id = setInterval(() => setPulsePhase((p) => p + 1), 50)
+    return () => clearInterval(id)
+  }, [activeTool, scalePoints.length])
+
+  // ─── Scale instruction banner text ───
+
+  function getScaleBannerText(): string | null {
+    if (activeTool !== 'set-scale') return null
+    if (scalePoints.length === 0) return "Click two points on the plan that represent a known distance"
+    if (scalePoints.length === 1) return "First point set — now click the second point"
+    return null
+  }
+  const scaleBannerText = getScaleBannerText()
+
+  // ─── Render PDF page ───
 
   const renderPage = useCallback(async () => {
     const canvas = canvasRef.current
@@ -138,17 +157,14 @@ export default function TakeoffViewer({
       const pdfPage = await doc.getPage(page.pageIndex + 1)
       pageRef.current = pdfPage
 
-      // Get raw page size at scale=1
       const rawVp = pdfPage.getViewport({ scale: 1 })
       const cw = container.clientWidth
       const ch = container.clientHeight
-
-      // Fit-to-window scale (95% of container)
       const fitScale = Math.min(cw / rawVp.width, ch / rawVp.height) * 0.95
-      setBaseScale(fitScale)
 
       const renderScale = fitScale * zoom
       const viewport = pdfPage.getViewport({ scale: renderScale })
+
       canvas.width = viewport.width
       canvas.height = viewport.height
 
@@ -156,10 +172,12 @@ export default function TakeoffViewer({
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
 
+      // Sync overlay canvas buffer to exactly match the PDF canvas
       if (overlayCanvasRef.current) {
         overlayCanvasRef.current.width = viewport.width
         overlayCanvasRef.current.height = viewport.height
       }
+      setCanvasDims({ w: viewport.width, h: viewport.height })
     } catch {
       // PDF render failed
     }
@@ -169,30 +187,25 @@ export default function TakeoffViewer({
     renderPage()
   }, [renderPage])
 
-  // Reset pan when zoom changes back to fit
   useEffect(() => {
-    if (zoom <= 1) {
-      setPanOffset({ x: 0, y: 0 })
-    }
+    if (zoom <= 1) setPanOffset({ x: 0, y: 0 })
   }, [zoom])
 
   // ─── Redraw overlay ───
 
   const redrawOverlay = useCallback(() => {
     const canvas = overlayCanvasRef.current
-    if (!canvas) return
+    if (!canvas || canvas.width === 0) return
     const ctx = canvas.getContext('2d')!
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     for (const item of items) {
       const isActive = item.id === activeItemId
       const color = isActive ? item.color : '#6b7280'
-      const alpha = isActive ? 1 : 0.5
+      ctx.globalAlpha = isActive ? 1 : 0.5
 
       for (const m of item.measurements) {
         if (m.pageKey !== pageKey) continue
-        ctx.globalAlpha = alpha
-
         if (m.type === 'linear' && m.points.length === 2) {
           drawLine(ctx, m.points[0], m.points[1], color, m.label)
         } else if (m.type === 'area' && m.points.length >= 3) {
@@ -227,10 +240,18 @@ export default function TakeoffViewer({
       const color = activeItem?.color || '#3b82f6'
 
       if (activeTool === 'set-scale') {
-        for (const p of tempPoints) {
+        // First scale point: pulsing dot
+        if (tempPoints.length >= 1) {
+          const pulse = Math.sin(pulsePhase * 0.15) * 0.3 + 0.7
+          const radius = 6 + pulse * 4
+          ctx.fillStyle = `rgba(245, 158, 11, ${pulse})`
+          ctx.beginPath()
+          ctx.arc(tempPoints[0].x, tempPoints[0].y, radius, 0, Math.PI * 2)
+          ctx.fill()
+          // Solid inner dot
           ctx.fillStyle = '#f59e0b'
           ctx.beginPath()
-          ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
+          ctx.arc(tempPoints[0].x, tempPoints[0].y, 4, 0, Math.PI * 2)
           ctx.fill()
         }
         if (tempPoints.length === 1 && mousePos) {
@@ -242,6 +263,12 @@ export default function TakeoffViewer({
           ctx.lineTo(mousePos.x, mousePos.y)
           ctx.stroke()
           ctx.setLineDash([])
+        }
+        if (tempPoints.length >= 2) {
+          ctx.fillStyle = '#f59e0b'
+          ctx.beginPath()
+          ctx.arc(tempPoints[1].x, tempPoints[1].y, 5, 0, Math.PI * 2)
+          ctx.fill()
         }
       } else if (activeTool === 'linear' && tempPoints.length === 1 && mousePos) {
         drawLine(ctx, tempPoints[0], mousePos, color, '')
@@ -286,7 +313,7 @@ export default function TakeoffViewer({
         drawArrow(ctx, dragStart, mousePos, '#f59e0b')
       }
     }
-  }, [items, activeItemId, markups, pageKey, tempPoints, mousePos, activeTool, dragStart, isDragging])
+  }, [items, activeItemId, markups, pageKey, tempPoints, mousePos, activeTool, dragStart, isDragging, pulsePhase])
 
   useEffect(() => {
     redrawOverlay()
@@ -307,7 +334,7 @@ export default function TakeoffViewer({
       ctx.arc(p.x, p.y, 4, 0, Math.PI * 2)
       ctx.fill()
     }
-    if (label) drawLabel(ctx, mid(a, b), label)
+    if (label) drawLabel(ctx, midPt(a, b), label)
   }
 
   function drawPolygon(ctx: CanvasRenderingContext2D, pts: Point[], color: string, label: string) {
@@ -320,7 +347,7 @@ export default function TakeoffViewer({
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
-    if (label) drawLabel(ctx, center(pts), label)
+    if (label) drawLabel(ctx, centerPt(pts), label)
   }
 
   function drawLabel(ctx: CanvasRenderingContext2D, pos: Point, label: string) {
@@ -364,12 +391,18 @@ export default function TakeoffViewer({
   }
 
   // ─── Canvas coordinates ───
+  // The overlay canvas buffer matches the PDF canvas buffer exactly.
+  // The overlay is CSS-sized via w-full/h-full on the parent, so we need
+  // to map from CSS display coords → buffer coords.
 
   function getCanvasPoint(e: React.MouseEvent): Point {
-    const rect = overlayCanvasRef.current!.getBoundingClientRect()
+    const overlay = overlayCanvasRef.current
+    if (!overlay) return { x: 0, y: 0 }
+    const rect = overlay.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 }
     return {
-      x: (e.clientX - rect.left) * (overlayCanvasRef.current!.width / rect.width),
-      y: (e.clientY - rect.top) * (overlayCanvasRef.current!.height / rect.height),
+      x: (e.clientX - rect.left) * (overlay.width / rect.width),
+      y: (e.clientY - rect.top) * (overlay.height / rect.height),
     }
   }
 
@@ -404,6 +437,8 @@ export default function TakeoffViewer({
   // ─── Mouse handlers ───
 
   function handleMouseDown(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
     const pt = getCanvasPoint(e)
     if (activeTool === 'pan') {
       setPanStart({ x: e.clientX, y: e.clientY })
@@ -418,7 +453,8 @@ export default function TakeoffViewer({
   }
 
   function handleMouseMove(e: React.MouseEvent) {
-    setMousePos(getCanvasPoint(e))
+    const pt = getCanvasPoint(e)
+    setMousePos(pt)
     if (activeTool === 'pan' && panStart) {
       setPanOffset({
         x: panStartOffset.x + e.clientX - panStart.x,
@@ -433,9 +469,11 @@ export default function TakeoffViewer({
 
     if (isDragging && dragStart) {
       setIsDragging(false)
+      const dx = Math.abs(pt.x - dragStart.x)
+      const dy = Math.abs(pt.y - dragStart.y)
       if (activeTool === 'area-rect') {
         const ppf = pageScale!
-        const area = (Math.abs(pt.x - dragStart.x) / ppf) * (Math.abs(pt.y - dragStart.y) / ppf)
+        const area = (dx / ppf) * (dy / ppf)
         if (area < 0.01) { setDragStart(null); return }
         addMeasurement({ id: genId(), type: 'area', points: [dragStart, pt], valueInFeet: area, label: `${area.toFixed(1)} sq ft`, pageKey })
       } else if (activeTool === 'markup-rect') {
@@ -448,7 +486,10 @@ export default function TakeoffViewer({
   }
 
   function handleClick(e: React.MouseEvent) {
-    if (activeTool === 'pan' || isDragging) return
+    if (activeTool === 'pan') return
+    // Skip click if we just finished a drag (area-rect, markup-rect, markup-arrow)
+    if (activeTool === 'area-rect' || activeTool === 'markup-rect' || activeTool === 'markup-arrow') return
+
     const pt = getCanvasPoint(e)
 
     if (activeTool === 'set-scale') {
@@ -463,7 +504,7 @@ export default function TakeoffViewer({
       const newPts = [...tempPoints, pt]
       setTempPoints(newPts)
       if (newPts.length === 2) {
-        const d = dist(newPts[0], newPts[1]) / pageScale!
+        const d = ptDist(newPts[0], newPts[1]) / pageScale!
         addMeasurement({ id: genId(), type: 'linear', points: newPts, valueInFeet: d, label: fmtFtIn(d), pageKey })
         setTempPoints([])
       }
@@ -480,7 +521,7 @@ export default function TakeoffViewer({
     }
   }
 
-  function handleDoubleClick() {
+  function handleDoubleClick(e: React.MouseEvent) {
     if (activeTool === 'area-polygon' && tempPoints.length >= 3) {
       const ppf = pageScale!
       const area = polyArea(tempPoints) / (ppf * ppf)
@@ -494,7 +535,8 @@ export default function TakeoffViewer({
   function handleScaleSubmit() {
     if (!scaleInput || isNaN(Number(scaleInput))) return
     const realFt = scaleUnit === 'inches' ? Number(scaleInput) / 12 : Number(scaleInput)
-    onPageScaleChange(dist(scalePoints[0], scalePoints[1]) / realFt)
+    if (realFt <= 0) return
+    onPageScaleChange(ptDist(scalePoints[0], scalePoints[1]) / realFt)
     setShowScaleModal(false)
     setScalePoints([])
     setTempPoints([])
@@ -506,7 +548,7 @@ export default function TakeoffViewer({
     onItemsChange(items.map((it) => it.id === activeItemId ? { ...it, measurements: [...it.measurements, m] } : it))
   }
 
-  // ─── Item management (delegated from sidebar) ───
+  // ─── Item management ───
 
   function handleAddItem(name: string, type: MeasurementType) {
     const newItem: TakeoffItem = { id: genId(), name, type, measurements: [], color: getNextColor() }
@@ -558,8 +600,6 @@ export default function TakeoffViewer({
   }, [showScaleModal, markupTextInput.visible])
 
   const cursor = activeTool === 'pan' ? (panStart ? 'grabbing' : 'grab') : activeTool === 'markup-text' ? 'text' : 'crosshair'
-
-  // Whether canvas exceeds container (scrollable)
   const canOverflow = zoom > 1
 
   return (
@@ -592,8 +632,24 @@ export default function TakeoffViewer({
         </div>
       </div>
 
+      {/* Scale not set warning banner */}
+      {!scaleCalibrated && activeTool !== 'set-scale' && (
+        <div className="bg-amber-500 text-white text-xs px-4 py-2 flex items-center gap-2 font-medium flex-shrink-0">
+          <AlertTriangleIcon className="w-3.5 h-3.5 flex-shrink-0" />
+          Scale not set — click &apos;Set Scale&apos; in the toolbar before measuring
+        </div>
+      )}
+
+      {/* Scale tool instruction banner */}
+      {scaleBannerText && (
+        <div className="bg-amber-100 text-amber-800 text-xs px-4 py-2 font-medium flex-shrink-0 border-b border-amber-200">
+          {scaleBannerText}
+        </div>
+      )}
+
+      {/* Warning banner */}
       {warning && (
-        <div className="bg-amber-500/90 text-white text-xs px-3 py-1.5 text-center font-medium flex-shrink-0">
+        <div className="bg-red-500/90 text-white text-xs px-3 py-1.5 text-center font-medium flex-shrink-0">
           {warning}
         </div>
       )}
@@ -608,15 +664,23 @@ export default function TakeoffViewer({
             className={`relative ${canOverflow ? 'inline-block' : 'flex items-center justify-center w-full h-full'}`}
             style={{
               transform: canOverflow ? `translate(${panOffset.x}px, ${panOffset.y}px)` : undefined,
-              cursor,
             }}
           >
-            <div className="relative inline-block">
-              <canvas ref={canvasRef} className="block" />
+            {/*
+              Canvas wrapper: sized by the PDF canvas (in-flow).
+              The overlay canvas is positioned absolutely to cover it exactly.
+              pointer-events-none on the wrapper prevents it from eating clicks;
+              pointer-events-auto on the overlay ensures it receives all events.
+            */}
+            <div
+              className="relative inline-block"
+              style={{ width: canvasDims.w, height: canvasDims.h }}
+            >
+              <canvas ref={canvasRef} className="block w-full h-full" />
               <canvas
                 ref={overlayCanvasRef}
-                className="absolute top-0 left-0 block"
-                style={{ cursor }}
+                className="absolute inset-0 w-full h-full"
+                style={{ cursor, pointerEvents: 'auto' }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -626,12 +690,12 @@ export default function TakeoffViewer({
             </div>
           </div>
 
-          {markupTextInput.visible && (
+          {markupTextInput.visible && overlayCanvasRef.current && (
             <div
               className="absolute z-10"
               style={{
-                left: markupTextInput.pos.x / (overlayCanvasRef.current ? overlayCanvasRef.current.width / overlayCanvasRef.current.getBoundingClientRect().width : 1) + panOffset.x,
-                top: markupTextInput.pos.y / (overlayCanvasRef.current ? overlayCanvasRef.current.height / overlayCanvasRef.current.getBoundingClientRect().height : 1) + panOffset.y,
+                left: markupTextInput.pos.x / (overlayCanvasRef.current.width / overlayCanvasRef.current.getBoundingClientRect().width) + panOffset.x,
+                top: markupTextInput.pos.y / (overlayCanvasRef.current.height / overlayCanvasRef.current.getBoundingClientRect().height) + panOffset.y,
               }}
             >
               <input
@@ -665,38 +729,40 @@ export default function TakeoffViewer({
       {/* Scale modal */}
       {showScaleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-96">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Set Scale</h3>
-            <p className="text-sm text-gray-500 mb-4">Enter the real-world distance between the two points.</p>
-            <div className="flex items-center gap-2 mb-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-[420px]">
+            <h3 className="text-lg font-semibold text-gray-800 mb-1">Set Scale</h3>
+            <p className="text-sm text-gray-500 mb-5">What is the real-world distance between these two points?</p>
+            <div className="flex items-center gap-2 mb-5">
               <input
                 type="number"
                 value={scaleInput}
                 onChange={(e) => setScaleInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleScaleSubmit()}
                 placeholder="Distance..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-amber-500"
+                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 autoFocus
+                min="0"
+                step="any"
               />
               <select
                 value={scaleUnit}
                 onChange={(e) => setScaleUnit(e.target.value as 'feet' | 'inches')}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-amber-500"
+                className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
               >
-                <option value="feet">feet</option>
-                <option value="inches">inches</option>
+                <option value="inches">Inches</option>
+                <option value="feet">Feet</option>
               </select>
             </div>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => { setShowScaleModal(false); setScalePoints([]); setTempPoints([]) }}
-                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleScaleSubmit}
-                className="px-4 py-2 bg-amber-500 text-white text-sm rounded-lg hover:bg-amber-600 transition-colors"
+                className="px-5 py-2 bg-amber-500 text-white text-sm font-semibold rounded-lg hover:bg-amber-600 transition-colors"
               >
                 Set Scale
               </button>
