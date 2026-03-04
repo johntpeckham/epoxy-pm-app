@@ -19,6 +19,26 @@ function genId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
+// ─── Base64 ↔ ArrayBuffer helpers ───
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes.buffer
+}
+
 // ─── Serialization helpers ───
 
 function serializeProjects(projects: TakeoffProject[]): string {
@@ -31,6 +51,7 @@ function serializeProjects(projects: TakeoffProject[]): string {
       pageIndex: pg.pageIndex,
       pdfName: pg.pdfName,
       thumbnailDataUrl: pg.thumbnailDataUrl,
+      pdfBase64: pg.pdfBase64 ?? (pg.arrayBuffer ? arrayBufferToBase64(pg.arrayBuffer) : null),
     })),
     items: p.items,
     pageScales: p.pageScales,
@@ -51,7 +72,8 @@ function deserializeProjects(json: string): TakeoffProject[] {
         pageIndex: pg.pageIndex,
         pdfName: pg.pdfName,
         thumbnailDataUrl: pg.thumbnailDataUrl,
-        arrayBuffer: null, // Not persisted
+        pdfBase64: pg.pdfBase64 ?? null,
+        arrayBuffer: pg.pdfBase64 ? base64ToArrayBuffer(pg.pdfBase64) : null,
       })),
       items: p.items,
       pageScales: p.pageScales,
@@ -151,20 +173,6 @@ export default function JobTakeoffPage() {
     [selectedProject, updateSelected]
   )
 
-  // ─── Re-upload PDF handler: replaces arrayBuffer on all pages with matching pdfName ───
-
-  const handleReuploadPdf = useCallback(
-    (arrayBuffer: ArrayBuffer, pdfName: string) => {
-      if (!selectedProject) return
-      updateSelected({
-        pages: selectedProject.pages.map((pg) =>
-          pg.pdfName === pdfName ? { ...pg, arrayBuffer } : pg
-        ),
-      })
-    },
-    [selectedProject, updateSelected]
-  )
-
   const handleOpenPage = useCallback((page: TakeoffPage) => {
     setActivePage(page)
     setViewMode('viewer')
@@ -251,7 +259,6 @@ export default function JobTakeoffPage() {
         pageScales={selectedProject.pageScales}
         onAddPages={handleAddPages}
         onOpenPage={handleOpenPage}
-        onReuploadPdf={handleReuploadPdf}
       />
     )
   }
