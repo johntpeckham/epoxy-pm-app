@@ -11,6 +11,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString()
 
 interface TakeoffDashboardProps {
+  projectName: string
   pages: TakeoffPage[]
   items: TakeoffItem[]
   pageScales: Record<string, number>
@@ -100,9 +101,23 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary)
 }
 
+// ─── Formatting helpers ───
+
+function fmtFtIn(ft: number): string {
+  const f = Math.floor(ft)
+  const i = Math.round((ft - f) * 12)
+  if (i === 12) return `${f + 1}'-0"`
+  return `${f}'-${i}"`
+}
+
+function fmtArea(sf: number): string {
+  return sf >= 1000 ? `${sf.toLocaleString('en-US', { maximumFractionDigits: 0 })} sq ft` : `${sf.toFixed(1)} sq ft`
+}
+
 // ─── Dashboard ───
 
 export default function TakeoffDashboard({
+  projectName,
   pages,
   items,
   pageScales,
@@ -120,13 +135,6 @@ export default function TakeoffDashboard({
     .reduce((sum, i) => sum + i.measurements.reduce((s, m) => s + m.valueInFeet, 0), 0)
 
   const totalMeasurements = items.reduce((sum, i) => sum + i.measurements.length, 0)
-
-  function fmtFtIn(ft: number): string {
-    const f = Math.floor(ft)
-    const i = Math.round((ft - f) * 12)
-    if (i === 12) return `${f + 1}'-0"`
-    return `${f}'-${i}"`
-  }
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -163,22 +171,127 @@ export default function TakeoffDashboard({
   }, [pages, onAddPages])
 
   const cards = [
-    { label: 'Linear', value: totalLinear > 0 ? fmtFtIn(totalLinear) : "0'-0\"", icon: <RulerIcon className="w-4 h-4 text-amber-500" /> },
-    { label: 'Area', value: totalArea > 0 ? `${totalArea.toFixed(1)} sf` : '0.0 sf', icon: <SquareIcon className="w-4 h-4 text-amber-500" /> },
     { label: 'Items', value: String(items.length), icon: <HashIcon className="w-4 h-4 text-amber-500" /> },
-    { label: 'Pages', value: String(pages.length), icon: <FileTextIcon className="w-4 h-4 text-amber-500" /> },
     { label: 'Measurements', value: String(totalMeasurements), icon: <PencilLineIcon className="w-4 h-4 text-amber-500" /> },
+    { label: 'Pages', value: String(pages.length), icon: <FileTextIcon className="w-4 h-4 text-amber-500" /> },
+    { label: 'Linear Total', value: totalLinear > 0 ? fmtFtIn(totalLinear) : "0'-0\"", icon: <RulerIcon className="w-4 h-4 text-amber-500" /> },
+    { label: 'Area Total', value: totalArea > 0 ? fmtArea(totalArea) : '0 sq ft', icon: <SquareIcon className="w-4 h-4 text-amber-500" /> },
   ]
 
   return (
     <div className="flex-1 overflow-y-auto p-5 bg-gray-50">
-      {/* Thumbnail grid */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">PDF Pages</h2>
-        <span className="text-[11px] text-gray-400">{pages.length} page{pages.length !== 1 ? 's' : ''}</span>
+      {/* Section 0 — Page header */}
+      <div className="mb-5">
+        <h1 className="text-lg font-bold text-gray-900 leading-tight">Project Takeoffs</h1>
+        <p className="text-sm text-gray-500 mt-0.5">{projectName}</p>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      {/* Section 1 — Measurement Items Summary */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-5">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900">Measurements</h2>
+          <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2.5 py-0.5">
+            {items.length} item{items.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 px-4">
+            <RulerIcon className="w-8 h-8 text-gray-300 mb-2" />
+            <p className="text-sm text-gray-400 text-center">No measurements yet — open a page to start measuring</p>
+          </div>
+        ) : (
+          <div>
+            {/* Item rows */}
+            {items.map((item, idx) => {
+              const itemTotal = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
+              const isLast = idx === items.length - 1
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 px-4 py-2.5 ${!isLast ? 'border-b border-gray-50' : ''}`}
+                >
+                  {/* Color dot */}
+                  <div
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  {/* Name */}
+                  <span className="text-sm font-semibold text-gray-900 flex-1 truncate">{item.name}</span>
+                  {/* Type badge */}
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
+                    item.type === 'linear'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'bg-emerald-50 text-emerald-600'
+                  }`}>
+                    {item.type === 'linear' ? 'Linear' : 'Area'}
+                  </span>
+                  {/* Measurement count */}
+                  <span className="text-xs text-gray-400 flex-shrink-0 w-28 text-right">
+                    {item.measurements.length} measurement{item.measurements.length !== 1 ? 's' : ''}
+                  </span>
+                  {/* Total value */}
+                  <span className="text-sm font-bold text-gray-900 flex-shrink-0 w-28 text-right">
+                    {item.type === 'linear' ? fmtFtIn(itemTotal) : fmtArea(itemTotal)}
+                  </span>
+                </div>
+              )
+            })}
+
+            {/* Grand totals */}
+            <div className="border-t border-gray-200 bg-gray-50/50">
+              {totalLinear > 0 && (
+                <div className="flex items-center justify-between px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <RulerIcon className="w-4 h-4 text-amber-500" />
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Linear</span>
+                  </div>
+                  <span className="text-sm font-bold text-amber-600">{fmtFtIn(totalLinear)}</span>
+                </div>
+              )}
+              {totalArea > 0 && (
+                <div className={`flex items-center justify-between px-4 py-2 ${totalLinear > 0 ? 'border-t border-gray-100' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <SquareIcon className="w-4 h-4 text-amber-500" />
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
+                  </div>
+                  <span className="text-sm font-bold text-amber-600">{fmtArea(totalArea)}</span>
+                </div>
+              )}
+              {totalLinear === 0 && totalArea === 0 && (
+                <div className="flex items-center justify-between px-4 py-2">
+                  <span className="text-xs text-gray-400">No completed measurements</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Section 2 — Stat widget row */}
+      <div className="grid grid-cols-5 gap-3 mb-5">
+        {cards.map((c) => (
+          <div key={c.label} className="bg-white rounded-lg border border-gray-200 shadow-sm px-3 py-3 flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5">
+              {c.icon}
+              <span className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">{c.label}</span>
+            </div>
+            <span className="text-xl font-bold text-gray-900 leading-tight">{c.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Section 3 — PDF Pages grid */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Plan Pages</h2>
+          <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+            {pages.length}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
         {pages.map((page) => (
           <PageThumbnail
             key={`${page.pdfIndex}-${page.pageIndex}`}
@@ -198,19 +311,6 @@ export default function TakeoffDashboard({
           <span className="text-xs font-medium text-gray-400">Add PDF</span>
           <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
         </button>
-      </div>
-
-      {/* Summary stat cards */}
-      <div className="grid grid-cols-5 gap-3">
-        {cards.map((c) => (
-          <div key={c.label} className="bg-white rounded-lg border border-gray-200 shadow-sm px-3 py-3 flex flex-col gap-1.5">
-            <div className="flex items-center gap-1.5">
-              {c.icon}
-              <span className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">{c.label}</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900 leading-tight">{c.value}</span>
-          </div>
-        ))}
       </div>
     </div>
   )
