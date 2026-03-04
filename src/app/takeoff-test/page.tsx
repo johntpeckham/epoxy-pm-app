@@ -32,7 +32,7 @@ export default function TakeoffTestPage() {
   const [fitScale, setFitScale] = useState(1)
 
   const [pdfLoaded, setPdfLoaded] = useState(false)
-  const [pinchDetected, setPinchDetected] = useState(false)
+  const [zoomWorking, setZoomWorking] = useState(false)
 
   // Measurement state
   const [pointA, setPointA] = useState<Point | null>(null)
@@ -76,7 +76,7 @@ export default function TakeoffTestPage() {
           e.touches[1].clientY - e.touches[0].clientY
         )
         startScale = scaleRef.current
-        setPinchDetected(true)
+        setZoomWorking(true)
       }
     }
 
@@ -93,11 +93,24 @@ export default function TakeoffTestPage() {
       }
     }
 
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault()
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
+        const newScale = Math.min(Math.max(scaleRef.current * zoomFactor, 0.3), 5)
+        scaleRef.current = newScale
+        setScale(newScale)
+        setZoomWorking(true)
+      }
+    }
+
     el.addEventListener('touchstart', onTouchStart, { passive: false })
     el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       el.removeEventListener('touchstart', onTouchStart)
       el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('wheel', onWheel)
     }
   }, [])
 
@@ -204,9 +217,9 @@ export default function TakeoffTestPage() {
           {fitScale > 0 && ` (raw: ${scale.toFixed(3)}, fit: ${fitScale.toFixed(3)})`}
         </span>
         <span>
-          <strong>Pinch zoom working:</strong>{' '}
-          <span style={{ color: pinchDetected ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
-            {pinchDetected ? 'YES' : 'NO'}
+          <strong>Zoom working:</strong>{' '}
+          <span style={{ color: zoomWorking ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
+            {zoomWorking ? 'YES' : 'NO'}
           </span>
         </span>
         <span>
