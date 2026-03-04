@@ -156,7 +156,7 @@ export default function TakeoffProjectList({
                     </p>
                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                       <span>{formatDate(project.createdAt)}</span>
-                      <span>{project.pageCount > 0 ? `${project.pageCount} page${project.pageCount !== 1 ? 's' : ''}` : 'No PDF'}</span>
+                      <span>{project.pages.length > 0 ? `${project.pages.length} page${project.pages.length !== 1 ? 's' : ''}` : 'No PDF'}</span>
                     </div>
                   </>
                 )}

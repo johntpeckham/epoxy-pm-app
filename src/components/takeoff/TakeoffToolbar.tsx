@@ -31,6 +31,7 @@ interface TakeoffToolbarProps {
   pageScale: PageScale | undefined
   isFullscreen: boolean
   onToggleFullscreen: () => void
+  hidePagination?: boolean
 }
 
 const tools: { mode: ToolMode; label: string; icon: React.ReactNode; group: string }[] = [
@@ -57,6 +58,7 @@ export default function TakeoffToolbar({
   pageScale,
   isFullscreen,
   onToggleFullscreen,
+  hidePagination,
 }: TakeoffToolbarProps) {
   return (
     <div className="flex items-center gap-1 px-3 py-2 bg-gray-900 border-b border-gray-700 flex-wrap">
@@ -88,27 +90,31 @@ export default function TakeoffToolbar({
       <div className="w-px h-6 bg-gray-700 mx-2" />
 
       {/* Page nav */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={onPrevPage}
-          disabled={currentPage <= 0}
-          className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <ChevronLeftIcon className="w-4 h-4" />
-        </button>
-        <span className="text-gray-300 text-xs font-medium min-w-[80px] text-center">
-          Page {currentPage + 1} of {totalPages}
-        </span>
-        <button
-          onClick={onNextPage}
-          disabled={currentPage >= totalPages - 1}
-          className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <ChevronRightIcon className="w-4 h-4" />
-        </button>
-      </div>
+      {!hidePagination && (
+        <>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onPrevPage}
+              disabled={currentPage <= 0}
+              className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeftIcon className="w-4 h-4" />
+            </button>
+            <span className="text-gray-300 text-xs font-medium min-w-[80px] text-center">
+              Page {currentPage + 1} of {totalPages}
+            </span>
+            <button
+              onClick={onNextPage}
+              disabled={currentPage >= totalPages - 1}
+              className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
+          </div>
 
-      <div className="w-px h-6 bg-gray-700 mx-2" />
+          <div className="w-px h-6 bg-gray-700 mx-2" />
+        </>
+      )}
 
       {/* Zoom */}
       <div className="flex items-center gap-1">

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
+import type { PDFPageProxy } from 'pdfjs-dist'
 import TakeoffToolbar from './TakeoffToolbar'
 import TakeoffSidebar from './TakeoffSidebar'
 import type {
@@ -10,11 +10,11 @@ import type {
   Point,
   Measurement,
   TakeoffItem,
-  PageScale,
   MeasurementType,
   Markup,
+  TakeoffPage,
 } from './types'
-import { UploadCloudIcon } from 'lucide-react'
+import { ArrowLeftIcon } from 'lucide-react'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -70,41 +70,41 @@ function centroid(pts: Point[]): Point {
 }
 
 interface TakeoffViewerProps {
-  pdfData: ArrayBuffer | null
-  pageScales: PageScale[]
+  page: TakeoffPage
+  pageScale: number | undefined
   items: TakeoffItem[]
   markups: Markup[]
   isFullscreen: boolean
-  onPdfLoaded: (data: ArrayBuffer, pageCount: number) => void
-  onPageScalesChange: (scales: PageScale[]) => void
+  onBack: () => void
+  onPageScaleChange: (pixelsPerFoot: number) => void
   onItemsChange: (items: TakeoffItem[]) => void
   onMarkupsChange: (markups: Markup[]) => void
   onToggleFullscreen: () => void
 }
 
 export default function TakeoffViewer({
-  pdfData,
-  pageScales,
+  page,
+  pageScale,
   items,
   markups,
   isFullscreen,
-  onPdfLoaded,
-  onPageScalesChange,
+  onBack,
+  onPageScaleChange,
   onItemsChange,
   onMarkupsChange,
   onToggleFullscreen,
 }: TakeoffViewerProps) {
-  // PDF state
-  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null)
-  const [currentPage, setCurrentPage] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [zoom, setZoom] = useState(1)
-  const pageRef = useRef<PDFPageProxy | null>(null)
+  const pageKey = `${page.pdfIndex}-${page.pageIndex}`
+  const scaleCalibrated = pageScale !== undefined
 
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const pageRef = useRef<PDFPageProxy | null>(null)
+
+  // Zoom
+  const [zoom, setZoom] = useState(1)
 
   // Tool state
   const [activeTool, setActiveTool] = useState<ToolMode>('pan')
@@ -132,65 +132,33 @@ export default function TakeoffViewer({
   const [panStart, setPanStart] = useState<Point | null>(null)
   const [panStartOffset, setPanStartOffset] = useState<Point>({ x: 0, y: 0 })
 
-  const currentPageScale = pageScales.find((s) => s.pageIndex === currentPage)
-
-  // ─── Load PDF from project data ───
-
-  useEffect(() => {
-    if (!pdfData) {
-      setPdfDoc(null)
-      setTotalPages(0)
-      setCurrentPage(0)
-      return
-    }
-    let cancelled = false
-    pdfjsLib.getDocument({ data: pdfData.slice(0) }).promise.then((doc) => {
-      if (!cancelled) {
-        setPdfDoc(doc)
-        setTotalPages(doc.numPages)
-        setCurrentPage(0)
-        setPanOffset({ x: 0, y: 0 })
-      }
-    })
-    return () => { cancelled = true }
-  }, [pdfData])
-
-  // ─── PDF Upload ───
-
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const arrayBuffer = await file.arrayBuffer()
-    const doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-    setPdfDoc(doc)
-    setTotalPages(doc.numPages)
-    setCurrentPage(0)
-    setPanOffset({ x: 0, y: 0 })
-    onPdfLoaded(arrayBuffer, doc.numPages)
-  }
-
   // ─── Render PDF page ───
 
   const renderPage = useCallback(async () => {
-    if (!pdfDoc || !canvasRef.current) return
-    const page = await pdfDoc.getPage(currentPage + 1)
-    pageRef.current = page
+    if (!canvasRef.current) return
+    try {
+      const doc = await pdfjsLib.getDocument({ data: page.arrayBuffer.slice(0) }).promise
+      const pdfPage = await doc.getPage(page.pageIndex + 1)
+      pageRef.current = pdfPage
 
-    const viewport = page.getViewport({ scale: zoom * 1.5 })
-    const canvas = canvasRef.current
-    canvas.width = viewport.width
-    canvas.height = viewport.height
+      const viewport = pdfPage.getViewport({ scale: zoom * 1.5 })
+      const canvas = canvasRef.current
+      canvas.width = viewport.width
+      canvas.height = viewport.height
 
-    const ctx = canvas.getContext('2d')!
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    await page.render({ canvas, canvasContext: ctx, viewport }).promise
+      const ctx = canvas.getContext('2d')!
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
 
-    // Resize overlay
-    if (overlayCanvasRef.current) {
-      overlayCanvasRef.current.width = viewport.width
-      overlayCanvasRef.current.height = viewport.height
+      // Resize overlay
+      if (overlayCanvasRef.current) {
+        overlayCanvasRef.current.width = viewport.width
+        overlayCanvasRef.current.height = viewport.height
+      }
+    } catch {
+      // PDF render failed silently
     }
-  }, [pdfDoc, currentPage, zoom])
+  }, [page.arrayBuffer, page.pageIndex, zoom])
 
   useEffect(() => {
     renderPage()
@@ -204,14 +172,14 @@ export default function TakeoffViewer({
     const ctx = canvas.getContext('2d')!
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Draw all measurements
+    // Draw all measurements for this page
     for (const item of items) {
       const isActive = item.id === activeItemId
       const color = isActive ? item.color : '#6b7280'
       const alpha = isActive ? 1 : 0.5
 
       for (const m of item.measurements) {
-        if (m.pageIndex !== currentPage) continue
+        if (m.pageKey !== pageKey) continue
         ctx.globalAlpha = alpha
 
         if (m.type === 'linear' && m.points.length === 2) {
@@ -229,7 +197,7 @@ export default function TakeoffViewer({
 
     // Draw markups
     for (const mk of markups) {
-      if (mk.pageIndex !== currentPage) continue
+      if (mk.pageKey !== pageKey) continue
       if (mk.type === 'rect' && mk.points.length === 2) {
         const [a, b] = mk.points
         ctx.strokeStyle = mk.color
@@ -318,7 +286,7 @@ export default function TakeoffViewer({
         drawArrow(ctx, dragStart, mousePos, '#f59e0b')
       }
     }
-  }, [items, activeItemId, markups, currentPage, tempPoints, mousePos, activeTool, dragStart, isDragging])
+  }, [items, activeItemId, markups, pageKey, tempPoints, mousePos, activeTool, dragStart, isDragging])
 
   useEffect(() => {
     redrawOverlay()
@@ -427,7 +395,7 @@ export default function TakeoffViewer({
   // ─── Check prerequisites for measurement ───
 
   function checkMeasurePrereqs(): boolean {
-    if (!currentPageScale?.calibrated) {
+    if (!scaleCalibrated) {
       setWarning('Please set the page scale before measuring.')
       setTimeout(() => setWarning(null), 3000)
       return false
@@ -494,7 +462,7 @@ export default function TakeoffViewer({
       setIsDragging(false)
 
       if (activeTool === 'area-rect') {
-        const ppf = currentPageScale!.pixelsPerFoot
+        const ppf = pageScale!
         const w = Math.abs(pt.x - dragStart.x) / ppf
         const h = Math.abs(pt.y - dragStart.y) / ppf
         const area = w * h
@@ -506,7 +474,7 @@ export default function TakeoffViewer({
           points: [dragStart, pt],
           valueInFeet: area,
           label,
-          pageIndex: currentPage,
+          pageKey,
         }
         addMeasurementToActiveItem(measurement)
       } else if (activeTool === 'markup-rect') {
@@ -515,7 +483,7 @@ export default function TakeoffViewer({
           type: 'rect',
           points: [dragStart, pt],
           color: '#f59e0b',
-          pageIndex: currentPage,
+          pageKey,
         }
         onMarkupsChange([...markups, mk])
       } else if (activeTool === 'markup-arrow') {
@@ -524,7 +492,7 @@ export default function TakeoffViewer({
           type: 'arrow',
           points: [dragStart, pt],
           color: '#f59e0b',
-          pageIndex: currentPage,
+          pageKey,
         }
         onMarkupsChange([...markups, mk])
       }
@@ -553,7 +521,7 @@ export default function TakeoffViewer({
       const newPts = [...tempPoints, pt]
       setTempPoints(newPts)
       if (newPts.length === 2) {
-        const ppf = currentPageScale!.pixelsPerFoot
+        const ppf = pageScale!
         const dist = distance(newPts[0], newPts[1]) / ppf
         const label = formatFeetInches(dist)
         const measurement: Measurement = {
@@ -562,7 +530,7 @@ export default function TakeoffViewer({
           points: newPts,
           valueInFeet: dist,
           label,
-          pageIndex: currentPage,
+          pageKey,
         }
         addMeasurementToActiveItem(measurement)
         setTempPoints([])
@@ -585,7 +553,7 @@ export default function TakeoffViewer({
 
   function handleDoubleClick() {
     if (activeTool === 'area-polygon' && tempPoints.length >= 3) {
-      const ppf = currentPageScale!.pixelsPerFoot
+      const ppf = pageScale!
       const pxArea = polygonArea(tempPoints)
       const realArea = pxArea / (ppf * ppf)
       const label = `${realArea.toFixed(1)} sq ft`
@@ -595,7 +563,7 @@ export default function TakeoffViewer({
         points: [...tempPoints],
         valueInFeet: realArea,
         label,
-        pageIndex: currentPage,
+        pageKey,
       }
       addMeasurementToActiveItem(measurement)
       setTempPoints([])
@@ -611,8 +579,7 @@ export default function TakeoffViewer({
     const pxDist = distance(scalePoints[0], scalePoints[1])
     const ppf = pxDist / realDistFeet
 
-    const filtered = pageScales.filter((s) => s.pageIndex !== currentPage)
-    onPageScalesChange([...filtered, { pageIndex: currentPage, pixelsPerFoot: ppf, calibrated: true }])
+    onPageScaleChange(ppf)
 
     setShowScaleModal(false)
     setScalePoints([])
@@ -681,29 +648,11 @@ export default function TakeoffViewer({
       points: [markupTextInput.pos],
       text: markupTextValue.trim(),
       color: '#f59e0b',
-      pageIndex: currentPage,
+      pageKey,
     }
     onMarkupsChange([...markups, mk])
     setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false })
     setMarkupTextValue('')
-  }
-
-  // ─── Page navigation ───
-
-  function handlePrevPage() {
-    if (currentPage > 0) {
-      setCurrentPage((p) => p - 1)
-      setTempPoints([])
-      setPanOffset({ x: 0, y: 0 })
-    }
-  }
-
-  function handleNextPage() {
-    if (currentPage < totalPages - 1) {
-      setCurrentPage((p) => p + 1)
-      setTempPoints([])
-      setPanOffset({ x: 0, y: 0 })
-    }
   }
 
   // ─── Zoom ───
@@ -751,47 +700,35 @@ export default function TakeoffViewer({
     return 'crosshair'
   }
 
-  // ─── Upload prompt ───
-
-  if (!pdfDoc) {
-    return (
-      <div className="flex items-center justify-center h-full bg-gray-50">
-        <div className="text-center">
-          <UploadCloudIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">Upload Construction Plans</h2>
-          <p className="text-gray-400 mb-6 text-sm">Upload a PDF to begin taking measurements</p>
-          <label className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-lg cursor-pointer hover:bg-amber-400 transition text-sm font-semibold">
-            <UploadCloudIcon className="w-4 h-4" />
-            Choose PDF
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-          </label>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* Toolbar */}
-      <TakeoffToolbar
-        activeTool={activeTool}
-        onToolChange={handleToolChange}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPrevPage={handlePrevPage}
-        onNextPage={handleNextPage}
-        zoom={zoom}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        pageScale={currentPageScale}
-        isFullscreen={isFullscreen}
-        onToggleFullscreen={onToggleFullscreen}
-      />
+      {/* Back button + Toolbar */}
+      <div className="flex items-center bg-gray-900 border-b border-gray-700">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 px-4 py-2 text-gray-300 hover:text-white text-sm font-medium transition-colors border-r border-gray-700"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Back to Dashboard
+        </button>
+        <div className="flex-1">
+          <TakeoffToolbar
+            activeTool={activeTool}
+            onToolChange={handleToolChange}
+            currentPage={page.pageIndex}
+            totalPages={1}
+            onPrevPage={() => {}}
+            onNextPage={() => {}}
+            zoom={zoom}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            pageScale={scaleCalibrated ? { pageIndex: page.pageIndex, pixelsPerFoot: pageScale!, calibrated: true } : undefined}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={onToggleFullscreen}
+            hidePagination
+          />
+        </div>
+      </div>
 
       {/* Warning banner */}
       {warning && (
@@ -868,7 +805,7 @@ export default function TakeoffViewer({
           <div className="bg-white rounded-xl shadow-2xl p-6 w-96">
             <h3 className="text-lg font-semibold text-gray-800 mb-3">Set Scale</h3>
             <p className="text-sm text-gray-600 mb-4">
-              What is the real-world distance between the two points you selected?
+              Enter the real-world distance between the two points you selected.
             </p>
             <div className="flex items-center gap-2 mb-4">
               <input
