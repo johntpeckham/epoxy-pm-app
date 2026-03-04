@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PaperclipIcon, RulerIcon, SquareIcon, HashIcon, FileTextIcon, PencilLineIcon } from 'lucide-react'
+import { PlusIcon, RulerIcon, SquareIcon, HashIcon, FileTextIcon, PencilLineIcon } from 'lucide-react'
 import type { TakeoffPage, TakeoffItem } from './types'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -18,19 +18,9 @@ interface TakeoffDashboardProps {
   onOpenPage: (page: TakeoffPage) => void
 }
 
-function genId(): string {
-  return Math.random().toString(36).slice(2, 10)
-}
-
 // ─── Thumbnail card ───
 
-function PageThumbnail({
-  page,
-  onClick,
-}: {
-  page: TakeoffPage
-  onClick: () => void
-}) {
+function PageThumbnail({ page, onClick }: { page: TakeoffPage; onClick: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [loading, setLoading] = useState(true)
 
@@ -75,18 +65,13 @@ function PageThumbnail({
     <button
       onClick={onClick}
       className="group flex flex-col items-center bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-amber-400 hover:shadow-md transition-all cursor-pointer"
-      style={{ width: 200 }}
+      style={{ width: 180 }}
     >
-      <div className="w-full h-[240px] bg-gray-100 flex items-center justify-center overflow-hidden relative">
-        {loading && (
-          <div className="absolute inset-0 bg-gray-100 animate-pulse" />
-        )}
-        <canvas
-          ref={canvasRef}
-          className="max-w-full max-h-full object-contain"
-        />
+      <div className="w-full h-[220px] bg-gray-100 flex items-center justify-center overflow-hidden relative">
+        {loading && <div className="absolute inset-0 bg-gray-100 animate-pulse" />}
+        <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
       </div>
-      <div className="w-full px-3 py-2 text-xs text-gray-600 font-medium text-center truncate border-t border-gray-100 group-hover:text-amber-600">
+      <div className="w-full px-2 py-1.5 text-[11px] text-gray-500 font-medium text-center truncate border-t border-gray-100 group-hover:text-amber-600">
         Page {page.pageIndex + 1}
       </div>
     </button>
@@ -104,8 +89,6 @@ export default function TakeoffDashboard({
 }: TakeoffDashboardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ─── Summary computations ───
-
   const totalLinear = items
     .filter((i) => i.type === 'linear')
     .reduce((sum, i) => sum + i.measurements.reduce((s, m) => s + m.valueInFeet, 0), 0)
@@ -114,20 +97,14 @@ export default function TakeoffDashboard({
     .filter((i) => i.type === 'area')
     .reduce((sum, i) => sum + i.measurements.reduce((s, m) => s + m.valueInFeet, 0), 0)
 
-  const totalItems = items.length
-
-  const totalPdfPages = pages.length
-
   const totalMeasurements = items.reduce((sum, i) => sum + i.measurements.length, 0)
 
-  function formatFeetInches(totalFeet: number): string {
-    const feet = Math.floor(totalFeet)
-    const inches = Math.round((totalFeet - feet) * 12)
-    if (inches === 12) return `${feet + 1}'-0"`
-    return `${feet}'-${inches}"`
+  function fmtFtIn(ft: number): string {
+    const f = Math.floor(ft)
+    const i = Math.round((ft - f) * 12)
+    if (i === 12) return `${f + 1}'-0"`
+    return `${f}'-${i}"`
   }
-
-  // ─── PDF upload handler ───
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -141,13 +118,10 @@ export default function TakeoffDashboard({
     })
 
     const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
-    const pdfIndex = pages.length > 0
-      ? Math.max(...pages.map((p) => p.pdfIndex)) + 1
-      : 0
+    const pdfIndex = pages.length > 0 ? Math.max(...pages.map((p) => p.pdfIndex)) + 1 : 0
 
     const newPages: TakeoffPage[] = []
     for (let i = 0; i < doc.numPages; i++) {
-      // Render thumbnail
       const pdfPage = await doc.getPage(i + 1)
       const viewport = pdfPage.getViewport({ scale: 0.3 })
       const canvas = document.createElement('canvas')
@@ -157,107 +131,59 @@ export default function TakeoffDashboard({
       await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
       const thumbnailDataUrl = canvas.toDataURL('image/png')
 
-      newPages.push({
-        pdfIndex,
-        pageIndex: i,
-        pdfName: file.name,
-        thumbnailDataUrl,
-        arrayBuffer,
-      })
+      newPages.push({ pdfIndex, pageIndex: i, pdfName: file.name, thumbnailDataUrl, arrayBuffer })
     }
 
     onAddPages(newPages)
-
-    // Reset the input so the same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [pages, onAddPages])
 
-  // ─── Summary cards ───
-
-  const summaryCards = [
-    {
-      label: 'Linear Total',
-      value: totalLinear > 0 ? formatFeetInches(totalLinear) : '0\'-0"',
-      icon: <RulerIcon className="w-5 h-5 text-amber-400" />,
-    },
-    {
-      label: 'Area Total',
-      value: totalArea > 0 ? `${totalArea.toFixed(1)} sq ft` : '0.0 sq ft',
-      icon: <SquareIcon className="w-5 h-5 text-amber-400" />,
-    },
-    {
-      label: 'Items',
-      value: String(totalItems),
-      icon: <HashIcon className="w-5 h-5 text-amber-400" />,
-    },
-    {
-      label: 'PDF Pages',
-      value: String(totalPdfPages),
-      icon: <FileTextIcon className="w-5 h-5 text-amber-400" />,
-    },
-    {
-      label: 'Measurements',
-      value: String(totalMeasurements),
-      icon: <PencilLineIcon className="w-5 h-5 text-amber-400" />,
-    },
+  const cards = [
+    { label: 'Linear', value: totalLinear > 0 ? fmtFtIn(totalLinear) : "0'-0\"", icon: <RulerIcon className="w-4 h-4 text-amber-400" /> },
+    { label: 'Area', value: totalArea > 0 ? `${totalArea.toFixed(1)} sf` : '0.0 sf', icon: <SquareIcon className="w-4 h-4 text-amber-400" /> },
+    { label: 'Items', value: String(items.length), icon: <HashIcon className="w-4 h-4 text-amber-400" /> },
+    { label: 'Pages', value: String(pages.length), icon: <FileTextIcon className="w-4 h-4 text-amber-400" /> },
+    { label: 'Measurements', value: String(totalMeasurements), icon: <PencilLineIcon className="w-4 h-4 text-amber-400" /> },
   ]
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-      {/* Summary cards */}
-      <div className="grid grid-cols-5 gap-4 mb-8">
-        {summaryCards.map((card) => (
-          <div
-            key={card.label}
-            className="bg-gray-900 rounded-xl p-4 flex flex-col gap-2"
-          >
-            <div className="flex items-center gap-2">
-              {card.icon}
-              <span className="text-[11px] text-gray-400 uppercase tracking-wide font-medium">
-                {card.label}
-              </span>
-            </div>
-            <span className="text-2xl font-bold text-white leading-tight">
-              {card.value}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* PDF Pages heading */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-gray-700">PDF Pages</h2>
-        <span className="text-xs text-gray-400">
-          {pages.length} page{pages.length !== 1 ? 's' : ''} uploaded
-        </span>
-      </div>
-
+    <div className="flex-1 overflow-y-auto p-5 bg-gray-50">
       {/* Thumbnail grid */}
-      <div className="flex flex-wrap gap-4">
-        {pages.map((page, idx) => (
-          <PageThumbnail
-            key={`${page.pdfIndex}-${page.pageIndex}`}
-            page={page}
-            onClick={() => onOpenPage(page)}
-          />
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">PDF Pages</h2>
+        <span className="text-[11px] text-gray-400">{pages.length} page{pages.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      <div className="flex flex-wrap gap-3 mb-6">
+        {pages.map((page) => (
+          <PageThumbnail key={`${page.pdfIndex}-${page.pageIndex}`} page={page} onClick={() => onOpenPage(page)} />
         ))}
 
         {/* Add PDF card */}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer"
-          style={{ width: 200, height: 280 }}
+          className="flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer"
+          style={{ width: 180, height: 252 }}
         >
-          <PaperclipIcon className="w-8 h-8 text-gray-400 mb-2" />
-          <span className="text-sm font-medium text-gray-500">Add PDF</span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
+          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+            <PlusIcon className="w-5 h-5 text-gray-400" />
+          </div>
+          <span className="text-xs font-medium text-gray-400">Add PDF</span>
+          <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
         </button>
+      </div>
+
+      {/* Summary stat cards */}
+      <div className="grid grid-cols-5 gap-3">
+        {cards.map((c) => (
+          <div key={c.label} className="bg-gray-900 rounded-lg px-3 py-3 flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5">
+              {c.icon}
+              <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">{c.label}</span>
+            </div>
+            <span className="text-xl font-bold text-white leading-tight">{c.value}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
