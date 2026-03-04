@@ -15,6 +15,7 @@ import {
   ChevronRightIcon,
   Maximize2Icon,
   Minimize2Icon,
+  CheckIcon,
 } from 'lucide-react'
 import type { ToolMode, PageScale } from './types'
 
@@ -36,7 +37,6 @@ interface TakeoffToolbarProps {
 
 const tools: { mode: ToolMode; label: string; icon: React.ReactNode; group: string }[] = [
   { mode: 'pan', label: 'Pan', icon: <MousePointer2Icon className="w-3.5 h-3.5" />, group: 'nav' },
-  { mode: 'set-scale', label: 'Set Scale', icon: <RulerIcon className="w-3.5 h-3.5" />, group: 'scale' },
   { mode: 'linear', label: 'Linear', icon: <Minus className="w-3.5 h-3.5" />, group: 'measure' },
   { mode: 'area-rect', label: 'Area Rect', icon: <SquareIcon className="w-3.5 h-3.5" />, group: 'measure' },
   { mode: 'area-polygon', label: 'Area Poly', icon: <PentagonIcon className="w-3.5 h-3.5" />, group: 'measure' },
@@ -60,8 +60,39 @@ export default function TakeoffToolbar({
   onToggleFullscreen,
   hidePagination,
 }: TakeoffToolbarProps) {
+  const scaleSet = pageScale?.calibrated === true
+
   return (
     <div className="flex items-center gap-0.5 px-2 py-1.5 bg-gray-900 border-b border-gray-800 flex-nowrap overflow-hidden">
+      {/* Set Scale — prominent button */}
+      {scaleSet ? (
+        <button
+          onClick={() => onToolChange('set-scale')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors flex-shrink-0 ${
+            activeTool === 'set-scale'
+              ? 'bg-green-500 text-white'
+              : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+          }`}
+        >
+          <CheckIcon className="w-3 h-3" />
+          <span>Scale: 1in = {(pageScale!.pixelsPerFoot / 12).toFixed(1)}ft</span>
+        </button>
+      ) : (
+        <button
+          onClick={() => onToolChange('set-scale')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-semibold transition-colors flex-shrink-0 ${
+            activeTool === 'set-scale'
+              ? 'bg-amber-500 text-white ring-2 ring-amber-300'
+              : 'bg-amber-500 text-white hover:bg-amber-400'
+          }`}
+        >
+          <RulerIcon className="w-3 h-3" />
+          <span>Set Scale</span>
+        </button>
+      )}
+
+      <div className="w-px h-5 bg-gray-700 mx-1.5" />
+
       {/* Tool buttons */}
       <div className="flex items-center gap-px">
         {tools.map((tool, i) => {
@@ -127,15 +158,6 @@ export default function TakeoffToolbar({
           <ZoomInIcon className="w-3.5 h-3.5" />
         </button>
       </div>
-
-      <div className="w-px h-5 bg-gray-700 mx-1.5" />
-
-      {/* Scale indicator */}
-      <span className={`text-[10px] font-medium whitespace-nowrap ${pageScale?.calibrated ? 'text-amber-400' : 'text-gray-600'}`}>
-        {pageScale?.calibrated
-          ? `Scale: 1in = ${(pageScale.pixelsPerFoot / 12).toFixed(1)}ft`
-          : 'Scale: Not set'}
-      </span>
 
       {/* Fullscreen — far right */}
       <div className="ml-auto flex-shrink-0">
