@@ -602,8 +602,35 @@ export default function TakeoffViewer({
   const cursor = activeTool === 'pan' ? (panStart ? 'grabbing' : 'grab') : activeTool === 'markup-text' ? 'text' : 'crosshair'
   const canOverflow = zoom > 1
 
+  // If no PDF data at all, show error
+  if (!page.arrayBuffer) {
+    return (
+      <div className="flex flex-col h-full bg-white">
+        <div className="flex items-center bg-gray-900 flex-shrink-0">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors border-r border-gray-700"
+          >
+            <ArrowLeftIcon className="w-3.5 h-3.5" />
+            Dashboard
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <AlertTriangleIcon className="w-10 h-10 text-red-400 mx-auto mb-3" />
+            <p className="text-sm font-medium text-gray-700">PDF data missing</p>
+            <p className="text-xs text-gray-400 mt-1">Please re-upload this PDF from the dashboard</p>
+            <button onClick={onBack} className="mt-4 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors">
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col h-full bg-gray-100">
+    <div className="flex flex-col h-full bg-white">
       {/* Back + Toolbar */}
       <div className="flex items-center bg-gray-900 flex-shrink-0">
         <button
@@ -658,7 +685,7 @@ export default function TakeoffViewer({
         {/* Canvas area */}
         <div
           ref={containerRef}
-          className={`flex-1 relative bg-gray-200 ${canOverflow ? 'overflow-auto' : 'overflow-hidden'}`}
+          className={`flex-1 relative bg-gray-100 ${canOverflow ? 'overflow-auto' : 'overflow-hidden'}`}
         >
           <div
             className={`relative ${canOverflow ? 'inline-block' : 'flex items-center justify-center w-full h-full'}`}

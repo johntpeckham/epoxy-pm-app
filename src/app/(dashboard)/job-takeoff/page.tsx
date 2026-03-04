@@ -173,6 +173,23 @@ export default function JobTakeoffPage() {
     [selectedProject, updateSelected]
   )
 
+  const handleDeletePage = useCallback(
+    (pdfIndex: number, pageIndex: number) => {
+      if (!selectedProject) return
+      updateSelected({
+        pages: selectedProject.pages.filter(
+          (p) => !(p.pdfIndex === pdfIndex && p.pageIndex === pageIndex)
+        ),
+      })
+    },
+    [selectedProject, updateSelected]
+  )
+
+  const handleDeleteAllPages = useCallback(() => {
+    if (!selectedProject) return
+    updateSelected({ pages: [] })
+  }, [selectedProject, updateSelected])
+
   const handleOpenPage = useCallback((page: TakeoffPage) => {
     setActivePage(page)
     setViewMode('viewer')
@@ -260,6 +277,8 @@ export default function JobTakeoffPage() {
         pageScales={selectedProject.pageScales}
         onAddPages={handleAddPages}
         onOpenPage={handleOpenPage}
+        onDeletePage={handleDeletePage}
+        onDeleteAllPages={handleDeleteAllPages}
       />
     )
   }
