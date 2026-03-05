@@ -342,7 +342,7 @@ function DaySection({
       </div>
 
       {/* Photo grid */}
-      <div className="p-3 grid grid-cols-5 gap-1.5">
+      <div className="p-3 grid grid-cols-3 md:grid-cols-5 gap-1.5">
         {photos.map((path, i) => {
           const url = getPublicUrl(path)
           return (
