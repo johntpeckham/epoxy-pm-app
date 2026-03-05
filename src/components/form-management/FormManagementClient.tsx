@@ -273,17 +273,14 @@ function ShortTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: P
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
-      <input
-        type="text"
-        readOnly
-        placeholder={field.placeholder || 'Enter text...'}
-        onClick={(e) => {
-          e.preventDefault()
-          const newPh = prompt('Edit placeholder:', field.placeholder)
-          if (newPh !== null) onUpdate({ placeholder: newPh })
-        }}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-400 placeholder-gray-300 cursor-text focus:outline-none"
-      />
+      <div className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white">
+        <InlineEdit
+          value={field.placeholder || ''}
+          onChange={(v) => onUpdate({ placeholder: v })}
+          className="text-gray-400 w-full"
+          placeholder="Enter text..."
+        />
+      </div>
     </div>
   )
 }
@@ -300,17 +297,14 @@ function LongTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Pa
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
-      <textarea
-        readOnly
-        rows={3}
-        placeholder={field.placeholder || 'Enter text...'}
-        onClick={(e) => {
-          e.preventDefault()
-          const newPh = prompt('Edit placeholder:', field.placeholder)
-          if (newPh !== null) onUpdate({ placeholder: newPh })
-        }}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-400 placeholder-gray-300 cursor-text resize-none focus:outline-none"
-      />
+      <div className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white min-h-[5rem]">
+        <InlineEdit
+          value={field.placeholder || ''}
+          onChange={(v) => onUpdate({ placeholder: v })}
+          className="text-gray-400 w-full"
+          placeholder="Enter text..."
+        />
+      </div>
     </div>
   )
 }
@@ -478,17 +472,14 @@ function NumberField({ field, onUpdate }: { field: FormField; onUpdate: (u: Part
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
-      <input
-        type="number"
-        readOnly
-        placeholder={field.placeholder || '0'}
-        onClick={(e) => {
-          e.preventDefault()
-          const newPh = prompt('Edit placeholder:', field.placeholder)
-          if (newPh !== null) onUpdate({ placeholder: newPh })
-        }}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-400 placeholder-gray-300 cursor-text focus:outline-none"
-      />
+      <div className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white">
+        <InlineEdit
+          value={field.placeholder || ''}
+          onChange={(v) => onUpdate({ placeholder: v })}
+          className="text-gray-400 w-full"
+          placeholder="0"
+        />
+      </div>
     </div>
   )
 }
