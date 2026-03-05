@@ -17,6 +17,7 @@ interface EstimatesWorkspaceProps {
   onEstimateCreated: () => void
   onEstimateUpdated: () => void
   onBack: () => void
+  onOpenSettings: () => void
 }
 
 export default function EstimatesWorkspace({
@@ -29,6 +30,7 @@ export default function EstimatesWorkspace({
   onEstimateCreated,
   onEstimateUpdated,
   onBack,
+  onOpenSettings,
 }: EstimatesWorkspaceProps) {
   const selectedEstimate = estimates.find((e) => e.id === selectedEstimateId) ?? null
 
@@ -94,6 +96,7 @@ export default function EstimatesWorkspace({
         userId={userId}
         onBack={onBack}
         onUpdated={onEstimateUpdated}
+        onOpenSettings={onOpenSettings}
       />
     )
   }

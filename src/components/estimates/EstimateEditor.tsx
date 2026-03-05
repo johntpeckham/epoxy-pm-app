@@ -14,6 +14,7 @@ interface EstimateEditorProps {
   userId: string
   onBack: () => void
   onUpdated: () => void
+  onOpenSettings: () => void
 }
 
 function genId(): string {
@@ -34,6 +35,7 @@ export default function EstimateEditor({
   userId,
   onBack,
   onUpdated,
+  onOpenSettings,
 }: EstimateEditorProps) {
   const [estimateNumber, setEstimateNumber] = useState(initialEstimate.estimate_number)
   const [date, setDate] = useState(initialEstimate.date)
@@ -176,6 +178,7 @@ export default function EstimateEditor({
       companyName,
       companyAddress,
       companyWebsite,
+      logoBase64: settings?.logo_base64 ?? null,
     })
   }
 
@@ -265,7 +268,21 @@ export default function EstimateEditor({
                 <p className="text-sm text-gray-500">{companyAddress}</p>
                 <p className="text-sm text-gray-500">{companyWebsite}</p>
               </div>
-              <div className="text-right">
+              <div className="flex flex-col items-end gap-2">
+                {settings?.logo_base64 ? (
+                  <img
+                    src={settings.logo_base64}
+                    alt="Company logo"
+                    className="max-h-[80px] max-w-[180px] object-contain"
+                  />
+                ) : (
+                  <button
+                    onClick={onOpenSettings}
+                    className="border-2 border-dashed border-gray-300 rounded-lg px-6 py-4 text-xs text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors"
+                  >
+                    Upload Logo
+                  </button>
+                )}
                 <h2 className="text-3xl font-bold text-amber-500">Estimate</h2>
               </div>
             </div>
