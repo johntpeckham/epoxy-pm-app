@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -21,6 +21,7 @@ import {
   HashIcon,
   MinusIcon,
   PenToolIcon,
+  XIcon,
 } from 'lucide-react'
 import type { FormTemplate, FormField, FormFieldType } from '@/types'
 
@@ -52,6 +53,402 @@ function generateId(): string {
   return crypto.randomUUID()
 }
 
+/* ── Inline editable text ── */
+function InlineEdit({
+  value,
+  onChange,
+  className = '',
+  placeholder = '',
+}: {
+  value: string
+  onChange: (v: string) => void
+  className?: string
+  placeholder?: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setDraft(value) }, [value])
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
+
+  if (!editing) {
+    return (
+      <span
+        onClick={() => setEditing(true)}
+        className={`cursor-text hover:bg-amber-50 rounded px-1 -mx-1 transition ${className}`}
+      >
+        {value || <span className="text-gray-300 italic">{placeholder || 'Click to edit'}</span>}
+      </span>
+    )
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { onChange(draft); setEditing(false) }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { onChange(draft); setEditing(false) }
+        if (e.key === 'Escape') { setDraft(value); setEditing(false) }
+      }}
+      className={`bg-white border border-amber-400 rounded px-1 -mx-1 outline-none focus:ring-2 focus:ring-amber-500 ${className}`}
+    />
+  )
+}
+
+/* ── Hover controls overlay ── */
+function FieldControls({
+  fieldId,
+  idx,
+  total,
+  onMove,
+  onDelete,
+  deleteConfirm,
+  setDeleteConfirm,
+}: {
+  fieldId: string
+  idx: number
+  total: number
+  onMove: (id: string, dir: 'up' | 'down') => void
+  onDelete: (id: string) => void
+  deleteConfirm: string | null
+  setDeleteConfirm: (id: string | null) => void
+}) {
+  return (
+    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 px-1.5 py-1 shadow-sm z-10">
+      <GripVerticalIcon className="w-4 h-4 text-gray-300 cursor-grab" />
+      <button
+        onClick={() => onMove(fieldId, 'up')}
+        disabled={idx === 0}
+        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 transition"
+      >
+        <ChevronUpIcon className="w-3.5 h-3.5" />
+      </button>
+      <button
+        onClick={() => onMove(fieldId, 'down')}
+        disabled={idx === total - 1}
+        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 transition"
+      >
+        <ChevronDownIcon className="w-3.5 h-3.5" />
+      </button>
+      {deleteConfirm === fieldId ? (
+        <div className="flex items-center gap-1 ml-1">
+          <button
+            onClick={() => onDelete(fieldId)}
+            className="px-2 py-0.5 rounded bg-red-500 text-white text-[11px] font-medium hover:bg-red-600 transition"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => setDeleteConfirm(null)}
+            className="px-2 py-0.5 rounded border border-gray-200 text-gray-500 text-[11px] font-medium hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setDeleteConfirm(fieldId)}
+          className="p-1 text-gray-400 hover:text-red-500 transition"
+        >
+          <Trash2Icon className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+/* ── Individual WYSIWYG field renderers ── */
+
+function SectionHeaderField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+  return (
+    <div className="pt-2 pb-1">
+      <InlineEdit
+        value={field.label}
+        onChange={(v) => onUpdate({ label: v })}
+        className="text-xs font-bold text-gray-400 uppercase tracking-widest"
+        placeholder="Section Title"
+      />
+      <div className="border-b border-gray-200 mt-2" />
+    </div>
+  )
+}
+
+function ShortTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          placeholder="Label"
+        />
+        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+      </div>
+      <input
+        type="text"
+        readOnly
+        placeholder={field.placeholder || 'Enter text...'}
+        onClick={(e) => {
+          e.preventDefault()
+          const newPh = prompt('Edit placeholder:', field.placeholder)
+          if (newPh !== null) onUpdate({ placeholder: newPh })
+        }}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-400 placeholder-gray-300 cursor-text focus:outline-none"
+      />
+    </div>
+  )
+}
+
+function LongTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          placeholder="Label"
+        />
+        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+      </div>
+      <textarea
+        readOnly
+        rows={3}
+        placeholder={field.placeholder || 'Enter text...'}
+        onClick={(e) => {
+          e.preventDefault()
+          const newPh = prompt('Edit placeholder:', field.placeholder)
+          if (newPh !== null) onUpdate({ placeholder: newPh })
+        }}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-400 placeholder-gray-300 cursor-text resize-none focus:outline-none"
+      />
+    </div>
+  )
+}
+
+function CheckboxField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-5 h-5 border-2 border-gray-300 rounded flex-shrink-0" />
+      <InlineEdit
+        value={field.label}
+        onChange={(v) => onUpdate({ label: v })}
+        className="text-sm text-gray-700"
+        placeholder="Checkbox label"
+      />
+      <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+    </div>
+  )
+}
+
+function CheckboxGroupField({
+  field,
+  onUpdate,
+  onAddOption,
+  onUpdateOption,
+  onRemoveOption,
+}: {
+  field: FormField
+  onUpdate: (u: Partial<FormField>) => void
+  onAddOption: () => void
+  onUpdateOption: (idx: number, val: string) => void
+  onRemoveOption: (idx: number) => void
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          placeholder="Label"
+        />
+        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+      </div>
+      <div className="space-y-2 ml-1">
+        {field.options.map((opt, i) => (
+          <div key={i} className="flex items-center gap-3 group/opt">
+            <div className="w-5 h-5 border-2 border-gray-300 rounded flex-shrink-0" />
+            <InlineEdit
+              value={opt}
+              onChange={(v) => onUpdateOption(i, v)}
+              className="text-sm text-gray-700"
+              placeholder="Option label"
+            />
+            <button
+              onClick={() => onRemoveOption(i)}
+              className="opacity-0 group-hover/opt:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition"
+            >
+              <XIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={onAddOption}
+          className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium ml-8 transition"
+        >
+          <PlusIcon className="w-3 h-3" />
+          Add option
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DropdownField({
+  field,
+  onUpdate,
+  onAddOption,
+  onUpdateOption,
+  onRemoveOption,
+}: {
+  field: FormField
+  onUpdate: (u: Partial<FormField>) => void
+  onAddOption: () => void
+  onUpdateOption: (idx: number, val: string) => void
+  onRemoveOption: (idx: number) => void
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          placeholder="Label"
+        />
+        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+      </div>
+      <div className="border border-gray-300 rounded-lg overflow-hidden">
+        <div className="px-3 py-2.5 bg-white text-sm text-gray-400 flex items-center justify-between">
+          <span>{field.options[0] || 'Select...'}</span>
+          <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+        </div>
+      </div>
+      <div className="mt-2 ml-1 space-y-1.5">
+        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Options</p>
+        {field.options.map((opt, i) => (
+          <div key={i} className="flex items-center gap-2 group/opt">
+            <span className="text-xs text-gray-300 w-4 text-right">{i + 1}.</span>
+            <InlineEdit
+              value={opt}
+              onChange={(v) => onUpdateOption(i, v)}
+              className="text-sm text-gray-700"
+              placeholder="Option"
+            />
+            <button
+              onClick={() => onRemoveOption(i)}
+              className="opacity-0 group-hover/opt:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition"
+            >
+              <XIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={onAddOption}
+          className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium ml-6 transition"
+        >
+          <PlusIcon className="w-3 h-3" />
+          Add option
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DateField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          placeholder="Label"
+        />
+        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+      </div>
+      <input
+        type="date"
+        readOnly
+        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-400 cursor-default focus:outline-none"
+      />
+    </div>
+  )
+}
+
+function NumberField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          placeholder="Label"
+        />
+        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+      </div>
+      <input
+        type="number"
+        readOnly
+        placeholder={field.placeholder || '0'}
+        onClick={(e) => {
+          e.preventDefault()
+          const newPh = prompt('Edit placeholder:', field.placeholder)
+          if (newPh !== null) onUpdate({ placeholder: newPh })
+        }}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-400 placeholder-gray-300 cursor-text focus:outline-none"
+      />
+    </div>
+  )
+}
+
+function SignatureField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          placeholder="Label"
+        />
+        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+      </div>
+      <div className="border-2 border-dashed border-gray-300 rounded-lg h-24 flex flex-col items-center justify-end pb-2 bg-gray-50/50">
+        <div className="w-4/5 border-b border-gray-400 mb-1" />
+        <span className="text-[10px] text-gray-400 uppercase tracking-wide">Sign here</span>
+      </div>
+    </div>
+  )
+}
+
+function RequiredBadge({ required, onToggle }: { required: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium transition ${
+        required
+          ? 'bg-red-50 text-red-500 border border-red-200 hover:bg-red-100'
+          : 'bg-gray-50 text-gray-400 border border-gray-200 hover:text-gray-500'
+      }`}
+    >
+      {required ? 'Required' : 'Optional'}
+    </button>
+  )
+}
+
+/* ── Main component ── */
+
 export default function FormManagementClient() {
   const router = useRouter()
   const [templates, setTemplates] = useState<FormTemplate[]>([])
@@ -79,7 +476,6 @@ export default function FormManagementClient() {
     fetchTemplates()
   }, [fetchTemplates])
 
-  // When selecting a form, load its fields
   useEffect(() => {
     if (selectedTemplate) {
       const sorted = [...selectedTemplate.fields].sort((a, b) => a.order - b.order)
@@ -179,7 +575,6 @@ export default function FormManagementClient() {
       .update({ fields: fields as unknown as Record<string, unknown>[], updated_at: new Date().toISOString() })
       .eq('id', selectedTemplate.id)
 
-    // Update local state
     setTemplates((prev) =>
       prev.map((t) =>
         t.id === selectedTemplate.id ? { ...t, fields, updated_at: new Date().toISOString() } : t
@@ -188,6 +583,51 @@ export default function FormManagementClient() {
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  // --- Render a field in WYSIWYG style ---
+
+  function renderField(field: FormField) {
+    const onUpdate = (u: Partial<FormField>) => updateField(field.id, u)
+
+    switch (field.type) {
+      case 'section_header':
+        return <SectionHeaderField field={field} onUpdate={onUpdate} />
+      case 'short_text':
+        return <ShortTextField field={field} onUpdate={onUpdate} />
+      case 'long_text':
+        return <LongTextField field={field} onUpdate={onUpdate} />
+      case 'checkbox':
+        return <CheckboxField field={field} onUpdate={onUpdate} />
+      case 'checkbox_group':
+        return (
+          <CheckboxGroupField
+            field={field}
+            onUpdate={onUpdate}
+            onAddOption={() => addOption(field.id)}
+            onUpdateOption={(idx, val) => updateOption(field.id, idx, val)}
+            onRemoveOption={(idx) => removeOption(field.id, idx)}
+          />
+        )
+      case 'dropdown':
+        return (
+          <DropdownField
+            field={field}
+            onUpdate={onUpdate}
+            onAddOption={() => addOption(field.id)}
+            onUpdateOption={(idx, val) => updateOption(field.id, idx, val)}
+            onRemoveOption={(idx) => removeOption(field.id, idx)}
+          />
+        )
+      case 'date':
+        return <DateField field={field} onUpdate={onUpdate} />
+      case 'number':
+        return <NumberField field={field} onUpdate={onUpdate} />
+      case 'signature':
+        return <SignatureField field={field} onUpdate={onUpdate} />
+      default:
+        return <ShortTextField field={field} onUpdate={onUpdate} />
+    }
   }
 
   return (
@@ -241,7 +681,7 @@ export default function FormManagementClient() {
               </div>
             </div>
 
-            {/* Right Panel — Field Editor */}
+            {/* Right Panel — WYSIWYG Form Editor */}
             <div className="flex-1 min-w-0">
               {!selectedTemplate ? (
                 <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
@@ -250,9 +690,9 @@ export default function FormManagementClient() {
                   <p className="text-sm text-gray-400 mt-1">You can add, remove, and reorder fields for each form.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  {/* Form Header */}
-                  <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  {/* Save bar */}
+                  <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-lg font-semibold text-gray-900">{selectedTemplate.form_name}</h2>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -278,171 +718,62 @@ export default function FormManagementClient() {
                     </button>
                   </div>
 
-                  {/* Field List */}
-                  <div className="divide-y divide-gray-100">
-                    {fields.map((field, idx) => (
-                      <div
-                        key={field.id}
-                        className={`px-5 py-3 ${field.type === 'section_header' ? 'bg-gray-50' : ''}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Grip handle */}
-                          <div className="flex flex-col gap-0.5 flex-shrink-0">
-                            <button
-                              onClick={() => moveField(field.id, 'up')}
-                              disabled={idx === 0}
-                              className="p-0.5 text-gray-300 hover:text-gray-500 disabled:opacity-30 transition"
-                            >
-                              <ChevronUpIcon className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => moveField(field.id, 'down')}
-                              disabled={idx === fields.length - 1}
-                              className="p-0.5 text-gray-300 hover:text-gray-500 disabled:opacity-30 transition"
-                            >
-                              <ChevronDownIcon className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          {/* Drag icon */}
-                          <GripVerticalIcon className="w-4 h-4 text-gray-300 flex-shrink-0" />
-
-                          {/* Type badge */}
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-medium flex-shrink-0 ${FIELD_TYPE_COLORS[field.type]}`}
-                          >
-                            {FIELD_TYPE_OPTIONS.find((o) => o.value === field.type)?.icon}
-                            {FIELD_TYPE_OPTIONS.find((o) => o.value === field.type)?.label}
-                          </span>
-
-                          {/* Label input */}
-                          <input
-                            type="text"
-                            value={field.label}
-                            onChange={(e) => updateField(field.id, { label: e.target.value })}
-                            className={`flex-1 min-w-0 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition ${
-                              field.type === 'section_header' ? 'font-semibold' : ''
-                            }`}
-                          />
-
-                          {/* Placeholder input (not for section headers) */}
-                          {field.type !== 'section_header' && field.type !== 'signature' && (
-                            <input
-                              type="text"
-                              value={field.placeholder}
-                              onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
-                              placeholder="Placeholder..."
-                              className="hidden lg:block w-40 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-400 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-                            />
-                          )}
-
-                          {/* Required toggle (not for section headers) */}
-                          {field.type !== 'section_header' && (
-                            <button
-                              onClick={() => updateField(field.id, { required: !field.required })}
-                              className={`flex-shrink-0 px-2 py-1 rounded border text-[11px] font-medium transition ${
-                                field.required
-                                  ? 'bg-red-50 text-red-600 border-red-200'
-                                  : 'bg-gray-50 text-gray-400 border-gray-200 hover:text-gray-600'
-                              }`}
-                            >
-                              {field.required ? 'Required' : 'Optional'}
-                            </button>
-                          )}
-
-                          {/* Delete button */}
-                          {deleteConfirm === field.id ? (
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <button
-                                onClick={() => removeField(field.id)}
-                                className="px-2 py-1 rounded bg-red-500 text-white text-[11px] font-medium hover:bg-red-600 transition"
-                              >
-                                Confirm
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirm(null)}
-                                className="px-2 py-1 rounded border border-gray-200 text-gray-500 text-[11px] font-medium hover:bg-gray-50 transition"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setDeleteConfirm(field.id)}
-                              className="flex-shrink-0 p-1.5 text-gray-300 hover:text-red-500 transition"
-                            >
-                              <Trash2Icon className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Options editor for dropdown and checkbox_group */}
-                        {(field.type === 'dropdown' || field.type === 'checkbox_group') && (
-                          <div className="mt-2 ml-[72px] space-y-1.5">
-                            <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Options</p>
-                            {field.options.map((opt, optIdx) => (
-                              <div key={optIdx} className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  value={opt}
-                                  onChange={(e) => updateOption(field.id, optIdx, e.target.value)}
-                                  className="flex-1 border border-gray-200 rounded-md px-2.5 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-                                />
-                                <button
-                                  onClick={() => removeOption(field.id, optIdx)}
-                                  disabled={field.options.length <= 1}
-                                  className="p-1 text-gray-300 hover:text-red-500 disabled:opacity-30 transition"
-                                >
-                                  <Trash2Icon className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
-                            <button
-                              onClick={() => addOption(field.id)}
-                              className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium transition"
-                            >
-                              <PlusIcon className="w-3 h-3" />
-                              Add option
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Add Field Button */}
-                  <div className="px-5 py-4 border-t border-gray-200">
-                    {addingFieldType ? (
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Select field type</p>
-                        <div className="flex flex-wrap gap-2">
-                          {FIELD_TYPE_OPTIONS.map((opt) => (
-                            <button
-                              key={opt.value}
-                              onClick={() => addField(opt.value)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition hover:opacity-80 ${FIELD_TYPE_COLORS[opt.value]}`}
-                            >
-                              {opt.icon}
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                        <button
-                          onClick={() => setAddingFieldType(false)}
-                          className="text-xs text-gray-400 hover:text-gray-600 transition"
+                  {/* WYSIWYG Form Card */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                    <div className="p-4 md:p-6 space-y-5">
+                      {fields.map((field, idx) => (
+                        <div
+                          key={field.id}
+                          className="group relative pr-12"
                         >
-                          Cancel
+                          {renderField(field)}
+                          <FieldControls
+                            fieldId={field.id}
+                            idx={idx}
+                            total={fields.length}
+                            onMove={moveField}
+                            onDelete={removeField}
+                            deleteConfirm={deleteConfirm}
+                            setDeleteConfirm={setDeleteConfirm}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add Field Button */}
+                    <div className="px-4 md:px-6 py-4 border-t border-gray-200">
+                      {addingFieldType ? (
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Select field type</p>
+                          <div className="flex flex-wrap gap-2">
+                            {FIELD_TYPE_OPTIONS.map((opt) => (
+                              <button
+                                key={opt.value}
+                                onClick={() => addField(opt.value)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition hover:opacity-80 ${FIELD_TYPE_COLORS[opt.value]}`}
+                              >
+                                {opt.icon}
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => setAddingFieldType(false)}
+                            className="text-xs text-gray-400 hover:text-gray-600 transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setAddingFieldType(true)}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 border border-dashed border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-600 rounded-lg text-sm font-medium transition"
+                        >
+                          <PlusIcon className="w-4 h-4" />
+                          Add Field
                         </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setAddingFieldType(true)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 border border-dashed border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-600 rounded-lg text-sm font-medium transition"
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                        Add Field
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
