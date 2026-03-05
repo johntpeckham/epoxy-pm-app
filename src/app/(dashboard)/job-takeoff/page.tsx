@@ -243,6 +243,18 @@ export default function JobTakeoffPage() {
     [updateSelected]
   )
 
+  const handleRenameItem = useCallback(
+    (itemId: string, newName: string) => {
+      if (!selectedProject) return
+      updateSelected({
+        items: selectedProject.items.map((i) =>
+          i.id === itemId ? { ...i, name: newName } : i
+        ),
+      })
+    },
+    [selectedProject, updateSelected]
+  )
+
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen((prev) => !prev)
   }, [])
@@ -296,6 +308,7 @@ export default function JobTakeoffPage() {
         onOpenPage={handleOpenPage}
         onDeletePage={handleDeletePage}
         onRenamePage={handleRenamePage}
+        onRenameItem={handleRenameItem}
       />
     )
   }

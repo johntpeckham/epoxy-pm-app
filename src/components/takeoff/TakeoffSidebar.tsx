@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PlusIcon, Trash2Icon, CheckIcon, XIcon } from 'lucide-react'
+import { PlusIcon, Trash2Icon, CheckIcon, XIcon, Pencil } from 'lucide-react'
 import type { TakeoffItem, MeasurementType } from './types'
 
 interface TakeoffSidebarProps {
@@ -148,34 +148,31 @@ export default function TakeoffSidebar({
                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
 
                 {editingId === item.id ? (
-                  <div className="flex-1 flex items-center gap-1 min-w-0">
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') finishRename(item.id)
-                        if (e.key === 'Escape') setEditingId(null)
-                      }}
-                      className="flex-1 min-w-0 px-1.5 py-0.5 bg-[#222] border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <button
-                      onClick={(e) => { e.stopPropagation(); finishRename(item.id) }}
-                      className="p-0.5 text-green-400 hover:text-green-300"
-                    >
-                      <CheckIcon className="w-3 h-3" />
-                    </button>
-                  </div>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') finishRename(item.id)
+                      if (e.key === 'Escape') setEditingId(null)
+                    }}
+                    onBlur={() => finishRename(item.id)}
+                    onFocus={(e) => e.target.select()}
+                    className="text-sm font-semibold border-b border-amber-500 outline-none bg-transparent w-full max-w-[120px] text-white"
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
                 ) : (
                   <>
-                    <span
-                      onDoubleClick={(e) => { e.stopPropagation(); startRename(item) }}
-                      className={`flex-1 text-xs font-medium truncate ${isActive ? 'text-white' : 'text-gray-400'}`}
+                    <div
+                      onClick={(e) => { e.stopPropagation(); startRename(item) }}
+                      className="group/name flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
                     >
-                      {item.name}
-                    </span>
+                      <span className={`text-xs font-medium truncate ${isActive ? 'text-white' : 'text-gray-400'}`}>
+                        {item.name}
+                      </span>
+                      <Pencil size={12} className="text-gray-600 group-hover/name:text-amber-500 flex-shrink-0" />
+                    </div>
                     <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
                       item.type === 'linear' ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
                     }`}>

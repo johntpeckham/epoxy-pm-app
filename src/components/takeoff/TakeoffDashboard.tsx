@@ -22,6 +22,7 @@ interface TakeoffDashboardProps {
   onOpenPage: (page: TakeoffPage) => void
   onDeletePage: (pdfIndex: number, pageIndex: number) => void
   onRenamePage: (pdfIndex: number, pageIndex: number, displayName: string) => void
+  onRenameItem: (itemId: string, newName: string) => void
 }
 
 // ─── Thumbnail card ───
@@ -227,10 +228,13 @@ export default function TakeoffDashboard({
   onOpenPage,
   onDeletePage,
   onRenamePage,
+  onRenameItem,
 }: TakeoffDashboardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editItemName, setEditItemName] = useState('')
 
   // Build set of pageKeys that have measurements or markups
   const workedOnPages = new Set<string>()
@@ -351,7 +355,37 @@ export default function TakeoffDashboard({
                     className="w-3 h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-sm font-semibold text-gray-900 flex-1 truncate">{item.name}</span>
+                  {editingItemId === item.id ? (
+                    <input
+                      type="text"
+                      value={editItemName}
+                      onChange={(e) => setEditItemName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const trimmed = editItemName.trim()
+                          if (trimmed) onRenameItem(item.id, trimmed)
+                          setEditingItemId(null)
+                        }
+                        if (e.key === 'Escape') setEditingItemId(null)
+                      }}
+                      onBlur={() => {
+                        const trimmed = editItemName.trim()
+                        if (trimmed) onRenameItem(item.id, trimmed)
+                        setEditingItemId(null)
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      className="text-sm font-semibold border-b border-amber-500 outline-none bg-transparent flex-1"
+                      autoFocus
+                    />
+                  ) : (
+                    <div
+                      onClick={() => { setEditingItemId(item.id); setEditItemName(item.name) }}
+                      className="group/name flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
+                    >
+                      <span className="text-sm font-semibold text-gray-900 truncate">{item.name}</span>
+                      <Pencil size={12} className="text-gray-400 group-hover/name:text-amber-500 flex-shrink-0" />
+                    </div>
+                  )}
                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
                     item.type === 'linear'
                       ? 'bg-blue-50 text-blue-600'
