@@ -342,7 +342,7 @@ function DaySection({
       </div>
 
       {/* Photo grid */}
-      <div className="p-3 grid [grid-template-columns:repeat(5,29vw)] md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1.5 overflow-x-auto md:overflow-visible">
+      <div className="p-3 grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1 md:gap-1.5">
         {photos.map((path, i) => {
           const url = getPublicUrl(path)
           return (
