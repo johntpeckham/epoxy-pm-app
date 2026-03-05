@@ -320,3 +320,23 @@ export interface RolePermission {
   access_level: AccessLevel
   updated_at: string
 }
+
+export type FormFieldType = 'short_text' | 'long_text' | 'checkbox' | 'checkbox_group' | 'dropdown' | 'date' | 'number' | 'section_header' | 'signature'
+
+export interface FormField {
+  id: string
+  type: FormFieldType
+  label: string
+  placeholder: string
+  required: boolean
+  options: string[]
+  order: number
+}
+
+export interface FormTemplate {
+  id: string
+  form_key: string
+  form_name: string
+  fields: FormField[]
+  updated_at: string
+}
