@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon, UserPlusIcon, ShieldIcon } from 'lucide-react'
+import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon, UserPlusIcon, SettingsIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { UserRole } from '@/types'
 
@@ -287,7 +287,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
           onClick={() => router.push('/permissions')}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
         >
-          <ShieldIcon className="w-3.5 h-3.5" />
+          <SettingsIcon className="w-3.5 h-3.5" />
           Permissions
         </button>
       </div>
