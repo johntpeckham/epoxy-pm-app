@@ -99,7 +99,7 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
       {content.caption && (
         <p className="text-sm text-gray-600">{content.caption}</p>
       )}
-      <div className="grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-2 w-full">
+      <div className="grid [grid-template-columns:repeat(5,29vw)] md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-2 w-full overflow-x-auto md:overflow-visible">
         {urls.map((url, i) => (
           <button key={i} onClick={() => onImageClick(urls, i)} className="block">
             <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
@@ -194,7 +194,7 @@ function DailyReportPost({
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
             Photos ({photoUrls.length})
           </p>
-          <div className="grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-2">
+          <div className="grid [grid-template-columns:repeat(5,29vw)] md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-2 overflow-x-auto md:overflow-visible">
             {photoUrls.map((url, i) => (
               <button key={i} onClick={() => onImageClick(photoUrls, i)} className="block">
                 <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
