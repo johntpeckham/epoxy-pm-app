@@ -219,12 +219,22 @@ export interface Employee {
 
 export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent | ReceiptContent | TimecardContent
 
+/** A single custom/dynamic field entry saved alongside a form submission. */
+export interface DynamicFieldEntry {
+  id: string      // template field ID (e.g. 'custom-abc')
+  label: string   // human-readable label
+  value: string   // the user-entered value
+  type: string    // field type (short_text, long_text, etc.)
+  order: number   // display order from the template
+}
+
 export interface FeedPost {
   id: string
   project_id: string
   user_id: string
   post_type: PostType
   content: PostContent
+  dynamic_fields?: DynamicFieldEntry[]
   is_pinned: boolean
   created_at: string
   author_email?: string
@@ -254,6 +264,7 @@ export interface Task {
   status: TaskStatus
   photo_url: string | null
   due_date: string | null
+  dynamic_fields?: DynamicFieldEntry[]
   created_at: string
   updated_at: string
 }

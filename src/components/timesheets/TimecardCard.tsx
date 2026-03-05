@@ -12,7 +12,7 @@ import {
   Trash2Icon,
   DownloadIcon,
 } from 'lucide-react'
-import { TimecardContent } from '@/types'
+import { TimecardContent, DynamicFieldEntry } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditTimecardModal from '@/components/feed/EditTimecardModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -22,6 +22,7 @@ interface TimecardRow {
   project_id: string
   created_at: string
   content: TimecardContent
+  dynamic_fields?: DynamicFieldEntry[]
   project_name: string
 }
 
@@ -64,7 +65,7 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
     setPdfLoading(true)
     try {
       const { generateTimecardPdf } = await import('@/lib/generateTimecardPdf')
-      await generateTimecardPdf(content, companySettings?.logo_url)
+      await generateTimecardPdf(content, companySettings?.logo_url, timecard.dynamic_fields)
     } finally {
       setPdfLoading(false)
     }
@@ -165,6 +166,18 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
                   </tfoot>
                 </table>
               </div>
+            )}
+
+            {/* Dynamic fields */}
+            {timecard.dynamic_fields && timecard.dynamic_fields.length > 0 && (
+              <dl className="space-y-2">
+                {timecard.dynamic_fields.filter((f) => f.value).map((f) => (
+                  <div key={f.id}>
+                    <dt className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                    <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
             )}
 
             {/* Footer actions */}

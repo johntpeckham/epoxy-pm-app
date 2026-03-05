@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import { DailyReportContent } from '@/types'
+import { DailyReportContent, DynamicFieldEntry } from '@/types'
 
 /** Fetch an image URL and return a base64 data URL, format, and natural dimensions. */
 async function loadImage(url: string): Promise<{
@@ -37,7 +37,8 @@ const MED: [number, number, number] = [107, 114, 128]         // gray-500   (foo
 export async function generateReportPdf(
   content: DailyReportContent,
   photoUrls: string[],
-  logoUrl?: string | null
+  logoUrl?: string | null,
+  dynamicFields?: DynamicFieldEntry[]
 ): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -203,6 +204,21 @@ export async function generateReportPdf(
   paragraphBlock('Safety', content.safety || '')
   paragraphBlock('Materials Used', content.materials_used || '')
   paragraphBlock('Employees', content.employees || '')
+
+  // ─── ADDITIONAL FIELDS ──────────────────────────────────────────────────
+  if (dynamicFields && dynamicFields.length > 0) {
+    const filled = dynamicFields.filter((f) => f.value)
+    if (filled.length > 0) {
+      sectionTitle('ADDITIONAL FIELDS')
+      for (const f of filled) {
+        if (f.type === 'long_text') {
+          paragraphBlock(f.label, f.value)
+        } else {
+          fieldRow(f.label, f.value)
+        }
+      }
+    }
+  }
 
   // ─── PHOTOS ───────────────────────────────────────────────────────────────
 

@@ -13,7 +13,7 @@ import {
   Trash2Icon,
   DownloadIcon,
 } from 'lucide-react'
-import { ReceiptContent } from '@/types'
+import { ReceiptContent, DynamicFieldEntry } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditReceiptModal from '@/components/feed/EditReceiptModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -23,6 +23,7 @@ interface ReceiptRow {
   project_id: string
   created_at: string
   content: ReceiptContent
+  dynamic_fields?: DynamicFieldEntry[]
   project_name: string
 }
 
@@ -70,7 +71,7 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
     setPdfLoading(true)
     try {
       const { generateReceiptPdf } = await import('@/lib/generateReceiptPdf')
-      await generateReceiptPdf(content, photoUrl, companySettings?.logo_url)
+      await generateReceiptPdf(content, photoUrl, companySettings?.logo_url, receipt.dynamic_fields)
     } finally {
       setPdfLoading(false)
     }
@@ -146,6 +147,18 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
                 </div>
               ) : null}
             </dl>
+
+            {/* Dynamic fields */}
+            {receipt.dynamic_fields && receipt.dynamic_fields.length > 0 && (
+              <dl className="space-y-2">
+                {receipt.dynamic_fields.filter((f) => f.value).map((f) => (
+                  <div key={f.id}>
+                    <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                    <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
 
             {/* Receipt photo */}
             {photoUrl && (

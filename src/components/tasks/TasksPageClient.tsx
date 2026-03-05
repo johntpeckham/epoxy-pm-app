@@ -20,7 +20,7 @@ import { Task, TaskStatus, Profile, Project, FormField } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useFormTemplate } from '@/lib/useFormTemplate'
-import { getContentKey } from '@/lib/formFieldMaps'
+import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import DynamicFormField from '@/components/ui/DynamicFormField'
 import Portal from '@/components/ui/Portal'
 
@@ -199,6 +199,7 @@ export default function TasksPageClient({
   const [newDueDate, setNewDueDate] = useState('')
   const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null)
   const [newPhotoPreview, setNewPhotoPreview] = useState<string | null>(null)
+  const [customValues, setCustomValues] = useState<Record<string, string>>({})
   const newPhotoInputRef = useRef<HTMLInputElement>(null)
 
   const projectStatusMap = useMemo(() => {
@@ -275,6 +276,7 @@ export default function TasksPageClient({
     setNewDueDate('')
     setNewPhotoFile(null)
     setNewPhotoPreview(null)
+    setCustomValues({})
     setCreateError(null)
   }
 
@@ -406,8 +408,8 @@ export default function TasksPageClient({
       <DynamicFormField
         key={field.id}
         field={field}
-        value=""
-        onChange={() => {}}
+        value={customValues[field.id] ?? ''}
+        onChange={(val) => setCustomValues((prev) => ({ ...prev, [field.id]: String(val) }))}
       />
     )
   }
@@ -429,6 +431,14 @@ export default function TasksPageClient({
         photoUrl = path
       }
 
+      // Build dynamic fields from custom values
+      const allValues: Record<string, string> = {
+        title: newTitle, description: newDescription,
+        assigned_to: newAssignedTo, due_date: newDueDate, status: newStatus,
+        ...customValues,
+      }
+      const dynamicFields = buildDynamicFields(TASK_FORM_KEY, allValues, taskTemplateFields)
+
       const { data: taskData, error: insertErr } = await supabase.from('tasks').insert({
         project_id: newProjectId,
         created_by: userId,
@@ -438,6 +448,7 @@ export default function TasksPageClient({
         status: newStatus,
         photo_url: photoUrl,
         due_date: newDueDate || null,
+        dynamic_fields: dynamicFields,
       }).select().single()
       if (insertErr) throw insertErr
 
@@ -884,6 +895,18 @@ export default function TasksPageClient({
                       />
                     </div>
                   </button>
+                </div>
+              )}
+
+              {/* Dynamic fields */}
+              {selectedTask.dynamic_fields && selectedTask.dynamic_fields.length > 0 && (
+                <div className="space-y-3 pt-2 border-t border-gray-100">
+                  {selectedTask.dynamic_fields.filter((f) => f.value).map((f) => (
+                    <div key={f.id}>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{f.label}</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

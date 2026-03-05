@@ -6,7 +6,7 @@ import { XIcon, CameraIcon, LoaderIcon } from 'lucide-react'
 import Image from 'next/image'
 import { ReceiptContent, FormField } from '@/types'
 import { useFormTemplate } from '@/lib/useFormTemplate'
-import { getContentKey, getKnownContentKeys } from '@/lib/formFieldMaps'
+import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import DynamicFormField from '@/components/ui/DynamicFormField'
 import Portal from '@/components/ui/Portal'
 
@@ -117,9 +117,11 @@ export default function EditReceiptModal({
         }
       }
 
+      const dynamicFields = buildDynamicFields(FORM_KEY, values, templateFields)
+
       const { error: updateErr } = await supabase
         .from('feed_posts')
-        .update({ content })
+        .update({ content, dynamic_fields: dynamicFields })
         .eq('id', postId)
 
       if (updateErr) throw updateErr

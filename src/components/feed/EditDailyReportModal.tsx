@@ -6,7 +6,7 @@ import { XIcon, CameraIcon, LoaderIcon } from 'lucide-react'
 import Image from 'next/image'
 import { DailyReportContent, FormField } from '@/types'
 import { useFormTemplate } from '@/lib/useFormTemplate'
-import { getContentKey, isWeatherField, getKnownContentKeys } from '@/lib/formFieldMaps'
+import { getContentKey, isWeatherField, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import DynamicFormField from '@/components/ui/DynamicFormField'
 import Portal from '@/components/ui/Portal'
 
@@ -139,9 +139,11 @@ export default function EditDailyReportModal({
         }
       }
 
+      const dynamicFields = buildDynamicFields(FORM_KEY, values, templateFields)
+
       const { error: updateErr } = await supabase
         .from('feed_posts')
-        .update({ content: updatedContent })
+        .update({ content: updatedContent, dynamic_fields: dynamicFields })
         .eq('id', postId)
 
       if (updateErr) throw updateErr

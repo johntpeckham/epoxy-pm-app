@@ -1,4 +1,4 @@
-import { FormField } from '@/types'
+import { FormField, DynamicFieldEntry } from '@/types'
 
 /**
  * Maps template field IDs and labels to content keys for backwards compatibility.
@@ -188,4 +188,36 @@ export function initValuesFromContent(
   }
 
   return values
+}
+
+/**
+ * Build an array of DynamicFieldEntry objects from form values and template fields.
+ * Only includes fields that are NOT in the known set (i.e. custom/dynamic fields
+ * added via Form Management) and have a non-empty value.
+ */
+export function buildDynamicFields(
+  formKey: string,
+  values: Record<string, string>,
+  fields: FormField[]
+): DynamicFieldEntry[] {
+  const knownKeys = getKnownContentKeys(formKey)
+  const entries: DynamicFieldEntry[] = []
+
+  for (const field of fields) {
+    if (field.type === 'section_header' || field.type === 'signature') continue
+    const contentKey = getContentKey(formKey, field)
+    // Only include custom fields (not in the known set)
+    if (knownKeys.has(contentKey)) continue
+    const value = values[contentKey] ?? values[field.id] ?? ''
+    if (!value.trim()) continue
+    entries.push({
+      id: field.id,
+      label: field.label,
+      value: value.trim(),
+      type: field.type,
+      order: field.order,
+    })
+  }
+
+  return entries.sort((a, b) => a.order - b.order)
 }
