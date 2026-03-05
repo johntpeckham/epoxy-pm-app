@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -42,6 +42,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isCalendarActive = pathname === '/calendar'
   const isProfileActive = pathname === '/profile'
   const isJobTakeoffActive = pathname === '/job-takeoff'
+  const isEstimatesActive = pathname === '/estimates'
 
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
   const userName = displayName || userEmail?.split('@')[0] || 'User'
@@ -193,6 +194,22 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             Calendar
           </Link>
         )}
+
+        {/* Divider */}
+        <div className="my-2 border-t border-gray-800 hidden md:block" />
+
+        <Link
+          href="/estimates"
+          onClick={() => setMobileOpen(false)}
+          className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isEstimatesActive
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}
+        >
+          <FileTextIcon className="w-5 h-5 flex-shrink-0" />
+          Estimates
+        </Link>
 
         {/* Divider */}
         <div className="my-2 border-t border-gray-800 hidden md:block" />
