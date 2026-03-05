@@ -1,8 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import * as pdfjsLib from 'pdfjs-dist'
-import type { PDFPageProxy } from 'pdfjs-dist'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import TakeoffToolbar from './TakeoffToolbar'
 import TakeoffSidebar from './TakeoffSidebar'
 import type {
@@ -16,10 +14,19 @@ import type {
 } from './types'
 import { ArrowLeftIcon, AlertTriangleIcon } from 'lucide-react'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString()
+// Lazy-loaded pdfjs-dist to avoid SSR DOMMatrix errors
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pdfjsLib: any = null
+async function getPdfjs() {
+  if (!pdfjsLib) {
+    pdfjsLib = await import('pdfjs-dist')
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString()
+  }
+  return pdfjsLib
+}
 
 const ITEM_COLORS = [
   '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
@@ -57,74 +64,7 @@ function polyArea(pts: Point[]): number {
   return Math.abs(a) / 2
 }
 
-// ─── SVG sub-components ───
-
-function SvgLine({ a, b, color, label }: { a: Point; b: Point; color: string; label: string }) {
-  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-  const labelW = label ? label.length * 7 + 10 : 0
-  return (
-    <g>
-      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color} strokeWidth={2} />
-      <circle cx={a.x} cy={a.y} r={4} fill={color} />
-      <circle cx={b.x} cy={b.y} r={4} fill={color} />
-      {label && (
-        <>
-          <rect x={mid.x - labelW / 2} y={mid.y - 9} width={labelW} height={18} rx={3} fill="rgba(0,0,0,0.75)" />
-          <text x={mid.x} y={mid.y} fill="white" fontSize={12} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{label}</text>
-        </>
-      )}
-    </g>
-  )
-}
-
-function SvgPolygon({ points, color, label }: { points: Point[]; color: string; label: string }) {
-  const center = {
-    x: points.reduce((s, p) => s + p.x, 0) / points.length,
-    y: points.reduce((s, p) => s + p.y, 0) / points.length,
-  }
-  const labelW = label ? label.length * 7 + 10 : 0
-  return (
-    <g>
-      <polygon
-        points={points.map(p => `${p.x},${p.y}`).join(' ')}
-        fill={color + '20'}
-        stroke={color}
-        strokeWidth={2}
-      />
-      {label && (
-        <>
-          <rect x={center.x - labelW / 2} y={center.y - 9} width={labelW} height={18} rx={3} fill="rgba(0,0,0,0.75)" />
-          <text x={center.x} y={center.y} fill="white" fontSize={12} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{label}</text>
-        </>
-      )}
-    </g>
-  )
-}
-
-function SvgArrow({ from, to, color }: { from: Point; to: Point; color: string }) {
-  const angle = Math.atan2(to.y - from.y, to.x - from.x)
-  const hl = 12
-  const p1 = { x: to.x - hl * Math.cos(angle - Math.PI / 6), y: to.y - hl * Math.sin(angle - Math.PI / 6) }
-  const p2 = { x: to.x - hl * Math.cos(angle + Math.PI / 6), y: to.y - hl * Math.sin(angle + Math.PI / 6) }
-  return (
-    <g>
-      <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={color} strokeWidth={2} />
-      <polygon points={`${to.x},${to.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`} fill={color} />
-    </g>
-  )
-}
-
-function SvgTextLabel({ pos, text, color }: { pos: Point; text: string; color: string }) {
-  const w = text.length * 8 + 12
-  return (
-    <g>
-      <rect x={pos.x - 2} y={pos.y - 16} width={w} height={22} rx={2} fill="rgba(255,255,255,0.85)" />
-      <text x={pos.x + 4} y={pos.y - 5} fill={color} fontSize={14} fontWeight="bold" dominantBaseline="middle">{text}</text>
-    </g>
-  )
-}
-
-// ─── Main component ───
+// ─── Props ───
 
 interface TakeoffViewerProps {
   page: TakeoffPage
@@ -155,28 +95,53 @@ export default function TakeoffViewer({
   const scaleCalibrated = pageScale !== undefined
 
   // ─── Refs ───
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const wrapperRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
 
-  // ─── PDF state ───
-  const [pdfPage, setPdfPage] = useState<PDFPageProxy | null>(null)
-  const [pdfDims, setPdfDims] = useState({ w: 0, h: 0 })
-  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
+  // ─── PDF loaded state ───
+  const [pdfLoaded, setPdfLoaded] = useState(false)
+  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
 
-  // ─── View state ───
+  // ─── Zoom (CSS-only, never re-render canvas) ───
   const [zoom, setZoom] = useState(1)
+  const zoomRef = useRef(1)
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+
+  // ─── Pan ───
   const [panX, setPanX] = useState(0)
   const [panY, setPanY] = useState(0)
+  const panXRef = useRef(0)
+  const panYRef = useRef(0)
+  useEffect(() => { panXRef.current = panX }, [panX])
+  useEffect(() => { panYRef.current = panY }, [panY])
+
+  // ─── Drag tracking ───
+  const isDraggingRef = useRef(false)
+  const dragStartRef = useRef({ x: 0, y: 0 })
+  const panStartRef = useRef({ x: 0, y: 0 })
+
+  // ─── RAF for batching pan updates ───
+  const rafRef = useRef<number | null>(null)
+
+  // ─── DPR ref ───
+  const dprRef = useRef(1)
+
+  // ─── Touch pinch start values ───
+  const startDistRef = useRef(0)
+  const startZoomRef = useRef(1)
+  const startPanXRef = useRef(0)
+  const startPanYRef = useRef(0)
 
   // ─── Tool state ───
   const [activeTool, setActiveTool] = useState<ToolMode>('pan')
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   const [tempPoints, setTempPoints] = useState<Point[]>([])
   const [mousePos, setMousePos] = useState<Point | null>(null)
-  const [dragStart, setDragStart] = useState<Point | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
+  const [svgDragStart, setSvgDragStart] = useState<Point | null>(null)
+  const [isSvgDragging, setIsSvgDragging] = useState(false)
+  const activeToolRef = useRef<ToolMode>('pan')
+  useEffect(() => { activeToolRef.current = activeTool }, [activeTool])
 
   // ─── Scale calibration ───
   const [scalePoints, setScalePoints] = useState<Point[]>([])
@@ -201,163 +166,238 @@ export default function TakeoffViewer({
     return () => clearInterval(id)
   }, [activeTool, scalePoints.length])
 
-  // ─── Refs for native touch handlers (avoid stale closures) ───
-  const panXRef = useRef(0)
-  const panYRef = useRef(0)
-  const zoomRef = useRef(1)
-  const activeToolRef = useRef<ToolMode>('pan')
-  useEffect(() => { panXRef.current = panX }, [panX])
-  useEffect(() => { panYRef.current = panY }, [panY])
-  useEffect(() => { zoomRef.current = zoom }, [zoom])
-  useEffect(() => { activeToolRef.current = activeTool }, [activeTool])
+  // ─── Clamp pan so at least 100px of PDF stays visible ───
+  const clampPan = useCallback((x: number, y: number, currentZoom: number) => {
+    const container = containerRef.current
+    const canvas = canvasRef.current
+    if (!container || !canvas) return { x, y }
 
-  // ─── Pan tracking refs ───
-  const isPanningRef = useRef(false)
-  const panStartMouseRef = useRef({ x: 0, y: 0 })
-  const panStartOffsetRef = useRef({ x: 0, y: 0 })
+    const containerW = container.clientWidth
+    const containerH = container.clientHeight
+    const scaledW = (canvas.width / dprRef.current) * currentZoom
+    const scaledH = (canvas.height / dprRef.current) * currentZoom
 
-  // ─── Pinch tracking ───
-  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null)
+    const margin = 100
 
-  // ─── Derived values ───
-  const fitScale = containerSize.w > 0 && pdfDims.w > 0
-    ? Math.min(containerSize.w / pdfDims.w, containerSize.h / pdfDims.h) * 0.92
-    : 1
-  const renderScale = fitScale * zoom
-  const canvasW = pdfDims.w > 0 ? Math.round(pdfDims.w * renderScale) : 0
-  const canvasH = pdfDims.h > 0 ? Math.round(pdfDims.h * renderScale) : 0
+    const minX = -(scaledW - margin)
+    const maxX = containerW - margin
+    const minY = -(scaledH - margin)
+    const maxY = containerH - margin
 
-  // Center offset when canvas is smaller than container
-  const offsetX = canvasW > 0 ? Math.max(0, (containerSize.w - canvasW) / 2) : 0
-  const offsetY = canvasH > 0 ? Math.max(0, (containerSize.h - canvasH) / 2) : 0
-
-  // ─── Convert PDF point to screen coordinates ───
-  function toScreen(p: Point): Point {
-    return { x: p.x * renderScale, y: p.y * renderScale }
-  }
-
-  // ─── Get PDF coordinates from mouse event on SVG ───
-  function getSvgPoint(e: React.MouseEvent): Point {
-    const svg = svgRef.current
-    if (!svg || renderScale === 0) return { x: 0, y: 0 }
-    const rect = svg.getBoundingClientRect()
     return {
-      x: (e.clientX - rect.left) / renderScale,
-      y: (e.clientY - rect.top) / renderScale,
+      x: Math.min(Math.max(x, minX), maxX),
+      y: Math.min(Math.max(y, minY), maxY),
     }
-  }
+  }, [])
 
-  // ─── ResizeObserver ───
+  // ─── Convert client coords to PDF-space coords ───
+  const clientToPdf = useCallback((clientX: number, clientY: number): Point => {
+    const container = containerRef.current
+    if (!container) return { x: 0, y: 0 }
+    const rect = container.getBoundingClientRect()
+    return {
+      x: (clientX - rect.left - panXRef.current) / zoomRef.current,
+      y: (clientY - rect.top - panYRef.current) / zoomRef.current,
+    }
+  }, [])
+
+  // ─── Wheel zoom + touch pinch + touch pan — native events ───
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    const ro = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect
-      if (width > 0 && height > 0) {
-        setContainerSize(prev => {
-          const w = Math.round(width)
-          const h = Math.round(height)
-          if (prev.w === w && prev.h === h) return prev
-          return { w, h }
-        })
-      }
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
 
-  // ─── Load PDF page ───
-  useEffect(() => {
-    if (!page.arrayBuffer) return
-    let cancelled = false
-    async function load() {
-      try {
-        const data = new Uint8Array(page.arrayBuffer!.slice(0))
-        const doc = await pdfjsLib.getDocument({ data }).promise
-        if (cancelled) return
-        const p = await doc.getPage(page.pageIndex + 1)
-        if (cancelled) return
-        const vp = p.getViewport({ scale: 1 })
-        setPdfPage(p)
-        setPdfDims({ w: vp.width, h: vp.height })
-      } catch {
-        // PDF load failed
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      // Measurement tools: don't pan/zoom from wheel (only ctrlKey zoom)
+      if (e.ctrlKey) {
+        const rect = el.getBoundingClientRect()
+        const mouseX = e.clientX - rect.left
+        const mouseY = e.clientY - rect.top
+        const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05
+        const newZoom = Math.min(Math.max(zoomRef.current * zoomFactor, 0.3), 5)
+
+        const rawPanX = mouseX - (mouseX - panXRef.current) * (newZoom / zoomRef.current)
+        const rawPanY = mouseY - (mouseY - panYRef.current) * (newZoom / zoomRef.current)
+        const clamped = clampPan(rawPanX, rawPanY, newZoom)
+
+        zoomRef.current = newZoom
+        panXRef.current = clamped.x
+        panYRef.current = clamped.y
+        setZoom(newZoom)
+        setPanX(clamped.x)
+        setPanY(clamped.y)
+      } else {
+        // Two-finger scroll = pan — batch with rAF
+        const rawX = panXRef.current - e.deltaX
+        const rawY = panYRef.current - e.deltaY
+        const clamped = clampPan(rawX, rawY, zoomRef.current)
+        panXRef.current = clamped.x
+        panYRef.current = clamped.y
+        if (rafRef.current === null) {
+          rafRef.current = requestAnimationFrame(() => {
+            setPanX(panXRef.current)
+            setPanY(panYRef.current)
+            rafRef.current = null
+          })
+        }
       }
     }
-    load()
-    return () => { cancelled = true }
-  }, [page.arrayBuffer, page.pageIndex])
 
-  // ─── Render canvas ───
-  useEffect(() => {
-    if (!pdfPage || !canvasRef.current || canvasW === 0) return
-    const canvas = canvasRef.current
-    const viewport = pdfPage.getViewport({ scale: renderScale })
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    const ctx = canvas.getContext('2d')!
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    const task = pdfPage.render({ canvas, canvasContext: ctx, viewport })
-    task.promise.catch(() => {})
-    return () => { task.cancel() }
-  }, [pdfPage, renderScale, canvasW, canvasH])
-
-  // ─── Reset pan when zoom fits ───
-  useEffect(() => {
-    if (zoom <= 1) { setPanX(0); setPanY(0) }
-  }, [zoom])
-
-  // ─── Native touch events (passive: false for preventDefault) ───
-  useEffect(() => {
-    const el = wrapperRef.current
-    if (!el) return
-
-    function onTouchStart(e: TouchEvent) {
+    const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         e.preventDefault()
-        const dist = Math.hypot(
+        startDistRef.current = Math.hypot(
           e.touches[1].clientX - e.touches[0].clientX,
-          e.touches[1].clientY - e.touches[0].clientY,
+          e.touches[1].clientY - e.touches[0].clientY
         )
-        pinchRef.current = { dist, zoom: zoomRef.current }
+        startZoomRef.current = zoomRef.current
+        startPanXRef.current = panXRef.current
+        startPanYRef.current = panYRef.current
+        isDraggingRef.current = false
       } else if (e.touches.length === 1 && activeToolRef.current === 'pan') {
-        e.preventDefault()
-        isPanningRef.current = true
-        panStartMouseRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-        panStartOffsetRef.current = { x: panXRef.current, y: panYRef.current }
+        isDraggingRef.current = true
+        dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+        panStartRef.current = { x: panXRef.current, y: panYRef.current }
       }
     }
 
-    function onTouchMove(e: TouchEvent) {
-      if (e.touches.length === 2 && pinchRef.current) {
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
         e.preventDefault()
+        const rect = el.getBoundingClientRect()
+        const midX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left
+        const midY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top
         const dist = Math.hypot(
           e.touches[1].clientX - e.touches[0].clientX,
-          e.touches[1].clientY - e.touches[0].clientY,
+          e.touches[1].clientY - e.touches[0].clientY
         )
-        const newZoom = Math.min(5, Math.max(0.5, pinchRef.current.zoom * (dist / pinchRef.current.dist)))
+        const newZoom = Math.min(Math.max(startZoomRef.current * (dist / startDistRef.current), 0.3), 5)
+
+        const rawPanX = midX - (midX - startPanXRef.current) * (newZoom / startZoomRef.current)
+        const rawPanY = midY - (midY - startPanYRef.current) * (newZoom / startZoomRef.current)
+        const clamped = clampPan(rawPanX, rawPanY, newZoom)
+
+        zoomRef.current = newZoom
+        panXRef.current = clamped.x
+        panYRef.current = clamped.y
         setZoom(newZoom)
-      } else if (e.touches.length === 1 && isPanningRef.current) {
-        e.preventDefault()
-        setPanX(panStartOffsetRef.current.x + e.touches[0].clientX - panStartMouseRef.current.x)
-        setPanY(panStartOffsetRef.current.y + e.touches[0].clientY - panStartMouseRef.current.y)
+        setPanX(clamped.x)
+        setPanY(clamped.y)
+      } else if (e.touches.length === 1 && isDraggingRef.current) {
+        const dx = e.touches[0].clientX - dragStartRef.current.x
+        const dy = e.touches[0].clientY - dragStartRef.current.y
+        const clamped = clampPan(panStartRef.current.x + dx, panStartRef.current.y + dy, zoomRef.current)
+        panXRef.current = clamped.x
+        panYRef.current = clamped.y
+        setPanX(clamped.x)
+        setPanY(clamped.y)
       }
     }
 
-    function onTouchEnd() {
-      pinchRef.current = null
-      isPanningRef.current = false
+    const onTouchEnd = () => {
+      isDraggingRef.current = false
     }
 
+    el.addEventListener('wheel', onWheel, { passive: false })
     el.addEventListener('touchstart', onTouchStart, { passive: false })
     el.addEventListener('touchmove', onTouchMove, { passive: false })
     el.addEventListener('touchend', onTouchEnd)
     return () => {
+      el.removeEventListener('wheel', onWheel)
       el.removeEventListener('touchstart', onTouchStart)
       el.removeEventListener('touchmove', onTouchMove)
       el.removeEventListener('touchend', onTouchEnd)
     }
-  }, [])
+  }, [clampPan])
+
+  // ─── Mouse drag to pan (pan tool only) ───
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (activeToolRef.current !== 'pan') return
+      isDraggingRef.current = true
+      dragStartRef.current = { x: e.clientX, y: e.clientY }
+      panStartRef.current = { x: panXRef.current, y: panYRef.current }
+      el.style.cursor = 'grabbing'
+    }
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      const dx = e.clientX - dragStartRef.current.x
+      const dy = e.clientY - dragStartRef.current.y
+      const clamped = clampPan(panStartRef.current.x + dx, panStartRef.current.y + dy, zoomRef.current)
+      panXRef.current = clamped.x
+      panYRef.current = clamped.y
+      setPanX(clamped.x)
+      setPanY(clamped.y)
+    }
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false
+      el.style.cursor = ''
+    }
+
+    el.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      el.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [clampPan])
+
+  // ─── Load and render PDF ONCE at fitScale with DPR ───
+  useEffect(() => {
+    if (!page.arrayBuffer) return
+    let cancelled = false
+
+    async function loadAndRender() {
+      const pdfjs = await getPdfjs()
+      const data = new Uint8Array(page.arrayBuffer!.slice(0))
+      const doc = await pdfjs.getDocument({ data }).promise
+      if (cancelled) return
+      const pdfPage = await doc.getPage(page.pageIndex + 1)
+      if (cancelled) return
+
+      const container = containerRef.current
+      const canvas = canvasRef.current
+      if (!container || !canvas) return
+
+      const rawVp = pdfPage.getViewport({ scale: 1 })
+      const cw = container.clientWidth
+      const ch = container.clientHeight
+      const fitScale = Math.min(cw / rawVp.width, ch / rawVp.height) * 0.92
+
+      const dpr = window.devicePixelRatio || 1
+      dprRef.current = dpr
+      const viewport = pdfPage.getViewport({ scale: fitScale * dpr })
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      const cssW = viewport.width / dpr
+      const cssH = viewport.height / dpr
+      canvas.style.width = `${cssW}px`
+      canvas.style.height = `${cssH}px`
+      const ctx = canvas.getContext('2d')!
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
+
+      if (cancelled) return
+      setCanvasSize({ w: cssW, h: cssH })
+      setZoom(1)
+      zoomRef.current = 1
+      setPanX(0)
+      setPanY(0)
+      panXRef.current = 0
+      panYRef.current = 0
+      setPdfLoaded(true)
+    }
+
+    loadAndRender()
+    return () => { cancelled = true }
+  }, [page.arrayBuffer, page.pageIndex])
 
   // ─── Keyboard ───
   useEffect(() => {
@@ -365,8 +405,8 @@ export default function TakeoffViewer({
       if (e.key === 'Escape') {
         setTempPoints([])
         setScalePoints([])
-        setDragStart(null)
-        setIsDragging(false)
+        setSvgDragStart(null)
+        setIsSvgDragging(false)
         if (showScaleModal) setShowScaleModal(false)
         if (markupTextInput.visible) setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false })
       }
@@ -374,15 +414,6 @@ export default function TakeoffViewer({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [showScaleModal, markupTextInput.visible])
-
-  // ─── Scale banner text ───
-  function getScaleBannerText(): string | null {
-    if (activeTool !== 'set-scale') return null
-    if (scalePoints.length === 0) return "Click two points on the plan that represent a known distance"
-    if (scalePoints.length === 1) return "First point set — now click the second point"
-    return null
-  }
-  const scaleBannerText = getScaleBannerText()
 
   // ─── Prereqs check ───
   function checkPrereqs(): boolean {
@@ -411,62 +442,50 @@ export default function TakeoffViewer({
     return true
   }
 
-  // ─── Mouse handlers ───
+  // ─── SVG event handlers (measurement interactions) ───
 
-  function handleMouseDown(e: React.MouseEvent) {
-    e.preventDefault()
+  function handleSvgMouseDown(e: React.MouseEvent) {
+    if (activeTool === 'pan') return // pan handled by native mouse handler
     e.stopPropagation()
-    const pt = getSvgPoint(e)
-    if (activeTool === 'pan') {
-      isPanningRef.current = true
-      panStartMouseRef.current = { x: e.clientX, y: e.clientY }
-      panStartOffsetRef.current = { x: panXRef.current, y: panYRef.current }
-      return
-    }
+    const pt = clientToPdf(e.clientX, e.clientY)
     if (activeTool === 'area-rect' || activeTool === 'markup-rect' || activeTool === 'markup-arrow') {
       if (activeTool === 'area-rect' && !checkPrereqs()) return
-      setDragStart(pt)
-      setIsDragging(true)
+      setSvgDragStart(pt)
+      setIsSvgDragging(true)
     }
   }
 
-  function handleMouseMove(e: React.MouseEvent) {
-    if (isPanningRef.current) {
-      setPanX(panStartOffsetRef.current.x + e.clientX - panStartMouseRef.current.x)
-      setPanY(panStartOffsetRef.current.y + e.clientY - panStartMouseRef.current.y)
-      return
-    }
-    setMousePos(getSvgPoint(e))
+  function handleSvgMouseMove(e: React.MouseEvent) {
+    if (activeTool === 'pan') return
+    setMousePos(clientToPdf(e.clientX, e.clientY))
   }
 
-  function handleMouseUp(e: React.MouseEvent) {
-    if (isPanningRef.current) {
-      isPanningRef.current = false
-      return
-    }
-    const pt = getSvgPoint(e)
-    if (isDragging && dragStart) {
-      setIsDragging(false)
-      const dx = Math.abs(pt.x - dragStart.x)
-      const dy = Math.abs(pt.y - dragStart.y)
+  function handleSvgMouseUp(e: React.MouseEvent) {
+    if (activeTool === 'pan') return
+    const pt = clientToPdf(e.clientX, e.clientY)
+    if (isSvgDragging && svgDragStart) {
+      setIsSvgDragging(false)
+      const dx = Math.abs(pt.x - svgDragStart.x)
+      const dy = Math.abs(pt.y - svgDragStart.y)
       if (activeTool === 'area-rect') {
         const ppf = pageScale!
         const area = (dx / ppf) * (dy / ppf)
-        if (area < 0.01) { setDragStart(null); return }
-        addMeasurement({ id: genId(), type: 'area', points: [dragStart, pt], valueInFeet: area, label: `${area.toFixed(1)} sq ft`, pageKey })
+        if (area < 0.01) { setSvgDragStart(null); return }
+        addMeasurement({ id: genId(), type: 'area', points: [svgDragStart, pt], valueInFeet: area, label: `${area.toFixed(1)} sq ft`, pageKey })
       } else if (activeTool === 'markup-rect') {
-        onMarkupsChange([...markups, { id: genId(), type: 'rect', points: [dragStart, pt], color: '#f59e0b', pageKey }])
+        onMarkupsChange([...markups, { id: genId(), type: 'rect', points: [svgDragStart, pt], color: '#f59e0b', pageKey }])
       } else if (activeTool === 'markup-arrow') {
-        onMarkupsChange([...markups, { id: genId(), type: 'arrow', points: [dragStart, pt], color: '#f59e0b', pageKey }])
+        onMarkupsChange([...markups, { id: genId(), type: 'arrow', points: [svgDragStart, pt], color: '#f59e0b', pageKey }])
       }
-      setDragStart(null)
+      setSvgDragStart(null)
     }
   }
 
-  function handleClick(e: React.MouseEvent) {
+  function handleSvgClick(e: React.MouseEvent) {
     if (activeTool === 'pan') return
     if (activeTool === 'area-rect' || activeTool === 'markup-rect' || activeTool === 'markup-arrow') return
-    const pt = getSvgPoint(e)
+    e.stopPropagation()
+    const pt = clientToPdf(e.clientX, e.clientY)
 
     if (activeTool === 'set-scale') {
       const newPts = [...scalePoints, pt]
@@ -497,7 +516,7 @@ export default function TakeoffViewer({
     }
   }
 
-  function handleDoubleClick() {
+  function handleSvgDoubleClick() {
     if (activeTool === 'area-polygon' && tempPoints.length >= 3) {
       const ppf = pageScale!
       const area = polyArea(tempPoints) / (ppf * ppf)
@@ -554,13 +573,26 @@ export default function TakeoffViewer({
     setActiveTool(tool)
     setTempPoints([])
     setScalePoints([])
-    setDragStart(null)
-    setIsDragging(false)
+    setSvgDragStart(null)
+    setIsSvgDragging(false)
   }
+
+  // ─── Zoom buttons ───
+  function zoomIn() { setZoom(z => Math.min(z * 1.2, 5)) }
+  function zoomOut() { setZoom(z => Math.max(z / 1.2, 0.3)) }
+
+  // ─── Scale banner text ───
+  function getScaleBannerText(): string | null {
+    if (activeTool !== 'set-scale') return null
+    if (scalePoints.length === 0) return 'Click two points on the plan that represent a known distance'
+    if (scalePoints.length === 1) return 'First point set — now click the second point'
+    return null
+  }
+  const scaleBannerText = getScaleBannerText()
 
   // ─── Cursor ───
   const cursor = activeTool === 'pan'
-    ? (isPanningRef.current ? 'grabbing' : 'grab')
+    ? 'grab'
     : activeTool === 'markup-text' ? 'text' : 'crosshair'
 
   // ─── No PDF data ───
@@ -587,8 +619,16 @@ export default function TakeoffViewer({
     )
   }
 
+  // ─── Helper: convert PDF point to SVG coords (divide sizes by zoom for constant visual size) ───
+  function toSvg(p: Point): Point {
+    return { x: p.x, y: p.y }
+  }
+
   // ─── Build SVG overlay content ───
   const svgElements: React.ReactNode[] = []
+  const sw = 2 / zoom // constant stroke width
+  const fs = 12 / zoom // constant font size
+  const cr = 4 / zoom  // constant circle radius
 
   // Completed measurements
   for (const item of items) {
@@ -596,26 +636,55 @@ export default function TakeoffViewer({
     for (const m of item.measurements) {
       if (m.pageKey !== pageKey) continue
       if (m.type === 'linear' && m.points.length === 2) {
+        const a = toSvg(m.points[0])
+        const b = toSvg(m.points[1])
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+        const labelW = m.label ? (m.label.length * 7 + 10) / zoom : 0
+        const labelH = 18 / zoom
         svgElements.push(
           <g key={m.id} opacity={isActive ? 1 : 0.6}>
-            <SvgLine a={toScreen(m.points[0])} b={toScreen(m.points[1])} color={item.color} label={m.label} />
+            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={item.color} strokeWidth={sw} />
+            <circle cx={a.x} cy={a.y} r={cr} fill={item.color} />
+            <circle cx={b.x} cy={b.y} r={cr} fill={item.color} />
+            {m.label && (
+              <>
+                <rect x={mid.x - labelW / 2} y={mid.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
+                <text x={mid.x} y={mid.y} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{m.label}</text>
+              </>
+            )}
           </g>
         )
       } else if (m.type === 'area' && m.points.length >= 3) {
+        const pts = m.points.map(toSvg)
+        const center = { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length }
+        const labelW = m.label ? (m.label.length * 7 + 10) / zoom : 0
+        const labelH = 18 / zoom
         svgElements.push(
           <g key={m.id} opacity={isActive ? 1 : 0.6}>
-            <SvgPolygon points={m.points.map(toScreen)} color={item.color} label={m.label} />
+            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '33'} stroke={item.color} strokeWidth={sw} />
+            {m.label && (
+              <>
+                <rect x={center.x - labelW / 2} y={center.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
+                <text x={center.x} y={center.y} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{m.label}</text>
+              </>
+            )}
           </g>
         )
       } else if (m.type === 'area' && m.points.length === 2) {
-        const [a, b] = m.points
+        const [a, b] = m.points.map(toSvg)
+        const pts = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }]
+        const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+        const labelW = m.label ? (m.label.length * 7 + 10) / zoom : 0
+        const labelH = 18 / zoom
         svgElements.push(
           <g key={m.id} opacity={isActive ? 1 : 0.6}>
-            <SvgPolygon
-              points={[toScreen(a), toScreen({ x: b.x, y: a.y }), toScreen(b), toScreen({ x: a.x, y: b.y })]}
-              color={item.color}
-              label={m.label}
-            />
+            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '33'} stroke={item.color} strokeWidth={sw} />
+            {m.label && (
+              <>
+                <rect x={center.x - labelW / 2} y={center.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
+                <text x={center.x} y={center.y} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{m.label}</text>
+              </>
+            )}
           </g>
         )
       }
@@ -626,36 +695,56 @@ export default function TakeoffViewer({
   for (const mk of markups) {
     if (mk.pageKey !== pageKey) continue
     if (mk.type === 'rect' && mk.points.length === 2) {
-      const a = toScreen(mk.points[0])
-      const b = toScreen(mk.points[1])
+      const a = toSvg(mk.points[0])
+      const b = toSvg(mk.points[1])
       svgElements.push(
         <rect key={mk.id} x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)}
           width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)}
-          fill="none" stroke={mk.color} strokeWidth={2} strokeDasharray="6 3" />
+          fill="none" stroke={mk.color} strokeWidth={sw} strokeDasharray={`${6 / zoom} ${3 / zoom}`} />
       )
     } else if (mk.type === 'arrow' && mk.points.length === 2) {
-      svgElements.push(<SvgArrow key={mk.id} from={toScreen(mk.points[0])} to={toScreen(mk.points[1])} color={mk.color} />)
+      const from = toSvg(mk.points[0])
+      const to = toSvg(mk.points[1])
+      const angle = Math.atan2(to.y - from.y, to.x - from.x)
+      const hl = 12 / zoom
+      const p1 = { x: to.x - hl * Math.cos(angle - Math.PI / 6), y: to.y - hl * Math.sin(angle - Math.PI / 6) }
+      const p2 = { x: to.x - hl * Math.cos(angle + Math.PI / 6), y: to.y - hl * Math.sin(angle + Math.PI / 6) }
+      svgElements.push(
+        <g key={mk.id}>
+          <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={mk.color} strokeWidth={sw} />
+          <polygon points={`${to.x},${to.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`} fill={mk.color} />
+        </g>
+      )
     } else if (mk.type === 'text' && mk.points.length === 1) {
-      svgElements.push(<SvgTextLabel key={mk.id} pos={toScreen(mk.points[0])} text={mk.text || ''} color={mk.color} />)
+      const pos = toSvg(mk.points[0])
+      const text = mk.text || ''
+      const w = (text.length * 8 + 12) / zoom
+      const h = 22 / zoom
+      svgElements.push(
+        <g key={mk.id}>
+          <rect x={pos.x - 2 / zoom} y={pos.y - 16 / zoom} width={w} height={h} rx={2 / zoom} fill="rgba(255,255,255,0.85)" />
+          <text x={pos.x + 4 / zoom} y={pos.y - 5 / zoom} fill={mk.color} fontSize={14 / zoom} fontWeight="bold" dominantBaseline="middle">{text}</text>
+        </g>
+      )
     }
   }
 
   // In-progress: scale calibration
   if (activeTool === 'set-scale' && tempPoints.length >= 1) {
-    const p0 = toScreen(tempPoints[0])
+    const p0 = toSvg(tempPoints[0])
     const pulse = Math.sin(pulsePhase * 0.15) * 0.3 + 0.7
-    const radius = 6 + pulse * 4
+    const radius = (6 + pulse * 4) / zoom
     svgElements.push(
       <g key="scale-progress">
         <circle cx={p0.x} cy={p0.y} r={radius} fill={`rgba(245, 158, 11, ${pulse})`} />
-        <circle cx={p0.x} cy={p0.y} r={4} fill="#f59e0b" />
+        <circle cx={p0.x} cy={p0.y} r={cr} fill="#f59e0b" />
         {tempPoints.length === 1 && mousePos && (() => {
-          const mp = toScreen(mousePos)
-          return <line x1={p0.x} y1={p0.y} x2={mp.x} y2={mp.y} stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" />
+          const mp = toSvg(mousePos)
+          return <line x1={p0.x} y1={p0.y} x2={mp.x} y2={mp.y} stroke="#f59e0b" strokeWidth={sw} strokeDasharray={`${4 / zoom} ${4 / zoom}`} />
         })()}
         {tempPoints.length >= 2 && (() => {
-          const p1 = toScreen(tempPoints[1])
-          return <circle cx={p1.x} cy={p1.y} r={5} fill="#f59e0b" />
+          const p1 = toSvg(tempPoints[1])
+          return <circle cx={p1.x} cy={p1.y} r={5 / zoom} fill="#f59e0b" />
         })()}
       </g>
     )
@@ -665,51 +754,70 @@ export default function TakeoffViewer({
   if (activeTool === 'linear' && tempPoints.length === 1 && mousePos) {
     const activeItem = items.find(i => i.id === activeItemId)
     const color = activeItem?.color || '#3b82f6'
-    svgElements.push(<SvgLine key="linear-progress" a={toScreen(tempPoints[0])} b={toScreen(mousePos)} color={color} label="" />)
+    const a = toSvg(tempPoints[0])
+    const b = toSvg(mousePos)
+    svgElements.push(
+      <g key="linear-progress">
+        <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color} strokeWidth={sw} />
+        <circle cx={a.x} cy={a.y} r={cr} fill={color} />
+        <circle cx={b.x} cy={b.y} r={cr} fill={color} />
+      </g>
+    )
   }
 
   // In-progress: polygon
   if (activeTool === 'area-polygon' && tempPoints.length >= 1) {
     const activeItem = items.find(i => i.id === activeItemId)
     const color = activeItem?.color || '#3b82f6'
-    const pts = tempPoints.map(toScreen)
-    const mp = mousePos ? toScreen(mousePos) : null
+    const pts = tempPoints.map(toSvg)
+    const mp = mousePos ? toSvg(mousePos) : null
     svgElements.push(
       <g key="polygon-progress">
         <polyline
           points={[...pts, ...(mp ? [mp] : [])].map(p => `${p.x},${p.y}`).join(' ')}
-          fill="none" stroke={color} strokeWidth={2}
+          fill="none" stroke={color} strokeWidth={sw}
         />
-        {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={4} fill={color} />)}
+        {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={cr} fill={color} />)}
       </g>
     )
   }
 
   // Drag previews
-  if (isDragging && dragStart && mousePos) {
+  if (isSvgDragging && svgDragStart && mousePos) {
     const activeItem = items.find(i => i.id === activeItemId)
     const color = activeItem?.color || '#3b82f6'
-    const a = toScreen(dragStart)
-    const b = toScreen(mousePos)
+    const a = toSvg(svgDragStart)
+    const b = toSvg(mousePos)
     if (activeTool === 'area-rect') {
       svgElements.push(
         <rect key="drag-area" x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)}
           width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)}
-          fill={color + '20'} stroke={color} strokeWidth={2} />
+          fill={color + '33'} stroke={color} strokeWidth={sw} />
       )
     } else if (activeTool === 'markup-rect') {
       svgElements.push(
         <rect key="drag-markup-rect" x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)}
           width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)}
-          fill="none" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 3" />
+          fill="none" stroke="#f59e0b" strokeWidth={sw} strokeDasharray={`${6 / zoom} ${3 / zoom}`} />
       )
     } else if (activeTool === 'markup-arrow') {
-      svgElements.push(<SvgArrow key="drag-markup-arrow" from={a} to={b} color="#f59e0b" />)
+      const from = a
+      const to = b
+      const angle = Math.atan2(to.y - from.y, to.x - from.x)
+      const hl = 12 / zoom
+      const p1 = { x: to.x - hl * Math.cos(angle - Math.PI / 6), y: to.y - hl * Math.sin(angle - Math.PI / 6) }
+      const p2 = { x: to.x - hl * Math.cos(angle + Math.PI / 6), y: to.y - hl * Math.sin(angle + Math.PI / 6) }
+      svgElements.push(
+        <g key="drag-markup-arrow">
+          <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#f59e0b" strokeWidth={sw} />
+          <polygon points={`${to.x},${to.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`} fill="#f59e0b" />
+        </g>
+      )
     }
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full w-full bg-white">
       {/* Back + Toolbar */}
       <div className="flex items-center bg-gray-900 flex-shrink-0">
         <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors border-r border-gray-700">
@@ -725,8 +833,8 @@ export default function TakeoffViewer({
             onPrevPage={() => {}}
             onNextPage={() => {}}
             zoom={zoom}
-            onZoomIn={() => setZoom(z => Math.min(z * 1.2, 5))}
-            onZoomOut={() => setZoom(z => Math.max(z / 1.2, 0.5))}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
             pageScale={scaleCalibrated ? { pageIndex: page.pageIndex, pixelsPerFoot: pageScale!, calibrated: true } : undefined}
             isFullscreen={isFullscreen}
             onToggleFullscreen={onToggleFullscreen}
@@ -759,38 +867,54 @@ export default function TakeoffViewer({
 
       <div className="flex flex-1 min-h-0">
         {/* Canvas area */}
-        <div ref={containerRef} className="flex-1 relative bg-gray-100 overflow-hidden">
+        <div
+          ref={containerRef}
+          className="flex-1 relative bg-gray-100 overflow-hidden"
+          style={{
+            touchAction: 'none',
+            contain: 'strict',
+            cursor: activeTool === 'pan' ? 'grab' : undefined,
+          }}
+        >
+          {!pdfLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+              Loading PDF...
+            </div>
+          )}
+
+          {/* Inner div: CSS transform for zoom + pan */}
           <div
-            ref={wrapperRef}
-            className="absolute inset-0"
-            style={{ touchAction: 'none' }}
+            ref={innerRef}
+            style={{
+              transformOrigin: '0 0',
+              transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
+              position: 'relative',
+              display: 'inline-block',
+              willChange: 'transform',
+            }}
           >
-            {canvasW > 0 && (
-              <div
-                className="absolute"
+            <canvas ref={canvasRef} style={{ display: 'block' }} />
+
+            {/* SVG overlay for measurements — same coordinate space as canvas */}
+            {pdfLoaded && canvasSize.w > 0 && (
+              <svg
+                width={canvasSize.w}
+                height={canvasSize.h}
                 style={{
-                  left: offsetX + panX,
-                  top: offsetY + panY,
-                  width: canvasW,
-                  height: canvasH,
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  cursor,
+                  pointerEvents: activeTool === 'pan' ? 'none' : 'all',
                 }}
+                onMouseDown={handleSvgMouseDown}
+                onMouseMove={handleSvgMouseMove}
+                onMouseUp={handleSvgMouseUp}
+                onClick={handleSvgClick}
+                onDoubleClick={handleSvgDoubleClick}
               >
-                <canvas ref={canvasRef} className="block" />
-                <svg
-                  ref={svgRef}
-                  width={canvasW}
-                  height={canvasH}
-                  className="absolute top-0 left-0"
-                  style={{ cursor }}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onClick={handleClick}
-                  onDoubleClick={handleDoubleClick}
-                >
-                  {svgElements}
-                </svg>
-              </div>
+                {svgElements}
+              </svg>
             )}
           </div>
 
@@ -799,8 +923,8 @@ export default function TakeoffViewer({
             <div
               className="absolute z-10"
               style={{
-                left: markupTextInput.pos.x * renderScale + offsetX + panX,
-                top: markupTextInput.pos.y * renderScale + offsetY + panY,
+                left: markupTextInput.pos.x * zoom + panX,
+                top: markupTextInput.pos.y * zoom + panY,
               }}
             >
               <input
