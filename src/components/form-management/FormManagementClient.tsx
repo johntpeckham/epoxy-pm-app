@@ -4,6 +4,21 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   ArrowLeftIcon,
   SlidersHorizontalIcon,
   LoaderIcon,
@@ -164,6 +179,68 @@ function FieldControls({
           <Trash2Icon className="w-3.5 h-3.5" />
         </button>
       )}
+    </div>
+  )
+}
+
+/* ── Sortable field row ── */
+function SortableFieldRow({
+  field,
+  idx,
+  total,
+  onMove,
+  onDelete,
+  deleteConfirm,
+  setDeleteConfirm,
+  renderField,
+}: {
+  field: FormField
+  idx: number
+  total: number
+  onMove: (id: string, dir: 'up' | 'down') => void
+  onDelete: (id: string) => void
+  deleteConfirm: string | null
+  setDeleteConfirm: (id: string | null) => void
+  renderField: (field: FormField) => React.ReactNode
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group relative pl-8 pr-24 ${isDragging ? 'z-50 opacity-80 shadow-lg rounded-lg bg-white ring-2 ring-amber-400' : ''}`}
+    >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
+      >
+        <GripVerticalIcon className="w-4 h-4" />
+      </div>
+      {renderField(field)}
+      <FieldControls
+        fieldId={field.id}
+        idx={idx}
+        total={total}
+        onMove={onMove}
+        onDelete={onDelete}
+        deleteConfirm={deleteConfirm}
+        setDeleteConfirm={setDeleteConfirm}
+      />
     </div>
   )
 }
@@ -589,6 +666,28 @@ export default function FormManagementClient() {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  // --- Drag and drop ---
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setFields((prev) => {
+      const oldIdx = prev.findIndex((f) => f.id === active.id)
+      const newIdx = prev.findIndex((f) => f.id === over.id)
+      if (oldIdx < 0 || newIdx < 0) return prev
+      const next = [...prev]
+      const [moved] = next.splice(oldIdx, 1)
+      next.splice(newIdx, 0, moved)
+      return next.map((f, i) => ({ ...f, order: i + 1 }))
+    })
+    setSaved(false)
+  }
+
   // --- Render a field in WYSIWYG style ---
 
   function renderField(field: FormField) {
@@ -724,29 +823,25 @@ export default function FormManagementClient() {
 
                   {/* WYSIWYG Form Card */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                    <div className="p-4 md:p-6 space-y-5">
-                      {fields.map((field, idx) => (
-                        <div
-                          key={field.id}
-                          className="group relative pl-8 pr-24"
-                        >
-                          {/* Drag handle (visual affordance) */}
-                          <div className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-gray-300 cursor-grab">
-                            <GripVerticalIcon className="w-4 h-4" />
-                          </div>
-                          {renderField(field)}
-                          <FieldControls
-                            fieldId={field.id}
-                            idx={idx}
-                            total={fields.length}
-                            onMove={moveField}
-                            onDelete={removeField}
-                            deleteConfirm={deleteConfirm}
-                            setDeleteConfirm={setDeleteConfirm}
-                          />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                      <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                        <div className="p-4 md:p-6 space-y-5">
+                          {fields.map((field, idx) => (
+                            <SortableFieldRow
+                              key={field.id}
+                              field={field}
+                              idx={idx}
+                              total={fields.length}
+                              onMove={moveField}
+                              onDelete={removeField}
+                              deleteConfirm={deleteConfirm}
+                              setDeleteConfirm={setDeleteConfirm}
+                              renderField={renderField}
+                            />
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </SortableContext>
+                    </DndContext>
 
                     {/* Add Field Button */}
                     <div className="px-4 md:px-6 py-4 border-t border-gray-200">
