@@ -3,8 +3,11 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, SettingsIcon, LoaderIcon } from 'lucide-react'
-import { Project, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry } from '@/types'
+import { Project, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, FormField } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
+import { useFormTemplate } from '@/lib/useFormTemplate'
+import { getContentKey, isWeatherField, getKnownContentKeys } from '@/lib/formFieldMaps'
+import DynamicFormField from '@/components/ui/DynamicFormField'
 import JsaTemplateManagerModal from './JsaTemplateManagerModal'
 import JsaSignatureSection from './JsaSignatureSection'
 import Portal from '@/components/ui/Portal'
@@ -21,6 +24,25 @@ const inputCls =
 const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
+const FORM_KEY = 'jsa_report'
+const KNOWN_KEYS = getKnownContentKeys(FORM_KEY)
+
+// Field IDs/labels that belong to the JSA tasks section (rendered as custom UI)
+const TASK_SECTION_IDS = new Set(['jsa-10', 'jsa-11', 'jsa-12', 'jsa-13', 'jsa-14'])
+const TASK_SECTION_LABELS = new Set(['Tasks', 'Task Selection', 'Hazards', 'Precautions', 'PPE Required'])
+
+// Field IDs/labels that belong to the signatures section (rendered as custom UI)
+const SIG_SECTION_IDS = new Set(['jsa-15', 'jsa-16'])
+const SIG_SECTION_LABELS = new Set(['Employee Acknowledgment & Signatures', 'Employee Signatures'])
+
+function isTaskSectionField(field: FormField): boolean {
+  return TASK_SECTION_IDS.has(field.id) || TASK_SECTION_LABELS.has(field.label)
+}
+
+function isSignatureSectionField(field: FormField): boolean {
+  return SIG_SECTION_IDS.has(field.id) || SIG_SECTION_LABELS.has(field.label)
+}
+
 export default function NewJsaReportModal({
   projects,
   userId,
@@ -28,17 +50,24 @@ export default function NewJsaReportModal({
   onCreated,
 }: NewJsaReportModalProps) {
   const today = new Date().toISOString().split('T')[0]
+  const { fields: templateFields, loading: templateLoading } = useFormTemplate(FORM_KEY)
 
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? '')
-  const [projectName, setProjectName] = useState(projects[0]?.name ?? '')
-  const [date, setDate] = useState(today)
-  const [address, setAddress] = useState(projects[0]?.address ?? '')
-  const [weather, setWeather] = useState('')
-  const [weatherLoading, setWeatherLoading] = useState(false)
-  const [preparedBy, setPreparedBy] = useState('')
-  const [siteSupervisor, setSiteSupervisor] = useState('')
-  const [competentPerson, setCompetentPerson] = useState('')
 
+  // All simple field values
+  const [values, setValues] = useState<Record<string, string>>({
+    projectName: projects[0]?.name ?? '',
+    date: today,
+    address: projects[0]?.address ?? '',
+    weather: '',
+    preparedBy: '',
+    siteSupervisor: '',
+    competentPerson: '',
+  })
+
+  const [weatherLoading, setWeatherLoading] = useState(false)
+
+  // JSA task templates and selections
   const [templates, setTemplates] = useState<JsaTaskTemplate[]>([])
   const [templatesLoaded, setTemplatesLoaded] = useState(false)
   const [selectedTasks, setSelectedTasks] = useState<Record<string, JsaTaskEntry>>({})
@@ -48,7 +77,11 @@ export default function NewJsaReportModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch templates
+  function updateValue(key: string, val: string) {
+    setValues((prev) => ({ ...prev, [key]: val }))
+  }
+
+  // Fetch JSA task templates
   useEffect(() => {
     if (!templatesLoaded) {
       const supabase = createClient()
@@ -67,11 +100,9 @@ export default function NewJsaReportModal({
   // Auto-fetch weather for initial project
   useEffect(() => {
     if (projects[0]?.address) {
-      console.log('[NewJsaReportModal] Fetching weather for initial project:', projects[0].address)
       setWeatherLoading(true)
       fetchWeatherForAddress(projects[0].address).then((w) => {
-        console.log('[NewJsaReportModal] Weather result:', w)
-        if (w) setWeather(w)
+        if (w) updateValue('weather', w)
         setWeatherLoading(false)
       })
     }
@@ -81,15 +112,12 @@ export default function NewJsaReportModal({
     setSelectedProjectId(projectId)
     const project = projects.find((p) => p.id === projectId)
     if (project) {
-      setProjectName(project.name)
-      setAddress(project.address)
-      // Fetch weather for new project address
-      console.log('[NewJsaReportModal] Project changed, fetching weather for:', project.address)
+      updateValue('projectName', project.name)
+      updateValue('address', project.address)
       setWeatherLoading(true)
-      setWeather('')
+      updateValue('weather', '')
       fetchWeatherForAddress(project.address).then((w) => {
-        console.log('[NewJsaReportModal] Weather result for changed project:', w)
-        if (w) setWeather(w)
+        if (w) updateValue('weather', w)
         setWeatherLoading(false)
       })
     }
@@ -132,22 +160,31 @@ export default function NewJsaReportModal({
     try {
       const tasks = Object.values(selectedTasks)
 
+      const content: Record<string, unknown> = {
+        projectName: (values.projectName ?? '').trim(),
+        date: values.date ?? '',
+        address: (values.address ?? '').trim(),
+        weather: (values.weather ?? '').trim(),
+        preparedBy: (values.preparedBy ?? '').trim(),
+        siteSupervisor: (values.siteSupervisor ?? '').trim(),
+        competentPerson: (values.competentPerson ?? '').trim(),
+        tasks,
+        signatures,
+      }
+
+      // Add custom field values
+      for (const [key, val] of Object.entries(values)) {
+        if (!KNOWN_KEYS.has(key) && typeof val === 'string' && val.trim()) {
+          content[key] = val.trim()
+        }
+      }
+
       const { error: insertErr } = await supabase.from('feed_posts').insert({
         project_id: selectedProjectId,
         user_id: userId,
         post_type: 'jsa_report',
         is_pinned: false,
-        content: {
-          projectName: projectName.trim(),
-          date,
-          address: address.trim(),
-          weather: weather.trim(),
-          preparedBy: preparedBy.trim(),
-          siteSupervisor: siteSupervisor.trim(),
-          competentPerson: competentPerson.trim(),
-          tasks,
-          signatures,
-        },
+        content,
       })
 
       if (insertErr) throw insertErr
@@ -156,6 +193,157 @@ export default function NewJsaReportModal({
       setError(err instanceof Error ? err.message : 'Failed to submit report')
       setLoading(false)
     }
+  }
+
+  // Render the tasks section (checkboxes + per-task fields)
+  function renderTasksSection() {
+    return (
+      <div key="jsa-tasks-section">
+        {/* Task Checkboxes */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Tasks</p>
+            <button
+              type="button"
+              onClick={() => setShowTemplateManager(true)}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-amber-600 transition"
+            >
+              <SettingsIcon className="w-3 h-3" />
+              Manage Tasks
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {templates.map((t) => (
+              <label
+                key={t.id}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition ${
+                  selectedTasks[t.id]
+                    ? 'border-amber-400 bg-amber-50 text-amber-800 font-medium'
+                    : 'border-gray-200 text-gray-600 hover:border-amber-300 hover:bg-amber-50/50'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!selectedTasks[t.id]}
+                  onChange={() => toggleTask(t)}
+                  className="sr-only"
+                />
+                <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                  selectedTasks[t.id] ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
+                }`}>
+                  {selectedTasks[t.id] && (
+                    <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </span>
+                {t.name}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Dynamic Task Sections */}
+        {templates.filter((t) => selectedTasks[t.id]).map((t) => (
+          <div key={t.id} className="border border-amber-200 rounded-xl p-4 bg-amber-50/30 space-y-3 mt-3">
+            <p className="text-sm font-bold text-amber-800">{t.name}</p>
+            <div>
+              <label className={labelCls}>Hazards</label>
+              <textarea
+                rows={3}
+                value={selectedTasks[t.id]?.hazards ?? ''}
+                onChange={(e) => updateTask(t.id, 'hazards', e.target.value)}
+                placeholder="Identified hazards..."
+                className={textareaCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Precautions</label>
+              <textarea
+                rows={3}
+                value={selectedTasks[t.id]?.precautions ?? ''}
+                onChange={(e) => updateTask(t.id, 'precautions', e.target.value)}
+                placeholder="Safety precautions..."
+                className={textareaCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>PPE Required</label>
+              <textarea
+                rows={2}
+                value={selectedTasks[t.id]?.ppe ?? ''}
+                onChange={(e) => updateTask(t.id, 'ppe', e.target.value)}
+                placeholder="Required PPE..."
+                className={textareaCls}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  function renderField(field: FormField) {
+    // Task section fields - render as custom section on first encounter
+    if (isTaskSectionField(field)) {
+      // Only render the full tasks section for the first task-section field
+      if (field.id === 'jsa-10' || (field.type === 'section_header' && field.label === 'Tasks')) {
+        return renderTasksSection()
+      }
+      return null // Skip subsequent task-section fields
+    }
+
+    // Signature section fields - render JsaSignatureSection on first encounter
+    if (isSignatureSectionField(field)) {
+      if (field.id === 'jsa-15' || (field.type === 'section_header' && (field.label === 'Employee Acknowledgment & Signatures'))) {
+        return <JsaSignatureSection key="jsa-signatures" onChange={setSignatures} />
+      }
+      return null
+    }
+
+    if (field.type === 'section_header') {
+      return (
+        <div key={field.id}>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{field.label}</p>
+        </div>
+      )
+    }
+
+    const contentKey = getContentKey(FORM_KEY, field)
+
+    // Weather field with auto-fetch
+    if (isWeatherField(FORM_KEY, field)) {
+      return (
+        <div key={field.id}>
+          <label className={labelCls}>
+            {field.label}
+            {field.required && <span className="text-red-400"> *</span>}
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={values.weather ?? ''}
+              onChange={(e) => updateValue('weather', e.target.value)}
+              placeholder={weatherLoading ? 'Fetching weather...' : field.placeholder || 'e.g. 72°F, Partly Cloudy, Wind 8 mph'}
+              className={inputCls}
+            />
+            {weatherLoading && (
+              <LoaderIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 animate-spin" />
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    // All other fields
+    return (
+      <DynamicFormField
+        key={field.id}
+        field={field}
+        value={values[contentKey] ?? ''}
+        onChange={(v) => updateValue(contentKey, String(v))}
+      />
+    )
   }
 
   return (
@@ -181,6 +369,13 @@ export default function NewJsaReportModal({
               </div>
             )}
 
+            {templateLoading && (
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <LoaderIcon className="w-3 h-3 animate-spin" />
+                Loading form template...
+              </div>
+            )}
+
             {/* Project selector */}
             <div>
               <label className={labelCls}>
@@ -202,144 +397,8 @@ export default function NewJsaReportModal({
               </select>
             </div>
 
-            {/* Project Info */}
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Project Info</p>
-              <div className="space-y-3">
-                <div>
-                  <label className={labelCls}>Project Name</label>
-                  <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} className={inputCls} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelCls}>Date</label>
-                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Address</label>
-                    <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} />
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Weather</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={weather}
-                      onChange={(e) => setWeather(e.target.value)}
-                      placeholder={weatherLoading ? 'Fetching weather...' : 'e.g. 72°F, Partly Cloudy, Wind 8 mph'}
-                      className={inputCls}
-                    />
-                    {weatherLoading && (
-                      <LoaderIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 animate-spin" />
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Personnel */}
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Personnel</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className={labelCls}>Prepared By</label>
-                  <input type="text" value={preparedBy} onChange={(e) => setPreparedBy(e.target.value)} placeholder="Name" className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Site Supervisor</label>
-                  <input type="text" value={siteSupervisor} onChange={(e) => setSiteSupervisor(e.target.value)} placeholder="Name" className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Competent Person</label>
-                  <input type="text" value={competentPerson} onChange={(e) => setCompetentPerson(e.target.value)} placeholder="Name" className={inputCls} />
-                </div>
-              </div>
-            </div>
-
-            {/* Task Checkboxes */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Tasks</p>
-                <button
-                  type="button"
-                  onClick={() => setShowTemplateManager(true)}
-                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-amber-600 transition"
-                >
-                  <SettingsIcon className="w-3 h-3" />
-                  Manage Tasks
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {templates.map((t) => (
-                  <label
-                    key={t.id}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition ${
-                      selectedTasks[t.id]
-                        ? 'border-amber-400 bg-amber-50 text-amber-800 font-medium'
-                        : 'border-gray-200 text-gray-600 hover:border-amber-300 hover:bg-amber-50/50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={!!selectedTasks[t.id]}
-                      onChange={() => toggleTask(t)}
-                      className="sr-only"
-                    />
-                    <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
-                      selectedTasks[t.id] ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
-                    }`}>
-                      {selectedTasks[t.id] && (
-                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </span>
-                    {t.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Dynamic Task Sections */}
-            {templates.filter((t) => selectedTasks[t.id]).map((t) => (
-              <div key={t.id} className="border border-amber-200 rounded-xl p-4 bg-amber-50/30 space-y-3">
-                <p className="text-sm font-bold text-amber-800">{t.name}</p>
-                <div>
-                  <label className={labelCls}>Hazards</label>
-                  <textarea
-                    rows={3}
-                    value={selectedTasks[t.id]?.hazards ?? ''}
-                    onChange={(e) => updateTask(t.id, 'hazards', e.target.value)}
-                    placeholder="Identified hazards..."
-                    className={textareaCls}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>Precautions</label>
-                  <textarea
-                    rows={3}
-                    value={selectedTasks[t.id]?.precautions ?? ''}
-                    onChange={(e) => updateTask(t.id, 'precautions', e.target.value)}
-                    placeholder="Safety precautions..."
-                    className={textareaCls}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>PPE Required</label>
-                  <textarea
-                    rows={2}
-                    value={selectedTasks[t.id]?.ppe ?? ''}
-                    onChange={(e) => updateTask(t.id, 'ppe', e.target.value)}
-                    placeholder="Required PPE..."
-                    className={textareaCls}
-                  />
-                </div>
-              </div>
-            ))}
-
-            {/* Employee Acknowledgment & Signatures */}
-            <JsaSignatureSection onChange={setSignatures} />
+            {/* Dynamic template fields */}
+            {templateFields.map((field) => renderField(field))}
           </div>
 
           {/* Footer */}

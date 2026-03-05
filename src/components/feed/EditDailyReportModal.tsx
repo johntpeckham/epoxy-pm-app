@@ -2,9 +2,12 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, CameraIcon } from 'lucide-react'
+import { XIcon, CameraIcon, LoaderIcon } from 'lucide-react'
 import Image from 'next/image'
-import { DailyReportContent } from '@/types'
+import { DailyReportContent, FormField } from '@/types'
+import { useFormTemplate } from '@/lib/useFormTemplate'
+import { getContentKey, isWeatherField, getKnownContentKeys } from '@/lib/formFieldMaps'
+import DynamicFormField from '@/components/ui/DynamicFormField'
 import Portal from '@/components/ui/Portal'
 
 interface EditDailyReportModalProps {
@@ -16,8 +19,10 @@ interface EditDailyReportModalProps {
 
 const inputCls =
   'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
-const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
+
+const FORM_KEY = 'daily_report'
+const KNOWN_KEYS = getKnownContentKeys(FORM_KEY)
 
 export default function EditDailyReportModal({
   postId,
@@ -26,21 +31,36 @@ export default function EditDailyReportModal({
   onUpdated,
 }: EditDailyReportModalProps) {
   const supabase = createClient()
+  const { fields: templateFields, loading: templateLoading } = useFormTemplate(FORM_KEY)
 
-  // Header
-  const [projectName, setProjectName] = useState(initialContent.project_name ?? '')
-  const [date, setDate] = useState(initialContent.date ?? '')
-  const [address, setAddress] = useState(initialContent.address ?? '')
-  // Crew
-  const [reportedBy, setReportedBy] = useState(initialContent.reported_by ?? '')
-  const [foreman, setForeman] = useState(initialContent.project_foreman ?? '')
-  const [weather, setWeather] = useState(initialContent.weather ?? '')
-  // Progress
-  const [progress, setProgress] = useState(initialContent.progress ?? '')
-  const [delays, setDelays] = useState(initialContent.delays ?? '')
-  const [safety, setSafety] = useState(initialContent.safety ?? '')
-  const [materials, setMaterials] = useState(initialContent.materials_used ?? '')
-  const [employees, setEmployees] = useState(initialContent.employees ?? '')
+  // Initialize values from existing content
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const v: Record<string, string> = {
+      project_name: initialContent.project_name ?? '',
+      date: initialContent.date ?? '',
+      address: initialContent.address ?? '',
+      reported_by: initialContent.reported_by ?? '',
+      project_foreman: initialContent.project_foreman ?? '',
+      weather: initialContent.weather ?? '',
+      progress: initialContent.progress ?? '',
+      delays: initialContent.delays ?? '',
+      safety: initialContent.safety ?? '',
+      materials_used: initialContent.materials_used ?? '',
+      employees: initialContent.employees ?? '',
+    }
+    // Load custom field values from content
+    const rawContent = initialContent as unknown as Record<string, unknown>
+    for (const [key, val] of Object.entries(rawContent)) {
+      if (!KNOWN_KEYS.has(key) && key !== 'photos' && typeof val === 'string') {
+        v[key] = val
+      }
+    }
+    return v
+  })
+
+  function updateValue(key: string, val: string) {
+    setValues((prev) => ({ ...prev, [key]: val }))
+  }
 
   // Photos: existing paths, removals, new files
   const [existingPhotos, setExistingPhotos] = useState<string[]>(initialContent.photos ?? [])
@@ -97,19 +117,26 @@ export default function EditDailyReportModal({
 
       const finalPhotos = [...existingPhotos, ...newPaths]
 
-      const updatedContent: DailyReportContent = {
-        project_name: projectName.trim(),
-        date,
-        address: address.trim(),
-        reported_by: reportedBy.trim(),
-        project_foreman: foreman.trim(),
-        weather: weather.trim(),
-        progress: progress.trim(),
-        delays: delays.trim(),
-        safety: safety.trim(),
-        materials_used: materials.trim(),
-        employees: employees.trim(),
+      const updatedContent: Record<string, unknown> = {
+        project_name: (values.project_name ?? '').trim(),
+        date: values.date ?? '',
+        address: (values.address ?? '').trim(),
+        reported_by: (values.reported_by ?? '').trim(),
+        project_foreman: (values.project_foreman ?? '').trim(),
+        weather: (values.weather ?? '').trim(),
+        progress: (values.progress ?? '').trim(),
+        delays: (values.delays ?? '').trim(),
+        safety: (values.safety ?? '').trim(),
+        materials_used: (values.materials_used ?? '').trim(),
+        employees: (values.employees ?? '').trim(),
         photos: finalPhotos,
+      }
+
+      // Add custom field values
+      for (const [key, val] of Object.entries(values)) {
+        if (!KNOWN_KEYS.has(key) && typeof val === 'string' && val.trim()) {
+          updatedContent[key] = val.trim()
+        }
       }
 
       const { error: updateErr } = await supabase
@@ -123,6 +150,43 @@ export default function EditDailyReportModal({
       setError(err instanceof Error ? err.message : 'Failed to save')
       setLoading(false)
     }
+  }
+
+  function renderField(field: FormField) {
+    if (field.type === 'section_header') {
+      return (
+        <div key={field.id}>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{field.label}</p>
+        </div>
+      )
+    }
+
+    const contentKey = getContentKey(FORM_KEY, field)
+
+    // Weather field
+    if (isWeatherField(FORM_KEY, field)) {
+      return (
+        <div key={field.id}>
+          <label className={labelCls}>{field.label}</label>
+          <input
+            type="text"
+            value={values.weather ?? ''}
+            onChange={(e) => updateValue('weather', e.target.value)}
+            placeholder={field.placeholder || 'e.g. 72°F'}
+            className={inputCls}
+          />
+        </div>
+      )
+    }
+
+    return (
+      <DynamicFormField
+        key={field.id}
+        field={field}
+        value={values[contentKey] ?? ''}
+        onChange={(v) => updateValue(contentKey, String(v))}
+      />
+    )
   }
 
   return (
@@ -148,72 +212,15 @@ export default function EditDailyReportModal({
             </div>
           )}
 
-          {/* Header section */}
-          <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Header</p>
-            <div className="space-y-3">
-              <div>
-                <label className={labelCls}>Project Name</label>
-                <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} className={inputCls} />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Date</label>
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Address</label>
-                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} />
-                </div>
-              </div>
+          {templateLoading && (
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <LoaderIcon className="w-3 h-3 animate-spin" />
+              Loading form template...
             </div>
-          </div>
+          )}
 
-          {/* Crew section */}
-          <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Crew</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className={labelCls}>Reported By</label>
-                <input type="text" value={reportedBy} onChange={(e) => setReportedBy(e.target.value)} placeholder="Name" className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Project Foreman</label>
-                <input type="text" value={foreman} onChange={(e) => setForeman(e.target.value)} placeholder="Name" className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Weather</label>
-                <input type="text" value={weather} onChange={(e) => setWeather(e.target.value)} placeholder="e.g. 72°F" className={inputCls} />
-              </div>
-            </div>
-          </div>
-
-          {/* Progress section */}
-          <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Progress</p>
-            <div className="space-y-3">
-              <div>
-                <label className={labelCls}>Progress</label>
-                <textarea rows={3} value={progress} onChange={(e) => setProgress(e.target.value)} className={textareaCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Delays</label>
-                <textarea rows={2} value={delays} onChange={(e) => setDelays(e.target.value)} className={textareaCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Safety</label>
-                <textarea rows={2} value={safety} onChange={(e) => setSafety(e.target.value)} className={textareaCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Materials Used</label>
-                <textarea rows={2} value={materials} onChange={(e) => setMaterials(e.target.value)} className={textareaCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Employees</label>
-                <textarea rows={2} value={employees} onChange={(e) => setEmployees(e.target.value)} className={textareaCls} />
-              </div>
-            </div>
-          </div>
+          {/* Dynamic template fields */}
+          {templateFields.map((field) => renderField(field))}
 
           {/* Photos section */}
           <div>
