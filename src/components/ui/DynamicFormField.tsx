@@ -157,19 +157,6 @@ export default function DynamicFormField({ field, value, onChange }: DynamicForm
       )
     }
 
-    case 'signature':
-      // Signatures are handled by form-specific code (e.g., JsaSignatureSection).
-      // This fallback is for custom signature fields added by admins.
-      return (
-        <div>
-          <label className={labelCls}>
-            {field.label}
-            {field.required && <span className="text-red-400"> *</span>}
-          </label>
-          <p className="text-sm text-gray-400 italic">Signature capture area</p>
-        </div>
-      )
-
     default:
       return null
   }

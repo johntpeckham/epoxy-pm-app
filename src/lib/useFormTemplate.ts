@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { FormField } from '@/types'
+import { FormField, FormFieldType } from '@/types'
 
 // Fallback fields matching the seed data from the migration
 // Used when fetch fails or returns no fields so forms never break
@@ -39,7 +39,7 @@ const FALLBACK_FIELDS: Record<string, FormField[]> = {
     { id: 'jsa-13', type: 'long_text', label: 'Precautions', placeholder: 'Safety precautions...', required: false, options: [], order: 13 },
     { id: 'jsa-14', type: 'long_text', label: 'PPE Required', placeholder: 'Required PPE...', required: false, options: [], order: 14 },
     { id: 'jsa-15', type: 'section_header', label: 'Employee Acknowledgment & Signatures', placeholder: '', required: false, options: [], order: 15 },
-    { id: 'jsa-16', type: 'signature', label: 'Employee Signatures', placeholder: '', required: false, options: [], order: 16 },
+    { id: 'jsa-16', type: 'signature' as FormFieldType, label: 'Employee Signatures', placeholder: '', required: false, options: [], order: 16 },
   ],
   expense: [
     { id: 'exp-01', type: 'section_header', label: 'Receipt Photo', placeholder: '', required: false, options: [], order: 1 },

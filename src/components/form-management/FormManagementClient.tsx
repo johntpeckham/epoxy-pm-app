@@ -35,7 +35,6 @@ import {
   CalendarIcon,
   HashIcon,
   MinusIcon,
-  PenToolIcon,
   XIcon,
 } from 'lucide-react'
 import type { FormTemplate, FormField, FormFieldType } from '@/types'
@@ -49,7 +48,6 @@ const FIELD_TYPE_OPTIONS: { value: FormFieldType; label: string; icon: React.Rea
   { value: 'date', label: 'Date', icon: <CalendarIcon className="w-3.5 h-3.5" /> },
   { value: 'number', label: 'Number', icon: <HashIcon className="w-3.5 h-3.5" /> },
   { value: 'section_header', label: 'Section Header', icon: <MinusIcon className="w-3.5 h-3.5" /> },
-  { value: 'signature', label: 'Signature', icon: <PenToolIcon className="w-3.5 h-3.5" /> },
 ]
 
 const FIELD_TYPE_COLORS: Record<FormFieldType, string> = {
@@ -61,7 +59,6 @@ const FIELD_TYPE_COLORS: Record<FormFieldType, string> = {
   date: 'bg-amber-50 text-amber-700 border-amber-200',
   number: 'bg-orange-50 text-orange-700 border-orange-200',
   section_header: 'bg-gray-100 text-gray-600 border-gray-300',
-  signature: 'bg-pink-50 text-pink-700 border-pink-200',
 }
 
 function generateId(): string {
@@ -484,26 +481,6 @@ function NumberField({ field, onUpdate }: { field: FormField; onUpdate: (u: Part
   )
 }
 
-function SignatureField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
-        <InlineEdit
-          value={field.label}
-          onChange={(v) => onUpdate({ label: v })}
-          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
-          placeholder="Label"
-        />
-        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
-      </div>
-      <div className="border-2 border-dashed border-gray-300 rounded-lg h-24 flex flex-col items-center justify-end pb-2 bg-gray-50/50">
-        <div className="w-4/5 border-b border-gray-400 mb-1" />
-        <span className="text-[10px] text-gray-400 uppercase tracking-wide">Sign here</span>
-      </div>
-    </div>
-  )
-}
-
 function RequiredBadge({ required, onToggle }: { required: boolean; onToggle: () => void }) {
   return (
     <button
@@ -717,8 +694,6 @@ export default function FormManagementClient() {
         return <DateField field={field} onUpdate={onUpdate} />
       case 'number':
         return <NumberField field={field} onUpdate={onUpdate} />
-      case 'signature':
-        return <SignatureField field={field} onUpdate={onUpdate} />
       default:
         return <ShortTextField field={field} onUpdate={onUpdate} />
     }

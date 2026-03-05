@@ -180,7 +180,7 @@ export function initValuesFromContent(
 
   // Map custom fields (content keys that match field IDs)
   for (const field of fields) {
-    if (field.type === 'section_header' || field.type === 'signature') continue
+    if (field.type === 'section_header' || (field.type as string) === 'signature') continue
     const contentKey = getContentKey(formKey, field)
     if (!knownKeys.has(contentKey) && field.id in content) {
       values[field.id] = String(content[field.id] ?? '')
@@ -216,7 +216,7 @@ export function buildDynamicFields(
   }
 
   for (const field of fields) {
-    if (field.type === 'section_header' || field.type === 'signature') continue
+    if (field.type === 'section_header' || (field.type as string) === 'signature') continue
     const contentKey = getContentKey(formKey, field)
     // Only include custom fields (not in the known set)
     if (knownKeys.has(contentKey)) continue
