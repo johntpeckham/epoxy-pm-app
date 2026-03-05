@@ -299,9 +299,13 @@ export default function JobTakeoffPage() {
     )
   }
 
+  // ─── Viewer overlay (covers columns 2+3, leaves left nav visible) ───
+
+  const showViewerOverlay = viewMode === 'viewer' && activePage && selectedProject
+
   // ─── Fullscreen mode ───
 
-  if (isFullscreen && selectedProject && viewMode === 'viewer' && activePage) {
+  if (isFullscreen && showViewerOverlay) {
     return (
       <div className="fixed inset-0 z-50 bg-white flex flex-col">
         {column3Content}
@@ -320,8 +324,17 @@ export default function JobTakeoffPage() {
         onRename={handleRenameProject}
       />
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
-        {column3Content}
+        {!showViewerOverlay && column3Content}
       </div>
+
+      {/* Viewer overlay — fixed, starts after left nav (w-56 = 224px on lg) */}
+      {showViewerOverlay && (
+        <div
+          className="fixed top-0 bottom-0 right-0 left-0 lg:left-56 z-40 bg-white flex flex-col"
+        >
+          {column3Content}
+        </div>
+      )}
     </div>
   )
 }
