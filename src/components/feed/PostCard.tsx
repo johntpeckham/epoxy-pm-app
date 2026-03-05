@@ -33,6 +33,7 @@ import EditTimecardModal from './EditTimecardModal'
 import PostCommentsSection from './PostCommentsSection'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import PhotoLightbox from '@/components/photos/PhotoLightbox'
 
 interface PostCardProps {
   post: FeedPost
@@ -86,7 +87,7 @@ function Avatar({ initials, avatarUrl }: { initials: string; avatarUrl?: string 
 }
 
 // ── Inline photo post (clean grid, no card wrapper) ─────────────────────────
-function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onImageClick: (url: string) => void }) {
+function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onImageClick: (urls: string[], index: number) => void }) {
   const supabase = createClient()
   const urls = content.photos.map((path) => {
     const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
@@ -98,16 +99,16 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
       {content.caption && (
         <p className="text-sm text-gray-600">{content.caption}</p>
       )}
-      <div className="grid grid-cols-2 gap-2 w-full">
+      <div className="grid grid-cols-5 gap-2 w-full">
         {urls.map((url, i) => (
-          <button key={i} onClick={() => onImageClick(url)} className="block">
-            <div className="relative w-36 h-36 md:w-48 md:h-48 rounded-lg overflow-hidden bg-gray-100">
+          <button key={i} onClick={() => onImageClick(urls, i)} className="block">
+            <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={url}
                 alt={`Photo ${i + 1}`}
                 fill
                 className="object-cover hover:opacity-90 transition"
-                sizes="(min-width: 768px) 192px, 144px"
+                sizes="20vw"
               />
             </div>
           </button>
@@ -125,7 +126,7 @@ function DailyReportPost({
 }: {
   content: DailyReportContent
   photoUrls: string[]
-  onImageClick: (url: string) => void
+  onImageClick: (urls: string[], index: number) => void
 }) {
   const crewFields: { label: string; key: keyof DailyReportContent }[] = [
     { label: 'Reported By', key: 'reported_by' },
@@ -193,16 +194,16 @@ function DailyReportPost({
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
             Photos ({photoUrls.length})
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {photoUrls.map((url, i) => (
-              <button key={i} onClick={() => onImageClick(url)} className="block">
-                <div className="relative w-36 h-36 md:w-48 md:h-48 rounded-lg overflow-hidden bg-amber-50">
+              <button key={i} onClick={() => onImageClick(photoUrls, i)} className="block">
+                <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
                   <Image
                     src={url}
                     alt={`Report photo ${i + 1}`}
                     fill
                     className="object-cover hover:opacity-90 transition"
-                    sizes="(min-width: 768px) 192px, 144px"
+                    sizes="20vw"
                   />
                 </div>
               </button>
@@ -233,7 +234,7 @@ function TaskPostDetail({
   content: TaskContent
   postId: string
   onUpdated?: () => void
-  onImageClick: (url: string) => void
+  onImageClick: (urls: string[], index: number) => void
 }) {
   const supabase = createClient()
   const [status, setStatus] = useState<TaskStatus>(content.status)
@@ -302,7 +303,7 @@ function TaskPostDetail({
 
       {/* Photo thumbnail */}
       {photoUrl && (
-        <button onClick={() => onImageClick(photoUrl)} className="block">
+        <button onClick={() => onImageClick([photoUrl], 0)} className="block">
           <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
             <Image
               src={photoUrl}
@@ -366,7 +367,7 @@ function CollapsibleTask({
   content: TaskContent
   postId: string
   onUpdated?: () => void
-  onImageClick: (url: string) => void
+  onImageClick: (urls: string[], index: number) => void
   isPinned?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -419,7 +420,7 @@ function CollapsibleDailyReport({
 }: {
   content: DailyReportContent
   photoUrls: string[]
-  onImageClick: (url: string) => void
+  onImageClick: (urls: string[], index: number) => void
   isPinned?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -633,7 +634,7 @@ function ReceiptPost({
   onImageClick,
 }: {
   content: ReceiptContent
-  onImageClick: (url: string) => void
+  onImageClick: (urls: string[], index: number) => void
 }) {
   const supabase = createClient()
   const photoUrl = content.receipt_photo
@@ -652,7 +653,7 @@ function ReceiptPost({
     <div className="p-3.5 space-y-3 border-t border-green-200 max-w-full overflow-hidden">
       <div className="flex gap-3">
         {photoUrl && (
-          <button onClick={() => onImageClick(photoUrl)} className="block flex-shrink-0">
+          <button onClick={() => onImageClick([photoUrl], 0)} className="block flex-shrink-0">
             <div className="relative w-[72px] h-[72px] rounded-lg overflow-hidden bg-green-50">
               <Image
                 src={photoUrl}
@@ -704,7 +705,7 @@ function CollapsibleReceipt({
   isPinned,
 }: {
   content: ReceiptContent
-  onImageClick: (url: string) => void
+  onImageClick: (urls: string[], index: number) => void
   isPinned?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -956,7 +957,8 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const [showEditReceipt, setShowEditReceipt] = useState(false)
   const [showEditTimecard, setShowEditTimecard] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [previewPhotos, setPreviewPhotos] = useState<string[] | null>(null)
+  const [previewIndex, setPreviewIndex] = useState(0)
   const [showComments, setShowComments] = useState(false)
   const [commentCount, setCommentCount] = useState<number>(0)
 
@@ -1152,17 +1154,22 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
     </div>
   )
 
+  function openPreview(urls: string[], index: number) {
+    setPreviewPhotos(urls)
+    setPreviewIndex(index)
+  }
+
   // ── Structured card content (non-text posts) ────────────────────────────
   const structuredContent = (
     <>
       {post.post_type === 'photo' && (
-        <InlinePhotoPost content={post.content as PhotoContent} onImageClick={setPreviewImage} />
+        <InlinePhotoPost content={post.content as PhotoContent} onImageClick={openPreview} />
       )}
       {post.post_type === 'daily_report' && (
         <CollapsibleDailyReport
           content={post.content as DailyReportContent}
           photoUrls={reportPhotoUrls}
-          onImageClick={setPreviewImage}
+          onImageClick={openPreview}
           isPinned={post.is_pinned}
         />
       )}
@@ -1171,7 +1178,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           content={post.content as TaskContent}
           postId={post.id}
           onUpdated={onUpdated}
-          onImageClick={setPreviewImage}
+          onImageClick={openPreview}
           isPinned={post.is_pinned}
         />
       )}
@@ -1184,7 +1191,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       {post.post_type === 'receipt' && (
         <CollapsibleReceipt
           content={post.content as ReceiptContent}
-          onImageClick={setPreviewImage}
+          onImageClick={openPreview}
           isPinned={post.is_pinned}
         />
       )}
@@ -1349,32 +1356,13 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       )}
 
       {/* ── Image lightbox overlay ──────────────────────────────────────── */}
-      {previewImage && (
-        <Portal>
-        <div className="fixed inset-0 z-[70] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={() => setPreviewImage(null)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            {/* Title bar */}
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
-              <h2 className="text-lg font-semibold text-gray-900">Image Preview</h2>
-              <button
-                onClick={() => setPreviewImage(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
-              >
-                <XIcon className="w-5 h-5" />
-              </button>
-            </div>
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewImage}
-                alt="Preview"
-                className="max-w-full max-h-[85vh] object-contain rounded-lg"
-              />
-            </div>
-          </div>
-        </div>
-        </Portal>
+      {previewPhotos && (
+        <PhotoLightbox
+          photos={previewPhotos}
+          currentIndex={previewIndex}
+          onClose={() => setPreviewPhotos(null)}
+          onNavigate={setPreviewIndex}
+        />
       )}
     </>
   )
