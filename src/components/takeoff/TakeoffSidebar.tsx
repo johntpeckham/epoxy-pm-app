@@ -131,6 +131,7 @@ export default function TakeoffSidebar({
         {items.map((item) => {
           const isActive = item.id === activeItemId
           const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
+          const totalPerim = item.type === 'area' ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0) : 0
 
           return (
             <div
@@ -200,7 +201,10 @@ export default function TakeoffSidebar({
                 <div className="px-3 pb-1">
                   {item.measurements.map((m, idx) => (
                     <div key={m.id} className="flex items-center justify-between py-0.5 group">
-                      <span className="text-[10px] text-gray-500">{m.label}</span>
+                      <span className="text-[10px] text-gray-500">
+                        {m.label}
+                        {m.type === 'area' && m.perimeterFt ? ` | ${fmtFtIn(m.perimeterFt)} perim.` : ''}
+                      </span>
                       <button
                         onClick={(e) => { e.stopPropagation(); onDeleteMeasurement(item.id, m.id) }}
                         className="p-0.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -215,6 +219,9 @@ export default function TakeoffSidebar({
               {/* Total */}
               <div className={`px-3 pb-2 text-[11px] font-bold ${isActive ? 'text-amber-400' : 'text-gray-600'}`}>
                 Total: {item.type === 'linear' ? fmtFtIn(total) : `${total.toFixed(1)} sq ft`}
+                {item.type === 'area' && totalPerim > 0 && (
+                  <span className="ml-1.5 text-[10px] font-medium opacity-70">| {fmtFtIn(totalPerim)} perim.</span>
+                )}
               </div>
             </div>
           )

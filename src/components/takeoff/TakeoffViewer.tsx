@@ -414,7 +414,7 @@ export default function TakeoffViewer({
     const ppf = pageScale
     if (!ppf || !activeItemId) return
     const d = polylineLen(tempPoints) / ppf
-    addMeasurement({ id: genId(), type: 'linear', points: [...tempPoints], valueInFeet: d, label: fmtFtIn(d), pageKey })
+    addMeasurement({ id: genId(), type: 'linear', points: [...tempPoints], valueInFeet: d, perimeterFt: 0, label: fmtFtIn(d), pageKey })
     setTempPoints([])
   }
 
@@ -425,7 +425,10 @@ export default function TakeoffViewer({
     const ppf = pageScale
     if (!ppf || !activeItemId) return
     const area = polyArea(tempPoints) / (ppf * ppf)
-    addMeasurement({ id: genId(), type: 'area', points: [...tempPoints], valueInFeet: area, label: `${area.toFixed(1)} sq ft`, pageKey })
+    // Perimeter = sum of all edges including closing segment
+    const perimPx = polylineLen(tempPoints) + ptDist(tempPoints[tempPoints.length - 1], tempPoints[0])
+    const perimFt = perimPx / ppf
+    addMeasurement({ id: genId(), type: 'area', points: [...tempPoints], valueInFeet: area, perimeterFt: perimFt, label: `${area.toFixed(1)} sq ft`, pageKey })
     setTempPoints([])
   }
 
@@ -710,15 +713,22 @@ export default function TakeoffViewer({
       } else if (m.type === 'area' && m.points.length >= 3) {
         const pts = m.points.map(toSvg)
         const center = { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length }
-        const labelW = m.label ? (m.label.length * 7 + 10) / zoom : 0
-        const labelH = 18 / zoom
+        const areaLine = m.label || ''
+        const perimLine = m.perimeterFt ? `Perim: ${fmtFtIn(m.perimeterFt)}` : ''
+        const showPerim = !!perimLine
+        const longestLine = areaLine.length > perimLine.length ? areaLine : perimLine
+        const labelW = longestLine ? (longestLine.length * 7 + 10) / zoom : 0
+        const labelH = (showPerim ? 32 : 18) / zoom
         svgElements.push(
           <g key={m.id} opacity={isActive ? 1 : 0.6}>
             <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '26'} stroke={item.color} strokeWidth={sw} />
-            {m.label && (
+            {areaLine && (
               <>
                 <rect x={center.x - labelW / 2} y={center.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
-                <text x={center.x} y={center.y} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{m.label}</text>
+                <text x={center.x} y={center.y + (showPerim ? -6 / zoom : 0)} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{areaLine}</text>
+                {showPerim && (
+                  <text x={center.x} y={center.y + 8 / zoom} fill="#d1d5db" fontSize={10 / zoom} fontWeight="600" textAnchor="middle" dominantBaseline="middle">{perimLine}</text>
+                )}
               </>
             )}
           </g>
@@ -859,6 +869,8 @@ export default function TakeoffViewer({
     // Running area estimate
     const ppf = pageScale || 1
     const liveArea = previewPts.length >= 3 ? polyArea(previewPts) / (ppf * ppf) : 0
+    const livePerimPx = previewPts.length >= 2 ? polylineLen(previewPts) + ptDist(previewPts[previewPts.length - 1], previewPts[0]) : 0
+    const livePerimFt = livePerimPx / ppf
     svgElements.push(
       <g key="polygon-progress">
         {/* Faint fill preview */}
@@ -887,15 +899,18 @@ export default function TakeoffViewer({
         {mp && <circle cx={mp.x} cy={mp.y} r={cr} fill={color} opacity={0.6} />}
         {/* Running area estimate near cursor */}
         {mp && scaleCalibrated && liveArea > 0 && (() => {
-          const label = `~${liveArea.toFixed(1)} sq ft`
-          const lw = (label.length * 7 + 10) / zoom
-          const lh = 18 / zoom
+          const areaLabel = `~${liveArea.toFixed(1)} sq ft`
+          const perimLabel = `~${fmtFtIn(livePerimFt)} perim.`
+          const longestLabel = areaLabel.length > perimLabel.length ? areaLabel : perimLabel
+          const lw = (longestLabel.length * 7 + 10) / zoom
+          const lh = 32 / zoom
           const ox = 12 / zoom
-          const oy = -12 / zoom
+          const oy = -18 / zoom
           return (
             <>
               <rect x={mp.x + ox} y={mp.y + oy - lh / 2} width={lw} height={lh} rx={3 / zoom} fill="rgba(0,0,0,0.8)" />
-              <text x={mp.x + ox + lw / 2} y={mp.y + oy} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{label}</text>
+              <text x={mp.x + ox + lw / 2} y={mp.y + oy - 6 / zoom} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{areaLabel}</text>
+              <text x={mp.x + ox + lw / 2} y={mp.y + oy + 8 / zoom} fill="#d1d5db" fontSize={10 / zoom} fontWeight="600" textAnchor="middle" dominantBaseline="middle">{perimLabel}</text>
             </>
           )
         })()}

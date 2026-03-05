@@ -19,6 +19,7 @@ export interface Measurement {
   type: MeasurementType
   points: Point[]
   valueInFeet: number
+  perimeterFt: number
   label: string
   pageKey: string
 }
