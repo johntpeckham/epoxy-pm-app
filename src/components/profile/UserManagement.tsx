@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon, UserPlusIcon } from 'lucide-react'
+import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon, UserPlusIcon, ShieldIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { UserRole } from '@/types'
 
@@ -18,6 +19,7 @@ interface UserRow {
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'admin', label: 'Admin' },
   { value: 'salesman', label: 'Salesman' },
+  { value: 'office_manager', label: 'Office Manager' },
   { value: 'foreman', label: 'Foreman' },
   { value: 'crew', label: 'Crew' },
 ]
@@ -25,11 +27,13 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
 const ROLE_BADGE_COLORS: Record<UserRole, string> = {
   admin: 'bg-red-100 text-red-700',
   salesman: 'bg-blue-100 text-blue-700',
+  office_manager: 'bg-purple-100 text-purple-700',
   foreman: 'bg-amber-100 text-amber-700',
   crew: 'bg-gray-100 text-gray-600',
 }
 
 export default function UserManagement({ currentUserId }: { currentUserId: string }) {
+  const router = useRouter()
   const supabase = createClient()
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -278,7 +282,14 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
     <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
       <div className="flex items-center gap-2 mb-4">
         <UsersIcon className="w-5 h-5 text-gray-400" />
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">User Management</h2>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">User Management</h2>
+        <button
+          onClick={() => router.push('/permissions')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
+        >
+          <ShieldIcon className="w-3.5 h-3.5" />
+          Permissions
+        </button>
       </div>
       <p className="text-xs text-gray-400 mb-5">Manage user roles and add new team members.</p>
 

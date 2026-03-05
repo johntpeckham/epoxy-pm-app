@@ -232,7 +232,7 @@ export interface FeedPost {
   author_avatar_url?: string
 }
 
-export type UserRole = 'admin' | 'salesman' | 'foreman' | 'crew'
+export type UserRole = 'admin' | 'salesman' | 'office_manager' | 'foreman' | 'crew'
 
 export interface Profile {
   id: string
