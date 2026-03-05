@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { ReceiptContent, DynamicFieldEntry } from '@/types'
+import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 
 /** Fetch an image URL and return a base64 data URL, format, and natural dimensions. */
 async function loadImage(url: string): Promise<{
@@ -126,6 +127,10 @@ export async function generateReceiptPdf(
   doc.line(M, y, M + CW, y)
   y += 4
 
+  // Group dynamic fields by section for inline rendering
+  const sectionGroups = groupDynamicFieldsBySection(dynamicFields)
+  const HANDLED_SECTIONS = ['Receipt Photo', 'Receipt Details']
+
   // ─── RECEIPT DETAILS ──────────────────────────────────────────────────
   sectionTitle('EXPENSE DETAILS')
 
@@ -143,15 +148,22 @@ export async function generateReceiptPdf(
   fieldRow('Total Amount', `$${content.total_amount.toFixed(2)}`)
   fieldRow('Category', content.category || '—')
 
-  // ─── ADDITIONAL FIELDS ──────────────────────────────────────────────────
-  if (dynamicFields && dynamicFields.length > 0) {
-    const filled = dynamicFields.filter((f) => f.value)
-    if (filled.length > 0) {
-      sectionTitle('ADDITIONAL DETAILS')
-      for (const f of filled) {
-        fieldRow(f.label, f.value)
-      }
+  // Receipt Details section dynamic fields
+  for (const f of sectionGroups.get('Receipt Details') ?? []) {
+    fieldRow(f.label, f.value)
+  }
+
+  // Custom sections not in the hardcoded form
+  for (const [section, fields] of sectionGroups.entries()) {
+    if (HANDLED_SECTIONS.includes(section) || section === '') continue
+    sectionTitle(section.toUpperCase())
+    for (const f of fields) {
+      fieldRow(f.label, f.value)
     }
+  }
+  // Legacy dynamic fields without a section
+  for (const f of sectionGroups.get('') ?? []) {
+    fieldRow(f.label, f.value)
   }
 
   // ─── RECEIPT PHOTO ────────────────────────────────────────────────────

@@ -203,6 +203,18 @@ export function buildDynamicFields(
   const knownKeys = getKnownContentKeys(formKey)
   const entries: DynamicFieldEntry[] = []
 
+  // Build a sorted list of section headers so we can determine which section
+  // each field belongs to (the section_header with the highest order < field.order)
+  const sortedFields = [...fields].sort((a, b) => a.order - b.order)
+  let currentSection = ''
+  const sectionByOrder = new Map<number, string>()
+  for (const f of sortedFields) {
+    if (f.type === 'section_header') {
+      currentSection = f.label
+    }
+    sectionByOrder.set(f.order, currentSection)
+  }
+
   for (const field of fields) {
     if (field.type === 'section_header' || field.type === 'signature') continue
     const contentKey = getContentKey(formKey, field)
@@ -216,8 +228,29 @@ export function buildDynamicFields(
       value: value.trim(),
       type: field.type,
       order: field.order,
+      section: sectionByOrder.get(field.order) || '',
     })
   }
 
   return entries.sort((a, b) => a.order - b.order)
+}
+
+/**
+ * Group dynamic fields by their section label.
+ * Returns a Map of section label → fields in that section.
+ * Fields without a section are grouped under ''.
+ */
+export function groupDynamicFieldsBySection(
+  dynamicFields?: DynamicFieldEntry[]
+): Map<string, DynamicFieldEntry[]> {
+  const map = new Map<string, DynamicFieldEntry[]>()
+  if (!dynamicFields) return map
+  for (const f of dynamicFields) {
+    if (!f.value) continue
+    const section = f.section ?? ''
+    const arr = map.get(section) ?? []
+    arr.push(f)
+    map.set(section, arr)
+  }
+  return map
 }
