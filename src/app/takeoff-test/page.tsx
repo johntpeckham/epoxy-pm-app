@@ -50,6 +50,9 @@ export default function TakeoffTestPage() {
   // RAF for batching pan updates
   const rafRef = useRef<number | null>(null)
 
+  // DPR ref for clampPan access
+  const dprRef = useRef(1)
+
   // Touch pinch start values
   const startDistRef = useRef(0)
   const startZoomRef = useRef(1)
@@ -63,6 +66,30 @@ export default function TakeoffTestPage() {
 
   // Canvas dimensions (set once on PDF load for SVG sizing)
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
+
+  // ─── Clamp pan so at least 100px of PDF stays visible ───
+  const clampPan = (x: number, y: number, currentZoom: number) => {
+    const container = containerRef.current
+    const canvas = canvasRef.current
+    if (!container || !canvas) return { x, y }
+
+    const containerW = container.clientWidth
+    const containerH = container.clientHeight
+    const scaledW = (canvas.width / dprRef.current) * currentZoom
+    const scaledH = (canvas.height / dprRef.current) * currentZoom
+
+    const margin = 100
+
+    const minX = -(scaledW - margin)
+    const maxX = containerW - margin
+    const minY = -(scaledH - margin)
+    const maxY = containerH - margin
+
+    return {
+      x: Math.min(Math.max(x, minX), maxX),
+      y: Math.min(Math.max(y, minY), maxY),
+    }
+  }
 
   // ─── Wheel zoom + touch pinch + touch pan — native events ───
   useEffect(() => {
@@ -79,20 +106,24 @@ export default function TakeoffTestPage() {
         const newZoom = Math.min(Math.max(zoomRef.current * zoomFactor, 0.3), 5)
 
         // Adjust pan so the point under cursor stays fixed
-        const newPanX = mouseX - (mouseX - panXRef.current) * (newZoom / zoomRef.current)
-        const newPanY = mouseY - (mouseY - panYRef.current) * (newZoom / zoomRef.current)
+        const rawPanX = mouseX - (mouseX - panXRef.current) * (newZoom / zoomRef.current)
+        const rawPanY = mouseY - (mouseY - panYRef.current) * (newZoom / zoomRef.current)
+        const clamped = clampPan(rawPanX, rawPanY, newZoom)
 
         zoomRef.current = newZoom
-        panXRef.current = newPanX
-        panYRef.current = newPanY
+        panXRef.current = clamped.x
+        panYRef.current = clamped.y
         setZoom(newZoom)
-        setPanX(newPanX)
-        setPanY(newPanY)
+        setPanX(clamped.x)
+        setPanY(clamped.y)
         setZoomWorking(true)
       } else {
         // Two-finger scroll = pan — batch with rAF for smoothness
-        panXRef.current -= e.deltaX
-        panYRef.current -= e.deltaY
+        const rawX = panXRef.current - e.deltaX
+        const rawY = panYRef.current - e.deltaY
+        const clamped = clampPan(rawX, rawY, zoomRef.current)
+        panXRef.current = clamped.x
+        panYRef.current = clamped.y
         if (rafRef.current === null) {
           rafRef.current = requestAnimationFrame(() => {
             setPanX(panXRef.current)
@@ -135,20 +166,24 @@ export default function TakeoffTestPage() {
         const newZoom = Math.min(Math.max(startZoomRef.current * (dist / startDistRef.current), 0.3), 5)
 
         // Adjust pan so the midpoint between fingers stays fixed
-        const newPanX = midX - (midX - startPanXRef.current) * (newZoom / startZoomRef.current)
-        const newPanY = midY - (midY - startPanYRef.current) * (newZoom / startZoomRef.current)
+        const rawPanX = midX - (midX - startPanXRef.current) * (newZoom / startZoomRef.current)
+        const rawPanY = midY - (midY - startPanYRef.current) * (newZoom / startZoomRef.current)
+        const clamped = clampPan(rawPanX, rawPanY, newZoom)
 
         zoomRef.current = newZoom
-        panXRef.current = newPanX
-        panYRef.current = newPanY
+        panXRef.current = clamped.x
+        panYRef.current = clamped.y
         setZoom(newZoom)
-        setPanX(newPanX)
-        setPanY(newPanY)
+        setPanX(clamped.x)
+        setPanY(clamped.y)
       } else if (e.touches.length === 1 && isDraggingRef.current) {
         const dx = e.touches[0].clientX - dragStartRef.current.x
         const dy = e.touches[0].clientY - dragStartRef.current.y
-        setPanX(panStartRef.current.x + dx)
-        setPanY(panStartRef.current.y + dy)
+        const clamped = clampPan(panStartRef.current.x + dx, panStartRef.current.y + dy, zoomRef.current)
+        panXRef.current = clamped.x
+        panYRef.current = clamped.y
+        setPanX(clamped.x)
+        setPanY(clamped.y)
       }
     }
 
@@ -184,8 +219,11 @@ export default function TakeoffTestPage() {
       if (!isDraggingRef.current) return
       const dx = e.clientX - dragStartRef.current.x
       const dy = e.clientY - dragStartRef.current.y
-      setPanX(panStartRef.current.x + dx)
-      setPanY(panStartRef.current.y + dy)
+      const clamped = clampPan(panStartRef.current.x + dx, panStartRef.current.y + dy, zoomRef.current)
+      panXRef.current = clamped.x
+      panYRef.current = clamped.y
+      setPanX(clamped.x)
+      setPanY(clamped.y)
     }
 
     const onMouseUp = () => {
@@ -225,6 +263,7 @@ export default function TakeoffTestPage() {
     const canvas = canvasRef.current
     if (!canvas) return
     const dpr = window.devicePixelRatio || 1
+    dprRef.current = dpr
     const viewport = pdfPage.getViewport({ scale: fitScale * dpr })
     canvas.width = viewport.width
     canvas.height = viewport.height
