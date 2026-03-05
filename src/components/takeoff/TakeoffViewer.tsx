@@ -547,6 +547,17 @@ export default function TakeoffViewer({
     const newItem: TakeoffItem = { id: genId(), name, type, measurements: [], color: getNextColor() }
     onItemsChange([...items, newItem])
     setActiveItemId(newItem.id)
+    setActiveTool(type === 'linear' ? 'linear' : 'area-rect')
+    setTempPoints([])
+  }
+
+  function handleSelectItem(id: string) {
+    setActiveItemId(id)
+    const item = items.find(i => i.id === id)
+    if (item) {
+      setActiveTool(item.type === 'linear' ? 'linear' : 'area-rect')
+      setTempPoints([])
+    }
   }
 
   function handleDeleteItem(id: string) {
@@ -824,7 +835,7 @@ export default function TakeoffViewer({
           <ArrowLeftIcon className="w-3.5 h-3.5" />
           Dashboard
         </button>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex items-center">
           <TakeoffToolbar
             activeTool={activeTool}
             onToolChange={handleToolChange}
@@ -840,6 +851,17 @@ export default function TakeoffViewer({
             onToggleFullscreen={onToggleFullscreen}
             hidePagination
           />
+          {activeItemId && activeTool !== 'pan' && activeTool !== 'set-scale' && (() => {
+            const item = items.find(i => i.id === activeItemId)
+            return item ? (
+              <div className="flex items-center gap-1.5 px-3 flex-shrink-0">
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                <span className="text-amber-400 text-[11px] font-medium whitespace-nowrap truncate max-w-[140px]">
+                  Measuring: {item.name}
+                </span>
+              </div>
+            ) : null
+          })()}
         </div>
       </div>
 
@@ -947,7 +969,7 @@ export default function TakeoffViewer({
         <TakeoffSidebar
           items={items}
           activeItemId={activeItemId}
-          onSelectItem={setActiveItemId}
+          onSelectItem={handleSelectItem}
           onAddItem={handleAddItem}
           onDeleteItem={handleDeleteItem}
           onRenameItem={handleRenameItem}

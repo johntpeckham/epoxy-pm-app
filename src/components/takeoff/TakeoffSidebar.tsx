@@ -138,8 +138,8 @@ export default function TakeoffSidebar({
               onClick={() => onSelectItem(item.id)}
               className={`cursor-pointer transition-colors border-b border-gray-800/60 ${
                 isActive
-                  ? 'bg-[#1a1a1a] border-l-2 border-l-amber-500'
-                  : 'bg-[#111] hover:bg-[#161616] border-l-2 border-l-transparent'
+                  ? 'bg-[#1a1a1a] border-l-4 border-l-amber-500'
+                  : 'bg-[#111] hover:bg-[#161616] border-l-4 border-l-transparent opacity-70 hover:opacity-100'
               }`}
             >
               {/* Top row: dot + name + badge + delete */}
@@ -180,6 +180,11 @@ export default function TakeoffSidebar({
                     }`}>
                       {item.type === 'linear' ? 'LINEAR' : 'AREA'}
                     </span>
+                    {isActive && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 bg-amber-500/20 text-amber-400">
+                        Measuring
+                      </span>
+                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id) }}
                       className="p-0.5 text-gray-700 hover:text-red-400 flex-shrink-0 transition-colors"
