@@ -226,6 +226,10 @@ export default function TakeoffDashboard({
     .filter((i) => i.type === 'area')
     .reduce((sum, i) => sum + i.measurements.reduce((s, m) => s + m.valueInFeet, 0), 0)
 
+  const totalPerimeter = items
+    .filter((i) => i.type === 'area')
+    .reduce((sum, i) => sum + i.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0), 0)
+
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -311,6 +315,7 @@ export default function TakeoffDashboard({
           <div>
             {items.map((item, idx) => {
               const itemTotal = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
+              const itemPerim = item.type === 'area' ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0) : 0
               const isLast = idx === items.length - 1
               return (
                 <div
@@ -335,6 +340,11 @@ export default function TakeoffDashboard({
                   <span className="text-sm font-bold text-gray-900 flex-shrink-0 w-28 text-right">
                     {item.type === 'linear' ? fmtFtIn(itemTotal) : fmtArea(itemTotal)}
                   </span>
+                  {item.type === 'area' && itemPerim > 0 && (
+                    <span className="text-xs text-gray-500 flex-shrink-0 w-24 text-right">
+                      {fmtFtIn(itemPerim)} perim.
+                    </span>
+                  )}
                 </div>
               )
             })}
@@ -355,7 +365,12 @@ export default function TakeoffDashboard({
                     <SquareIcon className="w-4 h-4 text-amber-500" />
                     <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
                   </div>
-                  <span className="text-sm font-bold text-amber-600">{fmtArea(totalArea)}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-amber-600">{fmtArea(totalArea)}</span>
+                    {totalPerimeter > 0 && (
+                      <span className="text-xs text-gray-500">{fmtFtIn(totalPerimeter)} perim.</span>
+                    )}
+                  </div>
                 </div>
               )}
               {totalLinear === 0 && totalArea === 0 && (
