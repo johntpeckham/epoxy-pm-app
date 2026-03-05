@@ -47,6 +47,12 @@ export default function TakeoffTestPage() {
   const dragStartRef = useRef({ x: 0, y: 0 })
   const panStartRef = useRef({ x: 0, y: 0 })
 
+  // Touch pinch start values
+  const startDistRef = useRef(0)
+  const startZoomRef = useRef(1)
+  const startPanXRef = useRef(0)
+  const startPanYRef = useRef(0)
+
   // Measurement state
   const [pointA, setPointA] = useState<Point | null>(null)
   const [pointB, setPointB] = useState<Point | null>(null)
@@ -60,15 +66,25 @@ export default function TakeoffTestPage() {
     const el = containerRef.current
     if (!el) return
 
-    let startDist = 0
-    let startZoom = 1
-
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey) {
         e.preventDefault()
+        const rect = el.getBoundingClientRect()
+        const mouseX = e.clientX - rect.left
+        const mouseY = e.clientY - rect.top
         const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05
         const newZoom = Math.min(Math.max(zoomRef.current * zoomFactor, 0.3), 5)
+
+        // Adjust pan so the point under cursor stays fixed
+        const newPanX = mouseX - (mouseX - panXRef.current) * (newZoom / zoomRef.current)
+        const newPanY = mouseY - (mouseY - panYRef.current) * (newZoom / zoomRef.current)
+
+        zoomRef.current = newZoom
+        panXRef.current = newPanX
+        panYRef.current = newPanY
         setZoom(newZoom)
+        setPanX(newPanX)
+        setPanY(newPanY)
         setZoomWorking(true)
       }
     }
@@ -76,11 +92,13 @@ export default function TakeoffTestPage() {
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         e.preventDefault()
-        startDist = Math.hypot(
+        startDistRef.current = Math.hypot(
           e.touches[1].clientX - e.touches[0].clientX,
           e.touches[1].clientY - e.touches[0].clientY
         )
-        startZoom = zoomRef.current
+        startZoomRef.current = zoomRef.current
+        startPanXRef.current = panXRef.current
+        startPanYRef.current = panYRef.current
         isDraggingRef.current = false
         setZoomWorking(true)
       } else if (e.touches.length === 1) {
@@ -93,12 +111,25 @@ export default function TakeoffTestPage() {
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         e.preventDefault()
+        const rect = el.getBoundingClientRect()
+        const midX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left
+        const midY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top
         const dist = Math.hypot(
           e.touches[1].clientX - e.touches[0].clientX,
           e.touches[1].clientY - e.touches[0].clientY
         )
-        const newZoom = Math.min(Math.max(startZoom * (dist / startDist), 0.3), 5)
+        const newZoom = Math.min(Math.max(startZoomRef.current * (dist / startDistRef.current), 0.3), 5)
+
+        // Adjust pan so the midpoint between fingers stays fixed
+        const newPanX = midX - (midX - startPanXRef.current) * (newZoom / startZoomRef.current)
+        const newPanY = midY - (midY - startPanYRef.current) * (newZoom / startZoomRef.current)
+
+        zoomRef.current = newZoom
+        panXRef.current = newPanX
+        panYRef.current = newPanY
         setZoom(newZoom)
+        setPanX(newPanX)
+        setPanY(newPanY)
       } else if (e.touches.length === 1 && isDraggingRef.current) {
         const dx = e.touches[0].clientX - dragStartRef.current.x
         const dy = e.touches[0].clientY - dragStartRef.current.y
@@ -310,7 +341,7 @@ export default function TakeoffTestPage() {
           onClick={pdfLoaded ? handleMeasureClick : undefined}
           style={{
             transformOrigin: '0 0',
-            transform: `scale(${zoom}) translate(${panX / zoom}px, ${panY / zoom}px)`,
+            transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
             cursor: pdfLoaded ? 'crosshair' : undefined,
             position: 'relative',
             display: 'inline-block',
