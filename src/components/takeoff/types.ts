@@ -4,7 +4,6 @@ export type ToolMode =
   | 'pan'
   | 'set-scale'
   | 'linear'
-  | 'area-rect'
   | 'area-polygon'
   | 'markup-rect'
   | 'markup-text'

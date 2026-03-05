@@ -4,7 +4,7 @@ import {
   MousePointer2Icon,
   RulerIcon,
   Minus,
-  SquareIcon,
+
   PentagonIcon,
   SquareDashedIcon,
   TypeIcon,
@@ -38,8 +38,7 @@ interface TakeoffToolbarProps {
 const tools: { mode: ToolMode; label: string; icon: React.ReactNode; group: string }[] = [
   { mode: 'pan', label: 'Pan', icon: <MousePointer2Icon className="w-3.5 h-3.5" />, group: 'nav' },
   { mode: 'linear', label: 'Linear', icon: <Minus className="w-3.5 h-3.5" />, group: 'measure' },
-  { mode: 'area-rect', label: 'Area Rect', icon: <SquareIcon className="w-3.5 h-3.5" />, group: 'measure' },
-  { mode: 'area-polygon', label: 'Area Poly', icon: <PentagonIcon className="w-3.5 h-3.5" />, group: 'measure' },
+  { mode: 'area-polygon', label: 'Area', icon: <PentagonIcon className="w-3.5 h-3.5" />, group: 'measure' },
   { mode: 'markup-rect', label: 'Markup Rect', icon: <SquareDashedIcon className="w-3.5 h-3.5" />, group: 'markup' },
   { mode: 'markup-text', label: 'Text', icon: <TypeIcon className="w-3.5 h-3.5" />, group: 'markup' },
   { mode: 'markup-arrow', label: 'Arrow', icon: <ArrowRightIcon className="w-3.5 h-3.5" />, group: 'markup' },

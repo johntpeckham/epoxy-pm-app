@@ -418,6 +418,17 @@ export default function TakeoffViewer({
     setTempPoints([])
   }
 
+  // ─── Complete area polygon ───
+  const completeAreaRef = useRef<() => void>(() => {})
+  completeAreaRef.current = () => {
+    if (activeTool !== 'area-polygon' || tempPoints.length < 3) return
+    const ppf = pageScale
+    if (!ppf || !activeItemId) return
+    const area = polyArea(tempPoints) / (ppf * ppf)
+    addMeasurement({ id: genId(), type: 'area', points: [...tempPoints], valueInFeet: area, label: `${area.toFixed(1)} sq ft`, pageKey })
+    setTempPoints([])
+  }
+
   // ─── Keyboard ───
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -431,6 +442,7 @@ export default function TakeoffViewer({
       }
       if (e.key === 'Enter') {
         completeLinearRef.current()
+        completeAreaRef.current()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -456,7 +468,7 @@ export default function TakeoffViewer({
       setTimeout(() => setWarning(null), 3000)
       return false
     }
-    if ((activeTool === 'area-rect' || activeTool === 'area-polygon') && item.type !== 'area') {
+    if (activeTool === 'area-polygon' && item.type !== 'area') {
       setWarning('Active item is linear type. Select an area item.')
       setTimeout(() => setWarning(null), 3000)
       return false
@@ -470,8 +482,7 @@ export default function TakeoffViewer({
     if (activeTool === 'pan') return // pan handled by native mouse handler
     e.stopPropagation()
     const pt = clientToPdf(e.clientX, e.clientY)
-    if (activeTool === 'area-rect' || activeTool === 'markup-rect' || activeTool === 'markup-arrow') {
-      if (activeTool === 'area-rect' && !checkPrereqs()) return
+    if (activeTool === 'markup-rect' || activeTool === 'markup-arrow') {
       setSvgDragStart(pt)
       setIsSvgDragging(true)
     }
@@ -487,14 +498,7 @@ export default function TakeoffViewer({
     const pt = clientToPdf(e.clientX, e.clientY)
     if (isSvgDragging && svgDragStart) {
       setIsSvgDragging(false)
-      const dx = Math.abs(pt.x - svgDragStart.x)
-      const dy = Math.abs(pt.y - svgDragStart.y)
-      if (activeTool === 'area-rect') {
-        const ppf = pageScale!
-        const area = (dx / ppf) * (dy / ppf)
-        if (area < 0.01) { setSvgDragStart(null); return }
-        addMeasurement({ id: genId(), type: 'area', points: [svgDragStart, pt], valueInFeet: area, label: `${area.toFixed(1)} sq ft`, pageKey })
-      } else if (activeTool === 'markup-rect') {
+      if (activeTool === 'markup-rect') {
         onMarkupsChange([...markups, { id: genId(), type: 'rect', points: [svgDragStart, pt], color: '#f59e0b', pageKey }])
       } else if (activeTool === 'markup-arrow') {
         onMarkupsChange([...markups, { id: genId(), type: 'arrow', points: [svgDragStart, pt], color: '#f59e0b', pageKey }])
@@ -505,7 +509,7 @@ export default function TakeoffViewer({
 
   function handleSvgClick(e: React.MouseEvent) {
     if (activeTool === 'pan') return
-    if (activeTool === 'area-rect' || activeTool === 'markup-rect' || activeTool === 'markup-arrow') return
+    if (activeTool === 'markup-rect' || activeTool === 'markup-arrow') return
     e.stopPropagation()
     const pt = clientToPdf(e.clientX, e.clientY)
 
@@ -523,6 +527,14 @@ export default function TakeoffViewer({
     }
     if (activeTool === 'area-polygon') {
       if (!checkPrereqs()) return
+      // Snap to first point — close polygon if clicking within 10 screen px
+      if (tempPoints.length >= 3) {
+        const screenDist = ptDist(pt, tempPoints[0]) * zoomRef.current
+        if (screenDist < 10) {
+          completeAreaRef.current()
+          return
+        }
+      }
       setTempPoints(p => [...p, pt])
       return
     }
@@ -538,10 +550,7 @@ export default function TakeoffViewer({
       return
     }
     if (activeTool === 'area-polygon' && tempPoints.length >= 3) {
-      const ppf = pageScale!
-      const area = polyArea(tempPoints) / (ppf * ppf)
-      addMeasurement({ id: genId(), type: 'area', points: [...tempPoints], valueInFeet: area, label: `${area.toFixed(1)} sq ft`, pageKey })
-      setTempPoints([])
+      completeAreaRef.current()
     }
   }
 
@@ -567,7 +576,7 @@ export default function TakeoffViewer({
     const newItem: TakeoffItem = { id: genId(), name, type, measurements: [], color: getNextColor() }
     onItemsChange([...items, newItem])
     setActiveItemId(newItem.id)
-    setActiveTool(type === 'linear' ? 'linear' : 'area-rect')
+    setActiveTool(type === 'linear' ? 'linear' : 'area-polygon')
     setTempPoints([])
   }
 
@@ -575,7 +584,7 @@ export default function TakeoffViewer({
     setActiveItemId(id)
     const item = items.find(i => i.id === id)
     if (item) {
-      setActiveTool(item.type === 'linear' ? 'linear' : 'area-rect')
+      setActiveTool(item.type === 'linear' ? 'linear' : 'area-polygon')
       setTempPoints([])
     }
   }
@@ -705,7 +714,7 @@ export default function TakeoffViewer({
         const labelH = 18 / zoom
         svgElements.push(
           <g key={m.id} opacity={isActive ? 1 : 0.6}>
-            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '33'} stroke={item.color} strokeWidth={sw} />
+            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '26'} stroke={item.color} strokeWidth={sw} />
             {m.label && (
               <>
                 <rect x={center.x - labelW / 2} y={center.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
@@ -715,6 +724,7 @@ export default function TakeoffViewer({
           </g>
         )
       } else if (m.type === 'area' && m.points.length === 2) {
+        // Legacy: 2-point rect area from old drag tool
         const [a, b] = m.points.map(toSvg)
         const pts = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }]
         const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
@@ -722,7 +732,7 @@ export default function TakeoffViewer({
         const labelH = 18 / zoom
         svgElements.push(
           <g key={m.id} opacity={isActive ? 1 : 0.6}>
-            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '33'} stroke={item.color} strokeWidth={sw} />
+            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '26'} stroke={item.color} strokeWidth={sw} />
             {m.label && (
               <>
                 <rect x={center.x - labelW / 2} y={center.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
@@ -838,36 +848,66 @@ export default function TakeoffViewer({
     )
   }
 
-  // In-progress: polygon
+  // In-progress: area polygon
   if (activeTool === 'area-polygon' && tempPoints.length >= 1) {
     const activeItem = items.find(i => i.id === activeItemId)
     const color = activeItem?.color || '#3b82f6'
     const pts = tempPoints.map(toSvg)
     const mp = mousePos ? toSvg(mousePos) : null
+    // Preview polygon fill (with cursor as temporary closing point)
+    const previewPts = [...pts, ...(mp ? [mp] : [])]
+    // Running area estimate
+    const ppf = pageScale || 1
+    const liveArea = previewPts.length >= 3 ? polyArea(previewPts) / (ppf * ppf) : 0
     svgElements.push(
       <g key="polygon-progress">
-        <polyline
-          points={[...pts, ...(mp ? [mp] : [])].map(p => `${p.x},${p.y}`).join(' ')}
-          fill="none" stroke={color} strokeWidth={sw}
-        />
-        {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={cr} fill={color} />)}
+        {/* Faint fill preview */}
+        {previewPts.length >= 3 && (
+          <polygon points={previewPts.map(p => `${p.x},${p.y}`).join(' ')} fill={color + '15'} stroke="none" />
+        )}
+        {/* Placed segments — solid */}
+        {pts.length >= 2 && (
+          <polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={color} strokeWidth={sw} />
+        )}
+        {/* Live preview segment (last point to cursor) — dashed, 60% */}
+        {mp && pts.length > 0 && (
+          <line x1={pts[pts.length - 1].x} y1={pts[pts.length - 1].y} x2={mp.x} y2={mp.y}
+            stroke={color} strokeWidth={sw} opacity={0.6} strokeDasharray={`${5 / zoom} ${3 / zoom}`} />
+        )}
+        {/* Closing preview line (cursor back to first point) — dashed, 30% */}
+        {mp && pts.length >= 2 && (
+          <line x1={mp.x} y1={mp.y} x2={pts[0].x} y2={pts[0].y}
+            stroke={color} strokeWidth={sw} opacity={0.3} strokeDasharray={`${5 / zoom} ${3 / zoom}`} />
+        )}
+        {/* Point dots — first point larger */}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={i === 0 ? (6 / zoom) : cr} fill={color}
+            stroke={i === 0 ? 'white' : 'none'} strokeWidth={i === 0 ? sw : 0} />
+        ))}
+        {mp && <circle cx={mp.x} cy={mp.y} r={cr} fill={color} opacity={0.6} />}
+        {/* Running area estimate near cursor */}
+        {mp && scaleCalibrated && liveArea > 0 && (() => {
+          const label = `~${liveArea.toFixed(1)} sq ft`
+          const lw = (label.length * 7 + 10) / zoom
+          const lh = 18 / zoom
+          const ox = 12 / zoom
+          const oy = -12 / zoom
+          return (
+            <>
+              <rect x={mp.x + ox} y={mp.y + oy - lh / 2} width={lw} height={lh} rx={3 / zoom} fill="rgba(0,0,0,0.8)" />
+              <text x={mp.x + ox + lw / 2} y={mp.y + oy} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{label}</text>
+            </>
+          )
+        })()}
       </g>
     )
   }
 
-  // Drag previews
+  // Drag previews (markups only)
   if (isSvgDragging && svgDragStart && mousePos) {
-    const activeItem = items.find(i => i.id === activeItemId)
-    const color = activeItem?.color || '#3b82f6'
     const a = toSvg(svgDragStart)
     const b = toSvg(mousePos)
-    if (activeTool === 'area-rect') {
-      svgElements.push(
-        <rect key="drag-area" x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)}
-          width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)}
-          fill={color + '33'} stroke={color} strokeWidth={sw} />
-      )
-    } else if (activeTool === 'markup-rect') {
+    if (activeTool === 'markup-rect') {
       svgElements.push(
         <rect key="drag-markup-rect" x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)}
           width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)}
