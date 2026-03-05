@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { XIcon, Loader2Icon, PrinterIcon, FileDownIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { ProjectReportData } from '@/types'
+import { ProjectReportData, FormField } from '@/types'
 import type { UserRole } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { useFormTemplate } from '@/lib/useFormTemplate'
+import { getContentKey, getKnownContentKeys } from '@/lib/formFieldMaps'
 import Portal from '@/components/ui/Portal'
 
 interface ProjectReportModalProps {
@@ -81,117 +83,8 @@ const emptyReport: ProjectReportData = {
   prep_notes: '',
 }
 
-interface FieldDef {
-  key: keyof ProjectReportData
-  label: string
-  type?: 'input' | 'textarea'
-}
-
-interface SectionDef {
-  title: string
-  fields: FieldDef[]
-}
-
-const sections: SectionDef[] = [
-  {
-    title: 'Project Details',
-    fields: [
-      { key: 'project_name', label: 'Project Name' },
-      { key: 'estimate_number', label: 'Estimate Number' },
-      { key: 'address', label: 'Address' },
-      { key: 'client_name', label: 'Client Name' },
-      { key: 'client_email', label: 'Client Email' },
-      { key: 'client_phone', label: 'Client Phone Number' },
-      { key: 'site_contact', label: 'Site Contact' },
-      { key: 'prevailing_wage', label: 'Prevailing Wage?' },
-      { key: 'bonding_insurance', label: 'Bonding / Insurance Requirements' },
-      { key: 'bid_date', label: 'Bid Date' },
-      { key: 'bid_platform', label: 'Bid Platform' },
-      { key: 'project_details_notes', label: 'Additional Notes', type: 'textarea' },
-    ],
-  },
-  {
-    title: 'Project Durations',
-    fields: [
-      { key: 'start_date', label: 'Start Date' },
-      { key: 'finish_date', label: 'Finish Date' },
-      { key: 'num_mobilizations', label: 'Number of Mobilizations' },
-      { key: 'working_hours', label: 'Working Hours (e.g. 9-5 / 24hr / Split Shift)' },
-      { key: 'durations_notes', label: 'Additional Notes', type: 'textarea' },
-    ],
-  },
-  {
-    title: 'Scope Of Work',
-    fields: [
-      { key: 'scope_description', label: 'What are we doing?', type: 'textarea' },
-      { key: 'num_rooms_sections', label: 'Number of rooms / sections' },
-      { key: 'square_footages', label: 'Square footages' },
-      { key: 'linear_footage', label: 'Linear footage (cove or curbs)' },
-      { key: 'cove_curb_height', label: 'Cove curb height measurement' },
-      { key: 'room_numbers_names', label: 'Room Numbers / Names' },
-      { key: 'open_areas_machines', label: 'Open Areas / Machines' },
-      { key: 'scope_notes', label: 'Additional Notes', type: 'textarea' },
-    ],
-  },
-  {
-    title: 'Site Information',
-    fields: [
-      { key: 'power_supplied', label: 'Power Supplied?' },
-      { key: 'lighting_requirements', label: 'Lighting Requirements' },
-      { key: 'heating_cooling_requirements', label: 'Heating Cooling Requirements' },
-      { key: 'rental_requirements', label: 'Rental Requirements' },
-      { key: 'rental_location', label: 'Rental Location' },
-      { key: 'rental_duration', label: 'Rental Duration' },
-      { key: 'site_notes', label: 'Additional Notes', type: 'textarea' },
-    ],
-  },
-  {
-    title: 'Travel Information',
-    fields: [
-      { key: 'hotel_name', label: 'Hotel Name' },
-      { key: 'hotel_location', label: 'Hotel Location' },
-      { key: 'reservation_number', label: 'Reservation Number' },
-      { key: 'reservation_contact', label: 'Reservation Contact' },
-      { key: 'credit_card_auth', label: 'Credit Card Authorization' },
-      { key: 'drive_time', label: 'Drive Time' },
-      { key: 'per_diem', label: 'Per Diem' },
-      { key: 'vehicles', label: 'Vehicles' },
-      { key: 'trailers', label: 'Trailers' },
-      { key: 'travel_notes', label: 'Additional Notes', type: 'textarea' },
-    ],
-  },
-  {
-    title: 'Material System',
-    fields: [
-      { key: 'material_system_1', label: 'Material System 1' },
-      { key: 'material_system_2', label: 'Material System 2' },
-      { key: 'material_system_3', label: 'Material System 3' },
-    ],
-  },
-  {
-    title: 'Material Quantities',
-    fields: [
-      { key: 'material_quantities_1', label: 'Material Quantities 1' },
-      { key: 'material_quantities_2', label: 'Material Quantities 2' },
-      { key: 'material_quantities_3', label: 'Material Quantities 3' },
-    ],
-  },
-  {
-    title: 'Prep',
-    fields: [
-      { key: 'prep_method', label: 'Method (Grinder / Sandblast / Scarify)' },
-      { key: 'prep_removal', label: 'Removal (Full Removal / New Concrete)' },
-      { key: 'patching_materials', label: 'Patching Materials' },
-      { key: 'joint_requirements', label: 'Joint Requirements (Pre-fill / Cut / Polyurea)' },
-      { key: 'sloping_requirements', label: 'Sloping Requirements' },
-      { key: 'backfill_patching', label: 'Backfill / Excessive Patching' },
-      { key: 'wet_area', label: 'Wet Area' },
-      { key: 'climate_concerns', label: 'Climate Concerns' },
-      { key: 'cooling_heating_constraints', label: 'Cooling Heating Constraints' },
-      { key: 'prep_notes', label: 'Additional Notes', type: 'textarea' },
-    ],
-  },
-]
+const FORM_KEY = 'project_report'
+const KNOWN_KEYS = getKnownContentKeys(FORM_KEY)
 
 export default function ProjectReportModal({
   projectId,
@@ -205,7 +98,9 @@ export default function ProjectReportModal({
 }: ProjectReportModalProps) {
   const readOnly = userRole === 'foreman'
   const { settings: companySettings } = useCompanySettings()
+  const { fields: templateFields, loading: templateLoading } = useFormTemplate(FORM_KEY)
   const [formData, setFormData] = useState<ProjectReportData>(emptyReport)
+  const [customValues, setCustomValues] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
@@ -231,7 +126,16 @@ export default function ProjectReportModal({
     if (fetchError) {
       setError(fetchError.message)
     } else if (data) {
-      setFormData({ ...emptyReport, ...(data.data as ProjectReportData) })
+      const savedData = data.data as Record<string, string>
+      setFormData({ ...emptyReport, ...(savedData as unknown as ProjectReportData) })
+      // Load custom field values (keys not in the known set)
+      const custom: Record<string, string> = {}
+      for (const [key, val] of Object.entries(savedData)) {
+        if (!KNOWN_KEYS.has(key) && typeof val === 'string') {
+          custom[key] = val
+        }
+      }
+      setCustomValues(custom)
     } else {
       setFormData({ ...emptyReport, ...projectDefaults })
     }
@@ -243,8 +147,12 @@ export default function ProjectReportModal({
     loadReport()
   }, [loadReport])
 
-  function handleChange(key: keyof ProjectReportData, value: string) {
-    setFormData((prev) => ({ ...prev, [key]: value }))
+  function handleChange(key: string, value: string) {
+    if (key in emptyReport) {
+      setFormData((prev) => ({ ...prev, [key]: value }))
+    } else {
+      setCustomValues((prev) => ({ ...prev, [key]: value }))
+    }
   }
 
   async function handleSave() {
@@ -253,13 +161,21 @@ export default function ProjectReportModal({
     setSavedMsg(false)
 
     const supabase = createClient()
+    // Merge known fields with custom field values
+    const mergedData: Record<string, string> = { ...formData }
+    for (const [key, val] of Object.entries(customValues)) {
+      if (typeof val === 'string' && val.trim()) {
+        mergedData[key] = val.trim()
+      }
+    }
+
     const { error: upsertError } = await supabase
       .from('project_reports')
       .upsert(
         {
           project_id: projectId,
           user_id: userId,
-          data: formData,
+          data: mergedData,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'project_id' }
@@ -353,6 +269,68 @@ export default function ProjectReportModal({
     setGeneratingPdf(false)
   }
 
+  function getFieldValue(contentKey: string): string {
+    if (contentKey in emptyReport) {
+      return formData[contentKey as keyof ProjectReportData] ?? ''
+    }
+    return customValues[contentKey] ?? ''
+  }
+
+  function renderField(field: FormField) {
+    if (field.type === 'section_header') {
+      return (
+        <div key={field.id}>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
+            {field.label}
+          </h3>
+        </div>
+      )
+    }
+
+    const contentKey = getContentKey(FORM_KEY, field)
+    const value = getFieldValue(contentKey)
+    const isTextarea = field.type === 'long_text'
+
+    return (
+      <div
+        key={field.id}
+        className="flex flex-col gap-1 lg:grid lg:grid-cols-[180px_1fr] lg:gap-3 lg:items-start"
+      >
+        <label className="text-xs font-medium text-gray-600 lg:pt-2 lg:text-right">
+          {field.label}
+          {field.required && <span className="text-red-400"> *</span>}
+        </label>
+        <div className="relative">
+          {isTextarea ? (
+            <textarea
+              value={value}
+              onChange={(e) => handleChange(contentKey, e.target.value)}
+              rows={3}
+              readOnly={readOnly}
+              placeholder={field.placeholder || ''}
+              className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none resize-vertical ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
+            />
+          ) : (
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => handleChange(contentKey, e.target.value)}
+              readOnly={readOnly}
+              placeholder={field.placeholder || ''}
+              className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
+            />
+          )}
+          <div
+            data-print-value
+            className="hidden text-sm text-gray-900 py-2 whitespace-pre-wrap"
+          >
+            {value || '\u00A0'}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Portal>
     <div data-report-print className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={onClose}>
@@ -395,50 +373,14 @@ export default function ProjectReportModal({
                   />
                 )}
               </div>
-              {sections.map((section) => (
-                <div key={section.title}>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
-                    {section.title}
-                  </h3>
-                  <div className="space-y-2">
-                    {section.fields.map((field) => (
-                      <div
-                        key={field.key}
-                        className="flex flex-col gap-1 lg:grid lg:grid-cols-[180px_1fr] lg:gap-3 lg:items-start"
-                      >
-                        <label className="text-xs font-medium text-gray-600 lg:pt-2 lg:text-right">
-                          {field.label}
-                        </label>
-                        <div className="relative">
-                          {field.type === 'textarea' ? (
-                            <textarea
-                              value={formData[field.key]}
-                              onChange={(e) => handleChange(field.key, e.target.value)}
-                              rows={3}
-                              readOnly={readOnly}
-                              className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none resize-vertical ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
-                            />
-                          ) : (
-                            <input
-                              type="text"
-                              value={formData[field.key]}
-                              onChange={(e) => handleChange(field.key, e.target.value)}
-                              readOnly={readOnly}
-                              className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
-                            />
-                          )}
-                          <div
-                            data-print-value
-                            className="hidden text-sm text-gray-900 py-2 whitespace-pre-wrap"
-                          >
-                            {formData[field.key] || '\u00A0'}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              {templateLoading && (
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <Loader2Icon className="w-4 h-4 animate-spin" />
+                  Loading form template...
                 </div>
-              ))}
+              )}
+
+              {templateFields.map((field) => renderField(field))}
             </div>
           )}
         </div>

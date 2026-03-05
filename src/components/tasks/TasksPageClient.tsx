@@ -14,10 +14,14 @@ import {
   SearchIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  LoaderIcon,
 } from 'lucide-react'
-import { Task, TaskStatus, Profile, Project } from '@/types'
+import { Task, TaskStatus, Profile, Project, FormField } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
+import { useFormTemplate } from '@/lib/useFormTemplate'
+import { getContentKey } from '@/lib/formFieldMaps'
+import DynamicFormField from '@/components/ui/DynamicFormField'
 import Portal from '@/components/ui/Portal'
 
 interface TaskWithProject extends Task {
@@ -173,6 +177,9 @@ export default function TasksPageClient({
   const supabase = createClient()
   const { role } = useUserRole()
   const { canCreate } = usePermissions(role)
+  const { fields: taskTemplateFields, loading: taskTemplateLoading } = useFormTemplate('task')
+
+  const TASK_FORM_KEY = 'task'
   const [selectedTask, setSelectedTask] = useState<TaskWithProject | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -282,6 +289,127 @@ export default function TasksPageClient({
     setNewPhotoFile(file)
     setNewPhotoPreview(URL.createObjectURL(file))
     e.target.value = ''
+  }
+
+  function isAssignToField(field: FormField): boolean {
+    return field.id === 'tsk-03' || field.label === 'Assign To'
+  }
+
+  function isStatusField(field: FormField): boolean {
+    return field.id === 'tsk-05' || field.label === 'Status'
+  }
+
+  function renderCreateField(field: FormField) {
+    if (field.type === 'section_header') {
+      return (
+        <div key={field.id}>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{field.label}</p>
+        </div>
+      )
+    }
+
+    const contentKey = getContentKey(TASK_FORM_KEY, field)
+
+    // Title
+    if (contentKey === 'title') {
+      return (
+        <div key={field.id}>
+          <label className={labelCls}>{field.label}{field.required && ' *'}</label>
+          <input
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder={field.placeholder || 'Task title...'}
+            className={inputCls}
+          />
+        </div>
+      )
+    }
+
+    // Description
+    if (contentKey === 'description') {
+      return (
+        <div key={field.id}>
+          <label className={labelCls}>{field.label}</label>
+          <textarea
+            rows={3}
+            value={newDescription}
+            onChange={(e) => setNewDescription(e.target.value)}
+            placeholder={field.placeholder || 'Task details...'}
+            className={textareaCls}
+          />
+        </div>
+      )
+    }
+
+    // Assign To - special profile dropdown
+    if (isAssignToField(field)) {
+      return (
+        <div key={field.id}>
+          <label className={labelCls}>{field.label}</label>
+          <select
+            value={newAssignedTo}
+            onChange={(e) => setNewAssignedTo(e.target.value)}
+            className={inputCls}
+          >
+            <option value="">Unassigned</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.display_name || p.id.slice(0, 8)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )
+    }
+
+    // Due Date
+    if (contentKey === 'due_date') {
+      return (
+        <div key={field.id}>
+          <label className={labelCls}>{field.label}</label>
+          <input
+            type="date"
+            value={newDueDate}
+            onChange={(e) => setNewDueDate(e.target.value)}
+            className={inputCls}
+          />
+        </div>
+      )
+    }
+
+    // Status - special button-style selector
+    if (isStatusField(field)) {
+      return (
+        <div key={field.id}>
+          <label className={labelCls}>{field.label}</label>
+          <div className="flex gap-2">
+            {STATUS_BUTTONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setNewStatus(opt.value)}
+                className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition ${
+                  newStatus === opt.value ? opt.activeColor : opt.inactiveColor
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Any custom fields added via template manager - use DynamicFormField
+    return (
+      <DynamicFormField
+        key={field.id}
+        field={field}
+        value=""
+        onChange={() => {}}
+      />
+    )
   }
 
   async function handleCreateTask() {
@@ -587,6 +715,13 @@ export default function TasksPageClient({
                 </div>
               )}
 
+              {taskTemplateLoading && (
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <LoaderIcon className="w-3 h-3 animate-spin" />
+                  Loading form template...
+                </div>
+              )}
+
               {/* Project */}
               <div>
                 <label className={labelCls}>Project *</label>
@@ -602,78 +737,8 @@ export default function TasksPageClient({
                 </select>
               </div>
 
-              {/* Title */}
-              <div>
-                <label className={labelCls}>Title *</label>
-                <input
-                  type="text"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Task title..."
-                  className={inputCls}
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className={labelCls}>Description</label>
-                <textarea
-                  rows={3}
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Task details..."
-                  className={textareaCls}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {/* Assign To */}
-                <div>
-                  <label className={labelCls}>Assign To</label>
-                  <select
-                    value={newAssignedTo}
-                    onChange={(e) => setNewAssignedTo(e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">Unassigned</option>
-                    {profiles.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.display_name || p.id.slice(0, 8)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Due Date */}
-                <div>
-                  <label className={labelCls}>Due Date</label>
-                  <input
-                    type="date"
-                    value={newDueDate}
-                    onChange={(e) => setNewDueDate(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-
-              {/* Status */}
-              <div>
-                <label className={labelCls}>Status</label>
-                <div className="flex gap-2">
-                  {STATUS_BUTTONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setNewStatus(opt.value)}
-                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition ${
-                        newStatus === opt.value ? opt.activeColor : opt.inactiveColor
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Dynamic template fields */}
+              {taskTemplateFields.map((field) => renderCreateField(field))}
 
               {/* Photo */}
               <div>

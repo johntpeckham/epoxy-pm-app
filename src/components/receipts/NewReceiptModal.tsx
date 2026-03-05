@@ -3,7 +3,10 @@
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, CameraIcon, LoaderIcon } from 'lucide-react'
-import { Project, ReceiptCategory } from '@/types'
+import { Project, FormField } from '@/types'
+import { useFormTemplate } from '@/lib/useFormTemplate'
+import { getContentKey, getKnownContentKeys } from '@/lib/formFieldMaps'
+import DynamicFormField from '@/components/ui/DynamicFormField'
 import Portal from '@/components/ui/Portal'
 
 interface NewReceiptModalProps {
@@ -13,11 +16,20 @@ interface NewReceiptModalProps {
   onCreated: () => void
 }
 
-const RECEIPT_CATEGORIES: ReceiptCategory[] = ['Materials', 'Fuel', 'Tools', 'Equipment Rental', 'Subcontractor', 'Office Supplies', 'Other']
-
 const inputCls =
   'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
+
+const FORM_KEY = 'expense'
+const KNOWN_KEYS = getKnownContentKeys(FORM_KEY)
+
+function isPhotoSectionField(field: FormField): boolean {
+  return field.id === 'exp-01' || field.label === 'Receipt Photo'
+}
+
+function isTotalAmountField(field: FormField): boolean {
+  return field.id === 'exp-05' || field.label === 'Total Amount'
+}
 
 export default function NewReceiptModal({
   projects,
@@ -26,17 +38,17 @@ export default function NewReceiptModal({
   onCreated,
 }: NewReceiptModalProps) {
   const today = new Date().toISOString().split('T')[0]
+  const { fields: templateFields, loading: templateLoading } = useFormTemplate(FORM_KEY)
 
-  // Project selector
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? '')
 
-  // Receipt fields
-  const [vendorName, setVendorName] = useState('')
-  const [receiptDate, setReceiptDate] = useState(today)
-  const [totalAmount, setTotalAmount] = useState('')
-  const [category, setCategory] = useState<ReceiptCategory | ''>('')
+  const [values, setValues] = useState<Record<string, string>>({
+    vendor_name: '',
+    receipt_date: today,
+    total_amount: '',
+    category: '',
+  })
 
-  // Photo
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -44,8 +56,8 @@ export default function NewReceiptModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function handleProjectChange(id: string) {
-    setSelectedProjectId(id)
+  function updateValue(key: string, val: string) {
+    setValues((prev) => ({ ...prev, [key]: val }))
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -63,8 +75,8 @@ export default function NewReceiptModal({
 
   async function handleSubmit() {
     if (!selectedProjectId) { setError('Please select a project'); return }
-    const amount = totalAmount.trim() ? parseFloat(totalAmount) : 0
-    if (totalAmount.trim() && (isNaN(amount) || amount < 0)) { setError('Please enter a valid amount'); return }
+    const amount = (values.total_amount ?? '').trim() ? parseFloat(values.total_amount) : 0
+    if ((values.total_amount ?? '').trim() && (isNaN(amount) || amount < 0)) { setError('Please enter a valid amount'); return }
 
     setLoading(true)
     setError(null)
@@ -72,7 +84,6 @@ export default function NewReceiptModal({
     try {
       const supabase = createClient()
 
-      // Upload photo if provided
       let photoPath = ''
       if (photoFile) {
         const ext = photoFile.name.split('.').pop()
@@ -82,18 +93,26 @@ export default function NewReceiptModal({
         photoPath = path
       }
 
+      const content: Record<string, unknown> = {
+        receipt_photo: photoPath,
+        vendor_name: (values.vendor_name ?? '').trim(),
+        receipt_date: values.receipt_date ?? '',
+        total_amount: amount,
+        category: values.category ?? '',
+      }
+
+      for (const [key, val] of Object.entries(values)) {
+        if (!KNOWN_KEYS.has(key) && typeof val === 'string' && val.trim()) {
+          content[key] = val.trim()
+        }
+      }
+
       const { error: insertErr } = await supabase.from('feed_posts').insert({
         project_id: selectedProjectId,
         user_id: userId,
         post_type: 'receipt',
         is_pinned: false,
-        content: {
-          receipt_photo: photoPath,
-          vendor_name: vendorName.trim(),
-          receipt_date: receiptDate,
-          total_amount: amount,
-          category,
-        },
+        content,
       })
 
       if (insertErr) throw insertErr
@@ -102,6 +121,94 @@ export default function NewReceiptModal({
       setError(err instanceof Error ? err.message : 'Failed to create expense')
       setLoading(false)
     }
+  }
+
+  function renderPhotoSection() {
+    return (
+      <div key="receipt-photo-section">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Photo <span className="normal-case font-medium">(optional)</span></p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handlePhotoChange}
+        />
+        {photoPreview ? (
+          <div className="relative inline-block">
+            <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photoPreview} alt="" className="w-full h-full object-cover" />
+            </div>
+            <button
+              type="button"
+              onClick={removePhoto}
+              className="absolute -top-1.5 -right-1.5 bg-black/70 text-white rounded-full p-0.5"
+            >
+              <XIcon className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 transition"
+          >
+            <CameraIcon className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+            <p className="text-sm text-gray-500">
+              <span className="font-medium text-amber-600">Take photo or upload</span> receipt image
+            </p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderField(field: FormField) {
+    if (isPhotoSectionField(field)) {
+      return renderPhotoSection()
+    }
+
+    if (field.type === 'section_header') {
+      return (
+        <div key={field.id}>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{field.label}</p>
+        </div>
+      )
+    }
+
+    const contentKey = getContentKey(FORM_KEY, field)
+
+    if (isTotalAmountField(field)) {
+      return (
+        <div key={field.id}>
+          <label className={labelCls}>
+            {field.label}
+            {field.required && <span className="text-red-400"> *</span>}
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={values.total_amount ?? ''}
+              onChange={(e) => updateValue('total_amount', e.target.value)}
+              placeholder={field.placeholder || '0.00'}
+              className={`${inputCls} pl-7`}
+            />
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <DynamicFormField
+        key={field.id}
+        field={field}
+        value={values[contentKey] ?? ''}
+        onChange={(v) => updateValue(contentKey, String(v))}
+      />
+    )
   }
 
   return (
@@ -118,7 +225,6 @@ export default function NewReceiptModal({
           </button>
         </div>
 
-        {/* Form */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -126,12 +232,18 @@ export default function NewReceiptModal({
             </div>
           )}
 
-          {/* Project Selector */}
+          {templateLoading && (
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <LoaderIcon className="w-3 h-3 animate-spin" />
+              Loading form template...
+            </div>
+          )}
+
           <div>
             <label className={labelCls}>Project *</label>
             <select
               value={selectedProjectId}
-              onChange={(e) => handleProjectChange(e.target.value)}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
               className={inputCls}
             >
               {projects.map((p) => (
@@ -140,90 +252,9 @@ export default function NewReceiptModal({
             </select>
           </div>
 
-          {/* Receipt Photo */}
-          <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Photo <span className="normal-case font-medium">(optional)</span></p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoChange}
-            />
-            {photoPreview ? (
-              <div className="relative inline-block">
-                <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photoPreview} alt="" className="w-full h-full object-cover" />
-                </div>
-                <button
-                  type="button"
-                  onClick={removePhoto}
-                  className="absolute -top-1.5 -right-1.5 bg-black/70 text-white rounded-full p-0.5"
-                >
-                  <XIcon className="w-3 h-3" />
-                </button>
-              </div>
-            ) : (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 transition"
-              >
-                <CameraIcon className="w-5 h-5 text-gray-400 mx-auto mb-1" />
-                <p className="text-sm text-gray-500">
-                  <span className="font-medium text-amber-600">Take photo or upload</span> receipt image
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Receipt Details */}
-          <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receipt Details</p>
-            <div className="space-y-3">
-              <div>
-                <label className={labelCls}>Vendor / Store Name</label>
-                <input type="text" value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="e.g. Home Depot, Shell, Sunbelt Rentals" className={inputCls} />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Date on Receipt</label>
-                  <input type="date" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Total Amount</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={totalAmount}
-                      onChange={(e) => setTotalAmount(e.target.value)}
-                      placeholder="0.00"
-                      className={`${inputCls} pl-7`}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Category</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as ReceiptCategory | '')}
-                  className={inputCls}
-                >
-                  <option value="">Select a category...</option>
-                  {RECEIPT_CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
+          {templateFields.map((field) => renderField(field))}
         </div>
 
-        {/* Footer */}
         <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <button
             type="button"
