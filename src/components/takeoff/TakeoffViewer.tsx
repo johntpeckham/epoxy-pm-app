@@ -55,6 +55,25 @@ function fmtFtIn(ft: number): string {
   return `${f}'-${i}"`
 }
 
+function distToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax, dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay)
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq))
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
+function pointInPolygon(px: number, py: number, pts: Point[]): boolean {
+  let inside = false
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
 function polyArea(pts: Point[]): number {
   let a = 0
   for (let i = 0; i < pts.length; i++) {
@@ -165,6 +184,10 @@ export default function TakeoffViewer({
 
   // ─── Warning ───
   const [warning, setWarning] = useState<string | null>(null)
+
+  // ─── Selection state (pan tool only) ───
+  const [selectedSvgId, setSelectedSvgId] = useState<string | null>(null)
+  const [selectedSvgType, setSelectedSvgType] = useState<'measurement' | 'markup' | null>(null)
 
   // ─── Pulse animation for scale point ───
   const [pulsePhase, setPulsePhase] = useState(0)
@@ -432,6 +455,22 @@ export default function TakeoffViewer({
     setTempPoints([])
   }
 
+  // ─── Delete selected item ref (to avoid stale closures) ───
+  const deleteSelectedRef = useRef<() => void>(() => {})
+  deleteSelectedRef.current = () => {
+    if (!selectedSvgId || !selectedSvgType) return
+    if (selectedSvgType === 'measurement') {
+      onItemsChange(items.map(it => ({
+        ...it,
+        measurements: it.measurements.filter(m => m.id !== selectedSvgId),
+      })))
+    } else if (selectedSvgType === 'markup') {
+      onMarkupsChange(markups.filter(mk => mk.id !== selectedSvgId))
+    }
+    setSelectedSvgId(null)
+    setSelectedSvgType(null)
+  }
+
   // ─── Keyboard ───
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -440,12 +479,17 @@ export default function TakeoffViewer({
         setScalePoints([])
         setSvgDragStart(null)
         setIsSvgDragging(false)
+        setSelectedSvgId(null)
+        setSelectedSvgType(null)
         if (showScaleModal) setShowScaleModal(false)
         if (markupTextInput.visible) setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false })
       }
       if (e.key === 'Enter') {
         completeLinearRef.current()
         completeAreaRef.current()
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteSelectedRef.current()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -511,7 +555,95 @@ export default function TakeoffViewer({
   }
 
   function handleSvgClick(e: React.MouseEvent) {
-    if (activeTool === 'pan') return
+    if (activeTool === 'pan') {
+      // Hit-test for selection
+      e.stopPropagation()
+      const pt = clientToPdf(e.clientX, e.clientY)
+      const hitTol = 8 / zoom // 8 screen px tolerance in PDF space
+
+      // Check measurements
+      for (const item of items) {
+        for (const m of item.measurements) {
+          if (m.pageKey !== pageKey) continue
+          if (m.type === 'linear' && m.points.length >= 2) {
+            for (let si = 1; si < m.points.length; si++) {
+              if (distToSegment(pt.x, pt.y, m.points[si - 1].x, m.points[si - 1].y, m.points[si].x, m.points[si].y) < hitTol) {
+                setSelectedSvgId(m.id)
+                setSelectedSvgType('measurement')
+                return
+              }
+            }
+          } else if (m.type === 'area' && m.points.length >= 3) {
+            // Check inside polygon or near outline
+            if (pointInPolygon(pt.x, pt.y, m.points)) {
+              setSelectedSvgId(m.id)
+              setSelectedSvgType('measurement')
+              return
+            }
+            for (let si = 0; si < m.points.length; si++) {
+              const next = (si + 1) % m.points.length
+              if (distToSegment(pt.x, pt.y, m.points[si].x, m.points[si].y, m.points[next].x, m.points[next].y) < hitTol) {
+                setSelectedSvgId(m.id)
+                setSelectedSvgType('measurement')
+                return
+              }
+            }
+          } else if (m.type === 'area' && m.points.length === 2) {
+            // Legacy 2-point rect
+            const [a, b] = m.points
+            const minX = Math.min(a.x, b.x) - hitTol
+            const maxX = Math.max(a.x, b.x) + hitTol
+            const minY = Math.min(a.y, b.y) - hitTol
+            const maxY = Math.max(a.y, b.y) + hitTol
+            if (pt.x >= minX && pt.x <= maxX && pt.y >= minY && pt.y <= maxY) {
+              setSelectedSvgId(m.id)
+              setSelectedSvgType('measurement')
+              return
+            }
+          }
+        }
+      }
+
+      // Check markups
+      for (const mk of markups) {
+        if (mk.pageKey !== pageKey) continue
+        if (mk.type === 'rect' && mk.points.length === 2) {
+          const [a, b] = mk.points
+          const minX = Math.min(a.x, b.x) - hitTol
+          const maxX = Math.max(a.x, b.x) + hitTol
+          const minY = Math.min(a.y, b.y) - hitTol
+          const maxY = Math.max(a.y, b.y) + hitTol
+          if (pt.x >= minX && pt.x <= maxX && pt.y >= minY && pt.y <= maxY) {
+            setSelectedSvgId(mk.id)
+            setSelectedSvgType('markup')
+            return
+          }
+        } else if (mk.type === 'arrow' && mk.points.length === 2) {
+          if (distToSegment(pt.x, pt.y, mk.points[0].x, mk.points[0].y, mk.points[1].x, mk.points[1].y) < hitTol) {
+            setSelectedSvgId(mk.id)
+            setSelectedSvgType('markup')
+            return
+          }
+        } else if (mk.type === 'text' && mk.points.length === 1) {
+          const pos = mk.points[0]
+          const text = mk.text || ''
+          const w = text.length * 8 + 12
+          const h = 22
+          // Text bounding box + margin
+          if (pt.x >= pos.x - hitTol && pt.x <= pos.x + w + hitTol &&
+              pt.y >= pos.y - 16 - hitTol && pt.y <= pos.y - 16 + h + hitTol) {
+            setSelectedSvgId(mk.id)
+            setSelectedSvgType('markup')
+            return
+          }
+        }
+      }
+
+      // Clicked empty space — deselect
+      setSelectedSvgId(null)
+      setSelectedSvgType(null)
+      return
+    }
     if (activeTool === 'markup-rect' || activeTool === 'markup-arrow') return
     e.stopPropagation()
     const pt = clientToPdf(e.clientX, e.clientY)
@@ -618,6 +750,8 @@ export default function TakeoffViewer({
     setScalePoints([])
     setSvgDragStart(null)
     setIsSvgDragging(false)
+    setSelectedSvgId(null)
+    setSelectedSvgType(null)
   }
 
   // ─── Zoom buttons ───
@@ -790,6 +924,117 @@ export default function TakeoffViewer({
           <text x={pos.x + 4 / zoom} y={pos.y - 5 / zoom} fill={mk.color} fontSize={14 / zoom} fontWeight="bold" dominantBaseline="middle">{text}</text>
         </g>
       )
+    }
+  }
+
+  // ─── Selection highlight + delete button ───
+  if (selectedSvgId && selectedSvgType === 'measurement') {
+    for (const item of items) {
+      const m = item.measurements.find(mm => mm.id === selectedSvgId && mm.pageKey === pageKey)
+      if (!m) continue
+      const selSw = 3 / zoom
+      const dashArr = `${6 / zoom} ${4 / zoom}`
+      if (m.type === 'linear' && m.points.length >= 2) {
+        const pts = m.points.map(toSvg)
+        const topPt = pts.reduce((best, p) => p.y < best.y ? p : best, pts[0])
+        svgElements.push(
+          <g key="sel-highlight">
+            <polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#3b82f6" strokeWidth={selSw} strokeDasharray={dashArr} />
+          </g>
+        )
+        svgElements.push(
+          <g key="sel-delete" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); deleteSelectedRef.current() }}>
+            <circle cx={topPt.x + 12 / zoom} cy={topPt.y - 12 / zoom} r={10 / zoom} fill="#ef4444" />
+            <text x={topPt.x + 12 / zoom} y={topPt.y - 12 / zoom} fill="white" fontSize={14 / zoom} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">×</text>
+          </g>
+        )
+      } else if (m.type === 'area' && m.points.length >= 3) {
+        const pts = m.points.map(toSvg)
+        const topPt = pts.reduce((best, p) => p.y < best.y ? p : best, pts[0])
+        svgElements.push(
+          <g key="sel-highlight">
+            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#3b82f6" strokeWidth={selSw} strokeDasharray={dashArr} />
+          </g>
+        )
+        svgElements.push(
+          <g key="sel-delete" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); deleteSelectedRef.current() }}>
+            <circle cx={topPt.x + 12 / zoom} cy={topPt.y - 12 / zoom} r={10 / zoom} fill="#ef4444" />
+            <text x={topPt.x + 12 / zoom} y={topPt.y - 12 / zoom} fill="white" fontSize={14 / zoom} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">×</text>
+          </g>
+        )
+      } else if (m.type === 'area' && m.points.length === 2) {
+        const [a, b] = m.points.map(toSvg)
+        const pts = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }]
+        const topPt = pts.reduce((best, p) => p.y < best.y ? p : best, pts[0])
+        svgElements.push(
+          <g key="sel-highlight">
+            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#3b82f6" strokeWidth={selSw} strokeDasharray={dashArr} />
+          </g>
+        )
+        svgElements.push(
+          <g key="sel-delete" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); deleteSelectedRef.current() }}>
+            <circle cx={topPt.x + 12 / zoom} cy={topPt.y - 12 / zoom} r={10 / zoom} fill="#ef4444" />
+            <text x={topPt.x + 12 / zoom} y={topPt.y - 12 / zoom} fill="white" fontSize={14 / zoom} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">×</text>
+          </g>
+        )
+      }
+      break
+    }
+  } else if (selectedSvgId && selectedSvgType === 'markup') {
+    const mk = markups.find(m => m.id === selectedSvgId && m.pageKey === pageKey)
+    if (mk) {
+      const selSw = 3 / zoom
+      const dashArr = `${6 / zoom} ${4 / zoom}`
+      if (mk.type === 'rect' && mk.points.length === 2) {
+        const a = toSvg(mk.points[0])
+        const b = toSvg(mk.points[1])
+        const topX = Math.max(a.x, b.x)
+        const topY = Math.min(a.y, b.y)
+        svgElements.push(
+          <g key="sel-highlight">
+            <rect x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)}
+              width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)}
+              fill="none" stroke="#3b82f6" strokeWidth={selSw} strokeDasharray={dashArr} />
+          </g>
+        )
+        svgElements.push(
+          <g key="sel-delete" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); deleteSelectedRef.current() }}>
+            <circle cx={topX + 12 / zoom} cy={topY - 12 / zoom} r={10 / zoom} fill="#ef4444" />
+            <text x={topX + 12 / zoom} y={topY - 12 / zoom} fill="white" fontSize={14 / zoom} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">×</text>
+          </g>
+        )
+      } else if (mk.type === 'arrow' && mk.points.length === 2) {
+        const from = toSvg(mk.points[0])
+        const to = toSvg(mk.points[1])
+        const topPt = from.y < to.y ? from : to
+        svgElements.push(
+          <g key="sel-highlight">
+            <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#3b82f6" strokeWidth={selSw} strokeDasharray={dashArr} />
+          </g>
+        )
+        svgElements.push(
+          <g key="sel-delete" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); deleteSelectedRef.current() }}>
+            <circle cx={topPt.x + 12 / zoom} cy={topPt.y - 12 / zoom} r={10 / zoom} fill="#ef4444" />
+            <text x={topPt.x + 12 / zoom} y={topPt.y - 12 / zoom} fill="white" fontSize={14 / zoom} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">×</text>
+          </g>
+        )
+      } else if (mk.type === 'text' && mk.points.length === 1) {
+        const pos = toSvg(mk.points[0])
+        const text = mk.text || ''
+        const w = (text.length * 8 + 12) / zoom
+        const h = 22 / zoom
+        svgElements.push(
+          <g key="sel-highlight">
+            <rect x={pos.x - 2 / zoom} y={pos.y - 16 / zoom} width={w} height={h} fill="none" stroke="#3b82f6" strokeWidth={selSw} strokeDasharray={dashArr} />
+          </g>
+        )
+        svgElements.push(
+          <g key="sel-delete" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); deleteSelectedRef.current() }}>
+            <circle cx={pos.x + w + 6 / zoom} cy={pos.y - 16 / zoom} r={10 / zoom} fill="#ef4444" />
+            <text x={pos.x + w + 6 / zoom} y={pos.y - 16 / zoom} fill="white" fontSize={14 / zoom} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">×</text>
+          </g>
+        )
+      }
     }
   }
 
@@ -1044,7 +1289,7 @@ export default function TakeoffViewer({
                   top: 0,
                   left: 0,
                   cursor,
-                  pointerEvents: activeTool === 'pan' ? 'none' : 'all',
+                  pointerEvents: 'all',
                 }}
                 onMouseDown={handleSvgMouseDown}
                 onMouseMove={handleSvgMouseMove}

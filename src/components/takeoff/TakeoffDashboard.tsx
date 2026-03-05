@@ -3,17 +3,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil } from 'lucide-react'
-import type { TakeoffPage, TakeoffItem } from './types'
+import type { TakeoffPage, TakeoffItem, Markup } from './types'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString()
 
+import { CheckIcon } from 'lucide-react'
+
 interface TakeoffDashboardProps {
   projectName: string
   pages: TakeoffPage[]
   items: TakeoffItem[]
+  markups: Markup[]
   pageScales: Record<string, number>
   onAddPages: (pages: TakeoffPage[]) => void
   onOpenPage: (page: TakeoffPage) => void
@@ -28,11 +31,13 @@ function PageThumbnail({
   onClick,
   onDelete,
   onRename,
+  isWorkedOn,
 }: {
   page: TakeoffPage
   onClick: () => void
   onDelete: () => void
   onRename: (name: string) => void
+  isWorkedOn: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [loading, setLoading] = useState(true)
@@ -108,6 +113,12 @@ function PageThumbnail({
 
   return (
     <div className="relative group" style={{ width: 180 }}>
+      {/* Green checkmark badge — top left, when page has measurements/markups */}
+      {isWorkedOn && (
+        <div className="absolute top-1.5 left-1.5 z-10 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shadow-sm">
+          <CheckIcon className="w-3 h-3 text-white" strokeWidth={3} />
+        </div>
+      )}
       {/* Delete button — top right, visible on hover */}
       {!confirmDelete && (
         <button
@@ -141,7 +152,9 @@ function PageThumbnail({
 
       <button
         onClick={onClick}
-        className="w-full flex flex-col items-center bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-amber-400 hover:shadow-md transition-all cursor-pointer"
+        className={`w-full flex flex-col items-center bg-white rounded-lg overflow-hidden hover:shadow-md transition-all cursor-pointer ${
+          isWorkedOn ? 'border-2 border-green-500 hover:border-green-600' : 'border border-gray-200 hover:border-amber-400'
+        }`}
       >
         <div className="w-full h-[220px] bg-gray-100 flex items-center justify-center overflow-hidden relative">
           {loading && <div className="absolute inset-0 bg-gray-100 animate-pulse" />}
@@ -208,6 +221,7 @@ export default function TakeoffDashboard({
   projectName,
   pages,
   items,
+  markups,
   pageScales,
   onAddPages,
   onOpenPage,
@@ -217,6 +231,17 @@ export default function TakeoffDashboard({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+
+  // Build set of pageKeys that have measurements or markups
+  const workedOnPages = new Set<string>()
+  for (const item of items) {
+    for (const m of item.measurements) {
+      workedOnPages.add(m.pageKey)
+    }
+  }
+  for (const mk of markups) {
+    workedOnPages.add(mk.pageKey)
+  }
 
   const totalLinear = items
     .filter((i) => i.type === 'linear')
@@ -394,15 +419,19 @@ export default function TakeoffDashboard({
       </div>
 
       <div className="flex flex-wrap gap-3">
-        {pages.map((page) => (
-          <PageThumbnail
-            key={`${page.pdfIndex}-${page.pageIndex}`}
-            page={page}
-            onClick={() => onOpenPage(page)}
-            onDelete={() => onDeletePage(page.pdfIndex, page.pageIndex)}
-            onRename={(name) => onRenamePage(page.pdfIndex, page.pageIndex, name)}
-          />
-        ))}
+        {pages.map((page) => {
+          const pk = `${page.pdfIndex}-${page.pageIndex}`
+          return (
+            <PageThumbnail
+              key={pk}
+              page={page}
+              onClick={() => onOpenPage(page)}
+              onDelete={() => onDeletePage(page.pdfIndex, page.pageIndex)}
+              onRename={(name) => onRenamePage(page.pdfIndex, page.pageIndex, name)}
+              isWorkedOn={workedOnPages.has(pk)}
+            />
+          )
+        })}
 
         {/* Add PDF card */}
         <button
