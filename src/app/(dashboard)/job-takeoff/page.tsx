@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { RulerIcon } from 'lucide-react'
+import { RulerIcon, MonitorIcon } from 'lucide-react'
 import TakeoffProjectList from '@/components/takeoff/TakeoffProjectList'
 import TakeoffDashboard from '@/components/takeoff/TakeoffDashboard'
 import TakeoffViewer from '@/components/takeoff/TakeoffViewer'
@@ -87,6 +87,15 @@ function deserializeProjects(json: string): TakeoffProject[] {
 }
 
 export default function JobTakeoffPage() {
+  // ─── Mobile detection ───
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   const [projects, setProjects] = useState<TakeoffProject[]>(() => {
     if (typeof window === 'undefined') return []
     const saved = localStorage.getItem(LS_KEY)
@@ -316,6 +325,23 @@ export default function JobTakeoffPage() {
   // ─── Viewer overlay (covers columns 2+3, leaves left nav visible) ───
 
   const showViewerOverlay = viewMode === 'viewer' && activePage && selectedProject
+
+  // ─── Mobile block ───
+  if (isMobile) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-50 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 max-w-sm text-center">
+          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MonitorIcon className="w-7 h-7 text-gray-400" />
+          </div>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Desktop Only Feature</h2>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            Job Takeoff is designed for desktop use. Please open this page on a desktop or laptop for the best experience.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   // ─── Fullscreen mode ───
 
