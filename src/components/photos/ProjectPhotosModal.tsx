@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { PhotoContent, DailyReportContent } from '@/types'
 import Portal from '@/components/ui/Portal'
+import PhotoLightbox from './PhotoLightbox'
 
 interface ProjectPhotosModalProps {
   projectId: string
@@ -43,11 +44,18 @@ export default function ProjectPhotosModal({
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previewPhotos, setPreviewPhotos] = useState<string[] | null>(null)
+  const [previewIndex, setPreviewIndex] = useState(0)
 
   const totalPhotos = groups.reduce((sum, g) => sum + g.photos.length, 0)
 
   function getPublicUrl(path: string) {
     return supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl
+  }
+
+  function openPreview(urls: string[], index: number) {
+    setPreviewPhotos(urls)
+    setPreviewIndex(index)
   }
 
   const fetchPhotos = useCallback(async () => {
@@ -128,6 +136,7 @@ export default function ProjectPhotosModal({
   }
 
   return (
+    <>
     <Portal>
     <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={onClose}>
       <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -195,15 +204,13 @@ export default function ProjectPhotosModal({
                       ({photos.length} photo{photos.length !== 1 ? 's' : ''})
                     </span>
                   </div>
-                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
+                  <div className="grid grid-cols-5 gap-1.5">
                     {photos.map((path, i) => {
                       const url = getPublicUrl(path)
                       return (
-                        <a
+                        <button
                           key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          onClick={() => openPreview(photos.map(getPublicUrl), i)}
                           className="block"
                         >
                           <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
@@ -212,10 +219,10 @@ export default function ProjectPhotosModal({
                               alt={`Photo ${i + 1}`}
                               fill
                               className="object-cover hover:opacity-90 transition"
-                              sizes="(min-width: 640px) 60px, 25vw"
+                              sizes="20vw"
                             />
                           </div>
-                        </a>
+                        </button>
                       )
                     })}
                   </div>
@@ -242,5 +249,15 @@ export default function ProjectPhotosModal({
       </div>
     </div>
     </Portal>
+
+    {previewPhotos && (
+      <PhotoLightbox
+        photos={previewPhotos}
+        currentIndex={previewIndex}
+        onClose={() => setPreviewPhotos(null)}
+        onNavigate={setPreviewIndex}
+      />
+    )}
+    </>
   )
 }

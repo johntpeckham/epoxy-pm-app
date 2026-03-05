@@ -8,6 +8,7 @@ import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon, Chev
 import type { PhotoEntry } from '@/app/(dashboard)/photos/page'
 import { Project } from '@/types'
 import NewPhotoModal from './NewPhotoModal'
+import PhotoLightbox from './PhotoLightbox'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 
@@ -77,6 +78,8 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
   const { role } = useUserRole()
   const { canCreate } = usePermissions(role)
   const [showModal, setShowModal] = useState(false)
+  const [previewPhotos, setPreviewPhotos] = useState<string[] | null>(null)
+  const [previewIndex, setPreviewIndex] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
   const [showCompleted, setShowCompleted] = useState(false)
@@ -108,6 +111,11 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
 
   function getPublicUrl(path: string) {
     return supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl
+  }
+
+  function openPreview(urls: string[], index: number) {
+    setPreviewPhotos(urls)
+    setPreviewIndex(index)
   }
 
   function handleCreated() {
@@ -197,6 +205,7 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
                           date={date}
                           photos={photos}
                           getPublicUrl={getPublicUrl}
+                          onPhotoClick={openPreview}
                         />
                       ))}
                     </div>
@@ -232,6 +241,7 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
                             date={date}
                             photos={photos}
                             getPublicUrl={getPublicUrl}
+                            onPhotoClick={openPreview}
                           />
                         ))}
                       </div>
@@ -252,6 +262,15 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
           onCreated={handleCreated}
         />
       )}
+
+      {previewPhotos && (
+        <PhotoLightbox
+          photos={previewPhotos}
+          currentIndex={previewIndex}
+          onClose={() => setPreviewPhotos(null)}
+          onNavigate={setPreviewIndex}
+        />
+      )}
     </div>
   )
 }
@@ -262,11 +281,13 @@ function DaySection({
   date,
   photos,
   getPublicUrl,
+  onPhotoClick,
 }: {
   jobName: string
   date: string
   photos: string[]
   getPublicUrl: (path: string) => string
+  onPhotoClick: (urls: string[], index: number) => void
 }) {
   const [downloading, setDownloading] = useState(false)
 
@@ -321,21 +342,21 @@ function DaySection({
       </div>
 
       {/* Photo grid */}
-      <div className="p-3 flex flex-wrap gap-1.5">
+      <div className="p-3 grid grid-cols-5 gap-1.5">
         {photos.map((path, i) => {
           const url = getPublicUrl(path)
           return (
-            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-              <div className="relative w-[60px] h-[60px] rounded-lg overflow-hidden bg-gray-100">
+            <button key={i} onClick={() => onPhotoClick(photos.map(getPublicUrl), i)} className="block">
+              <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
                 <Image
                   src={url}
                   alt={`Photo ${i + 1}`}
                   fill
                   className="object-cover hover:opacity-90 transition"
-                  sizes="60px"
+                  sizes="20vw"
                 />
               </div>
-            </a>
+            </button>
           )
         })}
       </div>
