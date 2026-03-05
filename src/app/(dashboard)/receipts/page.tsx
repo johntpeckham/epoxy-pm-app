@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { ReceiptContent, Project } from '@/types'
+import { ReceiptContent, DynamicFieldEntry, Project } from '@/types'
 import ReceiptsPageClient from '@/components/receipts/ReceiptsPageClient'
 
 export default async function ReceiptsPage() {
@@ -27,7 +27,7 @@ export default async function ReceiptsPage() {
   // Fetch all receipt posts with joined project name
   const { data: posts } = await supabase
     .from('feed_posts')
-    .select('id, project_id, created_at, content, projects(name)')
+    .select('id, project_id, created_at, content, dynamic_fields, projects(name)')
     .eq('post_type', 'receipt')
     .order('created_at', { ascending: false })
 
@@ -37,6 +37,7 @@ export default async function ReceiptsPage() {
       project_id: row.project_id,
       created_at: row.created_at,
       content: row.content as ReceiptContent,
+      dynamic_fields: (row.dynamic_fields ?? []) as DynamicFieldEntry[],
       project_name:
         (row.projects as unknown as { name: string } | null)?.name ?? 'Unknown Project',
     }))

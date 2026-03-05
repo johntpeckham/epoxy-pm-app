@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { PlusIcon, ShieldIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
-import { Project, JsaReportContent } from '@/types'
+import { Project, JsaReportContent, DynamicFieldEntry } from '@/types'
 import JsaReportCard from './JsaReportCard'
 import NewJsaReportModal from './NewJsaReportModal'
 import { useUserRole } from '@/lib/useUserRole'
@@ -14,6 +14,7 @@ interface JsaReportRow {
   project_id: string
   created_at: string
   content: JsaReportContent
+  dynamic_fields?: DynamicFieldEntry[]
   project_name: string
 }
 

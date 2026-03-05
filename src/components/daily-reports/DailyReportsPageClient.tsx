@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { PlusIcon, ClipboardListIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
-import { Project, DailyReportContent } from '@/types'
+import { Project, DailyReportContent, DynamicFieldEntry } from '@/types'
 import DailyReportCard from './DailyReportCard'
 import NewDailyReportModal from './NewDailyReportModal'
 import { useUserRole } from '@/lib/useUserRole'
@@ -14,6 +14,7 @@ interface DailyReportRow {
   project_id: string
   created_at: string
   content: DailyReportContent
+  dynamic_fields?: DynamicFieldEntry[]
   project_name: string
 }
 

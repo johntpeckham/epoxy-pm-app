@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { PlusIcon, ReceiptIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, DownloadIcon, LoaderIcon } from 'lucide-react'
-import { Project, ReceiptContent } from '@/types'
+import { Project, ReceiptContent, DynamicFieldEntry } from '@/types'
 import ReceiptCard from './ReceiptCard'
 import NewReceiptModal from './NewReceiptModal'
 import { useUserRole } from '@/lib/useUserRole'
@@ -15,6 +15,7 @@ interface ReceiptRow {
   project_id: string
   created_at: string
   content: ReceiptContent
+  dynamic_fields?: DynamicFieldEntry[]
   project_name: string
 }
 

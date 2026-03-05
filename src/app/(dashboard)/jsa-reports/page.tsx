@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { JsaReportContent, Project } from '@/types'
+import { JsaReportContent, DynamicFieldEntry, Project } from '@/types'
 import JsaReportsPageClient from '@/components/jsa-reports/JsaReportsPageClient'
 
 export default async function JsaReportsPage() {
@@ -27,7 +27,7 @@ export default async function JsaReportsPage() {
   // Fetch all JSA report posts with joined project name
   const { data: posts } = await supabase
     .from('feed_posts')
-    .select('id, project_id, created_at, content, projects(name)')
+    .select('id, project_id, created_at, content, dynamic_fields, projects(name)')
     .eq('post_type', 'jsa_report')
     .order('created_at', { ascending: false })
 
@@ -37,6 +37,7 @@ export default async function JsaReportsPage() {
       project_id: row.project_id,
       created_at: row.created_at,
       content: row.content as JsaReportContent,
+      dynamic_fields: (row.dynamic_fields ?? []) as DynamicFieldEntry[],
       project_name:
         (row.projects as unknown as { name: string } | null)?.name ?? 'Unknown Project',
     }))
