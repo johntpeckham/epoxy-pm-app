@@ -6,14 +6,16 @@ import { createClient } from '@/lib/supabase/client'
 import { ArrowLeftIcon, ShieldIcon, CheckIcon, LoaderIcon } from 'lucide-react'
 import type { AccessLevel, RolePermission } from '@/types'
 
-const ROLES = ['salesman', 'office_manager', 'foreman', 'crew'] as const
+const ROLES = ['admin', 'salesman', 'office_manager', 'foreman', 'crew'] as const
 const ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
   salesman: 'Salesman',
   office_manager: 'Office Manager',
   foreman: 'Foreman',
   crew: 'Crew',
 }
 const ROLE_COLORS: Record<string, string> = {
+  admin: 'bg-red-100 text-red-700',
   salesman: 'bg-blue-100 text-blue-700',
   office_manager: 'bg-purple-100 text-purple-700',
   foreman: 'bg-amber-100 text-amber-700',
@@ -145,6 +147,17 @@ export default function PermissionsClient() {
                     <tr key={feature.key} className={i < FEATURES.length - 1 ? 'border-b border-gray-100' : ''}>
                       <td className="px-5 py-4 text-sm font-medium text-gray-900">{feature.label}</td>
                       {ROLES.map((role) => {
+                        if (role === 'admin') {
+                          return (
+                            <td key={role} className="px-5 py-4">
+                              <div className="flex items-center justify-center">
+                                <span className="px-2.5 py-1 rounded-md border border-green-500 bg-green-500 text-white text-xs font-medium">
+                                  Full
+                                </span>
+                              </div>
+                            </td>
+                          )
+                        }
                         const current = getAccess(role, feature.key)
                         const cellKey = `${role}:${feature.key}`
                         return (
@@ -184,9 +197,22 @@ export default function PermissionsClient() {
                     <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${ROLE_COLORS[role]}`}>
                       {ROLE_LABELS[role]}
                     </span>
+                    {role === 'admin' && (
+                      <span className="text-xs text-gray-500">Always has full access</span>
+                    )}
                   </div>
                   <div className="divide-y divide-gray-100">
                     {FEATURES.map((feature) => {
+                      if (role === 'admin') {
+                        return (
+                          <div key={feature.key} className="px-4 py-3 flex items-center justify-between gap-3">
+                            <span className="text-sm font-medium text-gray-900">{feature.label}</span>
+                            <span className="px-2 py-1 rounded-md border border-green-500 bg-green-500 text-white text-xs font-medium">
+                              Full
+                            </span>
+                          </div>
+                        )
+                      }
                       const current = getAccess(role, feature.key)
                       const cellKey = `${role}:${feature.key}`
                       return (
