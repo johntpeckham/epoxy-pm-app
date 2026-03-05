@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon } from 'lucide-react'
 import { Profile } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
@@ -22,6 +22,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { role } = useUserRole()
   const isAdmin = role === 'admin'
+  const isOfficeManager = role === 'office_manager'
   const isCrew = role === 'crew'
 
   // Display name state
@@ -392,6 +393,24 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
             </button>
           </div>
         </div>
+
+        {/* Form Management — Admin and Office Manager */}
+        {(isAdmin || isOfficeManager) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <SlidersHorizontalIcon className="w-5 h-5 text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Form Management</h2>
+              <button
+                onClick={() => router.push('/form-management')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
+              >
+                <SlidersHorizontalIcon className="w-3.5 h-3.5" />
+                Manage Forms
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">Customize form fields and layout for Daily Reports, JSA, Expenses, and more.</p>
+          </div>
+        )}
 
         {/* User Management — Admin only */}
         {isAdmin && <UserManagement currentUserId={userId} />}
