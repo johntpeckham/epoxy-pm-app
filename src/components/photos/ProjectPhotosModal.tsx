@@ -204,7 +204,7 @@ export default function ProjectPhotosModal({
                       ({photos.length} photo{photos.length !== 1 ? 's' : ''})
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1.5">
+                  <div className="grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1.5">
                     {photos.map((path, i) => {
                       const url = getPublicUrl(path)
                       return (
