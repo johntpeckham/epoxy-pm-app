@@ -290,6 +290,7 @@ export default function JobTakeoffPage() {
         projectName={selectedProject.name}
         pages={selectedProject.pages}
         items={selectedProject.items}
+        markups={selectedProject.markups}
         pageScales={selectedProject.pageScales}
         onAddPages={handleAddPages}
         onOpenPage={handleOpenPage}
