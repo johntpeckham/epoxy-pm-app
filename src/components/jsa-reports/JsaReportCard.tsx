@@ -13,7 +13,7 @@ import {
   DownloadIcon,
   ShieldIcon,
 } from 'lucide-react'
-import { JsaReportContent } from '@/types'
+import { JsaReportContent, DynamicFieldEntry } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditJsaReportModal from '@/components/feed/EditJsaReportModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -23,6 +23,7 @@ interface JsaReportRow {
   project_id: string
   created_at: string
   content: JsaReportContent
+  dynamic_fields?: DynamicFieldEntry[]
   project_name: string
 }
 
@@ -62,7 +63,7 @@ export default function JsaReportCard({ report }: JsaReportCardProps) {
     setPdfLoading(true)
     try {
       const { generateJsaPdf } = await import('@/lib/generateJsaPdf')
-      await generateJsaPdf(content, companySettings?.logo_url)
+      await generateJsaPdf(content, companySettings?.logo_url, report.dynamic_fields)
     } finally {
       setPdfLoading(false)
     }
@@ -219,6 +220,20 @@ export default function JsaReportCard({ report }: JsaReportCardProps) {
                   </div>
                 ))}
               </div>
+            )}
+
+            {/* Dynamic fields */}
+            {report.dynamic_fields && report.dynamic_fields.length > 0 && (
+              <dl className="space-y-3">
+                {report.dynamic_fields.filter((f) => f.value).map((f) => (
+                  <div key={f.id}>
+                    <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
+                      {f.label}
+                    </dt>
+                    <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
             )}
 
             {/* Signatures */}

@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import { ReceiptContent } from '@/types'
+import { ReceiptContent, DynamicFieldEntry } from '@/types'
 
 /** Fetch an image URL and return a base64 data URL, format, and natural dimensions. */
 async function loadImage(url: string): Promise<{
@@ -36,7 +36,8 @@ const MED: [number, number, number] = [107, 114, 128]           // gray-500
 export async function generateReceiptPdf(
   content: ReceiptContent,
   photoUrl: string | null,
-  logoUrl?: string | null
+  logoUrl?: string | null,
+  dynamicFields?: DynamicFieldEntry[]
 ): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -141,6 +142,17 @@ export async function generateReceiptPdf(
   fieldRow('Date', displayDate)
   fieldRow('Total Amount', `$${content.total_amount.toFixed(2)}`)
   fieldRow('Category', content.category || '—')
+
+  // ─── ADDITIONAL FIELDS ──────────────────────────────────────────────────
+  if (dynamicFields && dynamicFields.length > 0) {
+    const filled = dynamicFields.filter((f) => f.value)
+    if (filled.length > 0) {
+      sectionTitle('ADDITIONAL DETAILS')
+      for (const f of filled) {
+        fieldRow(f.label, f.value)
+      }
+    }
+  }
 
   // ─── RECEIPT PHOTO ────────────────────────────────────────────────────
   if (photoUrl) {

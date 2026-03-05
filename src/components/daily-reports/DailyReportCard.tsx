@@ -13,7 +13,7 @@ import {
   Trash2Icon,
   DownloadIcon,
 } from 'lucide-react'
-import { DailyReportContent } from '@/types'
+import { DailyReportContent, DynamicFieldEntry } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from '@/components/feed/EditDailyReportModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -23,6 +23,7 @@ interface DailyReportRow {
   project_id: string
   created_at: string
   content: DailyReportContent
+  dynamic_fields?: DynamicFieldEntry[]
   project_name: string
 }
 
@@ -81,7 +82,7 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
     setPdfLoading(true)
     try {
       const { generateReportPdf } = await import('@/lib/generateReportPdf')
-      await generateReportPdf(content, photoUrls.map((p) => p.url), companySettings?.logo_url)
+      await generateReportPdf(content, photoUrls.map((p) => p.url), companySettings?.logo_url, report.dynamic_fields)
     } finally {
       setPdfLoading(false)
     }
@@ -198,6 +199,20 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
                 ) : null
               )}
             </dl>
+
+            {/* Dynamic fields */}
+            {report.dynamic_fields && report.dynamic_fields.length > 0 && (
+              <dl className="space-y-3">
+                {report.dynamic_fields.filter((f) => f.value).map((f) => (
+                  <div key={f.id}>
+                    <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
+                      {f.label}
+                    </dt>
+                    <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
 
             {/* Embedded photos */}
             {photoUrls.length > 0 && (

@@ -6,7 +6,7 @@ import { XIcon, SettingsIcon, LoaderIcon } from 'lucide-react'
 import { Project, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, FormField } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import { useFormTemplate } from '@/lib/useFormTemplate'
-import { getContentKey, isWeatherField, getKnownContentKeys } from '@/lib/formFieldMaps'
+import { getContentKey, isWeatherField, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import DynamicFormField from '@/components/ui/DynamicFormField'
 import JsaTemplateManagerModal from './JsaTemplateManagerModal'
 import JsaSignatureSection from './JsaSignatureSection'
@@ -179,12 +179,15 @@ export default function NewJsaReportModal({
         }
       }
 
+      const dynamicFields = buildDynamicFields(FORM_KEY, values, templateFields)
+
       const { error: insertErr } = await supabase.from('feed_posts').insert({
         project_id: selectedProjectId,
         user_id: userId,
         post_type: 'jsa_report',
         is_pinned: false,
         content,
+        dynamic_fields: dynamicFields,
       })
 
       if (insertErr) throw insertErr

@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import { TimecardContent } from '@/types'
+import { TimecardContent, DynamicFieldEntry } from '@/types'
 
 /** Fetch an image URL and return a base64 data URL, format, and natural dimensions. */
 async function loadImage(url: string): Promise<{
@@ -36,7 +36,8 @@ const MED: [number, number, number] = [107, 114, 128]         // gray-500
 
 export async function generateTimecardPdf(
   content: TimecardContent,
-  logoUrl?: string | null
+  logoUrl?: string | null,
+  dynamicFields?: DynamicFieldEntry[]
 ): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -200,6 +201,17 @@ export async function generateTimecardPdf(
   doc.text('GRAND TOTAL', colX[0] + 2, y + 2.5)
   doc.text(`${content.grand_total_hours.toFixed(2)} hours`, colX[4] + 2, y + 2.5)
   y += 10
+
+  // ─── ADDITIONAL FIELDS ──────────────────────────────────────────────────
+  if (dynamicFields && dynamicFields.length > 0) {
+    const filled = dynamicFields.filter((f) => f.value)
+    if (filled.length > 0) {
+      sectionTitle('ADDITIONAL DETAILS')
+      for (const f of filled) {
+        fieldRow(f.label, f.value)
+      }
+    }
+  }
 
   // ─── FOOTER ───────────────────────────────────────────────────────────────
   const totalPages = doc.getNumberOfPages()

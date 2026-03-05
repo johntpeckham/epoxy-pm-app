@@ -8,7 +8,7 @@ import { ProjectReportData, FormField } from '@/types'
 import type { UserRole } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useFormTemplate } from '@/lib/useFormTemplate'
-import { getContentKey, getKnownContentKeys } from '@/lib/formFieldMaps'
+import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import Portal from '@/components/ui/Portal'
 
 interface ProjectReportModalProps {
@@ -169,6 +169,13 @@ export default function ProjectReportModal({
       }
     }
 
+    // Build dynamic fields for custom fields added via Form Management
+    const allValues: Record<string, string> = { ...mergedData }
+    for (const [key, val] of Object.entries(customValues)) {
+      allValues[key] = val
+    }
+    const dynamicFields = buildDynamicFields(FORM_KEY, allValues, templateFields)
+
     const { error: upsertError } = await supabase
       .from('project_reports')
       .upsert(
@@ -176,6 +183,7 @@ export default function ProjectReportModal({
           project_id: projectId,
           user_id: userId,
           data: mergedData,
+          dynamic_fields: dynamicFields,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'project_id' }

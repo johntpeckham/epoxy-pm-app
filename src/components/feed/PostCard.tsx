@@ -24,7 +24,7 @@ import {
   ReceiptIcon,
   ClockIcon,
 } from 'lucide-react'
-import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, ReceiptContent, TimecardContent, TaskStatus } from '@/types'
+import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, ReceiptContent, TimecardContent, TaskStatus, DynamicFieldEntry } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
 import EditJsaReportModal from './EditJsaReportModal'
@@ -41,6 +41,35 @@ interface PostCardProps {
   onPinToggle: () => void
   onDeleted?: () => void
   onUpdated?: () => void
+}
+
+/** Renders dynamic/custom fields in the preview/expand view. Skips empty values. */
+function DynamicFieldsPreview({
+  fields,
+  colorClass = 'text-amber-700',
+}: {
+  fields?: DynamicFieldEntry[]
+  colorClass?: string
+}) {
+  if (!fields || fields.length === 0) return null
+  const filled = fields.filter((f) => f.value)
+  if (filled.length === 0) return null
+
+  return (
+    <>
+      <div className="border-t border-gray-100" />
+      {filled.map((f) => (
+        <div key={f.id}>
+          <dt className={`text-xs font-semibold ${colorClass} uppercase tracking-wide mb-0.5`}>
+            {f.label}
+          </dt>
+          <dd className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+            {f.value}
+          </dd>
+        </div>
+      ))}
+    </>
+  )
 }
 
 function formatDate(dateStr: string) {
@@ -122,10 +151,12 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
 function DailyReportPost({
   content,
   photoUrls,
+  dynamicFields,
   onImageClick,
 }: {
   content: DailyReportContent
   photoUrls: string[]
+  dynamicFields?: DynamicFieldEntry[]
   onImageClick: (urls: string[], index: number) => void
 }) {
   const crewFields: { label: string; key: keyof DailyReportContent }[] = [
@@ -187,6 +218,9 @@ function DailyReportPost({
           </div>
         ) : null
       )}
+
+      {/* Dynamic fields */}
+      <DynamicFieldsPreview fields={dynamicFields} />
 
       {/* Photos */}
       {photoUrls.length > 0 && (
@@ -415,11 +449,13 @@ function CollapsibleTask({
 function CollapsibleDailyReport({
   content,
   photoUrls,
+  dynamicFields,
   onImageClick,
   isPinned,
 }: {
   content: DailyReportContent
   photoUrls: string[]
+  dynamicFields?: DynamicFieldEntry[]
   onImageClick: (urls: string[], index: number) => void
   isPinned?: boolean
 }) {
@@ -474,14 +510,14 @@ function CollapsibleDailyReport({
 
       {/* Expanded detail — hidden by default, always visible when pinned */}
       {(isPinned || expanded) && (
-        <DailyReportPost content={content} photoUrls={photoUrls} onImageClick={onImageClick} />
+        <DailyReportPost content={content} photoUrls={photoUrls} dynamicFields={dynamicFields} onImageClick={onImageClick} />
       )}
     </div>
   )
 }
 
 // ── JSA Report content card ─────────────────────────────────────────────────
-function JsaReportPost({ content }: { content: JsaReportContent }) {
+function JsaReportPost({ content, dynamicFields }: { content: JsaReportContent; dynamicFields?: DynamicFieldEntry[] }) {
   const personnelFields: { label: string; value: string }[] = [
     { label: 'Prepared By', value: content.preparedBy },
     { label: 'Site Supervisor', value: content.siteSupervisor },
@@ -547,6 +583,9 @@ function JsaReportPost({ content }: { content: JsaReportContent }) {
         </>
       )}
 
+      {/* Dynamic fields */}
+      <DynamicFieldsPreview fields={dynamicFields} />
+
       {(() => {
         const filled = (content.signatures ?? []).filter((s) => s.name || s.signature)
         return filled.length > 0 ? (
@@ -576,9 +615,11 @@ function JsaReportPost({ content }: { content: JsaReportContent }) {
 // ── Collapsible wrapper for JSA reports in the feed ──────────────────────────
 function CollapsibleJsaReport({
   content,
+  dynamicFields,
   isPinned,
 }: {
   content: JsaReportContent
+  dynamicFields?: DynamicFieldEntry[]
   isPinned?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -623,7 +664,7 @@ function CollapsibleJsaReport({
         )}
       </div>
 
-      {(isPinned || expanded) && <JsaReportPost content={content} />}
+      {(isPinned || expanded) && <JsaReportPost content={content} dynamicFields={dynamicFields} />}
     </div>
   )
 }
@@ -631,9 +672,11 @@ function CollapsibleJsaReport({
 // ── Receipt content card ──────────────────────────────────────────────────
 function ReceiptPost({
   content,
+  dynamicFields,
   onImageClick,
 }: {
   content: ReceiptContent
+  dynamicFields?: DynamicFieldEntry[]
   onImageClick: (urls: string[], index: number) => void
 }) {
   const supabase = createClient()
@@ -694,6 +737,8 @@ function ReceiptPost({
           </div>
         </div>
       </div>
+      {/* Dynamic fields */}
+      <DynamicFieldsPreview fields={dynamicFields} colorClass="text-green-700" />
     </div>
   )
 }
@@ -701,10 +746,12 @@ function ReceiptPost({
 // ── Collapsible wrapper for receipts in the feed ──────────────────────────
 function CollapsibleReceipt({
   content,
+  dynamicFields,
   onImageClick,
   isPinned,
 }: {
   content: ReceiptContent
+  dynamicFields?: DynamicFieldEntry[]
   onImageClick: (urls: string[], index: number) => void
   isPinned?: boolean
 }) {
@@ -743,14 +790,14 @@ function CollapsibleReceipt({
       </div>
 
       {(isPinned || expanded) && (
-        <ReceiptPost content={content} onImageClick={onImageClick} />
+        <ReceiptPost content={content} dynamicFields={dynamicFields} onImageClick={onImageClick} />
       )}
     </div>
   )
 }
 
 // ── Timecard content card ──────────────────────────────────────────────────
-function TimecardPost({ content }: { content: TimecardContent }) {
+function TimecardPost({ content, dynamicFields }: { content: TimecardContent; dynamicFields?: DynamicFieldEntry[] }) {
   const dateLabel = content.date
     ? new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
         weekday: 'short',
@@ -802,6 +849,8 @@ function TimecardPost({ content }: { content: TimecardContent }) {
           </table>
         </div>
       )}
+      {/* Dynamic fields */}
+      <DynamicFieldsPreview fields={dynamicFields} colorClass="text-blue-700" />
     </div>
   )
 }
@@ -809,9 +858,11 @@ function TimecardPost({ content }: { content: TimecardContent }) {
 // ── Collapsible wrapper for timecards in the feed ──────────────────────────
 function CollapsibleTimecard({
   content,
+  dynamicFields,
   isPinned,
 }: {
   content: TimecardContent
+  dynamicFields?: DynamicFieldEntry[]
   isPinned?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -858,7 +909,7 @@ function CollapsibleTimecard({
         )}
       </div>
 
-      {(isPinned || expanded) && <TimecardPost content={content} />}
+      {(isPinned || expanded) && <TimecardPost content={content} dynamicFields={dynamicFields} />}
     </div>
   )
 }
@@ -1073,16 +1124,16 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
     try {
       if (post.post_type === 'jsa_report') {
         const { generateJsaPdf } = await import('@/lib/generateJsaPdf')
-        await generateJsaPdf(post.content as JsaReportContent, companySettings?.logo_url)
+        await generateJsaPdf(post.content as JsaReportContent, companySettings?.logo_url, post.dynamic_fields)
       } else if (post.post_type === 'receipt') {
         const { generateReceiptPdf } = await import('@/lib/generateReceiptPdf')
-        await generateReceiptPdf(post.content as ReceiptContent, receiptPhotoUrl, companySettings?.logo_url)
+        await generateReceiptPdf(post.content as ReceiptContent, receiptPhotoUrl, companySettings?.logo_url, post.dynamic_fields)
       } else if (post.post_type === 'timecard') {
         const { generateTimecardPdf } = await import('@/lib/generateTimecardPdf')
-        await generateTimecardPdf(post.content as TimecardContent, companySettings?.logo_url)
+        await generateTimecardPdf(post.content as TimecardContent, companySettings?.logo_url, post.dynamic_fields)
       } else {
         const { generateReportPdf } = await import('@/lib/generateReportPdf')
-        await generateReportPdf(post.content as DailyReportContent, reportPhotoUrls, companySettings?.logo_url)
+        await generateReportPdf(post.content as DailyReportContent, reportPhotoUrls, companySettings?.logo_url, post.dynamic_fields)
       }
     } finally {
       setPdfLoading(false)
@@ -1169,6 +1220,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
         <CollapsibleDailyReport
           content={post.content as DailyReportContent}
           photoUrls={reportPhotoUrls}
+          dynamicFields={post.dynamic_fields}
           onImageClick={openPreview}
           isPinned={post.is_pinned}
         />
@@ -1185,12 +1237,14 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       {post.post_type === 'jsa_report' && (
         <CollapsibleJsaReport
           content={post.content as JsaReportContent}
+          dynamicFields={post.dynamic_fields}
           isPinned={post.is_pinned}
         />
       )}
       {post.post_type === 'receipt' && (
         <CollapsibleReceipt
           content={post.content as ReceiptContent}
+          dynamicFields={post.dynamic_fields}
           onImageClick={openPreview}
           isPinned={post.is_pinned}
         />
@@ -1198,6 +1252,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       {post.post_type === 'timecard' && (
         <CollapsibleTimecard
           content={post.content as TimecardContent}
+          dynamicFields={post.dynamic_fields}
           isPinned={post.is_pinned}
         />
       )}

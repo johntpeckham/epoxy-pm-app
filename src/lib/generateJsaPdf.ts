@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import { JsaReportContent } from '@/types'
+import { JsaReportContent, DynamicFieldEntry } from '@/types'
 
 // Color palette — matches existing generateReportPdf styles
 const AMBER: [number, number, number] = [180, 83, 9]
@@ -35,7 +35,8 @@ async function loadImage(url: string): Promise<{
 
 export async function generateJsaPdf(
   content: JsaReportContent,
-  logoUrl?: string | null
+  logoUrl?: string | null,
+  dynamicFields?: DynamicFieldEntry[]
 ): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -175,6 +176,21 @@ export async function generateJsaPdf(
       paragraphBlock('Hazards', task.hazards || '')
       paragraphBlock('Precautions', task.precautions || '')
       paragraphBlock('PPE Required', task.ppe || '')
+    }
+  }
+
+  // ─── ADDITIONAL FIELDS ──────────────────────────────────────────────────
+  if (dynamicFields && dynamicFields.length > 0) {
+    const filled = dynamicFields.filter((f) => f.value)
+    if (filled.length > 0) {
+      sectionTitle('ADDITIONAL FIELDS')
+      for (const f of filled) {
+        if (f.type === 'long_text') {
+          paragraphBlock(f.label, f.value)
+        } else {
+          fieldRow(f.label, f.value)
+        }
+      }
     }
   }
 
