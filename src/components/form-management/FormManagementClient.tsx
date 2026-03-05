@@ -102,7 +102,7 @@ function InlineEdit({
   )
 }
 
-/* ── Hover controls overlay ── */
+/* ── Field reorder and delete controls ── */
 function FieldControls({
   fieldId,
   idx,
@@ -121,22 +121,25 @@ function FieldControls({
   setDeleteConfirm: (id: string | null) => void
 }) {
   return (
-    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 px-1.5 py-1 shadow-sm z-10">
-      <GripVerticalIcon className="w-4 h-4 text-gray-300 cursor-grab" />
-      <button
-        onClick={() => onMove(fieldId, 'up')}
-        disabled={idx === 0}
-        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 transition"
-      >
-        <ChevronUpIcon className="w-3.5 h-3.5" />
-      </button>
-      <button
-        onClick={() => onMove(fieldId, 'down')}
-        disabled={idx === total - 1}
-        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 transition"
-      >
-        <ChevronDownIcon className="w-3.5 h-3.5" />
-      </button>
+    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
+      <div className="flex items-center gap-0.5 bg-gray-50 border border-gray-200 rounded-lg px-1 py-0.5">
+        <button
+          onClick={() => onMove(fieldId, 'up')}
+          disabled={idx === 0}
+          title="Move up"
+          className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 disabled:text-gray-300 disabled:hover:bg-transparent rounded transition"
+        >
+          <ChevronUpIcon className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => onMove(fieldId, 'down')}
+          disabled={idx === total - 1}
+          title="Move down"
+          className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 disabled:text-gray-300 disabled:hover:bg-transparent rounded transition"
+        >
+          <ChevronDownIcon className="w-4 h-4" />
+        </button>
+      </div>
       {deleteConfirm === fieldId ? (
         <div className="flex items-center gap-1 ml-1">
           <button
@@ -155,7 +158,8 @@ function FieldControls({
       ) : (
         <button
           onClick={() => setDeleteConfirm(fieldId)}
-          className="p-1 text-gray-400 hover:text-red-500 transition"
+          title="Delete field"
+          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition"
         >
           <Trash2Icon className="w-3.5 h-3.5" />
         </button>
@@ -724,8 +728,12 @@ export default function FormManagementClient() {
                       {fields.map((field, idx) => (
                         <div
                           key={field.id}
-                          className="group relative pr-12"
+                          className="group relative pl-8 pr-24"
                         >
+                          {/* Drag handle (visual affordance) */}
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-gray-300 cursor-grab">
+                            <GripVerticalIcon className="w-4 h-4" />
+                          </div>
                           {renderField(field)}
                           <FieldControls
                             fieldId={field.id}
