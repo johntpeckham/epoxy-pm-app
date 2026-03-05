@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 interface Point {
   x: number
@@ -24,49 +24,54 @@ async function getPdfjs() {
 export default function TakeoffTestPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pageRef = useRef<any>(null)
-
-  const [scale, setScale] = useState(1)
-  const scaleRef = useRef(1)
-  const [fitScale, setFitScale] = useState(1)
+  const innerRef = useRef<HTMLDivElement>(null)
 
   const [pdfLoaded, setPdfLoaded] = useState(false)
   const [zoomWorking, setZoomWorking] = useState(false)
+
+  // Zoom is CSS-only (1.0 = fit scale, no canvas re-render)
+  const [zoom, setZoom] = useState(1)
+  const zoomRef = useRef(1)
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+
+  // Pan
+  const [panX, setPanX] = useState(0)
+  const [panY, setPanY] = useState(0)
+  const panXRef = useRef(0)
+  const panYRef = useRef(0)
+  useEffect(() => { panXRef.current = panX }, [panX])
+  useEffect(() => { panYRef.current = panY }, [panY])
+
+  // Drag tracking
+  const isDraggingRef = useRef(false)
+  const dragStartRef = useRef({ x: 0, y: 0 })
+  const panStartRef = useRef({ x: 0, y: 0 })
 
   // Measurement state
   const [pointA, setPointA] = useState<Point | null>(null)
   const [pointB, setPointB] = useState<Point | null>(null)
   const [lastDistance, setLastDistance] = useState<number | null>(null)
 
-  // ─── Render canvas at current scale ───
-  const renderCanvas = useCallback(async (s: number) => {
-    const pdfPage = pageRef.current
-    const canvas = canvasRef.current
-    if (!pdfPage || !canvas) return
+  // Canvas dimensions (set once on PDF load for SVG sizing)
+  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
 
-    const viewport = pdfPage.getViewport({ scale: s })
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    const ctx = canvas.getContext('2d')!
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
-  }, [])
-
-  // ─── Re-render when scale changes ───
-  useEffect(() => {
-    if (pdfLoaded) {
-      renderCanvas(scale)
-    }
-  }, [scale, pdfLoaded, renderCanvas])
-
-  // ─── Pinch to zoom — native events, passive: false ───
+  // ─── Wheel zoom + touch pinch + touch pan — native events ───
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
 
     let startDist = 0
-    let startScale = 1
+    let startZoom = 1
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault()
+        const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05
+        const newZoom = Math.min(Math.max(zoomRef.current * zoomFactor, 0.3), 5)
+        setZoom(newZoom)
+        setZoomWorking(true)
+      }
+    }
 
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
@@ -75,8 +80,13 @@ export default function TakeoffTestPage() {
           e.touches[1].clientX - e.touches[0].clientX,
           e.touches[1].clientY - e.touches[0].clientY
         )
-        startScale = scaleRef.current
+        startZoom = zoomRef.current
+        isDraggingRef.current = false
         setZoomWorking(true)
+      } else if (e.touches.length === 1) {
+        isDraggingRef.current = true
+        dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+        panStartRef.current = { x: panXRef.current, y: panYRef.current }
       }
     }
 
@@ -87,34 +97,68 @@ export default function TakeoffTestPage() {
           e.touches[1].clientX - e.touches[0].clientX,
           e.touches[1].clientY - e.touches[0].clientY
         )
-        const newScale = Math.min(Math.max(startScale * (dist / startDist), 0.3), 5)
-        scaleRef.current = newScale
-        setScale(newScale)
+        const newZoom = Math.min(Math.max(startZoom * (dist / startDist), 0.3), 5)
+        setZoom(newZoom)
+      } else if (e.touches.length === 1 && isDraggingRef.current) {
+        const dx = e.touches[0].clientX - dragStartRef.current.x
+        const dy = e.touches[0].clientY - dragStartRef.current.y
+        setPanX(panStartRef.current.x + dx)
+        setPanY(panStartRef.current.y + dy)
       }
     }
 
-    const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault()
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
-        const newScale = Math.min(Math.max(scaleRef.current * zoomFactor, 0.3), 5)
-        scaleRef.current = newScale
-        setScale(newScale)
-        setZoomWorking(true)
-      }
+    const onTouchEnd = () => {
+      isDraggingRef.current = false
     }
 
+    el.addEventListener('wheel', onWheel, { passive: false })
     el.addEventListener('touchstart', onTouchStart, { passive: false })
     el.addEventListener('touchmove', onTouchMove, { passive: false })
-    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
     return () => {
+      el.removeEventListener('wheel', onWheel)
       el.removeEventListener('touchstart', onTouchStart)
       el.removeEventListener('touchmove', onTouchMove)
-      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('touchend', onTouchEnd)
     }
   }, [])
 
-  // ─── File upload handler ───
+  // ─── Mouse drag to pan ───
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const onMouseDown = (e: MouseEvent) => {
+      isDraggingRef.current = true
+      dragStartRef.current = { x: e.clientX, y: e.clientY }
+      panStartRef.current = { x: panXRef.current, y: panYRef.current }
+      el.style.cursor = 'grabbing'
+    }
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      const dx = e.clientX - dragStartRef.current.x
+      const dy = e.clientY - dragStartRef.current.y
+      setPanX(panStartRef.current.x + dx)
+      setPanY(panStartRef.current.y + dy)
+    }
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false
+      el.style.cursor = ''
+    }
+
+    el.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      el.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
+  // ─── File upload — render canvas ONCE at fitScale ───
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -124,43 +168,50 @@ export default function TakeoffTestPage() {
     const data = new Uint8Array(arrayBuffer)
     const doc = await pdfjs.getDocument({ data }).promise
     const pdfPage = await doc.getPage(1)
-    pageRef.current = pdfPage
 
-    // Calculate fit scale
     const container = containerRef.current
     if (!container) return
     const rawVp = pdfPage.getViewport({ scale: 1 })
     const cw = container.clientWidth
     const ch = container.clientHeight
-    const fs = Math.min(cw / rawVp.width, ch / rawVp.height) * 0.9
+    const fitScale = Math.min(cw / rawVp.width, ch / rawVp.height) * 0.9
 
-    setFitScale(fs)
-    scaleRef.current = fs
-    setScale(fs)
+    // Render canvas once at fitScale — never re-rendered for zoom
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const viewport = pdfPage.getViewport({ scale: fitScale })
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
+
+    setCanvasSize({ w: viewport.width, h: viewport.height })
+    setZoom(1)
+    zoomRef.current = 1
+    setPanX(0)
+    setPanY(0)
     setPdfLoaded(true)
-
-    // Initial render
-    await renderCanvas(fs)
   }
 
-  // ─── Click to measure ───
-  function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
+  // ─── Click to measure (on inner div — coords are in scaled space) ───
+  function handleMeasureClick(e: React.MouseEvent<HTMLDivElement>) {
+    e.stopPropagation()
     const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    // Coords relative to the inner div, which is CSS-scaled
+    // Divide by zoom to get canvas-space coordinates
+    const x = (e.clientX - rect.left) / zoom
+    const y = (e.clientY - rect.top) / zoom
 
     if (!pointA) {
-      // First click — store point A
       setPointA({ x, y })
       setPointB(null)
       setLastDistance(null)
     } else {
-      // Second click — store point B, calculate distance
       const b = { x, y }
       setPointB(b)
       const dist = Math.hypot(b.x - pointA.x, b.y - pointA.y)
       setLastDistance(dist)
-      // Reset after a brief pause so user sees the line
       setTimeout(() => {
         setPointA(null)
         setPointB(null)
@@ -170,23 +221,18 @@ export default function TakeoffTestPage() {
 
   // ─── Zoom buttons ───
   function zoomIn() {
-    const newScale = Math.min(scaleRef.current * 1.2, 5)
-    scaleRef.current = newScale
-    setScale(newScale)
+    setZoom(prev => Math.min(prev * 1.2, 5))
   }
-
   function zoomOut() {
-    const newScale = Math.max(scaleRef.current / 1.2, 0.3)
-    scaleRef.current = newScale
-    setScale(newScale)
+    setZoom(prev => Math.max(prev / 1.2, 0.3))
   }
-
   function zoomReset() {
-    scaleRef.current = fitScale
-    setScale(fitScale)
+    setZoom(1)
+    setPanX(0)
+    setPanY(0)
   }
 
-  const zoomPercent = fitScale > 0 ? Math.round((scale / fitScale) * 100) : 100
+  const zoomPercent = Math.round(zoom * 100)
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 16, background: '#f3f4f6', minHeight: '100vh' }}>
@@ -213,8 +259,7 @@ export default function TakeoffTestPage() {
       {/* Status bar */}
       <div style={{ display: 'flex', gap: 24, marginBottom: 12, fontSize: 13, flexWrap: 'wrap' }}>
         <span>
-          <strong>Scale:</strong> {zoomPercent}%
-          {fitScale > 0 && ` (raw: ${scale.toFixed(3)}, fit: ${fitScale.toFixed(3)})`}
+          <strong>Zoom:</strong> {zoomPercent}%
         </span>
         <span>
           <strong>Zoom working:</strong>{' '}
@@ -246,6 +291,7 @@ export default function TakeoffTestPage() {
           border: '2px solid #d1d5db',
           borderRadius: 8,
           touchAction: 'none',
+          cursor: 'grab',
         }}
       >
         {!pdfLoaded && (
@@ -258,57 +304,57 @@ export default function TakeoffTestPage() {
           </div>
         )}
 
-        {/* PDF canvas */}
-        <canvas ref={canvasRef} style={{ display: 'block' }} />
+        {/* Inner div: CSS transform for zoom + pan, canvas rendered once */}
+        <div
+          ref={innerRef}
+          onClick={pdfLoaded ? handleMeasureClick : undefined}
+          style={{
+            transformOrigin: '0 0',
+            transform: `scale(${zoom}) translate(${panX / zoom}px, ${panY / zoom}px)`,
+            cursor: pdfLoaded ? 'crosshair' : undefined,
+            position: 'relative',
+            display: 'inline-block',
+          }}
+        >
+          <canvas ref={canvasRef} style={{ display: 'block' }} />
 
-        {/* Click-to-measure overlay */}
-        {pdfLoaded && (
-          <div
-            onClick={handleOverlayClick}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              cursor: 'crosshair',
-              zIndex: 10,
-            }}
-          >
-            {/* SVG overlay for measurement visuals */}
+          {/* SVG overlay for measurement visuals — same coordinate space as canvas */}
+          {pdfLoaded && canvasSize.w > 0 && (
             <svg
-              width="100%"
-              height="100%"
-              style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+              width={canvasSize.w}
+              height={canvasSize.h}
+              style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
             >
-              {/* Point A dot */}
               {pointA && (
-                <circle cx={pointA.x} cy={pointA.y} r={6} fill="red" stroke="white" strokeWidth={2} />
+                <circle cx={pointA.x} cy={pointA.y} r={6 / zoom} fill="red" stroke="white" strokeWidth={2 / zoom} />
               )}
 
-              {/* Point B dot + line */}
               {pointA && pointB && (
                 <>
                   <line
                     x1={pointA.x} y1={pointA.y}
                     x2={pointB.x} y2={pointB.y}
-                    stroke="red" strokeWidth={2}
+                    stroke="red" strokeWidth={2 / zoom}
                   />
-                  <circle cx={pointB.x} cy={pointB.y} r={6} fill="red" stroke="white" strokeWidth={2} />
+                  <circle cx={pointB.x} cy={pointB.y} r={6 / zoom} fill="red" stroke="white" strokeWidth={2 / zoom} />
 
-                  {/* Distance label */}
                   {lastDistance !== null && (() => {
                     const mx = (pointA.x + pointB.x) / 2
                     const my = (pointA.y + pointB.y) / 2
                     const label = `${lastDistance.toFixed(1)} px`
-                    const labelW = label.length * 8 + 12
+                    const labelW = (label.length * 8 + 12) / zoom
+                    const labelH = 24 / zoom
+                    const fontSize = 13 / zoom
                     return (
                       <>
                         <rect
-                          x={mx - labelW / 2} y={my - 12}
-                          width={labelW} height={24}
-                          rx={4} fill="rgba(0,0,0,0.8)"
+                          x={mx - labelW / 2} y={my - labelH / 2}
+                          width={labelW} height={labelH}
+                          rx={4 / zoom} fill="rgba(0,0,0,0.8)"
                         />
                         <text
-                          x={mx} y={my + 1}
-                          fill="white" fontSize={13} fontWeight="bold"
+                          x={mx} y={my + 1 / zoom}
+                          fill="white" fontSize={fontSize} fontWeight="bold"
                           textAnchor="middle" dominantBaseline="middle"
                         >
                           {label}
@@ -319,8 +365,8 @@ export default function TakeoffTestPage() {
                 </>
               )}
             </svg>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
