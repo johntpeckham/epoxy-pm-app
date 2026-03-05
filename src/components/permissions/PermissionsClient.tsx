@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ArrowLeftIcon, ShieldIcon, CheckIcon, LoaderIcon } from 'lucide-react'
 import type { AccessLevel, RolePermission } from '@/types'
 
-const ROLES = ['admin', 'salesman', 'office_manager', 'foreman', 'crew'] as const
+const ROLES = ['salesman', 'office_manager', 'foreman', 'crew', 'admin'] as const
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   salesman: 'Salesman',
@@ -105,7 +105,7 @@ export default function PermissionsClient() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <button
