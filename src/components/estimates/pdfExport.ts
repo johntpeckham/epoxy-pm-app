@@ -17,6 +17,7 @@ interface PdfData {
   companyName: string
   companyAddress: string
   companyWebsite: string
+  logoBase64: string | null
 }
 
 function fmtMoney(n: number): string {
@@ -42,11 +43,26 @@ export function exportEstimatePdf(data: PdfData) {
   y += 12
   doc.text(data.companyWebsite, margin, y)
 
+  // ─── Logo (top-right) ───
+  let logoBottomY = margin + 4
+  if (data.logoBase64) {
+    try {
+      const format = data.logoBase64.includes('image/png') ? 'PNG' : 'JPEG'
+      const logoMaxW = 130
+      const logoMaxH = 60
+      doc.addImage(data.logoBase64, format, pageWidth - margin - logoMaxW, margin - 10, logoMaxW, logoMaxH, undefined, 'FAST')
+      logoBottomY = margin - 10 + logoMaxH
+    } catch {
+      // If image fails to load, skip logo
+    }
+  }
+
   // ─── "Estimate" title ───
+  const titleY = Math.max(logoBottomY + 8, margin + 4)
   doc.setFontSize(28)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(217, 119, 6) // amber-600
-  doc.text('Estimate', pageWidth - margin, margin + 4, { align: 'right' })
+  doc.text('Estimate', pageWidth - margin, titleY, { align: 'right' })
 
   y += 28
   doc.setTextColor(0, 0, 0)

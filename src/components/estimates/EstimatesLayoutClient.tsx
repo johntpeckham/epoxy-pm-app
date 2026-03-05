@@ -147,6 +147,7 @@ export default function EstimatesLayoutClient({
             onEstimateCreated={refreshEstimates}
             onEstimateUpdated={refreshEstimates}
             onBack={() => setSelectedEstimateId(null)}
+            onOpenSettings={() => setShowSettings(true)}
           />
         </div>
       </div>

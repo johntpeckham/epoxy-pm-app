@@ -48,6 +48,7 @@ export interface EstimateSettings {
   company_city_state_zip: string | null
   company_website: string | null
   company_phone: string | null
+  logo_base64: string | null
 }
 
 export const DEFAULT_TERMS = `Payment Terms
