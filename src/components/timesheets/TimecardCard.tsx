@@ -13,6 +13,7 @@ import {
   DownloadIcon,
 } from 'lucide-react'
 import { TimecardContent, DynamicFieldEntry } from '@/types'
+import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditTimecardModal from '@/components/feed/EditTimecardModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -47,6 +48,8 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
   const [showEditModal, setShowEditModal] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const { content } = timecard
+  const sectionGroups = groupDynamicFieldsBySection(timecard.dynamic_fields)
+  const HANDLED_SECTIONS = ['Project Info', 'Employees']
 
   async function handleDelete() {
     setIsDeleting(true)
@@ -134,6 +137,14 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
               <p className="text-xs text-blue-700">{content.address}</p>
             )}
 
+            {/* Project Info section dynamic fields */}
+            {(sectionGroups.get('Project Info') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
+
             {/* Employee time table */}
             {content.entries.length > 0 && (
               <div className="overflow-x-auto">
@@ -168,17 +179,38 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
               </div>
             )}
 
-            {/* Dynamic fields */}
-            {timecard.dynamic_fields && timecard.dynamic_fields.length > 0 && (
-              <dl className="space-y-2">
-                {timecard.dynamic_fields.filter((f) => f.value).map((f) => (
-                  <div key={f.id}>
-                    <dt className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
-                    <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
+            {/* Employees section dynamic fields */}
+            {(sectionGroups.get('Employees') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
+
+            {/* Custom sections not in the hardcoded form */}
+            {Array.from(sectionGroups.entries())
+              .filter(([section]) => !HANDLED_SECTIONS.includes(section) && section !== '')
+              .map(([section, fields]) => (
+                <div key={section}>
+                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">{section}</p>
+                  <dl className="space-y-2">
+                    {fields.map((f) => (
+                      <div key={f.id}>
+                        <dt className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                        <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+
+            {/* Dynamic fields without a section (legacy data) */}
+            {(sectionGroups.get('') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
 
             {/* Footer actions */}
             <div className="pt-2 border-t border-blue-200 flex items-center justify-between flex-wrap gap-2">

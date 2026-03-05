@@ -226,6 +226,7 @@ export interface DynamicFieldEntry {
   value: string   // the user-entered value
   type: string    // field type (short_text, long_text, etc.)
   order: number   // display order from the template
+  section?: string // label of the section_header this field belongs to
 }
 
 export interface FeedPost {

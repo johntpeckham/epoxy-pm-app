@@ -14,6 +14,7 @@ import {
   DownloadIcon,
 } from 'lucide-react'
 import { ReceiptContent, DynamicFieldEntry } from '@/types'
+import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditReceiptModal from '@/components/feed/EditReceiptModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -50,6 +51,8 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
   const [showEditModal, setShowEditModal] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const { content } = receipt
+  const sectionGroups = groupDynamicFieldsBySection(receipt.dynamic_fields)
+  const HANDLED_SECTIONS = ['Receipt Photo', 'Receipt Details']
 
   // Resolve photo public URL
   const photoUrl = content.receipt_photo
@@ -148,17 +151,38 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
               ) : null}
             </dl>
 
-            {/* Dynamic fields */}
-            {receipt.dynamic_fields && receipt.dynamic_fields.length > 0 && (
-              <dl className="space-y-2">
-                {receipt.dynamic_fields.filter((f) => f.value).map((f) => (
-                  <div key={f.id}>
-                    <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
-                    <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
+            {/* Receipt Details section dynamic fields */}
+            {(sectionGroups.get('Receipt Details') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
+
+            {/* Custom sections not in the hardcoded form */}
+            {Array.from(sectionGroups.entries())
+              .filter(([section]) => !HANDLED_SECTIONS.includes(section) && section !== '')
+              .map(([section, fields]) => (
+                <div key={section}>
+                  <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">{section}</p>
+                  <dl className="space-y-2">
+                    {fields.map((f) => (
+                      <div key={f.id}>
+                        <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                        <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+
+            {/* Dynamic fields without a section (legacy data) */}
+            {(sectionGroups.get('') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
 
             {/* Receipt photo */}
             {photoUrl && (

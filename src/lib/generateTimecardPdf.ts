@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { TimecardContent, DynamicFieldEntry } from '@/types'
+import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 
 /** Fetch an image URL and return a base64 data URL, format, and natural dimensions. */
 async function loadImage(url: string): Promise<{
@@ -118,6 +119,18 @@ export async function generateTimecardPdf(
   doc.line(M, y, M + CW, y)
   y += 4
 
+  // Group dynamic fields by section for inline rendering
+  const sectionGroups = groupDynamicFieldsBySection(dynamicFields)
+  const HANDLED_SECTIONS = ['Project Info', 'Employees']
+
+  function renderSectionDynamicFields(sectionLabel: string) {
+    const fields = sectionGroups.get(sectionLabel)
+    if (!fields) return
+    for (const f of fields) {
+      fieldRow(f.label, f.value)
+    }
+  }
+
   // ─── PROJECT DETAILS ──────────────────────────────────────────────────
   sectionTitle('TIMECARD DETAILS')
 
@@ -135,6 +148,7 @@ export async function generateTimecardPdf(
   fieldRow('Address', content.address || '—')
   fieldRow('Employees', `${content.entries.length}`)
   fieldRow('Grand Total', `${content.grand_total_hours.toFixed(2)} hours`)
+  renderSectionDynamicFields('Project Info')
 
   // ─── EMPLOYEE TABLE ────────────────────────────────────────────────────
   sectionTitle('EMPLOYEE TIME LOG')
@@ -202,15 +216,20 @@ export async function generateTimecardPdf(
   doc.text(`${content.grand_total_hours.toFixed(2)} hours`, colX[4] + 2, y + 2.5)
   y += 10
 
-  // ─── ADDITIONAL FIELDS ──────────────────────────────────────────────────
-  if (dynamicFields && dynamicFields.length > 0) {
-    const filled = dynamicFields.filter((f) => f.value)
-    if (filled.length > 0) {
-      sectionTitle('ADDITIONAL DETAILS')
-      for (const f of filled) {
-        fieldRow(f.label, f.value)
-      }
+  // Employees section dynamic fields
+  renderSectionDynamicFields('Employees')
+
+  // Custom sections not in the hardcoded form
+  for (const [section, fields] of sectionGroups.entries()) {
+    if (HANDLED_SECTIONS.includes(section) || section === '') continue
+    sectionTitle(section.toUpperCase())
+    for (const f of fields) {
+      fieldRow(f.label, f.value)
     }
+  }
+  // Legacy dynamic fields without a section
+  for (const f of sectionGroups.get('') ?? []) {
+    fieldRow(f.label, f.value)
   }
 
   // ─── FOOTER ───────────────────────────────────────────────────────────────

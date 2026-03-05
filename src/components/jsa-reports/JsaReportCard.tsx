@@ -14,6 +14,7 @@ import {
   ShieldIcon,
 } from 'lucide-react'
 import { JsaReportContent, DynamicFieldEntry } from '@/types'
+import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditJsaReportModal from '@/components/feed/EditJsaReportModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -50,6 +51,8 @@ export default function JsaReportCard({ report }: JsaReportCardProps) {
   const [showEditModal, setShowEditModal] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const { content } = report
+  const sectionGroups = groupDynamicFieldsBySection(report.dynamic_fields)
+  const HANDLED_SECTIONS = ['Project Info', 'Personnel', 'Tasks', 'Employee Acknowledgment & Signatures']
 
   async function handleDelete() {
     setIsDeleting(true)
@@ -193,6 +196,22 @@ export default function JsaReportCard({ report }: JsaReportCardProps) {
               </div>
             )}
 
+            {/* Project Info section dynamic fields */}
+            {(sectionGroups.get('Project Info') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
+
+            {/* Personnel section dynamic fields */}
+            {(sectionGroups.get('Personnel') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
+
             {/* Task sections */}
             {content.tasks && content.tasks.length > 0 && (
               <div className="space-y-4 pt-2">
@@ -222,19 +241,38 @@ export default function JsaReportCard({ report }: JsaReportCardProps) {
               </div>
             )}
 
-            {/* Dynamic fields */}
-            {report.dynamic_fields && report.dynamic_fields.length > 0 && (
-              <dl className="space-y-3">
-                {report.dynamic_fields.filter((f) => f.value).map((f) => (
-                  <div key={f.id}>
-                    <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
-                      {f.label}
-                    </dt>
-                    <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
+            {/* Tasks section dynamic fields */}
+            {(sectionGroups.get('Tasks') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
+
+            {/* Custom sections not in the hardcoded form */}
+            {Array.from(sectionGroups.entries())
+              .filter(([section]) => !HANDLED_SECTIONS.includes(section) && section !== '')
+              .map(([section, fields]) => (
+                <div key={section}>
+                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">{section}</p>
+                  <dl className="space-y-3">
+                    {fields.map((f) => (
+                      <div key={f.id}>
+                        <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                        <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+
+            {/* Dynamic fields without a section (legacy data) */}
+            {(sectionGroups.get('') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
 
             {/* Signatures */}
             {(() => {

@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { DailyReportContent, DynamicFieldEntry } from '@/types'
+import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 
 /** Fetch an image URL and return a base64 data URL, format, and natural dimensions. */
 async function loadImage(url: string): Promise<{
@@ -170,6 +171,22 @@ export async function generateReportPdf(
   doc.line(M, y, M + CW, y)
   y += 4
 
+  // Group dynamic fields by section for inline rendering
+  const sectionGroups = groupDynamicFieldsBySection(dynamicFields)
+  const HANDLED_SECTIONS = ['Header', 'Crew', 'Progress']
+
+  function renderSectionDynamicFields(sectionLabel: string) {
+    const fields = sectionGroups.get(sectionLabel)
+    if (!fields) return
+    for (const f of fields) {
+      if (f.type === 'long_text') {
+        paragraphBlock(f.label, f.value)
+      } else {
+        fieldRow(f.label, f.value)
+      }
+    }
+  }
+
   // ─── PROJECT DETAILS ────────────────────────────────────────────────────
 
   sectionTitle('PROJECT DETAILS')
@@ -186,6 +203,7 @@ export async function generateReportPdf(
   fieldRow('Date', displayDate)
   fieldRow('Project', content.project_name || '—')
   fieldRow('Address', content.address || '—')
+  renderSectionDynamicFields('Header')
 
   // ─── CREW ─────────────────────────────────────────────────────────────────
 
@@ -194,6 +212,7 @@ export async function generateReportPdf(
   fieldRow('Reported By', content.reported_by || '—')
   fieldRow('Project Foreman', content.project_foreman || '—')
   fieldRow('Weather', content.weather || '—')
+  renderSectionDynamicFields('Crew')
 
   // ─── WORK SUMMARY ──────────────────────────────────────────────────────
 
@@ -204,19 +223,26 @@ export async function generateReportPdf(
   paragraphBlock('Safety', content.safety || '')
   paragraphBlock('Materials Used', content.materials_used || '')
   paragraphBlock('Employees', content.employees || '')
+  renderSectionDynamicFields('Progress')
 
-  // ─── ADDITIONAL FIELDS ──────────────────────────────────────────────────
-  if (dynamicFields && dynamicFields.length > 0) {
-    const filled = dynamicFields.filter((f) => f.value)
-    if (filled.length > 0) {
-      sectionTitle('ADDITIONAL FIELDS')
-      for (const f of filled) {
-        if (f.type === 'long_text') {
-          paragraphBlock(f.label, f.value)
-        } else {
-          fieldRow(f.label, f.value)
-        }
+  // ─── CUSTOM SECTIONS ──────────────────────────────────────────────────
+  for (const [section, fields] of sectionGroups.entries()) {
+    if (HANDLED_SECTIONS.includes(section) || section === '') continue
+    sectionTitle(section.toUpperCase())
+    for (const f of fields) {
+      if (f.type === 'long_text') {
+        paragraphBlock(f.label, f.value)
+      } else {
+        fieldRow(f.label, f.value)
       }
+    }
+  }
+  // Legacy dynamic fields without a section
+  for (const f of sectionGroups.get('') ?? []) {
+    if (f.type === 'long_text') {
+      paragraphBlock(f.label, f.value)
+    } else {
+      fieldRow(f.label, f.value)
     }
   }
 

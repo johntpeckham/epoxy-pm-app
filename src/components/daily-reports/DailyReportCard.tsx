@@ -14,6 +14,7 @@ import {
   DownloadIcon,
 } from 'lucide-react'
 import { DailyReportContent, DynamicFieldEntry } from '@/types'
+import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from '@/components/feed/EditDailyReportModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -58,6 +59,9 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
   const [showEditModal, setShowEditModal] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const { content } = report
+  const sectionGroups = groupDynamicFieldsBySection(report.dynamic_fields)
+  // Template sections: "Header", "Crew", "Progress"
+  const HANDLED_SECTIONS = ['Header', 'Crew', 'Progress']
 
   // Resolve photo public URLs
   const photoUrls = (content.photos ?? []).map((path) => ({
@@ -186,6 +190,22 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
               <p className="text-xs text-amber-700">{content.address}</p>
             )}
 
+            {/* Header section dynamic fields */}
+            {(sectionGroups.get('Header') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
+
+            {/* Crew section dynamic fields */}
+            {(sectionGroups.get('Crew') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
+
             {/* Progress fields */}
             <dl className="space-y-3">
               {progressFields.map(({ label, key }) =>
@@ -198,21 +218,39 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
                   </div>
                 ) : null
               )}
+              {/* Progress section dynamic fields */}
+              {(sectionGroups.get('Progress') ?? []).map((f) => (
+                <div key={f.id}>
+                  <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                  <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+                </div>
+              ))}
             </dl>
 
-            {/* Dynamic fields */}
-            {report.dynamic_fields && report.dynamic_fields.length > 0 && (
-              <dl className="space-y-3">
-                {report.dynamic_fields.filter((f) => f.value).map((f) => (
-                  <div key={f.id}>
-                    <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
-                      {f.label}
-                    </dt>
-                    <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
+            {/* Custom sections not in the hardcoded form */}
+            {Array.from(sectionGroups.entries())
+              .filter(([section]) => !HANDLED_SECTIONS.includes(section) && section !== '')
+              .map(([section, fields]) => (
+                <div key={section}>
+                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">{section}</p>
+                  <dl className="space-y-3">
+                    {fields.map((f) => (
+                      <div key={f.id}>
+                        <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                        <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+
+            {/* Dynamic fields without a section (legacy data) */}
+            {(sectionGroups.get('') ?? []).map((f) => (
+              <div key={f.id}>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">{f.label}</dt>
+                <dd className="text-sm text-gray-700 whitespace-pre-wrap">{f.value}</dd>
+              </div>
+            ))}
 
             {/* Embedded photos */}
             {photoUrls.length > 0 && (
