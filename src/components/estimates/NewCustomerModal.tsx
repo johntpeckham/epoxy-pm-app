@@ -51,22 +51,23 @@ export default function NewCustomerModal({ userId, onClose, onSaved }: NewCustom
         </div>
         <div className="px-5 py-4 space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-              placeholder="Customer name"
-            />
-          </div>
-          <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Company</label>
             <input
               type="text"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              placeholder="Company name"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              placeholder="Contact name"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
