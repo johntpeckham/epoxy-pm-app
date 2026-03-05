@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, SettingsIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -258,6 +258,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
               <p className="text-gray-500 text-xs truncate leading-tight">{userEmail}</p>
             )}
           </div>
+          <SettingsIcon className="w-4 h-4 flex-shrink-0 text-gray-500 hover:text-white transition-colors" />
         </Link>
         <button
           onClick={handleSignOut}

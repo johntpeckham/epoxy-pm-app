@@ -6,14 +6,16 @@ import { createClient } from '@/lib/supabase/client'
 import { ArrowLeftIcon, ShieldIcon, CheckIcon, LoaderIcon } from 'lucide-react'
 import type { AccessLevel, RolePermission } from '@/types'
 
-const ROLES = ['salesman', 'foreman', 'crew'] as const
+const ROLES = ['salesman', 'office_manager', 'foreman', 'crew'] as const
 const ROLE_LABELS: Record<string, string> = {
   salesman: 'Salesman',
+  office_manager: 'Office Manager',
   foreman: 'Foreman',
   crew: 'Crew',
 }
 const ROLE_COLORS: Record<string, string> = {
   salesman: 'bg-blue-100 text-blue-700',
+  office_manager: 'bg-purple-100 text-purple-700',
   foreman: 'bg-amber-100 text-amber-700',
   crew: 'bg-gray-100 text-gray-600',
 }

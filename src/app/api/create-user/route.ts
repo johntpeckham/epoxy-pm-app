@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Display name is required' }, { status: 400 })
   }
 
-  const validRoles = ['admin', 'salesman', 'foreman', 'crew']
+  const validRoles = ['admin', 'salesman', 'office_manager', 'foreman', 'crew']
   if (!role || !validRoles.includes(role)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   }
