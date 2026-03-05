@@ -67,8 +67,8 @@ export default function TakeoffTestPage() {
     if (!el) return
 
     const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
       if (e.ctrlKey) {
-        e.preventDefault()
         const rect = el.getBoundingClientRect()
         const mouseX = e.clientX - rect.left
         const mouseY = e.clientY - rect.top
@@ -86,6 +86,14 @@ export default function TakeoffTestPage() {
         setPanX(newPanX)
         setPanY(newPanY)
         setZoomWorking(true)
+      } else {
+        // Two-finger scroll = pan
+        const newPanX = panXRef.current - e.deltaX
+        const newPanY = panYRef.current - e.deltaY
+        panXRef.current = newPanX
+        panYRef.current = newPanY
+        setPanX(newPanX)
+        setPanY(newPanY)
       }
     }
 
