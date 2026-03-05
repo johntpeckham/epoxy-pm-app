@@ -64,6 +64,14 @@ function polyArea(pts: Point[]): number {
   return Math.abs(a) / 2
 }
 
+function polylineLen(pts: Point[]): number {
+  let total = 0
+  for (let i = 1; i < pts.length; i++) {
+    total += ptDist(pts[i - 1], pts[i])
+  }
+  return total
+}
+
 // ─── Props ───
 
 interface TakeoffViewerProps {
@@ -399,6 +407,17 @@ export default function TakeoffViewer({
     return () => { cancelled = true }
   }, [page.arrayBuffer, page.pageIndex])
 
+  // ─── Complete linear polyline ───
+  const completeLinearRef = useRef<() => void>(() => {})
+  completeLinearRef.current = () => {
+    if (activeTool !== 'linear' || tempPoints.length < 2) return
+    const ppf = pageScale
+    if (!ppf || !activeItemId) return
+    const d = polylineLen(tempPoints) / ppf
+    addMeasurement({ id: genId(), type: 'linear', points: [...tempPoints], valueInFeet: d, label: fmtFtIn(d), pageKey })
+    setTempPoints([])
+  }
+
   // ─── Keyboard ───
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -409,6 +428,9 @@ export default function TakeoffViewer({
         setIsSvgDragging(false)
         if (showScaleModal) setShowScaleModal(false)
         if (markupTextInput.visible) setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false })
+      }
+      if (e.key === 'Enter') {
+        completeLinearRef.current()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -496,13 +518,7 @@ export default function TakeoffViewer({
     }
     if (activeTool === 'linear') {
       if (!checkPrereqs()) return
-      const newPts = [...tempPoints, pt]
-      setTempPoints(newPts)
-      if (newPts.length === 2) {
-        const d = ptDist(newPts[0], newPts[1]) / pageScale!
-        addMeasurement({ id: genId(), type: 'linear', points: newPts, valueInFeet: d, label: fmtFtIn(d), pageKey })
-        setTempPoints([])
-      }
+      setTempPoints(p => [...p, pt])
       return
     }
     if (activeTool === 'area-polygon') {
@@ -517,6 +533,10 @@ export default function TakeoffViewer({
   }
 
   function handleSvgDoubleClick() {
+    if (activeTool === 'linear' && tempPoints.length >= 2) {
+      completeLinearRef.current()
+      return
+    }
     if (activeTool === 'area-polygon' && tempPoints.length >= 3) {
       const ppf = pageScale!
       const area = polyArea(tempPoints) / (ppf * ppf)
@@ -646,21 +666,34 @@ export default function TakeoffViewer({
     const isActive = item.id === activeItemId
     for (const m of item.measurements) {
       if (m.pageKey !== pageKey) continue
-      if (m.type === 'linear' && m.points.length === 2) {
-        const a = toSvg(m.points[0])
-        const b = toSvg(m.points[1])
-        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+      if (m.type === 'linear' && m.points.length >= 2) {
+        const pts = m.points.map(toSvg)
+        // Midpoint of the entire path for label placement
+        const totalLen = polylineLen(pts)
+        let midPt = pts[0]
+        if (totalLen > 0) {
+          const halfLen = totalLen / 2
+          let accum = 0
+          for (let si = 1; si < pts.length; si++) {
+            const segLen = ptDist(pts[si - 1], pts[si])
+            if (accum + segLen >= halfLen) {
+              const t = (halfLen - accum) / segLen
+              midPt = { x: pts[si - 1].x + (pts[si].x - pts[si - 1].x) * t, y: pts[si - 1].y + (pts[si].y - pts[si - 1].y) * t }
+              break
+            }
+            accum += segLen
+          }
+        }
         const labelW = m.label ? (m.label.length * 7 + 10) / zoom : 0
         const labelH = 18 / zoom
         svgElements.push(
           <g key={m.id} opacity={isActive ? 1 : 0.6}>
-            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={item.color} strokeWidth={sw} />
-            <circle cx={a.x} cy={a.y} r={cr} fill={item.color} />
-            <circle cx={b.x} cy={b.y} r={cr} fill={item.color} />
+            <polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={item.color} strokeWidth={sw} />
+            {pts.map((p, pi) => <circle key={pi} cx={p.x} cy={p.y} r={cr} fill={item.color} />)}
             {m.label && (
               <>
-                <rect x={mid.x - labelW / 2} y={mid.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
-                <text x={mid.x} y={mid.y} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{m.label}</text>
+                <rect x={midPt.x - labelW / 2} y={midPt.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
+                <text x={midPt.x} y={midPt.y} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{m.label}</text>
               </>
             )}
           </g>
@@ -761,17 +794,46 @@ export default function TakeoffViewer({
     )
   }
 
-  // In-progress: linear
-  if (activeTool === 'linear' && tempPoints.length === 1 && mousePos) {
+  // In-progress: linear polyline
+  if (activeTool === 'linear' && tempPoints.length >= 1) {
     const activeItem = items.find(i => i.id === activeItemId)
     const color = activeItem?.color || '#3b82f6'
-    const a = toSvg(tempPoints[0])
-    const b = toSvg(mousePos)
+    const pts = tempPoints.map(toSvg)
+    const mp = mousePos ? toSvg(mousePos) : null
+    // Running total including live segment
+    const placedLen = polylineLen(pts)
+    const liveLen = mp && pts.length > 0 ? ptDist(pts[pts.length - 1], mp) : 0
+    const totalPx = placedLen + liveLen
+    const ppf = pageScale || 1
+    const totalFt = totalPx / ppf
     svgElements.push(
       <g key="linear-progress">
-        <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color} strokeWidth={sw} />
-        <circle cx={a.x} cy={a.y} r={cr} fill={color} />
-        <circle cx={b.x} cy={b.y} r={cr} fill={color} />
+        {/* Placed segments — solid */}
+        {pts.length >= 2 && (
+          <polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={color} strokeWidth={sw} />
+        )}
+        {/* Live preview segment — dashed */}
+        {mp && pts.length > 0 && (
+          <line x1={pts[pts.length - 1].x} y1={pts[pts.length - 1].y} x2={mp.x} y2={mp.y}
+            stroke={color} strokeWidth={sw} opacity={0.6} strokeDasharray={`${5 / zoom} ${3 / zoom}`} />
+        )}
+        {/* Point dots */}
+        {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={cr} fill={color} />)}
+        {mp && <circle cx={mp.x} cy={mp.y} r={cr} fill={color} opacity={0.6} />}
+        {/* Running total near cursor */}
+        {mp && scaleCalibrated && (() => {
+          const label = `Total: ${fmtFtIn(totalFt)}`
+          const lw = (label.length * 7 + 10) / zoom
+          const lh = 18 / zoom
+          const ox = 12 / zoom
+          const oy = -12 / zoom
+          return (
+            <>
+              <rect x={mp.x + ox} y={mp.y + oy - lh / 2} width={lw} height={lh} rx={3 / zoom} fill="rgba(0,0,0,0.8)" />
+              <text x={mp.x + ox + lw / 2} y={mp.y + oy} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{label}</text>
+            </>
+          )
+        })()}
       </g>
     )
   }
