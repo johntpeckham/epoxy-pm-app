@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { TimecardContent, Project } from '@/types'
+import { TimecardContent, DynamicFieldEntry, Project } from '@/types'
 import TimesheetsPageClient from '@/components/timesheets/TimesheetsPageClient'
 
 export default async function TimesheetsPage() {
@@ -27,7 +27,7 @@ export default async function TimesheetsPage() {
   // Fetch all timecard posts with joined project name
   const { data: posts } = await supabase
     .from('feed_posts')
-    .select('id, project_id, created_at, content, projects(name)')
+    .select('id, project_id, created_at, content, dynamic_fields, projects(name)')
     .eq('post_type', 'timecard')
     .order('created_at', { ascending: false })
 
@@ -37,6 +37,7 @@ export default async function TimesheetsPage() {
       project_id: row.project_id,
       created_at: row.created_at,
       content: row.content as TimecardContent,
+      dynamic_fields: (row.dynamic_fields ?? []) as DynamicFieldEntry[],
       project_name:
         (row.projects as unknown as { name: string } | null)?.name ?? 'Unknown Project',
     }))

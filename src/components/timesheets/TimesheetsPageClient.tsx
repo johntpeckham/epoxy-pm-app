@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon, PlusIcon } from 'lucide-react'
-import { Project, TimecardContent } from '@/types'
+import { Project, TimecardContent, DynamicFieldEntry } from '@/types'
 import TimecardCard from './TimecardCard'
 import ManageEmployeesModal from './ManageEmployeesModal'
 import NewTimecardModal from './NewTimecardModal'
@@ -15,6 +15,7 @@ interface TimecardRow {
   project_id: string
   created_at: string
   content: TimecardContent
+  dynamic_fields?: DynamicFieldEntry[]
   project_name: string
 }
 
