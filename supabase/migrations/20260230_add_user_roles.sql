@@ -1,9 +1,9 @@
 -- Add role-based access control to profiles
--- Roles: admin, salesman, foreman, crew (default)
+-- Roles: admin, salesman, office_manager, foreman, crew (default)
 
 alter table profiles
   add column if not exists role text default 'crew'
-  check (role in ('admin', 'salesman', 'foreman', 'crew'));
+  check (role in ('admin', 'salesman', 'office_manager', 'foreman', 'crew'));
 
 -- Update RLS policies: only admins can update other users' roles
 -- Drop existing update policy if it exists, then create a new one
