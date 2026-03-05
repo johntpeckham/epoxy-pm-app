@@ -1461,7 +1461,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               ref={rcptPhotoInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               className="hidden"
               onChange={handleRcptPhotoChange}
             />
