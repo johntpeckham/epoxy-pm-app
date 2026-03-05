@@ -99,7 +99,7 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
       {content.caption && (
         <p className="text-sm text-gray-600">{content.caption}</p>
       )}
-      <div className="grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1 md:gap-2 w-full">
+      <div className="grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1 md:gap-2 -ml-10 w-[calc(100%+2.5rem)] md:ml-0 md:w-full">
         {urls.map((url, i) => (
           <button key={i} onClick={() => onImageClick(urls, i)} className="block">
             <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
@@ -194,7 +194,7 @@ function DailyReportPost({
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
             Photos ({photoUrls.length})
           </p>
-          <div className="grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1 md:gap-2">
+          <div className="grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1 md:gap-2 -ml-10 w-[calc(100%+2.5rem)] md:ml-0 md:w-full">
             {photoUrls.map((url, i) => (
               <button key={i} onClick={() => onImageClick(photoUrls, i)} className="block">
                 <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
@@ -1209,7 +1209,7 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
 
   return (
     <>
-      <div className="group relative flex px-4 py-1 justify-start max-w-full overflow-hidden">
+      <div className="group relative flex px-4 py-1 justify-start max-w-full">
         {/* Row: avatar + bubble */}
         <div className={`flex gap-2 items-start min-w-0 ${isText ? 'max-w-[80%]' : 'max-w-full sm:max-w-[75%]'}`}>
           {/* Avatar */}
