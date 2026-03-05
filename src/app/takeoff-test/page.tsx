@@ -47,6 +47,9 @@ export default function TakeoffTestPage() {
   const dragStartRef = useRef({ x: 0, y: 0 })
   const panStartRef = useRef({ x: 0, y: 0 })
 
+  // RAF for batching pan updates
+  const rafRef = useRef<number | null>(null)
+
   // Touch pinch start values
   const startDistRef = useRef(0)
   const startZoomRef = useRef(1)
@@ -87,13 +90,16 @@ export default function TakeoffTestPage() {
         setPanY(newPanY)
         setZoomWorking(true)
       } else {
-        // Two-finger scroll = pan
-        const newPanX = panXRef.current - e.deltaX
-        const newPanY = panYRef.current - e.deltaY
-        panXRef.current = newPanX
-        panYRef.current = newPanY
-        setPanX(newPanX)
-        setPanY(newPanY)
+        // Two-finger scroll = pan — batch with rAF for smoothness
+        panXRef.current -= e.deltaX
+        panYRef.current -= e.deltaY
+        if (rafRef.current === null) {
+          rafRef.current = requestAnimationFrame(() => {
+            setPanX(panXRef.current)
+            setPanY(panYRef.current)
+            rafRef.current = null
+          })
+        }
       }
     }
 
@@ -215,17 +221,23 @@ export default function TakeoffTestPage() {
     const ch = container.clientHeight
     const fitScale = Math.min(cw / rawVp.width, ch / rawVp.height) * 0.9
 
-    // Render canvas once at fitScale — never re-rendered for zoom
+    // Render canvas once at fitScale * dpr for retina sharpness
     const canvas = canvasRef.current
     if (!canvas) return
-    const viewport = pdfPage.getViewport({ scale: fitScale })
+    const dpr = window.devicePixelRatio || 1
+    const viewport = pdfPage.getViewport({ scale: fitScale * dpr })
     canvas.width = viewport.width
     canvas.height = viewport.height
+    // CSS size = logical (non-dpr) dimensions
+    const cssW = viewport.width / dpr
+    const cssH = viewport.height / dpr
+    canvas.style.width = `${cssW}px`
+    canvas.style.height = `${cssH}px`
     const ctx = canvas.getContext('2d')!
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
 
-    setCanvasSize({ w: viewport.width, h: viewport.height })
+    setCanvasSize({ w: cssW, h: cssH })
     setZoom(1)
     zoomRef.current = 1
     setPanX(0)
@@ -331,6 +343,7 @@ export default function TakeoffTestPage() {
           borderRadius: 8,
           touchAction: 'none',
           cursor: 'grab',
+          contain: 'strict',
         }}
       >
         {!pdfLoaded && (
@@ -353,6 +366,7 @@ export default function TakeoffTestPage() {
             cursor: pdfLoaded ? 'crosshair' : undefined,
             position: 'relative',
             display: 'inline-block',
+            willChange: 'transform',
           }}
         >
           <canvas ref={canvasRef} style={{ display: 'block' }} />
