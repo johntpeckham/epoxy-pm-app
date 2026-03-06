@@ -13,7 +13,7 @@ import {
   Trash2Icon,
   DownloadIcon,
 } from 'lucide-react'
-import { ReceiptContent, DynamicFieldEntry } from '@/types'
+import { ReceiptContent, DynamicFieldEntry, UserRole } from '@/types'
 import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditReceiptModal from '@/components/feed/EditReceiptModal'
@@ -25,11 +25,13 @@ interface ReceiptRow {
   created_at: string
   content: ReceiptContent
   dynamic_fields?: DynamicFieldEntry[]
+  confirmed: boolean
   project_name: string
 }
 
 interface ReceiptCardProps {
   receipt: ReceiptRow
+  role: UserRole
 }
 
 function formatReceiptDate(dateStr: string) {
@@ -41,7 +43,7 @@ function formatReceiptDate(dateStr: string) {
   })
 }
 
-export default function ReceiptCard({ receipt }: ReceiptCardProps) {
+export default function ReceiptCard({ receipt, role }: ReceiptCardProps) {
   const router = useRouter()
   const supabase = createClient()
   const { settings: companySettings } = useCompanySettings()
@@ -50,6 +52,16 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [confirmed, setConfirmed] = useState(receipt.confirmed)
+
+  const canConfirm = role === 'admin' || role === 'office_manager'
+
+  async function handleToggleConfirmed(e: React.MouseEvent) {
+    e.stopPropagation()
+    const newValue = !confirmed
+    setConfirmed(newValue)
+    await supabase.from('feed_posts').update({ confirmed: newValue }).eq('id', receipt.id)
+  }
   const { content } = receipt
   const sectionGroups = groupDynamicFieldsBySection(receipt.dynamic_fields)
   const HANDLED_SECTIONS = ['Receipt Photo', 'Receipt Details']
@@ -102,6 +114,29 @@ export default function ReceiptCard({ receipt }: ReceiptCardProps) {
               <span className="flex-shrink-0 text-[11px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded font-medium">{content.category}</span>
             )}
           </span>
+
+          {/* Expense Confirmed checkbox — Admin & Office Manager only */}
+          {canConfirm && (
+            <label
+              onClick={handleToggleConfirmed}
+              className={`flex-shrink-0 flex items-center gap-1.5 cursor-pointer select-none ${confirmed ? 'text-green-600' : 'text-gray-400'}`}
+            >
+              <span
+                className={`inline-flex items-center justify-center w-4 h-4 rounded border transition-colors ${
+                  confirmed
+                    ? 'bg-green-600 border-green-600'
+                    : 'border-gray-300 bg-white'
+                }`}
+              >
+                {confirmed && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </span>
+              <span className="text-[11px] font-medium hidden sm:inline">Confirmed</span>
+            </label>
+          )}
 
           {/* Amount */}
           <span className="flex-shrink-0 text-sm font-semibold text-gray-900 tabular-nums">

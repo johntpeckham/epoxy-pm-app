@@ -16,6 +16,7 @@ interface ReceiptRow {
   created_at: string
   content: ReceiptContent
   dynamic_fields?: DynamicFieldEntry[]
+  confirmed: boolean
   project_name: string
 }
 
@@ -315,7 +316,7 @@ export default function ReceiptsPageClient({
                           </div>
                           <div className="divide-y divide-gray-100">
                             {receipts.map((receipt) => (
-                              <ReceiptCard key={receipt.id} receipt={receipt} />
+                              <ReceiptCard key={receipt.id} receipt={receipt} role={role} />
                             ))}
                           </div>
                         </div>
@@ -377,7 +378,7 @@ export default function ReceiptsPageClient({
                             </div>
                             <div className="divide-y divide-gray-100">
                               {receipts.map((receipt) => (
-                                <ReceiptCard key={receipt.id} receipt={receipt} />
+                                <ReceiptCard key={receipt.id} receipt={receipt} role={role} />
                               ))}
                             </div>
                           </div>
