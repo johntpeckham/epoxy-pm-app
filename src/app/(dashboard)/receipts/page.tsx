@@ -27,7 +27,7 @@ export default async function ReceiptsPage() {
   // Fetch all receipt posts with joined project name
   const { data: posts } = await supabase
     .from('feed_posts')
-    .select('id, project_id, created_at, content, dynamic_fields, projects(name)')
+    .select('id, project_id, created_at, content, dynamic_fields, confirmed, projects(name)')
     .eq('post_type', 'receipt')
     .order('created_at', { ascending: false })
 
@@ -38,6 +38,7 @@ export default async function ReceiptsPage() {
       created_at: row.created_at,
       content: row.content as ReceiptContent,
       dynamic_fields: (row.dynamic_fields ?? []) as DynamicFieldEntry[],
+      confirmed: (row.confirmed as boolean) ?? false,
       project_name:
         (row.projects as unknown as { name: string } | null)?.name ?? 'Unknown Project',
     }))
