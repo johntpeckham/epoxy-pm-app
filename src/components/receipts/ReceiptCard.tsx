@@ -134,7 +134,7 @@ export default function ReceiptCard({ receipt, role }: ReceiptCardProps) {
                   </svg>
                 )}
               </span>
-              <span className="text-[11px] font-medium hidden sm:inline">Confirmed</span>
+              <span className="text-[11px] font-medium hidden sm:inline">Expense Confirmed</span>
             </label>
           )}
 
