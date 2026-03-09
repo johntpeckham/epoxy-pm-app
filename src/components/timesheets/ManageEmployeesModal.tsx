@@ -206,7 +206,7 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
         </div>
 
         {/* Footer */}
-        <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="flex-none flex gap-3 p-4 md:pb-6 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <button
             onClick={onClose}
             className="flex-1 bg-amber-500 hover:bg-amber-400 text-white rounded-lg py-2.5 text-sm font-semibold transition"
