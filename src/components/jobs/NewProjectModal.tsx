@@ -44,7 +44,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   return (
     <Portal>
     <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
-      <div className="mt-auto md:m-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="mt-auto md:m-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" style={{ marginTop: 'auto', marginBottom: 'auto', marginLeft: 'auto', marginRight: 'auto', width: '100%', maxWidth: '42rem', maxHeight: '85vh', backgroundColor: 'white', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
         <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
           <h2 className="text-lg font-semibold text-gray-900">New Project</h2>
           <button
