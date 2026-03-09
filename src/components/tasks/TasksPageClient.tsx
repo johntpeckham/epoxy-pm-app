@@ -213,7 +213,7 @@ export default function TasksPageClient({
   function getProfileName(uid: string | null) {
     if (!uid) return 'Unassigned'
     const profile = profileMap.get(uid)
-    return profile?.display_name || uid.slice(0, 8)
+    return profile?.display_name || 'Unknown User'
   }
 
   const filtered = useMemo(() => {
@@ -357,7 +357,7 @@ export default function TasksPageClient({
             <option value="">Unassigned</option>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.display_name || p.id.slice(0, 8)}
+                {p.display_name || 'Unknown User'}
               </option>
             ))}
           </select>
