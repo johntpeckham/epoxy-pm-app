@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, CameraIcon, LoaderIcon } from 'lucide-react'
-import { Project, FormField } from '@/types'
+import { XIcon, CameraIcon, LoaderIcon, PlusIcon, CheckIcon } from 'lucide-react'
+import { Project, FormField, EmployeeProfile } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, isWeatherField, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
@@ -53,6 +53,13 @@ export default function NewDailyReportModal({
 
   const [weatherLoading, setWeatherLoading] = useState(false)
 
+  // Employee pill selector
+  const [employeeProfiles, setEmployeeProfiles] = useState<EmployeeProfile[]>([])
+  const [employeesLoaded, setEmployeesLoaded] = useState(false)
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([])
+  const [showCustomEmployeeInput, setShowCustomEmployeeInput] = useState(false)
+  const [customEmployeeName, setCustomEmployeeName] = useState('')
+
   // Photos
   const [files, setFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
@@ -75,6 +82,38 @@ export default function NewDailyReportModal({
       })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch employee profiles
+  const supabase = createClient()
+  useEffect(() => {
+    if (!employeesLoaded) {
+      supabase
+        .from('employee_profiles')
+        .select('*')
+        .order('name', { ascending: true })
+        .then(({ data, error }) => {
+          if (error) console.error('[NewDailyReportModal] Fetch employees failed:', error)
+          setEmployeeProfiles((data as EmployeeProfile[]) ?? [])
+          setEmployeesLoaded(true)
+        })
+    }
+  }, [employeesLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleEmployee(name: string) {
+    setSelectedEmployees((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    )
+  }
+
+  function addCustomEmployee() {
+    const name = customEmployeeName.trim()
+    if (!name) return
+    if (!selectedEmployees.includes(name)) {
+      setSelectedEmployees((prev) => [...prev, name])
+    }
+    setCustomEmployeeName('')
+    setShowCustomEmployeeInput(false)
+  }
 
   function handleProjectChange(projectId: string) {
     setSelectedProjectId(projectId)
@@ -110,7 +149,7 @@ export default function NewDailyReportModal({
     }
     setLoading(true)
     setError(null)
-    const supabase = createClient()
+    const submitSupabase = createClient()
 
     try {
       // Upload photos
@@ -118,7 +157,7 @@ export default function NewDailyReportModal({
       for (const file of files) {
         const ext = file.name.split('.').pop()
         const path = `${selectedProjectId}/reports/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-        const { error: uploadErr } = await supabase.storage.from('post-photos').upload(path, file)
+        const { error: uploadErr } = await submitSupabase.storage.from('post-photos').upload(path, file)
         if (uploadErr) throw uploadErr
         photoPaths.push(path)
       }
@@ -135,7 +174,7 @@ export default function NewDailyReportModal({
         delays: (values.delays ?? '').trim(),
         safety: (values.safety ?? '').trim(),
         materials_used: (values.materials_used ?? '').trim(),
-        employees: (values.employees ?? '').trim(),
+        employees: selectedEmployees.join(', '),
         photos: photoPaths,
       }
 
@@ -148,7 +187,7 @@ export default function NewDailyReportModal({
 
       const dynamicFields = buildDynamicFields(FORM_KEY, values, templateFields)
 
-      const { error: insertErr } = await supabase.from('feed_posts').insert({
+      const { error: insertErr } = await submitSupabase.from('feed_posts').insert({
         project_id: selectedProjectId,
         user_id: userId,
         post_type: 'daily_report',
@@ -165,6 +204,82 @@ export default function NewDailyReportModal({
     }
   }
 
+  function isEmployeesField(field: FormField): boolean {
+    return field.id === 'dr-14' || field.label === 'Employees'
+  }
+
+  function renderEmployeeSection(field: FormField) {
+    const selectedSet = new Set(selectedEmployees)
+    return (
+      <div key={field.id}>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Employees</p>
+        <div className="flex flex-wrap gap-2">
+          {employeeProfiles.map((emp) => {
+            const isSelected = selectedSet.has(emp.name)
+            return (
+              <button
+                key={emp.id}
+                type="button"
+                onClick={() => toggleEmployee(emp.name)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  isSelected
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                {emp.name}
+              </button>
+            )
+          })}
+          {/* One-off names that aren't in profiles */}
+          {selectedEmployees
+            .filter((name) => !employeeProfiles.some((emp) => emp.name === name))
+            .map((name) => (
+              <button
+                key={`custom-${name}`}
+                type="button"
+                onClick={() => toggleEmployee(name)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors bg-gray-900 text-white border-gray-900"
+              >
+                {name}
+              </button>
+            ))}
+          {showCustomEmployeeInput ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                autoFocus
+                value={customEmployeeName}
+                onChange={(e) => setCustomEmployeeName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') addCustomEmployee(); if (e.key === 'Escape') { setShowCustomEmployeeInput(false); setCustomEmployeeName('') } }}
+                placeholder="Name"
+                className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <button type="button" onClick={addCustomEmployee} className="text-green-600 hover:text-green-700 p-0.5">
+                <CheckIcon className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => { setShowCustomEmployeeInput(false); setCustomEmployeeName('') }} className="text-gray-400 hover:text-gray-600 p-0.5">
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowCustomEmployeeInput(true)}
+              className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors flex items-center gap-1"
+            >
+              <PlusIcon className="w-3 h-3" />
+              Employee
+            </button>
+          )}
+          {employeeProfiles.length === 0 && !showCustomEmployeeInput && employeesLoaded && (
+            <p className="text-xs text-gray-400">No employees found. Add employees in Employee Management.</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   function renderField(field: FormField) {
     if (field.type === 'section_header') {
       return (
@@ -172,6 +287,11 @@ export default function NewDailyReportModal({
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{field.label}</p>
         </div>
       )
+    }
+
+    // Employees field - render pill selector instead of text area
+    if (isEmployeesField(field)) {
+      return renderEmployeeSection(field)
     }
 
     const contentKey = getContentKey(FORM_KEY, field)

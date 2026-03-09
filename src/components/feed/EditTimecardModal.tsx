@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, PlusIcon, LoaderIcon } from 'lucide-react'
-import { TimecardContent, TimecardEntry, Employee, FormField } from '@/types'
+import { TimecardContent, TimecardEntry, EmployeeProfile, FormField } from '@/types'
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import DynamicFormField from '@/components/ui/DynamicFormField'
@@ -68,7 +68,7 @@ export default function EditTimecardModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [employees, setEmployees] = useState<Employee[]>([])
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([])
   const [employeesLoaded, setEmployeesLoaded] = useState(false)
 
   function updateValue(key: string, val: string) {
@@ -78,13 +78,12 @@ export default function EditTimecardModal({
   useEffect(() => {
     if (!employeesLoaded) {
       supabase
-        .from('employees')
+        .from('employee_profiles')
         .select('*')
-        .eq('is_active', true)
         .order('name', { ascending: true })
         .then(({ data, error }) => {
           if (error) console.error('[EditTimecardModal] Fetch employees failed:', error)
-          setEmployees((data as Employee[]) ?? [])
+          setEmployees((data as EmployeeProfile[]) ?? [])
           setEmployeesLoaded(true)
         })
     }
