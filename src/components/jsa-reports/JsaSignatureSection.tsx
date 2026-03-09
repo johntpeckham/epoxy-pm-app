@@ -159,7 +159,7 @@ function SignatureModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 min-h-0">
           <canvas
             ref={canvasRef}
             style={{ height: 200, touchAction: 'none' }}

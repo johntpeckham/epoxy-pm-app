@@ -449,7 +449,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
               {formError && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm flex items-center justify-between">
                   <span>{formError}</span>
@@ -609,7 +609,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
               {/* Dates */}
               <div className="flex items-start gap-3">
                 <CalendarIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -692,7 +692,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
               </button>
             </div>
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 min-h-0">
               <div className="flex flex-col items-center text-center">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
                   <Trash2Icon className="w-6 h-6 text-red-500" />

@@ -440,7 +440,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 min-h-0">
               {/* Avatar */}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-2">Profile Photo</label>

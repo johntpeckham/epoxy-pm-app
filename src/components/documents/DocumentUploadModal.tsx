@@ -169,7 +169,7 @@ export default function DocumentUploadModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 min-h-0">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
               {error}
@@ -329,7 +329,7 @@ export default function DocumentUploadModal({
                 <XIcon className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-0">
               <iframe
                 src={getPublicUrl(previewDoc.file_path)}
                 className="w-full h-full min-h-[60vh]"
@@ -367,7 +367,7 @@ export default function DocumentUploadModal({
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 min-h-0">
               {isImage(previewDoc) ? (
                 <div className="flex items-center justify-center overflow-auto h-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
