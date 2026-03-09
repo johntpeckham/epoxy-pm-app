@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, PlusIcon, CheckIcon, LoaderIcon } from 'lucide-react'
-import { Project, TimecardEntry, Employee, FormField } from '@/types'
+import { Project, TimecardEntry, EmployeeProfile, FormField } from '@/types'
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import DynamicFormField from '@/components/ui/DynamicFormField'
@@ -77,7 +77,7 @@ export default function NewTimecardModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [employees, setEmployees] = useState<Employee[]>([])
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([])
   const [employeesLoaded, setEmployeesLoaded] = useState(false)
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [customName, setCustomName] = useState('')
@@ -89,13 +89,12 @@ export default function NewTimecardModal({
   useEffect(() => {
     if (!employeesLoaded) {
       supabase
-        .from('employees')
+        .from('employee_profiles')
         .select('*')
-        .eq('is_active', true)
         .order('name', { ascending: true })
         .then(({ data, error }) => {
           if (error) console.error('[NewTimecardModal] Fetch employees failed:', error)
-          setEmployees((data as Employee[]) ?? [])
+          setEmployees((data as EmployeeProfile[]) ?? [])
           setEmployeesLoaded(true)
         })
     }
@@ -253,7 +252,7 @@ export default function NewTimecardModal({
               </button>
             )}
             {employees.length === 0 && !showCustomInput && employeesLoaded && (
-              <p className="text-xs text-gray-400">No active employees. Add employees in Manage Employees.</p>
+              <p className="text-xs text-gray-400">No employees found. Add employees in Employee Management.</p>
             )}
           </div>
 

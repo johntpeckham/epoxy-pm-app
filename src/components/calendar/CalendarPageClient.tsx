@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import FullCalendar from '@fullcalendar/react'
@@ -8,9 +8,9 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { DateClickArg } from '@fullcalendar/interaction'
 import type { EventClickArg, DatesSetArg } from '@fullcalendar/core'
-import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon, DownloadIcon, LoaderIcon } from 'lucide-react'
+import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon, DownloadIcon, LoaderIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import { CalendarEvent } from '@/types'
+import { CalendarEvent, EmployeeProfile } from '@/types'
 import type { UserRole } from '@/types'
 import { usePermissions } from '@/lib/usePermissions'
 
@@ -183,7 +183,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   const [formStartDate, setFormStartDate] = useState('')
   const [formDuration, setFormDuration] = useState(1)
   const [formIncludeWeekends, setFormIncludeWeekends] = useState(false)
-  const [formCrew, setFormCrew] = useState('')
+  const [formCrewNames, setFormCrewNames] = useState<string[]>([])
   const [formNotes, setFormNotes] = useState('')
   const [formColor, setFormColor] = useState(PRESET_COLORS[0].value)
   const [saving, setSaving] = useState(false)
@@ -191,6 +191,42 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   const [deleting, setDeleting] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [viewTitle, setViewTitle] = useState<string>('')
+
+  // Employee pill selector
+  const [employeeProfiles, setEmployeeProfiles] = useState<EmployeeProfile[]>([])
+  const [employeesLoaded, setEmployeesLoaded] = useState(false)
+  const [showCustomCrewInput, setShowCustomCrewInput] = useState(false)
+  const [customCrewName, setCustomCrewName] = useState('')
+
+  useEffect(() => {
+    if (!employeesLoaded) {
+      supabase
+        .from('employee_profiles')
+        .select('*')
+        .order('name', { ascending: true })
+        .then(({ data, error }) => {
+          if (error) console.error('[CalendarPageClient] Fetch employees failed:', error)
+          setEmployeeProfiles((data as EmployeeProfile[]) ?? [])
+          setEmployeesLoaded(true)
+        })
+    }
+  }, [employeesLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleCrewMember(name: string) {
+    setFormCrewNames((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    )
+  }
+
+  function addCustomCrewMember() {
+    const name = customCrewName.trim()
+    if (!name) return
+    if (!formCrewNames.includes(name)) {
+      setFormCrewNames((prev) => [...prev, name])
+    }
+    setCustomCrewName('')
+    setShowCustomCrewInput(false)
+  }
 
   const canDownloadPdf = userRole === 'admin' || userRole === 'office_manager'
 
@@ -213,11 +249,13 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     setFormStartDate('')
     setFormDuration(1)
     setFormIncludeWeekends(false)
-    setFormCrew('')
+    setFormCrewNames([])
     setFormNotes('')
     setFormColor(PRESET_COLORS[0].value)
     setFormError(null)
     setEditingEvent(null)
+    setShowCustomCrewInput(false)
+    setCustomCrewName('')
   }
 
   function openCreateForm(startDate?: string) {
@@ -232,7 +270,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     setFormStartDate(evt.start_date)
     setFormDuration(countDuration(evt.start_date, evt.end_date, evt.include_weekends))
     setFormIncludeWeekends(evt.include_weekends)
-    setFormCrew(evt.crew)
+    setFormCrewNames(evt.crew ? evt.crew.split(',').map((s) => s.trim()).filter(Boolean) : [])
     setFormNotes(evt.notes || '')
     setFormColor(evt.color || PRESET_COLORS[0].value)
     setFormError(null)
@@ -317,7 +355,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
         start_date: formStartDate,
         end_date: endDate,
         include_weekends: formIncludeWeekends,
-        crew: formCrew.trim(),
+        crew: formCrewNames.join(', '),
         notes: formNotes.trim() || null,
         color: formColor,
       }
@@ -525,13 +563,69 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
               {/* Crew */}
               <div>
                 <label className={labelCls}>Crew</label>
-                <input
-                  type="text"
-                  value={formCrew}
-                  onChange={(e) => setFormCrew(e.target.value)}
-                  placeholder="e.g. John, Mike, Sarah"
-                  className={inputCls}
-                />
+                <div className="flex flex-wrap gap-2">
+                  {employeeProfiles.map((emp) => {
+                    const isSelected = formCrewNames.includes(emp.name)
+                    return (
+                      <button
+                        key={emp.id}
+                        type="button"
+                        onClick={() => toggleCrewMember(emp.name)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          isSelected
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        {emp.name}
+                      </button>
+                    )
+                  })}
+                  {/* One-off names not in profiles */}
+                  {formCrewNames
+                    .filter((name) => !employeeProfiles.some((emp) => emp.name === name))
+                    .map((name) => (
+                      <button
+                        key={`custom-${name}`}
+                        type="button"
+                        onClick={() => toggleCrewMember(name)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors bg-gray-900 text-white border-gray-900"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  {showCustomCrewInput ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={customCrewName}
+                        onChange={(e) => setCustomCrewName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') addCustomCrewMember(); if (e.key === 'Escape') { setShowCustomCrewInput(false); setCustomCrewName('') } }}
+                        placeholder="Name"
+                        className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                      <button type="button" onClick={addCustomCrewMember} className="text-green-600 hover:text-green-700 p-0.5">
+                        <CheckIcon className="w-4 h-4" />
+                      </button>
+                      <button type="button" onClick={() => { setShowCustomCrewInput(false); setCustomCrewName('') }} className="text-gray-400 hover:text-gray-600 p-0.5">
+                        <XIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomCrewInput(true)}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors flex items-center gap-1"
+                    >
+                      <PlusIcon className="w-3 h-3" />
+                      Employee
+                    </button>
+                  )}
+                  {employeeProfiles.length === 0 && !showCustomCrewInput && employeesLoaded && (
+                    <p className="text-xs text-gray-400">No employees found. Add employees in Employee Management.</p>
+                  )}
+                </div>
               </div>
 
               {/* Notes */}
