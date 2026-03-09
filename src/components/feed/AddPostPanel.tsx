@@ -224,10 +224,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   // Auto-fetch weather when Daily Report mode activates
   useEffect(() => {
     if (mode === 'daily_report' && !rWeather && project.address) {
-      console.log('[AddPostPanel] Daily Report mode activated, fetching weather for:', project.address)
       setRWeatherLoading(true)
       fetchWeatherForAddress(project.address).then((w) => {
-        console.log('[AddPostPanel] Daily Report weather result:', w)
         if (w) setRWeather(w)
         setRWeatherLoading(false)
       })
@@ -237,10 +235,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   // Auto-fetch weather when JSA mode activates
   useEffect(() => {
     if (mode === 'jsa_report' && !jsaWeather && project.address) {
-      console.log('[AddPostPanel] JSA mode activated, fetching weather for:', project.address)
       setJsaWeatherLoading(true)
       fetchWeatherForAddress(project.address).then((w) => {
-        console.log('[AddPostPanel] Weather result:', w)
         if (w) setJsaWeather(w)
         setJsaWeatherLoading(false)
       })
@@ -360,13 +356,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     for (const file of files) {
       const ext = file.name.split('.').pop()
       const path = `${project.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      console.log('[AddPostPanel] Uploading file:', {
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
-        bucket: 'post-photos',
-        storagePath: path,
-      })
       const { error: err } = await supabase.storage.from('post-photos').upload(path, file)
       if (err) {
         console.error('[AddPostPanel] Upload failed:', {
@@ -376,7 +365,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         })
         throw err
       }
-      console.log('[AddPostPanel] Upload succeeded:', path)
       paths.push(path)
     }
     return paths
@@ -500,8 +488,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           console.error('[AddPostPanel] feed_posts insert failed:', feedPostErr)
           throw feedPostErr
         }
-        console.log('[AddPostPanel] Task feed post created successfully for task:', taskData.id)
-
         // Send notification to assigned user
         if (taskAssignedTo) {
           const creatorProfile = profiles.find((p) => p.id === userId)

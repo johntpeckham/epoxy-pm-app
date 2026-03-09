@@ -344,7 +344,7 @@ export interface RolePermission {
   updated_at: string
 }
 
-export type FormFieldType = 'short_text' | 'long_text' | 'checkbox' | 'checkbox_group' | 'dropdown' | 'date' | 'number' | 'section_header'
+export type FormFieldType = 'short_text' | 'long_text' | 'checkbox' | 'checkbox_group' | 'dropdown' | 'date' | 'number' | 'section_header' | 'signature'
 
 export interface FormField {
   id: string

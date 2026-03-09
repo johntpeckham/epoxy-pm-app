@@ -45,10 +45,11 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
   const fetchProjects = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('projects')
       .select('*')
       .order('created_at', { ascending: false })
+    if (error) console.error('[Jobs] Fetch projects failed:', error)
     if (data) {
       setProjects(data)
       // Keep selectedProject in sync with any edits
@@ -64,17 +65,19 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     setMobileView('feed')
     setFeedLoading(true)
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error: feedError } = await supabase
       .from('feed_posts')
       .select('*')
       .eq('project_id', project.id)
       .order('created_at', { ascending: true })
+    if (feedError) console.error('[Jobs] Fetch feed posts failed:', feedError)
 
     // Fetch profiles separately (no FK join available)
     const userIds = [...new Set((data ?? []).map((p) => p.user_id))]
-    const { data: profiles } = userIds.length
+    const { data: profiles, error: profilesError } = userIds.length
       ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds)
-      : { data: [] }
+      : { data: [], error: null }
+    if (profilesError) console.error('[Jobs] Fetch profiles failed:', profilesError)
     const profileMap = new Map(
       (profiles ?? []).map((p: { id: string; display_name: string | null; avatar_url: string | null }) => [p.id, p])
     )
@@ -97,11 +100,12 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     const supabase = createClient()
 
     // Clean up storage photos before deleting project
-    const { data: photoPosts } = await supabase
+    const { data: photoPosts, error: photoFetchError } = await supabase
       .from('feed_posts')
       .select('content')
       .eq('project_id', projectToDelete.id)
       .eq('post_type', 'photo')
+    if (photoFetchError) console.error('[Jobs] Fetch photo posts failed:', photoFetchError)
     if (photoPosts?.length) {
       const paths = photoPosts.flatMap(
         (p) => (p.content as { photos?: string[] }).photos ?? []
@@ -109,7 +113,8 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
       if (paths.length) await supabase.storage.from('post-photos').remove(paths)
     }
 
-    await supabase.from('projects').delete().eq('id', projectToDelete.id)
+    const { error: deleteError } = await supabase.from('projects').delete().eq('id', projectToDelete.id)
+    if (deleteError) console.error('[Jobs] Delete project failed:', deleteError)
 
     if (selectedProject?.id === projectToDelete.id) {
       setSelectedProject(null)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   XIcon,
@@ -67,9 +67,9 @@ export default function DocumentUploadModal({
   }, [supabase, projectId, documentType])
 
   // Fetch on first render
-  useState(() => {
+  useEffect(() => {
     fetchDocs()
-  })
+  }, [fetchDocs])
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])

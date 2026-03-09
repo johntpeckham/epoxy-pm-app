@@ -50,11 +50,12 @@ export default function PermissionsClient() {
 
   const fetchPermissions = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('role_permissions')
       .select('*')
       .order('role')
       .order('feature')
+    if (error) console.error('[Permissions] Fetch permissions failed:', error)
 
     setPermissions((data as RolePermission[]) ?? [])
     setLoading(false)
@@ -77,14 +78,16 @@ export default function PermissionsClient() {
     const existing = permissions.find((p) => p.role === role && p.feature === feature)
 
     if (existing) {
-      await supabase
+      const { error } = await supabase
         .from('role_permissions')
         .update({ access_level: level, updated_at: new Date().toISOString() })
         .eq('id', existing.id)
+      if (error) console.error('[Permissions] Update permission failed:', error)
     } else {
-      await supabase
+      const { error } = await supabase
         .from('role_permissions')
         .insert({ role, feature, access_level: level })
+      if (error) console.error('[Permissions] Insert permission failed:', error)
     }
 
     // Optimistically update local state

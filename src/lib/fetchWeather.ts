@@ -64,38 +64,31 @@ function extractCityState(address: string): string | null {
 
 /** Try to geocode a query string, returning { latitude, longitude } or null */
 async function geocode(query: string): Promise<{ latitude: number; longitude: number } | null> {
-  console.log('[fetchWeather] Geocoding query:', JSON.stringify(query))
   const res = await fetch(
     `${GEO_URL}?name=${encodeURIComponent(query)}&count=1&language=en&format=json`
   )
   if (!res.ok) {
-    console.warn('[fetchWeather] Geocoding HTTP error:', res.status, res.statusText)
     return null
   }
   const data = await res.json()
   if (!data.results || data.results.length === 0) {
-    console.warn('[fetchWeather] Geocoding returned no results for:', query)
     return null
   }
-  const { latitude, longitude, name, admin1, country } = data.results[0]
-  console.log('[fetchWeather] Geocoded to:', { name, admin1, country, latitude, longitude })
+  const { latitude, longitude } = data.results[0]
   return { latitude, longitude }
 }
 
 /** Fetch current weather for a lat/lon from Open-Meteo */
 async function fetchWeatherForCoords(lat: number, lon: number): Promise<string | null> {
-  console.log('[fetchWeather] Fetching weather for coords:', { lat, lon })
   const res = await fetch(
     `${WEATHER_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph`
   )
   if (!res.ok) {
-    console.warn('[fetchWeather] Weather HTTP error:', res.status, res.statusText)
     return null
   }
   const data = await res.json()
   const current = data.current
   if (!current) {
-    console.warn('[fetchWeather] Weather response missing "current" field:', data)
     return null
   }
 
@@ -103,7 +96,6 @@ async function fetchWeatherForCoords(lat: number, lon: number): Promise<string |
   const wind = Math.round(current.wind_speed_10m)
   const condition = weatherCodeToDescription(current.weather_code)
   const result = `${temp}°F, ${condition}, Wind ${wind} mph`
-  console.log('[fetchWeather] Weather result:', result)
   return result
 }
 
@@ -113,11 +105,8 @@ async function fetchWeatherForCoords(lat: number, lon: number): Promise<string |
  */
 export async function fetchWeatherForAddress(address: string): Promise<string | null> {
   if (!address.trim()) {
-    console.warn('[fetchWeather] Empty address, skipping')
     return null
   }
-
-  console.log('[fetchWeather] Starting weather fetch for address:', address)
 
   try {
     let coords: { latitude: number; longitude: number } | null = null
@@ -125,7 +114,6 @@ export async function fetchWeatherForAddress(address: string): Promise<string | 
     // Strategy 1: Try zip code
     const zip = extractZipCode(address)
     if (zip) {
-      console.log('[fetchWeather] Trying zip code:', zip)
       coords = await geocode(zip)
     }
 
@@ -133,7 +121,6 @@ export async function fetchWeatherForAddress(address: string): Promise<string | 
     if (!coords) {
       const city = extractCity(address)
       if (city) {
-        console.log('[fetchWeather] Trying city name:', city)
         coords = await geocode(city)
       }
     }
@@ -142,13 +129,11 @@ export async function fetchWeatherForAddress(address: string): Promise<string | 
     if (!coords) {
       const cityState = extractCityState(address)
       if (cityState) {
-        console.log('[fetchWeather] Trying city+state:', cityState)
         coords = await geocode(cityState)
       }
     }
 
     if (!coords) {
-      console.warn('[fetchWeather] All geocoding strategies failed for:', address)
       return null
     }
 

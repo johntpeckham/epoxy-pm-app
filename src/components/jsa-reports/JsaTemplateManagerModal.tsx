@@ -35,11 +35,12 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
 
   async function fetchTemplates() {
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('jsa_task_templates')
       .select('*')
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
+    if (error) console.error('[JsaTemplateManager] Fetch templates failed:', error)
     setTemplates((data as JsaTaskTemplate[]) ?? [])
     setLoading(false)
   }
@@ -72,7 +73,7 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
     setSaving(true)
 
     if (editingId) {
-      await supabase
+      const { error } = await supabase
         .from('jsa_task_templates')
         .update({
           name: formName.trim(),
@@ -81,15 +82,17 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
           default_ppe: formPpe.trim() || null,
         })
         .eq('id', editingId)
+      if (error) console.error('[JsaTemplateManager] Update template failed:', error)
     } else {
       const maxSort = templates.length > 0 ? Math.max(...templates.map((t) => t.sort_order)) : 0
-      await supabase.from('jsa_task_templates').insert({
+      const { error } = await supabase.from('jsa_task_templates').insert({
         name: formName.trim(),
         sort_order: maxSort + 1,
         default_hazards: formHazards.trim() || null,
         default_precautions: formPrecautions.trim() || null,
         default_ppe: formPpe.trim() || null,
       })
+      if (error) console.error('[JsaTemplateManager] Insert template failed:', error)
     }
 
     setSaving(false)
@@ -98,10 +101,11 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
   }
 
   async function handleDelete(id: string) {
-    await supabase
+    const { error } = await supabase
       .from('jsa_task_templates')
       .update({ is_active: false })
       .eq('id', id)
+    if (error) console.error('[JsaTemplateManager] Delete template failed:', error)
     await fetchTemplates()
   }
 
@@ -114,10 +118,13 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
     const a = templates[idx]
     const b = templates[swapIdx]
 
-    await Promise.all([
+    const results = await Promise.all([
       supabase.from('jsa_task_templates').update({ sort_order: b.sort_order }).eq('id', a.id),
       supabase.from('jsa_task_templates').update({ sort_order: a.sort_order }).eq('id', b.id),
     ])
+    for (const { error } of results) {
+      if (error) console.error('[JsaTemplateManager] Reorder failed:', error)
+    }
 
     await fetchTemplates()
   }
