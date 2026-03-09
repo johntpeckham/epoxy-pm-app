@@ -8,8 +8,7 @@ import {
   PencilIcon,
   Trash2Icon,
   XIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
+  Settings2Icon,
   CameraIcon,
   UserIcon,
   Loader2Icon,
@@ -27,7 +26,6 @@ export default function EmployeeManagement() {
 
   // Roles
   const [roles, setRoles] = useState<EmployeeRole[]>([])
-  const [rolesOpen, setRolesOpen] = useState(false)
   const [newRoleName, setNewRoleName] = useState('')
   const [addingRole, setAddingRole] = useState(false)
   const [roleError, setRoleError] = useState<string | null>(null)
@@ -35,7 +33,6 @@ export default function EmployeeManagement() {
 
   // Custom fields
   const [customFields, setCustomFields] = useState<EmployeeCustomFieldDefinition[]>([])
-  const [fieldsOpen, setFieldsOpen] = useState(false)
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [addingField, setAddingField] = useState(false)
   const [fieldError, setFieldError] = useState<string | null>(null)
@@ -54,6 +51,9 @@ export default function EmployeeManagement() {
   const [modalError, setModalError] = useState<string | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Settings modal
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Delete employee
   const [confirmDeleteEmployee, setConfirmDeleteEmployee] = useState<EmployeeProfile | null>(null)
@@ -312,6 +312,13 @@ export default function EmployeeManagement() {
           Employee Management
         </h2>
         <button
+          onClick={() => setSettingsOpen(true)}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+          title="Employee Settings"
+        >
+          <Settings2Icon className="w-4.5 h-4.5" />
+        </button>
+        <button
           onClick={openAddModal}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
         >
@@ -378,123 +385,127 @@ export default function EmployeeManagement() {
         </div>
       )}
 
-      {/* Manage Roles — collapsible */}
-      <div className="border border-gray-100 rounded-lg mb-3">
-        <button
-          onClick={() => setRolesOpen(!rolesOpen)}
-          className="flex items-center gap-2 w-full px-4 py-3 text-left hover:bg-gray-50 transition rounded-lg"
-        >
-          {rolesOpen ? (
-            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-          ) : (
-            <ChevronRightIcon className="w-4 h-4 text-gray-400" />
-          )}
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Manage Roles
-          </span>
-        </button>
-        {rolesOpen && (
-          <div className="px-4 pb-4 space-y-3">
-            {roleError && <p className="text-xs text-red-500">{roleError}</p>}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newRoleName}
-                onChange={(e) => setNewRoleName(e.target.value)}
-                placeholder="New role name"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddRole()}
-              />
-              <button
-                onClick={handleAddRole}
-                disabled={addingRole || !newRoleName.trim()}
-                className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+      {/* Employee Settings Modal */}
+      {settingsOpen && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header"
+            onClick={() => setSettingsOpen(false)}
+          >
+            <div
+              className="mt-auto md:my-auto md:mx-auto w-full md:max-w-lg h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div
+                className="flex-none flex items-center justify-between px-4 border-b"
+                style={{ minHeight: '56px' }}
               >
-                {addingRole ? '...' : 'Add'}
-              </button>
-            </div>
-            <div className="space-y-1">
-              {roles.map((role) => (
-                <div
-                  key={role.id}
-                  className="flex items-center justify-between px-3 py-2 rounded-md bg-gray-50"
+                <h3 className="text-lg font-semibold text-gray-900">Employee Settings</h3>
+                <button
+                  onClick={() => setSettingsOpen(false)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
                 >
-                  <span className="text-sm text-gray-700">{role.name}</span>
-                  <button
-                    onClick={() => handleDeleteRole(role)}
-                    disabled={deletingRoleId === role.id}
-                    className="text-gray-400 hover:text-red-500 transition disabled:opacity-50"
-                  >
-                    <Trash2Icon className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-              {roles.length === 0 && (
-                <p className="text-xs text-gray-400 py-2">No roles defined.</p>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
 
-      {/* Custom Fields — collapsible */}
-      <div className="border border-gray-100 rounded-lg">
-        <button
-          onClick={() => setFieldsOpen(!fieldsOpen)}
-          className="flex items-center gap-2 w-full px-4 py-3 text-left hover:bg-gray-50 transition rounded-lg"
-        >
-          {fieldsOpen ? (
-            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-          ) : (
-            <ChevronRightIcon className="w-4 h-4 text-gray-400" />
-          )}
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Custom Fields
-          </span>
-        </button>
-        {fieldsOpen && (
-          <div className="px-4 pb-4 space-y-3">
-            {fieldError && <p className="text-xs text-red-500">{fieldError}</p>}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newFieldLabel}
-                onChange={(e) => setNewFieldLabel(e.target.value)}
-                placeholder="Field label"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
-              />
-              <button
-                onClick={handleAddField}
-                disabled={addingField || !newFieldLabel.trim()}
-                className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
-              >
-                {addingField ? '...' : 'Add'}
-              </button>
-            </div>
-            <div className="space-y-1">
-              {customFields.map((field) => (
-                <div
-                  key={field.id}
-                  className="flex items-center justify-between px-3 py-2 rounded-md bg-gray-50"
-                >
-                  <span className="text-sm text-gray-700">{field.label}</span>
-                  <button
-                    onClick={() => setConfirmDeleteField(field)}
-                    disabled={deletingFieldId === field.id}
-                    className="text-gray-400 hover:text-red-500 transition disabled:opacity-50"
-                  >
-                    <Trash2Icon className="w-3.5 h-3.5" />
-                  </button>
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 min-h-0">
+                {/* Manage Roles */}
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    Manage Roles
+                  </h4>
+                  {roleError && <p className="text-xs text-red-500 mb-2">{roleError}</p>}
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={newRoleName}
+                      onChange={(e) => setNewRoleName(e.target.value)}
+                      placeholder="New role name"
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddRole()}
+                    />
+                    <button
+                      onClick={handleAddRole}
+                      disabled={addingRole || !newRoleName.trim()}
+                      className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                    >
+                      {addingRole ? '...' : 'Add'}
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {roles.map((role) => (
+                      <div
+                        key={role.id}
+                        className="flex items-center justify-between px-3 py-2 rounded-md bg-gray-50"
+                      >
+                        <span className="text-sm text-gray-700">{role.name}</span>
+                        <button
+                          onClick={() => handleDeleteRole(role)}
+                          disabled={deletingRoleId === role.id}
+                          className="text-gray-400 hover:text-red-500 transition disabled:opacity-50"
+                        >
+                          <Trash2Icon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {roles.length === 0 && (
+                      <p className="text-xs text-gray-400 py-2">No roles defined.</p>
+                    )}
+                  </div>
                 </div>
-              ))}
-              {customFields.length === 0 && (
-                <p className="text-xs text-gray-400 py-2">No custom fields defined.</p>
-              )}
+
+                {/* Custom Fields */}
+                <div className="pt-4 border-t border-gray-100">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    Custom Fields
+                  </h4>
+                  {fieldError && <p className="text-xs text-red-500 mb-2">{fieldError}</p>}
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={newFieldLabel}
+                      onChange={(e) => setNewFieldLabel(e.target.value)}
+                      placeholder="Field label"
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
+                    />
+                    <button
+                      onClick={handleAddField}
+                      disabled={addingField || !newFieldLabel.trim()}
+                      className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                    >
+                      {addingField ? '...' : 'Add'}
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {customFields.map((field) => (
+                      <div
+                        key={field.id}
+                        className="flex items-center justify-between px-3 py-2 rounded-md bg-gray-50"
+                      >
+                        <span className="text-sm text-gray-700">{field.label}</span>
+                        <button
+                          onClick={() => setConfirmDeleteField(field)}
+                          disabled={deletingFieldId === field.id}
+                          className="text-gray-400 hover:text-red-500 transition disabled:opacity-50"
+                        >
+                          <Trash2Icon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {customFields.length === 0 && (
+                      <p className="text-xs text-gray-400 py-2">No custom fields defined.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        )}
-      </div>
+        </Portal>
+      )}
 
       {/* Add/Edit Employee Modal */}
       {modalOpen && (
