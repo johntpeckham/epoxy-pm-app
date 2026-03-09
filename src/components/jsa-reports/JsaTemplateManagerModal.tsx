@@ -147,7 +147,7 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 min-h-0">
           {loading ? (
             <p className="text-sm text-gray-400 text-center py-8">Loading templates...</p>
           ) : templates.length === 0 && !isFormVisible ? (

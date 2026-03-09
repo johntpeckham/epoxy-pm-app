@@ -61,7 +61,7 @@ export default function PhotoLightbox({ photos, currentIndex, onClose, onNavigat
             </button>
           </div>
           {/* Content */}
-          <div className="relative flex-1 overflow-y-auto p-4 md:p-6 flex items-center justify-center">
+          <div className="relative flex-1 overflow-y-auto p-4 md:p-6 flex items-center justify-center min-h-0">
             {/* Previous arrow */}
             {hasPrev && (
               <button

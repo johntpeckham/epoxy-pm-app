@@ -359,7 +359,7 @@ export default function ProjectReportModal({
         </div>
 
         {/* Scrollable body */}
-        <div data-report-body className="flex-1 overflow-y-auto p-4 md:p-6 print:overflow-visible">
+        <div data-report-body className="flex-1 overflow-y-auto p-4 md:p-6 print:overflow-visible min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
