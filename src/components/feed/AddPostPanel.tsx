@@ -15,8 +15,9 @@ import {
   SettingsIcon,
   ReceiptIcon,
   ClockIcon,
+  DollarSignIcon,
 } from 'lucide-react'
-import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, ReceiptCategory, Employee, TimecardEntry } from '@/types'
+import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, ReceiptCategory, ExpenseCategory, Employee, TimecardEntry } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -25,7 +26,7 @@ import JsaSignatureSection from '@/components/jsa-reports/JsaSignatureSection'
 
 import ManageEmployeesModal from '@/components/timesheets/ManageEmployeesModal'
 
-type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt' | 'timecard'
+type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt' | 'expense' | 'timecard'
 
 interface AddPostPanelProps {
   project: Project
@@ -123,6 +124,34 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [rcptPhotoFile, setRcptPhotoFile] = useState<File | null>(null)
   const [rcptPhotoPreview, setRcptPhotoPreview] = useState<string | null>(null)
   const rcptPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // ── Expense ──────────────────────────────────────────────────────────────
+  const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Materials', 'Labor', 'Equipment', 'Subcontractor', 'Other']
+  const [expDescription, setExpDescription] = useState('')
+  const [expAmount, setExpAmount] = useState('')
+  const [expCategory, setExpCategory] = useState<ExpenseCategory | ''>('')
+  const [expDate, setExpDate] = useState(today)
+  const [expNotes, setExpNotes] = useState('')
+  const [expAttachmentFile, setExpAttachmentFile] = useState<File | null>(null)
+  const [expAttachmentPreview, setExpAttachmentPreview] = useState<string | null>(null)
+  const expAttachmentInputRef = useRef<HTMLInputElement>(null)
+
+  function handleExpAttachmentChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setExpAttachmentFile(file)
+    if (file.type.startsWith('image/')) {
+      setExpAttachmentPreview(URL.createObjectURL(file))
+    } else {
+      setExpAttachmentPreview(null)
+    }
+    e.target.value = ''
+  }
+
+  function removeExpAttachment() {
+    setExpAttachmentFile(null)
+    setExpAttachmentPreview(null)
+  }
 
   // ── Timecard ──────────────────────────────────────────────────────────────
   const [tcProjectName, setTcProjectName] = useState(project.name)
@@ -579,6 +608,46 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setRcptPhotoFile(null)
         setRcptPhotoPreview(null)
         if (rcptPhotoInputRef.current) rcptPhotoInputRef.current.value = ''
+        setMode('text')
+      }
+
+      if (mode === 'expense') {
+        if (!expDescription.trim()) throw new Error('Please enter a description')
+        const amount = expAmount.trim() ? parseFloat(expAmount) : 0
+        if (!expAmount.trim() || isNaN(amount) || amount < 0) throw new Error('Please enter a valid amount')
+        if (!expDate) throw new Error('Please select a date')
+
+        let attachmentPath = ''
+        if (expAttachmentFile) {
+          const paths = await uploadFiles([expAttachmentFile], 'expenses')
+          attachmentPath = paths[0]
+        }
+        const { error: expenseErr } = await supabase.from('feed_posts').insert({
+          project_id: project.id,
+          user_id: userId,
+          post_type: 'expense',
+          content: {
+            description: expDescription.trim(),
+            amount,
+            category: expCategory,
+            date: expDate,
+            notes: expNotes.trim(),
+            attachment: attachmentPath,
+          },
+          is_pinned: false,
+        })
+        if (expenseErr) {
+          console.error('[AddPostPanel] Expense insert failed:', expenseErr)
+          throw expenseErr
+        }
+        setExpDescription('')
+        setExpAmount('')
+        setExpCategory('')
+        setExpDate(new Date().toISOString().split('T')[0])
+        setExpNotes('')
+        setExpAttachmentFile(null)
+        setExpAttachmentPreview(null)
+        if (expAttachmentInputRef.current) expAttachmentInputRef.current.value = ''
         setMode('text')
       }
 
@@ -1447,7 +1516,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         >
           {/* Header with close button */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Expense / Receipt</h2>
+            <h2 className="text-lg font-bold text-gray-900">Receipt</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
             </button>
@@ -1531,6 +1600,135 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
+              </div>
+            </div>
+          </div>
+
+          </div>
+          {/* Mobile submit footer */}
+          <div className="flex-none border-t border-gray-200 px-4 py-3 safe-bottom bg-white lg:hidden">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white font-semibold text-sm transition"
+            >
+              {loading ? <LoaderIcon className="w-5 h-5 animate-spin mx-auto" /> : 'Submit Expense'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Expense form ────────────────────────────────────────────────────── */}
+      {mode === 'expense' && (
+        <div
+          className="fixed left-0 right-0 bottom-0 z-50 flex flex-col bg-white w-full max-w-full overflow-x-hidden overscroll-none lg:static lg:z-auto lg:block lg:overscroll-auto"
+          style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
+        >
+          {/* Header with close button */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h2 className="text-lg font-bold text-gray-900">Expense</h2>
+            <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 space-y-5 lg:flex-none lg:max-h-[52vh] lg:pt-3 lg:pb-2">
+
+          {/* Attachment (Photo/PDF) */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Photo / PDF <span className="normal-case font-medium">(optional)</span></p>
+            <input
+              ref={expAttachmentInputRef}
+              type="file"
+              accept="image/*,.pdf,application/pdf"
+              className="hidden"
+              onChange={handleExpAttachmentChange}
+            />
+            {expAttachmentFile ? (
+              <div className="relative inline-block">
+                {expAttachmentPreview ? (
+                  <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={expAttachmentPreview} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <FileTextIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 truncate">{expAttachmentFile.name}</span>
+                  </div>
+                )}
+                <button
+                  onClick={removeExpAttachment}
+                  className="absolute -top-1.5 -right-1.5 bg-black/70 text-white rounded-full p-0.5"
+                >
+                  <XIcon className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => expAttachmentInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 transition"
+              >
+                <CameraIcon className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+                <p className="text-sm text-gray-500">
+                  <span className="font-medium text-amber-600">Upload photo or PDF</span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Expense Details */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Expense Details</p>
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Description *</label>
+                <input type="text" value={expDescription} onChange={(e) => setExpDescription(e.target.value)} placeholder="e.g. Concrete sealer for warehouse floor" className={inputCls} />
+              </div>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 overflow-hidden">
+                <div>
+                  <label className={labelCls}>Amount *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={expAmount}
+                      onChange={(e) => setExpAmount(e.target.value)}
+                      placeholder="0.00"
+                      className={`${inputCls} pl-7`}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Category</label>
+                  <select
+                    value={expCategory}
+                    onChange={(e) => setExpCategory(e.target.value as ExpenseCategory | '')}
+                    className={inputCls}
+                  >
+                    <option value="">Select a category...</option>
+                    {EXPENSE_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="min-w-0">
+                <label className={labelCls}>Date *</label>
+                <input type="date" value={expDate} onChange={(e) => setExpDate(e.target.value)} className={`${inputCls} min-w-0 max-w-full`} style={{ maxWidth: '100%' }} />
+              </div>
+              <div>
+                <label className={labelCls}>Notes <span className="normal-case font-medium">(optional)</span></label>
+                <textarea rows={3} value={expNotes} onChange={(e) => setExpNotes(e.target.value)} placeholder="Additional details..." className={textareaCls} />
               </div>
             </div>
           </div>
@@ -1665,7 +1863,20 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                     }`}
                   >
                     <ReceiptIcon className="w-4 h-4 flex-shrink-0" />
-                    Expense / Receipt
+                    Receipt
+                  </button>
+                )}
+                {canCreate('receipts') && (
+                  <button
+                    onClick={() => selectMode('expense')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                      mode === 'expense'
+                        ? 'text-amber-600 bg-amber-50 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <DollarSignIcon className="w-4 h-4 flex-shrink-0" />
+                    Expense
                   </button>
                 )}
                 {canCreate('timesheets') && (
@@ -1782,7 +1993,16 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full border border-green-200">
             <ReceiptIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
             <span className="text-sm text-green-700 font-medium truncate">
-              Expense{rcptVendor ? ` — ${rcptVendor}` : ''}{rcptAmount ? ` — $${rcptAmount}` : ''}
+              Receipt{rcptVendor ? ` — ${rcptVendor}` : ''}{rcptAmount ? ` — $${rcptAmount}` : ''}
+            </span>
+          </div>
+        )}
+
+        {mode === 'expense' && (
+          <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full border border-amber-200">
+            <DollarSignIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <span className="text-sm text-amber-700 font-medium truncate">
+              Expense{expDescription ? ` — ${expDescription}` : ''}{expAmount ? ` — $${expAmount}` : ''}
             </span>
           </div>
         )}

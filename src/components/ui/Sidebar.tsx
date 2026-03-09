@@ -135,7 +135,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             }`}
           >
             <ReceiptIcon className="w-5 h-5 flex-shrink-0" />
-            Expenses &amp; Receipts
+            Job Expenses
           </Link>
         )}
         {canView('timesheets') && (
