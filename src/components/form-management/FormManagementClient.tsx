@@ -59,6 +59,7 @@ const FIELD_TYPE_COLORS: Record<FormFieldType, string> = {
   date: 'bg-amber-50 text-amber-700 border-amber-200',
   number: 'bg-orange-50 text-orange-700 border-orange-200',
   section_header: 'bg-gray-100 text-gray-600 border-gray-300',
+  signature: 'bg-pink-50 text-pink-700 border-pink-200',
 }
 
 function generateId(): string {
@@ -513,10 +514,11 @@ export default function FormManagementClient() {
 
   const fetchTemplates = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('form_templates')
       .select('*')
       .order('form_name')
+    if (error) console.error('[FormManagement] Fetch templates failed:', error)
     setTemplates((data as FormTemplate[]) ?? [])
     setLoading(false)
   }, [])
@@ -619,10 +621,11 @@ export default function FormManagementClient() {
     if (!selectedTemplate) return
     setSaving(true)
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('form_templates')
       .update({ fields: fields as unknown as Record<string, unknown>[], updated_at: new Date().toISOString() })
       .eq('id', selectedTemplate.id)
+    if (error) console.error('[FormManagement] Save template failed:', error)
 
     setTemplates((prev) =>
       prev.map((t) =>
