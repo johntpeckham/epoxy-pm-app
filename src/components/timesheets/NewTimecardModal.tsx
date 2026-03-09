@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, LoaderIcon } from 'lucide-react'
+import { XIcon, PlusIcon, CheckIcon, LoaderIcon } from 'lucide-react'
 import { Project, TimecardEntry, Employee, FormField } from '@/types'
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
@@ -38,6 +38,23 @@ function calcHours(timeIn: string, timeOut: string, lunchMinutes: number): numbe
   return Math.max(0, Math.round((totalMinutes / 60) * 100) / 100)
 }
 
+/** Build time options in 15-min increments, displayed as 12hr but valued as 24hr HH:MM */
+function buildTimeOptions(): { value: string; label: string }[] {
+  const opts: { value: string; label: string }[] = []
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+      const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h
+      const period = h < 12 ? 'AM' : 'PM'
+      const label = `${displayH}:${String(m).padStart(2, '0')} ${period}`
+      opts.push({ value, label })
+    }
+  }
+  return opts
+}
+
+const TIME_OPTIONS = buildTimeOptions()
+
 export default function NewTimecardModal({
   projects,
   userId,
@@ -62,6 +79,8 @@ export default function NewTimecardModal({
 
   const [employees, setEmployees] = useState<Employee[]>([])
   const [employeesLoaded, setEmployeesLoaded] = useState(false)
+  const [showCustomInput, setShowCustomInput] = useState(false)
+  const [customName, setCustomName] = useState('')
 
   function updateValue(key: string, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }))
@@ -112,6 +131,17 @@ export default function NewTimecardModal({
       if (exists) return prev.filter((e) => e.employee_name !== name)
       return [...prev, { employee_name: name, time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }]
     })
+  }
+
+  function addCustomEmployee() {
+    const name = customName.trim()
+    if (!name) return
+    const alreadyExists = entries.some((e) => e.employee_name === name)
+    if (!alreadyExists) {
+      setEntries((prev) => [...prev, { employee_name: name, time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }])
+    }
+    setCustomName('')
+    setShowCustomInput(false)
   }
 
   const selectedNames = new Set(entries.map((e) => e.employee_name))
@@ -194,7 +224,35 @@ export default function NewTimecardModal({
                 </button>
               )
             })}
-            {employees.length === 0 && employeesLoaded && (
+            {showCustomInput ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  autoFocus
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addCustomEmployee(); if (e.key === 'Escape') { setShowCustomInput(false); setCustomName('') } }}
+                  placeholder="Name"
+                  className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button type="button" onClick={addCustomEmployee} className="text-green-600 hover:text-green-700 p-0.5">
+                  <CheckIcon className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={() => { setShowCustomInput(false); setCustomName('') }} className="text-gray-400 hover:text-gray-600 p-0.5">
+                  <XIcon className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowCustomInput(true)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors flex items-center gap-1"
+              >
+                <PlusIcon className="w-3 h-3" />
+                Employee
+              </button>
+            )}
+            {employees.length === 0 && !showCustomInput && employeesLoaded && (
               <p className="text-xs text-gray-400">No active employees. Add employees in Manage Employees.</p>
             )}
           </div>
@@ -219,21 +277,27 @@ export default function NewTimecardModal({
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
-                    <input
-                      type="time"
+                    <select
                       value={entry.time_in}
                       onChange={(e) => updateEntry(idx, 'time_in', e.target.value)}
                       className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    >
+                      {TIME_OPTIONS.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time Out</label>
-                    <input
-                      type="time"
+                    <select
                       value={entry.time_out}
                       onChange={(e) => updateEntry(idx, 'time_out', e.target.value)}
                       className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    >
+                      {TIME_OPTIONS.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Lunch</label>
