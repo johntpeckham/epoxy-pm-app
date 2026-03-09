@@ -703,7 +703,7 @@ export default function TasksPageClient({
       {showCreateModal && (
         <Portal>
         <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setShowCreateModal(false)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900">New Task</h2>
@@ -811,7 +811,7 @@ export default function TasksPageClient({
       {selectedTask && (
         <Portal>
         <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setSelectedTask(null)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <div className="min-w-0">
@@ -929,7 +929,7 @@ export default function TasksPageClient({
       {previewImage && (
         <Portal>
         <div className="fixed inset-0 z-[70] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setPreviewImage(null)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Title bar */}
             <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900">Image Preview</h2>
