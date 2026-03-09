@@ -282,7 +282,7 @@ export default function EditDailyReportModal({
         </div>
 
         {/* Footer */}
-        <div className="flex-none flex gap-3 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="flex-none flex gap-3 p-4 md:pb-6 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <button
             type="button"
             onClick={onClose}
