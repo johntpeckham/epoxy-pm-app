@@ -40,7 +40,7 @@ export default function PhotoLightbox({ photos, currentIndex, onClose, onNavigat
         onClick={onClose}
       >
         <div
-          className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] md:my-auto bg-white md:rounded-xl flex flex-col overflow-hidden"
+          className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[80vh] md:my-8 bg-white md:rounded-xl flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Title bar */}
