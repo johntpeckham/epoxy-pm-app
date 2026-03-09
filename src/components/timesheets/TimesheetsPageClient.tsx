@@ -2,13 +2,14 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon, PlusIcon } from 'lucide-react'
+import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon, PlusIcon, DownloadIcon, LoaderIcon } from 'lucide-react'
 import { Project, TimecardContent, DynamicFieldEntry } from '@/types'
 import TimecardCard from './TimecardCard'
 import ManageEmployeesModal from './ManageEmployeesModal'
 import NewTimecardModal from './NewTimecardModal'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
+import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface TimecardRow {
   id: string
@@ -165,7 +166,10 @@ export default function TimesheetsPageClient({
   const router = useRouter()
   const { role } = useUserRole()
   const { canCreate } = usePermissions(role)
+  const { settings: companySettings } = useCompanySettings()
+  const canDownloadPdf = role === 'admin' || role === 'office_manager'
   const [showManageEmployees, setShowManageEmployees] = useState(false)
+  const [downloadingWeek, setDownloadingWeek] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
@@ -265,6 +269,19 @@ export default function TimesheetsPageClient({
     }))
   }
 
+  async function handleDownloadWeekPdf(projectName: string, weekMonday: string, timecards: TimecardRow[]) {
+    const key = `${projectName}-${weekMonday}`
+    setDownloadingWeek(key)
+    try {
+      const { generateWeeklyTimesheetPdf } = await import('@/lib/generateWeeklyTimesheetPdf')
+      await generateWeeklyTimesheetPdf(projectName, weekMonday, timecards, companySettings?.logo_url)
+    } catch {
+      // silently fail
+    } finally {
+      setDownloadingWeek(null)
+    }
+  }
+
   function renderProjectGroup(project: ProjectGroup, isCompleted: boolean) {
     const collapsed = isProjectCollapsed(project.projectId, isCompleted)
 
@@ -296,9 +313,25 @@ export default function TimesheetsPageClient({
                   <span className="text-xs font-semibold text-gray-600">
                     {formatWeekRange(week.weekMonday)}
                   </span>
-                  <span className="text-xs font-bold text-blue-700 tabular-nums">
-                    {week.weekHours.toFixed(2)} hrs
-                  </span>
+                  <div className="flex items-center gap-3">
+                    {canDownloadPdf && (
+                      <button
+                        onClick={() => handleDownloadWeekPdf(project.projectName, week.weekMonday, week.timecards)}
+                        disabled={downloadingWeek === `${project.projectName}-${week.weekMonday}`}
+                        className="flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 font-medium disabled:opacity-50 transition"
+                      >
+                        {downloadingWeek === `${project.projectName}-${week.weekMonday}` ? (
+                          <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <DownloadIcon className="w-3.5 h-3.5" />
+                        )}
+                        Week PDF
+                      </button>
+                    )}
+                    <span className="text-xs font-bold text-blue-700 tabular-nums">
+                      {week.weekHours.toFixed(2)} hrs
+                    </span>
+                  </div>
                 </div>
                 {/* Timecard rows */}
                 <div className="divide-y divide-gray-100">

@@ -7,12 +7,13 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { DateClickArg } from '@fullcalendar/interaction'
-import type { EventClickArg } from '@fullcalendar/core'
-import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon } from 'lucide-react'
+import type { EventClickArg, DatesSetArg } from '@fullcalendar/core'
+import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon, DownloadIcon, LoaderIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { CalendarEvent } from '@/types'
 import type { UserRole } from '@/types'
 import { usePermissions } from '@/lib/usePermissions'
+import { useCompanySettings } from '@/lib/useCompanySettings'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -188,6 +189,13 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [viewStart, setViewStart] = useState<string>('')
+  const [viewEnd, setViewEnd] = useState<string>('')
+  const [viewTitle, setViewTitle] = useState<string>('')
+
+  const { settings: companySettings } = useCompanySettings()
+  const canDownloadPdf = userRole === 'admin' || userRole === 'office_manager'
 
   // Computed end date
   const computedEndDate = useMemo(
@@ -250,6 +258,28 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     },
     [],
   )
+
+  const handleDatesSet = useCallback((arg: DatesSetArg) => {
+    setViewStart(toDateStr(arg.start))
+    setViewEnd(toDateStr(new Date(arg.end.getTime() - 86400000))) // exclusive → inclusive
+    setViewTitle(arg.view.title)
+  }, [])
+
+  async function handleDownloadPdf() {
+    setPdfLoading(true)
+    try {
+      // Filter events that overlap with the current view
+      const monthEvents = initialEvents.filter(
+        (evt) => evt.start_date <= viewEnd && evt.end_date >= viewStart
+      )
+      const { generateCalendarPdf } = await import('@/lib/generateCalendarPdf')
+      await generateCalendarPdf(viewTitle, monthEvents, companySettings?.logo_url)
+    } catch {
+      // silently fail
+    } finally {
+      setPdfLoading(false)
+    }
+  }
 
   // ── Save ─────────────────────────────────────────────────────────────────
 
@@ -332,15 +362,31 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
               {initialEvents.length} project{initialEvents.length !== 1 ? 's' : ''} scheduled
             </p>
           </div>
-          {canCreateCalendar && (
-            <button
-              onClick={() => openCreateForm()}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Add Project
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {canDownloadPdf && (
+              <button
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition disabled:opacity-50"
+              >
+                {pdfLoading ? (
+                  <LoaderIcon className="w-4 h-4 animate-spin" />
+                ) : (
+                  <DownloadIcon className="w-4 h-4" />
+                )}
+                Download PDF
+              </button>
+            )}
+            {canCreateCalendar && (
+              <button
+                onClick={() => openCreateForm()}
+                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add Project
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -353,6 +399,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             events={fcEvents}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
+            datesSet={handleDatesSet}
             headerToolbar={{
               left: 'prev,next today',
               center: 'title',
