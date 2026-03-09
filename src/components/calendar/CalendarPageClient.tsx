@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import FullCalendar from '@fullcalendar/react'
@@ -13,7 +13,6 @@ import Portal from '@/components/ui/Portal'
 import { CalendarEvent } from '@/types'
 import type { UserRole } from '@/types'
 import { usePermissions } from '@/lib/usePermissions'
-import { useCompanySettings } from '@/lib/useCompanySettings'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -171,6 +170,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   const canEditCalendar = canEditPerm('calendar')
   const router = useRouter()
   const supabase = createClient()
+  const calendarRef = useRef<HTMLDivElement>(null)
 
   // Modal state
   const [showFormModal, setShowFormModal] = useState(false)
@@ -190,11 +190,8 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   const [formError, setFormError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
-  const [viewStart, setViewStart] = useState<string>('')
-  const [viewEnd, setViewEnd] = useState<string>('')
   const [viewTitle, setViewTitle] = useState<string>('')
 
-  const { settings: companySettings } = useCompanySettings()
   const canDownloadPdf = userRole === 'admin' || userRole === 'office_manager'
 
   // Computed end date
@@ -260,20 +257,41 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   )
 
   const handleDatesSet = useCallback((arg: DatesSetArg) => {
-    setViewStart(toDateStr(arg.start))
-    setViewEnd(toDateStr(new Date(arg.end.getTime() - 86400000))) // exclusive → inclusive
     setViewTitle(arg.view.title)
   }, [])
 
   async function handleDownloadPdf() {
     setPdfLoading(true)
     try {
-      // Filter events that overlap with the current view
-      const monthEvents = initialEvents.filter(
-        (evt) => evt.start_date <= viewEnd && evt.end_date >= viewStart
-      )
-      const { generateCalendarPdf } = await import('@/lib/generateCalendarPdf')
-      await generateCalendarPdf(viewTitle, monthEvents, companySettings?.logo_url)
+      const el = calendarRef.current
+      if (!el) return
+
+      const html2canvas = (await import('html2canvas-pro')).default
+      const { jsPDF } = await import('jspdf')
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' })
+      const pageW = doc.internal.pageSize.getWidth()
+      const pageH = doc.internal.pageSize.getHeight()
+      const margin = 10
+      const maxW = pageW - margin * 2
+      const maxH = pageH - margin * 2
+      const ratio = Math.min(maxW / canvas.width, maxH / canvas.height)
+      const imgW = canvas.width * ratio
+      const imgH = canvas.height * ratio
+      const x = (pageW - imgW) / 2
+      const y = (pageH - imgH) / 2
+
+      doc.addImage(imgData, 'PNG', x, y, imgW, imgH)
+
+      const safeTitle = (viewTitle || 'Calendar').replace(/[^a-z0-9]/gi, '-')
+      doc.save(`Calendar-${safeTitle}.pdf`)
     } catch {
       // silently fail
     } finally {
@@ -392,7 +410,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
       {/* FullCalendar */}
       <div className="flex-1 px-4 pb-4 sm:px-6 sm:pb-6 min-h-0 overflow-auto">
-        <div className="max-w-6xl mx-auto bg-white border border-gray-200 rounded-xl p-4 shadow-sm calendar-wrapper">
+        <div ref={calendarRef} className="max-w-6xl mx-auto bg-white border border-gray-200 rounded-xl p-4 shadow-sm calendar-wrapper">
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
