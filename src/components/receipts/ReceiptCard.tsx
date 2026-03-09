@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
+  CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ExternalLinkIcon,
@@ -115,27 +116,9 @@ export default function ReceiptCard({ receipt, role }: ReceiptCardProps) {
             )}
           </span>
 
-          {/* Expense Confirmed checkbox — Admin & Office Manager only */}
-          {canConfirm && (
-            <label
-              onClick={handleToggleConfirmed}
-              className={`flex-shrink-0 flex items-center gap-1.5 cursor-pointer select-none ${confirmed ? 'text-green-600' : 'text-gray-400'}`}
-            >
-              <span
-                className={`inline-flex items-center justify-center w-4 h-4 rounded border transition-colors ${
-                  confirmed
-                    ? 'bg-green-600 border-green-600'
-                    : 'border-gray-300 bg-white'
-                }`}
-              >
-                {confirmed && (
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </span>
-              <span className="text-[11px] font-medium hidden sm:inline">Expense Confirmed</span>
-            </label>
+          {/* Confirmed status indicator */}
+          {confirmed && (
+            <CheckIcon className="flex-shrink-0 w-4 h-4 text-green-600" />
           )}
 
           {/* Amount */}
@@ -235,6 +218,29 @@ export default function ReceiptCard({ receipt, role }: ReceiptCardProps) {
                   </div>
                 </a>
               </div>
+            )}
+
+            {/* Expense Confirmed checkbox — Admin & Office Manager only */}
+            {canConfirm && (
+              <label
+                onClick={handleToggleConfirmed}
+                className={`flex items-center gap-2 cursor-pointer select-none ${confirmed ? 'text-green-600' : 'text-gray-400'}`}
+              >
+                <span
+                  className={`inline-flex items-center justify-center w-4 h-4 rounded border transition-colors ${
+                    confirmed
+                      ? 'bg-green-600 border-green-600'
+                      : 'border-gray-300 bg-white'
+                  }`}
+                >
+                  {confirmed && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </span>
+                <span className="text-xs font-medium">Expense Confirmed</span>
+              </label>
             )}
 
             {/* Actions */}
