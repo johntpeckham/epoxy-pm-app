@@ -434,7 +434,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {showFormModal && (
         <Portal>
         <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => { setShowFormModal(false); resetForm() }}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900">
@@ -593,7 +593,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {detailEvent && !showDeleteConfirm && (
         <Portal>
         <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setDetailEvent(null)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header with color bar */}
             <div
               className="flex-none flex items-center justify-between px-4 border-b"
@@ -680,7 +680,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       {showDeleteConfirm && detailEvent && (
         <Portal>
         <div className="fixed inset-0 z-[70] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Title bar */}
             <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>

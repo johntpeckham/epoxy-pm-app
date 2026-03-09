@@ -217,7 +217,7 @@ export default function NewReceiptModal({
   return (
     <Portal>
     <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
-      <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
           <h2 className="text-lg font-semibold text-gray-900">New Expense</h2>
           <button
