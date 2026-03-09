@@ -102,7 +102,7 @@ export interface ProjectReport {
   created_at: string
 }
 
-export type PostType = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt' | 'timecard'
+export type PostType = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt' | 'expense' | 'timecard'
 
 export interface TextContent {
   message: string
@@ -194,6 +194,17 @@ export interface ReceiptContent {
   category: ReceiptCategory | ''
 }
 
+export type ExpenseCategory = 'Materials' | 'Labor' | 'Equipment' | 'Subcontractor' | 'Other'
+
+export interface ExpenseContent {
+  description: string
+  amount: number
+  category: ExpenseCategory | ''
+  date: string           // ISO format (YYYY-MM-DD)
+  notes: string
+  attachment: string     // storage path in 'post-photos' bucket (optional, may be empty)
+}
+
 export interface TimecardEntry {
   employee_name: string
   time_in: string   // HH:MM format
@@ -217,7 +228,7 @@ export interface Employee {
   created_at: string
 }
 
-export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent | ReceiptContent | TimecardContent
+export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent | ReceiptContent | ExpenseContent | TimecardContent
 
 /** A single custom/dynamic field entry saved alongside a form submission. */
 export interface DynamicFieldEntry {

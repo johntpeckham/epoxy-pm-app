@@ -23,8 +23,9 @@ import {
   ShieldIcon,
   ReceiptIcon,
   ClockIcon,
+  DollarSignIcon,
 } from 'lucide-react'
-import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, ReceiptContent, TimecardContent, TaskStatus, DynamicFieldEntry } from '@/types'
+import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, ReceiptContent, ExpenseContent, TimecardContent, TaskStatus, DynamicFieldEntry } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from './EditDailyReportModal'
 import EditJsaReportModal from './EditJsaReportModal'
@@ -796,6 +797,138 @@ function CollapsibleReceipt({
   )
 }
 
+// ── Expense content card ──────────────────────────────────────────────────
+function ExpensePost({
+  content,
+  onImageClick,
+}: {
+  content: ExpenseContent
+  onImageClick: (urls: string[], index: number) => void
+}) {
+  const supabase = createClient()
+  const attachmentUrl = content.attachment
+    ? supabase.storage.from('post-photos').getPublicUrl(content.attachment).data.publicUrl
+    : null
+  const isImage = content.attachment && /\.(jpg|jpeg|png|gif|webp)$/i.test(content.attachment)
+
+  const dateLabel = content.date
+    ? new Date(content.date + 'T12:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : ''
+
+  return (
+    <div className="p-3.5 space-y-3 border-t border-amber-200 max-w-full overflow-hidden">
+      <div className="flex gap-3">
+        {attachmentUrl && isImage && (
+          <button onClick={() => onImageClick([attachmentUrl], 0)} className="block flex-shrink-0">
+            <div className="relative w-[72px] h-[72px] rounded-lg overflow-hidden bg-amber-50">
+              <Image
+                src={attachmentUrl}
+                alt="Expense attachment"
+                fill
+                className="object-cover hover:opacity-90 transition"
+                sizes="72px"
+              />
+            </div>
+          </button>
+        )}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div>
+            <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Description</dt>
+            <dd className="text-sm text-gray-700 font-medium">{content.description}</dd>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {dateLabel && (
+              <div>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Date</dt>
+                <dd className="text-sm text-gray-700 tabular-nums">{dateLabel}</dd>
+              </div>
+            )}
+            {content.amount ? (
+              <div>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Amount</dt>
+                <dd className="text-sm text-gray-900 font-bold tabular-nums">${content.amount.toFixed(2)}</dd>
+              </div>
+            ) : null}
+            {content.category ? (
+              <div>
+                <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Category</dt>
+                <dd className="text-sm text-gray-700">{content.category}</dd>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      {content.notes && (
+        <div>
+          <dt className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Notes</dt>
+          <dd className="text-sm text-gray-700 whitespace-pre-wrap">{content.notes}</dd>
+        </div>
+      )}
+      {attachmentUrl && !isImage && (
+        <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-900 font-medium">
+          <FileTextIcon className="w-3.5 h-3.5" />
+          View attachment
+        </a>
+      )}
+    </div>
+  )
+}
+
+// ── Collapsible wrapper for expenses in the feed ──────────────────────────
+function CollapsibleExpense({
+  content,
+  onImageClick,
+  isPinned,
+}: {
+  content: ExpenseContent
+  onImageClick: (urls: string[], index: number) => void
+  isPinned?: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="mt-1.5 border border-amber-200 rounded-xl overflow-hidden bg-white max-w-full w-full">
+      <div
+        onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
+        role={isPinned ? undefined : 'button'}
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left transition-colors min-w-0 overflow-hidden ${
+          isPinned ? '' : 'hover:bg-amber-100/60 cursor-pointer'
+        }`}
+      >
+        <DollarSignIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-amber-900 flex-shrink-0">Expense</span>
+        {content.description ? (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0">—</span>
+            <span className="text-sm font-medium text-gray-800 truncate min-w-0">{content.description}</span>
+          </>
+        ) : null}
+        {content.amount ? (
+          <>
+            <span className="text-sm text-gray-400 flex-shrink-0 hidden sm:inline">—</span>
+            <span className="text-sm font-bold text-gray-800 flex-shrink-0 tabular-nums hidden sm:inline">${content.amount.toFixed(2)}</span>
+          </>
+        ) : null}
+        {!isPinned && (
+          <ChevronDownIcon
+            className={`w-4 h-4 text-amber-600 ml-auto flex-shrink-0 transition-transform ${
+              expanded ? 'rotate-180' : ''
+            }`}
+          />
+        )}
+      </div>
+
+      {(isPinned || expanded) && (
+        <ExpensePost content={content} onImageClick={onImageClick} />
+      )}
+    </div>
+  )
+}
+
 // ── Timecard content card ──────────────────────────────────────────────────
 function TimecardPost({ content, dynamicFields }: { content: TimecardContent; dynamicFields?: DynamicFieldEntry[] }) {
   const dateLabel = content.date
@@ -1095,6 +1228,10 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       const receiptPhoto = (post.content as ReceiptContent).receipt_photo
       if (receiptPhoto) await supabase.storage.from('post-photos').remove([receiptPhoto])
     }
+    if (post.post_type === 'expense') {
+      const attachment = (post.content as ExpenseContent).attachment
+      if (attachment) await supabase.storage.from('post-photos').remove([attachment])
+    }
     await supabase.from('feed_posts').delete().eq('id', post.id)
     setIsDeleting(false)
     setShowDeleteConfirm(false)
@@ -1245,6 +1382,13 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
         <CollapsibleReceipt
           content={post.content as ReceiptContent}
           dynamicFields={post.dynamic_fields}
+          onImageClick={openPreview}
+          isPinned={post.is_pinned}
+        />
+      )}
+      {post.post_type === 'expense' && (
+        <CollapsibleExpense
+          content={post.content as ExpenseContent}
           onImageClick={openPreview}
           isPinned={post.is_pinned}
         />
