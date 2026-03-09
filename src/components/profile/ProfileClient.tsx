@@ -9,6 +9,7 @@ import { Profile } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import UserManagement from './UserManagement'
+import EmployeeManagement from './EmployeeManagement'
 
 interface ProfileClientProps {
   userId: string
@@ -414,6 +415,9 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
 
         {/* User Management — Admin only */}
         {isAdmin && <UserManagement currentUserId={userId} />}
+
+        {/* Employee Management — Admin and Office Manager */}
+        {(isAdmin || isOfficeManager) && <EmployeeManagement />}
       </div>
     </div>
   )

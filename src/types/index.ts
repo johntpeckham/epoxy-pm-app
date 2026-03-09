@@ -332,6 +332,30 @@ export interface Notification {
   created_at: string
 }
 
+export interface EmployeeProfile {
+  id: string
+  name: string
+  photo_url: string | null
+  role: string | null
+  notes: string | null
+  custom_fields: Record<string, string> | null
+  created_at: string
+  updated_at: string
+}
+
+export interface EmployeeRole {
+  id: string
+  name: string
+  created_at: string
+}
+
+export interface EmployeeCustomFieldDefinition {
+  id: string
+  label: string
+  field_type: string
+  created_at: string
+}
+
 export type FeatureKey = 'jobs' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports' | 'receipts' | 'timesheets'
 
 export type AccessLevel = 'full' | 'create' | 'view_only' | 'off'
