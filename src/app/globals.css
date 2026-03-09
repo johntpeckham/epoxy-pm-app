@@ -29,8 +29,8 @@ body {
   }
 }
 
-/* Modal positioning below mobile header */
-@media (max-width: 1023px) {
+/* Modal positioning below mobile header (below Tailwind md: breakpoint) */
+@media (max-width: 767px) {
   .modal-below-header {
     top: calc(3.5rem + env(safe-area-inset-top, 0px)) !important;
   }
