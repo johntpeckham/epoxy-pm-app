@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, PlusIcon, LoaderIcon } from 'lucide-react'
+import { XIcon, LoaderIcon } from 'lucide-react'
 import { Project, TimecardEntry, Employee, FormField } from '@/types'
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
@@ -56,9 +56,7 @@ export default function NewTimecardModal({
     address: projects[0]?.address ?? '',
   })
 
-  const [entries, setEntries] = useState<TimecardEntry[]>([
-    { employee_name: '', time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 },
-  ])
+  const [entries, setEntries] = useState<TimecardEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -108,12 +106,15 @@ export default function NewTimecardModal({
     setEntries((prev) => prev.filter((_, i) => i !== idx))
   }
 
-  function addEntry() {
-    setEntries((prev) => [
-      ...prev,
-      { employee_name: '', time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 },
-    ])
+  function toggleEmployee(name: string) {
+    setEntries((prev) => {
+      const exists = prev.some((e) => e.employee_name === name)
+      if (exists) return prev.filter((e) => e.employee_name !== name)
+      return [...prev, { employee_name: name, time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }]
+    })
   }
+
+  const selectedNames = new Set(entries.map((e) => e.employee_name))
 
   const grandTotal = entries.reduce((s, e) => s + e.total_hours, 0)
 
@@ -172,20 +173,36 @@ export default function NewTimecardModal({
     return (
       <div key="employee-section">
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Employees</p>
-            <button
-              type="button"
-              onClick={addEntry}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition"
-            >
-              <PlusIcon className="w-3 h-3" />
-              Add Row
-            </button>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Employees</p>
+
+          {/* Roster pill selector */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            {employees.map((emp) => {
+              const isSelected = selectedNames.has(emp.name)
+              return (
+                <button
+                  key={emp.id}
+                  type="button"
+                  onClick={() => toggleEmployee(emp.name)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    isSelected
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  {emp.name}
+                </button>
+              )
+            })}
+            {employees.length === 0 && employeesLoaded && (
+              <p className="text-xs text-gray-400">No active employees. Add employees in Manage Employees.</p>
+            )}
           </div>
+
+          {/* Employee time-entry rows */}
           <div className="space-y-2">
             {entries.map((entry, idx) => (
-              <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2 relative">
+              <div key={entry.employee_name} className="border border-gray-200 rounded-lg p-3 space-y-2 relative">
                 <button
                   type="button"
                   onClick={() => removeEntry(idx)}
@@ -194,14 +211,7 @@ export default function NewTimecardModal({
                   <XIcon className="w-3.5 h-3.5" />
                 </button>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={entry.employee_name}
-                    onChange={(e) => updateEntry(idx, 'employee_name', e.target.value)}
-                    placeholder="Employee name"
-                    list="new-tc-employee-names"
-                    className="flex-1 border border-gray-200 rounded-md px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <span className="flex-1 text-sm font-medium text-gray-900">{entry.employee_name}</span>
                   {entry.total_hours > 0 && (
                     <span className="text-xs font-bold text-blue-700 tabular-nums">{entry.total_hours.toFixed(2)} hrs</span>
                   )}
@@ -247,12 +257,6 @@ export default function NewTimecardModal({
           <span className="text-sm font-semibold text-blue-800">Grand Total</span>
           <span className="text-lg font-bold text-blue-900 tabular-nums">{grandTotal.toFixed(2)} hrs</span>
         </div>
-
-        <datalist id="new-tc-employee-names">
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.name} />
-          ))}
-        </datalist>
       </div>
     )
   }
