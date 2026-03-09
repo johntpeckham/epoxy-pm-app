@@ -211,9 +211,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           Estimates
         </Link>
 
-        {/* Divider */}
-        <div className="my-2 border-t border-gray-800 hidden md:block" />
-
         <Link
           href="/job-takeoff"
           onClick={() => setMobileOpen(false)}
