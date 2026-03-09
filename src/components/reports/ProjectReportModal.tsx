@@ -341,9 +341,9 @@ export default function ProjectReportModal({
 
   return (
     <Portal>
-    <div data-report-print className="fixed inset-0 z-[60] overflow-hidden flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
+    <div data-report-print className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
       {/* Modal */}
-      <div data-report-modal className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div data-report-modal className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div data-report-header className="flex-none flex items-center justify-between px-4 border-b print:hidden" style={{ minHeight: '56px' }}>
           <div>
