@@ -22,8 +22,8 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Portal>
-    <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-black/50 modal-below-header" onClick={onCancel}>
-      <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[80vh] md:my-8 bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] overflow-hidden flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onCancel}>
+      <div className="mt-auto md:mt-0 md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
         </div>
