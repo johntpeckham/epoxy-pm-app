@@ -232,6 +232,8 @@ function CustomerEstimatesView({
         <EstimatesList
           estimates={estimates}
           onSelect={onSelectEstimate}
+          userId={userId}
+          onEstimateDeleted={onEstimateCreated}
         />
       </div>
       {showChangeOrderModal && (
