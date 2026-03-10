@@ -457,9 +457,9 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             eventClick={handleEventClick}
             datesSet={handleDatesSet}
             headerToolbar={{
-              left: 'prev,next today',
+              left: 'prev,next',
               center: 'title',
-              right: 'dayGridMonth',
+              right: 'today dayGridMonth',
             }}
             height="auto"
             eventDisplay="block"
