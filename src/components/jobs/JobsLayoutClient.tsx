@@ -31,7 +31,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
   // List controls
   const [search, setSearch] = useState('')
-  const [showCompleted, setShowCompleted] = useState(true)
+  const [showCompleted, setShowCompleted] = useState(false)
 
   // Modals
   const [showNewProject, setShowNewProject] = useState(false)
