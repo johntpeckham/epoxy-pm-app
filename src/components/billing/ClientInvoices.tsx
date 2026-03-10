@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { FileTextIcon, PlusIcon, FilePlusIcon } from 'lucide-react'
+import { FileTextIcon, PlusIcon, FilePlusIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer, Invoice, LineItem } from './types'
 import ChangeOrderModal from '../shared/ChangeOrderModal'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 interface ClientInvoicesProps {
   customer: Customer
@@ -47,12 +48,25 @@ export default function ClientInvoices({
 }: ClientInvoicesProps) {
   const [showChangeOrderModal, setShowChangeOrderModal] = useState(false)
   const [savingCO, setSavingCO] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.total ?? 0), 0)
   const totalPaid = invoices.filter((inv) => inv.status === 'Paid').reduce((sum, inv) => sum + (inv.total ?? 0), 0)
   const totalOutstanding = invoices.filter((inv) => inv.status !== 'Paid' && inv.status !== 'Draft').reduce((sum, inv) => sum + (inv.total ?? 0), 0)
 
   const latestInvoice = invoices[0] ?? null
+
+  async function handleDeleteInvoice() {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    const supabase = createClient()
+    await supabase.from('change_orders').delete().eq('parent_id', deleteTarget)
+    await supabase.from('invoices').delete().eq('id', deleteTarget)
+    setIsDeleting(false)
+    setDeleteTarget(null)
+    onInvoiceChanged()
+  }
 
   async function handleAddChangeOrder(coData: { description: string; lineItems: LineItem[]; notes: string }) {
     if (!latestInvoice) return
@@ -137,21 +151,30 @@ export default function ClientInvoices({
             {invoices.map((inv) => {
               const daysOverdue = inv.status === 'Overdue' ? getDaysOverdue(inv.due_date) : null
               return (
-                <button
+                <div
                   key={inv.id}
                   onClick={() => onSelectInvoice(inv.id)}
-                  className="w-full text-left bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-amber-300 hover:shadow-sm transition-all cursor-pointer"
+                  className="w-full text-left bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-amber-300 hover:shadow-sm transition-all cursor-pointer relative group"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-semibold text-gray-900">
                       {inv.invoice_number}
                     </span>
-                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[inv.status] ?? STATUS_COLORS.Draft}`}>
-                      {inv.status}
-                      {daysOverdue && (
-                        <span className="text-red-500 font-normal">({daysOverdue}d)</span>
-                      )}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[inv.status] ?? STATUS_COLORS.Draft}`}>
+                        {inv.status}
+                        {daysOverdue && (
+                          <span className="text-red-500 font-normal">({daysOverdue}d)</span>
+                        )}
+                      </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(inv.id) }}
+                        className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded opacity-0 group-hover:opacity-100"
+                        title="Delete invoice"
+                      >
+                        <Trash2Icon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                   {inv.project_name && (
                     <p className="text-sm text-gray-700 truncate">{inv.project_name}</p>
@@ -162,7 +185,7 @@ export default function ClientInvoices({
                       ${formatCurrency(inv.total ?? 0)}
                     </span>
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>
@@ -173,6 +196,15 @@ export default function ClientInvoices({
           onSave={handleAddChangeOrder}
           onClose={() => setShowChangeOrderModal(false)}
           saving={savingCO}
+        />
+      )}
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete Invoice"
+          message="Are you sure you want to delete this invoice? This cannot be undone."
+          onConfirm={handleDeleteInvoice}
+          onCancel={() => setDeleteTarget(null)}
+          loading={isDeleting}
         />
       )}
     </div>
