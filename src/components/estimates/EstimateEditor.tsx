@@ -307,7 +307,7 @@ export default function EstimateEditor({
             </button>
           )}
           {/* Convert to Invoice */}
-          {(status === 'Sent' || status === 'Accepted') && (
+          {status !== 'Invoiced' && (
             <button
               onClick={() => setShowConvertConfirm(true)}
               className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
