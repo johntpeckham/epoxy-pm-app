@@ -373,45 +373,45 @@ export default function EmployeeManagement() {
       ) : employees.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">No employees added yet.</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 mb-6">
           {employees.map((emp) => (
             <div
               key={emp.id}
-              className="rounded-lg border border-gray-200 overflow-hidden hover:border-gray-300 hover:shadow-md transition bg-white flex flex-col"
+              className="rounded-lg border border-gray-200 overflow-hidden hover:border-gray-300 hover:shadow-sm transition bg-white flex flex-col"
             >
-              {/* Photo area */}
-              <div className="aspect-[3/4] w-full bg-gray-100 relative overflow-hidden">
+              {/* Photo area — ~100px tall */}
+              <div className="w-full bg-gray-100 overflow-hidden" style={{ height: '105px' }}>
                 {emp.photo_url ? (
                   <img
                     src={emp.photo_url}
                     alt=""
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-top"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <UserIcon className="w-8 h-8 text-gray-300" />
+                    <UserIcon className="w-7 h-7 text-gray-300" />
                   </div>
                 )}
               </div>
               {/* Info */}
-              <div className="px-2 pt-2 pb-1">
-                <p className="text-sm font-bold text-gray-900 truncate">{emp.name}</p>
+              <div className="px-2 pt-1.5 pb-0.5">
+                <p className="text-xs font-bold text-gray-900 truncate leading-tight">{emp.name}</p>
                 {emp.role && (
-                  <p className="text-[11px] text-amber-600 font-semibold mt-0.5 truncate">{emp.role}</p>
+                  <p className="text-[10px] text-amber-600 font-semibold mt-0.5 truncate leading-tight">{emp.role}</p>
                 )}
               </div>
               {/* Actions */}
-              <div className="flex items-center gap-1 px-2 pb-2 mt-auto">
+              <div className="flex items-center gap-0.5 px-1.5 pb-1.5 mt-auto">
                 <button
                   onClick={() => openEditModal(emp)}
-                  className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded-md transition"
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 hover:text-amber-700 hover:bg-amber-50 rounded transition"
                 >
                   <PencilIcon className="w-2.5 h-2.5" />
                   Edit
                 </button>
                 <button
                   onClick={() => setConfirmDeleteEmployee(emp)}
-                  className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
                 >
                   <Trash2Icon className="w-2.5 h-2.5" />
                   Delete
