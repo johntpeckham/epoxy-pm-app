@@ -95,47 +95,52 @@ body {
 
 /* ── Mobile-only calendar overrides (below lg: breakpoint) ────────────── */
 @media (max-width: 1023px) {
-  /* Toolbar: flex-wrap so chunks stack into rows */
+  /* Row 1: [<]  March 2026  [>]   Row 2: [Today] [Month] */
   .calendar-wrapper .fc .fc-toolbar.fc-header-toolbar {
-    display: flex !important;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0;
-    padding: 0.25rem 0;
-  }
-
-  /* All chunks go full-width */
-  .calendar-wrapper .fc .fc-toolbar .fc-toolbar-chunk {
-    display: flex !important;
-    justify-content: center;
+    display: grid !important;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
     align-items: center;
-    width: 100%;
+    row-gap: 0.375rem;
+    column-gap: 0;
+    margin-bottom: 0.75rem !important;
   }
 
-  /* Row 1: title (center chunk) — prominent and centered */
+  /* Make left + center chunks transparent so buttons become grid items */
+  .calendar-wrapper .fc .fc-toolbar .fc-toolbar-chunk:nth-child(1),
   .calendar-wrapper .fc .fc-toolbar .fc-toolbar-chunk:nth-child(2) {
-    order: -1;
-    margin-bottom: 0.25rem;
+    display: contents !important;
+  }
+
+  /* Row 1: prev (col 1), title (col 2), next (col 3) */
+  .calendar-wrapper .fc .fc-prev-button {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
   }
   .calendar-wrapper .fc .fc-toolbar-title {
-    font-size: 1.125rem;
+    grid-column: 2;
+    grid-row: 1;
     text-align: center;
+    font-size: 1.125rem;
+    padding: 0 0.5rem;
+  }
+  .calendar-wrapper .fc .fc-next-button {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
   }
 
-  /* Row 2: prev + next arrows (left chunk) */
-  .calendar-wrapper .fc .fc-toolbar .fc-toolbar-chunk:nth-child(1) {
-    order: 0;
-    gap: 0.5rem;
-    margin-bottom: 0.375rem;
-  }
-
-  /* Row 3: today + month toggle (right chunk) */
+  /* Row 2: right chunk (today + month) — stays a flex container, centered */
   .calendar-wrapper .fc .fc-toolbar .fc-toolbar-chunk:nth-child(3) {
-    order: 1;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex !important;
+    justify-content: center;
     gap: 0.5rem;
   }
 
-  /* Button style: white background with border (matches app style) */
+  /* Button style: white bg with border (matches app style) */
   .calendar-wrapper .fc .fc-button-primary {
     background-color: #fff !important;
     border-color: #d1d5db !important;
@@ -169,27 +174,13 @@ body {
     padding: 0.375rem 0.5rem;
   }
 
-  /* Increase day cell height for breathing room */
-  .calendar-wrapper .fc .fc-daygrid-day {
-    min-height: 5.5rem !important;
-  }
+  /* Slightly taller day cells for breathing room (not over-expanded) */
   .calendar-wrapper .fc .fc-daygrid-day-frame {
-    min-height: 5.5rem !important;
-    padding: 0.25rem !important;
+    min-height: 4.25rem !important;
+    padding: 2px 3px !important;
   }
 
-  /* More padding in the calendar wrapper */
-  .calendar-wrapper {
-    padding: 0.75rem !important;
-  }
-
-  /* Slightly more spacing between cells */
-  .calendar-wrapper .fc td,
-  .calendar-wrapper .fc th {
-    padding: 1px;
-  }
-
-  /* Smaller event text on mobile for better fit */
+  /* Smaller event text on mobile */
   .calendar-wrapper .fc .fc-event {
     font-size: 0.7rem;
     padding: 2px 4px;
