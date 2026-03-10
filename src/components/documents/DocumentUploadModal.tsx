@@ -319,7 +319,7 @@ export default function DocumentUploadModal({
       {/* Full-screen PDF viewer — iframe lets the browser handle zoom, scroll, nav */}
       {previewDoc && isPdf(previewDoc) && (
         <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setPreviewDoc(null)}>
-          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-4xl h-full md:h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-auto md:m-4 w-full md:w-[calc(100vw-2rem)] md:h-[calc(100vh-2rem)] h-full bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
               <span className="truncate text-sm font-semibold text-gray-900">{previewDoc.file_name}</span>
               <button
