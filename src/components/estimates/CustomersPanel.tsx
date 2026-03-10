@@ -1,25 +1,25 @@
 'use client'
 
 import { useState } from 'react'
-import { PlusIcon, SearchIcon, SettingsIcon, UserIcon } from 'lucide-react'
+import { PlusIcon, SearchIcon, SettingsIcon, UserIcon, LayoutDashboardIcon } from 'lucide-react'
 import type { Customer, Estimate } from './types'
 import NewCustomerModal from './NewCustomerModal'
 
 interface CustomersPanelProps {
   customers: Customer[]
-  selectedCustomerId: string | null
+  selectedView: string
   estimates: Estimate[]
   userId: string
-  onSelectCustomer: (id: string) => void
+  onSelectView: (view: 'dashboard' | string) => void
   onCustomerAdded: () => void
   onOpenSettings: () => void
 }
 
 export default function CustomersPanel({
   customers,
-  selectedCustomerId,
+  selectedView,
   userId,
-  onSelectCustomer,
+  onSelectView,
   onCustomerAdded,
   onOpenSettings,
 }: CustomersPanelProps) {
@@ -68,25 +68,42 @@ export default function CustomersPanel({
           </div>
         </div>
 
-        {/* Customer list */}
+        {/* Dashboard + Customer list */}
         <div className="flex-1 overflow-y-auto">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <UserIcon className="w-10 h-10 text-gray-300 mb-2" />
-              <p className="text-sm text-gray-400">
-                {customers.length === 0
-                  ? 'No customers yet. Add one to get started.'
-                  : 'No matching customers.'}
-              </p>
-            </div>
-          ) : (
-            <div className="py-1">
-              {filtered.map((customer) => (
+          <div className="py-1">
+            {/* Dashboard - pinned at top */}
+            <button
+              onClick={() => onSelectView('dashboard')}
+              className={`w-full text-left px-4 py-3 transition-colors border-l-2 flex items-center gap-3 ${
+                selectedView === 'dashboard'
+                  ? 'border-l-amber-500 bg-amber-50'
+                  : 'border-l-transparent hover:bg-gray-50'
+              }`}
+            >
+              <LayoutDashboardIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              <p className="text-sm font-medium text-gray-900">Dashboard</p>
+            </button>
+
+            {/* Divider */}
+            <div className="mx-4 border-t border-gray-100" />
+
+            {/* Customer list */}
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center px-6">
+                <UserIcon className="w-10 h-10 text-gray-300 mb-2" />
+                <p className="text-sm text-gray-400">
+                  {customers.length === 0
+                    ? 'No customers yet. Add one to get started.'
+                    : 'No matching customers.'}
+                </p>
+              </div>
+            ) : (
+              filtered.map((customer) => (
                 <button
                   key={customer.id}
-                  onClick={() => onSelectCustomer(customer.id)}
+                  onClick={() => onSelectView(customer.id)}
                   className={`w-full text-left px-4 py-3 transition-colors border-l-2 ${
-                    selectedCustomerId === customer.id
+                    selectedView === customer.id
                       ? 'border-l-amber-500 bg-amber-50'
                       : 'border-l-transparent hover:bg-gray-50'
                   }`}
@@ -96,9 +113,9 @@ export default function CustomersPanel({
                     <p className="text-xs text-gray-500 truncate">{customer.company}</p>
                   )}
                 </button>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
 

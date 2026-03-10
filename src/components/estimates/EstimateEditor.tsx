@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer, Estimate, EstimateSettings, LineItem } from './types'
 import { DEFAULT_TERMS } from './types'
@@ -53,6 +53,10 @@ export default function EstimateEditor({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [pushSuccess, setPushSuccess] = useState(false)
+  const [showConvertConfirm, setShowConvertConfirm] = useState(false)
+  const [convertSuccess, setConvertSuccess] = useState(false)
+  const [convertError, setConvertError] = useState<string | null>(null)
+  const [converting, setConverting] = useState(false)
   const [customerName, setCustomerName] = useState(customer.name)
   const [customerCompany, setCustomerCompany] = useState(customer.company ?? '')
 
@@ -182,6 +186,62 @@ export default function EstimateEditor({
     })
   }
 
+  async function handleConvertToInvoice() {
+    setConverting(true)
+    setConvertError(null)
+    const supabase = createClient()
+
+    // Check if invoice already exists with same number
+    const { data: existing } = await supabase
+      .from('invoices')
+      .select('id')
+      .eq('invoice_number', String(estimateNumber))
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (existing) {
+      setConvertError('This estimate has already been converted to an invoice')
+      setConverting(false)
+      setShowConvertConfirm(false)
+      setTimeout(() => setConvertError(null), 4000)
+      return
+    }
+
+    const items = lineItems.map((item) => ({ ...item, amount: calcAmount(item) }))
+    const sub = items.reduce((sum, item) => sum + item.amount, 0)
+    const tot = sub + (tax || 0)
+
+    const { error } = await supabase.from('invoices').insert({
+      invoice_number: String(estimateNumber),
+      client_id: customer.id,
+      project_name: projectName || null,
+      line_items: items,
+      subtotal: sub,
+      tax: tax || null,
+      total: tot,
+      status: 'Draft',
+      issued_date: new Date().toISOString().split('T')[0],
+      notes: null,
+      terms,
+      user_id: userId,
+    })
+
+    if (!error) {
+      // Update estimate status to Invoiced
+      setStatus('Invoiced')
+      await supabase
+        .from('estimates')
+        .update({ status: 'Invoiced' })
+        .eq('id', estimateIdRef.current)
+      onUpdated()
+
+      setShowConvertConfirm(false)
+      setConvertSuccess(true)
+      setTimeout(() => setConvertSuccess(false), 3000)
+    }
+    setConverting(false)
+  }
+
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">
       {/* Top bar */}
@@ -246,6 +306,16 @@ export default function EstimateEditor({
               Push to Jobs
             </button>
           )}
+          {/* Convert to Invoice */}
+          {(status === 'Sent' || status === 'Accepted') && (
+            <button
+              onClick={() => setShowConvertConfirm(true)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <ReceiptIcon className="w-3.5 h-3.5" />
+              Convert to Invoice
+            </button>
+          )}
         </div>
       </div>
 
@@ -254,6 +324,48 @@ export default function EstimateEditor({
         <div className="fixed bottom-6 right-6 z-50 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2">
           <CheckIcon className="w-4 h-4" />
           Job created successfully
+        </div>
+      )}
+
+      {/* Convert success toast */}
+      {convertSuccess && (
+        <div className="fixed bottom-6 right-6 z-50 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2">
+          <CheckIcon className="w-4 h-4" />
+          Estimate converted to invoice
+        </div>
+      )}
+
+      {/* Convert error toast */}
+      {convertError && (
+        <div className="fixed bottom-6 right-6 z-50 bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2">
+          <XIcon className="w-4 h-4" />
+          {convertError}
+        </div>
+      )}
+
+      {/* Convert to Invoice confirmation dialog */}
+      {showConvertConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-base font-bold text-gray-900 mb-2">Convert to Invoice</h3>
+            <p className="text-sm text-gray-600 mb-6">Convert this estimate to an invoice?</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowConvertConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"
+                disabled={converting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConvertToInvoice}
+                disabled={converting}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {converting ? 'Converting...' : 'Convert'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

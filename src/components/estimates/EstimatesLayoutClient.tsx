@@ -6,23 +6,27 @@ import { MonitorIcon } from 'lucide-react'
 import type { Customer, Estimate, EstimateSettings } from './types'
 import CustomersPanel from './CustomersPanel'
 import EstimatesWorkspace from './EstimatesWorkspace'
+import EstimatesDashboard from './EstimatesDashboard'
 import SetupPrompt from './SetupPrompt'
 import SettingsModal from './SettingsModal'
 
 interface EstimatesLayoutClientProps {
   initialCustomers: Customer[]
   initialSettings: EstimateSettings | null
+  initialAllEstimates: Estimate[]
   userId: string
 }
 
 export default function EstimatesLayoutClient({
   initialCustomers,
   initialSettings,
+  initialAllEstimates,
   userId,
 }: EstimatesLayoutClientProps) {
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
+  const [selectedView, setSelectedView] = useState<'dashboard' | string>('dashboard')
   const [estimates, setEstimates] = useState<Estimate[]>([])
+  const [allEstimates, setAllEstimates] = useState<Estimate[]>(initialAllEstimates)
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null)
   const [settings, setSettings] = useState<EstimateSettings | null>(initialSettings)
   const [showSetup, setShowSetup] = useState(!initialSettings)
@@ -36,6 +40,7 @@ export default function EstimatesLayoutClient({
     return () => window.removeEventListener('resize', check)
   }, [])
 
+  const selectedCustomerId = selectedView !== 'dashboard' ? selectedView : null
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId) ?? null
 
   async function handleSetupComplete(startNumber: number) {
@@ -74,17 +79,19 @@ export default function EstimatesLayoutClient({
     if (data) setCustomers(data)
   }
 
-  async function selectCustomer(customerId: string) {
-    setSelectedCustomerId(customerId)
+  async function handleSelectView(view: 'dashboard' | string) {
+    setSelectedView(view)
     setSelectedEstimateId(null)
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('estimates')
-      .select('*')
-      .eq('customer_id', customerId)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-    if (data) setEstimates(data)
+    if (view !== 'dashboard') {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('estimates')
+        .select('*')
+        .eq('customer_id', view)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+      if (data) setEstimates(data)
+    }
   }
 
   async function refreshEstimates() {
@@ -97,6 +104,18 @@ export default function EstimatesLayoutClient({
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
     if (data) setEstimates(data)
+    // Also refresh all estimates for dashboard
+    refreshAllEstimates()
+  }
+
+  async function refreshAllEstimates() {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('estimates')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (data) setAllEstimates(data)
   }
 
   if (isMobile) {
@@ -129,26 +148,33 @@ export default function EstimatesLayoutClient({
       <div className="flex h-full overflow-hidden w-full max-w-full">
         <CustomersPanel
           customers={customers}
-          selectedCustomerId={selectedCustomerId}
+          selectedView={selectedView}
           estimates={estimates}
           userId={userId}
-          onSelectCustomer={selectCustomer}
+          onSelectView={handleSelectView}
           onCustomerAdded={refreshCustomers}
           onOpenSettings={() => setShowSettings(true)}
         />
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
-          <EstimatesWorkspace
-            customer={selectedCustomer}
-            estimates={estimates}
-            selectedEstimateId={selectedEstimateId}
-            settings={settings}
-            userId={userId}
-            onSelectEstimate={setSelectedEstimateId}
-            onEstimateCreated={refreshEstimates}
-            onEstimateUpdated={refreshEstimates}
-            onBack={() => setSelectedEstimateId(null)}
-            onOpenSettings={() => setShowSettings(true)}
-          />
+          {selectedView === 'dashboard' ? (
+            <EstimatesDashboard
+              estimates={allEstimates}
+              customers={customers}
+            />
+          ) : (
+            <EstimatesWorkspace
+              customer={selectedCustomer}
+              estimates={estimates}
+              selectedEstimateId={selectedEstimateId}
+              settings={settings}
+              userId={userId}
+              onSelectEstimate={setSelectedEstimateId}
+              onEstimateCreated={refreshEstimates}
+              onEstimateUpdated={refreshEstimates}
+              onBack={() => setSelectedEstimateId(null)}
+              onOpenSettings={() => setShowSettings(true)}
+            />
+          )}
         </div>
       </div>
     </>
