@@ -20,6 +20,9 @@ import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition } fro
 export default function EmployeeManagement() {
   const supabase = createClient()
 
+  // Main modal open state
+  const [mainOpen, setMainOpen] = useState(false)
+
   // Employees
   const [employees, setEmployees] = useState<EmployeeProfile[]>([])
   const [loadingEmployees, setLoadingEmployees] = useState(true)
@@ -305,28 +308,62 @@ export default function EmployeeManagement() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-      <div className="flex items-center gap-2 mb-4">
-        <UsersIcon className="w-5 h-5 text-gray-400" />
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">
-          Employee Management
-        </h2>
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-          title="Employee Settings"
-        >
-          <Settings2Icon className="w-4.5 h-4.5" />
-        </button>
-        <button
-          onClick={openAddModal}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
-        >
-          <PlusIcon className="w-3.5 h-3.5" />
-          Add Employee
-        </button>
+    <>
+      {/* Collapsed card */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <UsersIcon className="w-5 h-5 text-gray-400" />
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">
+            Employee Management
+          </h2>
+          <button
+            onClick={() => setMainOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
+          >
+            <UsersIcon className="w-3.5 h-3.5" />
+            Manage Employees
+          </button>
+        </div>
+        <p className="text-xs text-gray-400">Manage employee profiles, roles, and custom fields.</p>
       </div>
-      <p className="text-xs text-gray-400 mb-5">Manage employee profiles, roles, and custom fields.</p>
+
+      {/* Full modal */}
+      {mainOpen && (
+      <Portal>
+      <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setMainOpen(false)}>
+        <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-3xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex-none flex items-center justify-between px-6 border-b" style={{ minHeight: '56px' }}>
+            <div className="flex items-center gap-2">
+              <UsersIcon className="w-5 h-5 text-gray-400" />
+              <h2 className="text-lg font-semibold text-gray-900">Employee Management</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                title="Employee Settings"
+              >
+                <Settings2Icon className="w-4.5 h-4.5" />
+              </button>
+              <button
+                onClick={openAddModal}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                Add Employee
+              </button>
+              <button
+                onClick={() => setMainOpen(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-6 min-h-0">
 
       {/* Employee Grid */}
       {loadingEmployees ? (
@@ -736,6 +773,11 @@ export default function EmployeeManagement() {
           loading={deletingFieldId === confirmDeleteField.id}
         />
       )}
-    </div>
+          </div>
+        </div>
+      </div>
+      </Portal>
+      )}
+    </>
   )
 }
