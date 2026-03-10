@@ -1,0 +1,24 @@
+import type { Customer, LineItem } from '../estimates/types'
+
+export type { Customer, LineItem }
+
+export interface Invoice {
+  id: string
+  invoice_number: string
+  client_id: string
+  project_name: string | null
+  line_items: LineItem[]
+  subtotal: number
+  tax: number | null
+  total: number
+  status: 'Draft' | 'Sent' | 'Paid' | 'Overdue'
+  due_date: string | null
+  issued_date: string
+  notes: string | null
+  terms: string | null
+  created_at: string
+  updated_at: string
+  user_id: string
+}
+
+export type TimeFilter = 'all' | '365' | '30'
