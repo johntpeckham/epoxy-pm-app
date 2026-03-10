@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon } from 'lucide-react'
+import { XIcon, ChevronDownIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
+import type { Customer } from '@/components/estimates/types'
 
 interface NewProjectModalProps {
   onClose: () => void
@@ -18,6 +19,42 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   const [status, setStatus] = useState<'Active' | 'Complete'>('Active')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Customer selector state
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    async function fetchCustomers() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name', { ascending: true })
+      if (data) setCustomers(data)
+    }
+    fetchCustomers()
+  }, [])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowCustomerDropdown(false)
+      }
+    }
+    if (showCustomerDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCustomerDropdown])
+
+  const filteredCustomers = customers.filter(
+    (c) =>
+      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      (c.company && c.company.toLowerCase().includes(customerSearch.toLowerCase()))
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -89,6 +126,50 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                 placeholder="e.g. John Smith"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               />
+              <div className="relative mt-1" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setCustomerSearch('') }}
+                  className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+                >
+                  Select existing customer
+                  <ChevronDownIcon className="w-3 h-3" />
+                </button>
+                {showCustomerDropdown && (
+                  <div className="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 flex flex-col">
+                    <div className="p-2 border-b border-gray-100">
+                      <input
+                        type="text"
+                        placeholder="Search customers..."
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="overflow-y-auto flex-1">
+                      {filteredCustomers.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-gray-400">No customers found.</p>
+                      ) : (
+                        filteredCustomers.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setClientName(c.name)
+                              setShowCustomerDropdown(false)
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors"
+                          >
+                            <p className="text-gray-900 text-xs font-medium truncate">{c.name}</p>
+                            {c.company && <p className="text-gray-500 text-xs truncate">{c.company}</p>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
