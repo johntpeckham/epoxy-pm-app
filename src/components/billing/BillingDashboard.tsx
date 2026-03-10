@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { FileTextIcon } from 'lucide-react'
+import { FileTextIcon, Trash2Icon } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type { Invoice, Customer, TimeFilter } from './types'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 interface BillingDashboardProps {
   invoices: Invoice[]
   customers: Customer[]
   onSelectInvoice?: (customerId: string, invoiceId: string) => void
+  onInvoiceDeleted?: () => void
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -31,8 +34,21 @@ function formatCurrency(amount: number): string {
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default function BillingDashboard({ invoices, customers, onSelectInvoice }: BillingDashboardProps) {
+export default function BillingDashboard({ invoices, customers, onSelectInvoice, onInvoiceDeleted }: BillingDashboardProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function handleDeleteInvoice() {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    const supabase = createClient()
+    await supabase.from('change_orders').delete().eq('parent_id', deleteTarget)
+    await supabase.from('invoices').delete().eq('id', deleteTarget)
+    setIsDeleting(false)
+    setDeleteTarget(null)
+    onInvoiceDeleted?.()
+  }
 
   const filteredInvoices = useMemo(() => {
     if (timeFilter === 'all') return invoices
@@ -146,6 +162,7 @@ export default function BillingDashboard({ invoices, customers, onSelectInvoice 
                   <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Client / Project</th>
                   <th className="text-right text-xs font-medium text-gray-500 px-4 py-3">Amount</th>
                   <th className="text-right text-xs font-medium text-gray-500 px-4 py-3">Status</th>
+                  <th className="w-10"></th>
                 </tr>
               </thead>
               <tbody>
@@ -177,6 +194,15 @@ export default function BillingDashboard({ invoices, customers, onSelectInvoice 
                           )}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(inv.id) }}
+                          className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded"
+                          title="Delete invoice"
+                        >
+                          <Trash2Icon className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -185,6 +211,16 @@ export default function BillingDashboard({ invoices, customers, onSelectInvoice 
           </div>
         )}
       </div>
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete Invoice"
+          message="Are you sure you want to delete this invoice? This cannot be undone."
+          onConfirm={handleDeleteInvoice}
+          onCancel={() => setDeleteTarget(null)}
+          loading={isDeleting}
+        />
+      )}
     </div>
   )
 }

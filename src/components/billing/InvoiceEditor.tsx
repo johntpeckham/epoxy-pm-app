@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, FilePlusIcon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, FilePlusIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer, Invoice, LineItem, ChangeOrder } from './types'
 import ChangeOrderModal from '../shared/ChangeOrderModal'
 import ChangeOrdersList from '../shared/ChangeOrdersList'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 interface InvoiceEditorProps {
   invoice: Invoice
@@ -15,6 +16,7 @@ interface InvoiceEditorProps {
   onUpdated: () => void
   pendingChangeOrder?: boolean
   onChangeOrderHandled?: () => void
+  onDeleted?: () => void
 }
 
 function genId(): string {
@@ -36,6 +38,7 @@ export default function InvoiceEditor({
   onUpdated,
   pendingChangeOrder,
   onChangeOrderHandled,
+  onDeleted,
 }: InvoiceEditorProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(initialInvoice.invoice_number)
   const [issuedDate, setIssuedDate] = useState(initialInvoice.issued_date)
@@ -57,6 +60,8 @@ export default function InvoiceEditor({
   const [savingCO, setSavingCO] = useState(false)
   const [customerName, setCustomerName] = useState(customer.name)
   const [customerCompany, setCustomerCompany] = useState(customer.company ?? '')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const invoiceIdRef = useRef(initialInvoice.id)
@@ -206,6 +211,16 @@ export default function InvoiceEditor({
     setChangeOrders((prev) => prev.filter((co) => co.id !== id))
   }
 
+  async function handleDeleteInvoice() {
+    setIsDeleting(true)
+    const supabase = createClient()
+    await supabase.from('change_orders').delete().eq('parent_id', invoiceIdRef.current)
+    await supabase.from('invoices').delete().eq('id', invoiceIdRef.current)
+    setIsDeleting(false)
+    setShowDeleteConfirm(false)
+    onDeleted?.()
+  }
+
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">
       {/* Top bar */}
@@ -261,6 +276,14 @@ export default function InvoiceEditor({
           >
             <FilePlusIcon className="w-3.5 h-3.5" />
             Change Order
+          </button>
+          {/* Delete */}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-1.5 text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg hover:border-red-200 transition-colors"
+            title="Delete invoice"
+          >
+            <Trash2Icon className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -503,6 +526,16 @@ export default function InvoiceEditor({
           )}
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Invoice"
+          message="Are you sure you want to delete this invoice? This cannot be undone."
+          onConfirm={handleDeleteInvoice}
+          onCancel={() => setShowDeleteConfirm(false)}
+          loading={isDeleting}
+        />
+      )}
     </div>
   )
 }

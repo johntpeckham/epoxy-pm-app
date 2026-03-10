@@ -204,6 +204,7 @@ export default function EstimatesLayoutClient({
                 await handleSelectView(customerId)
                 setSelectedEstimateId(estimateId)
               }}
+              onEstimateDeleted={() => { refreshAllEstimates(); refreshEstimates() }}
             />
           ) : (
             <EstimatesWorkspace
@@ -219,6 +220,7 @@ export default function EstimatesLayoutClient({
               onOpenSettings={() => setShowSettings(true)}
               pendingChangeOrder={pendingChangeOrder}
               onChangeOrderHandled={() => setPendingChangeOrder(false)}
+              onEstimateDeleted={() => { setSelectedEstimateId(null); refreshEstimates(); refreshAllEstimates() }}
             />
           )}
         </div>

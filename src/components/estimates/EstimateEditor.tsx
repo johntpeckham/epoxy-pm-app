@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon, FilePlusIcon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon, FilePlusIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer, Estimate, EstimateSettings, LineItem, ChangeOrder } from './types'
 import { DEFAULT_TERMS } from './types'
 import { exportEstimatePdf } from './pdfExport'
 import ChangeOrderModal from '../shared/ChangeOrderModal'
 import ChangeOrdersList from '../shared/ChangeOrdersList'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 interface EstimateEditorProps {
   estimate: Estimate
@@ -19,6 +20,7 @@ interface EstimateEditorProps {
   onOpenSettings: () => void
   pendingChangeOrder?: boolean
   onChangeOrderHandled?: () => void
+  onDeleted?: () => void
 }
 
 function genId(): string {
@@ -42,6 +44,7 @@ export default function EstimateEditor({
   onOpenSettings,
   pendingChangeOrder,
   onChangeOrderHandled,
+  onDeleted,
 }: EstimateEditorProps) {
   const [estimateNumber, setEstimateNumber] = useState(initialEstimate.estimate_number)
   const [date, setDate] = useState(initialEstimate.date)
@@ -68,6 +71,8 @@ export default function EstimateEditor({
   const [savingCO, setSavingCO] = useState(false)
   const [customerName, setCustomerName] = useState(customer.name)
   const [customerCompany, setCustomerCompany] = useState(customer.company ?? '')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const estimateIdRef = useRef(initialEstimate.id)
@@ -315,6 +320,16 @@ export default function EstimateEditor({
     setConverting(false)
   }
 
+  async function handleDeleteEstimate() {
+    setIsDeleting(true)
+    const supabase = createClient()
+    await supabase.from('change_orders').delete().eq('parent_id', estimateIdRef.current)
+    await supabase.from('estimates').delete().eq('id', estimateIdRef.current)
+    setIsDeleting(false)
+    setShowDeleteConfirm(false)
+    onDeleted?.()
+  }
+
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">
       {/* Top bar */}
@@ -397,6 +412,14 @@ export default function EstimateEditor({
               Convert to Invoice
             </button>
           )}
+          {/* Delete */}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-1.5 text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg hover:border-red-200 transition-colors"
+            title="Delete estimate"
+          >
+            <Trash2Icon className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -711,6 +734,16 @@ export default function EstimateEditor({
           </div>
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Estimate"
+          message="Are you sure you want to delete this estimate? This cannot be undone."
+          onConfirm={handleDeleteEstimate}
+          onCancel={() => setShowDeleteConfirm(false)}
+          loading={isDeleting}
+        />
+      )}
     </div>
   )
 }
