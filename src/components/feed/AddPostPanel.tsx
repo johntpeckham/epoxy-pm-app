@@ -16,15 +16,15 @@ import {
   ReceiptIcon,
   ClockIcon,
   DollarSignIcon,
+  CheckIcon,
 } from 'lucide-react'
-import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, ReceiptCategory, ExpenseCategory, Employee, TimecardEntry } from '@/types'
+import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, ReceiptCategory, ExpenseCategory, EmployeeProfile, TimecardEntry } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
 import JsaSignatureSection from '@/components/jsa-reports/JsaSignatureSection'
 
-import ManageEmployeesModal from '@/components/timesheets/ManageEmployeesModal'
 
 type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt' | 'expense' | 'timecard'
 
@@ -78,10 +78,16 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [rDelays, setRDelays] = useState('')
   const [rSafety, setRSafety] = useState('')
   const [rMaterials, setRMaterials] = useState('')
-  const [rEmployees, setREmployees] = useState('')
+  const [rSelectedEmployees, setRSelectedEmployees] = useState<string[]>([])
+  const [rShowCustomEmployeeInput, setRShowCustomEmployeeInput] = useState(false)
+  const [rCustomEmployeeName, setRCustomEmployeeName] = useState('')
   const [rFiles, setRFiles] = useState<File[]>([])
   const [rPreviews, setRPreviews] = useState<string[]>([])
   const reportPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // Employee profiles for daily report & timecard pill selectors
+  const [employeeProfiles, setEmployeeProfiles] = useState<EmployeeProfile[]>([])
+  const [employeeProfilesLoaded, setEmployeeProfilesLoaded] = useState(false)
 
   // ── Task ─────────────────────────────────────────────────────────────────
   const [taskTitle, setTaskTitle] = useState('')
@@ -157,11 +163,9 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [tcProjectName, setTcProjectName] = useState(project.name)
   const [tcDate, setTcDate] = useState(today)
   const [tcAddress, setTcAddress] = useState(project.address)
-  const [tcEmployees, setTcEmployees] = useState<Employee[]>([])
-  const [tcEmployeesLoaded, setTcEmployeesLoaded] = useState(false)
-  const [tcSelectedEmployees, setTcSelectedEmployees] = useState<Record<string, { time_in: string; time_out: string; lunch_minutes: number }>>({})
-  const [tcExtraRows, setTcExtraRows] = useState<{ name: string; time_in: string; time_out: string; lunch_minutes: number }[]>([])
-  const [showManageEmployees, setShowManageEmployees] = useState(false)
+  const [tcEntries, setTcEntries] = useState<TimecardEntry[]>([])
+  const [tcShowCustomInput, setTcShowCustomInput] = useState(false)
+  const [tcCustomName, setTcCustomName] = useState('')
 
   const LUNCH_OPTIONS = [0, 15, 30, 45, 60]
 
@@ -174,36 +178,75 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   }
 
   function tcGrandTotal(): number {
-    let total = 0
-    for (const empId of Object.keys(tcSelectedEmployees)) {
-      const e = tcSelectedEmployees[empId]
-      total += calcHours(e.time_in, e.time_out, e.lunch_minutes)
-    }
-    for (const row of tcExtraRows) {
-      total += calcHours(row.time_in, row.time_out, row.lunch_minutes)
-    }
-    return Math.round(total * 100) / 100
+    return Math.round(tcEntries.reduce((s, e) => s + e.total_hours, 0) * 100) / 100
   }
 
-  // Fetch employees when timecard mode activates
+  function tcToggleEmployee(name: string) {
+    setTcEntries((prev) => {
+      const exists = prev.some((e) => e.employee_name === name)
+      if (exists) return prev.filter((e) => e.employee_name !== name)
+      return [...prev, { employee_name: name, time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }]
+    })
+  }
+
+  function tcAddCustomEmployee() {
+    const name = tcCustomName.trim()
+    if (!name) return
+    if (!tcEntries.some((e) => e.employee_name === name)) {
+      setTcEntries((prev) => [...prev, { employee_name: name, time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }])
+    }
+    setTcCustomName('')
+    setTcShowCustomInput(false)
+  }
+
+  function tcUpdateEntry(idx: number, field: keyof TimecardEntry, value: string | number) {
+    setTcEntries((prev) =>
+      prev.map((e, i) => {
+        if (i !== idx) return e
+        const updated = { ...e, [field]: value }
+        updated.total_hours = calcHours(updated.time_in, updated.time_out, updated.lunch_minutes)
+        return updated
+      })
+    )
+  }
+
+  function tcRemoveEntry(idx: number) {
+    setTcEntries((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  function rToggleEmployee(name: string) {
+    setRSelectedEmployees((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    )
+  }
+
+  function rAddCustomEmployee() {
+    const name = rCustomEmployeeName.trim()
+    if (!name) return
+    if (!rSelectedEmployees.includes(name)) {
+      setRSelectedEmployees((prev) => [...prev, name])
+    }
+    setRCustomEmployeeName('')
+    setRShowCustomEmployeeInput(false)
+  }
+
+  // Fetch employee profiles when daily_report or timecard mode activates
   useEffect(() => {
-    if (mode === 'timecard' && !tcEmployeesLoaded) {
+    if ((mode === 'timecard' || mode === 'daily_report') && !employeeProfilesLoaded) {
       const supabase = createClient()
       supabase
-        .from('employees')
+        .from('employee_profiles')
         .select('*')
-        .eq('is_active', true)
         .order('name', { ascending: true })
         .then(({ data, error }) => {
           if (error) {
-            console.error('[AddPostPanel] Fetch employees failed:', error)
-            console.error('[AddPostPanel] Fetch employees error details — code:', error.code, 'message:', error.message)
+            console.error('[AddPostPanel] Fetch employee_profiles failed:', error)
           }
-          setTcEmployees((data as Employee[]) ?? [])
-          setTcEmployeesLoaded(true)
+          setEmployeeProfiles((data as EmployeeProfile[]) ?? [])
+          setEmployeeProfilesLoaded(true)
         })
     }
-  }, [mode, tcEmployeesLoaded])
+  }, [mode, employeeProfilesLoaded])
 
   // Fetch JSA templates when mode activates
   useEffect(() => {
@@ -427,7 +470,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             delays: rDelays.trim(),
             safety: rSafety.trim(),
             materials_used: rMaterials.trim(),
-            employees: rEmployees.trim(),
+            employees: rSelectedEmployees.join(', '),
             photos: photoPaths,
           },
           is_pinned: false,
@@ -440,7 +483,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         setRDelays('')
         setRSafety('')
         setRMaterials('')
-        setREmployees('')
+        setRSelectedEmployees([])
         setRFiles([])
         setRPreviews([])
         if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = ''
@@ -638,37 +681,11 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
       }
 
       if (mode === 'timecard') {
-        const entries: TimecardEntry[] = []
+        const validEntries = tcEntries.filter((e) => e.employee_name.trim() && e.time_in && e.time_out)
 
-        // Roster employees
-        for (const empId of Object.keys(tcSelectedEmployees)) {
-          const e = tcSelectedEmployees[empId]
-          const emp = tcEmployees.find((x) => x.id === empId)
-          if (!emp || !e.time_in || !e.time_out) continue
-          entries.push({
-            employee_name: emp.name,
-            time_in: e.time_in,
-            time_out: e.time_out,
-            lunch_minutes: e.lunch_minutes,
-            total_hours: calcHours(e.time_in, e.time_out, e.lunch_minutes),
-          })
-        }
+        if (validEntries.length === 0) throw new Error('Please add at least one employee with time entries')
 
-        // Extra rows
-        for (const row of tcExtraRows) {
-          if (!row.name.trim() || !row.time_in || !row.time_out) continue
-          entries.push({
-            employee_name: row.name.trim(),
-            time_in: row.time_in,
-            time_out: row.time_out,
-            lunch_minutes: row.lunch_minutes,
-            total_hours: calcHours(row.time_in, row.time_out, row.lunch_minutes),
-          })
-        }
-
-        if (entries.length === 0) throw new Error('Please add at least one employee with time entries')
-
-        const grandTotal = entries.reduce((s, e) => s + e.total_hours, 0)
+        const grandTotal = validEntries.reduce((s, e) => s + e.total_hours, 0)
 
         const { error: timecardErr } = await supabase.from('feed_posts').insert({
           project_id: project.id,
@@ -678,7 +695,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             date: tcDate,
             project_name: tcProjectName.trim(),
             address: tcAddress.trim(),
-            entries,
+            entries: validEntries,
             grand_total_hours: Math.round(grandTotal * 100) / 100,
           },
           is_pinned: false,
@@ -690,8 +707,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         }
 
         setTcDate(new Date().toISOString().split('T')[0])
-        setTcSelectedEmployees({})
-        setTcExtraRows([])
+        setTcEntries([])
         setMode('text')
       }
 
@@ -858,7 +874,68 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               </div>
               <div>
                 <label className={labelCls}>Employees</label>
-                <textarea rows={2} value={rEmployees} onChange={(e) => setREmployees(e.target.value)} placeholder="Names of employees on site today..." className={textareaCls} />
+                <div className="flex flex-wrap gap-2">
+                  {employeeProfiles.map((emp) => {
+                    const isSelected = rSelectedEmployees.includes(emp.name)
+                    return (
+                      <button
+                        key={emp.id}
+                        type="button"
+                        onClick={() => rToggleEmployee(emp.name)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          isSelected
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        {emp.name}
+                      </button>
+                    )
+                  })}
+                  {rSelectedEmployees
+                    .filter((name) => !employeeProfiles.some((emp) => emp.name === name))
+                    .map((name) => (
+                      <button
+                        key={`custom-${name}`}
+                        type="button"
+                        onClick={() => rToggleEmployee(name)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors bg-gray-900 text-white border-gray-900"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  {rShowCustomEmployeeInput ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={rCustomEmployeeName}
+                        onChange={(e) => setRCustomEmployeeName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') rAddCustomEmployee(); if (e.key === 'Escape') { setRShowCustomEmployeeInput(false); setRCustomEmployeeName('') } }}
+                        placeholder="Name"
+                        className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                      <button type="button" onClick={rAddCustomEmployee} className="text-green-600 hover:text-green-700 p-0.5">
+                        <CheckIcon className="w-4 h-4" />
+                      </button>
+                      <button type="button" onClick={() => { setRShowCustomEmployeeInput(false); setRCustomEmployeeName('') }} className="text-gray-400 hover:text-gray-600 p-0.5">
+                        <XIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setRShowCustomEmployeeInput(true)}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors flex items-center gap-1"
+                    >
+                      <PlusIcon className="w-3 h-3" />
+                      Employee
+                    </button>
+                  )}
+                  {employeeProfiles.length === 0 && !rShowCustomEmployeeInput && employeeProfilesLoaded && (
+                    <p className="text-xs text-gray-400">No employees found. Add employees in Employee Management.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1262,187 +1339,121 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             </div>
           </div>
 
-          {/* Employee roster checkboxes */}
+          {/* Employee pill selector */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Employees</p>
-              <button
-                type="button"
-                onClick={() => setShowManageEmployees(true)}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-amber-600 transition"
-              >
-                <SettingsIcon className="w-3 h-3" />
-                Manage
-              </button>
-            </div>
-            {tcEmployees.length === 0 && tcEmployeesLoaded && (
-              <p className="text-sm text-gray-400 py-2">No employees in roster. Click &quot;Manage&quot; to add employees.</p>
-            )}
-            <div className="space-y-2">
-              {tcEmployees.map((emp) => {
-                const isSelected = !!tcSelectedEmployees[emp.id]
-                const entry = tcSelectedEmployees[emp.id]
-                const hours = entry ? calcHours(entry.time_in, entry.time_out, entry.lunch_minutes) : 0
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Employees</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {employeeProfiles.map((emp) => {
+                const isSelected = tcEntries.some((e) => e.employee_name === emp.name)
                 return (
-                  <div key={emp.id}>
-                    <label
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition ${
-                        isSelected
-                          ? 'border-blue-400 bg-blue-50'
-                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {
-                          setTcSelectedEmployees((prev) => {
-                            const next = { ...prev }
-                            if (next[emp.id]) {
-                              delete next[emp.id]
-                            } else {
-                              next[emp.id] = { time_in: '07:00', time_out: '15:30', lunch_minutes: 30 }
-                            }
-                            return next
-                          })
-                        }}
-                        className="sr-only"
-                      />
-                      <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                        isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
-                      }`}>
-                        {isSelected && (
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </span>
-                      <span className="text-sm font-medium text-gray-900 flex-1">{emp.name}</span>
-                      {isSelected && hours > 0 && (
-                        <span className="text-xs font-bold text-blue-700 tabular-nums">{hours.toFixed(2)} hrs</span>
-                      )}
-                    </label>
-                    {isSelected && (
-                      <div className="ml-6 mt-1 grid grid-cols-3 gap-2 mb-1">
-                        <div>
-                          <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
-                          <input
-                            type="time"
-                            value={entry?.time_in ?? ''}
-                            onChange={(e) => setTcSelectedEmployees((prev) => ({
-                              ...prev,
-                              [emp.id]: { ...prev[emp.id], time_in: e.target.value },
-                            }))}
-                            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time Out</label>
-                          <input
-                            type="time"
-                            value={entry?.time_out ?? ''}
-                            onChange={(e) => setTcSelectedEmployees((prev) => ({
-                              ...prev,
-                              [emp.id]: { ...prev[emp.id], time_out: e.target.value },
-                            }))}
-                            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Lunch</label>
-                          <select
-                            value={entry?.lunch_minutes ?? 30}
-                            onChange={(e) => setTcSelectedEmployees((prev) => ({
-                              ...prev,
-                              [emp.id]: { ...prev[emp.id], lunch_minutes: Number(e.target.value) },
-                            }))}
-                            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            {LUNCH_OPTIONS.map((m) => (
-                              <option key={m} value={m}>{m} min</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
+                  <button
+                    key={emp.id}
+                    type="button"
+                    onClick={() => tcToggleEmployee(emp.name)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      isSelected
+                        ? 'bg-gray-900 text-white border-gray-900'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    {emp.name}
+                  </button>
+                )
+              })}
+              {tcEntries
+                .filter((e) => !employeeProfiles.some((emp) => emp.name === e.employee_name))
+                .map((e) => (
+                  <button
+                    key={`custom-${e.employee_name}`}
+                    type="button"
+                    onClick={() => tcToggleEmployee(e.employee_name)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors bg-gray-900 text-white border-gray-900"
+                  >
+                    {e.employee_name}
+                  </button>
+                ))}
+              {tcShowCustomInput ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={tcCustomName}
+                    onChange={(e) => setTcCustomName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') tcAddCustomEmployee(); if (e.key === 'Escape') { setTcShowCustomInput(false); setTcCustomName('') } }}
+                    placeholder="Name"
+                    className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button type="button" onClick={tcAddCustomEmployee} className="text-green-600 hover:text-green-700 p-0.5">
+                    <CheckIcon className="w-4 h-4" />
+                  </button>
+                  <button type="button" onClick={() => { setTcShowCustomInput(false); setTcCustomName('') }} className="text-gray-400 hover:text-gray-600 p-0.5">
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setTcShowCustomInput(true)}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors flex items-center gap-1"
+                >
+                  <PlusIcon className="w-3 h-3" />
+                  Employee
+                </button>
+              )}
+              {employeeProfiles.length === 0 && !tcShowCustomInput && employeeProfilesLoaded && (
+                <p className="text-xs text-gray-400">No employees found. Add employees in Employee Management.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              {tcEntries.map((entry, idx) => (
+                <div key={entry.employee_name} className="border border-gray-200 rounded-lg p-3 space-y-2 relative">
+                  <button
+                    type="button"
+                    onClick={() => tcRemoveEntry(idx)}
+                    className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition"
+                  >
+                    <XIcon className="w-3.5 h-3.5" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 text-sm font-medium text-gray-900">{entry.employee_name}</span>
+                    {entry.total_hours > 0 && (
+                      <span className="text-xs font-bold text-blue-700 tabular-nums">{entry.total_hours.toFixed(2)} hrs</span>
                     )}
                   </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Extra (non-roster) employees */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Additional Workers</p>
-              <button
-                type="button"
-                onClick={() => setTcExtraRows((prev) => [...prev, { name: '', time_in: '07:00', time_out: '15:30', lunch_minutes: 30 }])}
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition"
-              >
-                <PlusIcon className="w-3 h-3" />
-                Add
-              </button>
-            </div>
-            <div className="space-y-2">
-              {tcExtraRows.map((row, idx) => {
-                const hours = calcHours(row.time_in, row.time_out, row.lunch_minutes)
-                return (
-                  <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2 relative">
-                    <button
-                      type="button"
-                      onClick={() => setTcExtraRows((prev) => prev.filter((_, i) => i !== idx))}
-                      className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition"
-                    >
-                      <XIcon className="w-3.5 h-3.5" />
-                    </button>
-                    <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
                       <input
-                        type="text"
-                        value={row.name}
-                        onChange={(e) => setTcExtraRows((prev) => prev.map((r, i) => i === idx ? { ...r, name: e.target.value } : r))}
-                        placeholder="Employee name"
-                        className="flex-1 border border-gray-200 rounded-md px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        type="time"
+                        value={entry.time_in}
+                        onChange={(e) => tcUpdateEntry(idx, 'time_in', e.target.value)}
+                        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      {hours > 0 && (
-                        <span className="text-xs font-bold text-blue-700 tabular-nums">{hours.toFixed(2)} hrs</span>
-                      )}
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
-                        <input
-                          type="time"
-                          value={row.time_in}
-                          onChange={(e) => setTcExtraRows((prev) => prev.map((r, i) => i === idx ? { ...r, time_in: e.target.value } : r))}
-                          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time Out</label>
-                        <input
-                          type="time"
-                          value={row.time_out}
-                          onChange={(e) => setTcExtraRows((prev) => prev.map((r, i) => i === idx ? { ...r, time_out: e.target.value } : r))}
-                          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Lunch</label>
-                        <select
-                          value={row.lunch_minutes}
-                          onChange={(e) => setTcExtraRows((prev) => prev.map((r, i) => i === idx ? { ...r, lunch_minutes: Number(e.target.value) } : r))}
-                          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          {LUNCH_OPTIONS.map((m) => (
-                            <option key={m} value={m}>{m} min</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time Out</label>
+                      <input
+                        type="time"
+                        value={entry.time_out}
+                        onChange={(e) => tcUpdateEntry(idx, 'time_out', e.target.value)}
+                        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Lunch</label>
+                      <select
+                        value={entry.lunch_minutes}
+                        onChange={(e) => tcUpdateEntry(idx, 'lunch_minutes', Number(e.target.value))}
+                        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {LUNCH_OPTIONS.map((m) => (
+                          <option key={m} value={m}>{m} min</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1472,16 +1483,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             </button>
           </div>
         </div>
-      )}
-
-      {showManageEmployees && (
-        <ManageEmployeesModal
-          onClose={() => {
-            setShowManageEmployees(false)
-            // Reload employees
-            setTcEmployeesLoaded(false)
-          }}
-        />
       )}
 
       {showTemplateManager && (
