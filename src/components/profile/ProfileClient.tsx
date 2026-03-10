@@ -4,12 +4,13 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon } from 'lucide-react'
 import { Profile } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import UserManagement from './UserManagement'
 import EmployeeManagement from './EmployeeManagement'
+import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 
 interface ProfileClientProps {
   userId: string
@@ -25,6 +26,9 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const isAdmin = role === 'admin'
   const isOfficeManager = role === 'office_manager'
   const isCrew = role === 'crew'
+
+  // Customer management modal
+  const [showCustomerManagement, setShowCustomerManagement] = useState(false)
 
   // Display name state
   const [displayName, setDisplayName] = useState(initialProfile.display_name ?? '')
@@ -418,6 +422,34 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
 
         {/* Employee Management — Admin and Office Manager */}
         {(isAdmin || isOfficeManager) && <EmployeeManagement />}
+
+        {/* Customer Management — Admin and Office Manager */}
+        {(isAdmin || isOfficeManager) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <UsersIcon className="w-5 h-5 text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">
+                Customer Management
+              </h2>
+              <button
+                onClick={() => setShowCustomerManagement(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
+              >
+                <UsersIcon className="w-3.5 h-3.5" />
+                Manage Customers
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">Manage customers across jobs, estimates, and billing.</p>
+          </div>
+        )}
+        {showCustomerManagement && (
+          <CustomerManagementModal
+            open={showCustomerManagement}
+            userId={userId}
+            onClose={() => setShowCustomerManagement(false)}
+            onCustomersChanged={() => {}}
+          />
+        )}
       </div>
     </div>
   )

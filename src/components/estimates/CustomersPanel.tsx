@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { PlusIcon, SearchIcon, SettingsIcon, UserIcon, LayoutDashboardIcon } from 'lucide-react'
+import { PlusIcon, SearchIcon, SettingsIcon, Settings2Icon, UserIcon, LayoutDashboardIcon } from 'lucide-react'
 import type { Customer, Estimate } from './types'
 import NewCustomerModal from './NewCustomerModal'
+import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 
 interface CustomersPanelProps {
   customers: Customer[]
@@ -25,6 +26,7 @@ export default function CustomersPanel({
 }: CustomersPanelProps) {
   const [search, setSearch] = useState('')
   const [showNewCustomer, setShowNewCustomer] = useState(false)
+  const [showCustomerManagement, setShowCustomerManagement] = useState(false)
 
   const filtered = customers.filter(
     (c) =>
@@ -46,6 +48,13 @@ export default function CustomersPanel({
                 title="Estimate Settings"
               >
                 <SettingsIcon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowCustomerManagement(true)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                title="Manage Customers"
+              >
+                <Settings2Icon className="w-4 h-4" />
               </button>
             </div>
             <button
@@ -129,6 +138,13 @@ export default function CustomersPanel({
           }}
         />
       )}
+
+      <CustomerManagementModal
+        open={showCustomerManagement}
+        userId={userId}
+        onClose={() => setShowCustomerManagement(false)}
+        onCustomersChanged={onCustomerAdded}
+      />
     </>
   )
 }

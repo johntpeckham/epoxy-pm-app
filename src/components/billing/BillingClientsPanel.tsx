@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { PlusIcon, SearchIcon, UserIcon, LayoutDashboardIcon } from 'lucide-react'
+import { PlusIcon, SearchIcon, Settings2Icon, UserIcon, LayoutDashboardIcon } from 'lucide-react'
 import type { Customer } from './types'
 import NewCustomerModal from '../estimates/NewCustomerModal'
+import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 
 interface BillingClientsPanelProps {
   customers: Customer[]
@@ -22,6 +23,7 @@ export default function BillingClientsPanel({
 }: BillingClientsPanelProps) {
   const [search, setSearch] = useState('')
   const [showNewCustomer, setShowNewCustomer] = useState(false)
+  const [showCustomerManagement, setShowCustomerManagement] = useState(false)
 
   const filtered = customers.filter(
     (c) =>
@@ -35,7 +37,16 @@ export default function BillingClientsPanel({
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-200">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-gray-900">Billing</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-gray-900">Billing</h2>
+              <button
+                onClick={() => setShowCustomerManagement(true)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                title="Manage Customers"
+              >
+                <Settings2Icon className="w-4 h-4" />
+              </button>
+            </div>
             <button
               onClick={() => setShowNewCustomer(true)}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
@@ -117,6 +128,13 @@ export default function BillingClientsPanel({
           }}
         />
       )}
+
+      <CustomerManagementModal
+        open={showCustomerManagement}
+        userId={userId}
+        onClose={() => setShowCustomerManagement(false)}
+        onCustomersChanged={onCustomerAdded}
+      />
     </>
   )
 }
