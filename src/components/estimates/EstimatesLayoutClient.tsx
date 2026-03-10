@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MonitorIcon } from 'lucide-react'
 import type { Customer, Estimate, EstimateSettings } from './types'
+import { DEFAULT_TERMS } from './types'
 import CustomersPanel from './CustomersPanel'
 import EstimatesWorkspace from './EstimatesWorkspace'
 import EstimatesDashboard from './EstimatesDashboard'
@@ -32,6 +33,7 @@ export default function EstimatesLayoutClient({
   const [showSetup, setShowSetup] = useState(!initialSettings)
   const [showSettings, setShowSettings] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [pendingChangeOrder, setPendingChangeOrder] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -118,6 +120,48 @@ export default function EstimatesLayoutClient({
     if (data) setAllEstimates(data)
   }
 
+  async function handleNewEstimateFromPanel() {
+    if (!selectedCustomerId || !settings) return
+    const supabase = createClient()
+    const estimateNumber = settings.next_estimate_number
+
+    const { data } = await supabase
+      .from('estimates')
+      .insert({
+        estimate_number: estimateNumber,
+        customer_id: selectedCustomerId,
+        date: new Date().toISOString().split('T')[0],
+        project_name: '',
+        description: '',
+        salesperson: '',
+        line_items: [],
+        subtotal: 0,
+        tax: 0,
+        total: 0,
+        terms: DEFAULT_TERMS,
+        notes: '',
+        status: 'Draft',
+        user_id: userId,
+      })
+      .select()
+      .single()
+
+    await supabase
+      .from('estimate_settings')
+      .update({ next_estimate_number: estimateNumber + 1 })
+      .eq('user_id', userId)
+
+    if (data) {
+      await refreshEstimates()
+      setSelectedEstimateId(data.id)
+    }
+  }
+
+  function handleNewChangeOrderFromPanel() {
+    if (!selectedCustomerId) return
+    setPendingChangeOrder(true)
+  }
+
   if (isMobile) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50 p-6">
@@ -154,6 +198,8 @@ export default function EstimatesLayoutClient({
           onSelectView={handleSelectView}
           onCustomerAdded={refreshCustomers}
           onOpenSettings={() => setShowSettings(true)}
+          onNewEstimate={handleNewEstimateFromPanel}
+          onNewChangeOrder={handleNewChangeOrderFromPanel}
         />
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
           {selectedView === 'dashboard' ? (
@@ -177,6 +223,8 @@ export default function EstimatesLayoutClient({
               onEstimateUpdated={refreshEstimates}
               onBack={() => setSelectedEstimateId(null)}
               onOpenSettings={() => setShowSettings(true)}
+              pendingChangeOrder={pendingChangeOrder}
+              onChangeOrderHandled={() => setPendingChangeOrder(false)}
             />
           )}
         </div>

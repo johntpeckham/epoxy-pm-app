@@ -17,6 +17,8 @@ interface EstimateEditorProps {
   onBack: () => void
   onUpdated: () => void
   onOpenSettings: () => void
+  pendingChangeOrder?: boolean
+  onChangeOrderHandled?: () => void
 }
 
 function genId(): string {
@@ -38,6 +40,8 @@ export default function EstimateEditor({
   onBack,
   onUpdated,
   onOpenSettings,
+  pendingChangeOrder,
+  onChangeOrderHandled,
 }: EstimateEditorProps) {
   const [estimateNumber, setEstimateNumber] = useState(initialEstimate.estimate_number)
   const [date, setDate] = useState(initialEstimate.date)
@@ -67,6 +71,14 @@ export default function EstimateEditor({
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const estimateIdRef = useRef(initialEstimate.id)
+
+  // Open change order modal when triggered from panel
+  useEffect(() => {
+    if (pendingChangeOrder) {
+      setShowChangeOrderModal(true)
+      onChangeOrderHandled?.()
+    }
+  }, [pendingChangeOrder, onChangeOrderHandled])
 
   const companyName = settings?.company_name ?? 'Peckham Inc. DBA Peckham Coatings'
   const companyAddress = settings?.company_address ?? '1865 Herndon Ave K106, Clovis, CA 93611'
