@@ -22,10 +22,17 @@ export default async function EstimatesPage() {
     .eq('user_id', user.id)
     .single()
 
+  const { data: allEstimates } = await supabase
+    .from('estimates')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
   return (
     <EstimatesLayoutClient
       initialCustomers={customers ?? []}
       initialSettings={settings}
+      initialAllEstimates={allEstimates ?? []}
       userId={user.id}
     />
   )
