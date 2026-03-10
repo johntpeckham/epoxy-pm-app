@@ -380,7 +380,7 @@ export default function EmployeeManagement() {
               className="rounded-lg border border-gray-200 overflow-hidden hover:border-gray-300 hover:shadow-sm transition bg-white flex flex-col"
             >
               {/* Photo area — ~100px tall */}
-              <div className="w-full bg-gray-100 overflow-hidden" style={{ height: '105px' }}>
+              <div className="w-full aspect-square bg-gray-100 overflow-hidden">
                 {emp.photo_url ? (
                   <img
                     src={emp.photo_url}
