@@ -8,6 +8,7 @@ import BillingClientsPanel from './BillingClientsPanel'
 import BillingDashboard from './BillingDashboard'
 import ClientInvoices from './ClientInvoices'
 import InvoiceEditor from './InvoiceEditor'
+import NewInvoiceForm from './NewInvoiceForm'
 
 interface BillingLayoutClientProps {
   initialCustomers: Customer[]
@@ -26,6 +27,7 @@ export default function BillingLayoutClient({
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [pendingChangeOrder, setPendingChangeOrder] = useState(false)
+  const [showNewInvoiceForm, setShowNewInvoiceForm] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -66,48 +68,21 @@ export default function BillingLayoutClient({
     if (data) setInvoices(data)
   }
 
-  async function handleNewInvoiceFromPanel() {
-    if (!selectedCustomer) return
-    const supabase = createClient()
+  function handleNewInvoiceFromPanel() {
+    setShowNewInvoiceForm(true)
+  }
 
-    // Generate next invoice number
-    const { data: existing } = await supabase
-      .from('invoices')
-      .select('invoice_number')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-    const lastNum = existing?.[0]?.invoice_number
-    const nextNum = lastNum ? String(Number(lastNum) + 1) : 'INV-1001'
-
-    const { data } = await supabase
-      .from('invoices')
-      .insert({
-        invoice_number: nextNum,
-        client_id: selectedCustomer.id,
-        project_name: '',
-        line_items: [],
-        subtotal: 0,
-        tax: 0,
-        total: 0,
-        status: 'Draft',
-        issued_date: new Date().toISOString().split('T')[0],
-        notes: null,
-        terms: null,
-        user_id: userId,
-      })
-      .select()
-      .single()
-
-    if (data) {
-      await refreshInvoices()
-      setSelectedInvoiceId(data.id)
-    }
+  async function handleInvoiceFormCreated(customerId: string, invoiceId: string) {
+    setShowNewInvoiceForm(false)
+    setSelectedView(customerId)
+    await refreshInvoices()
+    setSelectedInvoiceId(invoiceId)
   }
 
   function handleNewChangeOrderFromPanel() {
-    if (!selectedCustomer) return
-    setPendingChangeOrder(true)
+    if (selectedInvoiceId) {
+      setPendingChangeOrder(true)
+    }
   }
 
   if (isMobile) {
@@ -138,7 +113,15 @@ export default function BillingLayoutClient({
         onNewChangeOrder={handleNewChangeOrderFromPanel}
       />
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
-        {selectedView === 'dashboard' ? (
+        {showNewInvoiceForm ? (
+          <NewInvoiceForm
+            customers={customers}
+            userId={userId}
+            preselectedCustomerId={selectedCustomer?.id ?? null}
+            onCreated={handleInvoiceFormCreated}
+            onCancel={() => setShowNewInvoiceForm(false)}
+          />
+        ) : selectedView === 'dashboard' ? (
           <BillingDashboard
             invoices={invoices}
             customers={customers}
@@ -165,6 +148,9 @@ export default function BillingLayoutClient({
             userId={userId}
             onInvoiceChanged={refreshInvoices}
             onSelectInvoice={setSelectedInvoiceId}
+            onNewInvoice={() => {
+              setShowNewInvoiceForm(true)
+            }}
           />
         ) : (
           <BillingDashboard

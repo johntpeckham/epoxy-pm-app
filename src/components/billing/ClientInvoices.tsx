@@ -1,7 +1,10 @@
 'use client'
 
-import { FileTextIcon } from 'lucide-react'
-import type { Customer, Invoice } from './types'
+import { useState } from 'react'
+import { FileTextIcon, PlusIcon, FilePlusIcon } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import type { Customer, Invoice, LineItem } from './types'
+import ChangeOrderModal from '../shared/ChangeOrderModal'
 
 interface ClientInvoicesProps {
   customer: Customer
@@ -10,6 +13,7 @@ interface ClientInvoicesProps {
   userId: string
   onInvoiceChanged: () => void
   onSelectInvoice: (id: string) => void
+  onNewInvoice?: () => void
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -36,12 +40,91 @@ function formatCurrency(amount: number): string {
 export default function ClientInvoices({
   customer,
   invoices,
+  userId,
+  onInvoiceChanged,
   onSelectInvoice,
+  onNewInvoice,
 }: ClientInvoicesProps) {
+  const [showChangeOrderModal, setShowChangeOrderModal] = useState(false)
+  const [savingCO, setSavingCO] = useState(false)
+
+  const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.total ?? 0), 0)
+  const totalPaid = invoices.filter((inv) => inv.status === 'Paid').reduce((sum, inv) => sum + (inv.total ?? 0), 0)
+  const totalOutstanding = invoices.filter((inv) => inv.status !== 'Paid' && inv.status !== 'Draft').reduce((sum, inv) => sum + (inv.total ?? 0), 0)
+
+  const latestInvoice = invoices[0] ?? null
+
+  async function handleAddChangeOrder(coData: { description: string; lineItems: LineItem[]; notes: string }) {
+    if (!latestInvoice) return
+    setSavingCO(true)
+    const supabase = createClient()
+    const { count } = await supabase
+      .from('change_orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('parent_id', latestInvoice.id)
+    const coNumber = `CO-${(count ?? 0) + 1}`
+    const sub = coData.lineItems.reduce((s, item) => {
+      const amt = (!item.ft || item.ft === 0) ? (item.rate ?? 0) : (item.ft ?? 0) * (item.rate ?? 0)
+      return s + amt
+    }, 0)
+    await supabase.from('change_orders').insert({
+      parent_type: 'invoice',
+      parent_id: latestInvoice.id,
+      change_order_number: coNumber,
+      description: coData.description,
+      line_items: coData.lineItems,
+      subtotal: sub,
+      status: 'Pending',
+      notes: coData.notes || null,
+      user_id: userId,
+    })
+    setSavingCO(false)
+    setShowChangeOrderModal(false)
+    onInvoiceChanged()
+  }
+
   return (
     <div className="flex flex-col h-full">
-      <div className="px-5 py-3 border-b border-gray-200 bg-white flex items-center justify-between">
-        <h2 className="text-base font-bold text-gray-900">{customer.name}</h2>
+      <div className="px-5 py-3 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-gray-900">{customer.name}</h2>
+          <div className="flex items-center gap-2">
+            {onNewInvoice && (
+              <button
+                onClick={onNewInvoice}
+                className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                New Invoice
+              </button>
+            )}
+            <button
+              onClick={() => setShowChangeOrderModal(true)}
+              disabled={!latestInvoice}
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <FilePlusIcon className="w-3.5 h-3.5" />
+              New Change Order
+            </button>
+          </div>
+        </div>
+        {/* Summary bar */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-400">Total Invoiced</span>
+            <span className="text-xs font-semibold text-gray-900">${formatCurrency(totalInvoiced)}</span>
+          </div>
+          <div className="w-px h-3 bg-gray-200" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-400">Paid</span>
+            <span className="text-xs font-semibold text-green-600">${formatCurrency(totalPaid)}</span>
+          </div>
+          <div className="w-px h-3 bg-gray-200" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-400">Outstanding</span>
+            <span className="text-xs font-semibold text-amber-600">${formatCurrency(totalOutstanding)}</span>
+          </div>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto">
         {invoices.length === 0 ? (
@@ -85,6 +168,13 @@ export default function ClientInvoices({
           </div>
         )}
       </div>
+      {showChangeOrderModal && (
+        <ChangeOrderModal
+          onSave={handleAddChangeOrder}
+          onClose={() => setShowChangeOrderModal(false)}
+          saving={savingCO}
+        />
+      )}
     </div>
   )
 }
