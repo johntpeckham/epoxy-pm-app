@@ -1,6 +1,6 @@
-import type { Customer, LineItem } from '../estimates/types'
+import type { Customer, LineItem, ChangeOrder } from '../estimates/types'
 
-export type { Customer, LineItem }
+export type { Customer, LineItem, ChangeOrder }
 
 export interface Invoice {
   id: string

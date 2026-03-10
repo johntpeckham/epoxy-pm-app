@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon, FilePlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { Customer, Estimate, EstimateSettings, LineItem } from './types'
+import type { Customer, Estimate, EstimateSettings, LineItem, ChangeOrder } from './types'
 import { DEFAULT_TERMS } from './types'
 import { exportEstimatePdf } from './pdfExport'
+import ChangeOrderModal from '../shared/ChangeOrderModal'
+import ChangeOrdersList from '../shared/ChangeOrdersList'
 
 interface EstimateEditorProps {
   estimate: Estimate
@@ -57,6 +59,9 @@ export default function EstimateEditor({
   const [convertSuccess, setConvertSuccess] = useState(false)
   const [convertError, setConvertError] = useState<string | null>(null)
   const [converting, setConverting] = useState(false)
+  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([])
+  const [showChangeOrderModal, setShowChangeOrderModal] = useState(false)
+  const [savingCO, setSavingCO] = useState(false)
   const [customerName, setCustomerName] = useState(customer.name)
   const [customerCompany, setCustomerCompany] = useState(customer.company ?? '')
 
@@ -186,6 +191,62 @@ export default function EstimateEditor({
     })
   }
 
+  // Fetch change orders on mount
+  useEffect(() => {
+    async function fetchChangeOrders() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('change_orders')
+        .select('*')
+        .eq('parent_type', 'estimate')
+        .eq('parent_id', estimateIdRef.current)
+        .order('created_at', { ascending: true })
+      if (data) setChangeOrders(data)
+    }
+    fetchChangeOrders()
+  }, [])
+
+  async function handleAddChangeOrder(coData: { description: string; lineItems: LineItem[]; notes: string }) {
+    setSavingCO(true)
+    const supabase = createClient()
+    const coNumber = `CO-${changeOrders.length + 1}`
+    const sub = coData.lineItems.reduce((sum, item) => sum + item.amount, 0)
+
+    const { data } = await supabase
+      .from('change_orders')
+      .insert({
+        parent_type: 'estimate',
+        parent_id: estimateIdRef.current,
+        change_order_number: coNumber,
+        description: coData.description,
+        line_items: coData.lineItems,
+        subtotal: sub,
+        status: 'Pending',
+        notes: coData.notes || null,
+        user_id: userId,
+      })
+      .select()
+      .single()
+
+    if (data) {
+      setChangeOrders((prev) => [...prev, data])
+      setShowChangeOrderModal(false)
+    }
+    setSavingCO(false)
+  }
+
+  async function handleUpdateCOStatus(id: string, newStatus: 'Pending' | 'Approved' | 'Rejected') {
+    const supabase = createClient()
+    await supabase.from('change_orders').update({ status: newStatus }).eq('id', id)
+    setChangeOrders((prev) => prev.map((co) => co.id === id ? { ...co, status: newStatus } : co))
+  }
+
+  async function handleDeleteCO(id: string) {
+    const supabase = createClient()
+    await supabase.from('change_orders').delete().eq('id', id)
+    setChangeOrders((prev) => prev.filter((co) => co.id !== id))
+  }
+
   async function handleConvertToInvoice() {
     setConverting(true)
     setConvertError(null)
@@ -290,6 +351,14 @@ export default function EstimateEditor({
               </div>
             )}
           </div>
+          {/* Change Order */}
+          <button
+            onClick={() => setShowChangeOrderModal(true)}
+            className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <FilePlusIcon className="w-3.5 h-3.5" />
+            Change Order
+          </button>
           {/* Export PDF */}
           <button
             onClick={handleExportPdf}
@@ -367,6 +436,15 @@ export default function EstimateEditor({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Change Order Modal */}
+      {showChangeOrderModal && (
+        <ChangeOrderModal
+          onSave={handleAddChangeOrder}
+          onClose={() => setShowChangeOrderModal(false)}
+          saving={savingCO}
+        />
       )}
 
       {/* Estimate form */}
@@ -587,6 +665,14 @@ export default function EstimateEditor({
               </div>
             </div>
           </div>
+
+          {/* Change Orders */}
+          <ChangeOrdersList
+            changeOrders={changeOrders}
+            originalTotal={total}
+            onUpdateStatus={handleUpdateCOStatus}
+            onDelete={handleDeleteCO}
+          />
 
           {/* Terms */}
           <div className="px-8 py-4 border-t border-gray-200">
