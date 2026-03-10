@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 import { DocumentCategory, ProjectDocument } from '@/types'
 import PdfThumbnail from './PdfThumbnail'
-import PdfViewer from './PdfViewer'
 import Portal from '@/components/ui/Portal'
 
 interface DocumentUploadModalProps {
@@ -331,7 +330,11 @@ export default function DocumentUploadModal({
               </button>
             </div>
             <div className="flex-1 min-h-0">
-              <PdfViewer url={getPublicUrl(previewDoc.file_path)} />
+              <iframe
+                src={getPublicUrl(previewDoc.file_path)}
+                className="w-full h-full min-h-[60vh]"
+                title={previewDoc.file_name}
+              />
             </div>
           </div>
         </div>
