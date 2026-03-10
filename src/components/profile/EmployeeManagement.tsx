@@ -336,35 +336,35 @@ export default function EmployeeManagement() {
       ) : employees.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">No employees added yet.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 220px))' }}>
           {employees.map((emp) => (
             <div
               key={emp.id}
-              className="p-4 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition"
+              className="rounded-xl border border-gray-200 overflow-hidden hover:border-gray-300 hover:shadow-md transition bg-white flex flex-col"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  {emp.photo_url ? (
-                    <img
-                      src={emp.photo_url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <UserIcon className="w-5 h-5 text-gray-400" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate">{emp.name}</p>
-                  {emp.role && (
-                    <p className="text-xs text-amber-600 font-medium">{emp.role}</p>
-                  )}
-                  {emp.notes && (
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{emp.notes}</p>
-                  )}
-                </div>
+              {/* Photo area — 3:4 aspect ratio */}
+              <div className="aspect-[3/4] w-full bg-gray-100 relative overflow-hidden">
+                {emp.photo_url ? (
+                  <img
+                    src={emp.photo_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <UserIcon className="w-12 h-12 text-gray-300" />
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-gray-100">
+              {/* Info */}
+              <div className="px-3 pt-3 pb-2">
+                <p className="text-base font-bold text-gray-900 truncate">{emp.name}</p>
+                {emp.role && (
+                  <p className="text-xs text-amber-600 font-semibold mt-0.5">{emp.role}</p>
+                )}
+              </div>
+              {/* Actions */}
+              <div className="flex items-center gap-1.5 px-3 pb-3 mt-auto">
                 <button
                   onClick={() => openEditModal(emp)}
                   className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded-md transition"
