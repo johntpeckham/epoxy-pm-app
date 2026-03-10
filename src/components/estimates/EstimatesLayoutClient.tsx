@@ -160,6 +160,10 @@ export default function EstimatesLayoutClient({
             <EstimatesDashboard
               estimates={allEstimates}
               customers={customers}
+              onSelectEstimate={async (customerId, estimateId) => {
+                await handleSelectView(customerId)
+                setSelectedEstimateId(estimateId)
+              }}
             />
           ) : (
             <EstimatesWorkspace
