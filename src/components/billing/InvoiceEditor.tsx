@@ -13,6 +13,8 @@ interface InvoiceEditorProps {
   userId: string
   onBack: () => void
   onUpdated: () => void
+  pendingChangeOrder?: boolean
+  onChangeOrderHandled?: () => void
 }
 
 function genId(): string {
@@ -32,6 +34,8 @@ export default function InvoiceEditor({
   userId,
   onBack,
   onUpdated,
+  pendingChangeOrder,
+  onChangeOrderHandled,
 }: InvoiceEditorProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(initialInvoice.invoice_number)
   const [issuedDate, setIssuedDate] = useState(initialInvoice.issued_date)
@@ -56,6 +60,14 @@ export default function InvoiceEditor({
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const invoiceIdRef = useRef(initialInvoice.id)
+
+  // Open change order modal when triggered from panel
+  useEffect(() => {
+    if (pendingChangeOrder) {
+      setShowChangeOrderModal(true)
+      onChangeOrderHandled?.()
+    }
+  }, [pendingChangeOrder, onChangeOrderHandled])
 
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + calcAmount(item), 0)

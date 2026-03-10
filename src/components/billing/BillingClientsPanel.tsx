@@ -1,9 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { PlusIcon, SearchIcon, Settings2Icon, UserIcon, LayoutDashboardIcon } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { PlusIcon, SearchIcon, Settings2Icon, UserIcon, LayoutDashboardIcon, FileTextIcon, ClipboardListIcon } from 'lucide-react'
 import type { Customer } from './types'
-import NewCustomerModal from '../estimates/NewCustomerModal'
 import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 
 interface BillingClientsPanelProps {
@@ -12,6 +11,8 @@ interface BillingClientsPanelProps {
   userId: string
   onSelectView: (view: 'dashboard' | string) => void
   onCustomerAdded: () => void
+  onNewInvoice?: () => void
+  onNewChangeOrder?: () => void
 }
 
 export default function BillingClientsPanel({
@@ -20,16 +21,59 @@ export default function BillingClientsPanel({
   userId,
   onSelectView,
   onCustomerAdded,
+  onNewInvoice,
+  onNewChangeOrder,
 }: BillingClientsPanelProps) {
   const [search, setSearch] = useState('')
-  const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [showCustomerManagement, setShowCustomerManagement] = useState(false)
+  const [showNewDropdown, setShowNewDropdown] = useState(false)
+  const [noCustomerHint, setNoCustomerHint] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const hasCustomerSelected = selectedView !== 'dashboard'
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowNewDropdown(false)
+      }
+    }
+    if (showNewDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showNewDropdown])
+
+  useEffect(() => {
+    if (noCustomerHint) {
+      const t = setTimeout(() => setNoCustomerHint(false), 2500)
+      return () => clearTimeout(t)
+    }
+  }, [noCustomerHint])
 
   const filtered = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       (c.company && c.company.toLowerCase().includes(search.toLowerCase()))
   )
+
+  function handleNewInvoice() {
+    setShowNewDropdown(false)
+    if (!hasCustomerSelected) {
+      setNoCustomerHint(true)
+      return
+    }
+    onNewInvoice?.()
+  }
+
+  function handleNewChangeOrder() {
+    setShowNewDropdown(false)
+    if (!hasCustomerSelected) {
+      setNoCustomerHint(true)
+      return
+    }
+    onNewChangeOrder?.()
+  }
 
   return (
     <>
@@ -47,14 +91,37 @@ export default function BillingClientsPanel({
                 <Settings2Icon className="w-4 h-4" />
               </button>
             </div>
-            <button
-              onClick={() => setShowNewCustomer(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
-            >
-              <PlusIcon className="w-3.5 h-3.5" />
-              New
-            </button>
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowNewDropdown(!showNewDropdown)}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                New
+              </button>
+              {showNewDropdown && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1">
+                  <button
+                    onClick={handleNewInvoice}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors flex items-center gap-2"
+                  >
+                    <FileTextIcon className="w-3.5 h-3.5" />
+                    New Invoice
+                  </button>
+                  <button
+                    onClick={handleNewChangeOrder}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors flex items-center gap-2"
+                  >
+                    <ClipboardListIcon className="w-3.5 h-3.5" />
+                    New Change Order
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+          {noCustomerHint && (
+            <p className="text-xs text-amber-600 mb-2">Please select a customer first</p>
+          )}
           <div className="relative">
             <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -117,17 +184,6 @@ export default function BillingClientsPanel({
           </div>
         </div>
       </div>
-
-      {showNewCustomer && (
-        <NewCustomerModal
-          userId={userId}
-          onClose={() => setShowNewCustomer(false)}
-          onSaved={() => {
-            setShowNewCustomer(false)
-            onCustomerAdded()
-          }}
-        />
-      )}
 
       <CustomerManagementModal
         open={showCustomerManagement}
