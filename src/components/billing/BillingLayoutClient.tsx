@@ -7,6 +7,7 @@ import type { Customer, Invoice } from './types'
 import BillingClientsPanel from './BillingClientsPanel'
 import BillingDashboard from './BillingDashboard'
 import ClientInvoices from './ClientInvoices'
+import InvoiceEditor from './InvoiceEditor'
 
 interface BillingLayoutClientProps {
   initialCustomers: Customer[]
@@ -22,6 +23,7 @@ export default function BillingLayoutClient({
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices)
   const [selectedView, setSelectedView] = useState<'dashboard' | string>('dashboard')
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -38,6 +40,10 @@ export default function BillingLayoutClient({
   const customerInvoices = selectedCustomer
     ? invoices.filter((inv) => inv.client_id === selectedCustomer.id)
     : []
+
+  const selectedInvoice = selectedInvoiceId
+    ? invoices.find((inv) => inv.id === selectedInvoiceId) ?? null
+    : null
 
   async function refreshCustomers() {
     const supabase = createClient()
@@ -81,7 +87,7 @@ export default function BillingLayoutClient({
         customers={customers}
         selectedView={selectedView}
         userId={userId}
-        onSelectView={setSelectedView}
+        onSelectView={(view) => { setSelectedView(view); setSelectedInvoiceId(null) }}
         onCustomerAdded={refreshCustomers}
       />
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
@@ -90,6 +96,14 @@ export default function BillingLayoutClient({
             invoices={invoices}
             customers={customers}
           />
+        ) : selectedCustomer && selectedInvoice ? (
+          <InvoiceEditor
+            invoice={selectedInvoice}
+            customer={selectedCustomer}
+            userId={userId}
+            onBack={() => setSelectedInvoiceId(null)}
+            onUpdated={refreshInvoices}
+          />
         ) : selectedCustomer ? (
           <ClientInvoices
             customer={selectedCustomer}
@@ -97,6 +111,7 @@ export default function BillingLayoutClient({
             allInvoices={invoices}
             userId={userId}
             onInvoiceChanged={refreshInvoices}
+            onSelectInvoice={setSelectedInvoiceId}
           />
         ) : (
           <BillingDashboard
