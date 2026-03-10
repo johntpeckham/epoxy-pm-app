@@ -173,8 +173,8 @@ export default function TakeoffViewer({
   // ─── Scale calibration ───
   const [scalePoints, setScalePoints] = useState<Point[]>([])
   const [showScaleModal, setShowScaleModal] = useState(false)
-  const [scaleInput, setScaleInput] = useState('')
-  const [scaleUnit, setScaleUnit] = useState<'feet' | 'inches'>('feet')
+  const [scaleFeet, setScaleFeet] = useState('')
+  const [scaleInches, setScaleInches] = useState('')
 
   // ─── Markup text ───
   const [markupTextInput, setMarkupTextInput] = useState<{ pos: Point; visible: boolean }>({
@@ -691,14 +691,17 @@ export default function TakeoffViewer({
 
   // ─── Scale modal ───
   function handleScaleSubmit() {
-    if (!scaleInput || isNaN(Number(scaleInput))) return
-    const realFt = scaleUnit === 'inches' ? Number(scaleInput) / 12 : Number(scaleInput)
+    const ft = Number(scaleFeet) || 0
+    const inches = Number(scaleInches) || 0
+    if (ft === 0 && inches === 0) return
+    const realFt = ft + inches / 12
     if (realFt <= 0) return
     onPageScaleChange(ptDist(scalePoints[0], scalePoints[1]) / realFt)
     setShowScaleModal(false)
     setScalePoints([])
     setTempPoints([])
-    setScaleInput('')
+    setScaleFeet('')
+    setScaleInches('')
     setActiveTool('pan')
   }
 
@@ -1346,25 +1349,34 @@ export default function TakeoffViewer({
             <h3 className="text-lg font-semibold text-gray-800 mb-1">Set Scale</h3>
             <p className="text-sm text-gray-500 mb-5">What is the real-world distance between these two points?</p>
             <div className="flex items-center gap-2 mb-5">
-              <input
-                type="number"
-                value={scaleInput}
-                onChange={e => setScaleInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleScaleSubmit()}
-                placeholder="Distance..."
-                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                autoFocus
-                min="0"
-                step="any"
-              />
-              <select
-                value={scaleUnit}
-                onChange={e => setScaleUnit(e.target.value as 'feet' | 'inches')}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
-              >
-                <option value="inches">Inches</option>
-                <option value="feet">Feet</option>
-              </select>
+              <div className="flex-1 flex items-center gap-1">
+                <input
+                  type="number"
+                  value={scaleFeet}
+                  onChange={e => setScaleFeet(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleScaleSubmit()}
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  autoFocus
+                  min="0"
+                  step="any"
+                />
+                <span className="text-sm text-gray-500 font-medium">ft</span>
+              </div>
+              <div className="flex-1 flex items-center gap-1">
+                <input
+                  type="number"
+                  value={scaleInches}
+                  onChange={e => { const v = Number(e.target.value); if (v <= 11.99 || e.target.value === '') setScaleInches(e.target.value) }}
+                  onKeyDown={e => e.key === 'Enter' && handleScaleSubmit()}
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  min="0"
+                  max="11.99"
+                  step="any"
+                />
+                <span className="text-sm text-gray-500 font-medium">in</span>
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <button
