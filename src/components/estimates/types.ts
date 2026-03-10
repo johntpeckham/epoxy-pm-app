@@ -51,6 +51,21 @@ export interface EstimateSettings {
   logo_base64: string | null
 }
 
+export interface ChangeOrder {
+  id: string
+  parent_type: 'estimate' | 'invoice'
+  parent_id: string
+  change_order_number: string
+  description: string
+  line_items: LineItem[]
+  subtotal: number
+  status: 'Pending' | 'Approved' | 'Rejected'
+  notes: string | null
+  created_at: string
+  updated_at: string
+  user_id: string
+}
+
 export const DEFAULT_TERMS = `Payment Terms
 - 40% deposit due when material is ordered.
 - Net 30 upon completion of project.

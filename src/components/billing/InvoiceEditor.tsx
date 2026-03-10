@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, FilePlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { Customer, Invoice, LineItem } from './types'
+import type { Customer, Invoice, LineItem, ChangeOrder } from './types'
+import ChangeOrderModal from '../shared/ChangeOrderModal'
+import ChangeOrdersList from '../shared/ChangeOrdersList'
 
 interface InvoiceEditorProps {
   invoice: Invoice
@@ -46,6 +48,9 @@ export default function InvoiceEditor({
   const [status, setStatus] = useState<string>(initialInvoice.status)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
+  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([])
+  const [showChangeOrderModal, setShowChangeOrderModal] = useState(false)
+  const [savingCO, setSavingCO] = useState(false)
   const [customerName, setCustomerName] = useState(customer.name)
   const [customerCompany, setCustomerCompany] = useState(customer.company ?? '')
 
@@ -133,6 +138,62 @@ export default function InvoiceEditor({
     setShowStatusMenu(false)
   }
 
+  // Fetch change orders on mount
+  useEffect(() => {
+    async function fetchChangeOrders() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('change_orders')
+        .select('*')
+        .eq('parent_type', 'invoice')
+        .eq('parent_id', invoiceIdRef.current)
+        .order('created_at', { ascending: true })
+      if (data) setChangeOrders(data)
+    }
+    fetchChangeOrders()
+  }, [])
+
+  async function handleAddChangeOrder(coData: { description: string; lineItems: LineItem[]; notes: string }) {
+    setSavingCO(true)
+    const supabase = createClient()
+    const coNumber = `CO-${changeOrders.length + 1}`
+    const sub = coData.lineItems.reduce((sum, item) => sum + item.amount, 0)
+
+    const { data } = await supabase
+      .from('change_orders')
+      .insert({
+        parent_type: 'invoice',
+        parent_id: invoiceIdRef.current,
+        change_order_number: coNumber,
+        description: coData.description,
+        line_items: coData.lineItems,
+        subtotal: sub,
+        status: 'Pending',
+        notes: coData.notes || null,
+        user_id: userId,
+      })
+      .select()
+      .single()
+
+    if (data) {
+      setChangeOrders((prev) => [...prev, data])
+      setShowChangeOrderModal(false)
+    }
+    setSavingCO(false)
+  }
+
+  async function handleUpdateCOStatus(id: string, newStatus: 'Pending' | 'Approved' | 'Rejected') {
+    const supabase = createClient()
+    await supabase.from('change_orders').update({ status: newStatus }).eq('id', id)
+    setChangeOrders((prev) => prev.map((co) => co.id === id ? { ...co, status: newStatus } : co))
+  }
+
+  async function handleDeleteCO(id: string) {
+    const supabase = createClient()
+    await supabase.from('change_orders').delete().eq('id', id)
+    setChangeOrders((prev) => prev.filter((co) => co.id !== id))
+  }
+
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">
       {/* Top bar */}
@@ -181,8 +242,25 @@ export default function InvoiceEditor({
               </div>
             )}
           </div>
+          {/* Change Order */}
+          <button
+            onClick={() => setShowChangeOrderModal(true)}
+            className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <FilePlusIcon className="w-3.5 h-3.5" />
+            Change Order
+          </button>
         </div>
       </div>
+
+      {/* Change Order Modal */}
+      {showChangeOrderModal && (
+        <ChangeOrderModal
+          onSave={handleAddChangeOrder}
+          onClose={() => setShowChangeOrderModal(false)}
+          saving={savingCO}
+        />
+      )}
 
       {/* Invoice form */}
       <div className="flex-1 p-6">
@@ -389,6 +467,14 @@ export default function InvoiceEditor({
               </div>
             </div>
           </div>
+
+          {/* Change Orders */}
+          <ChangeOrdersList
+            changeOrders={changeOrders}
+            originalTotal={total}
+            onUpdateStatus={handleUpdateCOStatus}
+            onDelete={handleDeleteCO}
+          />
 
           {/* Terms */}
           {(terms || true) && (
