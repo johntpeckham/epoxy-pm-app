@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MonitorIcon } from 'lucide-react'
 import type { Customer, Estimate, EstimateSettings } from './types'
-import { DEFAULT_TERMS } from './types'
 import CustomersPanel from './CustomersPanel'
 import EstimatesWorkspace from './EstimatesWorkspace'
 import EstimatesDashboard from './EstimatesDashboard'
 import SetupPrompt from './SetupPrompt'
 import SettingsModal from './SettingsModal'
+import NewEstimateForm from './NewEstimateForm'
 
 interface EstimatesLayoutClientProps {
   initialCustomers: Customer[]
@@ -34,6 +34,7 @@ export default function EstimatesLayoutClient({
   const [showSettings, setShowSettings] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [pendingChangeOrder, setPendingChangeOrder] = useState(false)
+  const [showNewEstimateForm, setShowNewEstimateForm] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -120,46 +121,30 @@ export default function EstimatesLayoutClient({
     if (data) setAllEstimates(data)
   }
 
-  async function handleNewEstimateFromPanel() {
-    if (!selectedCustomerId || !settings) return
-    const supabase = createClient()
-    const estimateNumber = settings.next_estimate_number
+  function handleNewEstimateFromPanel() {
+    setShowNewEstimateForm(true)
+  }
 
+  async function handleEstimateFormCreated(customerId: string, estimateId: string) {
+    setShowNewEstimateForm(false)
+    await handleSelectView(customerId)
+    // Refresh estimates for the new customer view
+    const supabase = createClient()
     const { data } = await supabase
       .from('estimates')
-      .insert({
-        estimate_number: estimateNumber,
-        customer_id: selectedCustomerId,
-        date: new Date().toISOString().split('T')[0],
-        project_name: '',
-        description: '',
-        salesperson: '',
-        line_items: [],
-        subtotal: 0,
-        tax: 0,
-        total: 0,
-        terms: DEFAULT_TERMS,
-        notes: '',
-        status: 'Draft',
-        user_id: userId,
-      })
-      .select()
-      .single()
-
-    await supabase
-      .from('estimate_settings')
-      .update({ next_estimate_number: estimateNumber + 1 })
+      .select('*')
+      .eq('customer_id', customerId)
       .eq('user_id', userId)
-
-    if (data) {
-      await refreshEstimates()
-      setSelectedEstimateId(data.id)
-    }
+      .order('created_at', { ascending: false })
+    if (data) setEstimates(data)
+    setSelectedEstimateId(estimateId)
+    refreshAllEstimates()
   }
 
   function handleNewChangeOrderFromPanel() {
-    if (!selectedCustomerId) return
-    setPendingChangeOrder(true)
+    if (selectedEstimateId) {
+      setPendingChangeOrder(true)
+    }
   }
 
   if (isMobile) {
@@ -202,7 +187,16 @@ export default function EstimatesLayoutClient({
           onNewChangeOrder={handleNewChangeOrderFromPanel}
         />
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
-          {selectedView === 'dashboard' ? (
+          {showNewEstimateForm ? (
+            <NewEstimateForm
+              customers={customers}
+              settings={settings}
+              userId={userId}
+              preselectedCustomerId={selectedCustomerId}
+              onCreated={handleEstimateFormCreated}
+              onCancel={() => setShowNewEstimateForm(false)}
+            />
+          ) : selectedView === 'dashboard' ? (
             <EstimatesDashboard
               estimates={allEstimates}
               customers={customers}

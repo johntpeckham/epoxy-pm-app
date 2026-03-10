@@ -27,10 +27,7 @@ export default function BillingClientsPanel({
   const [search, setSearch] = useState('')
   const [showCustomerManagement, setShowCustomerManagement] = useState(false)
   const [showNewDropdown, setShowNewDropdown] = useState(false)
-  const [noCustomerHint, setNoCustomerHint] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-
-  const hasCustomerSelected = selectedView !== 'dashboard'
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -44,13 +41,6 @@ export default function BillingClientsPanel({
     }
   }, [showNewDropdown])
 
-  useEffect(() => {
-    if (noCustomerHint) {
-      const t = setTimeout(() => setNoCustomerHint(false), 2500)
-      return () => clearTimeout(t)
-    }
-  }, [noCustomerHint])
-
   const filtered = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -59,19 +49,11 @@ export default function BillingClientsPanel({
 
   function handleNewInvoice() {
     setShowNewDropdown(false)
-    if (!hasCustomerSelected) {
-      setNoCustomerHint(true)
-      return
-    }
     onNewInvoice?.()
   }
 
   function handleNewChangeOrder() {
     setShowNewDropdown(false)
-    if (!hasCustomerSelected) {
-      setNoCustomerHint(true)
-      return
-    }
     onNewChangeOrder?.()
   }
 
@@ -119,9 +101,6 @@ export default function BillingClientsPanel({
               )}
             </div>
           </div>
-          {noCustomerHint && (
-            <p className="text-xs text-amber-600 mb-2">Please select a customer first</p>
-          )}
           <div className="relative">
             <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
