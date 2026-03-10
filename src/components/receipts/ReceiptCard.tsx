@@ -13,6 +13,8 @@ import {
   PencilIcon,
   Trash2Icon,
   DownloadIcon,
+  CameraIcon,
+  CircleIcon,
 } from 'lucide-react'
 import { ReceiptContent, DynamicFieldEntry, UserRole } from '@/types'
 import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
@@ -100,43 +102,68 @@ export default function ReceiptCard({ receipt, role }: ReceiptCardProps) {
   return (
     <>
       <div className="bg-white overflow-hidden">
-        {/* Compact summary row */}
+        {/* Compact summary row — mobile: original flex layout */}
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-gray-50 transition-colors"
+          className="w-full text-left px-4 py-2.5 flex lg:hidden items-center gap-3 hover:bg-gray-50 transition-colors"
         >
-          {/* Date */}
           <span className="flex-shrink-0 text-xs text-gray-500 tabular-nums w-12">{shortDate}</span>
-
-          {/* Vendor + category */}
           <span className="flex-1 min-w-0 flex items-center gap-2 truncate">
             <span className="text-sm text-gray-900 truncate">{content.vendor_name || '—'}</span>
             {content.category && (
               <span className="flex-shrink-0 text-[11px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded font-medium">{content.category}</span>
             )}
           </span>
-
-          {/* Confirmed status indicator */}
-          {confirmed && (
-            <CheckIcon className="flex-shrink-0 w-4 h-4 text-green-600" />
-          )}
-
-          {/* Amount */}
+          {confirmed && <CheckIcon className="flex-shrink-0 w-4 h-4 text-green-600" />}
           <span className="flex-shrink-0 text-sm font-semibold text-gray-900 tabular-nums">
             {content.total_amount ? `$${content.total_amount.toFixed(2)}` : ''}
           </span>
-
-          {/* Thumbnail */}
           {photoUrl && (
             <div className="flex-shrink-0 w-8 h-8 rounded overflow-hidden bg-gray-100">
               <Image src={photoUrl} alt="" width={32} height={32} className="w-full h-full object-cover" />
             </div>
           )}
-
-          {/* Expand chevron */}
           <div className="flex-shrink-0 text-gray-400">
             {expanded ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
           </div>
+        </button>
+
+        {/* Compact summary row — desktop: column-aligned grid */}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full text-left px-4 py-2.5 hidden lg:grid hover:bg-gray-50 transition-colors items-center"
+          style={{ gridTemplateColumns: '4.5rem 1fr 5.5rem 5.5rem 2.75rem 2.75rem 1.5rem' }}
+        >
+          {/* Date */}
+          <span className="text-xs text-gray-500 tabular-nums truncate">{shortDate}</span>
+          {/* Vendor */}
+          <span className="text-sm text-gray-900 truncate pr-2">{content.vendor_name || <span className="text-gray-300">&mdash;</span>}</span>
+          {/* Category */}
+          <span className="text-center">
+            {content.category
+              ? <span className="text-[11px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded font-medium">{content.category}</span>
+              : <span className="text-gray-300 text-xs">&mdash;</span>}
+          </span>
+          {/* Amount */}
+          <span className="text-sm font-semibold text-gray-900 tabular-nums text-right">
+            {content.total_amount ? `$${content.total_amount.toFixed(2)}` : <span className="text-gray-300 font-normal text-xs">&mdash;</span>}
+          </span>
+          {/* Receipt Photo */}
+          <span className="flex justify-center">
+            {photoUrl
+              ? <span className="w-7 h-7 rounded overflow-hidden bg-gray-100 inline-block"><Image src={photoUrl} alt="" width={28} height={28} className="w-full h-full object-cover" /></span>
+              : <CameraIcon className="w-4 h-4 text-gray-300" />}
+          </span>
+          {/* Reimbursed */}
+          <span className="flex justify-center">
+            {confirmed
+              ? <CheckIcon className="w-4 h-4 text-green-600" />
+              : <CircleIcon className="w-3.5 h-3.5 text-gray-300" />}
+          </span>
+          {/* Chevron */}
+          <span className="flex justify-center text-gray-400">
+            {expanded ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+          </span>
         </button>
 
         {/* Expanded detail */}

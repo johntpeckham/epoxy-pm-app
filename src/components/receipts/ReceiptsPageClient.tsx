@@ -92,6 +92,21 @@ function groupByProjectAndDate(receipts: ReceiptRow[], sort: SortOption) {
     })
 }
 
+const EXPENSE_COL_HEADERS = (
+  <div
+    className="hidden lg:grid px-4 py-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 select-none"
+    style={{ gridTemplateColumns: '4.5rem 1fr 5.5rem 5.5rem 2.75rem 2.75rem 1.5rem' }}
+  >
+    <span>Date</span>
+    <span>Vendor</span>
+    <span className="text-center">Category</span>
+    <span className="text-right">Amount</span>
+    <span className="text-center">Receipt</span>
+    <span className="text-center">Reimb.</span>
+    <span />
+  </div>
+)
+
 export default function ReceiptsPageClient({
   initialReceipts,
   projects,
@@ -314,6 +329,7 @@ export default function ReceiptsPageClient({
                               ({receipts.length} expense{receipts.length !== 1 ? 's' : ''})
                             </span>
                           </div>
+                          {EXPENSE_COL_HEADERS}
                           <div className="divide-y divide-gray-100">
                             {receipts.map((receipt) => (
                               <ReceiptCard key={receipt.id} receipt={receipt} role={role} />
