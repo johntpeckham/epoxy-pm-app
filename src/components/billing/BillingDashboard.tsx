@@ -7,6 +7,7 @@ import type { Invoice, Customer, TimeFilter } from './types'
 interface BillingDashboardProps {
   invoices: Invoice[]
   customers: Customer[]
+  onSelectInvoice?: (customerId: string, invoiceId: string) => void
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -30,7 +31,7 @@ function formatCurrency(amount: number): string {
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default function BillingDashboard({ invoices, customers }: BillingDashboardProps) {
+export default function BillingDashboard({ invoices, customers, onSelectInvoice }: BillingDashboardProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all')
 
   const filteredInvoices = useMemo(() => {
@@ -152,7 +153,11 @@ export default function BillingDashboard({ invoices, customers }: BillingDashboa
                   const customer = customerMap[inv.client_id]
                   const daysOverdue = inv.status === 'Overdue' ? getDaysOverdue(inv.due_date) : null
                   return (
-                    <tr key={inv.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={inv.id}
+                      className="border-b border-gray-50 hover:bg-blue-50 transition-colors cursor-pointer"
+                      onClick={() => onSelectInvoice?.(inv.client_id, inv.id)}
+                    >
                       <td className="px-4 py-3 text-sm text-gray-600">{inv.issued_date}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{inv.invoice_number}</td>
                       <td className="px-4 py-3">

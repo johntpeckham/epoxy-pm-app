@@ -95,6 +95,10 @@ export default function BillingLayoutClient({
           <BillingDashboard
             invoices={invoices}
             customers={customers}
+            onSelectInvoice={(customerId, invoiceId) => {
+              setSelectedView(customerId)
+              setSelectedInvoiceId(invoiceId)
+            }}
           />
         ) : selectedCustomer && selectedInvoice ? (
           <InvoiceEditor
@@ -117,6 +121,10 @@ export default function BillingLayoutClient({
           <BillingDashboard
             invoices={invoices}
             customers={customers}
+            onSelectInvoice={(customerId, invoiceId) => {
+              setSelectedView(customerId)
+              setSelectedInvoiceId(invoiceId)
+            }}
           />
         )}
       </div>

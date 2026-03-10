@@ -9,6 +9,7 @@ type TimeFilter = 'all' | '365' | '30'
 interface EstimatesDashboardProps {
   estimates: Estimate[]
   customers: Customer[]
+  onSelectEstimate?: (customerId: string, estimateId: string) => void
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -22,7 +23,7 @@ function formatCurrency(amount: number): string {
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default function EstimatesDashboard({ estimates, customers }: EstimatesDashboardProps) {
+export default function EstimatesDashboard({ estimates, customers, onSelectEstimate }: EstimatesDashboardProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all')
 
   const filteredEstimates = useMemo(() => {
@@ -138,7 +139,11 @@ export default function EstimatesDashboard({ estimates, customers }: EstimatesDa
                 {filteredEstimates.map((est) => {
                   const customer = customerMap[est.customer_id]
                   return (
-                    <tr key={est.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={est.id}
+                      className="border-b border-gray-50 hover:bg-amber-50 transition-colors cursor-pointer"
+                      onClick={() => onSelectEstimate?.(est.customer_id, est.id)}
+                    >
                       <td className="px-4 py-3 text-sm text-gray-600">{est.date}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">#{est.estimate_number}</td>
                       <td className="px-4 py-3">
