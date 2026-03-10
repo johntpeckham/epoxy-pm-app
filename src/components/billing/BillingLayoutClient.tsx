@@ -85,6 +85,44 @@ export default function BillingLayoutClient({
     }
   }
 
+  async function handleNewInvoiceForCustomer() {
+    if (!selectedCustomer) return
+    const supabase = createClient()
+
+    const { data: existing } = await supabase
+      .from('invoices')
+      .select('invoice_number')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const lastNum = existing?.[0]?.invoice_number
+    const nextNum = lastNum ? String(Number(lastNum) + 1) : 'INV-1001'
+
+    const { data } = await supabase
+      .from('invoices')
+      .insert({
+        invoice_number: nextNum,
+        client_id: selectedCustomer.id,
+        project_name: '',
+        line_items: [],
+        subtotal: 0,
+        tax: 0,
+        total: 0,
+        status: 'Draft',
+        issued_date: new Date().toISOString().split('T')[0],
+        notes: null,
+        terms: null,
+        user_id: userId,
+      })
+      .select()
+      .single()
+
+    if (data) {
+      await refreshInvoices()
+      setSelectedInvoiceId(data.id)
+    }
+  }
+
   if (isMobile) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50 p-6">
@@ -148,9 +186,7 @@ export default function BillingLayoutClient({
             userId={userId}
             onInvoiceChanged={refreshInvoices}
             onSelectInvoice={setSelectedInvoiceId}
-            onNewInvoice={() => {
-              setShowNewInvoiceForm(true)
-            }}
+            onNewInvoice={handleNewInvoiceForCustomer}
           />
         ) : (
           <BillingDashboard
