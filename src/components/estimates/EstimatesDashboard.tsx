@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { FileTextIcon } from 'lucide-react'
+import { FileTextIcon, Trash2Icon } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type { Customer, Estimate } from './types'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 type TimeFilter = 'all' | '365' | '30'
 
@@ -10,6 +12,7 @@ interface EstimatesDashboardProps {
   estimates: Estimate[]
   customers: Customer[]
   onSelectEstimate?: (customerId: string, estimateId: string) => void
+  onEstimateDeleted?: () => void
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -23,8 +26,21 @@ function formatCurrency(amount: number): string {
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default function EstimatesDashboard({ estimates, customers, onSelectEstimate }: EstimatesDashboardProps) {
+export default function EstimatesDashboard({ estimates, customers, onSelectEstimate, onEstimateDeleted }: EstimatesDashboardProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function handleDeleteEstimate() {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    const supabase = createClient()
+    await supabase.from('change_orders').delete().eq('parent_id', deleteTarget)
+    await supabase.from('estimates').delete().eq('id', deleteTarget)
+    setIsDeleting(false)
+    setDeleteTarget(null)
+    onEstimateDeleted?.()
+  }
 
   const filteredEstimates = useMemo(() => {
     if (timeFilter === 'all') return estimates
@@ -133,6 +149,7 @@ export default function EstimatesDashboard({ estimates, customers, onSelectEstim
                   <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Client / Project</th>
                   <th className="text-right text-xs font-medium text-gray-500 px-4 py-3">Amount</th>
                   <th className="text-right text-xs font-medium text-gray-500 px-4 py-3">Status</th>
+                  <th className="w-10"></th>
                 </tr>
               </thead>
               <tbody>
@@ -160,6 +177,15 @@ export default function EstimatesDashboard({ estimates, customers, onSelectEstim
                           {est.status}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(est.id) }}
+                          className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded"
+                          title="Delete estimate"
+                        >
+                          <Trash2Icon className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -168,6 +194,16 @@ export default function EstimatesDashboard({ estimates, customers, onSelectEstim
           </div>
         )}
       </div>
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete Estimate"
+          message="Are you sure you want to delete this estimate? This cannot be undone."
+          onConfirm={handleDeleteEstimate}
+          onCancel={() => setDeleteTarget(null)}
+          loading={isDeleting}
+        />
+      )}
     </div>
   )
 }

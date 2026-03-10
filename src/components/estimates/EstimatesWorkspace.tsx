@@ -23,6 +23,7 @@ interface EstimatesWorkspaceProps {
   onOpenSettings: () => void
   pendingChangeOrder?: boolean
   onChangeOrderHandled?: () => void
+  onEstimateDeleted?: () => void
 }
 
 export default function EstimatesWorkspace({
@@ -38,6 +39,7 @@ export default function EstimatesWorkspace({
   onOpenSettings,
   pendingChangeOrder,
   onChangeOrderHandled,
+  onEstimateDeleted,
 }: EstimatesWorkspaceProps) {
   const selectedEstimate = estimates.find((e) => e.id === selectedEstimateId) ?? null
 
@@ -106,6 +108,7 @@ export default function EstimatesWorkspace({
         onOpenSettings={onOpenSettings}
         pendingChangeOrder={pendingChangeOrder}
         onChangeOrderHandled={onChangeOrderHandled}
+        onDeleted={onEstimateDeleted}
       />
     )
   }

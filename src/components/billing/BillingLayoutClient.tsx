@@ -167,6 +167,7 @@ export default function BillingLayoutClient({
               setSelectedView(customerId)
               setSelectedInvoiceId(invoiceId)
             }}
+            onInvoiceDeleted={refreshInvoices}
           />
         ) : selectedCustomer && selectedInvoice ? (
           <InvoiceEditor
@@ -177,6 +178,7 @@ export default function BillingLayoutClient({
             onUpdated={refreshInvoices}
             pendingChangeOrder={pendingChangeOrder}
             onChangeOrderHandled={() => setPendingChangeOrder(false)}
+            onDeleted={() => { setSelectedInvoiceId(null); refreshInvoices() }}
           />
         ) : selectedCustomer ? (
           <ClientInvoices
@@ -196,6 +198,7 @@ export default function BillingLayoutClient({
               setSelectedView(customerId)
               setSelectedInvoiceId(invoiceId)
             }}
+            onInvoiceDeleted={refreshInvoices}
           />
         )}
       </div>
