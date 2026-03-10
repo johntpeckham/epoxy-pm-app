@@ -9,6 +9,7 @@ interface ClientInvoicesProps {
   allInvoices: Invoice[]
   userId: string
   onInvoiceChanged: () => void
+  onSelectInvoice: (id: string) => void
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -35,6 +36,7 @@ function formatCurrency(amount: number): string {
 export default function ClientInvoices({
   customer,
   invoices,
+  onSelectInvoice,
 }: ClientInvoicesProps) {
   return (
     <div className="flex flex-col h-full">
@@ -52,9 +54,10 @@ export default function ClientInvoices({
             {invoices.map((inv) => {
               const daysOverdue = inv.status === 'Overdue' ? getDaysOverdue(inv.due_date) : null
               return (
-                <div
+                <button
                   key={inv.id}
-                  className="w-full text-left bg-white border border-gray-200 rounded-lg px-4 py-3"
+                  onClick={() => onSelectInvoice(inv.id)}
+                  className="w-full text-left bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-amber-300 hover:shadow-sm transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-semibold text-gray-900">
@@ -76,7 +79,7 @@ export default function ClientInvoices({
                       ${formatCurrency(inv.total ?? 0)}
                     </span>
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
