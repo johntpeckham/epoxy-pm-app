@@ -22,8 +22,9 @@ export interface LineItem {
 
 export interface MaterialSystemItemRow {
   material_name: string
-  unit_size: string
+  thickness: string
   coverage_rate: string
+  item_notes: string
   quantity: string
 }
 

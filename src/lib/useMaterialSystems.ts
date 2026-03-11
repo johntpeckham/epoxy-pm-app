@@ -7,8 +7,9 @@ export interface MaterialSystemItem {
   id: string
   material_system_id: string
   material_name: string
-  unit_size: string | null
+  thickness: string | null
   coverage_rate: string | null
+  item_notes: string | null
   sort_order: number
   created_at: string
 }
@@ -24,7 +25,7 @@ export interface MaterialSystem {
 export interface MaterialSystemInput {
   name: string
   notes?: string
-  items?: { material_name: string; unit_size?: string; coverage_rate?: string; sort_order: number }[]
+  items?: { material_name: string; thickness?: string; coverage_rate?: string; item_notes?: string; sort_order: number }[]
 }
 
 export function useMaterialSystems() {
@@ -80,8 +81,9 @@ export function useMaterialSystems() {
         .map((i, idx) => ({
           material_system_id: system.id,
           material_name: i.material_name.trim(),
-          unit_size: i.unit_size?.trim() || null,
+          thickness: i.thickness?.trim() || null,
           coverage_rate: i.coverage_rate?.trim() || null,
+          item_notes: i.item_notes?.trim() || null,
           sort_order: idx,
         }))
       if (itemRows.length > 0) {
@@ -114,8 +116,9 @@ export function useMaterialSystems() {
       .map((i, idx) => ({
         material_system_id: id,
         material_name: i.material_name.trim(),
-        unit_size: i.unit_size?.trim() || null,
+        thickness: i.thickness?.trim() || null,
         coverage_rate: i.coverage_rate?.trim() || null,
+        item_notes: i.item_notes?.trim() || null,
         sort_order: idx,
       }))
     if (itemRows.length > 0) {

@@ -5,15 +5,15 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon, LayersIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { useMaterialSystems } from '@/lib/useMaterialSystems'
 import type { MaterialSystemInput } from '@/lib/useMaterialSystems'
-import UnitSizeSelect from '@/components/ui/UnitSizeSelect'
 
 interface ItemRow {
   material_name: string
-  unit_size: string
+  thickness: string
   coverage_rate: string
+  item_notes: string
 }
 
-const emptyItem: ItemRow = { material_name: '', unit_size: '', coverage_rate: '' }
+const emptyItem: ItemRow = { material_name: '', thickness: '', coverage_rate: '', item_notes: '' }
 
 interface FormState {
   name: string
@@ -33,8 +33,9 @@ function formToInput(form: FormState): MaterialSystemInput {
     notes: form.notes,
     items: form.items.map((i, idx) => ({
       material_name: i.material_name,
-      unit_size: i.unit_size,
+      thickness: i.thickness,
       coverage_rate: i.coverage_rate,
+      item_notes: i.item_notes,
       sort_order: idx,
     })),
   }
@@ -125,42 +126,56 @@ export default function MaterialSystemsClient() {
           <div className="flex items-start gap-2 mb-1">
             <div className="grid grid-cols-3 gap-2 flex-1">
               <span className="text-[10px] font-medium text-gray-500 px-1">Material Name</span>
-              <span className="text-[10px] font-medium text-gray-500 px-1">Unit Size</span>
+              <span className="text-[10px] font-medium text-gray-500 px-1">Thickness</span>
               <span className="text-[10px] font-medium text-gray-500 px-1">Coverage Rate</span>
             </div>
             <div className="w-[26px]" />
           </div>
           <div className="space-y-2">
             {items.map((item, idx) => (
-              <div key={idx} className="flex items-start gap-2">
-                <div className="grid grid-cols-3 gap-2 flex-1">
-                  <input
-                    type="text"
-                    value={item.material_name}
-                    onChange={(e) => updateItem(idx, { material_name: e.target.value })}
-                    placeholder="Material Name"
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  />
-                  <UnitSizeSelect
-                    value={item.unit_size}
-                    onChange={(v) => updateItem(idx, { unit_size: v })}
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white w-full text-left"
-                  />
-                  <input
-                    type="text"
-                    value={item.coverage_rate}
-                    onChange={(e) => updateItem(idx, { coverage_rate: e.target.value })}
-                    placeholder="Coverage Rate"
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              <div key={idx}>
+                <div className="flex items-start gap-2">
+                  <div className="grid grid-cols-3 gap-2 flex-1">
+                    <input
+                      type="text"
+                      value={item.material_name}
+                      onChange={(e) => updateItem(idx, { material_name: e.target.value })}
+                      placeholder="Material Name"
+                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={item.thickness}
+                      onChange={(e) => updateItem(idx, { thickness: e.target.value })}
+                      placeholder="Thickness"
+                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={item.coverage_rate}
+                      onChange={(e) => updateItem(idx, { coverage_rate: e.target.value })}
+                      placeholder="Coverage Rate"
+                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+                  <button
+                    onClick={() => removeItem(idx)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition mt-0.5"
+                    title="Remove material"
+                  >
+                    <XIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {/* Per-material notes */}
+                <div className="ml-0 mr-[34px] mt-1">
+                  <textarea
+                    value={item.item_notes}
+                    onChange={(e) => updateItem(idx, { item_notes: e.target.value })}
+                    placeholder="Add material notes..."
+                    rows={1}
+                    className="w-full border border-gray-100 rounded px-2 py-1 text-xs text-gray-500 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400 resize-y"
                   />
                 </div>
-                <button
-                  onClick={() => removeItem(idx)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 transition mt-0.5"
-                  title="Remove material"
-                >
-                  <XIcon className="w-3.5 h-3.5" />
-                </button>
               </div>
             ))}
           </div>
@@ -180,7 +195,7 @@ export default function MaterialSystemsClient() {
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             placeholder="Optional notes for this system..."
-            rows={2}
+            rows={4}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-y"
           />
         </div>
@@ -287,7 +302,7 @@ export default function MaterialSystemsClient() {
                             {ms.items.map((item) => (
                               <div key={item.id} className="text-xs text-gray-400">
                                 {item.material_name}
-                                {item.unit_size && <span className="ml-2 text-gray-300">({item.unit_size})</span>}
+                                {item.thickness && <span className="ml-2 text-gray-300">({item.thickness})</span>}
                                 {item.coverage_rate && <span className="ml-2 text-gray-300">{item.coverage_rate}</span>}
                               </div>
                             ))}
@@ -308,8 +323,9 @@ export default function MaterialSystemsClient() {
                               items: ms.items.length > 0
                                 ? ms.items.map((i) => ({
                                     material_name: i.material_name,
-                                    unit_size: i.unit_size ?? '',
+                                    thickness: i.thickness ?? '',
                                     coverage_rate: i.coverage_rate ?? '',
+                                    item_notes: i.item_notes ?? '',
                                   }))
                                 : [{ ...emptyItem }],
                             })
