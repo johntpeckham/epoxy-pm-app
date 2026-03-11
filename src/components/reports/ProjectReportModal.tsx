@@ -383,7 +383,7 @@ export default function ProjectReportModal({
       {/* Modal */}
       <div data-report-modal className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div data-report-header className="flex-none flex items-center justify-between px-4 border-b print:hidden" style={{ minHeight: '56px' }}>
+        <div data-report-header className="flex-none flex items-center justify-between px-4 border-b border-gray-200 print:hidden" style={{ minHeight: '56px' }}>
           <div>
             <h2 className="text-base font-bold text-gray-900">Project Report</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
@@ -432,7 +432,7 @@ export default function ProjectReportModal({
         </div>
 
         {/* Footer */}
-        <div data-report-footer className="flex-none flex flex-wrap items-center gap-2 lg:gap-3 p-4 border-t print:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div data-report-footer className="flex-none flex flex-wrap items-center gap-2 lg:gap-3 p-4 border-t border-gray-200 print:hidden" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
           {error && <p className="text-xs text-red-600 w-full lg:w-auto lg:flex-1">{error}</p>}
           {savedMsg && <p className="text-xs text-green-600 w-full lg:w-auto lg:flex-1">Saved successfully</p>}
           {!error && !savedMsg && <div className="hidden lg:block flex-1" />}
