@@ -8,8 +8,9 @@ import type { MaterialSystemFormState } from './MaterialSystemFormModal'
 
 export interface MaterialSystemItemRow {
   material_name: string
-  unit_size: string
+  thickness: string
   coverage_rate: string
+  item_notes: string
   quantity: string
 }
 
@@ -41,8 +42,9 @@ function systemToRow(system: MaterialSystem): MaterialSystemRow {
     notes: system.notes ?? '',
     items: system.items.map((item) => ({
       material_name: item.material_name,
-      unit_size: item.unit_size ?? '',
+      thickness: item.thickness ?? '',
       coverage_rate: item.coverage_rate ?? '',
+      item_notes: item.item_notes ?? '',
       quantity: '',
     })),
   }
@@ -87,8 +89,9 @@ export default function MaterialSystemPicker({
       notes: form.notes,
       items: form.items.map((i, idx) => ({
         material_name: i.material_name,
-        unit_size: i.unit_size,
+        thickness: i.thickness,
         coverage_rate: i.coverage_rate,
+        item_notes: i.item_notes,
         sort_order: idx,
       })),
     }
@@ -119,8 +122,9 @@ export default function MaterialSystemPicker({
           notes: form.notes,
           items: form.items.map((i) => ({
             material_name: i.material_name,
-            unit_size: i.unit_size,
+            thickness: i.thickness,
             coverage_rate: i.coverage_rate,
+            item_notes: i.item_notes,
             quantity: r.items.find((ri) => ri.material_name === i.material_name)?.quantity ?? '',
           })),
         }
@@ -137,10 +141,11 @@ export default function MaterialSystemPicker({
       items: system.items.length > 0
         ? system.items.map((i) => ({
             material_name: i.material_name,
-            unit_size: i.unit_size ?? '',
+            thickness: i.thickness ?? '',
             coverage_rate: i.coverage_rate ?? '',
+            item_notes: i.item_notes ?? '',
           }))
-        : [{ material_name: '', unit_size: '', coverage_rate: '' }],
+        : [{ material_name: '', thickness: '', coverage_rate: '', item_notes: '' }],
     }
   }
 
@@ -208,24 +213,31 @@ export default function MaterialSystemPicker({
             <div className="divide-y divide-gray-100">
               <div className="grid gap-2 px-3 py-1.5" style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}>
                 <span className="text-[10px] font-medium text-gray-500">Material</span>
-                <span className="text-[10px] font-medium text-gray-500">Unit Size</span>
+                <span className="text-[10px] font-medium text-gray-500">Thickness</span>
                 <span className="text-[10px] font-medium text-gray-500">Coverage Rate</span>
                 {showQuantity && <span className="text-[10px] font-medium text-gray-500">Quantity</span>}
               </div>
               {row.items.map((item, idx) => (
-                <div key={idx} className="grid gap-2 px-3 py-1.5" style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}>
-                  <span className="text-sm text-gray-900">{item.material_name}</span>
-                  <span className="text-sm text-gray-600">{item.unit_size || '\u2014'}</span>
-                  <span className="text-sm text-gray-600">{item.coverage_rate || '\u2014'}</span>
-                  {showQuantity && (
-                    <input
-                      type="text"
-                      value={item.quantity}
-                      onChange={(e) => updateItemInRow(row.id, idx, { quantity: e.target.value })}
-                      readOnly={readOnly}
-                      placeholder="Qty"
-                      className={`w-full rounded border border-gray-300 px-2 py-1 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
-                    />
+                <div key={idx}>
+                  <div className="grid gap-2 px-3 py-1.5" style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}>
+                    <span className="text-sm text-gray-900">{item.material_name}</span>
+                    <span className="text-sm text-gray-600">{item.thickness || '\u2014'}</span>
+                    <span className="text-sm text-gray-600">{item.coverage_rate || '\u2014'}</span>
+                    {showQuantity && (
+                      <input
+                        type="text"
+                        value={item.quantity}
+                        onChange={(e) => updateItemInRow(row.id, idx, { quantity: e.target.value })}
+                        readOnly={readOnly}
+                        placeholder="Qty"
+                        className={`w-full rounded border border-gray-300 px-2 py-1 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
+                      />
+                    )}
+                  </div>
+                  {item.item_notes && (
+                    <div className="px-3 pb-1.5">
+                      <p className="text-xs text-gray-400 italic">{item.item_notes}</p>
+                    </div>
                   )}
                 </div>
               ))}
@@ -235,13 +247,13 @@ export default function MaterialSystemPicker({
           {/* Notes */}
           <div className="px-3 py-2 border-t border-gray-100">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Notes</label>
-            <input
-              type="text"
+            <textarea
               value={row.notes}
               onChange={(e) => updateRow(row.id, { notes: e.target.value })}
               readOnly={readOnly}
               placeholder="Notes..."
-              className={`w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
+              rows={4}
+              className={`w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 outline-none resize-y ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
             />
           </div>
         </div>

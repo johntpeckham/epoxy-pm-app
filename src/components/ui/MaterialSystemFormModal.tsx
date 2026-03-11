@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import { XIcon, PlusIcon } from 'lucide-react'
-import UnitSizeSelect from './UnitSizeSelect'
 import Portal from './Portal'
 
 export interface FormItemRow {
   material_name: string
-  unit_size: string
+  thickness: string
   coverage_rate: string
+  item_notes: string
 }
 
 export interface MaterialSystemFormState {
@@ -17,7 +17,7 @@ export interface MaterialSystemFormState {
   items: FormItemRow[]
 }
 
-const emptyItem: FormItemRow = { material_name: '', unit_size: '', coverage_rate: '' }
+const emptyItem: FormItemRow = { material_name: '', thickness: '', coverage_rate: '', item_notes: '' }
 
 interface MaterialSystemFormModalProps {
   title: string
@@ -101,42 +101,56 @@ export default function MaterialSystemFormModal({
               <div className="flex items-start gap-2 mb-1">
                 <div className="grid grid-cols-3 gap-2 flex-1">
                   <span className="text-[10px] font-medium text-gray-500 px-1">Material Name</span>
-                  <span className="text-[10px] font-medium text-gray-500 px-1">Unit Size</span>
+                  <span className="text-[10px] font-medium text-gray-500 px-1">Thickness</span>
                   <span className="text-[10px] font-medium text-gray-500 px-1">Coverage Rate</span>
                 </div>
                 <div className="w-[26px]" />
               </div>
               <div className="space-y-2">
                 {form.items.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <div className="grid grid-cols-3 gap-2 flex-1">
-                      <input
-                        type="text"
-                        value={item.material_name}
-                        onChange={(e) => updateItem(idx, { material_name: e.target.value })}
-                        placeholder="Material Name"
-                        className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                      />
-                      <UnitSizeSelect
-                        value={item.unit_size}
-                        onChange={(v) => updateItem(idx, { unit_size: v })}
-                        className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white w-full text-left"
-                      />
-                      <input
-                        type="text"
-                        value={item.coverage_rate}
-                        onChange={(e) => updateItem(idx, { coverage_rate: e.target.value })}
-                        placeholder="Coverage Rate"
-                        className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  <div key={idx}>
+                    <div className="flex items-start gap-2">
+                      <div className="grid grid-cols-3 gap-2 flex-1">
+                        <input
+                          type="text"
+                          value={item.material_name}
+                          onChange={(e) => updateItem(idx, { material_name: e.target.value })}
+                          placeholder="Material Name"
+                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        />
+                        <input
+                          type="text"
+                          value={item.thickness}
+                          onChange={(e) => updateItem(idx, { thickness: e.target.value })}
+                          placeholder="Thickness"
+                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        />
+                        <input
+                          type="text"
+                          value={item.coverage_rate}
+                          onChange={(e) => updateItem(idx, { coverage_rate: e.target.value })}
+                          placeholder="Coverage Rate"
+                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        />
+                      </div>
+                      <button
+                        onClick={() => removeItem(idx)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 transition mt-0.5"
+                        title="Remove material"
+                      >
+                        <XIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    {/* Per-material notes */}
+                    <div className="ml-0 mr-[34px] mt-1">
+                      <textarea
+                        value={item.item_notes}
+                        onChange={(e) => updateItem(idx, { item_notes: e.target.value })}
+                        placeholder="Add material notes..."
+                        rows={1}
+                        className="w-full border border-gray-100 rounded px-2 py-1 text-xs text-gray-500 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400 resize-y"
                       />
                     </div>
-                    <button
-                      onClick={() => removeItem(idx)}
-                      className="p-1.5 text-gray-400 hover:text-red-500 transition mt-0.5"
-                      title="Remove material"
-                    >
-                      <XIcon className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 ))}
               </div>
@@ -156,7 +170,7 @@ export default function MaterialSystemFormModal({
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 placeholder="Optional notes for this system..."
-                rows={2}
+                rows={4}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-y"
               />
             </div>

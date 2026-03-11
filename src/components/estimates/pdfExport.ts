@@ -239,7 +239,7 @@ export function exportEstimatePdf(data: PdfData) {
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(146, 64, 14)
         doc.text('MATERIAL', margin, y + 8)
-        doc.text('UNIT SIZE', margin + msColW, y + 8)
+        doc.text('THICKNESS', margin + msColW, y + 8)
         doc.text('COVERAGE RATE', margin + msColW * 2, y + 8)
         y += 14
 
@@ -253,9 +253,19 @@ export function exportEstimatePdf(data: PdfData) {
             y = margin
           }
           doc.text(item.material_name || '', margin, y + 10)
-          doc.text(item.unit_size || '', margin + msColW, y + 10)
+          doc.text(item.thickness || '', margin + msColW, y + 10)
           doc.text(item.coverage_rate || '', margin + msColW * 2, y + 10)
           y += 14
+          if (item.item_notes) {
+            doc.setFontSize(7)
+            doc.setFont('helvetica', 'italic')
+            doc.setTextColor(130, 130, 130)
+            doc.text(item.item_notes, margin + 4, y + 6)
+            y += 10
+            doc.setFont('helvetica', 'normal')
+            doc.setFontSize(8)
+            doc.setTextColor(0, 0, 0)
+          }
           doc.setDrawColor(230, 230, 230)
           doc.setLineWidth(0.5)
           doc.line(margin, y, margin + contentWidth, y)
