@@ -6,7 +6,17 @@ import { createClient } from '@/lib/supabase/client'
 export interface MaterialSystem {
   id: string
   name: string
+  default_quantity: string | null
+  default_coverage_rate: string | null
+  default_notes: string | null
   created_at: string
+}
+
+export interface MaterialSystemInput {
+  name: string
+  default_quantity?: string
+  default_coverage_rate?: string
+  default_notes?: string
 }
 
 export function useMaterialSystems() {
@@ -27,11 +37,17 @@ export function useMaterialSystems() {
     refetch()
   }, [refetch])
 
-  const addSystem = useCallback(async (name: string): Promise<MaterialSystem | null> => {
+  const addSystem = useCallback(async (input: MaterialSystemInput): Promise<MaterialSystem | null> => {
     const supabase = createClient()
+    const row = {
+      name: input.name.trim(),
+      default_quantity: input.default_quantity?.trim() || null,
+      default_coverage_rate: input.default_coverage_rate?.trim() || null,
+      default_notes: input.default_notes?.trim() || null,
+    }
     const { data, error } = await supabase
       .from('material_systems')
-      .insert({ name: name.trim() })
+      .insert(row)
       .select()
       .single()
     if (error || !data) return null
@@ -40,11 +56,17 @@ export function useMaterialSystems() {
     return newSystem
   }, [])
 
-  const updateSystem = useCallback(async (id: string, name: string) => {
+  const updateSystem = useCallback(async (id: string, input: MaterialSystemInput) => {
     const supabase = createClient()
-    await supabase.from('material_systems').update({ name: name.trim() }).eq('id', id)
+    const row = {
+      name: input.name.trim(),
+      default_quantity: input.default_quantity?.trim() || null,
+      default_coverage_rate: input.default_coverage_rate?.trim() || null,
+      default_notes: input.default_notes?.trim() || null,
+    }
+    await supabase.from('material_systems').update(row).eq('id', id)
     setSystems((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, name: name.trim() } : s)).sort((a, b) => a.name.localeCompare(b.name))
+      prev.map((s) => (s.id === id ? { ...s, ...row } : s)).sort((a, b) => a.name.localeCompare(b.name))
     )
   }, [])
 

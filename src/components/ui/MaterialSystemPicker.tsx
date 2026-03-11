@@ -16,7 +16,7 @@ interface MaterialSystemPickerProps {
   rows: MaterialSystemRow[]
   onChange: (rows: MaterialSystemRow[]) => void
   systems: MaterialSystem[]
-  onAddNew: (name: string) => Promise<MaterialSystem | null>
+  onAddNew: (input: { name: string }) => Promise<MaterialSystem | null>
   readOnly?: boolean
 }
 
@@ -65,7 +65,7 @@ export default function MaterialSystemPicker({
   async function handleAddNew() {
     if (!newName.trim()) return
     setSaving(true)
-    const result = await onAddNew(newName.trim())
+    const result = await onAddNew({ name: newName.trim() })
     if (result) {
       const newRow: MaterialSystemRow = {
         id: genRowId(),
