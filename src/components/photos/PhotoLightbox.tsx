@@ -44,7 +44,7 @@ export default function PhotoLightbox({ photos, currentIndex, onClose, onNavigat
           onClick={(e) => e.stopPropagation()}
         >
           {/* Title bar */}
-          <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
+          <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
             <h2 className="text-lg font-semibold text-gray-900">
               Image Preview
               {photos.length > 1 && (

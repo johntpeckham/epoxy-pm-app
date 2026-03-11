@@ -155,7 +155,7 @@ export default function DocumentUploadModal({
     <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
       <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
+        <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">{label}</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
@@ -306,7 +306,7 @@ export default function DocumentUploadModal({
         </div>
 
         {/* Footer */}
-        <div className="flex-none flex gap-3 p-4 md:pb-6 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <button
             onClick={onClose}
             className="w-full border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
@@ -320,7 +320,7 @@ export default function DocumentUploadModal({
       {previewDoc && isPdf(previewDoc) && (
         <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setPreviewDoc(null)}>
           <div className="mt-auto md:m-4 w-full md:w-[calc(100vw-2rem)] md:h-[calc(100vh-2rem)] h-full bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
+            <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
               <span className="truncate text-sm font-semibold text-gray-900">{previewDoc.file_name}</span>
               <button
                 onClick={() => setPreviewDoc(null)}
@@ -345,7 +345,7 @@ export default function DocumentUploadModal({
       {previewDoc && !isPdf(previewDoc) && (
         <div className="fixed inset-0 z-[70] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setPreviewDoc(null)}>
           <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
+            <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
               <div className="flex items-center gap-2 min-w-0">
                 <FileTextIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
                 <p className="text-sm font-semibold text-gray-900 truncate">{previewDoc.file_name}</p>

@@ -303,7 +303,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
       <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setMainOpen(false)}>
         <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-3xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
-          <div className="flex-none flex items-center justify-between px-6 border-b" style={{ minHeight: '56px' }}>
+          <div className="flex-none flex items-center justify-between px-6 border-b border-gray-200" style={{ minHeight: '56px' }}>
             <div className="flex items-center gap-2">
               <UsersIcon className="w-5 h-5 text-gray-400" />
               <h2 className="text-lg font-semibold text-gray-900">User Management</h2>
@@ -464,7 +464,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
         <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={closeEditModal}>
           <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
+            <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
               <h3 className="text-lg font-semibold text-gray-900">Edit User</h3>
               <button
                 onClick={closeEditModal}
@@ -659,7 +659,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
             </div>
 
             {/* Footer */}
-            <div className="flex-none flex items-center justify-end gap-2 p-4 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+            <div className="flex-none flex items-center justify-end gap-2 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
               <button
                 onClick={closeEditModal}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition"

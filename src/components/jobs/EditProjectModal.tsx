@@ -50,7 +50,7 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
     <Portal>
     <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
       <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
+        <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
           <h2 className="text-lg font-semibold text-gray-900">Edit Project</h2>
           <button
             onClick={onClose}
@@ -133,7 +133,7 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
             </div>
           </div>
 
-          <div className="flex-none flex gap-3 p-4 md:pb-6 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
             <button
               type="button"
               onClick={onClose}

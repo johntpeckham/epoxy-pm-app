@@ -154,7 +154,7 @@ export default function SettingsModal({ settings, userId, onSave, onClose }: Set
             />
           </div>
         </div>
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-200">
+        <div className="flex justify-end gap-2 px-5 py-4 pb-6 border-t border-gray-200">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"

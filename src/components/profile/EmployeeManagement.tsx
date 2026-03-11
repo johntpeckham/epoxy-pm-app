@@ -333,7 +333,7 @@ export default function EmployeeManagement() {
       <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setMainOpen(false)}>
         <div className="mt-auto md:my-auto md:mx-auto w-full md:w-[90vw] md:max-w-[90vw] h-full md:h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
-          <div className="flex-none flex items-center justify-between px-6 border-b" style={{ minHeight: '56px' }}>
+          <div className="flex-none flex items-center justify-between px-6 border-b border-gray-200" style={{ minHeight: '56px' }}>
             <div className="flex items-center gap-2">
               <UsersIcon className="w-5 h-5 text-gray-400" />
               <h2 className="text-lg font-semibold text-gray-900">Employee Management</h2>
@@ -435,7 +435,7 @@ export default function EmployeeManagement() {
             >
               {/* Header */}
               <div
-                className="flex-none flex items-center justify-between px-4 border-b"
+                className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
                 style={{ minHeight: '56px' }}
               >
                 <h3 className="text-lg font-semibold text-gray-900">Employee Settings</h3>
@@ -557,7 +557,7 @@ export default function EmployeeManagement() {
             >
               {/* Header */}
               <div
-                className="flex-none flex items-center justify-between px-4 border-b"
+                className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
                 style={{ minHeight: '56px' }}
               >
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -722,7 +722,7 @@ export default function EmployeeManagement() {
 
                 {/* Footer */}
                 <div
-                  className="flex-none flex items-center justify-end gap-2 p-4 border-t"
+                  className="flex-none flex items-center justify-end gap-2 p-4 md:pb-6 border-t border-gray-200"
                   style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
                 >
                   <button

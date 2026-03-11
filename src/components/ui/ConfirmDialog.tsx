@@ -24,7 +24,7 @@ export default function ConfirmDialog({
     <Portal>
     <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onCancel}>
       <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
+        <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
         </div>
         <div className="flex-1 overflow-y-auto p-4 md:p-6 min-h-0">
@@ -35,7 +35,7 @@ export default function ConfirmDialog({
             <p className="text-sm text-gray-500 mt-1">{message}</p>
           </div>
         </div>
-        <div className="flex-none flex gap-3 justify-end p-4 md:pb-6 border-t" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="flex-none flex gap-3 justify-end p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <button
             onClick={onCancel}
             disabled={loading}
