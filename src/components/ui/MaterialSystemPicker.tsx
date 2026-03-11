@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { PlusIcon, XIcon } from 'lucide-react'
-import type { MaterialSystem } from '@/lib/useMaterialSystems'
+import { PlusIcon, XIcon, SettingsIcon } from 'lucide-react'
+import type { MaterialSystem, MaterialSystemInput } from '@/lib/useMaterialSystems'
+import MaterialSystemFormModal from './MaterialSystemFormModal'
+import type { MaterialSystemFormState } from './MaterialSystemFormModal'
 
 export interface MaterialSystemItemRow {
   material_name: string
@@ -22,7 +24,8 @@ interface MaterialSystemPickerProps {
   rows: MaterialSystemRow[]
   onChange: (rows: MaterialSystemRow[]) => void
   systems: MaterialSystem[]
-  onAddNew: (input: { name: string }) => Promise<MaterialSystem | null>
+  onAddNew: (input: MaterialSystemInput) => Promise<MaterialSystem | null>
+  onUpdateSystem: (id: string, input: MaterialSystemInput) => Promise<void>
   readOnly?: boolean
   showQuantity?: boolean
 }
@@ -31,26 +34,39 @@ function genRowId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
+function systemToRow(system: MaterialSystem): MaterialSystemRow {
+  return {
+    id: genRowId(),
+    systemName: system.name,
+    notes: system.notes ?? '',
+    items: system.items.map((item) => ({
+      material_name: item.material_name,
+      unit_size: item.unit_size ?? '',
+      coverage_rate: item.coverage_rate ?? '',
+      quantity: '',
+    })),
+  }
+}
+
 export default function MaterialSystemPicker({
   rows,
   onChange,
   systems,
   onAddNew,
+  onUpdateSystem,
   readOnly = false,
   showQuantity = false,
 }: MaterialSystemPickerProps) {
   const [showDropdown, setShowDropdown] = useState(false)
-  const [showNewInput, setShowNewInput] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editingSystem, setEditingSystem] = useState<MaterialSystem | null>(null)
+  const [editingRowId, setEditingRowId] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowDropdown(false)
-        setShowNewInput(false)
-        setNewName('')
       }
     }
     if (showDropdown) document.addEventListener('mousedown', handleClick)
@@ -58,43 +74,68 @@ export default function MaterialSystemPicker({
   }, [showDropdown])
 
   function selectSystem(system: MaterialSystem) {
-    const newRow: MaterialSystemRow = {
-      id: genRowId(),
-      systemName: system.name,
-      notes: system.notes ?? '',
-      items: system.items.map((item) => ({
-        material_name: item.material_name,
-        unit_size: item.unit_size ?? '',
-        coverage_rate: item.coverage_rate ?? '',
-        quantity: '',
-      })),
-    }
-    onChange([...rows, newRow])
+    onChange([...rows, systemToRow(system)])
     setShowDropdown(false)
   }
 
-  async function handleAddNew() {
-    if (!newName.trim()) return
-    setSaving(true)
-    const result = await onAddNew({ name: newName.trim() })
-    if (result) {
-      const newRow: MaterialSystemRow = {
-        id: genRowId(),
-        systemName: result.name,
-        notes: result.notes ?? '',
-        items: result.items.map((item) => ({
-          material_name: item.material_name,
-          unit_size: item.unit_size ?? '',
-          coverage_rate: item.coverage_rate ?? '',
-          quantity: '',
-        })),
-      }
-      onChange([...rows, newRow])
+  async function handleAddNewSave(form: MaterialSystemFormState) {
+    const input: MaterialSystemInput = {
+      name: form.name,
+      notes: form.notes,
+      items: form.items.map((i, idx) => ({
+        material_name: i.material_name,
+        unit_size: i.unit_size,
+        coverage_rate: i.coverage_rate,
+        sort_order: idx,
+      })),
     }
-    setSaving(false)
-    setNewName('')
-    setShowNewInput(false)
+    const result = await onAddNew(input)
+    if (result) {
+      onChange([...rows, systemToRow(result)])
+    }
+    setShowAddModal(false)
     setShowDropdown(false)
+  }
+
+  async function handleEditSave(form: MaterialSystemFormState) {
+    if (!editingSystem) return
+    const input: MaterialSystemInput = {
+      name: form.name,
+      notes: form.notes,
+      items: form.items.map((i, idx) => ({
+        material_name: i.material_name,
+        unit_size: i.unit_size,
+        coverage_rate: i.coverage_rate,
+        sort_order: idx,
+      })),
+    }
+    await onUpdateSystem(editingSystem.id, input)
+    // Refresh the row in the current form to reflect updated system data
+    if (editingRowId) {
+      onChange(rows.map((r) => {
+        if (r.id !== editingRowId) return r
+        return {
+          ...r,
+          systemName: form.name,
+          notes: form.notes,
+          items: form.items.map((i) => ({
+            material_name: i.material_name,
+            unit_size: i.unit_size,
+            coverage_rate: i.coverage_rate,
+            quantity: r.items.find((ri) => ri.material_name === i.material_name)?.quantity ?? '',
+          })),
+        }
+      }))
+    }
+    setEditingSystem(null)
+    setEditingRowId(null)
+  }
+
+  function openEditModal(row: MaterialSystemRow) {
+    const system = systems.find((s) => s.name === row.systemName)
+    if (!system) return
+    setEditingSystem(system)
+    setEditingRowId(row.id)
   }
 
   function updateRow(rowId: string, updates: Partial<MaterialSystemRow>) {
@@ -128,19 +169,28 @@ export default function MaterialSystemPicker({
           <div className="flex items-center justify-between px-3 py-2 bg-gray-100/60 border-b border-gray-200">
             <span className="text-sm font-semibold text-gray-900">{row.systemName}</span>
             {!readOnly && (
-              <button
-                onClick={() => removeRow(row.id)}
-                className="text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <XIcon className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => openEditModal(row)}
+                  className="text-gray-400 hover:text-amber-600 transition-colors"
+                  title="Edit system"
+                >
+                  <SettingsIcon className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => removeRow(row.id)}
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                  title="Remove"
+                >
+                  <XIcon className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </div>
 
           {/* Material items */}
           {row.items.length > 0 && (
             <div className="divide-y divide-gray-100">
-              {/* Column headers */}
               <div className={`grid gap-2 px-3 py-1.5 ${showQuantity ? 'grid-cols-4' : 'grid-cols-3'}`}>
                 <span className="text-[10px] font-medium text-gray-500">Material</span>
                 <span className="text-[10px] font-medium text-gray-500">Unit Size</span>
@@ -206,51 +256,48 @@ export default function MaterialSystemPicker({
                   )}
                 </button>
               ))}
-              {availableSystems.length === 0 && !showNewInput && (
+              {availableSystems.length === 0 && (
                 <div className="px-3 py-2 text-xs text-gray-400">No systems available</div>
               )}
-              {!showNewInput ? (
-                <button
-                  onClick={() => setShowNewInput(true)}
-                  className="w-full text-left px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 border-t border-gray-100 transition-colors flex items-center gap-1"
-                >
-                  <PlusIcon className="w-3.5 h-3.5" />
-                  Add New
-                </button>
-              ) : (
-                <div className="p-2 border-t border-gray-100">
-                  <input
-                    type="text"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="System name..."
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddNew()
-                      if (e.key === 'Escape') { setShowNewInput(false); setNewName('') }
-                    }}
-                  />
-                  <div className="flex justify-end gap-1.5 mt-1.5">
-                    <button
-                      onClick={() => { setShowNewInput(false); setNewName('') }}
-                      className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleAddNew}
-                      disabled={!newName.trim() || saving}
-                      className="px-2 py-1 text-xs font-medium text-white bg-amber-500 rounded hover:bg-amber-600 disabled:opacity-50"
-                    >
-                      {saving ? 'Saving...' : 'Save'}
-                    </button>
-                  </div>
-                </div>
-              )}
+              <button
+                onClick={() => { setShowAddModal(true); setShowDropdown(false) }}
+                className="w-full text-left px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 border-t border-gray-100 transition-colors flex items-center gap-1"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                Add New
+              </button>
             </div>
           )}
         </div>
+      )}
+
+      {/* Add New modal */}
+      {showAddModal && (
+        <MaterialSystemFormModal
+          title="Add Material System"
+          onSave={handleAddNewSave}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
+
+      {/* Edit system modal */}
+      {editingSystem && (
+        <MaterialSystemFormModal
+          title="Edit Material System"
+          initial={{
+            name: editingSystem.name,
+            notes: editingSystem.notes ?? '',
+            items: editingSystem.items.length > 0
+              ? editingSystem.items.map((i) => ({
+                  material_name: i.material_name,
+                  unit_size: i.unit_size ?? '',
+                  coverage_rate: i.coverage_rate ?? '',
+                }))
+              : [{ material_name: '', unit_size: '', coverage_rate: '' }],
+          }}
+          onSave={handleEditSave}
+          onClose={() => { setEditingSystem(null); setEditingRowId(null) }}
+        />
       )}
     </div>
   )

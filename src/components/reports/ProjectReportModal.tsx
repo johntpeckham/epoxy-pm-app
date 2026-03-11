@@ -104,7 +104,7 @@ export default function ProjectReportModal({
   const [error, setError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
-  const { systems: materialSystems, addSystem: addMaterialSystem } = useMaterialSystems()
+  const { systems: materialSystems, addSystem: addMaterialSystem, updateSystem: updateMaterialSystem } = useMaterialSystems()
   const [materialRows, setMaterialRows] = useState<MaterialSystemRow[]>([])
 
   const projectDefaults: Partial<ProjectReportData> = {
@@ -292,13 +292,13 @@ export default function ProjectReportModal({
     return customValues[contentKey] ?? ''
   }
 
-  // IDs for the old static Material System fields to skip
   // Skip all old static Material System 1/2/3 and Material Quantities 1/2/3 fields
   const MATERIAL_SYSTEM_SKIP_IDS = new Set(['pr-49', 'pr-50', 'pr-51', 'pr-52', 'pr-53', 'pr-54', 'pr-55'])
+  const MATERIAL_SYSTEM_SKIP_LABELS = /^Material (System|Quantities) \d$/
 
   function renderField(field: FormField) {
-    // Skip the old static Material System 1/2/3 fields
     if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) return null
+    if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) return null
 
     if (field.type === 'section_header') {
       // Replace the Material System section header with the dynamic picker
@@ -316,6 +316,7 @@ export default function ProjectReportModal({
               onChange={setMaterialRows}
               systems={materialSystems}
               onAddNew={addMaterialSystem}
+              onUpdateSystem={updateMaterialSystem}
               readOnly={readOnly}
               showQuantity
             />
