@@ -28,9 +28,17 @@ async function getPdfjs() {
   return pdfjsLib
 }
 
-const ITEM_COLORS = [
-  '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
-  '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#a855f7',
+export const ITEM_COLORS = [
+  '#3b82f6', // Blue
+  '#ef4444', // Red
+  '#22c55e', // Green
+  '#f97316', // Orange
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+  '#eab308', // Yellow
+  '#a16207', // Brown
+  '#6b7280', // Gray
 ]
 
 let nextColorIdx = 0
@@ -710,12 +718,16 @@ export default function TakeoffViewer({
   }
 
   // ─── Item management ───
-  function handleAddItem(name: string, type: MeasurementType) {
-    const newItem: TakeoffItem = { id: genId(), name, type, measurements: [], color: getNextColor() }
+  function handleAddItem(name: string, type: MeasurementType, color?: string) {
+    const newItem: TakeoffItem = { id: genId(), name, type, measurements: [], color: color || getNextColor() }
     onItemsChange([...items, newItem])
     setActiveItemId(newItem.id)
     setActiveTool(type === 'linear' ? 'linear' : 'area-polygon')
     setTempPoints([])
+  }
+
+  function handleChangeItemColor(id: string, color: string) {
+    onItemsChange(items.map(i => (i.id === id ? { ...i, color } : i)))
   }
 
   function handleSelectItem(id: string) {
@@ -1338,6 +1350,7 @@ export default function TakeoffViewer({
           onAddItem={handleAddItem}
           onDeleteItem={handleDeleteItem}
           onRenameItem={handleRenameItem}
+          onChangeItemColor={handleChangeItemColor}
           onDeleteMeasurement={handleDeleteMeasurement}
         />
       </div>
