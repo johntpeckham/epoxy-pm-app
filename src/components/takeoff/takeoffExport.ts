@@ -1,5 +1,4 @@
 import type { TakeoffPage, TakeoffItem, Point } from './types'
-import { ITEM_COLORS } from './TakeoffViewer'
 import jsPDF from 'jspdf'
 
 // ─── Lazy pdfjs (same approach as TakeoffViewer) ───
@@ -46,7 +45,16 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   }
 }
 
-// ─── Render a PDF page to a canvas ───
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes.buffer
+}
+
+// ─── Render a PDF page to a canvas at EXPORT_SCALE ───
 
 const EXPORT_SCALE = 2
 
@@ -68,13 +76,47 @@ async function renderPdfPageToCanvas(
   return { canvas, rawW: rawVp.width, rawH: rawVp.height }
 }
 
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes.buffer
+// ─── Coordinate mapping ───
+//
+// Measurement points are stored in "canvas CSS space":
+//   storedX ∈ [0, canvasSize.w]  where canvasSize.w = rawPdfW * fitScale
+//   fitScale = min(containerW / rawPdfW, containerH / rawPdfH) * 0.92
+//
+// To draw on the export canvas (rawPdfW * EXPORT_SCALE pixels wide):
+//   1. Normalize: normalizedX = storedX / canvasSize.w   (range 0..1)
+//   2. Scale:     exportX = normalizedX * exportCanvasW
+//   Combined:     exportX = storedX * (exportCanvasW / canvasSize.w)
+//                         = storedX * scaleFactor
+//
+// canvasSize.w is provided by pageRenderedSizes (stored when viewer renders).
+// When not available (legacy data), we estimate the viewer container dimensions
+// from the current window size, matching the TakeoffViewer layout:
+//   - Viewer overlay starts at left-56 (224px) on lg screens
+//   - Measurement sidebar is 260px wide
+//   - Toolbar is ~36px tall
+//   - Canvas container is the remaining space
+
+function estimateCanvasSize(rawW: number, rawH: number): { w: number; h: number } {
+  // Estimate what the viewer container dimensions would be.
+  // Viewer layout: fixed overlay from left:224px, contains toolbar + (canvas + 260px sidebar)
+  const winW = typeof window !== 'undefined' ? window.innerWidth : 1400
+  const winH = typeof window !== 'undefined' ? window.innerHeight : 900
+  const containerW = Math.max(400, winW - 224 - 260)
+  const containerH = Math.max(300, winH - 100) // toolbar + banners
+  const fitScale = Math.min(containerW / rawW, containerH / rawH) * 0.92
+  return { w: rawW * fitScale, h: rawH * fitScale }
+}
+
+function computeScaleFactor(
+  rawW: number,
+  rawH: number,
+  storedCanvasSize: { w: number; h: number } | undefined,
+): number {
+  const exportW = rawW * EXPORT_SCALE
+  const canvasW = (storedCanvasSize && storedCanvasSize.w > 0)
+    ? storedCanvasSize.w
+    : estimateCanvasSize(rawW, rawH).w
+  return exportW / canvasW
 }
 
 // ─── Draw measurements onto a canvas ───
@@ -83,9 +125,9 @@ function drawMeasurementsOnCanvas(
   ctx: CanvasRenderingContext2D,
   items: TakeoffItem[],
   pageKey: string,
-  sf: number, // scale factor from stored coords → export coords
+  sf: number, // scaleFactor: storedCoord * sf = exportCoord
 ) {
-  const sw = 2 * sf < 2 ? 2 : 2 * sf // min 2px stroke
+  const sw = Math.max(2, 2 * sf)
   const fontSize = Math.max(12, 12 * sf)
   const cr = Math.max(4, 4 * sf)
 
@@ -276,23 +318,6 @@ function drawLegend(
   })
 }
 
-// ─── Compute scale factor from stored coordinates → export coordinates ───
-
-function computeScaleFactor(
-  rawW: number,
-  rawH: number,
-  storedCanvasSize: { w: number; h: number } | undefined,
-): number {
-  const exportW = rawW * EXPORT_SCALE
-  if (storedCanvasSize && storedCanvasSize.w > 0) {
-    return exportW / storedCanvasSize.w
-  }
-  // Fallback: estimate using typical container size
-  const estFitScale = Math.min(1100 / rawW, 750 / rawH) * 0.92
-  const estCanvasW = rawW * estFitScale
-  return exportW / estCanvasW
-}
-
 // ─── Render a page with measurements to a data URL ───
 
 async function renderPageComposite(
@@ -322,7 +347,7 @@ export async function exportSinglePage(
   storedCanvasSize: { w: number; h: number } | undefined,
   projectName: string,
 ): Promise<void> {
-  const { dataUrl, rawW, rawH, exportW, exportH } = await renderPageComposite(
+  const { dataUrl, rawW, rawH } = await renderPageComposite(
     page, items, pageKey, storedCanvasSize,
   )
 
