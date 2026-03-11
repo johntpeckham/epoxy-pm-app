@@ -1106,7 +1106,7 @@ function InlinePdfPost({ content }: { content: PdfContent }) {
         <div className="fixed inset-0 z-[70] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setShowPreview(false)}>
           <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Title bar */}
-            <div className="flex-none flex items-center justify-between px-4 border-b" style={{ minHeight: '56px' }}>
+            <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900 truncate">{content.filename}</h2>
               <button
                 onClick={() => setShowPreview(false)}

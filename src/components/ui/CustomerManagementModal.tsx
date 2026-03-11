@@ -169,7 +169,7 @@ export default function CustomerManagementModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex-none flex items-center justify-between px-6 border-b" style={{ minHeight: '56px' }}>
+          <div className="flex-none flex items-center justify-between px-6 border-b border-gray-200" style={{ minHeight: '56px' }}>
             <div className="flex items-center gap-2">
               <UsersIcon className="w-5 h-5 text-gray-400" />
               <h2 className="text-lg font-semibold text-gray-900">Customer Management</h2>
@@ -364,7 +364,7 @@ export default function CustomerManagementModal({
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-200">
+            <div className="flex justify-end gap-2 px-5 py-4 pb-6 border-t border-gray-200">
               <button
                 onClick={() => setEditModalOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"
