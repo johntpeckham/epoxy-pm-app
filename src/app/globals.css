@@ -29,10 +29,14 @@ body {
   }
 }
 
-/* Modal positioning below mobile header (below Tailwind md: breakpoint) */
+/* Modal positioning — full-screen on mobile, centered on desktop */
 @media (max-width: 767px) {
   .modal-below-header {
-    top: calc(3.5rem + env(safe-area-inset-top, 0px)) !important;
+    top: 0 !important;
+  }
+  /* Push modal content below the iOS safe area (notch / status bar) */
+  .modal-below-header > * {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 }
 @media (min-width: 768px) {
