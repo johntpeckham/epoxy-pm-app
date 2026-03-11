@@ -20,12 +20,18 @@ export interface LineItem {
   amount: number
 }
 
+export interface MaterialSystemItemRow {
+  material_name: string
+  unit_size: string
+  coverage_rate: string
+  quantity: string
+}
+
 export interface MaterialSystemRow {
   id: string
   systemName: string
-  quantity: string
-  coverageRate: string
   notes: string
+  items: MaterialSystemItemRow[]
 }
 
 export interface Estimate {

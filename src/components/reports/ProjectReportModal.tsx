@@ -11,7 +11,8 @@ import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import Portal from '@/components/ui/Portal'
 import { useMaterialSystems } from '@/lib/useMaterialSystems'
-import MaterialSystemPicker, { type MaterialSystemRow } from '@/components/ui/MaterialSystemPicker'
+import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
+import type { MaterialSystemRow } from '@/components/ui/MaterialSystemPicker'
 
 interface ProjectReportModalProps {
   projectId: string
@@ -67,12 +68,6 @@ const emptyReport: ProjectReportData = {
   vehicles: '',
   trailers: '',
   travel_notes: '',
-  material_system_1: '',
-  material_system_2: '',
-  material_system_3: '',
-  material_quantities_1: '',
-  material_quantities_2: '',
-  material_quantities_3: '',
   prep_method: '',
   prep_removal: '',
   patching_materials: '',
@@ -298,7 +293,8 @@ export default function ProjectReportModal({
   }
 
   // IDs for the old static Material System fields to skip
-  const MATERIAL_SYSTEM_SKIP_IDS = new Set(['pr-49', 'pr-50', 'pr-51'])
+  // Skip all old static Material System 1/2/3 and Material Quantities 1/2/3 fields
+  const MATERIAL_SYSTEM_SKIP_IDS = new Set(['pr-49', 'pr-50', 'pr-51', 'pr-52', 'pr-53', 'pr-54', 'pr-55'])
 
   function renderField(field: FormField) {
     // Skip the old static Material System 1/2/3 fields
@@ -306,11 +302,14 @@ export default function ProjectReportModal({
 
     if (field.type === 'section_header') {
       // Replace the Material System section header with the dynamic picker
+      // Skip the Material Quantities section header (replaced by dynamic picker)
+      if (field.id === 'pr-52' || field.label === 'Material Quantities') return null
+
       if (field.id === 'pr-48' || field.label === 'Material System') {
         return (
           <div key={field.id}>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
-              {field.label}
+              Material Quantities
             </h3>
             <MaterialSystemPicker
               rows={materialRows}
@@ -318,6 +317,7 @@ export default function ProjectReportModal({
               systems={materialSystems}
               onAddNew={addMaterialSystem}
               readOnly={readOnly}
+              showQuantity
             />
           </div>
         )

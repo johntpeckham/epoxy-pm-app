@@ -4,12 +4,18 @@ import { useState, useRef, useEffect } from 'react'
 import { PlusIcon, XIcon } from 'lucide-react'
 import type { MaterialSystem } from '@/lib/useMaterialSystems'
 
+export interface MaterialSystemItemRow {
+  material_name: string
+  unit_size: string
+  coverage_rate: string
+  quantity: string
+}
+
 export interface MaterialSystemRow {
   id: string
   systemName: string
-  quantity: string
-  coverageRate: string
   notes: string
+  items: MaterialSystemItemRow[]
 }
 
 interface MaterialSystemPickerProps {
@@ -18,6 +24,7 @@ interface MaterialSystemPickerProps {
   systems: MaterialSystem[]
   onAddNew: (input: { name: string }) => Promise<MaterialSystem | null>
   readOnly?: boolean
+  showQuantity?: boolean
 }
 
 function genRowId(): string {
@@ -30,6 +37,7 @@ export default function MaterialSystemPicker({
   systems,
   onAddNew,
   readOnly = false,
+  showQuantity = false,
 }: MaterialSystemPickerProps) {
   const [showDropdown, setShowDropdown] = useState(false)
   const [showNewInput, setShowNewInput] = useState(false)
@@ -37,7 +45,6 @@ export default function MaterialSystemPicker({
   const [saving, setSaving] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -54,9 +61,13 @@ export default function MaterialSystemPicker({
     const newRow: MaterialSystemRow = {
       id: genRowId(),
       systemName: system.name,
-      quantity: '',
-      coverageRate: '',
-      notes: '',
+      notes: system.notes ?? '',
+      items: system.items.map((item) => ({
+        material_name: item.material_name,
+        unit_size: item.unit_size ?? '',
+        coverage_rate: item.coverage_rate ?? '',
+        quantity: '',
+      })),
     }
     onChange([...rows, newRow])
     setShowDropdown(false)
@@ -70,9 +81,13 @@ export default function MaterialSystemPicker({
       const newRow: MaterialSystemRow = {
         id: genRowId(),
         systemName: result.name,
-        quantity: '',
-        coverageRate: '',
-        notes: '',
+        notes: result.notes ?? '',
+        items: result.items.map((item) => ({
+          material_name: item.material_name,
+          unit_size: item.unit_size ?? '',
+          coverage_rate: item.coverage_rate ?? '',
+          quantity: '',
+        })),
       }
       onChange([...rows, newRow])
     }
@@ -86,23 +101,32 @@ export default function MaterialSystemPicker({
     onChange(rows.map((r) => (r.id === rowId ? { ...r, ...updates } : r)))
   }
 
+  function updateItemInRow(rowId: string, itemIdx: number, updates: Partial<MaterialSystemItemRow>) {
+    onChange(rows.map((r) => {
+      if (r.id !== rowId) return r
+      const items = [...r.items]
+      items[itemIdx] = { ...items[itemIdx], ...updates }
+      return { ...r, items }
+    }))
+  }
+
   function removeRow(rowId: string) {
     onChange(rows.filter((r) => r.id !== rowId))
   }
 
-  // Filter out systems already added
   const addedNames = new Set(rows.map((r) => r.systemName))
   const availableSystems = systems.filter((s) => !addedNames.has(s.name))
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {rows.map((row) => (
         <div
           key={row.id}
-          className="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50/50"
+          className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-900">{row.systemName}</span>
+          {/* System header */}
+          <div className="flex items-center justify-between px-3 py-2 bg-gray-100/60 border-b border-gray-200">
+            <span className="text-sm font-semibold text-gray-900">{row.systemName}</span>
             {!readOnly && (
               <button
                 onClick={() => removeRow(row.id)}
@@ -112,40 +136,48 @@ export default function MaterialSystemPicker({
               </button>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Quantity</label>
-              <input
-                type="text"
-                value={row.quantity}
-                onChange={(e) => updateRow(row.id, { quantity: e.target.value })}
-                readOnly={readOnly}
-                placeholder="e.g. 500 sq ft"
-                className={`w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
-              />
+
+          {/* Material items */}
+          {row.items.length > 0 && (
+            <div className="divide-y divide-gray-100">
+              {/* Column headers */}
+              <div className={`grid gap-2 px-3 py-1.5 ${showQuantity ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                <span className="text-[10px] font-medium text-gray-500">Material</span>
+                <span className="text-[10px] font-medium text-gray-500">Unit Size</span>
+                <span className="text-[10px] font-medium text-gray-500">Coverage Rate</span>
+                {showQuantity && <span className="text-[10px] font-medium text-gray-500">Quantity</span>}
+              </div>
+              {row.items.map((item, idx) => (
+                <div key={idx} className={`grid gap-2 px-3 py-1.5 ${showQuantity ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                  <span className="text-sm text-gray-900">{item.material_name}</span>
+                  <span className="text-sm text-gray-600">{item.unit_size || '\u2014'}</span>
+                  <span className="text-sm text-gray-600">{item.coverage_rate || '\u2014'}</span>
+                  {showQuantity && (
+                    <input
+                      type="text"
+                      value={item.quantity}
+                      onChange={(e) => updateItemInRow(row.id, idx, { quantity: e.target.value })}
+                      readOnly={readOnly}
+                      placeholder="Qty"
+                      className={`w-full rounded border border-gray-300 px-2 py-1 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
-            <div>
-              <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Coverage Rate</label>
-              <input
-                type="text"
-                value={row.coverageRate}
-                onChange={(e) => updateRow(row.id, { coverageRate: e.target.value })}
-                readOnly={readOnly}
-                placeholder="e.g. 200 sq ft/gal"
-                className={`w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Notes</label>
-              <input
-                type="text"
-                value={row.notes}
-                onChange={(e) => updateRow(row.id, { notes: e.target.value })}
-                readOnly={readOnly}
-                placeholder="Notes..."
-                className={`w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
-              />
-            </div>
+          )}
+
+          {/* Notes */}
+          <div className="px-3 py-2 border-t border-gray-100">
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Notes</label>
+            <input
+              type="text"
+              value={row.notes}
+              onChange={(e) => updateRow(row.id, { notes: e.target.value })}
+              readOnly={readOnly}
+              placeholder="Notes..."
+              className={`w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
+            />
           </div>
         </div>
       ))}
@@ -168,7 +200,10 @@ export default function MaterialSystemPicker({
                   onClick={() => selectSystem(s)}
                   className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  {s.name}
+                  <span className="font-medium">{s.name}</span>
+                  {s.items.length > 0 && (
+                    <span className="text-xs text-gray-400 ml-1">({s.items.length} materials)</span>
+                  )}
                 </button>
               ))}
               {availableSystems.length === 0 && !showNewInput && (

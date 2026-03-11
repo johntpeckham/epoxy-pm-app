@@ -3,20 +3,28 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+export interface MaterialSystemItem {
+  id: string
+  material_system_id: string
+  material_name: string
+  unit_size: string | null
+  coverage_rate: string | null
+  sort_order: number
+  created_at: string
+}
+
 export interface MaterialSystem {
   id: string
   name: string
-  default_quantity: string | null
-  default_coverage_rate: string | null
-  default_notes: string | null
+  notes: string | null
   created_at: string
+  items: MaterialSystemItem[]
 }
 
 export interface MaterialSystemInput {
   name: string
-  default_quantity?: string
-  default_coverage_rate?: string
-  default_notes?: string
+  notes?: string
+  items?: { material_name: string; unit_size?: string; coverage_rate?: string; sort_order: number }[]
 }
 
 export function useMaterialSystems() {
@@ -25,11 +33,28 @@ export function useMaterialSystems() {
 
   const refetch = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase
+    const { data: systemsData } = await supabase
       .from('material_systems')
       .select('*')
       .order('name')
-    setSystems((data as MaterialSystem[]) ?? [])
+    const { data: itemsData } = await supabase
+      .from('material_system_items')
+      .select('*')
+      .order('sort_order')
+
+    const itemsBySystem = new Map<string, MaterialSystemItem[]>()
+    for (const item of (itemsData ?? []) as MaterialSystemItem[]) {
+      const arr = itemsBySystem.get(item.material_system_id) ?? []
+      arr.push(item)
+      itemsBySystem.set(item.material_system_id, arr)
+    }
+
+    const result: MaterialSystem[] = ((systemsData ?? []) as Omit<MaterialSystem, 'items'>[]).map((s) => ({
+      ...s,
+      items: itemsBySystem.get(s.id) ?? [],
+    }))
+
+    setSystems(result)
     setLoading(false)
   }, [])
 
@@ -39,34 +64,74 @@ export function useMaterialSystems() {
 
   const addSystem = useCallback(async (input: MaterialSystemInput): Promise<MaterialSystem | null> => {
     const supabase = createClient()
-    const row = {
-      name: input.name.trim(),
-      default_quantity: input.default_quantity?.trim() || null,
-      default_coverage_rate: input.default_coverage_rate?.trim() || null,
-      default_notes: input.default_notes?.trim() || null,
-    }
     const { data, error } = await supabase
       .from('material_systems')
-      .insert(row)
+      .insert({ name: input.name.trim(), notes: input.notes?.trim() || null })
       .select()
       .single()
     if (error || !data) return null
-    const newSystem = data as MaterialSystem
+
+    const system = data as Omit<MaterialSystem, 'items'> & { items?: MaterialSystemItem[] }
+    const items: MaterialSystemItem[] = []
+
+    if (input.items && input.items.length > 0) {
+      const itemRows = input.items
+        .filter((i) => i.material_name.trim())
+        .map((i, idx) => ({
+          material_system_id: system.id,
+          material_name: i.material_name.trim(),
+          unit_size: i.unit_size?.trim() || null,
+          coverage_rate: i.coverage_rate?.trim() || null,
+          sort_order: idx,
+        }))
+      if (itemRows.length > 0) {
+        const { data: insertedItems } = await supabase
+          .from('material_system_items')
+          .insert(itemRows)
+          .select()
+        if (insertedItems) items.push(...(insertedItems as MaterialSystemItem[]))
+      }
+    }
+
+    const newSystem: MaterialSystem = { ...system, items }
     setSystems((prev) => [...prev, newSystem].sort((a, b) => a.name.localeCompare(b.name)))
     return newSystem
   }, [])
 
   const updateSystem = useCallback(async (id: string, input: MaterialSystemInput) => {
     const supabase = createClient()
-    const row = {
-      name: input.name.trim(),
-      default_quantity: input.default_quantity?.trim() || null,
-      default_coverage_rate: input.default_coverage_rate?.trim() || null,
-      default_notes: input.default_notes?.trim() || null,
+    await supabase
+      .from('material_systems')
+      .update({ name: input.name.trim(), notes: input.notes?.trim() || null })
+      .eq('id', id)
+
+    // Replace all items: delete existing, insert new
+    await supabase.from('material_system_items').delete().eq('material_system_id', id)
+
+    let items: MaterialSystemItem[] = []
+    const itemRows = (input.items ?? [])
+      .filter((i) => i.material_name.trim())
+      .map((i, idx) => ({
+        material_system_id: id,
+        material_name: i.material_name.trim(),
+        unit_size: i.unit_size?.trim() || null,
+        coverage_rate: i.coverage_rate?.trim() || null,
+        sort_order: idx,
+      }))
+    if (itemRows.length > 0) {
+      const { data: insertedItems } = await supabase
+        .from('material_system_items')
+        .insert(itemRows)
+        .select()
+      if (insertedItems) items = insertedItems as MaterialSystemItem[]
     }
-    await supabase.from('material_systems').update(row).eq('id', id)
+
     setSystems((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...row } : s)).sort((a, b) => a.name.localeCompare(b.name))
+      prev.map((s) =>
+        s.id === id
+          ? { ...s, name: input.name.trim(), notes: input.notes?.trim() || null, items }
+          : s
+      ).sort((a, b) => a.name.localeCompare(b.name))
     )
   }, [])
 
