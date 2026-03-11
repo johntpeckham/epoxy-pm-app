@@ -689,6 +689,7 @@ export default function EstimateEditor({
               systems={allMaterialSystems}
               onAddNew={addMaterialSystem}
               onUpdateSystem={updateMaterialSystem}
+              version="client"
             />
           </div>
 

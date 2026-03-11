@@ -319,6 +319,7 @@ export default function ProjectReportModal({
               onUpdateSystem={updateMaterialSystem}
               readOnly={readOnly}
               showQuantity
+              version="internal"
             />
           </div>
         )

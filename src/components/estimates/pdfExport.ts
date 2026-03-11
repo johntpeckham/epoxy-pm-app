@@ -229,7 +229,9 @@ export function exportEstimatePdf(data: PdfData) {
 
       // Material items table
       if (ms.items && ms.items.length > 0) {
-        const msColW = contentWidth / 3
+        const customCols = ms.custom_columns ?? []
+        const totalCols = 3 + customCols.length
+        const msColW = contentWidth / totalCols
         doc.setDrawColor(217, 119, 6)
         doc.setLineWidth(0.5)
         doc.line(margin, y, margin + contentWidth, y)
@@ -241,6 +243,9 @@ export function exportEstimatePdf(data: PdfData) {
         doc.text('MATERIAL', margin, y + 8)
         doc.text('UNIT SIZE', margin + msColW, y + 8)
         doc.text('COVERAGE RATE', margin + msColW * 2, y + 8)
+        customCols.forEach((colName, i) => {
+          doc.text(colName.toUpperCase(), margin + msColW * (3 + i), y + 8)
+        })
         y += 14
 
         doc.setFont('helvetica', 'normal')
@@ -255,6 +260,9 @@ export function exportEstimatePdf(data: PdfData) {
           doc.text(item.material_name || '', margin, y + 10)
           doc.text(item.unit_size || '', margin + msColW, y + 10)
           doc.text(item.coverage_rate || '', margin + msColW * 2, y + 10)
+          customCols.forEach((colName, i) => {
+            doc.text(item.custom_column_values?.[colName] || '', margin + msColW * (3 + i), y + 10)
+          })
           y += 14
           doc.setDrawColor(230, 230, 230)
           doc.setLineWidth(0.5)

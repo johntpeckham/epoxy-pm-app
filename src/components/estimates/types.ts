@@ -25,6 +25,7 @@ export interface MaterialSystemItemRow {
   unit_size: string
   coverage_rate: string
   quantity: string
+  custom_column_values?: Record<string, string>
 }
 
 export interface MaterialSystemRow {
@@ -32,6 +33,7 @@ export interface MaterialSystemRow {
   systemName: string
   notes: string
   items: MaterialSystemItemRow[]
+  custom_columns?: string[]
 }
 
 export interface Estimate {
