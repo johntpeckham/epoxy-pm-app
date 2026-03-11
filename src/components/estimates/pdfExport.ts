@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf'
+import type { MaterialSystemRow } from './types'
 
 interface PdfData {
   estimateNumber: number
@@ -10,6 +11,7 @@ interface PdfData {
   description: string
   salesperson: string
   lineItems: { description: string; ft: number | null; rate: number | null; amount: number }[]
+  materialSystems: MaterialSystemRow[]
   subtotal: number
   tax: number
   total: number
@@ -198,6 +200,56 @@ export function exportEstimatePdf(data: PdfData) {
   doc.text(fmtMoney(data.total), margin + contentWidth, y + 14, { align: 'right' })
 
   y += 32
+
+  // ─── Material Systems ───
+  if (data.materialSystems && data.materialSystems.length > 0) {
+    if (y > 620) {
+      doc.addPage()
+      y = margin
+    }
+
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(146, 64, 14) // amber-800
+    doc.text('MATERIAL SYSTEMS', margin, y)
+    y += 14
+
+    // Table header
+    doc.setDrawColor(217, 119, 6) // amber-600
+    doc.setLineWidth(1)
+    doc.line(margin, y, margin + contentWidth, y)
+    y += 2
+
+    const msColW = contentWidth / 4
+    doc.setFontSize(7)
+    doc.text('SYSTEM', margin, y + 8)
+    doc.text('QUANTITY', margin + msColW, y + 8)
+    doc.text('COVERAGE RATE', margin + msColW * 2, y + 8)
+    doc.text('NOTES', margin + msColW * 3, y + 8)
+    y += 14
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(0, 0, 0)
+
+    for (const ms of data.materialSystems) {
+      if (y > 700) {
+        doc.addPage()
+        y = margin
+      }
+      doc.text(ms.systemName || '', margin, y + 10)
+      doc.text(ms.quantity || '', margin + msColW, y + 10)
+      doc.text(ms.coverageRate || '', margin + msColW * 2, y + 10)
+      doc.text(ms.notes || '', margin + msColW * 3, y + 10)
+      y += 16
+      doc.setDrawColor(230, 230, 230)
+      doc.setLineWidth(0.5)
+      doc.line(margin, y, margin + contentWidth, y)
+      y += 4
+    }
+
+    y += 12
+  }
 
   // ─── Terms ───
   if (y > 620) {

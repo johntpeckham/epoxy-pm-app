@@ -10,6 +10,8 @@ import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import Portal from '@/components/ui/Portal'
+import { useMaterialSystems } from '@/lib/useMaterialSystems'
+import MaterialSystemPicker, { type MaterialSystemRow } from '@/components/ui/MaterialSystemPicker'
 
 interface ProjectReportModalProps {
   projectId: string
@@ -107,6 +109,8 @@ export default function ProjectReportModal({
   const [error, setError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
+  const { systems: materialSystems, addSystem: addMaterialSystem } = useMaterialSystems()
+  const [materialRows, setMaterialRows] = useState<MaterialSystemRow[]>([])
 
   const projectDefaults: Partial<ProjectReportData> = {
     project_name: projectName,
@@ -126,16 +130,20 @@ export default function ProjectReportModal({
     if (fetchError) {
       setError(fetchError.message)
     } else if (data) {
-      const savedData = data.data as Record<string, string>
+      const savedData = data.data as Record<string, unknown>
       setFormData({ ...emptyReport, ...(savedData as unknown as ProjectReportData) })
       // Load custom field values (keys not in the known set)
       const custom: Record<string, string> = {}
       for (const [key, val] of Object.entries(savedData)) {
-        if (!KNOWN_KEYS.has(key) && typeof val === 'string') {
+        if (!KNOWN_KEYS.has(key) && key !== 'material_system_rows' && typeof val === 'string') {
           custom[key] = val
         }
       }
       setCustomValues(custom)
+      // Load material system rows
+      if (Array.isArray(savedData.material_system_rows)) {
+        setMaterialRows(savedData.material_system_rows as MaterialSystemRow[])
+      }
     } else {
       setFormData({ ...emptyReport, ...projectDefaults })
     }
@@ -162,15 +170,20 @@ export default function ProjectReportModal({
 
     const supabase = createClient()
     // Merge known fields with custom field values
-    const mergedData: Record<string, string> = { ...formData }
+    const mergedData: Record<string, unknown> = { ...formData }
     for (const [key, val] of Object.entries(customValues)) {
       if (typeof val === 'string' && val.trim()) {
         mergedData[key] = val.trim()
       }
     }
+    // Save material system rows
+    mergedData.material_system_rows = materialRows
 
     // Build dynamic fields for custom fields added via Form Management
-    const allValues: Record<string, string> = { ...mergedData }
+    const allValues: Record<string, string> = {}
+    for (const [key, val] of Object.entries(mergedData)) {
+      if (typeof val === 'string') allValues[key] = val
+    }
     for (const [key, val] of Object.entries(customValues)) {
       allValues[key] = val
     }
@@ -284,8 +297,32 @@ export default function ProjectReportModal({
     return customValues[contentKey] ?? ''
   }
 
+  // IDs for the old static Material System fields to skip
+  const MATERIAL_SYSTEM_SKIP_IDS = new Set(['pr-49', 'pr-50', 'pr-51'])
+
   function renderField(field: FormField) {
+    // Skip the old static Material System 1/2/3 fields
+    if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) return null
+
     if (field.type === 'section_header') {
+      // Replace the Material System section header with the dynamic picker
+      if (field.id === 'pr-48' || field.label === 'Material System') {
+        return (
+          <div key={field.id}>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
+              {field.label}
+            </h3>
+            <MaterialSystemPicker
+              rows={materialRows}
+              onChange={setMaterialRows}
+              systems={materialSystems}
+              onAddNew={addMaterialSystem}
+              readOnly={readOnly}
+            />
+          </div>
+        )
+      }
+
       return (
         <div key={field.id}>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
