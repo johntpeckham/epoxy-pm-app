@@ -13,6 +13,7 @@ import type {
   TakeoffPage,
 } from './types'
 import { ArrowLeftIcon, AlertTriangleIcon } from 'lucide-react'
+import { exportSinglePage } from './takeoffExport'
 
 // Lazy-loaded pdfjs-dist to avoid SSR DOMMatrix errors
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -107,11 +108,14 @@ interface TakeoffViewerProps {
   items: TakeoffItem[]
   markups: Markup[]
   isFullscreen: boolean
+  pageRenderedSizes: Record<string, { w: number; h: number }>
+  projectName: string
   onBack: () => void
   onPageScaleChange: (pixelsPerFoot: number) => void
   onItemsChange: (items: TakeoffItem[]) => void
   onMarkupsChange: (markups: Markup[]) => void
   onToggleFullscreen: () => void
+  onCanvasSizeChange: (pageKey: string, size: { w: number; h: number }) => void
 }
 
 export default function TakeoffViewer({
@@ -120,11 +124,14 @@ export default function TakeoffViewer({
   items,
   markups,
   isFullscreen,
+  pageRenderedSizes,
+  projectName,
   onBack,
   onPageScaleChange,
   onItemsChange,
   onMarkupsChange,
   onToggleFullscreen,
+  onCanvasSizeChange,
 }: TakeoffViewerProps) {
   const pageKey = `${page.pdfIndex}-${page.pageIndex}`
   const scaleCalibrated = pageScale !== undefined
@@ -150,6 +157,9 @@ export default function TakeoffViewer({
   const panYRef = useRef(0)
   useEffect(() => { panXRef.current = panX }, [panX])
   useEffect(() => { panYRef.current = panY }, [panY])
+
+  // ─── Download state ───
+  const [isDownloading, setIsDownloading] = useState(false)
 
   // ─── Drag tracking ───
   const isDraggingRef = useRef(false)
@@ -425,6 +435,7 @@ export default function TakeoffViewer({
 
       if (cancelled) return
       setCanvasSize({ w: cssW, h: cssH })
+      onCanvasSizeChange(pageKey, { w: cssW, h: cssH })
       setZoom(1)
       zoomRef.current = 1
       setPanX(0)
@@ -728,6 +739,18 @@ export default function TakeoffViewer({
 
   function handleChangeItemColor(id: string, color: string) {
     onItemsChange(items.map(i => (i.id === id ? { ...i, color } : i)))
+  }
+
+  async function handleDownloadPage() {
+    setIsDownloading(true)
+    try {
+      const storedSize = pageRenderedSizes[pageKey] || (canvasSize.w > 0 ? canvasSize : undefined)
+      await exportSinglePage(page, items, pageKey, storedSize, projectName)
+    } catch (err) {
+      console.error('Failed to export page:', err)
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   function handleSelectItem(id: string) {
@@ -1227,6 +1250,8 @@ export default function TakeoffViewer({
             isFullscreen={isFullscreen}
             onToggleFullscreen={onToggleFullscreen}
             hidePagination
+            onDownloadPage={handleDownloadPage}
+            isDownloading={isDownloading}
           />
           {activeItemId && activeTool !== 'pan' && activeTool !== 'set-scale' && (() => {
             const item = items.find(i => i.id === activeItemId)

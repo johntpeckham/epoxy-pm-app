@@ -57,6 +57,7 @@ function serializeProjects(projects: TakeoffProject[]): string {
     items: p.items,
     pageScales: p.pageScales,
     markups: p.markups,
+    pageRenderedSizes: p.pageRenderedSizes,
   }))
   return JSON.stringify(serialized)
 }
@@ -80,6 +81,7 @@ function deserializeProjects(json: string): TakeoffProject[] {
       items: p.items,
       pageScales: p.pageScales,
       markups: p.markups,
+      pageRenderedSizes: p.pageRenderedSizes,
     }))
   } catch {
     return []
@@ -134,6 +136,7 @@ export default function JobTakeoffPage() {
       items: [],
       pageScales: {},
       markups: [],
+      pageRenderedSizes: {},
     }
     setProjects((prev) => [newProject, ...prev])
     setSelectedId(newProject.id)
@@ -252,6 +255,18 @@ export default function JobTakeoffPage() {
     [updateSelected]
   )
 
+  const handleCanvasSizeChange = useCallback(
+    (pageKey: string, size: { w: number; h: number }) => {
+      if (!selectedProject) return
+      const existing = selectedProject.pageRenderedSizes?.[pageKey]
+      if (existing && Math.abs(existing.w - size.w) < 1 && Math.abs(existing.h - size.h) < 1) return
+      updateSelected({
+        pageRenderedSizes: { ...(selectedProject.pageRenderedSizes || {}), [pageKey]: size },
+      })
+    },
+    [selectedProject, updateSelected]
+  )
+
   const handleRenameItem = useCallback(
     (itemId: string, newName: string) => {
       if (!selectedProject) return
@@ -297,11 +312,14 @@ export default function JobTakeoffPage() {
         items={selectedProject.items}
         markups={selectedProject.markups}
         isFullscreen={isFullscreen}
+        pageRenderedSizes={selectedProject.pageRenderedSizes || {}}
+        projectName={selectedProject.name}
         onBack={handleBackToDashboard}
         onPageScaleChange={handlePageScaleChange}
         onItemsChange={handleItemsChange}
         onMarkupsChange={handleMarkupsChange}
         onToggleFullscreen={handleToggleFullscreen}
+        onCanvasSizeChange={handleCanvasSizeChange}
       />
     )
   } else {
@@ -313,6 +331,7 @@ export default function JobTakeoffPage() {
         items={selectedProject.items}
         markups={selectedProject.markups}
         pageScales={selectedProject.pageScales}
+        pageRenderedSizes={selectedProject.pageRenderedSizes || {}}
         onAddPages={handleAddPages}
         onOpenPage={handleOpenPage}
         onDeletePage={handleDeletePage}
