@@ -216,9 +216,9 @@ export default function ReceiptsPageClient({
         )}
       </div>
 
-      {/* Search, Filter & Sort Controls */}
-      <div className="flex flex-wrap items-center gap-2 mb-5">
-        <div className="relative flex-1 min-w-[180px]">
+      {/* Search & Sort Controls */}
+      <div className="flex items-center gap-2 mb-5">
+        <div className="relative flex-1">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
@@ -227,19 +227,6 @@ export default function ReceiptsPageClient({
             placeholder="Search vendor, project, category..."
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
           />
-        </div>
-        <div className="relative">
-          <select
-            value={filterProject}
-            onChange={(e) => setFilterProject(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
-          >
-            <option value="">All Projects</option>
-            {projectNames.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
         </div>
         <div className="relative">
           <select
