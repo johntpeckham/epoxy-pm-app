@@ -3,14 +3,16 @@
 import { useState } from 'react'
 import { PlusIcon, Trash2Icon, CheckIcon, XIcon, Pencil } from 'lucide-react'
 import type { TakeoffItem, MeasurementType } from './types'
+import { ITEM_COLORS } from './TakeoffViewer'
 
 interface TakeoffSidebarProps {
   items: TakeoffItem[]
   activeItemId: string | null
   onSelectItem: (id: string) => void
-  onAddItem: (name: string, type: MeasurementType) => void
+  onAddItem: (name: string, type: MeasurementType, color?: string) => void
   onDeleteItem: (id: string) => void
   onRenameItem: (id: string, name: string) => void
+  onChangeItemColor: (id: string, color: string) => void
   onDeleteMeasurement: (itemId: string, measurementId: string) => void
 }
 
@@ -21,6 +23,27 @@ function fmtFtIn(ft: number): string {
   return `${f}'-${i}"`
 }
 
+function ColorSwatches({ selected, onSelect }: { selected: string; onSelect: (c: string) => void }) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {ITEM_COLORS.map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onSelect(c) }}
+          className="w-5 h-5 rounded-full flex-shrink-0 transition-all"
+          style={{
+            backgroundColor: c,
+            boxShadow: selected === c ? `0 0 0 2px #111, 0 0 0 4px ${c}` : 'none',
+            transform: selected === c ? 'scale(1.1)' : 'scale(1)',
+          }}
+          title={c}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function TakeoffSidebar({
   items,
   activeItemId,
@@ -28,29 +51,37 @@ export default function TakeoffSidebar({
   onAddItem,
   onDeleteItem,
   onRenameItem,
+  onChangeItemColor,
   onDeleteMeasurement,
 }: TakeoffSidebarProps) {
   const [showAdd, setShowAdd] = useState(false)
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<MeasurementType>('linear')
+  const [newColor, setNewColor] = useState(ITEM_COLORS[0])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const [editColor, setEditColor] = useState('')
 
   function handleAdd() {
     if (!newName.trim()) return
-    onAddItem(newName.trim(), newType)
+    onAddItem(newName.trim(), newType, newColor)
     setNewName('')
     setNewType('linear')
+    setNewColor(ITEM_COLORS[0])
     setShowAdd(false)
   }
 
   function startRename(item: TakeoffItem) {
     setEditingId(item.id)
     setEditName(item.name)
+    setEditColor(item.color)
   }
 
   function finishRename(id: string) {
     if (editName.trim()) onRenameItem(id, editName.trim())
+    if (editColor && editColor !== items.find(i => i.id === id)?.color) {
+      onChangeItemColor(id, editColor)
+    }
     setEditingId(null)
   }
 
@@ -80,6 +111,8 @@ export default function TakeoffSidebar({
             className="w-full px-2.5 py-1.5 bg-[#222] border border-gray-700 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
             autoFocus
           />
+          {/* Color swatches */}
+          <ColorSwatches selected={newColor} onSelect={setNewColor} />
           {/* Type pill toggle */}
           <div className="flex items-center gap-1">
             <button
@@ -132,6 +165,7 @@ export default function TakeoffSidebar({
           const isActive = item.id === activeItemId
           const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
           const totalPerim = item.type === 'area' ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0) : 0
+          const isEditing = editingId === item.id
 
           return (
             <div
@@ -147,21 +181,29 @@ export default function TakeoffSidebar({
               <div className="px-3 py-2 flex items-center gap-2 min-w-0">
                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
 
-                {editingId === item.id ? (
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') finishRename(item.id)
-                      if (e.key === 'Escape') setEditingId(null)
-                    }}
-                    onBlur={() => finishRename(item.id)}
-                    onFocus={(e) => e.target.select()}
-                    className="text-sm font-semibold border-b border-amber-500 outline-none bg-transparent w-full max-w-[120px] text-white"
-                    autoFocus
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                {isEditing ? (
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') finishRename(item.id)
+                        if (e.key === 'Escape') setEditingId(null)
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      className="text-sm font-semibold border-b border-amber-500 outline-none bg-transparent w-full max-w-[180px] text-white"
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <ColorSwatches selected={editColor} onSelect={(c) => { setEditColor(c); onChangeItemColor(item.id, c) }} />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); finishRename(item.id) }}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 font-medium"
+                    >
+                      Done
+                    </button>
+                  </div>
                 ) : (
                   <>
                     <div
