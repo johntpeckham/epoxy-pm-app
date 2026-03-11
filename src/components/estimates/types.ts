@@ -20,6 +20,14 @@ export interface LineItem {
   amount: number
 }
 
+export interface MaterialSystemRow {
+  id: string
+  systemName: string
+  quantity: string
+  coverageRate: string
+  notes: string
+}
+
 export interface Estimate {
   id: string
   estimate_number: number
@@ -29,6 +37,7 @@ export interface Estimate {
   description: string | null
   salesperson: string | null
   line_items: LineItem[]
+  material_systems: MaterialSystemRow[]
   subtotal: number
   tax: number
   total: number

@@ -3,12 +3,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon, FilePlusIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { Customer, Estimate, EstimateSettings, LineItem, ChangeOrder } from './types'
+import type { Customer, Estimate, EstimateSettings, LineItem, ChangeOrder, MaterialSystemRow } from './types'
 import { DEFAULT_TERMS } from './types'
 import { exportEstimatePdf } from './pdfExport'
 import ChangeOrderModal from '../shared/ChangeOrderModal'
 import ChangeOrdersList from '../shared/ChangeOrdersList'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { useMaterialSystems } from '@/lib/useMaterialSystems'
+import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
+import type { MaterialSystemRow as PickerRow } from '@/components/ui/MaterialSystemPicker'
 
 interface EstimateEditorProps {
   estimate: Estimate
@@ -73,6 +76,10 @@ export default function EstimateEditor({
   const [customerCompany, setCustomerCompany] = useState(customer.company ?? '')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [materialSystemRows, setMaterialSystemRows] = useState<MaterialSystemRow[]>(
+    initialEstimate.material_systems ?? []
+  )
+  const { systems: allMaterialSystems, addSystem: addMaterialSystem } = useMaterialSystems()
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const estimateIdRef = useRef(initialEstimate.id)
@@ -110,6 +117,7 @@ export default function EstimateEditor({
         description,
         salesperson,
         line_items: items,
+        material_systems: materialSystemRows,
         subtotal: sub,
         tax,
         total: tot,
@@ -121,7 +129,7 @@ export default function EstimateEditor({
     setSaveStatus('saved')
     onUpdated()
     setTimeout(() => setSaveStatus('idle'), 2000)
-  }, [estimateNumber, date, projectName, description, salesperson, lineItems, tax, terms, status, onUpdated])
+  }, [estimateNumber, date, projectName, description, salesperson, lineItems, materialSystemRows, tax, terms, status, onUpdated])
 
   // Debounced auto-save
   useEffect(() => {
@@ -197,6 +205,7 @@ export default function EstimateEditor({
       description,
       salesperson,
       lineItems: items,
+      materialSystems: materialSystemRows,
       subtotal,
       tax,
       total,
@@ -670,6 +679,17 @@ export default function EstimateEditor({
               <PlusIcon className="w-3.5 h-3.5" />
               Add Line Item
             </button>
+          </div>
+
+          {/* Material Systems */}
+          <div className="px-8 py-4 border-t border-gray-200">
+            <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">Material Systems</h3>
+            <MaterialSystemPicker
+              rows={materialSystemRows as PickerRow[]}
+              onChange={(rows) => setMaterialSystemRows(rows as MaterialSystemRow[])}
+              systems={allMaterialSystems}
+              onAddNew={addMaterialSystem}
+            />
           </div>
 
           {/* Totals */}
