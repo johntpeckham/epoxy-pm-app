@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon, LayersIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { useMaterialSystems } from '@/lib/useMaterialSystems'
 import type { MaterialSystemInput } from '@/lib/useMaterialSystems'
+import UnitSizeSelect from '@/components/ui/UnitSizeSelect'
 
 interface ItemRow {
   material_name: string
@@ -125,12 +126,10 @@ export default function MaterialSystemsClient() {
                     placeholder="Material Name"
                     className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   />
-                  <input
-                    type="text"
+                  <UnitSizeSelect
                     value={item.unit_size}
-                    onChange={(e) => updateItem(idx, { unit_size: e.target.value })}
-                    placeholder="Unit Size"
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    onChange={(v) => updateItem(idx, { unit_size: v })}
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white w-full text-left"
                   />
                   <input
                     type="text"

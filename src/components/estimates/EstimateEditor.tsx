@@ -78,7 +78,7 @@ export default function EstimateEditor({
   const [materialSystemRows, setMaterialSystemRows] = useState<MaterialSystemRow[]>(
     initialEstimate.material_systems ?? []
   )
-  const { systems: allMaterialSystems, addSystem: addMaterialSystem } = useMaterialSystems()
+  const { systems: allMaterialSystems, addSystem: addMaterialSystem, updateSystem: updateMaterialSystem } = useMaterialSystems()
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const estimateIdRef = useRef(initialEstimate.id)
@@ -688,6 +688,7 @@ export default function EstimateEditor({
               onChange={setMaterialSystemRows}
               systems={allMaterialSystems}
               onAddNew={addMaterialSystem}
+              onUpdateSystem={updateMaterialSystem}
             />
           </div>
 
