@@ -169,7 +169,7 @@ export default function ClientInvoices({
                       </span>
                       <button
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(inv.id) }}
-                        className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded opacity-0 group-hover:opacity-100"
+                        className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded"
                         title="Delete invoice"
                       >
                         <Trash2Icon className="w-3.5 h-3.5" />

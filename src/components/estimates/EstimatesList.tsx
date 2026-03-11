@@ -63,7 +63,7 @@ export default function EstimatesList({ estimates, onSelect, userId, onEstimateD
                 </span>
                 <button
                   onClick={(e) => { e.stopPropagation(); setDeleteTarget(est.id) }}
-                  className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded opacity-0 group-hover:opacity-100"
+                  className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded"
                   title="Delete estimate"
                 >
                   <Trash2Icon className="w-3.5 h-3.5" />
