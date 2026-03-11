@@ -16,6 +16,8 @@ import {
   Maximize2Icon,
   Minimize2Icon,
   CheckIcon,
+  DownloadIcon,
+  Loader2Icon,
 } from 'lucide-react'
 import type { ToolMode, PageScale } from './types'
 
@@ -33,6 +35,8 @@ interface TakeoffToolbarProps {
   isFullscreen: boolean
   onToggleFullscreen: () => void
   hidePagination?: boolean
+  onDownloadPage?: () => void
+  isDownloading?: boolean
 }
 
 const tools: { mode: ToolMode; label: string; icon: React.ReactNode; group: string }[] = [
@@ -58,6 +62,8 @@ export default function TakeoffToolbar({
   isFullscreen,
   onToggleFullscreen,
   hidePagination,
+  onDownloadPage,
+  isDownloading,
 }: TakeoffToolbarProps) {
   const scaleSet = pageScale?.calibrated === true
 
@@ -158,8 +164,18 @@ export default function TakeoffToolbar({
         </button>
       </div>
 
-      {/* Fullscreen — far right */}
-      <div className="ml-auto flex-shrink-0">
+      {/* Download + Fullscreen — far right */}
+      <div className="ml-auto flex-shrink-0 flex items-center gap-0.5">
+        {onDownloadPage && (
+          <button
+            onClick={onDownloadPage}
+            disabled={isDownloading}
+            title="Download Page PDF"
+            className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+          >
+            {isDownloading ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <DownloadIcon className="w-3.5 h-3.5" />}
+          </button>
+        )}
         <button
           onClick={onToggleFullscreen}
           title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}

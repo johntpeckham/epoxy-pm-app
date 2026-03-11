@@ -65,6 +65,7 @@ export interface TakeoffProject {
   items: TakeoffItem[]
   pageScales: Record<string, number>
   markups: Markup[]
+  pageRenderedSizes?: Record<string, { w: number; h: number }>
 }
 
 // ─── Serializable types for localStorage ───
@@ -86,4 +87,5 @@ export interface SerializedTakeoffProject {
   items: TakeoffItem[]
   pageScales: Record<string, number>
   markups: Markup[]
+  pageRenderedSizes?: Record<string, { w: number; h: number }>
 }

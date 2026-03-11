@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil } from 'lucide-react'
+import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon } from 'lucide-react'
 import type { TakeoffPage, TakeoffItem, Markup } from './types'
+import { exportFullReport } from './takeoffExport'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -18,6 +19,7 @@ interface TakeoffDashboardProps {
   items: TakeoffItem[]
   markups: Markup[]
   pageScales: Record<string, number>
+  pageRenderedSizes: Record<string, { w: number; h: number }>
   onAddPages: (pages: TakeoffPage[]) => void
   onOpenPage: (page: TakeoffPage) => void
   onDeletePage: (pdfIndex: number, pageIndex: number) => void
@@ -224,6 +226,7 @@ export default function TakeoffDashboard({
   items,
   markups,
   pageScales,
+  pageRenderedSizes,
   onAddPages,
   onOpenPage,
   onDeletePage,
@@ -235,6 +238,7 @@ export default function TakeoffDashboard({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editItemName, setEditItemName] = useState('')
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false)
 
   // Build set of pageKeys that have measurements or markups
   const workedOnPages = new Set<string>()
@@ -310,12 +314,39 @@ export default function TakeoffDashboard({
     }
   }, [pages, onAddPages])
 
+  const handleDownloadReport = useCallback(async () => {
+    setIsDownloadingReport(true)
+    try {
+      await exportFullReport(projectName, pages, items, pageScales, pageRenderedSizes)
+    } catch (err) {
+      console.error('Failed to generate report:', err)
+    } finally {
+      setIsDownloadingReport(false)
+    }
+  }, [projectName, pages, items, pageScales, pageRenderedSizes])
+
   return (
     <div className="flex-1 overflow-y-auto p-5 bg-gray-50">
       {/* Section 0 — Page header */}
-      <div className="mb-5">
-        <h1 className="text-lg font-bold text-gray-900 leading-tight">Project Takeoffs</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{projectName}</p>
+      <div className="mb-5 flex items-start justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-gray-900 leading-tight">Project Takeoffs</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{projectName}</p>
+        </div>
+        {pages.length > 0 && (
+          <button
+            onClick={handleDownloadReport}
+            disabled={isDownloadingReport}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-300 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+          >
+            {isDownloadingReport ? (
+              <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <DownloadIcon className="w-3.5 h-3.5" />
+            )}
+            {isDownloadingReport ? 'Generating...' : 'Download Report'}
+          </button>
+        )}
       </div>
 
       {/* Upload error toast */}
