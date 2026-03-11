@@ -414,23 +414,20 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {initialEvents.length} project{initialEvents.length !== 1 ? 's' : ''} scheduled
-            </p>
           </div>
           <div className="flex items-center gap-2">
             {canDownloadPdf && (
               <button
                 onClick={handleDownloadPdf}
                 disabled={pdfLoading}
-                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition disabled:opacity-50"
+                className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 p-2.5 rounded-lg transition disabled:opacity-50"
+                title="Download PDF"
               >
                 {pdfLoading ? (
                   <LoaderIcon className="w-4 h-4 animate-spin" />
                 ) : (
                   <DownloadIcon className="w-4 h-4" />
                 )}
-                Download PDF
               </button>
             )}
             {canCreateCalendar && (
@@ -439,7 +436,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
                 className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
               >
                 <PlusIcon className="w-4 h-4" />
-                Add Project
+                New
               </button>
             )}
           </div>

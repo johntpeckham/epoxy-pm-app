@@ -157,14 +157,14 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
         <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-base font-bold text-gray-900">Jobs</h1>
+              <h1 className="text-lg font-bold text-gray-900">Jobs</h1>
             </div>
             {canCreate('jobs') && (
               <button
                 onClick={() => setShowNewProject(true)}
-                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
+                <PlusIcon className="w-4 h-4" />
                 New
               </button>
             )}
