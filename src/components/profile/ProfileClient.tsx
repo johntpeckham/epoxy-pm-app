@@ -4,14 +4,13 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon, PlusIcon, PencilIcon, Trash2Icon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon } from 'lucide-react'
 import { Profile } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import UserManagement from './UserManagement'
 import EmployeeManagement from './EmployeeManagement'
 import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
-import { useMaterialSystems } from '@/lib/useMaterialSystems'
 
 interface ProfileClientProps {
   userId: string
@@ -30,14 +29,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
 
   // Customer management modal
   const [showCustomerManagement, setShowCustomerManagement] = useState(false)
-
-  // Material Systems management
-  const { systems: materialSystems, addSystem, updateSystem, deleteSystem } = useMaterialSystems()
-  const [msAdding, setMsAdding] = useState(false)
-  const [msNewName, setMsNewName] = useState('')
-  const [msEditId, setMsEditId] = useState<string | null>(null)
-  const [msEditName, setMsEditName] = useState('')
-  const [msSaving, setMsSaving] = useState(false)
 
   // Display name state
   const [displayName, setDisplayName] = useState(initialProfile.display_name ?? '')
@@ -432,118 +423,15 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
             <div className="flex items-center gap-2 mb-2">
               <LayersIcon className="w-5 h-5 text-gray-400" />
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Material System Management</h2>
-            </div>
-            <p className="text-xs text-gray-400 mb-4">Master list of material systems available across Project Reports and Estimates.</p>
-
-            {/* List */}
-            <div className="space-y-1 mb-3">
-              {materialSystems.map((ms) => (
-                <div key={ms.id} className="flex items-center gap-2 group px-3 py-2 rounded-lg hover:bg-gray-50">
-                  {msEditId === ms.id ? (
-                    <>
-                      <input
-                        type="text"
-                        value={msEditName}
-                        onChange={(e) => setMsEditName(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && msEditName.trim()) {
-                            updateSystem(ms.id, msEditName)
-                            setMsEditId(null)
-                          }
-                          if (e.key === 'Escape') setMsEditId(null)
-                        }}
-                      />
-                      <button
-                        onClick={() => { updateSystem(ms.id, msEditName); setMsEditId(null) }}
-                        disabled={!msEditName.trim()}
-                        className="px-2 py-1 text-xs font-medium text-white bg-amber-500 rounded hover:bg-amber-600 disabled:opacity-50"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setMsEditId(null)}
-                        className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="flex-1 text-sm text-gray-900">{ms.name}</span>
-                      <button
-                        onClick={() => { setMsEditId(ms.id); setMsEditName(ms.name) }}
-                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-amber-600 transition-all"
-                      >
-                        <PencilIcon className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => deleteSystem(ms.id)}
-                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
-                      >
-                        <Trash2Icon className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              ))}
-              {materialSystems.length === 0 && (
-                <p className="text-xs text-gray-400 px-3 py-2">No material systems yet.</p>
-              )}
-            </div>
-
-            {/* Add new */}
-            {msAdding ? (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={msNewName}
-                  onChange={(e) => setMsNewName(e.target.value)}
-                  placeholder="System name..."
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  autoFocus
-                  onKeyDown={async (e) => {
-                    if (e.key === 'Enter' && msNewName.trim()) {
-                      setMsSaving(true)
-                      await addSystem(msNewName)
-                      setMsNewName('')
-                      setMsAdding(false)
-                      setMsSaving(false)
-                    }
-                    if (e.key === 'Escape') { setMsAdding(false); setMsNewName('') }
-                  }}
-                />
-                <button
-                  onClick={async () => {
-                    if (!msNewName.trim()) return
-                    setMsSaving(true)
-                    await addSystem(msNewName)
-                    setMsNewName('')
-                    setMsAdding(false)
-                    setMsSaving(false)
-                  }}
-                  disabled={!msNewName.trim() || msSaving}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
-                >
-                  {msSaving ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  onClick={() => { setMsAdding(false); setMsNewName('') }}
-                  className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
               <button
-                onClick={() => setMsAdding(true)}
+                onClick={() => router.push('/material-systems')}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
-                Add Material System
+                <LayersIcon className="w-3.5 h-3.5" />
+                Manage Material Systems
               </button>
-            )}
+            </div>
+            <p className="text-xs text-gray-400">Master list of material systems available across Project Reports and Estimates.</p>
           </div>
         )}
 
