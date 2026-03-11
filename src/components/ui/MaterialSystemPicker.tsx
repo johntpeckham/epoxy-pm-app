@@ -61,12 +61,14 @@ export default function MaterialSystemPicker({
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingSystem, setEditingSystem] = useState<MaterialSystem | null>(null)
   const [editingRowId, setEditingRowId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowDropdown(false)
+        setSearchQuery('')
       }
     }
     if (showDropdown) document.addEventListener('mousedown', handleClick)
@@ -76,6 +78,7 @@ export default function MaterialSystemPicker({
   function selectSystem(system: MaterialSystem) {
     onChange([...rows, systemToRow(system)])
     setShowDropdown(false)
+    setSearchQuery('')
   }
 
   async function handleAddNewSave(form: MaterialSystemFormState) {
@@ -95,6 +98,7 @@ export default function MaterialSystemPicker({
     }
     setShowAddModal(false)
     setShowDropdown(false)
+    setSearchQuery('')
   }
 
   async function handleEditSave(form: MaterialSystemFormState) {
@@ -242,9 +246,27 @@ export default function MaterialSystemPicker({
             Add Material System
           </button>
 
-          {showDropdown && (
-            <div className="absolute left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
-              {availableSystems.map((s) => (
+          {showDropdown && (() => {
+            const query = searchQuery.toLowerCase()
+            const filteredSystems = query
+              ? availableSystems.filter((s) => s.name.toLowerCase().includes(query))
+              : availableSystems
+            return (
+            <div className="absolute left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-72 flex flex-col overflow-hidden">
+              {/* Search input */}
+              <div className="p-2 border-b border-gray-100">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search systems..."
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
+                  autoFocus
+                />
+              </div>
+              {/* Scrollable list */}
+              <div className="flex-1 overflow-y-auto">
+              {filteredSystems.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => selectSystem(s)}
@@ -256,18 +278,21 @@ export default function MaterialSystemPicker({
                   )}
                 </button>
               ))}
-              {availableSystems.length === 0 && (
-                <div className="px-3 py-2 text-xs text-gray-400">No systems available</div>
+              {filteredSystems.length === 0 && (
+                <div className="px-3 py-2 text-xs text-gray-400">No systems found</div>
               )}
+              </div>
+              {/* Add New - always visible */}
               <button
-                onClick={() => { setShowAddModal(true); setShowDropdown(false) }}
-                className="w-full text-left px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 border-t border-gray-100 transition-colors flex items-center gap-1"
+                onClick={() => { setShowAddModal(true); setShowDropdown(false); setSearchQuery('') }}
+                className="flex-none w-full text-left px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 border-t border-gray-100 transition-colors flex items-center gap-1"
               >
                 <PlusIcon className="w-3.5 h-3.5" />
                 Add New
               </button>
             </div>
-          )}
+            )
+          })()}
         </div>
       )}
 
