@@ -97,6 +97,15 @@ export default function MaterialSystemFormModal({
             {/* Materials */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-2">Materials</label>
+              {/* Column headers */}
+              <div className="flex items-start gap-2 mb-1">
+                <div className="grid grid-cols-3 gap-2 flex-1">
+                  <span className="text-[10px] font-medium text-gray-500 px-1">Material Name</span>
+                  <span className="text-[10px] font-medium text-gray-500 px-1">Unit Size</span>
+                  <span className="text-[10px] font-medium text-gray-500 px-1">Coverage Rate</span>
+                </div>
+                <div className="w-[26px]" />
+              </div>
               <div className="space-y-2">
                 {form.items.map((item, idx) => (
                   <div key={idx} className="flex items-start gap-2">
