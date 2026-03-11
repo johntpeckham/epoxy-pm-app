@@ -72,14 +72,6 @@ export interface ProjectReportData {
   vehicles: string
   trailers: string
   travel_notes: string
-  // Material System (3 open text rows)
-  material_system_1: string
-  material_system_2: string
-  material_system_3: string
-  // Material Quantities (3 open text rows)
-  material_quantities_1: string
-  material_quantities_2: string
-  material_quantities_3: string
   // Prep
   prep_method: string
   prep_removal: string

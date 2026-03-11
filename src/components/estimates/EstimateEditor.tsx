@@ -11,7 +11,6 @@ import ChangeOrdersList from '../shared/ChangeOrdersList'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { useMaterialSystems } from '@/lib/useMaterialSystems'
 import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
-import type { MaterialSystemRow as PickerRow } from '@/components/ui/MaterialSystemPicker'
 
 interface EstimateEditorProps {
   estimate: Estimate
@@ -685,8 +684,8 @@ export default function EstimateEditor({
           <div className="px-8 py-4 border-t border-gray-200">
             <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">Material Systems</h3>
             <MaterialSystemPicker
-              rows={materialSystemRows as PickerRow[]}
-              onChange={(rows) => setMaterialSystemRows(rows as MaterialSystemRow[])}
+              rows={materialSystemRows}
+              onChange={setMaterialSystemRows}
               systems={allMaterialSystems}
               onAddNew={addMaterialSystem}
             />

@@ -2,32 +2,60 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeftIcon, LayersIcon, PlusIcon, PencilIcon, Trash2Icon } from 'lucide-react'
-import { useMaterialSystems, MaterialSystemInput } from '@/lib/useMaterialSystems'
+import { ArrowLeftIcon, LayersIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
+import { useMaterialSystems } from '@/lib/useMaterialSystems'
+import type { MaterialSystemInput } from '@/lib/useMaterialSystems'
 
-const emptyForm: MaterialSystemInput = { name: '', default_quantity: '', default_coverage_rate: '', default_notes: '' }
+interface ItemRow {
+  material_name: string
+  unit_size: string
+  coverage_rate: string
+}
+
+const emptyItem: ItemRow = { material_name: '', unit_size: '', coverage_rate: '' }
+
+interface FormState {
+  name: string
+  notes: string
+  items: ItemRow[]
+}
+
+const emptyForm: FormState = { name: '', notes: '', items: [{ ...emptyItem }] }
+
+function formToInput(form: FormState): MaterialSystemInput {
+  return {
+    name: form.name,
+    notes: form.notes,
+    items: form.items.map((i, idx) => ({
+      material_name: i.material_name,
+      unit_size: i.unit_size,
+      coverage_rate: i.coverage_rate,
+      sort_order: idx,
+    })),
+  }
+}
 
 export default function MaterialSystemsClient() {
   const router = useRouter()
   const { systems, loading, addSystem, updateSystem, deleteSystem } = useMaterialSystems()
 
   const [adding, setAdding] = useState(false)
-  const [addForm, setAddForm] = useState<MaterialSystemInput>(emptyForm)
+  const [addForm, setAddForm] = useState<FormState>(emptyForm)
   const [saving, setSaving] = useState(false)
 
   const [editId, setEditId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<MaterialSystemInput>(emptyForm)
+  const [editForm, setEditForm] = useState<FormState>(emptyForm)
 
   const handleStartAdd = useCallback(() => {
     setEditId(null)
-    setAddForm(emptyForm)
+    setAddForm({ ...emptyForm, items: [{ ...emptyItem }] })
     setAdding(true)
   }, [])
 
   async function handleAdd() {
     if (!addForm.name.trim()) return
     setSaving(true)
-    await addSystem(addForm)
+    await addSystem(formToInput(addForm))
     setAddForm(emptyForm)
     setAdding(false)
     setSaving(false)
@@ -35,22 +63,41 @@ export default function MaterialSystemsClient() {
 
   async function handleSaveEdit(id: string) {
     if (!editForm.name.trim()) return
-    await updateSystem(id, editForm)
+    setSaving(true)
+    await updateSystem(id, formToInput(editForm))
     setEditId(null)
+    setSaving(false)
   }
 
   function renderFormFields(
-    form: MaterialSystemInput,
-    setForm: (f: MaterialSystemInput) => void,
+    form: FormState,
+    setForm: (f: FormState) => void,
     onSubmit: () => void,
     onCancel: () => void,
     submitLabel: string,
     isSaving: boolean,
   ) {
+    function updateItem(idx: number, updates: Partial<ItemRow>) {
+      const items = [...form.items]
+      items[idx] = { ...items[idx], ...updates }
+      setForm({ ...form, items })
+    }
+
+    function removeItem(idx: number) {
+      setForm({ ...form, items: form.items.filter((_, i) => i !== idx) })
+    }
+
+    function addItem() {
+      setForm({ ...form, items: [...form.items, { ...emptyItem }] })
+    }
+
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
+        {/* System Name */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">System Name <span className="text-red-400">*</span></label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            System Name <span className="text-red-400">*</span>
+          </label>
           <input
             type="text"
             value={form.name}
@@ -59,43 +106,72 @@ export default function MaterialSystemsClient() {
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
             autoFocus
             onKeyDown={(e) => {
-              if (e.key === 'Enter') onSubmit()
               if (e.key === 'Escape') onCancel()
             }}
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Default Quantity</label>
-            <input
-              type="text"
-              value={form.default_quantity ?? ''}
-              onChange={(e) => setForm({ ...form, default_quantity: e.target.value })}
-              placeholder="e.g. 500 gallons"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Default Coverage Rate</label>
-            <input
-              type="text"
-              value={form.default_coverage_rate ?? ''}
-              onChange={(e) => setForm({ ...form, default_coverage_rate: e.target.value })}
-              placeholder="e.g. 200 sq ft/gal"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            />
-          </div>
-        </div>
+
+        {/* Materials */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Default Notes</label>
-          <input
-            type="text"
-            value={form.default_notes ?? ''}
-            onChange={(e) => setForm({ ...form, default_notes: e.target.value })}
-            placeholder="Optional notes..."
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+          <label className="block text-xs font-medium text-gray-600 mb-2">Materials</label>
+          <div className="space-y-2">
+            {form.items.map((item, idx) => (
+              <div key={idx} className="flex items-start gap-2">
+                <div className="grid grid-cols-3 gap-2 flex-1">
+                  <input
+                    type="text"
+                    value={item.material_name}
+                    onChange={(e) => updateItem(idx, { material_name: e.target.value })}
+                    placeholder="Material Name"
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                  <input
+                    type="text"
+                    value={item.unit_size}
+                    onChange={(e) => updateItem(idx, { unit_size: e.target.value })}
+                    placeholder="Unit Size"
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                  <input
+                    type="text"
+                    value={item.coverage_rate}
+                    onChange={(e) => updateItem(idx, { coverage_rate: e.target.value })}
+                    placeholder="Coverage Rate"
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+                <button
+                  onClick={() => removeItem(idx)}
+                  className="p-1.5 text-gray-400 hover:text-red-500 transition mt-0.5"
+                  title="Remove material"
+                >
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={addItem}
+            className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 mt-2 transition-colors"
+          >
+            <PlusIcon className="w-3.5 h-3.5" />
+            Add Material
+          </button>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+          <textarea
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            placeholder="Optional notes for this system..."
+            rows={2}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-y"
           />
         </div>
+
+        {/* Actions */}
         <div className="flex gap-2 pt-1">
           <button
             onClick={onSubmit}
@@ -185,25 +261,26 @@ export default function MaterialSystemsClient() {
                         () => handleSaveEdit(ms.id),
                         () => setEditId(null),
                         'Save',
-                        false,
+                        saving,
                       )}
                     </div>
                   ) : (
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-gray-900">{ms.name}</span>
-                        {(ms.default_quantity || ms.default_coverage_rate || ms.default_notes) && (
-                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
-                            {ms.default_quantity && (
-                              <span className="text-xs text-gray-400">Qty: {ms.default_quantity}</span>
-                            )}
-                            {ms.default_coverage_rate && (
-                              <span className="text-xs text-gray-400">Coverage: {ms.default_coverage_rate}</span>
-                            )}
-                            {ms.default_notes && (
-                              <span className="text-xs text-gray-400">{ms.default_notes}</span>
-                            )}
+                        {ms.items.length > 0 && (
+                          <div className="mt-0.5 space-y-0">
+                            {ms.items.map((item) => (
+                              <div key={item.id} className="text-xs text-gray-400">
+                                {item.material_name}
+                                {item.unit_size && <span className="ml-2 text-gray-300">({item.unit_size})</span>}
+                                {item.coverage_rate && <span className="ml-2 text-gray-300">{item.coverage_rate}</span>}
+                              </div>
+                            ))}
                           </div>
+                        )}
+                        {ms.notes && (
+                          <p className="text-xs text-gray-400 italic mt-0.5">{ms.notes}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-1 pt-0.5">
@@ -213,9 +290,14 @@ export default function MaterialSystemsClient() {
                             setEditId(ms.id)
                             setEditForm({
                               name: ms.name,
-                              default_quantity: ms.default_quantity ?? '',
-                              default_coverage_rate: ms.default_coverage_rate ?? '',
-                              default_notes: ms.default_notes ?? '',
+                              notes: ms.notes ?? '',
+                              items: ms.items.length > 0
+                                ? ms.items.map((i) => ({
+                                    material_name: i.material_name,
+                                    unit_size: i.unit_size ?? '',
+                                    coverage_rate: i.coverage_rate ?? '',
+                                  }))
+                                : [{ ...emptyItem }],
                             })
                           }}
                           className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-amber-600 transition-all"

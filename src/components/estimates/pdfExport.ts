@@ -214,41 +214,76 @@ export function exportEstimatePdf(data: PdfData) {
     doc.text('MATERIAL SYSTEMS', margin, y)
     y += 14
 
-    // Table header
-    doc.setDrawColor(217, 119, 6) // amber-600
-    doc.setLineWidth(1)
-    doc.line(margin, y, margin + contentWidth, y)
-    y += 2
-
-    const msColW = contentWidth / 4
-    doc.setFontSize(7)
-    doc.text('SYSTEM', margin, y + 8)
-    doc.text('QUANTITY', margin + msColW, y + 8)
-    doc.text('COVERAGE RATE', margin + msColW * 2, y + 8)
-    doc.text('NOTES', margin + msColW * 3, y + 8)
-    y += 14
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(0, 0, 0)
-
     for (const ms of data.materialSystems) {
-      if (y > 700) {
+      if (y > 660) {
         doc.addPage()
         y = margin
       }
+
+      // System name header
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(0, 0, 0)
       doc.text(ms.systemName || '', margin, y + 10)
-      doc.text(ms.quantity || '', margin + msColW, y + 10)
-      doc.text(ms.coverageRate || '', margin + msColW * 2, y + 10)
-      doc.text(ms.notes || '', margin + msColW * 3, y + 10)
       y += 16
-      doc.setDrawColor(230, 230, 230)
-      doc.setLineWidth(0.5)
-      doc.line(margin, y, margin + contentWidth, y)
-      y += 4
+
+      // Material items table
+      if (ms.items && ms.items.length > 0) {
+        const msColW = contentWidth / 3
+        doc.setDrawColor(217, 119, 6)
+        doc.setLineWidth(0.5)
+        doc.line(margin, y, margin + contentWidth, y)
+        y += 2
+
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(146, 64, 14)
+        doc.text('MATERIAL', margin, y + 8)
+        doc.text('UNIT SIZE', margin + msColW, y + 8)
+        doc.text('COVERAGE RATE', margin + msColW * 2, y + 8)
+        y += 14
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(0, 0, 0)
+
+        for (const item of ms.items) {
+          if (y > 700) {
+            doc.addPage()
+            y = margin
+          }
+          doc.text(item.material_name || '', margin, y + 10)
+          doc.text(item.unit_size || '', margin + msColW, y + 10)
+          doc.text(item.coverage_rate || '', margin + msColW * 2, y + 10)
+          y += 14
+          doc.setDrawColor(230, 230, 230)
+          doc.setLineWidth(0.5)
+          doc.line(margin, y, margin + contentWidth, y)
+          y += 2
+        }
+      }
+
+      // Notes
+      if (ms.notes) {
+        y += 4
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'italic')
+        doc.setTextColor(100, 100, 100)
+        const noteLines = doc.splitTextToSize(ms.notes, contentWidth)
+        for (const line of noteLines) {
+          if (y > 700) {
+            doc.addPage()
+            y = margin
+          }
+          doc.text(line, margin, y + 8)
+          y += 10
+        }
+      }
+
+      y += 8
     }
 
-    y += 12
+    y += 4
   }
 
   // ─── Terms ───
