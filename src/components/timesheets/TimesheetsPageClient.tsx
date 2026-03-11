@@ -357,10 +357,10 @@ export default function TimesheetsPageClient({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowManageEmployees(true)}
-            className="flex items-center gap-1.5 md:gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 md:px-4 md:py-2.5 rounded-lg text-sm font-semibold transition"
+            className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 md:p-2.5 rounded-lg transition"
+            title="Manage Employees"
           >
             <SettingsIcon className="w-4 h-4" />
-            Manage Employees
           </button>
           {canCreate('timesheets') && (
             <button
@@ -370,7 +370,7 @@ export default function TimesheetsPageClient({
               className="flex items-center gap-1.5 md:gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 md:px-4 md:py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
             >
               <PlusIcon className="w-4 h-4" />
-              New Timesheet
+              New
             </button>
           )}
         </div>

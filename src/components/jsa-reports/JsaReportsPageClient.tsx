@@ -142,7 +142,7 @@ export default function JsaReportsPageClient({
             className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
           >
             <PlusIcon className="w-4 h-4" />
-            New JSA Report
+            New
           </button>
         )}
       </div>
