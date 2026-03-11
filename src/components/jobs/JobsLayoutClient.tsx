@@ -158,9 +158,6 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-base font-bold text-gray-900">Jobs</h1>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {activeCount} active · {projects.length} total
-              </p>
             </div>
             {canCreate('jobs') && (
               <button
