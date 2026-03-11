@@ -224,101 +224,106 @@ export default function MaterialSystemsClient() {
               : 'Materials shown in Estimates (client-facing).'}
           </p>
 
-          {/* Custom Columns */}
-          {columns.length > 0 && (
-            <div className="mb-3">
-              <label className="block text-[10px] font-medium text-gray-500 mb-1">Custom Columns</label>
-              <div className="space-y-1">
+          {/* Materials Grid */}
+          <label className="block text-xs font-medium text-gray-600 mb-2">Materials</label>
+          <div className="overflow-x-auto -mx-1 px-1">
+            <div className="min-w-0">
+              {/* Header row */}
+              <div
+                className="grid gap-1.5 items-end mb-1"
+                style={{ gridTemplateColumns: `repeat(${3 + columns.length}, minmax(0, 1fr)) 28px` }}
+              >
+                <span className="text-[10px] font-medium text-gray-500 px-1">Material Name</span>
+                <span className="text-[10px] font-medium text-gray-500 px-1">Unit Size</span>
+                <span className="text-[10px] font-medium text-gray-500 px-1">Coverage Rate</span>
                 {columns.map((col, idx) => (
-                  <div key={idx} className="flex items-center gap-1">
+                  <div key={idx} className="flex items-end gap-0.5">
                     <input
                       type="text"
                       value={col.column_name}
                       onChange={(e) => updateColumn(idx, e.target.value)}
                       placeholder={`Column ${idx + 1}`}
-                      className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="min-w-0 flex-1 text-[10px] font-medium text-gray-500 bg-transparent border-b border-dashed border-gray-300 px-1 py-0 focus:outline-none focus:border-amber-400 placeholder-gray-300"
                     />
                     <button
                       onClick={() => removeColumn(idx)}
-                      className="p-1 text-gray-400 hover:text-red-500 transition"
+                      className="p-0 text-gray-300 hover:text-red-500 transition flex-shrink-0"
                     >
-                      <XIcon className="w-3 h-3" />
+                      <XIcon className="w-2.5 h-2.5" />
                     </button>
                   </div>
                 ))}
+                <span />
               </div>
-            </div>
-          )}
-          {columns.length < 5 && (
-            <button
-              onClick={addColumn}
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-amber-600 mb-3 transition-colors"
-            >
-              <PlusIcon className="w-3 h-3" />
-              Add Custom Column ({5 - columns.length} remaining)
-            </button>
-          )}
 
-          {/* Materials */}
-          <label className="block text-xs font-medium text-gray-600 mb-2">Materials</label>
-          <div className="space-y-2">
-            {items.map((item, idx) => (
-              <div key={idx} className="space-y-1">
-                <div className="flex items-start gap-2">
-                  <div className="grid grid-cols-3 gap-2 flex-1">
+              {/* Material rows */}
+              <div className="space-y-1.5">
+                {items.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="grid gap-1.5 items-start"
+                    style={{ gridTemplateColumns: `repeat(${3 + columns.length}, minmax(0, 1fr)) 28px` }}
+                  >
                     <input
                       type="text"
                       value={item.material_name}
                       onChange={(e) => updateItem(idx, { material_name: e.target.value })}
                       placeholder="Material Name"
-                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                     />
                     <UnitSizeSelect
                       value={item.unit_size}
                       onChange={(v) => updateItem(idx, { unit_size: v })}
-                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white w-full text-left"
+                      className="min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white w-full text-left"
                     />
                     <input
                       type="text"
                       value={item.coverage_rate}
                       onChange={(e) => updateItem(idx, { coverage_rate: e.target.value })}
                       placeholder="Coverage Rate"
-                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                     />
-                  </div>
-                  <button
-                    onClick={() => removeItem(idx)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 transition mt-0.5"
-                    title="Remove material"
-                  >
-                    <XIcon className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                {/* Custom column values */}
-                {columns.filter((c) => c.column_name.trim()).length > 0 && (
-                  <div className="ml-0 grid gap-2" style={{ gridTemplateColumns: `repeat(${columns.filter((c) => c.column_name.trim()).length}, 1fr)` }}>
-                    {columns.filter((c) => c.column_name.trim()).map((col) => (
+                    {columns.map((col) => (
                       <input
-                        key={col.column_name}
+                        key={col.column_name || col.sort_order}
                         type="text"
                         value={item.custom_column_values[col.column_name] ?? ''}
                         onChange={(e) => updateCustomValue(idx, col.column_name, e.target.value)}
-                        placeholder={col.column_name}
-                        className="border border-gray-100 rounded px-2 py-1 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        placeholder={col.column_name || '—'}
+                        className="min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                       />
                     ))}
+                    <button
+                      onClick={() => removeItem(idx)}
+                      className="p-1.5 text-gray-400 hover:text-red-500 transition mt-0.5"
+                      title="Remove material"
+                    >
+                      <XIcon className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                )}
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-          <button
-            onClick={addItem}
-            className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 mt-2 transition-colors"
-          >
-            <PlusIcon className="w-3.5 h-3.5" />
-            Add Material
-          </button>
+
+          <div className="flex items-center gap-3 mt-2">
+            <button
+              onClick={addItem}
+              className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              Add Material
+            </button>
+            {columns.length < 5 && (
+              <button
+                onClick={addColumn}
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-amber-600 transition-colors"
+              >
+                <PlusIcon className="w-3 h-3" />
+                Add Column ({5 - columns.length} left)
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Notes */}
