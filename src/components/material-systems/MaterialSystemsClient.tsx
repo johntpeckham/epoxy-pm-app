@@ -121,6 +121,15 @@ export default function MaterialSystemsClient() {
         {/* Materials */}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-2">Materials</label>
+          {/* Column headers */}
+          <div className="flex items-start gap-2 mb-1">
+            <div className="grid grid-cols-3 gap-2 flex-1">
+              <span className="text-[10px] font-medium text-gray-500 px-1">Material Name</span>
+              <span className="text-[10px] font-medium text-gray-500 px-1">Unit Size</span>
+              <span className="text-[10px] font-medium text-gray-500 px-1">Coverage Rate</span>
+            </div>
+            <div className="w-[26px]" />
+          </div>
           <div className="space-y-2">
             {items.map((item, idx) => (
               <div key={idx} className="flex items-start gap-2">
@@ -233,7 +242,7 @@ export default function MaterialSystemsClient() {
 
           {/* Add new form */}
           {adding && (
-            <div className="px-6 py-4 border-b border-gray-100 bg-amber-50/50">
+            <div className="px-6 py-4 border-b border-gray-100">
               {renderFormFields(
                 addForm,
                 setAddForm,
@@ -259,7 +268,7 @@ export default function MaterialSystemsClient() {
               {systems.map((ms) => (
                 <div key={ms.id} className="px-6 py-3 group hover:bg-gray-50 transition">
                   {editId === ms.id ? (
-                    <div className="bg-amber-50/50 -mx-6 -my-3 px-6 py-4">
+                    <div className="-mx-6 -my-3 px-6 py-4">
                       {renderFormFields(
                         editForm,
                         setEditForm,
