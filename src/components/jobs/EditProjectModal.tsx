@@ -28,6 +28,9 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
   const [address, setAddress] = useState(project.address)
   const [estimateNumber, setEstimateNumber] = useState(project.estimate_number ?? '')
   const [status, setStatus] = useState<'Active' | 'Complete'>(project.status)
+  const [driveTimeEnabled, setDriveTimeEnabled] = useState(project.drive_time_enabled ?? false)
+  const [driveTimeDays, setDriveTimeDays] = useState(project.drive_time_days ?? 1)
+  const [driveTimePosition, setDriveTimePosition] = useState<'front' | 'back' | 'both'>(project.drive_time_position ?? 'both')
   const [crewNames, setCrewNames] = useState<string[]>(
     project.crew ? project.crew.split(',').map((s) => s.trim()).filter(Boolean) : []
   )
@@ -108,6 +111,9 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
         crew: crewNames.join(', ') || null,
         notes: notes.trim() || null,
         color,
+        drive_time_enabled: driveTimeEnabled,
+        drive_time_days: driveTimeDays,
+        drive_time_position: driveTimePosition,
       })
       .eq('id', project.id)
 
@@ -203,6 +209,53 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
                 <option value="Active">Active</option>
                 <option value="Complete">Complete</option>
               </select>
+            </div>
+
+            {/* Drive Time */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">Drive Time</label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={driveTimeEnabled}
+                  onClick={() => setDriveTimeEnabled(!driveTimeEnabled)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${driveTimeEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${driveTimeEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              {driveTimeEnabled && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-500 font-medium whitespace-nowrap">Days</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={driveTimeDays}
+                      onChange={(e) => setDriveTimeDays(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="flex rounded-lg border border-gray-300 overflow-hidden flex-1">
+                    {(['front', 'back', 'both'] as const).map((pos) => (
+                      <button
+                        key={pos}
+                        type="button"
+                        onClick={() => setDriveTimePosition(pos)}
+                        className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
+                          driveTimePosition === pos
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pos.charAt(0).toUpperCase() + pos.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Crew */}
