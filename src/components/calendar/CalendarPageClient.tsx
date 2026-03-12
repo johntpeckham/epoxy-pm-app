@@ -8,9 +8,9 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { DateClickArg } from '@fullcalendar/interaction'
 import type { EventClickArg, DatesSetArg } from '@fullcalendar/core'
-import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon, DownloadIcon, LoaderIcon, CheckIcon } from 'lucide-react'
+import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon, DownloadIcon, LoaderIcon, CheckIcon, LinkIcon, SearchIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import { CalendarEvent, EmployeeProfile } from '@/types'
+import { CalendarEvent, EmployeeProfile, Project } from '@/types'
 import type { UserRole } from '@/types'
 import { usePermissions } from '@/lib/usePermissions'
 
@@ -107,16 +107,23 @@ interface FCEvent {
   end: string
   backgroundColor: string
   borderColor: string
-  extendedProps: CalendarEvent
+  classNames?: string[]
+  extendedProps: CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string }
 }
 
 /**
  * For events that exclude weekends, split the date range into per-week
  * Mon–Fri segments so FullCalendar never draws a bar through Sat/Sun.
  */
-function eventToFCEvents(evt: CalendarEvent): FCEvent[] {
+function eventToFCEvents(evt: CalendarEvent, isStandalone: boolean): FCEvent[] {
   const color = evt.color || PRESET_COLORS[0].value
-  const base = { title: evt.project_name, backgroundColor: color, borderColor: color, extendedProps: evt }
+  const base = {
+    title: isStandalone ? `📅 ${evt.project_name}` : evt.project_name,
+    backgroundColor: color,
+    borderColor: color,
+    classNames: isStandalone ? ['standalone-event'] : [],
+    extendedProps: { ...evt, _isStandalone: isStandalone },
+  }
 
   if (evt.include_weekends) {
     return [{ id: evt.id, ...base, start: evt.start_date, end: fcEndDateExclusive(evt.end_date) }]
@@ -156,15 +163,78 @@ function eventToFCEvents(evt: CalendarEvent): FCEvent[] {
   return segments
 }
 
+/**
+ * Convert a project (job) with dates into FCEvents for the calendar.
+ */
+function projectToFCEvents(proj: Project): FCEvent[] {
+  if (!proj.start_date || !proj.end_date) return []
+
+  const color = PRESET_COLORS[1].value // Blue for projects
+  const includeWeekends = proj.include_weekends ?? false
+  const base = {
+    title: proj.name,
+    backgroundColor: color,
+    borderColor: color,
+    classNames: [] as string[],
+    extendedProps: {
+      id: `proj-${proj.id}`,
+      created_by: '',
+      project_name: proj.name,
+      start_date: proj.start_date,
+      end_date: proj.end_date,
+      include_weekends: includeWeekends,
+      crew: '',
+      notes: null,
+      color: color,
+      created_at: proj.created_at,
+      _isStandalone: false,
+      _isLinkedProject: true,
+      _linkedProjectId: proj.id,
+    },
+  }
+
+  if (includeWeekends) {
+    return [{ id: `proj-${proj.id}`, ...base, start: proj.start_date, end: fcEndDateExclusive(proj.end_date) }]
+  }
+
+  const segments: FCEvent[] = []
+  const endDate = new Date(proj.end_date + 'T12:00:00')
+  let segStart = skipToWeekday(new Date(proj.start_date + 'T12:00:00'))
+
+  while (segStart <= endDate) {
+    const dayOfWeek = segStart.getDay()
+    const daysUntilFri = 5 - dayOfWeek
+    const friday = new Date(segStart)
+    if (daysUntilFri > 0) friday.setDate(friday.getDate() + daysUntilFri)
+    const segEnd = friday <= endDate ? friday : endDate
+
+    if (!isWeekend(segEnd)) {
+      segments.push({
+        id: `proj-${proj.id}` + (segments.length > 0 ? `-${segments.length}` : ''),
+        ...base,
+        start: toDateStr(segStart),
+        end: fcEndDateExclusive(toDateStr(segEnd)),
+      })
+    }
+
+    const nextMon = new Date(segEnd)
+    nextMon.setDate(nextMon.getDate() + 1)
+    segStart = skipToWeekday(nextMon)
+  }
+
+  return segments
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 interface CalendarPageClientProps {
   initialEvents: CalendarEvent[]
+  initialProjects: Project[]
   userId: string
   userRole?: UserRole
 }
 
-export default function CalendarPageClient({ initialEvents, userId, userRole = 'crew' }: CalendarPageClientProps) {
+export default function CalendarPageClient({ initialEvents, initialProjects, userId, userRole = 'crew' }: CalendarPageClientProps) {
   const { canCreate: canCreatePerm, canEdit: canEditPerm } = usePermissions(userRole)
   const canCreateCalendar = canCreatePerm('calendar')
   const canEditCalendar = canEditPerm('calendar')
@@ -173,12 +243,14 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   const calendarRef = useRef<HTMLDivElement>(null)
 
   // Modal state
+  const [showNewPicker, setShowNewPicker] = useState(false)
   const [showFormModal, setShowFormModal] = useState(false)
+  const [showLinkProjectModal, setShowLinkProjectModal] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
-  const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null)
+  const [detailEvent, setDetailEvent] = useState<CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string } | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  // Form state
+  // Form state (standalone event)
   const [formProjectName, setFormProjectName] = useState('')
   const [formStartDate, setFormStartDate] = useState('')
   const [formEndDate, setFormEndDate] = useState('')
@@ -197,6 +269,18 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   const [employeesLoaded, setEmployeesLoaded] = useState(false)
   const [showCustomCrewInput, setShowCustomCrewInput] = useState(false)
   const [customCrewName, setCustomCrewName] = useState('')
+
+  // Link Project form state
+  const [linkSelectedProjectId, setLinkSelectedProjectId] = useState('')
+  const [linkStartDate, setLinkStartDate] = useState('')
+  const [linkEndDate, setLinkEndDate] = useState('')
+  const [linkIncludeWeekends, setLinkIncludeWeekends] = useState(false)
+  const [linkSearchQuery, setLinkSearchQuery] = useState('')
+  const [linkSaving, setLinkSaving] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
+
+  // Date clicked on calendar (passed to picker flows)
+  const [clickedDate, setClickedDate] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     if (!employeesLoaded) {
@@ -230,11 +314,46 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
   const canDownloadPdf = userRole === 'admin' || userRole === 'office_manager'
 
-  // Map DB events to FullCalendar events, splitting weekday-only events into Mon–Fri segments
-  const fcEvents = useMemo(
-    () => initialEvents.flatMap((evt) => eventToFCEvents(evt)),
-    [initialEvents],
-  )
+  // Map DB events + linked projects to FullCalendar events
+  const fcEvents = useMemo(() => {
+    const standaloneEvents = initialEvents.flatMap((evt) => eventToFCEvents(evt, true))
+    const projectEvents = initialProjects.flatMap((proj) => projectToFCEvents(proj))
+    return [...projectEvents, ...standaloneEvents]
+  }, [initialEvents, initialProjects])
+
+  // Filter projects for link search
+  const filteredProjects = useMemo(() => {
+    const q = linkSearchQuery.toLowerCase().trim()
+    if (!q) return initialProjects
+    return initialProjects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.client_name.toLowerCase().includes(q) ||
+        p.address.toLowerCase().includes(q)
+    )
+  }, [initialProjects, linkSearchQuery])
+
+  // ── Picker helpers ────────────────────────────────────────────────────────
+
+  function openNewPicker(startDate?: string) {
+    setClickedDate(startDate)
+    setShowNewPicker(true)
+  }
+
+  function handlePickStandalone() {
+    setShowNewPicker(false)
+    openCreateForm(clickedDate)
+  }
+
+  function handlePickLinkProject() {
+    setShowNewPicker(false)
+    resetLinkForm()
+    if (clickedDate) {
+      setLinkStartDate(clickedDate)
+      setLinkEndDate(clickedDate)
+    }
+    setShowLinkProjectModal(true)
+  }
 
   // ── Form helpers ─────────────────────────────────────────────────────────
 
@@ -250,6 +369,15 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     setEditingEvent(null)
     setShowCustomCrewInput(false)
     setCustomCrewName('')
+  }
+
+  function resetLinkForm() {
+    setLinkSelectedProjectId('')
+    setLinkStartDate('')
+    setLinkEndDate('')
+    setLinkIncludeWeekends(false)
+    setLinkSearchQuery('')
+    setLinkError(null)
   }
 
   function openCreateForm(startDate?: string) {
@@ -275,17 +403,29 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     setShowFormModal(true)
   }
 
+  function openEditLinkedProject(projectId: string) {
+    const proj = initialProjects.find((p) => p.id === projectId)
+    if (!proj) return
+    resetLinkForm()
+    setLinkSelectedProjectId(proj.id)
+    setLinkStartDate(proj.start_date || '')
+    setLinkEndDate(proj.end_date || '')
+    setLinkIncludeWeekends(proj.include_weekends ?? false)
+    setDetailEvent(null)
+    setShowLinkProjectModal(true)
+  }
+
   // ── Calendar callbacks ───────────────────────────────────────────────────
 
   const handleDateClick = useCallback((arg: DateClickArg) => {
     if (!canCreateCalendar) return
-    openCreateForm(arg.dateStr)
+    openNewPicker(arg.dateStr)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canCreateCalendar])
 
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
-      const evt = arg.event.extendedProps as CalendarEvent
+      const evt = arg.event.extendedProps as CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string }
       setDetailEvent(evt)
     },
     [],
@@ -334,7 +474,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     }
   }
 
-  // ── Save ─────────────────────────────────────────────────────────────────
+  // ── Save (standalone event) ───────────────────────────────────────────────
 
   async function handleSave() {
     setSaving(true)
@@ -383,6 +523,43 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     }
   }
 
+  // ── Save (link project) ──────────────────────────────────────────────────
+
+  async function handleLinkProjectSave() {
+    setLinkSaving(true)
+    setLinkError(null)
+
+    try {
+      if (!linkSelectedProjectId) throw new Error('Please select a job')
+      if (!linkStartDate) throw new Error('Please select a start date')
+      if (!linkEndDate) throw new Error('Please select an end date')
+      if (linkEndDate < linkStartDate) throw new Error('End date must be on or after start date')
+
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          start_date: linkStartDate,
+          end_date: linkEndDate,
+          include_weekends: linkIncludeWeekends,
+        })
+        .eq('id', linkSelectedProjectId)
+
+      if (error) throw error
+
+      setShowLinkProjectModal(false)
+      resetLinkForm()
+      router.refresh()
+    } catch (err: unknown) {
+      let msg = 'Failed to link project'
+      if (err instanceof Error) msg = err.message
+      else if (typeof err === 'string') msg = err
+      else if (err && typeof err === 'object' && 'message' in err) msg = String((err as { message: unknown }).message)
+      setLinkError(msg)
+    } finally {
+      setLinkSaving(false)
+    }
+  }
+
   // ── Delete ───────────────────────────────────────────────────────────────
 
   async function handleDelete() {
@@ -398,6 +575,17 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       // silently fail – user can retry
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // When a project is selected in Link modal, pre-fill dates
+  function handleLinkProjectSelect(projectId: string) {
+    setLinkSelectedProjectId(projectId)
+    const proj = initialProjects.find((p) => p.id === projectId)
+    if (proj) {
+      if (proj.start_date) setLinkStartDate(proj.start_date)
+      if (proj.end_date) setLinkEndDate(proj.end_date)
+      setLinkIncludeWeekends(proj.include_weekends ?? false)
     }
   }
 
@@ -428,7 +616,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             )}
             {canCreateCalendar && (
               <button
-                onClick={() => openCreateForm()}
+                onClick={() => openNewPicker()}
                 className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
               >
                 <PlusIcon className="w-4 h-4" />
@@ -462,7 +650,199 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
         </div>
       </div>
 
-      {/* ── Add/Edit Project Modal ──────────────────────────────────────────── */}
+      {/* ── "Add to Calendar" Picker Modal ──────────────────────────────────── */}
+      {showNewPicker && (
+        <Portal>
+        <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setShowNewPicker(false)}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-sm bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
+              <h2 className="text-lg font-semibold text-gray-900">Add to Calendar</h2>
+              <button
+                onClick={() => setShowNewPicker(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 md:p-6 space-y-3">
+              <button
+                onClick={handlePickLinkProject}
+                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-amber-400 hover:bg-amber-50 transition group text-left"
+              >
+                <div className="w-11 h-11 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition">
+                  <LinkIcon className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Link a Project</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Connect an existing job to the calendar</p>
+                </div>
+              </button>
+
+              <button
+                onClick={handlePickStandalone}
+                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-amber-400 hover:bg-amber-50 transition group text-left"
+              >
+                <div className="w-11 h-11 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-200 transition">
+                  <CalendarIcon className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Standalone Event</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Crew day off, delivery, inspection, etc.</p>
+                </div>
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div className="flex-none p-4 border-t border-gray-200" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
+              <button
+                onClick={() => setShowNewPicker(false)}
+                className="w-full border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+        </Portal>
+      )}
+
+      {/* ── Link a Project Modal ────────────────────────────────────────────── */}
+      {showLinkProjectModal && (
+        <Portal>
+        <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => { setShowLinkProjectModal(false); resetLinkForm() }}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
+              <h2 className="text-lg font-semibold text-gray-900">Link a Project</h2>
+              <button
+                onClick={() => { setShowLinkProjectModal(false); resetLinkForm() }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
+              {linkError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm flex items-center justify-between">
+                  <span>{linkError}</span>
+                  <button onClick={() => setLinkError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
+                    <XIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Job Search & Select */}
+              <div>
+                <label className={labelCls}>Select Job *</label>
+                <div className="relative mb-2">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={linkSearchQuery}
+                    onChange={(e) => setLinkSearchQuery(e.target.value)}
+                    placeholder="Search jobs by name, client, or address..."
+                    className={inputCls + ' pl-9'}
+                  />
+                </div>
+                <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                  {filteredProjects.length === 0 && (
+                    <p className="p-3 text-sm text-gray-400 text-center">No jobs found</p>
+                  )}
+                  {filteredProjects.map((proj) => {
+                    const isSelected = linkSelectedProjectId === proj.id
+                    const hasDates = !!(proj.start_date && proj.end_date)
+                    return (
+                      <button
+                        key={proj.id}
+                        type="button"
+                        onClick={() => handleLinkProjectSelect(proj.id)}
+                        className={`w-full text-left px-3 py-2.5 border-b border-gray-100 last:border-b-0 transition text-sm ${
+                          isSelected
+                            ? 'bg-amber-50 border-l-2 border-l-amber-500'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <p className={`font-medium ${isSelected ? 'text-amber-700' : 'text-gray-900'}`}>
+                          {proj.name}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {proj.client_name} &middot; {proj.address}
+                          {hasDates && (
+                            <span className="ml-1 text-blue-500">&middot; On calendar</span>
+                          )}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Start Date & End Date */}
+              <div className="flex flex-col gap-3 w-1/2">
+                <div>
+                  <label className={labelCls}>Start Date *</label>
+                  <input
+                    type="date"
+                    value={linkStartDate}
+                    onChange={(e) => {
+                      setLinkStartDate(e.target.value)
+                      if (linkEndDate && e.target.value > linkEndDate) setLinkEndDate(e.target.value)
+                    }}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>End Date *</label>
+                  <input
+                    type="date"
+                    value={linkEndDate}
+                    min={linkStartDate || undefined}
+                    onChange={(e) => setLinkEndDate(e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className={labelCls + ' mb-0'}>Include Weekends?</label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={linkIncludeWeekends}
+                    onClick={() => setLinkIncludeWeekends(!linkIncludeWeekends)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${linkIncludeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${linkIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
+              <button
+                onClick={() => { setShowLinkProjectModal(false); resetLinkForm() }}
+                className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLinkProjectSave}
+                disabled={linkSaving}
+                className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-semibold transition"
+              >
+                {linkSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+        </Portal>
+      )}
+
+      {/* ── Add/Edit Standalone Event Modal ─────────────────────────────────── */}
       {showFormModal && (
         <Portal>
         <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => { setShowFormModal(false); resetForm() }}>
@@ -470,7 +850,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
             {/* Header */}
             <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
               <h2 className="text-lg font-semibold text-gray-900">
-                {editingEvent ? 'Edit Project' : 'Add Project'}
+                {editingEvent ? 'Edit Event' : 'Add Standalone Event'}
               </h2>
               <button
                 onClick={() => { setShowFormModal(false); resetForm() }}
@@ -493,12 +873,12 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
               {/* Project Name */}
               <div>
-                <label className={labelCls}>Project Name *</label>
+                <label className={labelCls}>Event Name *</label>
                 <input
                   type="text"
                   value={formProjectName}
                   onChange={(e) => setFormProjectName(e.target.value)}
-                  placeholder="e.g. Warehouse Floor Coating"
+                  placeholder="e.g. Crew Day Off, Delivery, Inspection"
                   className={inputCls}
                 />
               </div>
@@ -674,7 +1054,20 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
               className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
               style={{ minHeight: '56px', borderTop: `4px solid ${detailEvent.color || PRESET_COLORS[0].value}` }}
             >
-              <h2 className="text-lg font-semibold text-gray-900">{detailEvent.project_name}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-900">{detailEvent.project_name}</h2>
+                {detailEvent._isLinkedProject && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                    <LinkIcon className="w-3 h-3" />
+                    Job
+                  </span>
+                )}
+                {detailEvent._isStandalone && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                    📅 Event
+                  </span>
+                )}
+              </div>
               <button
                 onClick={() => setDetailEvent(null)}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition flex-shrink-0"
@@ -719,7 +1112,18 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
             {/* Footer */}
             <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
-              {canEditCalendar && detailEvent.created_by === userId && (
+              {/* Linked project: edit dates */}
+              {detailEvent._isLinkedProject && detailEvent._linkedProjectId && canEditCalendar && (
+                <button
+                  onClick={() => openEditLinkedProject(detailEvent._linkedProjectId!)}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white rounded-lg py-2.5 text-sm font-semibold transition"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                  Edit Dates
+                </button>
+              )}
+              {/* Standalone event: edit / delete */}
+              {detailEvent._isStandalone && canEditCalendar && detailEvent.created_by === userId && (
                 <>
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
@@ -737,7 +1141,8 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
                   </button>
                 </>
               )}
-              {(!canEditCalendar || detailEvent.created_by !== userId) && (
+              {/* Fallback close */}
+              {!detailEvent._isLinkedProject && (!detailEvent._isStandalone || !canEditCalendar || detailEvent.created_by !== userId) && (
                 <button
                   onClick={() => setDetailEvent(null)}
                   className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
@@ -758,7 +1163,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
           <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Title bar */}
             <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
-              <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Delete Event</h3>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
@@ -797,6 +1202,14 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
         </div>
         </Portal>
       )}
+
+      {/* Standalone event dashed-border style */}
+      <style>{`
+        .standalone-event .fc-event-main {
+          border: 1.5px dashed rgba(255,255,255,0.6);
+          border-radius: 3px;
+        }
+      `}</style>
     </div>
   )
 }

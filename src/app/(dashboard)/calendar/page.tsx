@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { CalendarEvent } from '@/types'
+import { CalendarEvent, Project } from '@/types'
 import type { UserRole } from '@/types'
 import CalendarPageClient from '@/components/calendar/CalendarPageClient'
 
@@ -12,7 +12,7 @@ export default async function CalendarPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: events }, { data: profile }] = await Promise.all([
+  const [{ data: events }, { data: profile }, { data: projects }] = await Promise.all([
     supabase
       .from('calendar_events')
       .select('*')
@@ -22,11 +22,16 @@ export default async function CalendarPage() {
       .select('role')
       .eq('id', user.id)
       .single(),
+    supabase
+      .from('projects')
+      .select('*')
+      .order('name', { ascending: true }),
   ])
 
   return (
     <CalendarPageClient
       initialEvents={(events as CalendarEvent[]) ?? []}
+      initialProjects={(projects as Project[]) ?? []}
       userId={user.id}
       userRole={(profile?.role as UserRole) ?? 'crew'}
     />

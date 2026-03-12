@@ -7,6 +7,9 @@ export interface Project {
   address: string
   status: ProjectStatus
   estimate_number?: string
+  start_date?: string | null
+  end_date?: string | null
+  include_weekends?: boolean
   created_at: string
 }
 
