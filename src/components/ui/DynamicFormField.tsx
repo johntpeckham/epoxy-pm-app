@@ -60,7 +60,7 @@ export default function DynamicFormField({ field, value, onChange }: DynamicForm
 
     case 'date':
       return (
-        <div>
+        <div className="w-1/2 sm:w-full">
           <label className={labelCls}>
             {field.label}
             {field.required && <span className="text-red-400"> *</span>}

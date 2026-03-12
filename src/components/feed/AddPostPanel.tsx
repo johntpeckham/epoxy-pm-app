@@ -816,7 +816,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <input type="text" value={rProjectName} onChange={(e) => setRProjectName(e.target.value)} className={inputCls} />
               </div>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 overflow-hidden">
-                <div className="min-w-0">
+                <div className="min-w-0 w-1/2 sm:w-full">
                   <label className={labelCls}>Date</label>
                   <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className={`${inputCls} min-w-0 max-w-full`} style={{ maxWidth: '100%' }} />
                 </div>
@@ -1061,7 +1061,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             </div>
 
             {/* Due Date */}
-            <div className="min-w-0">
+            <div className="min-w-0 w-1/2 sm:w-full">
               <label className={labelCls}>Due Date</label>
               <input
                 type="date"
@@ -1151,7 +1151,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <input type="text" value={jsaProjectName} onChange={(e) => setJsaProjectName(e.target.value)} className={inputCls} />
               </div>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <div className="min-w-0">
+                <div className="min-w-0 w-1/2 sm:w-full">
                   <label className={labelCls}>Date</label>
                   <input type="date" value={jsaDate} onChange={(e) => setJsaDate(e.target.value)} className={`${inputCls} min-w-0`} />
                 </div>
@@ -1327,7 +1327,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <input type="text" value={tcProjectName} onChange={(e) => setTcProjectName(e.target.value)} className={inputCls} />
               </div>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 overflow-hidden">
-                <div className="min-w-0">
+                <div className="min-w-0 w-1/2 sm:w-full">
                   <label className={labelCls}>Date</label>
                   <input type="date" value={tcDate} onChange={(e) => setTcDate(e.target.value)} className={`${inputCls} min-w-0 max-w-full`} style={{ maxWidth: '100%' }} />
                 </div>
@@ -1555,7 +1555,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <input type="text" value={rcptVendor} onChange={(e) => setRcptVendor(e.target.value)} placeholder="e.g. Home Depot, Shell, Sunbelt Rentals" className={inputCls} />
               </div>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 overflow-hidden">
-                <div className="min-w-0">
+                <div className="min-w-0 w-1/2 sm:w-full">
                   <label className={labelCls}>Date on Receipt</label>
                   <input type="date" value={rcptDate} onChange={(e) => setRcptDate(e.target.value)} className={`${inputCls} min-w-0 max-w-full`} style={{ maxWidth: '100%' }} />
                 </div>
@@ -1709,7 +1709,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                   </select>
                 </div>
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 w-1/2 sm:w-full">
                 <label className={labelCls}>Date *</label>
                 <input type="date" value={expDate} onChange={(e) => setExpDate(e.target.value)} className={`${inputCls} min-w-0 max-w-full`} style={{ maxWidth: '100%' }} />
               </div>

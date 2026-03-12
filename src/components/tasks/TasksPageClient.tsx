@@ -368,7 +368,7 @@ export default function TasksPageClient({
     // Due Date
     if (contentKey === 'due_date') {
       return (
-        <div key={field.id}>
+        <div key={field.id} className="w-1/2 sm:w-full">
           <label className={labelCls}>{field.label}</label>
           <input
             type="date"
