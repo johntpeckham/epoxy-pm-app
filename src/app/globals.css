@@ -81,9 +81,10 @@ body {
   background-color: #fef3c7 !important;
 }
 .calendar-wrapper .fc .fc-event {
-  border-radius: 4px;
-  font-size: 0.8rem;
-  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  padding: 0px 4px;
+  line-height: 1.4;
   cursor: pointer;
 }
 .calendar-wrapper .fc .fc-col-header-cell-cushion,
@@ -186,8 +187,9 @@ body {
 
   /* Smaller event text on mobile */
   .calendar-wrapper .fc .fc-event {
-    font-size: 0.7rem;
-    padding: 2px 4px;
+    font-size: 0.6rem;
+    padding: 0px 3px;
+    line-height: 1.3;
   }
 }
 
