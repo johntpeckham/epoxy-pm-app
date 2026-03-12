@@ -17,6 +17,9 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   const [address, setAddress] = useState('')
   const [estimateNumber, setEstimateNumber] = useState('')
   const [status, setStatus] = useState<'Active' | 'Complete'>('Active')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [includeWeekends, setIncludeWeekends] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,6 +64,12 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
     setLoading(true)
     setError(null)
 
+    if (startDate && endDate && endDate < startDate) {
+      setError('End date must be on or after start date')
+      setLoading(false)
+      return
+    }
+
     const supabase = createClient()
     const { error } = await supabase.from('projects').insert({
       name: name.trim(),
@@ -68,6 +77,9 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       address: address.trim(),
       status,
       ...(estimateNumber.trim() ? { estimate_number: estimateNumber.trim() } : {}),
+      ...(startDate ? { start_date: startDate } : {}),
+      ...(endDate ? { end_date: endDate } : {}),
+      ...(startDate && endDate ? { include_weekends: includeWeekends } : {}),
     })
 
     if (error) {
@@ -212,6 +224,51 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                 <option value="Complete">Complete</option>
               </select>
             </div>
+
+            {/* Calendar Dates (optional) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value)
+                    if (endDate && e.target.value > endDate) setEndDate(e.target.value)
+                  }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {startDate && endDate && (
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">Include Weekends?</label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={includeWeekends}
+                  onClick={() => setIncludeWeekends(!includeWeekends)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${includeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${includeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
