@@ -523,3 +523,145 @@ export async function exportFullReport(
 
   doc.save(`${safeName}-takeoff-report.pdf`)
 }
+
+// ─── Generate full report as Blob (for uploading to Supabase) ───
+
+export async function generateReportBlob(
+  projectName: string,
+  pages: TakeoffPage[],
+  items: TakeoffItem[],
+  pageScales: Record<string, number>,
+  pageRenderedSizes: Record<string, { w: number; h: number }>,
+): Promise<Blob> {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' })
+  const pw = doc.internal.pageSize.getWidth()
+  const ph = doc.internal.pageSize.getHeight()
+
+  // ─── Page 1: Summary ───
+  const margin = 40
+  let cy = margin
+
+  doc.setFontSize(22)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Takeoff Report', margin, cy + 22)
+  cy += 36
+
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80, 80, 80)
+  doc.text(projectName, margin, cy + 14)
+  cy += 24
+
+  doc.setFontSize(10)
+  doc.setTextColor(120, 120, 120)
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, margin, cy + 10)
+  cy += 16
+
+  const scaleEntries = Object.entries(pageScales)
+  if (scaleEntries.length > 0) {
+    const ppf = scaleEntries[0][1]
+    const scaleText = `Scale: 1in = ${(ppf / 12).toFixed(1)}ft`
+    doc.text(scaleText, margin, cy + 10)
+    cy += 16
+  }
+
+  cy += 12
+
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 0, 0)
+  doc.text('Measurement Items', margin, cy + 12)
+  cy += 24
+
+  const colX2 = { color: margin, name: margin + 24, type: margin + 240, count: margin + 340, total: margin + 440 }
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(100, 100, 100)
+  doc.text('Color', colX2.color, cy + 9)
+  doc.text('Item Name', colX2.name, cy + 9)
+  doc.text('Type', colX2.type, cy + 9)
+  doc.text('Measurements', colX2.count, cy + 9)
+  doc.text('Total', colX2.total, cy + 9)
+  cy += 16
+  doc.setDrawColor(220, 220, 220)
+  doc.line(margin, cy, pw - margin, cy)
+  cy += 6
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  for (const item of items) {
+    if (cy > ph - margin - 20) {
+      doc.addPage()
+      cy = margin
+    }
+    const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
+    const rgb = hexToRgb(item.color)
+
+    doc.setFillColor(rgb.r, rgb.g, rgb.b)
+    doc.circle(colX2.color + 5, cy + 5, 4, 'F')
+    doc.setTextColor(30, 30, 30)
+    doc.text(item.name, colX2.name, cy + 9)
+    doc.setTextColor(100, 100, 100)
+    doc.text(item.type === 'linear' ? 'Linear' : 'Area', colX2.type, cy + 9)
+    doc.text(`${item.measurements.length}`, colX2.count, cy + 9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(30, 30, 30)
+    doc.text(item.type === 'linear' ? fmtFtIn(total) : fmtArea(total), colX2.total, cy + 9)
+    doc.setFont('helvetica', 'normal')
+    cy += 22
+  }
+
+  cy += 6
+  doc.setDrawColor(220, 220, 220)
+  doc.line(margin, cy, pw - margin, cy)
+  cy += 12
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+
+  const totalLinear2 = items.filter(i => i.type === 'linear').reduce((s, i) => s + i.measurements.reduce((a, m) => a + m.valueInFeet, 0), 0)
+  const totalAreaVal2 = items.filter(i => i.type === 'area').reduce((s, i) => s + i.measurements.reduce((a, m) => a + m.valueInFeet, 0), 0)
+
+  if (totalLinear2 > 0) {
+    doc.setTextColor(30, 30, 30)
+    doc.text(`Total Linear: ${fmtFtIn(totalLinear2)}`, margin, cy + 11)
+    cy += 20
+  }
+  if (totalAreaVal2 > 0) {
+    doc.setTextColor(30, 30, 30)
+    doc.text(`Total Area: ${fmtArea(totalAreaVal2)}`, margin, cy + 11)
+    cy += 20
+  }
+
+  for (const page of pages) {
+    const pageKey = `${page.pdfIndex}-${page.pageIndex}`
+    try {
+      const { dataUrl, rawW, rawH } = await renderPageComposite(
+        page, items, pageKey, pageRenderedSizes[pageKey],
+      )
+
+      const availW = pw - margin * 2
+      const availH = ph - margin * 2
+      const fitScale = Math.min(availW / rawW, availH / rawH)
+      const imgW = rawW * fitScale
+      const imgH = rawH * fitScale
+      const imgX = margin + (availW - imgW) / 2
+      const imgY = margin + (availH - imgH) / 2
+
+      doc.addPage()
+      doc.addImage(dataUrl, 'JPEG', imgX, imgY, imgW, imgH)
+
+      const displayName = page.displayName || `Page ${page.pageIndex + 1}`
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(120, 120, 120)
+      doc.text(displayName, margin, margin - 8)
+    } catch {
+      doc.addPage()
+      doc.setFontSize(12)
+      doc.setTextColor(200, 50, 50)
+      doc.text(`Failed to render page ${page.pageIndex + 1}`, margin, margin + 20)
+    }
+  }
+
+  return doc.output('blob')
+}
