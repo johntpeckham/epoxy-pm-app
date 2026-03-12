@@ -342,12 +342,34 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     )
   }
 
-  function addCustomCrewMember() {
+  async function addCustomCrewMember() {
     const name = customCrewName.trim()
     if (!name) return
-    if (!formCrewNames.includes(name)) {
-      setFormCrewNames((prev) => [...prev, name])
+
+    // Check if an employee with this name already exists
+    const existing = employeeProfiles.find((emp) => emp.name.toLowerCase() === name.toLowerCase())
+    if (existing) {
+      if (!formCrewNames.includes(existing.name)) setFormCrewNames((prev) => [...prev, existing.name])
+      setCustomCrewName('')
+      setShowCustomCrewInput(false)
+      return
     }
+
+    // Insert new employee into employee_profiles
+    const { data, error } = await supabase
+      .from('employee_profiles')
+      .insert({ name })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Failed to create employee:', error)
+      if (!formCrewNames.includes(name)) setFormCrewNames((prev) => [...prev, name])
+    } else if (data) {
+      setEmployeeProfiles((prev) => [...prev, data as EmployeeProfile])
+      if (!formCrewNames.includes(data.name)) setFormCrewNames((prev) => [...prev, data.name])
+    }
+
     setCustomCrewName('')
     setShowCustomCrewInput(false)
   }
@@ -358,12 +380,32 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     )
   }
 
-  function addEditProjectCustomCrewMember() {
+  async function addEditProjectCustomCrewMember() {
     const name = editProjectCustomCrewName.trim()
     if (!name) return
-    if (!editProjectCrewNames.includes(name)) {
-      setEditProjectCrewNames((prev) => [...prev, name])
+
+    const existing = employeeProfiles.find((emp) => emp.name.toLowerCase() === name.toLowerCase())
+    if (existing) {
+      if (!editProjectCrewNames.includes(existing.name)) setEditProjectCrewNames((prev) => [...prev, existing.name])
+      setEditProjectCustomCrewName('')
+      setEditProjectShowCustomCrew(false)
+      return
     }
+
+    const { data, error } = await supabase
+      .from('employee_profiles')
+      .insert({ name })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Failed to create employee:', error)
+      if (!editProjectCrewNames.includes(name)) setEditProjectCrewNames((prev) => [...prev, name])
+    } else if (data) {
+      setEmployeeProfiles((prev) => [...prev, data as EmployeeProfile])
+      if (!editProjectCrewNames.includes(data.name)) setEditProjectCrewNames((prev) => [...prev, data.name])
+    }
+
     setEditProjectCustomCrewName('')
     setEditProjectShowCustomCrew(false)
   }
@@ -1368,19 +1410,6 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                       </button>
                     )
                   })}
-                  {/* One-off names not in profiles */}
-                  {formCrewNames
-                    .filter((name) => !employeeProfiles.some((emp) => emp.name === name))
-                    .map((name) => (
-                      <button
-                        key={`custom-${name}`}
-                        type="button"
-                        onClick={() => toggleCrewMember(name)}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors bg-gray-900 text-white border-gray-900"
-                      >
-                        {name}
-                      </button>
-                    ))}
                   {showCustomCrewInput ? (
                     <div className="flex items-center gap-1">
                       <input
@@ -1622,18 +1651,6 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                       </button>
                     )
                   })}
-                  {editProjectCrewNames
-                    .filter((n) => !employeeProfiles.some((emp) => emp.name === n))
-                    .map((n) => (
-                      <button
-                        key={`custom-${n}`}
-                        type="button"
-                        onClick={() => toggleEditProjectCrewMember(n)}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors bg-gray-900 text-white border-gray-900"
-                      >
-                        {n}
-                      </button>
-                    ))}
                   {editProjectShowCustomCrew ? (
                     <div className="flex items-center gap-1">
                       <input
