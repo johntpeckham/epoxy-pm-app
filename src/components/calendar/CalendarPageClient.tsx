@@ -294,6 +294,22 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [newJobCustomerSearch, setNewJobCustomerSearch] = useState('')
   const newJobDropdownRef = useRef<HTMLDivElement>(null)
 
+  // Edit Project modal state (for clicking job-linked bars)
+  const [showEditProjectModal, setShowEditProjectModal] = useState(false)
+  const [editProjectId, setEditProjectId] = useState('')
+  const [editProjectName, setEditProjectName] = useState('')
+  const [editProjectClient, setEditProjectClient] = useState('')
+  const [editProjectAddress, setEditProjectAddress] = useState('')
+  const [editProjectEstimate, setEditProjectEstimate] = useState('')
+  const [editProjectStatus, setEditProjectStatus] = useState<'Active' | 'Complete'>('Active')
+  const [editProjectStartDate, setEditProjectStartDate] = useState('')
+  const [editProjectEndDate, setEditProjectEndDate] = useState('')
+  const [editProjectIncludeWeekends, setEditProjectIncludeWeekends] = useState(false)
+  const [editProjectSaving, setEditProjectSaving] = useState(false)
+  const [editProjectError, setEditProjectError] = useState<string | null>(null)
+  const [showRemoveFromCalendarConfirm, setShowRemoveFromCalendarConfirm] = useState(false)
+  const [removingFromCalendar, setRemovingFromCalendar] = useState(false)
+
   // Date clicked on calendar (passed to picker flows)
   const [clickedDate, setClickedDate] = useState<string | undefined>(undefined)
 
@@ -459,16 +475,36 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setShowFormModal(true)
   }
 
-  function openEditLinkedProject(projectId: string) {
+  function openEditProjectModal(projectId: string) {
     const proj = initialProjects.find((p) => p.id === projectId)
     if (!proj) return
-    resetLinkForm()
-    setLinkSelectedProjectId(proj.id)
-    setLinkStartDate(proj.start_date || '')
-    setLinkEndDate(proj.end_date || '')
-    setLinkIncludeWeekends(proj.include_weekends ?? false)
+    setEditProjectId(proj.id)
+    setEditProjectName(proj.name)
+    setEditProjectClient(proj.client_name)
+    setEditProjectAddress(proj.address)
+    setEditProjectEstimate(proj.estimate_number ?? '')
+    setEditProjectStatus(proj.status)
+    setEditProjectStartDate(proj.start_date || '')
+    setEditProjectEndDate(proj.end_date || '')
+    setEditProjectIncludeWeekends(proj.include_weekends ?? false)
+    setEditProjectError(null)
+    setShowRemoveFromCalendarConfirm(false)
     setDetailEvent(null)
-    setShowLinkProjectModal(true)
+    setShowEditProjectModal(true)
+  }
+
+  function resetEditProjectForm() {
+    setEditProjectId('')
+    setEditProjectName('')
+    setEditProjectClient('')
+    setEditProjectAddress('')
+    setEditProjectEstimate('')
+    setEditProjectStatus('Active')
+    setEditProjectStartDate('')
+    setEditProjectEndDate('')
+    setEditProjectIncludeWeekends(false)
+    setEditProjectError(null)
+    setShowRemoveFromCalendarConfirm(false)
   }
 
   // ── Calendar callbacks ───────────────────────────────────────────────────
@@ -482,9 +518,15 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
       const evt = arg.event.extendedProps as CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string }
-      setDetailEvent(evt)
+      if (evt._isLinkedProject && evt._linkedProjectId) {
+        // Job-linked bar: open Edit Project modal directly
+        openEditProjectModal(evt._linkedProjectId)
+      } else {
+        // Standalone event: open detail popup
+        setDetailEvent(evt)
+      }
     },
-    [],
+    [initialProjects], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const handleDatesSet = useCallback((arg: DatesSetArg) => {
@@ -654,6 +696,71 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
       setLinkError(msg)
     } finally {
       setLinkSaving(false)
+    }
+  }
+
+  // ── Save (edit project from calendar) ───────────────────────────────────
+
+  async function handleEditProjectSave() {
+    setEditProjectSaving(true)
+    setEditProjectError(null)
+
+    try {
+      if (!editProjectName.trim()) throw new Error('Please enter a project name')
+      if (!editProjectClient.trim()) throw new Error('Please enter a client name')
+      if (!editProjectAddress.trim()) throw new Error('Please enter an address')
+      if (!editProjectStartDate) throw new Error('Please select a start date')
+      if (!editProjectEndDate) throw new Error('Please select an end date')
+      if (editProjectEndDate < editProjectStartDate) throw new Error('End date must be on or after start date')
+
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          name: editProjectName.trim(),
+          client_name: editProjectClient.trim(),
+          address: editProjectAddress.trim(),
+          estimate_number: editProjectEstimate.trim() || null,
+          status: editProjectStatus,
+          start_date: editProjectStartDate,
+          end_date: editProjectEndDate,
+          include_weekends: editProjectIncludeWeekends,
+        })
+        .eq('id', editProjectId)
+
+      if (error) throw error
+
+      setShowEditProjectModal(false)
+      resetEditProjectForm()
+      router.refresh()
+    } catch (err: unknown) {
+      let msg = 'Failed to save project'
+      if (err instanceof Error) msg = err.message
+      else if (typeof err === 'string') msg = err
+      else if (err && typeof err === 'object' && 'message' in err) msg = String((err as { message: unknown }).message)
+      setEditProjectError(msg)
+    } finally {
+      setEditProjectSaving(false)
+    }
+  }
+
+  async function handleRemoveFromCalendar() {
+    setRemovingFromCalendar(true)
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ start_date: null, end_date: null, include_weekends: false })
+        .eq('id', editProjectId)
+
+      if (error) throw error
+
+      setShowRemoveFromCalendarConfirm(false)
+      setShowEditProjectModal(false)
+      resetEditProjectForm()
+      router.refresh()
+    } catch {
+      // silently fail – user can retry
+    } finally {
+      setRemovingFromCalendar(false)
     }
   }
 
@@ -1330,6 +1437,213 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
         </Portal>
       )}
 
+      {/* ── Edit Project Modal (job-linked bars) ─────────────────────────── */}
+      {showEditProjectModal && !showRemoveFromCalendarConfirm && (
+        <Portal>
+        <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => { setShowEditProjectModal(false); resetEditProjectForm() }}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
+              <h2 className="text-lg font-semibold text-gray-900">Edit Project</h2>
+              <button
+                onClick={() => { setShowEditProjectModal(false); resetEditProjectForm() }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
+              {editProjectError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm flex items-center justify-between">
+                  <span>{editProjectError}</span>
+                  <button onClick={() => setEditProjectError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
+                    <XIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Project Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editProjectName}
+                  onChange={(e) => setEditProjectName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Client Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editProjectClient}
+                  onChange={(e) => setEditProjectClient(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editProjectAddress}
+                  onChange={(e) => setEditProjectAddress(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Estimate #
+                </label>
+                <input
+                  type="text"
+                  value={editProjectEstimate}
+                  onChange={(e) => setEditProjectEstimate(e.target.value)}
+                  placeholder="e.g. EST-1042"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
+                <select
+                  value={editProjectStatus}
+                  onChange={(e) => setEditProjectStatus(e.target.value as 'Active' | 'Complete')}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Complete">Complete</option>
+                </select>
+              </div>
+
+              {/* Calendar Dates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Start Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={editProjectStartDate}
+                    onChange={(e) => {
+                      setEditProjectStartDate(e.target.value)
+                      if (editProjectEndDate && e.target.value > editProjectEndDate) setEditProjectEndDate(e.target.value)
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    End Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={editProjectEndDate}
+                    min={editProjectStartDate || undefined}
+                    onChange={(e) => setEditProjectEndDate(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">Include Weekends?</label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={editProjectIncludeWeekends}
+                  onClick={() => setEditProjectIncludeWeekends(!editProjectIncludeWeekends)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${editProjectIncludeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${editProjectIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
+              <button
+                type="button"
+                onClick={() => setShowRemoveFromCalendarConfirm(true)}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
+              >
+                <Trash2Icon className="w-4 h-4" />
+                Remove
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowEditProjectModal(false); resetEditProjectForm() }}
+                className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleEditProjectSave}
+                disabled={editProjectSaving}
+                className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-semibold transition"
+              >
+                {editProjectSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+        </Portal>
+      )}
+
+      {/* ── Remove from Calendar Confirmation ────────────────────────────────── */}
+      {showRemoveFromCalendarConfirm && showEditProjectModal && (
+        <Portal>
+        <div className="fixed inset-0 z-[70] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setShowRemoveFromCalendarConfirm(false)}>
+          <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
+              <h3 className="text-lg font-semibold text-gray-900">Remove from Calendar</h3>
+              <button
+                onClick={() => setShowRemoveFromCalendarConfirm(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 min-h-0">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                  <CalendarIcon className="w-6 h-6 text-red-500" />
+                </div>
+                <p className="text-sm text-gray-500">
+                  Remove &ldquo;{editProjectName}&rdquo; from the calendar? The job will not be deleted &mdash; only its calendar dates will be cleared.
+                </p>
+              </div>
+            </div>
+            <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
+              <button
+                onClick={() => setShowRemoveFromCalendarConfirm(false)}
+                className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveFromCalendar}
+                disabled={removingFromCalendar}
+                className="flex-1 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-semibold transition"
+              >
+                {removingFromCalendar ? 'Removing...' : 'Remove from Calendar'}
+              </button>
+            </div>
+          </div>
+        </div>
+        </Portal>
+      )}
+
       {/* ── Event Detail Modal ──────────────────────────────────────────────── */}
       {detailEvent && !showDeleteConfirm && (
         <Portal>
@@ -1398,16 +1712,6 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
 
             {/* Footer */}
             <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
-              {/* Linked project: edit dates */}
-              {detailEvent._isLinkedProject && detailEvent._linkedProjectId && canEditCalendar && (
-                <button
-                  onClick={() => openEditLinkedProject(detailEvent._linkedProjectId!)}
-                  className="flex-1 flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white rounded-lg py-2.5 text-sm font-semibold transition"
-                >
-                  <PencilIcon className="w-4 h-4" />
-                  Edit Dates
-                </button>
-              )}
               {/* Standalone event: edit / delete */}
               {detailEvent._isStandalone && canEditCalendar && detailEvent.created_by === userId && (
                 <>
@@ -1428,7 +1732,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                 </>
               )}
               {/* Fallback close */}
-              {!detailEvent._isLinkedProject && (!detailEvent._isStandalone || !canEditCalendar || detailEvent.created_by !== userId) && (
+              {(!detailEvent._isStandalone || !canEditCalendar || detailEvent.created_by !== userId) && (
                 <button
                   onClick={() => setDetailEvent(null)}
                   className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
