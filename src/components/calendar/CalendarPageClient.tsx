@@ -8,7 +8,7 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { DateClickArg } from '@fullcalendar/interaction'
 import type { EventClickArg, DatesSetArg } from '@fullcalendar/core'
-import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon, DownloadIcon, LoaderIcon, CheckIcon, LinkIcon, SearchIcon } from 'lucide-react'
+import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon, DownloadIcon, LoaderIcon, CheckIcon, LinkIcon, SearchIcon, ChevronDownIcon, ArrowLeftIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { CalendarEvent, EmployeeProfile, Project } from '@/types'
 import type { UserRole } from '@/types'
@@ -279,6 +279,21 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [linkSaving, setLinkSaving] = useState(false)
   const [linkError, setLinkError] = useState<string | null>(null)
 
+  // "Create New Job" sub-flow inside Link a Project modal
+  const [showCreateNewJob, setShowCreateNewJob] = useState(false)
+  const [newJobName, setNewJobName] = useState('')
+  const [newJobClient, setNewJobClient] = useState('')
+  const [newJobAddress, setNewJobAddress] = useState('')
+  const [newJobEstimate, setNewJobEstimate] = useState('')
+  const [newJobStatus, setNewJobStatus] = useState<'Active' | 'Complete'>('Active')
+  const [newJobStartDate, setNewJobStartDate] = useState('')
+  const [newJobEndDate, setNewJobEndDate] = useState('')
+  const [newJobIncludeWeekends, setNewJobIncludeWeekends] = useState(false)
+  const [newJobCustomers, setNewJobCustomers] = useState<{ id: string; name: string; company?: string | null }[]>([])
+  const [newJobShowCustomerDropdown, setNewJobShowCustomerDropdown] = useState(false)
+  const [newJobCustomerSearch, setNewJobCustomerSearch] = useState('')
+  const newJobDropdownRef = useRef<HTMLDivElement>(null)
+
   // Date clicked on calendar (passed to picker flows)
   const [clickedDate, setClickedDate] = useState<string | undefined>(undefined)
 
@@ -371,6 +386,32 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setCustomCrewName('')
   }
 
+  // Fetch customers for new job form
+  useEffect(() => {
+    if (showCreateNewJob && newJobCustomers.length === 0) {
+      supabase
+        .from('customers')
+        .select('id, name, company')
+        .order('name', { ascending: true })
+        .then(({ data }) => {
+          if (data) setNewJobCustomers(data)
+        })
+    }
+  }, [showCreateNewJob]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Customer dropdown click-outside handler
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (newJobDropdownRef.current && !newJobDropdownRef.current.contains(e.target as Node)) {
+        setNewJobShowCustomerDropdown(false)
+      }
+    }
+    if (newJobShowCustomerDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [newJobShowCustomerDropdown])
+
   function resetLinkForm() {
     setLinkSelectedProjectId('')
     setLinkStartDate('')
@@ -378,6 +419,21 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setLinkIncludeWeekends(false)
     setLinkSearchQuery('')
     setLinkError(null)
+    resetNewJobForm()
+  }
+
+  function resetNewJobForm() {
+    setShowCreateNewJob(false)
+    setNewJobName('')
+    setNewJobClient('')
+    setNewJobAddress('')
+    setNewJobEstimate('')
+    setNewJobStatus('Active')
+    setNewJobStartDate('')
+    setNewJobEndDate('')
+    setNewJobIncludeWeekends(false)
+    setNewJobCustomerSearch('')
+    setNewJobShowCustomerDropdown(false)
   }
 
   function openCreateForm(startDate?: string) {
@@ -560,6 +616,47 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     }
   }
 
+  // ── Save (create new job from Link modal) ──────────────────────────────
+
+  async function handleCreateNewJobSave() {
+    setLinkSaving(true)
+    setLinkError(null)
+
+    try {
+      if (!newJobName.trim()) throw new Error('Please enter a project name')
+      if (!newJobClient.trim()) throw new Error('Please enter a client name')
+      if (!newJobAddress.trim()) throw new Error('Please enter an address')
+      if (!newJobStartDate) throw new Error('Please select a start date')
+      if (!newJobEndDate) throw new Error('Please select an end date')
+      if (newJobEndDate < newJobStartDate) throw new Error('End date must be on or after start date')
+
+      const { error } = await supabase.from('projects').insert({
+        name: newJobName.trim(),
+        client_name: newJobClient.trim(),
+        address: newJobAddress.trim(),
+        status: newJobStatus,
+        ...(newJobEstimate.trim() ? { estimate_number: newJobEstimate.trim() } : {}),
+        start_date: newJobStartDate,
+        end_date: newJobEndDate,
+        include_weekends: newJobIncludeWeekends,
+      })
+
+      if (error) throw error
+
+      setShowLinkProjectModal(false)
+      resetLinkForm()
+      router.refresh()
+    } catch (err: unknown) {
+      let msg = 'Failed to create job'
+      if (err instanceof Error) msg = err.message
+      else if (typeof err === 'string') msg = err
+      else if (err && typeof err === 'object' && 'message' in err) msg = String((err as { message: unknown }).message)
+      setLinkError(msg)
+    } finally {
+      setLinkSaving(false)
+    }
+  }
+
   // ── Delete ───────────────────────────────────────────────────────────────
 
   async function handleDelete() {
@@ -716,7 +813,19 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
           <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
-              <h2 className="text-lg font-semibold text-gray-900">Link a Project</h2>
+              <div className="flex items-center gap-2">
+                {showCreateNewJob && (
+                  <button
+                    onClick={() => setShowCreateNewJob(false)}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                  >
+                    <ArrowLeftIcon className="w-4 h-4" />
+                  </button>
+                )}
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {showCreateNewJob ? 'Create New Job' : 'Link a Project'}
+                </h2>
+              </div>
               <button
                 onClick={() => { setShowLinkProjectModal(false); resetLinkForm() }}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
@@ -736,105 +845,282 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                 </div>
               )}
 
-              {/* Job Search & Select */}
-              <div>
-                <label className={labelCls}>Select Job *</label>
-                <div className="relative mb-2">
-                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={linkSearchQuery}
-                    onChange={(e) => setLinkSearchQuery(e.target.value)}
-                    placeholder="Search jobs by name, client, or address..."
-                    className={inputCls + ' pl-9'}
-                  />
-                </div>
-                <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                  {filteredProjects.length === 0 && (
-                    <p className="p-3 text-sm text-gray-400 text-center">No jobs found</p>
-                  )}
-                  {filteredProjects.map((proj) => {
-                    const isSelected = linkSelectedProjectId === proj.id
-                    const hasDates = !!(proj.start_date && proj.end_date)
-                    return (
-                      <button
-                        key={proj.id}
-                        type="button"
-                        onClick={() => handleLinkProjectSelect(proj.id)}
-                        className={`w-full text-left px-3 py-2.5 border-b border-gray-100 last:border-b-0 transition text-sm ${
-                          isSelected
-                            ? 'bg-amber-50 border-l-2 border-l-amber-500'
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <p className={`font-medium ${isSelected ? 'text-amber-700' : 'text-gray-900'}`}>
-                          {proj.name}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {proj.client_name} &middot; {proj.address}
-                          {hasDates && (
-                            <span className="ml-1 text-blue-500">&middot; On calendar</span>
-                          )}
-                        </p>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+              {showCreateNewJob ? (
+                /* ── Create New Job form ──────────────────────────────── */
+                <>
+                  <div>
+                    <label className={labelCls}>Project Name *</label>
+                    <input
+                      type="text"
+                      value={newJobName}
+                      onChange={(e) => setNewJobName(e.target.value)}
+                      placeholder="e.g. Aircraft Hangar Coating"
+                      className={inputCls}
+                    />
+                  </div>
 
-              {/* Start Date & End Date */}
-              <div className="flex flex-col gap-3 w-1/2">
-                <div>
-                  <label className={labelCls}>Start Date *</label>
-                  <input
-                    type="date"
-                    value={linkStartDate}
-                    onChange={(e) => {
-                      setLinkStartDate(e.target.value)
-                      if (linkEndDate && e.target.value > linkEndDate) setLinkEndDate(e.target.value)
-                    }}
-                    className={inputCls}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>End Date *</label>
-                  <input
-                    type="date"
-                    value={linkEndDate}
-                    min={linkStartDate || undefined}
-                    onChange={(e) => setLinkEndDate(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className={labelCls + ' mb-0'}>Include Weekends?</label>
+                  <div>
+                    <label className={labelCls}>Client Name *</label>
+                    <input
+                      type="text"
+                      value={newJobClient}
+                      onChange={(e) => setNewJobClient(e.target.value)}
+                      placeholder="e.g. John Smith"
+                      className={inputCls}
+                    />
+                    <div className="relative mt-1" ref={newJobDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => { setNewJobShowCustomerDropdown(!newJobShowCustomerDropdown); setNewJobCustomerSearch('') }}
+                        className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+                      >
+                        Select existing customer
+                        <ChevronDownIcon className="w-3 h-3" />
+                      </button>
+                      {newJobShowCustomerDropdown && (
+                        <div className="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 flex flex-col">
+                          <div className="p-2 border-b border-gray-100">
+                            <input
+                              type="text"
+                              placeholder="Search customers..."
+                              value={newJobCustomerSearch}
+                              onChange={(e) => setNewJobCustomerSearch(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="overflow-y-auto flex-1">
+                            {newJobCustomers
+                              .filter((c) =>
+                                c.name.toLowerCase().includes(newJobCustomerSearch.toLowerCase()) ||
+                                (c.company && c.company.toLowerCase().includes(newJobCustomerSearch.toLowerCase()))
+                              )
+                              .map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setNewJobClient(c.name)
+                                    setNewJobShowCustomerDropdown(false)
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors"
+                                >
+                                  <p className="text-gray-900 text-xs font-medium truncate">{c.name}</p>
+                                  {c.company && <p className="text-gray-500 text-xs truncate">{c.company}</p>}
+                                </button>
+                              ))}
+                            {newJobCustomers.filter((c) =>
+                              c.name.toLowerCase().includes(newJobCustomerSearch.toLowerCase()) ||
+                              (c.company && c.company.toLowerCase().includes(newJobCustomerSearch.toLowerCase()))
+                            ).length === 0 && (
+                              <p className="px-3 py-2 text-xs text-gray-400">No customers found.</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>Address *</label>
+                    <input
+                      type="text"
+                      value={newJobAddress}
+                      onChange={(e) => setNewJobAddress(e.target.value)}
+                      placeholder="e.g. 123 Main St, Austin TX"
+                      className={inputCls}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>Estimate #</label>
+                    <input
+                      type="text"
+                      value={newJobEstimate}
+                      onChange={(e) => setNewJobEstimate(e.target.value)}
+                      placeholder="e.g. EST-1042"
+                      className={inputCls}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>Status</label>
+                    <select
+                      value={newJobStatus}
+                      onChange={(e) => setNewJobStatus(e.target.value as 'Active' | 'Complete')}
+                      className={inputCls + ' bg-white'}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Complete">Complete</option>
+                    </select>
+                  </div>
+
+                  {/* Start Date & End Date */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Start Date *</label>
+                      <input
+                        type="date"
+                        value={newJobStartDate}
+                        onChange={(e) => {
+                          setNewJobStartDate(e.target.value)
+                          if (newJobEndDate && e.target.value > newJobEndDate) setNewJobEndDate(e.target.value)
+                        }}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>End Date *</label>
+                      <input
+                        type="date"
+                        value={newJobEndDate}
+                        min={newJobStartDate || undefined}
+                        onChange={(e) => setNewJobEndDate(e.target.value)}
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <label className={labelCls + ' mb-0'}>Include Weekends?</label>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={newJobIncludeWeekends}
+                      onClick={() => setNewJobIncludeWeekends(!newJobIncludeWeekends)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${newJobIncludeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${newJobIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* ── Select Existing Job flow ────────────────────────── */
+                <>
+                  {/* + Create New Job button */}
                   <button
                     type="button"
-                    role="switch"
-                    aria-checked={linkIncludeWeekends}
-                    onClick={() => setLinkIncludeWeekends(!linkIncludeWeekends)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${linkIncludeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
+                    onClick={() => {
+                      setShowCreateNewJob(true)
+                      if (clickedDate) {
+                        setNewJobStartDate(clickedDate)
+                        setNewJobEndDate(clickedDate)
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition"
                   >
-                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${linkIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    <PlusIcon className="w-4 h-4" />
+                    Create New Job
                   </button>
-                </div>
-              </div>
+
+                  {/* Job Search & Select */}
+                  <div>
+                    <label className={labelCls}>Select Job *</label>
+                    <div className="relative mb-2">
+                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={linkSearchQuery}
+                        onChange={(e) => setLinkSearchQuery(e.target.value)}
+                        placeholder="Search jobs by name, client, or address..."
+                        className={inputCls + ' pl-9'}
+                      />
+                    </div>
+                    <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                      {filteredProjects.length === 0 && (
+                        <p className="p-3 text-sm text-gray-400 text-center">No jobs found</p>
+                      )}
+                      {filteredProjects.map((proj) => {
+                        const isSelected = linkSelectedProjectId === proj.id
+                        const hasDates = !!(proj.start_date && proj.end_date)
+                        return (
+                          <button
+                            key={proj.id}
+                            type="button"
+                            onClick={() => handleLinkProjectSelect(proj.id)}
+                            className={`w-full text-left px-3 py-2.5 border-b border-gray-100 last:border-b-0 transition text-sm ${
+                              isSelected
+                                ? 'bg-amber-50 border-l-2 border-l-amber-500'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <p className={`font-medium ${isSelected ? 'text-amber-700' : 'text-gray-900'}`}>
+                              {proj.name}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {proj.client_name} &middot; {proj.address}
+                              {hasDates && (
+                                <span className="ml-1 text-blue-500">&middot; On calendar</span>
+                              )}
+                            </p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Start Date & End Date */}
+                  <div className="flex flex-col gap-3 w-1/2">
+                    <div>
+                      <label className={labelCls}>Start Date *</label>
+                      <input
+                        type="date"
+                        value={linkStartDate}
+                        onChange={(e) => {
+                          setLinkStartDate(e.target.value)
+                          if (linkEndDate && e.target.value > linkEndDate) setLinkEndDate(e.target.value)
+                        }}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>End Date *</label>
+                      <input
+                        type="date"
+                        value={linkEndDate}
+                        min={linkStartDate || undefined}
+                        onChange={(e) => setLinkEndDate(e.target.value)}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className={labelCls + ' mb-0'}>Include Weekends?</label>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={linkIncludeWeekends}
+                        onClick={() => setLinkIncludeWeekends(!linkIncludeWeekends)}
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${linkIncludeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${linkIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Footer */}
             <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
               <button
-                onClick={() => { setShowLinkProjectModal(false); resetLinkForm() }}
+                onClick={() => {
+                  if (showCreateNewJob) {
+                    setShowCreateNewJob(false)
+                  } else {
+                    setShowLinkProjectModal(false)
+                    resetLinkForm()
+                  }
+                }}
                 className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
               >
-                Cancel
+                {showCreateNewJob ? 'Back' : 'Cancel'}
               </button>
               <button
-                onClick={handleLinkProjectSave}
+                onClick={showCreateNewJob ? handleCreateNewJobSave : handleLinkProjectSave}
                 disabled={linkSaving}
                 className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-semibold transition"
               >
-                {linkSaving ? 'Saving...' : 'Save'}
+                {linkSaving ? 'Saving...' : showCreateNewJob ? 'Create & Add to Calendar' : 'Save'}
               </button>
             </div>
           </div>
