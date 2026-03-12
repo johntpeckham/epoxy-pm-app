@@ -378,6 +378,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   // Date clicked on calendar (passed to picker flows)
   const [clickedDate, setClickedDate] = useState<string | undefined>(undefined)
 
+  // Day Summary modal
+  const [daySummaryDate, setDaySummaryDate] = useState<string | null>(null)
+
   useEffect(() => {
     if (!employeesLoaded) {
       supabase
@@ -671,10 +674,8 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   // ── Calendar callbacks ───────────────────────────────────────────────────
 
   const handleDateClick = useCallback((arg: DateClickArg) => {
-    if (!canCreateCalendar) return
-    openNewPicker(arg.dateStr)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canCreateCalendar])
+    setDaySummaryDate(arg.dateStr)
+  }, [])
 
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
@@ -975,6 +976,93 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
           />
         </div>
       </div>
+
+      {/* ── Day Summary Modal ─────────────────────────────────────────────── */}
+      {daySummaryDate && (() => {
+        const clickedD = new Date(daySummaryDate + 'T12:00:00')
+        const dayLabel = clickedD.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+        // Jobs active on this day (start_date <= clickedDate <= end_date)
+        const activeJobs = initialProjects.filter((p) => {
+          if (!p.start_date || !p.end_date) return false
+          return p.start_date <= daySummaryDate && daySummaryDate <= p.end_date
+        })
+
+        // Standalone events active on this day
+        const activeStandaloneEvents = initialEvents.filter((evt) => {
+          return evt.start_date <= daySummaryDate && daySummaryDate <= evt.end_date
+        })
+
+        const hasItems = activeJobs.length > 0 || activeStandaloneEvents.length > 0
+
+        return (
+          <Portal>
+            <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setDaySummaryDate(null)}>
+              <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-md bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
+                  <h2 className="text-lg font-semibold text-gray-900">{dayLabel}</h2>
+                  <button
+                    onClick={() => setDaySummaryDate(null)}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                  >
+                    <XIcon className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-4 md:p-6 space-y-3 max-h-[60vh] overflow-y-auto">
+                  {!hasItems && (
+                    <p className="text-sm text-gray-500 text-center py-6">Nothing scheduled for this day</p>
+                  )}
+
+                  {activeJobs.map((job) => (
+                    <div key={job.id} className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg">
+                      <div className="w-4 h-4 rounded-sm flex-shrink-0 mt-0.5" style={{ backgroundColor: job.color || PRESET_COLORS[0].value }} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{job.name}</p>
+                        {job.client_name && <p className="text-xs text-gray-500 truncate">{job.client_name}</p>}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {formatDisplayDate(job.start_date!)} – {formatDisplayDate(job.end_date!)}
+                        </p>
+                        {job.crew && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {job.crew.split(',').map((name) => name.trim()).filter(Boolean).map((name) => (
+                              <span key={name} className="inline-block text-[10px] font-medium bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{name}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {activeStandaloneEvents.map((evt) => (
+                    <div key={evt.id} className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg">
+                      <span className="text-base flex-shrink-0 mt-0.5">📅</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{evt.project_name}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {formatDisplayDate(evt.start_date)} – {formatDisplayDate(evt.end_date)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div className="flex-none p-4 border-t border-gray-200" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
+                  <button
+                    onClick={() => setDaySummaryDate(null)}
+                    className="w-full py-2.5 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Portal>
+        )
+      })()}
 
       {/* ── "Add to Calendar" Picker Modal ──────────────────────────────────── */}
       {showNewPicker && (
