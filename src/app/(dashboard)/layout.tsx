@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import Sidebar from '@/components/ui/Sidebar'
-import AuthGate from '@/components/auth/AuthGate'
 
 export default async function DashboardLayout({
   children,
@@ -12,11 +12,8 @@ export default async function DashboardLayout({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // On iOS PWA cold starts, cookies are wiped but localStorage still has the
-  // session. Instead of hard-redirecting to /login, render a client component
-  // that rehydrates the session from localStorage and refreshes the page.
   if (!user) {
-    return <AuthGate />
+    redirect('/login')
   }
 
   const { data: profile } = await supabase
