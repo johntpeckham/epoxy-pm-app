@@ -182,6 +182,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   const [formProjectName, setFormProjectName] = useState('')
   const [formStartDate, setFormStartDate] = useState('')
   const [formEndDate, setFormEndDate] = useState('')
+  const [formIncludeWeekends, setFormIncludeWeekends] = useState(false)
   const [formCrewNames, setFormCrewNames] = useState<string[]>([])
   const [formNotes, setFormNotes] = useState('')
   const [formColor, setFormColor] = useState(PRESET_COLORS[0].value)
@@ -523,6 +524,18 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
                     onChange={(e) => setFormEndDate(e.target.value)}
                     className={inputCls}
                   />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className={labelCls + ' mb-0'}>Include Weekends?</label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={formIncludeWeekends}
+                    onClick={() => setFormIncludeWeekends(!formIncludeWeekends)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${formIncludeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${formIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
                 </div>
               </div>
 
