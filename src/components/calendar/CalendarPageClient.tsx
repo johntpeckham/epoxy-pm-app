@@ -242,6 +242,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     setFormProjectName('')
     setFormStartDate('')
     setFormEndDate('')
+    setFormIncludeWeekends(false)
     setFormCrewNames([])
     setFormNotes('')
     setFormColor(PRESET_COLORS[0].value)
@@ -265,6 +266,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     setFormProjectName(evt.project_name)
     setFormStartDate(evt.start_date)
     setFormEndDate(evt.end_date)
+    setFormIncludeWeekends(evt.include_weekends ?? false)
     setFormCrewNames(evt.crew ? evt.crew.split(',').map((s) => s.trim()).filter(Boolean) : [])
     setFormNotes(evt.notes || '')
     setFormColor(evt.color || PRESET_COLORS[0].value)
@@ -348,7 +350,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
         project_name: formProjectName.trim(),
         start_date: formStartDate,
         end_date: formEndDate,
-        include_weekends: true,
+        include_weekends: formIncludeWeekends,
         crew: formCrewNames.join(', '),
         notes: formNotes.trim() || null,
         color: formColor,
