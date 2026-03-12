@@ -181,8 +181,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   // Form state
   const [formProjectName, setFormProjectName] = useState('')
   const [formStartDate, setFormStartDate] = useState('')
-  const [formDuration, setFormDuration] = useState(1)
-  const [formIncludeWeekends, setFormIncludeWeekends] = useState(false)
+  const [formEndDate, setFormEndDate] = useState('')
   const [formCrewNames, setFormCrewNames] = useState<string[]>([])
   const [formNotes, setFormNotes] = useState('')
   const [formColor, setFormColor] = useState(PRESET_COLORS[0].value)
@@ -230,12 +229,6 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
   const canDownloadPdf = userRole === 'admin' || userRole === 'office_manager'
 
-  // Computed end date
-  const computedEndDate = useMemo(
-    () => (formStartDate ? addBusinessDays(formStartDate, formDuration, formIncludeWeekends) : ''),
-    [formStartDate, formDuration, formIncludeWeekends],
-  )
-
   // Map DB events to FullCalendar events, splitting weekday-only events into Mon–Fri segments
   const fcEvents = useMemo(
     () => initialEvents.flatMap((evt) => eventToFCEvents(evt)),
@@ -247,8 +240,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   function resetForm() {
     setFormProjectName('')
     setFormStartDate('')
-    setFormDuration(1)
-    setFormIncludeWeekends(false)
+    setFormEndDate('')
     setFormCrewNames([])
     setFormNotes('')
     setFormColor(PRESET_COLORS[0].value)
@@ -260,7 +252,10 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
 
   function openCreateForm(startDate?: string) {
     resetForm()
-    if (startDate) setFormStartDate(startDate)
+    if (startDate) {
+      setFormStartDate(startDate)
+      setFormEndDate(startDate)
+    }
     setShowFormModal(true)
   }
 
@@ -268,8 +263,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     setEditingEvent(evt)
     setFormProjectName(evt.project_name)
     setFormStartDate(evt.start_date)
-    setFormDuration(countDuration(evt.start_date, evt.end_date, evt.include_weekends))
-    setFormIncludeWeekends(evt.include_weekends)
+    setFormEndDate(evt.end_date)
     setFormCrewNames(evt.crew ? evt.crew.split(',').map((s) => s.trim()).filter(Boolean) : [])
     setFormNotes(evt.notes || '')
     setFormColor(evt.color || PRESET_COLORS[0].value)
@@ -346,15 +340,14 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
     try {
       if (!formProjectName.trim()) throw new Error('Please enter a project name')
       if (!formStartDate) throw new Error('Please select a start date')
-      if (formDuration < 1) throw new Error('Duration must be at least 1 day')
-
-      const endDate = addBusinessDays(formStartDate, formDuration, formIncludeWeekends)
+      if (!formEndDate) throw new Error('Please select an end date')
+      if (formEndDate < formStartDate) throw new Error('End date must be on or after start date')
 
       const payload = {
         project_name: formProjectName.trim(),
         start_date: formStartDate,
-        end_date: endDate,
-        include_weekends: formIncludeWeekends,
+        end_date: formEndDate,
+        include_weekends: true,
         crew: formCrewNames.join(', '),
         notes: formNotes.trim() || null,
         color: formColor,
@@ -507,55 +500,30 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
                 />
               </div>
 
-              {/* Start Date & Duration */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Start Date & End Date */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Start Date *</label>
                   <input
                     type="date"
                     value={formStartDate}
-                    onChange={(e) => setFormStartDate(e.target.value)}
+                    onChange={(e) => {
+                      setFormStartDate(e.target.value)
+                      if (formEndDate && e.target.value > formEndDate) setFormEndDate(e.target.value)
+                    }}
                     className={inputCls}
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Duration (days) *</label>
+                  <label className={labelCls}>End Date *</label>
                   <input
-                    type="number"
-                    min={1}
-                    value={formDuration}
-                    onChange={(e) => setFormDuration(Math.max(1, parseInt(e.target.value) || 1))}
+                    type="date"
+                    value={formEndDate}
+                    min={formStartDate || undefined}
+                    onChange={(e) => setFormEndDate(e.target.value)}
                     className={inputCls}
                   />
                 </div>
-              </div>
-
-              {/* Include Weekends + computed end date */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Include Weekends?
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setFormIncludeWeekends(!formIncludeWeekends)}
-                    className={`relative w-10 h-5 rounded-full transition-colors ${
-                      formIncludeWeekends ? 'bg-amber-500' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        formIncludeWeekends ? 'translate-x-5' : ''
-                      }`}
-                    />
-                  </button>
-                  <span className="text-xs text-gray-500">{formIncludeWeekends ? 'Yes' : 'No'}</span>
-                </div>
-                {computedEndDate && (
-                  <p className="text-xs text-gray-500">
-                    Ends <span className="font-medium text-gray-700">{formatDisplayDate(computedEndDate)}</span>
-                  </p>
-                )}
               </div>
 
               {/* Crew */}
