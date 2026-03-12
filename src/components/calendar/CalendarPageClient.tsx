@@ -501,7 +501,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
               </div>
 
               {/* Start Date & End Date */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Start Date *</label>
                   <input
