@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon } from 'lucide-react'
+import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon, SendIcon } from 'lucide-react'
 import type { TakeoffPage, TakeoffItem, Markup } from './types'
 import { exportFullReport } from './takeoffExport'
+import PushPlansModal from './PushPlansModal'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -239,6 +240,15 @@ export default function TakeoffDashboard({
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editItemName, setEditItemName] = useState('')
   const [isDownloadingReport, setIsDownloadingReport] = useState(false)
+  const [showPushModal, setShowPushModal] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(timer)
+  }, [toast])
 
   // Build set of pageKeys that have measurements or markups
   const workedOnPages = new Set<string>()
@@ -334,18 +344,27 @@ export default function TakeoffDashboard({
           <p className="text-sm text-gray-500 mt-0.5">{projectName}</p>
         </div>
         {pages.length > 0 && (
-          <button
-            onClick={handleDownloadReport}
-            disabled={isDownloadingReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-300 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
-          >
-            {isDownloadingReport ? (
-              <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <DownloadIcon className="w-3.5 h-3.5" />
-            )}
-            {isDownloadingReport ? 'Generating...' : 'Download Report'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPushModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-amber-500 text-amber-600 hover:bg-amber-50 text-xs font-semibold rounded-lg transition-colors"
+            >
+              <SendIcon className="w-3.5 h-3.5" />
+              Push Plans To Job
+            </button>
+            <button
+              onClick={handleDownloadReport}
+              disabled={isDownloadingReport}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-300 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+            >
+              {isDownloadingReport ? (
+                <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <DownloadIcon className="w-3.5 h-3.5" />
+              )}
+              {isDownloadingReport ? 'Generating...' : 'Download Report'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -521,6 +540,40 @@ export default function TakeoffDashboard({
         </button>
         <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
       </div>
+
+      {/* Push Plans Modal */}
+      {showPushModal && (
+        <PushPlansModal
+          takeoffName={projectName}
+          pages={pages}
+          items={items}
+          pageScales={pageScales}
+          pageRenderedSizes={pageRenderedSizes}
+          onClose={() => setShowPushModal(false)}
+          onSuccess={(jobName) => {
+            setShowPushModal(false)
+            setToast({ message: `Plans sent to ${jobName}`, type: 'success' })
+          }}
+          onError={(message) => {
+            setShowPushModal(false)
+            setToast({ message, type: 'error' })
+          }}
+        />
+      )}
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[70] flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all ${
+          toast.type === 'success'
+            ? 'bg-green-600 text-white'
+            : 'bg-red-600 text-white'
+        }`}>
+          {toast.message}
+          <button onClick={() => setToast(null)} className="ml-1 hover:opacity-80">
+            <XIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
