@@ -13,6 +13,9 @@ export interface Project {
   crew?: string | null
   notes?: string | null
   color?: string | null
+  drive_time_enabled?: boolean
+  drive_time_days?: number
+  drive_time_position?: 'front' | 'back' | 'both'
   created_at: string
 }
 

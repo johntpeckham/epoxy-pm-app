@@ -108,7 +108,8 @@ interface FCEvent {
   backgroundColor: string
   borderColor: string
   classNames?: string[]
-  extendedProps: CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string }
+  display?: string
+  extendedProps: CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string; _isDriveTime?: boolean }
 }
 
 /**
@@ -194,39 +195,91 @@ function projectToFCEvents(proj: Project): FCEvent[] {
       _address: proj.address,
       _estimateNumber: proj.estimate_number || null,
       _status: proj.status,
+      _isDriveTime: false,
     },
   }
 
+  const mainEvents: FCEvent[] = []
+
   if (includeWeekends) {
-    return [{ id: `proj-${proj.id}`, ...base, start: proj.start_date, end: fcEndDateExclusive(proj.end_date) }]
+    mainEvents.push({ id: `proj-${proj.id}`, ...base, start: proj.start_date, end: fcEndDateExclusive(proj.end_date) })
+  } else {
+    const endDate = new Date(proj.end_date + 'T12:00:00')
+    let segStart = skipToWeekday(new Date(proj.start_date + 'T12:00:00'))
+
+    while (segStart <= endDate) {
+      const dayOfWeek = segStart.getDay()
+      const daysUntilFri = 5 - dayOfWeek
+      const friday = new Date(segStart)
+      if (daysUntilFri > 0) friday.setDate(friday.getDate() + daysUntilFri)
+      const segEnd = friday <= endDate ? friday : endDate
+
+      if (!isWeekend(segEnd)) {
+        mainEvents.push({
+          id: `proj-${proj.id}` + (mainEvents.length > 0 ? `-${mainEvents.length}` : ''),
+          ...base,
+          start: toDateStr(segStart),
+          end: fcEndDateExclusive(toDateStr(segEnd)),
+        })
+      }
+
+      const nextMon = new Date(segEnd)
+      nextMon.setDate(nextMon.getDate() + 1)
+      segStart = skipToWeekday(nextMon)
+    }
   }
 
-  const segments: FCEvent[] = []
-  const endDate = new Date(proj.end_date + 'T12:00:00')
-  let segStart = skipToWeekday(new Date(proj.start_date + 'T12:00:00'))
+  // Drive time bars (faded, non-interactive)
+  if (proj.drive_time_enabled && (proj.drive_time_days ?? 0) > 0) {
+    const days = proj.drive_time_days ?? 1
+    const position = proj.drive_time_position ?? 'both'
+    // Use hex color with ~40% opacity via alpha channel
+    const fadedColor = color + '66' // 40% opacity in hex
 
-  while (segStart <= endDate) {
-    const dayOfWeek = segStart.getDay()
-    const daysUntilFri = 5 - dayOfWeek
-    const friday = new Date(segStart)
-    if (daysUntilFri > 0) friday.setDate(friday.getDate() + daysUntilFri)
-    const segEnd = friday <= endDate ? friday : endDate
-
-    if (!isWeekend(segEnd)) {
-      segments.push({
-        id: `proj-${proj.id}` + (segments.length > 0 ? `-${segments.length}` : ''),
-        ...base,
-        start: toDateStr(segStart),
-        end: fcEndDateExclusive(toDateStr(segEnd)),
-      })
+    const driveBase = {
+      title: `🚗 ${proj.name}`,
+      backgroundColor: fadedColor,
+      borderColor: fadedColor,
+      classNames: ['drive-time-bar'] as string[],
+      display: 'block' as const,
+      extendedProps: {
+        ...base.extendedProps,
+        _isDriveTime: true,
+      },
     }
 
-    const nextMon = new Date(segEnd)
-    nextMon.setDate(nextMon.getDate() + 1)
-    segStart = skipToWeekday(nextMon)
+    if (position === 'front' || position === 'both') {
+      // N calendar days before start_date
+      const frontEnd = new Date(proj.start_date + 'T12:00:00')
+      frontEnd.setDate(frontEnd.getDate() - 1)
+      const frontStart = new Date(proj.start_date + 'T12:00:00')
+      frontStart.setDate(frontStart.getDate() - days)
+      if (frontStart <= frontEnd) {
+        mainEvents.push({
+          id: `proj-${proj.id}-drive-front`,
+          ...driveBase,
+          start: toDateStr(frontStart),
+          end: fcEndDateExclusive(toDateStr(frontEnd)),
+        })
+      }
+    }
+
+    if (position === 'back' || position === 'both') {
+      // N calendar days after end_date
+      const backStart = new Date(proj.end_date + 'T12:00:00')
+      backStart.setDate(backStart.getDate() + 1)
+      const backEnd = new Date(proj.end_date + 'T12:00:00')
+      backEnd.setDate(backEnd.getDate() + days)
+      mainEvents.push({
+        id: `proj-${proj.id}-drive-back`,
+        ...driveBase,
+        start: toDateStr(backStart),
+        end: fcEndDateExclusive(toDateStr(backEnd)),
+      })
+    }
   }
 
-  return segments
+  return mainEvents
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -283,6 +336,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [newJobStartDate, setNewJobStartDate] = useState('')
   const [newJobEndDate, setNewJobEndDate] = useState('')
   const [newJobIncludeWeekends, setNewJobIncludeWeekends] = useState(false)
+  const [newJobDriveTimeEnabled, setNewJobDriveTimeEnabled] = useState(false)
+  const [newJobDriveTimeDays, setNewJobDriveTimeDays] = useState(1)
+  const [newJobDriveTimePosition, setNewJobDriveTimePosition] = useState<'front' | 'back' | 'both'>('both')
   const [newJobCrewNames, setNewJobCrewNames] = useState<string[]>([])
   const [newJobNotes, setNewJobNotes] = useState('')
   const [newJobColor, setNewJobColor] = useState(PRESET_COLORS[0].value)
@@ -306,6 +362,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [editProjectStartDate, setEditProjectStartDate] = useState('')
   const [editProjectEndDate, setEditProjectEndDate] = useState('')
   const [editProjectIncludeWeekends, setEditProjectIncludeWeekends] = useState(false)
+  const [editProjectDriveTimeEnabled, setEditProjectDriveTimeEnabled] = useState(false)
+  const [editProjectDriveTimeDays, setEditProjectDriveTimeDays] = useState(1)
+  const [editProjectDriveTimePosition, setEditProjectDriveTimePosition] = useState<'front' | 'back' | 'both'>('both')
   const [editProjectCrewNames, setEditProjectCrewNames] = useState<string[]>([])
   const [editProjectNotes, setEditProjectNotes] = useState('')
   const [editProjectColor, setEditProjectColor] = useState(PRESET_COLORS[0].value)
@@ -525,6 +584,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setNewJobStartDate('')
     setNewJobEndDate('')
     setNewJobIncludeWeekends(false)
+    setNewJobDriveTimeEnabled(false)
+    setNewJobDriveTimeDays(1)
+    setNewJobDriveTimePosition('both')
     setNewJobCrewNames([])
     setNewJobNotes('')
     setNewJobColor(PRESET_COLORS[0].value)
@@ -570,6 +632,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectStartDate(proj.start_date || '')
     setEditProjectEndDate(proj.end_date || '')
     setEditProjectIncludeWeekends(proj.include_weekends ?? false)
+    setEditProjectDriveTimeEnabled(proj.drive_time_enabled ?? false)
+    setEditProjectDriveTimeDays(proj.drive_time_days ?? 1)
+    setEditProjectDriveTimePosition(proj.drive_time_position ?? 'both')
     setEditProjectCrewNames(proj.crew ? proj.crew.split(',').map((s) => s.trim()).filter(Boolean) : [])
     setEditProjectNotes(proj.notes || '')
     setEditProjectColor(proj.color || PRESET_COLORS[0].value)
@@ -591,6 +656,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectStartDate('')
     setEditProjectEndDate('')
     setEditProjectIncludeWeekends(false)
+    setEditProjectDriveTimeEnabled(false)
+    setEditProjectDriveTimeDays(1)
+    setEditProjectDriveTimePosition('both')
     setEditProjectCrewNames([])
     setEditProjectNotes('')
     setEditProjectColor(PRESET_COLORS[0].value)
@@ -610,7 +678,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
 
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
-      const evt = arg.event.extendedProps as CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string }
+      const evt = arg.event.extendedProps as CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string; _isDriveTime?: boolean }
+      // Drive time bars are display-only — ignore clicks
+      if (evt._isDriveTime) return
       // Both job-linked and standalone bars open the detail view first
       setDetailEvent(evt)
     },
@@ -735,6 +805,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
         crew: newJobCrewNames.join(', ') || null,
         notes: newJobNotes.trim() || null,
         color: newJobColor,
+        drive_time_enabled: newJobDriveTimeEnabled,
+        drive_time_days: newJobDriveTimeDays,
+        drive_time_position: newJobDriveTimePosition,
       })
 
       if (error) throw error
@@ -781,6 +854,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
           crew: editProjectCrewNames.join(', ') || null,
           notes: editProjectNotes.trim() || null,
           color: editProjectColor,
+          drive_time_enabled: editProjectDriveTimeEnabled,
+          drive_time_days: editProjectDriveTimeDays,
+          drive_time_position: editProjectDriveTimePosition,
         })
         .eq('id', editProjectId)
 
@@ -1130,6 +1206,53 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                 >
                   <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${newJobIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
+              </div>
+
+              {/* Drive Time */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className={labelCls + ' mb-0'}>Drive Time</label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={newJobDriveTimeEnabled}
+                    onClick={() => setNewJobDriveTimeEnabled(!newJobDriveTimeEnabled)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${newJobDriveTimeEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${newJobDriveTimeEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                {newJobDriveTimeEnabled && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500 font-medium whitespace-nowrap">Days</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={newJobDriveTimeDays}
+                        onChange={(e) => setNewJobDriveTimeDays(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div className="flex rounded-lg border border-gray-200 overflow-hidden flex-1">
+                      {(['front', 'back', 'both'] as const).map((pos) => (
+                        <button
+                          key={pos}
+                          type="button"
+                          onClick={() => setNewJobDriveTimePosition(pos)}
+                          className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
+                            newJobDriveTimePosition === pos
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pos.charAt(0).toUpperCase() + pos.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Crew */}
@@ -1557,6 +1680,53 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                 >
                   <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${editProjectIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
+              </div>
+
+              {/* Drive Time */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">Drive Time</label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={editProjectDriveTimeEnabled}
+                    onClick={() => setEditProjectDriveTimeEnabled(!editProjectDriveTimeEnabled)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${editProjectDriveTimeEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${editProjectDriveTimeEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                {editProjectDriveTimeEnabled && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500 font-medium whitespace-nowrap">Days</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={editProjectDriveTimeDays}
+                        onChange={(e) => setEditProjectDriveTimeDays(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div className="flex rounded-lg border border-gray-300 overflow-hidden flex-1">
+                      {(['front', 'back', 'both'] as const).map((pos) => (
+                        <button
+                          key={pos}
+                          type="button"
+                          onClick={() => setEditProjectDriveTimePosition(pos)}
+                          className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
+                            editProjectDriveTimePosition === pos
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pos.charAt(0).toUpperCase() + pos.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Crew */}
