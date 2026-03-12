@@ -84,10 +84,38 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
     )
   }
 
-  function addCustomCrewMember() {
+  async function addCustomCrewMember() {
     const n = customCrewName.trim()
     if (!n) return
-    if (!crewNames.includes(n)) setCrewNames((prev) => [...prev, n])
+
+    // Check if an employee with this name already exists in the loaded profiles
+    const existing = employeeProfiles.find((emp) => emp.name.toLowerCase() === n.toLowerCase())
+    if (existing) {
+      // Just select the existing employee
+      if (!crewNames.includes(existing.name)) setCrewNames((prev) => [...prev, existing.name])
+      setCustomCrewName('')
+      setShowCustomCrewInput(false)
+      return
+    }
+
+    // Insert new employee into employee_profiles
+    const supabase = createClient()
+    const { data, error: insertError } = await supabase
+      .from('employee_profiles')
+      .insert({ name: n })
+      .select()
+      .single()
+
+    if (insertError) {
+      console.error('Failed to create employee:', insertError)
+      // Fall back to just adding the name locally
+      if (!crewNames.includes(n)) setCrewNames((prev) => [...prev, n])
+    } else if (data) {
+      // Add the new profile to local state so it renders as a proper pill
+      setEmployeeProfiles((prev) => [...prev, data as EmployeeProfile])
+      if (!crewNames.includes(data.name)) setCrewNames((prev) => [...prev, data.name])
+    }
+
     setCustomCrewName('')
     setShowCustomCrewInput(false)
   }
@@ -327,18 +355,6 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                     </button>
                   )
                 })}
-                {crewNames
-                  .filter((n) => !employeeProfiles.some((emp) => emp.name === n))
-                  .map((n) => (
-                    <button
-                      key={`custom-${n}`}
-                      type="button"
-                      onClick={() => toggleCrewMember(n)}
-                      className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors bg-gray-900 text-white border-gray-900"
-                    >
-                      {n}
-                    </button>
-                  ))}
                 {showCustomCrewInput ? (
                   <div className="flex items-center gap-1">
                     <input
