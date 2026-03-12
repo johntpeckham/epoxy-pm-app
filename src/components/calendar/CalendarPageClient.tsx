@@ -408,7 +408,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] lg:h-screen">
+    <div className="flex flex-col min-h-0 lg:h-screen">
       {/* Header */}
       <div className="px-4 py-5 sm:px-6 flex-shrink-0">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -444,7 +444,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
       </div>
 
       {/* FullCalendar */}
-      <div className="flex-1 px-4 pb-4 sm:px-6 sm:pb-6 min-h-0 overflow-auto">
+      <div className="flex-1 px-4 pb-4 sm:px-6 sm:pb-6 min-h-0 lg:overflow-auto">
         <div ref={calendarRef} className="max-w-6xl mx-auto bg-white border border-gray-200 rounded-xl p-4 shadow-sm calendar-wrapper">
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -459,6 +459,7 @@ export default function CalendarPageClient({ initialEvents, userId, userRole = '
               right: 'today dayGridMonth',
             }}
             height="auto"
+            fixedWeekCount={false}
             eventDisplay="block"
             displayEventTime={false}
           />
