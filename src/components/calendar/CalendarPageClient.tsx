@@ -108,7 +108,7 @@ interface FCEvent {
   backgroundColor: string
   borderColor: string
   classNames?: string[]
-  extendedProps: CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string }
+  extendedProps: CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string }
 }
 
 /**
@@ -169,7 +169,7 @@ function eventToFCEvents(evt: CalendarEvent, isStandalone: boolean): FCEvent[] {
 function projectToFCEvents(proj: Project): FCEvent[] {
   if (!proj.start_date || !proj.end_date) return []
 
-  const color = PRESET_COLORS[1].value // Blue for projects
+  const color = proj.color || PRESET_COLORS[0].value // Use job color, fallback to amber
   const includeWeekends = proj.include_weekends ?? false
   const base = {
     title: proj.name,
@@ -183,13 +183,17 @@ function projectToFCEvents(proj: Project): FCEvent[] {
       start_date: proj.start_date,
       end_date: proj.end_date,
       include_weekends: includeWeekends,
-      crew: '',
-      notes: null,
+      crew: proj.crew || '',
+      notes: proj.notes || null,
       color: color,
       created_at: proj.created_at,
       _isStandalone: false,
       _isLinkedProject: true,
       _linkedProjectId: proj.id,
+      _clientName: proj.client_name,
+      _address: proj.address,
+      _estimateNumber: proj.estimate_number || null,
+      _status: proj.status,
     },
   }
 
@@ -247,7 +251,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [showFormModal, setShowFormModal] = useState(false)
   const [showLinkProjectModal, setShowLinkProjectModal] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
-  const [detailEvent, setDetailEvent] = useState<CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string } | null>(null)
+  const [detailEvent, setDetailEvent] = useState<CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string } | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Form state (standalone event)
@@ -305,6 +309,11 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [editProjectStartDate, setEditProjectStartDate] = useState('')
   const [editProjectEndDate, setEditProjectEndDate] = useState('')
   const [editProjectIncludeWeekends, setEditProjectIncludeWeekends] = useState(false)
+  const [editProjectCrewNames, setEditProjectCrewNames] = useState<string[]>([])
+  const [editProjectNotes, setEditProjectNotes] = useState('')
+  const [editProjectColor, setEditProjectColor] = useState(PRESET_COLORS[0].value)
+  const [editProjectShowCustomCrew, setEditProjectShowCustomCrew] = useState(false)
+  const [editProjectCustomCrewName, setEditProjectCustomCrewName] = useState('')
   const [editProjectSaving, setEditProjectSaving] = useState(false)
   const [editProjectError, setEditProjectError] = useState<string | null>(null)
   const [showRemoveFromCalendarConfirm, setShowRemoveFromCalendarConfirm] = useState(false)
@@ -341,6 +350,22 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     }
     setCustomCrewName('')
     setShowCustomCrewInput(false)
+  }
+
+  function toggleEditProjectCrewMember(name: string) {
+    setEditProjectCrewNames((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    )
+  }
+
+  function addEditProjectCustomCrewMember() {
+    const name = editProjectCustomCrewName.trim()
+    if (!name) return
+    if (!editProjectCrewNames.includes(name)) {
+      setEditProjectCrewNames((prev) => [...prev, name])
+    }
+    setEditProjectCustomCrewName('')
+    setEditProjectShowCustomCrew(false)
   }
 
   const canDownloadPdf = userRole === 'admin' || userRole === 'office_manager'
@@ -487,6 +512,11 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectStartDate(proj.start_date || '')
     setEditProjectEndDate(proj.end_date || '')
     setEditProjectIncludeWeekends(proj.include_weekends ?? false)
+    setEditProjectCrewNames(proj.crew ? proj.crew.split(',').map((s) => s.trim()).filter(Boolean) : [])
+    setEditProjectNotes(proj.notes || '')
+    setEditProjectColor(proj.color || PRESET_COLORS[0].value)
+    setEditProjectShowCustomCrew(false)
+    setEditProjectCustomCrewName('')
     setEditProjectError(null)
     setShowRemoveFromCalendarConfirm(false)
     setDetailEvent(null)
@@ -503,6 +533,11 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectStartDate('')
     setEditProjectEndDate('')
     setEditProjectIncludeWeekends(false)
+    setEditProjectCrewNames([])
+    setEditProjectNotes('')
+    setEditProjectColor(PRESET_COLORS[0].value)
+    setEditProjectShowCustomCrew(false)
+    setEditProjectCustomCrewName('')
     setEditProjectError(null)
     setShowRemoveFromCalendarConfirm(false)
   }
@@ -517,14 +552,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
 
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
-      const evt = arg.event.extendedProps as CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string }
-      if (evt._isLinkedProject && evt._linkedProjectId) {
-        // Job-linked bar: open Edit Project modal directly
-        openEditProjectModal(evt._linkedProjectId)
-      } else {
-        // Standalone event: open detail popup
-        setDetailEvent(evt)
-      }
+      const evt = arg.event.extendedProps as CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string }
+      // Both job-linked and standalone bars open the detail view first
+      setDetailEvent(evt)
     },
     [initialProjects], // eslint-disable-line react-hooks/exhaustive-deps
   )
@@ -724,6 +754,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
           start_date: editProjectStartDate,
           end_date: editProjectEndDate,
           include_weekends: editProjectIncludeWeekends,
+          crew: editProjectCrewNames.join(', ') || null,
+          notes: editProjectNotes.trim() || null,
+          color: editProjectColor,
         })
         .eq('id', editProjectId)
 
@@ -1567,6 +1600,103 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                   <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${editProjectIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
               </div>
+
+              {/* Crew */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Crew</label>
+                <div className="flex flex-wrap gap-2">
+                  {employeeProfiles.map((emp) => {
+                    const isSelected = editProjectCrewNames.includes(emp.name)
+                    return (
+                      <button
+                        key={emp.id}
+                        type="button"
+                        onClick={() => toggleEditProjectCrewMember(emp.name)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          isSelected
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        {emp.name}
+                      </button>
+                    )
+                  })}
+                  {editProjectCrewNames
+                    .filter((n) => !employeeProfiles.some((emp) => emp.name === n))
+                    .map((n) => (
+                      <button
+                        key={`custom-${n}`}
+                        type="button"
+                        onClick={() => toggleEditProjectCrewMember(n)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors bg-gray-900 text-white border-gray-900"
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  {editProjectShowCustomCrew ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={editProjectCustomCrewName}
+                        onChange={(e) => setEditProjectCustomCrewName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') addEditProjectCustomCrewMember(); if (e.key === 'Escape') { setEditProjectShowCustomCrew(false); setEditProjectCustomCrewName('') } }}
+                        placeholder="Name"
+                        className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                      <button type="button" onClick={addEditProjectCustomCrewMember} className="text-green-600 hover:text-green-700 p-0.5">
+                        <CheckIcon className="w-4 h-4" />
+                      </button>
+                      <button type="button" onClick={() => { setEditProjectShowCustomCrew(false); setEditProjectCustomCrewName('') }} className="text-gray-400 hover:text-gray-600 p-0.5">
+                        <XIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEditProjectShowCustomCrew(true)}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors flex items-center gap-1"
+                    >
+                      <PlusIcon className="w-3 h-3" />
+                      Employee
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
+                <textarea
+                  rows={3}
+                  value={editProjectNotes}
+                  onChange={(e) => setEditProjectNotes(e.target.value)}
+                  placeholder="Optional notes..."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              {/* Color */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Color</label>
+                <div className="flex gap-2">
+                  {PRESET_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setEditProjectColor(c.value)}
+                      title={c.label}
+                      className={`w-8 h-8 rounded-full border-2 transition ${
+                        editProjectColor === c.value
+                          ? 'border-gray-800 scale-110'
+                          : 'border-transparent hover:border-gray-300'
+                      }`}
+                      style={{ backgroundColor: c.value }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Footer */}
@@ -1678,6 +1808,48 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
+              {/* Job-specific fields */}
+              {detailEvent._isLinkedProject && (
+                <div className="space-y-2">
+                  {detailEvent._clientName && (
+                    <div className="flex items-start gap-3">
+                      <UsersIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Client</p>
+                        <p className="text-sm text-gray-700">{detailEvent._clientName}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailEvent._address && (
+                    <div className="flex items-start gap-3">
+                      <CalendarIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Address</p>
+                        <p className="text-sm text-gray-700">{detailEvent._address}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailEvent._estimateNumber && (
+                    <div className="flex items-start gap-3">
+                      <FileTextIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Estimate #</p>
+                        <p className="text-sm text-gray-700">{detailEvent._estimateNumber}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailEvent._status && (
+                    <div className="flex items-start gap-3">
+                      <CheckIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Status</p>
+                        <p className="text-sm text-gray-700">{detailEvent._status}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Dates */}
               <div className="flex items-start gap-3">
                 <CalendarIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -1697,7 +1869,10 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               {detailEvent.crew && (
                 <div className="flex items-start gap-3">
                   <UsersIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-gray-700">{detailEvent.crew}</p>
+                  <div>
+                    <p className="text-xs text-gray-500">Crew</p>
+                    <p className="text-sm text-gray-700">{detailEvent.crew}</p>
+                  </div>
                 </div>
               )}
 
@@ -1705,7 +1880,10 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               {detailEvent.notes && (
                 <div className="flex items-start gap-3">
                   <FileTextIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{detailEvent.notes}</p>
+                  <div>
+                    <p className="text-xs text-gray-500">Notes</p>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{detailEvent.notes}</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -1731,8 +1909,28 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                   </button>
                 </>
               )}
-              {/* Fallback close */}
-              {(!detailEvent._isStandalone || !canEditCalendar || detailEvent.created_by !== userId) && (
+              {/* Job-linked bar: Edit / Close */}
+              {detailEvent._isLinkedProject && detailEvent._linkedProjectId && (
+                <>
+                  <button
+                    onClick={() => setDetailEvent(null)}
+                    className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
+                  >
+                    Close
+                  </button>
+                  {canEditCalendar && (
+                    <button
+                      onClick={() => openEditProjectModal(detailEvent._linkedProjectId!)}
+                      className="flex-1 flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white rounded-lg py-2.5 text-sm font-semibold transition"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                      Edit
+                    </button>
+                  )}
+                </>
+              )}
+              {/* Fallback close (standalone without edit perms) */}
+              {detailEvent._isStandalone && (!canEditCalendar || detailEvent.created_by !== userId) && (
                 <button
                   onClick={() => setDetailEvent(null)}
                   className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"

@@ -10,6 +10,9 @@ export interface Project {
   start_date?: string | null
   end_date?: string | null
   include_weekends?: boolean
+  crew?: string | null
+  notes?: string | null
+  color?: string | null
   created_at: string
 }
 
