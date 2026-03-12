@@ -296,8 +296,8 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
             </div>
 
             {/* Calendar Dates (optional) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
+            <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+              <div className="w-1/2 sm:w-full">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Start Date
                 </label>
@@ -311,7 +311,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 />
               </div>
-              <div>
+              <div className="w-1/2 sm:w-full">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   End Date
                 </label>
