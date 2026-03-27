@@ -29,6 +29,7 @@ interface ReceiptRow {
   content: ReceiptContent
   dynamic_fields?: DynamicFieldEntry[]
   confirmed: boolean
+  restricted: boolean
   project_name: string
 }
 
@@ -320,6 +321,7 @@ export default function ReceiptCard({ receipt, role }: ReceiptCardProps) {
         <EditReceiptModal
           postId={receipt.id}
           initialContent={content}
+          initialRestricted={receipt.restricted}
           onClose={() => setShowEditModal(false)}
           onUpdated={() => {
             setShowEditModal(false)

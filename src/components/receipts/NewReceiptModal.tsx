@@ -53,6 +53,7 @@ export default function NewReceiptModal({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [restricted, setRestricted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -116,6 +117,7 @@ export default function NewReceiptModal({
         is_pinned: false,
         content,
         dynamic_fields: dynamicFields,
+        restricted,
       })
 
       if (insertErr) throw insertErr
@@ -256,6 +258,20 @@ export default function NewReceiptModal({
           </div>
 
           {templateFields.map((field) => renderField(field))}
+
+          {/* Office Only (restricted) checkbox */}
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer py-1">
+              <input
+                type="checkbox"
+                checked={restricted}
+                onChange={(e) => setRestricted(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-sm text-gray-700">Office Only</span>
+            </label>
+            <p className="text-xs text-gray-400 ml-6">Only visible to Admins, Office Managers, and Salespeople</p>
+          </div>
         </div>
 
         <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
