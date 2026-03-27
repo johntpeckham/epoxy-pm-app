@@ -199,7 +199,10 @@ export default function DataExportClient() {
         if (hasDateRange) {
           query = query.gte('created_at', dateFilterStart).lte('created_at', dateFilterEnd)
         }
-        const { data } = await query.order('created_at', { ascending: true })
+        const { data, error: queryError } = await query.order('created_at', { ascending: true })
+        if (queryError) {
+          console.error(`[DataExport] Query error fetching ${postType} for project ${projectId}:`, queryError.message)
+        }
         return (data || []) as FeedPost[]
       }
 
@@ -213,7 +216,10 @@ export default function DataExportClient() {
         if (hasDateRange) {
           query = query.gte('created_at', dateFilterStart).lte('created_at', dateFilterEnd)
         }
-        const { data } = await query.order('created_at', { ascending: true })
+        const { data, error: queryError } = await query.order('created_at', { ascending: true })
+        if (queryError) {
+          console.error(`[DataExport] Query error fetching ${postTypes.join(',')} for project ${projectId}:`, queryError.message)
+        }
         return (data || []) as FeedPost[]
       }
 
@@ -223,243 +229,283 @@ export default function DataExportClient() {
         projectMap.set(p.id, p)
       }
 
+      console.log(`[DataExport] Starting export for ${projectIds.length} projects:`, projectIds)
+
       // Process each selected project
       for (let pi = 0; pi < projectIds.length; pi++) {
         const projectId = projectIds[pi]
         const project = projectMap.get(projectId)
         const projectName = project?.name || 'Unknown'
         const projectFolderName = safeName(projectName)
-        let projectFolder: JSZip | null = null
-        const getProjectFolder = () => {
-          if (!projectFolder) projectFolder = zip.folder(projectFolderName)
-          return projectFolder!
-        }
 
-        // ─── Daily Reports ──────────────────────────────────────────
-        if (options.includeDaily) {
-          const dailyPosts = await fetchPostsForProject(projectId, 'daily_report')
-          if (dailyPosts.length > 0) {
-            const folder = getProjectFolder().folder('Daily_Reports')!
+        console.log(`[DataExport] Processing project ${pi + 1}/${projectIds.length}: "${projectName}" (${projectId})`)
+
+        // Always create the project folder so it appears in the ZIP even if empty
+        const projectFolder = zip.folder(projectFolderName)!
+        let projectFileCount = 0
+
+        try {
+          // ─── Daily Reports ──────────────────────────────────────────
+          if (options.includeDaily) {
             setProgress({ step: `Generating Daily Reports (${projectName})...`, current: pi + 1, total: projectIds.length })
+            const dailyPosts = await fetchPostsForProject(projectId, 'daily_report')
+            console.log(`[DataExport]   Daily Reports: ${dailyPosts.length} found`)
 
-            for (const post of dailyPosts) {
-              const content = post.content as DailyReportContent
-              const photoUrls = (content.photos || []).map(getPhotoUrl)
-              const date = content.date || post.created_at.split('T')[0]
-              try {
-                const buf = await generateDailyReportPdfBuffer(content, photoUrls, logoData, post.dynamic_fields)
-                folder.file(`DailyReport_${formatDateForFilename(date)}.pdf`, buf)
-              } catch {
-                // skip failed PDF
-              }
-            }
-          }
-        }
-
-        // ─── Timesheets ─────────────────────────────────────────────
-        if (options.includeTimesheets) {
-          const timecardPosts = await fetchPostsForProject(projectId, 'timecard')
-          if (timecardPosts.length > 0) {
-            const folder = getProjectFolder().folder('Timesheets')!
-            setProgress({ step: `Generating Timesheets (${projectName})...`, current: pi + 1, total: projectIds.length })
-
-            for (const post of timecardPosts) {
-              const content = post.content as TimecardContent
-              const date = content.date || post.created_at.split('T')[0]
-              const empName = content.entries.length > 0 ? content.entries[0].employee_name : 'Team'
-              try {
-                const buf = await generateTimecardPdfBuffer(content, logoData, post.dynamic_fields)
-                folder.file(`Timesheet_${formatDateForFilename(date)}_${safeName(empName)}.pdf`, buf)
-              } catch {
-                // skip failed PDF
-              }
-            }
-          }
-        }
-
-        // ─── Expenses & Receipts ────────────────────────────────────
-        if (options.includeExpenses) {
-          const expensePosts = await fetchPostsByTypesForProject(projectId, ['receipt', 'expense'])
-          if (expensePosts.length > 0) {
-            const folder = getProjectFolder().folder('Expenses')!
-            setProgress({ step: `Generating Expenses (${projectName})...`, current: pi + 1, total: projectIds.length })
-
-            for (let i = 0; i < expensePosts.length; i++) {
-              const post = expensePosts[i]
-              if (post.post_type === 'receipt') {
-                const content = post.content as ReceiptContent
-                const date = content.receipt_date || post.created_at.split('T')[0]
-                const photoUrl = content.receipt_photo ? getPhotoUrl(content.receipt_photo) : null
-                try {
-                  const buf = await generateExpensePdfBuffer(content, photoUrl, logoData, post.dynamic_fields)
-                  folder.file(`Expense_${formatDateForFilename(date)}_${i}.pdf`, buf)
-                } catch {
-                  // skip
-                }
-              } else {
-                const content = post.content as { description: string; amount: number; category: string; date: string; notes: string; attachment: string }
+            if (dailyPosts.length > 0) {
+              const folder = projectFolder.folder('Daily_Reports')!
+              for (const post of dailyPosts) {
+                const content = post.content as DailyReportContent
+                const photoUrls = (content.photos || []).map(getPhotoUrl)
                 const date = content.date || post.created_at.split('T')[0]
-                const receiptContent: ReceiptContent = {
-                  receipt_photo: content.attachment || '',
-                  vendor_name: content.description || '—',
-                  receipt_date: content.date,
-                  total_amount: content.amount || 0,
-                  category: (content.category as ReceiptContent['category']) || '',
-                }
-                const photoUrl = content.attachment ? getPhotoUrl(content.attachment) : null
                 try {
-                  const buf = await generateExpensePdfBuffer(receiptContent, photoUrl, logoData, post.dynamic_fields)
-                  folder.file(`Expense_${formatDateForFilename(date)}_${i}.pdf`, buf)
-                } catch {
-                  // skip
+                  const buf = await generateDailyReportPdfBuffer(content, photoUrls, logoData, post.dynamic_fields)
+                  folder.file(`DailyReport_${formatDateForFilename(date)}.pdf`, buf)
+                  projectFileCount++
+                } catch (pdfErr) {
+                  console.error(`[DataExport]   Failed to generate daily report PDF for ${date}:`, pdfErr)
                 }
               }
             }
           }
-        }
 
-        // ─── JSA Reports ────────────────────────────────────────────
-        if (options.includeJsa) {
-          const jsaPosts = await fetchPostsForProject(projectId, 'jsa_report')
-          if (jsaPosts.length > 0) {
-            const folder = getProjectFolder().folder('JSA_Reports')!
+          // ─── Timesheets ─────────────────────────────────────────────
+          if (options.includeTimesheets) {
+            setProgress({ step: `Generating Timesheets (${projectName})...`, current: pi + 1, total: projectIds.length })
+            const timecardPosts = await fetchPostsForProject(projectId, 'timecard')
+            console.log(`[DataExport]   Timesheets: ${timecardPosts.length} found`)
+
+            if (timecardPosts.length > 0) {
+              const folder = projectFolder.folder('Timesheets')!
+              for (const post of timecardPosts) {
+                const content = post.content as TimecardContent
+                const date = content.date || post.created_at.split('T')[0]
+                const empName = content.entries.length > 0 ? content.entries[0].employee_name : 'Team'
+                try {
+                  const buf = await generateTimecardPdfBuffer(content, logoData, post.dynamic_fields)
+                  folder.file(`Timesheet_${formatDateForFilename(date)}_${safeName(empName)}.pdf`, buf)
+                  projectFileCount++
+                } catch (pdfErr) {
+                  console.error(`[DataExport]   Failed to generate timesheet PDF for ${date}:`, pdfErr)
+                }
+              }
+            }
+          }
+
+          // ─── Expenses & Receipts ────────────────────────────────────
+          if (options.includeExpenses) {
+            setProgress({ step: `Generating Expenses (${projectName})...`, current: pi + 1, total: projectIds.length })
+            const expensePosts = await fetchPostsByTypesForProject(projectId, ['receipt', 'expense'])
+            console.log(`[DataExport]   Expenses: ${expensePosts.length} found`)
+
+            if (expensePosts.length > 0) {
+              const folder = projectFolder.folder('Expenses')!
+              for (let i = 0; i < expensePosts.length; i++) {
+                const post = expensePosts[i]
+                if (post.post_type === 'receipt') {
+                  const content = post.content as ReceiptContent
+                  const date = content.receipt_date || post.created_at.split('T')[0]
+                  const photoUrl = content.receipt_photo ? getPhotoUrl(content.receipt_photo) : null
+                  try {
+                    const buf = await generateExpensePdfBuffer(content, photoUrl, logoData, post.dynamic_fields)
+                    folder.file(`Expense_${formatDateForFilename(date)}_${i}.pdf`, buf)
+                    projectFileCount++
+                  } catch (pdfErr) {
+                    console.error(`[DataExport]   Failed to generate expense PDF for ${date}:`, pdfErr)
+                  }
+                } else {
+                  const content = post.content as { description: string; amount: number; category: string; date: string; notes: string; attachment: string }
+                  const date = content.date || post.created_at.split('T')[0]
+                  const receiptContent: ReceiptContent = {
+                    receipt_photo: content.attachment || '',
+                    vendor_name: content.description || '—',
+                    receipt_date: content.date,
+                    total_amount: content.amount || 0,
+                    category: (content.category as ReceiptContent['category']) || '',
+                  }
+                  const photoUrl = content.attachment ? getPhotoUrl(content.attachment) : null
+                  try {
+                    const buf = await generateExpensePdfBuffer(receiptContent, photoUrl, logoData, post.dynamic_fields)
+                    folder.file(`Expense_${formatDateForFilename(date)}_${i}.pdf`, buf)
+                    projectFileCount++
+                  } catch (pdfErr) {
+                    console.error(`[DataExport]   Failed to generate expense PDF for ${date}:`, pdfErr)
+                  }
+                }
+              }
+            }
+          }
+
+          // ─── JSA Reports ────────────────────────────────────────────
+          if (options.includeJsa) {
             setProgress({ step: `Generating JSA Reports (${projectName})...`, current: pi + 1, total: projectIds.length })
+            const jsaPosts = await fetchPostsForProject(projectId, 'jsa_report')
+            console.log(`[DataExport]   JSA Reports: ${jsaPosts.length} found`)
 
-            for (const post of jsaPosts) {
-              const content = post.content as JsaReportContent
-              const date = content.date || post.created_at.split('T')[0]
-              try {
-                const buf = await generateJsaPdfBuffer(content, logoData, post.dynamic_fields)
-                folder.file(`JSA_${formatDateForFilename(date)}.pdf`, buf)
-              } catch {
-                // skip
+            if (jsaPosts.length > 0) {
+              const folder = projectFolder.folder('JSA_Reports')!
+              for (const post of jsaPosts) {
+                const content = post.content as JsaReportContent
+                const date = content.date || post.created_at.split('T')[0]
+                try {
+                  const buf = await generateJsaPdfBuffer(content, logoData, post.dynamic_fields)
+                  folder.file(`JSA_${formatDateForFilename(date)}.pdf`, buf)
+                  projectFileCount++
+                } catch (pdfErr) {
+                  console.error(`[DataExport]   Failed to generate JSA PDF for ${date}:`, pdfErr)
+                }
               }
             }
           }
-        }
 
-        // ─── Job Feed Posts ─────────────────────────────────────────
-        if (options.includeFeed) {
-          const feedPosts = await fetchPostsByTypesForProject(projectId, ['text', 'photo', 'daily_report', 'task', 'pdf', 'jsa_report', 'receipt', 'expense', 'timecard'])
-          if (feedPosts.length > 0) {
-            const folder = getProjectFolder().folder('Job_Feed')!
+          // ─── Job Feed Posts ─────────────────────────────────────────
+          if (options.includeFeed) {
             setProgress({ step: `Generating Feed (${projectName})...`, current: pi + 1, total: projectIds.length })
+            const feedPosts = await fetchPostsByTypesForProject(projectId, ['text', 'photo', 'daily_report', 'task', 'pdf', 'jsa_report', 'receipt', 'expense', 'timecard'])
+            console.log(`[DataExport]   Feed Posts: ${feedPosts.length} found`)
 
-            try {
-              const buf = await generateFeedPdfBuffer(projectName, feedPosts, getPhotoUrl, logoData)
-              folder.file('Feed_Posts.pdf', buf)
-            } catch {
-              // skip
-            }
-          }
-        }
-
-        // ─── Photos ─────────────────────────────────────────────────
-        if (options.includePhotos) {
-          const photoPosts = await fetchPostsByTypesForProject(projectId, ['photo', 'daily_report', 'receipt', 'expense'])
-          const photoEntries: { url: string; date: string }[] = []
-
-          for (const post of photoPosts) {
-            const content = post.content as unknown as Record<string, unknown>
-            const date = post.created_at.split('T')[0]
-            if ('photos' in content && Array.isArray(content.photos)) {
-              for (const path of content.photos) {
-                photoEntries.push({ url: getPhotoUrl(path as string), date })
+            if (feedPosts.length > 0) {
+              const folder = projectFolder.folder('Job_Feed')!
+              try {
+                const buf = await generateFeedPdfBuffer(projectName, feedPosts, getPhotoUrl, logoData)
+                folder.file('Feed_Posts.pdf', buf)
+                projectFileCount++
+              } catch (pdfErr) {
+                console.error(`[DataExport]   Failed to generate feed PDF:`, pdfErr)
               }
             }
-            if ('receipt_photo' in content && content.receipt_photo) {
-              photoEntries.push({ url: getPhotoUrl(content.receipt_photo as string), date })
-            }
-            if ('attachment' in content && content.attachment) {
-              photoEntries.push({ url: getPhotoUrl(content.attachment as string), date })
-            }
           }
 
-          if (photoEntries.length > 0) {
-            const folder = getProjectFolder().folder('Photos')!
+          // ─── Photos ─────────────────────────────────────────────────
+          if (options.includePhotos) {
             setProgress({ step: `Downloading Photos (${projectName})...`, current: pi + 1, total: projectIds.length })
+            const photoPosts = await fetchPostsByTypesForProject(projectId, ['photo', 'daily_report', 'receipt', 'expense'])
+            const photoEntries: { url: string; date: string }[] = []
 
-            for (let i = 0; i < photoEntries.length; i++) {
-              const entry = photoEntries[i]
-              try {
-                const res = await fetch(entry.url)
-                if (!res.ok) continue
-                const blob = await res.blob()
-                const ext = blob.type.includes('png') ? 'png' : 'jpg'
-                folder.file(`Photo_${formatDateForFilename(entry.date)}_${String(i + 1).padStart(3, '0')}.${ext}`, blob)
-              } catch {
-                // skip
+            for (const post of photoPosts) {
+              const content = post.content as unknown as Record<string, unknown>
+              const date = post.created_at.split('T')[0]
+              if ('photos' in content && Array.isArray(content.photos)) {
+                for (const path of content.photos) {
+                  photoEntries.push({ url: getPhotoUrl(path as string), date })
+                }
+              }
+              if ('receipt_photo' in content && content.receipt_photo) {
+                photoEntries.push({ url: getPhotoUrl(content.receipt_photo as string), date })
+              }
+              if ('attachment' in content && content.attachment) {
+                photoEntries.push({ url: getPhotoUrl(content.attachment as string), date })
+              }
+            }
+
+            console.log(`[DataExport]   Photos: ${photoEntries.length} found`)
+
+            if (photoEntries.length > 0) {
+              const folder = projectFolder.folder('Photos')!
+              for (let i = 0; i < photoEntries.length; i++) {
+                const entry = photoEntries[i]
+                try {
+                  const res = await fetch(entry.url)
+                  if (!res.ok) {
+                    console.warn(`[DataExport]   Photo fetch failed (${res.status}): ${entry.url}`)
+                    continue
+                  }
+                  const blob = await res.blob()
+                  const ext = blob.type.includes('png') ? 'png' : 'jpg'
+                  folder.file(`Photo_${formatDateForFilename(entry.date)}_${String(i + 1).padStart(3, '0')}.${ext}`, blob)
+                  projectFileCount++
+                } catch (fetchErr) {
+                  console.error(`[DataExport]   Failed to download photo:`, fetchErr)
+                }
               }
             }
           }
-        }
 
-        // ─── Plans ──────────────────────────────────────────────────
-        if (options.includePlans) {
-          setProgress({ step: `Downloading Plans (${projectName})...`, current: pi + 1, total: projectIds.length })
+          // ─── Plans ──────────────────────────────────────────────────
+          if (options.includePlans) {
+            setProgress({ step: `Downloading Plans (${projectName})...`, current: pi + 1, total: projectIds.length })
 
-          const { data: docs } = await supabase
-            .from('project_documents')
-            .select('*')
-            .eq('project_id', projectId)
-            .order('created_at', { ascending: true })
+            const { data: docs, error: docsError } = await supabase
+              .from('project_documents')
+              .select('*')
+              .eq('project_id', projectId)
+              .order('created_at', { ascending: true })
 
-          const planDocs = ((docs || []) as ProjectDocument[])
+            if (docsError) {
+              console.error(`[DataExport]   Plans query error for project ${projectId}:`, docsError.message)
+            }
 
-          if (planDocs.length > 0) {
-            const folder = getProjectFolder().folder('Plans')!
-            for (const doc of planDocs) {
-              try {
-                const bucket = doc.bucket || 'project-plans'
-                const filePath = doc.file_path
-                const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
-                const res = await fetch(urlData.publicUrl)
-                if (!res.ok) continue
-                const blob = await res.blob()
-                folder.file(doc.file_name, blob)
-              } catch {
-                // skip failed downloads
+            const planDocs = ((docs || []) as ProjectDocument[])
+            console.log(`[DataExport]   Plans: ${planDocs.length} found`)
+
+            if (planDocs.length > 0) {
+              const folder = projectFolder.folder('Plans')!
+              for (const doc of planDocs) {
+                try {
+                  const bucket = doc.bucket || 'project-plans'
+                  const filePath = doc.file_path
+                  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
+                  const res = await fetch(urlData.publicUrl)
+                  if (!res.ok) {
+                    console.warn(`[DataExport]   Plan download failed (${res.status}): ${doc.file_name}`)
+                    continue
+                  }
+                  const blob = await res.blob()
+                  folder.file(doc.file_name, blob)
+                  projectFileCount++
+                } catch (fetchErr) {
+                  console.error(`[DataExport]   Failed to download plan "${doc.file_name}":`, fetchErr)
+                }
               }
             }
           }
-        }
 
-        // ─── Project Report ─────────────────────────────────────────
-        if (options.includeProjectReport) {
-          setProgress({ step: `Generating Project Reports (${projectName})...`, current: pi + 1, total: projectIds.length })
+          // ─── Project Report ─────────────────────────────────────────
+          if (options.includeProjectReport) {
+            setProgress({ step: `Generating Project Report (${projectName})...`, current: pi + 1, total: projectIds.length })
 
-          const { data: reportData } = await supabase
-            .from('project_reports')
-            .select('*')
-            .eq('project_id', projectId)
-            .maybeSingle()
+            const { data: reportData, error: reportError } = await supabase
+              .from('project_reports')
+              .select('*')
+              .eq('project_id', projectId)
+              .maybeSingle()
 
-          if (reportData?.data) {
-            const folder = getProjectFolder().folder('Project_Report')!
-            try {
-              const buf = await generateProjectReportPdfBuffer(
-                projectName,
-                reportData.data as ProjectReportData,
-                logoData
-              )
-              folder.file('Project_Report.pdf', buf)
-            } catch {
-              // skip
+            if (reportError) {
+              console.error(`[DataExport]   Project report query error for project ${projectId}:`, reportError.message)
+            }
+
+            console.log(`[DataExport]   Project Report: ${reportData?.data ? 'found' : 'none'}`)
+
+            if (reportData?.data) {
+              const folder = projectFolder.folder('Project_Report')!
+              try {
+                const buf = await generateProjectReportPdfBuffer(
+                  projectName,
+                  reportData.data as ProjectReportData,
+                  logoData
+                )
+                folder.file('Project_Report.pdf', buf)
+                projectFileCount++
+              } catch (pdfErr) {
+                console.error(`[DataExport]   Failed to generate project report PDF:`, pdfErr)
+              }
             }
           }
+        } catch (projectErr) {
+          console.error(`[DataExport] Unexpected error processing project "${projectName}" (${projectId}):`, projectErr)
         }
+
+        console.log(`[DataExport] Finished project "${projectName}": ${projectFileCount} files added`)
       }
 
       // ─── Build ZIP ──────────────────────────────────────────────
       setProgress({ step: 'Building ZIP file...', current: 0, total: 0 })
 
       const zipEntries = Object.keys(zip.files)
-      if (zipEntries.filter((k) => !zip.files[k].dir).length === 0) {
-        setError('No data found for the selected projects and filters.')
-        setExporting(false)
-        setProgress(null)
-        return
-      }
+      const zipFiles = zipEntries.filter((k) => !zip.files[k].dir)
+      const zipDirs = zipEntries.filter((k) => zip.files[k].dir)
+      console.log(`[DataExport] ZIP contents: ${zipFiles.length} files, ${zipDirs.length} folders`)
+      console.log(`[DataExport] ZIP folders:`, zipDirs)
+      console.log(`[DataExport] ZIP files:`, zipFiles)
 
       const blob = await zip.generateAsync({ type: 'blob' })
       const url = URL.createObjectURL(blob)
