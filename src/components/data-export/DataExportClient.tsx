@@ -66,8 +66,6 @@ async function loadLogoData(
   }
 }
 
-type StatusFilter = 'Active' | 'Complete'
-
 export default function DataExportClient() {
   const router = useRouter()
   const supabase = createClient()
@@ -75,7 +73,8 @@ export default function DataExportClient() {
 
   // Projects state
   const [allProjects, setAllProjects] = useState<Project[]>([])
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active')
+  const [showActive, setShowActive] = useState(true)
+  const [showComplete, setShowComplete] = useState(true)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -112,7 +111,8 @@ export default function DataExportClient() {
   // Filtered project list based on status, date range, and search
   const filteredProjects = useMemo(() => {
     return allProjects.filter((p) => {
-      if (p.status !== statusFilter) return false
+      if (p.status === 'Active' && !showActive) return false
+      if (p.status === 'Complete' && !showComplete) return false
       if (startDate && endDate) {
         if (p.start_date || p.end_date) {
           const pStart = p.start_date || '1900-01-01'
@@ -128,11 +128,7 @@ export default function DataExportClient() {
       }
       return true
     })
-  }, [allProjects, statusFilter, startDate, endDate, searchQuery])
-
-  useEffect(() => {
-    setSelectedProjectIds(new Set())
-  }, [statusFilter])
+  }, [allProjects, showActive, showComplete, startDate, endDate, searchQuery])
 
   const allVisibleSelected = filteredProjects.length > 0 && filteredProjects.every((p) => selectedProjectIds.has(p.id))
 
@@ -233,13 +229,17 @@ export default function DataExportClient() {
         const project = projectMap.get(projectId)
         const projectName = project?.name || 'Unknown'
         const projectFolderName = safeName(projectName)
-        const projectFolder = zip.folder(projectFolderName)!
+        let projectFolder: JSZip | null = null
+        const getProjectFolder = () => {
+          if (!projectFolder) projectFolder = zip.folder(projectFolderName)
+          return projectFolder!
+        }
 
         // ─── Daily Reports ──────────────────────────────────────────
         if (options.includeDaily) {
           const dailyPosts = await fetchPostsForProject(projectId, 'daily_report')
           if (dailyPosts.length > 0) {
-            const folder = projectFolder.folder('Daily_Reports')!
+            const folder = getProjectFolder().folder('Daily_Reports')!
             setProgress({ step: `Generating Daily Reports (${projectName})...`, current: pi + 1, total: projectIds.length })
 
             for (const post of dailyPosts) {
@@ -260,7 +260,7 @@ export default function DataExportClient() {
         if (options.includeTimesheets) {
           const timecardPosts = await fetchPostsForProject(projectId, 'timecard')
           if (timecardPosts.length > 0) {
-            const folder = projectFolder.folder('Timesheets')!
+            const folder = getProjectFolder().folder('Timesheets')!
             setProgress({ step: `Generating Timesheets (${projectName})...`, current: pi + 1, total: projectIds.length })
 
             for (const post of timecardPosts) {
@@ -281,7 +281,7 @@ export default function DataExportClient() {
         if (options.includeExpenses) {
           const expensePosts = await fetchPostsByTypesForProject(projectId, ['receipt', 'expense'])
           if (expensePosts.length > 0) {
-            const folder = projectFolder.folder('Expenses')!
+            const folder = getProjectFolder().folder('Expenses')!
             setProgress({ step: `Generating Expenses (${projectName})...`, current: pi + 1, total: projectIds.length })
 
             for (let i = 0; i < expensePosts.length; i++) {
@@ -322,7 +322,7 @@ export default function DataExportClient() {
         if (options.includeJsa) {
           const jsaPosts = await fetchPostsForProject(projectId, 'jsa_report')
           if (jsaPosts.length > 0) {
-            const folder = projectFolder.folder('JSA_Reports')!
+            const folder = getProjectFolder().folder('JSA_Reports')!
             setProgress({ step: `Generating JSA Reports (${projectName})...`, current: pi + 1, total: projectIds.length })
 
             for (const post of jsaPosts) {
@@ -342,7 +342,7 @@ export default function DataExportClient() {
         if (options.includeFeed) {
           const feedPosts = await fetchPostsByTypesForProject(projectId, ['text', 'photo', 'daily_report', 'task', 'pdf', 'jsa_report', 'receipt', 'expense', 'timecard'])
           if (feedPosts.length > 0) {
-            const folder = projectFolder.folder('Job_Feed')!
+            const folder = getProjectFolder().folder('Job_Feed')!
             setProgress({ step: `Generating Feed (${projectName})...`, current: pi + 1, total: projectIds.length })
 
             try {
@@ -376,7 +376,7 @@ export default function DataExportClient() {
           }
 
           if (photoEntries.length > 0) {
-            const folder = projectFolder.folder('Photos')!
+            const folder = getProjectFolder().folder('Photos')!
             setProgress({ step: `Downloading Photos (${projectName})...`, current: pi + 1, total: projectIds.length })
 
             for (let i = 0; i < photoEntries.length; i++) {
@@ -407,7 +407,7 @@ export default function DataExportClient() {
           const planDocs = ((docs || []) as ProjectDocument[])
 
           if (planDocs.length > 0) {
-            const folder = projectFolder.folder('Plans')!
+            const folder = getProjectFolder().folder('Plans')!
             for (const doc of planDocs) {
               try {
                 const bucket = doc.bucket || 'project-plans'
@@ -435,14 +435,14 @@ export default function DataExportClient() {
             .maybeSingle()
 
           if (reportData?.data) {
-            const folder = projectFolder.folder('Project_Report')!
+            const folder = getProjectFolder().folder('Project_Report')!
             try {
               const buf = await generateProjectReportPdfBuffer(
                 projectName,
                 reportData.data as ProjectReportData,
                 logoData
               )
-              folder.file(`ProjectReport_${safeName(projectName)}.pdf`, buf)
+              folder.file('Project_Report.pdf', buf)
             } catch {
               // skip
             }
@@ -518,28 +518,32 @@ export default function DataExportClient() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Projects</h2>
 
-          {/* Status Toggle */}
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-4">
-            <button
-              onClick={() => setStatusFilter('Active')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition ${
-                statusFilter === 'Active'
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Ongoing
-            </button>
-            <button
-              onClick={() => setStatusFilter('Complete')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition border-l border-gray-200 ${
-                statusFilter === 'Complete'
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Completed
-            </button>
+          {/* Status Checkboxes */}
+          <div className="flex items-center gap-6 mb-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showActive}
+                onChange={(e) => {
+                  if (!e.target.checked && !showComplete) return
+                  setShowActive(e.target.checked)
+                }}
+                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Ongoing</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showComplete}
+                onChange={(e) => {
+                  if (!e.target.checked && !showActive) return
+                  setShowComplete(e.target.checked)
+                }}
+                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Completed</span>
+            </label>
           </div>
 
           {/* Date Range */}
