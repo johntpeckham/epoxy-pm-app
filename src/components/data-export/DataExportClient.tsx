@@ -20,10 +20,13 @@ import {
   generateJsaPdfBuffer,
   generateFeedPdfBuffer,
   generateCalendarSummaryPdfBuffer,
+  generateProjectReportPdfBuffer,
 } from '@/lib/generateDataExport'
 import {
   Project,
   FeedPost,
+  ProjectDocument,
+  ProjectReportData,
   DailyReportContent,
   TimecardContent,
   ReceiptContent,
@@ -87,6 +90,8 @@ export default function DataExportClient() {
   const [includeFeed, setIncludeFeed] = useState(true)
   const [includePhotos, setIncludePhotos] = useState(true)
   const [includeCalendar, setIncludeCalendar] = useState(true)
+  const [includePlans, setIncludePlans] = useState(true)
+  const [includeProjectReport, setIncludeProjectReport] = useState(true)
 
   // Export state
   const [exporting, setExporting] = useState(false)
@@ -109,10 +114,7 @@ export default function DataExportClient() {
   // Filtered project list based on status, date range, and search
   const filteredProjects = useMemo(() => {
     return allProjects.filter((p) => {
-      // Status filter
       if (p.status !== statusFilter) return false
-
-      // Date range overlap filter (only if both dates are set)
       if (startDate && endDate) {
         if (p.start_date || p.end_date) {
           const pStart = p.start_date || '1900-01-01'
@@ -120,36 +122,28 @@ export default function DataExportClient() {
           if (!(pStart <= endDate && pEnd >= startDate)) return false
         }
       }
-
-      // Search filter
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const nameMatch = p.name.toLowerCase().includes(q)
         const clientMatch = p.client_name?.toLowerCase().includes(q) || false
         if (!nameMatch && !clientMatch) return false
       }
-
       return true
     })
   }, [allProjects, statusFilter, startDate, endDate, searchQuery])
 
-  // When status filter changes, clear selection
   useEffect(() => {
     setSelectedProjectIds(new Set())
   }, [statusFilter])
-
-  const visibleIds = useMemo(() => new Set(filteredProjects.map((p) => p.id)), [filteredProjects])
 
   const allVisibleSelected = filteredProjects.length > 0 && filteredProjects.every((p) => selectedProjectIds.has(p.id))
 
   function handleSelectAll() {
     if (allVisibleSelected) {
-      // Deselect all visible
       const next = new Set(selectedProjectIds)
       for (const p of filteredProjects) next.delete(p.id)
       setSelectedProjectIds(next)
     } else {
-      // Select all visible
       const next = new Set(selectedProjectIds)
       for (const p of filteredProjects) next.add(p.id)
       setSelectedProjectIds(next)
@@ -192,274 +186,278 @@ export default function DataExportClient() {
         includeFeed,
         includePhotos,
         includeCalendar,
+        includePlans,
+        includeProjectReport,
       }
 
-      // Load logo once
       const logoData = await loadLogoData(companySettings?.logo_url)
 
-      // Build optional date filter
       const hasDateRange = !!(options.startDate && options.endDate)
       const dateFilterStart = options.startDate
       const dateFilterEnd = options.endDate + 'T23:59:59'
 
-      // Helper to fetch feed posts by type, filtered to selected projects
-      async function fetchPosts(postType: string): Promise<FeedPost[]> {
-        let allResults: FeedPost[] = []
-        const chunks = chunkArray(options.projectIds, 50)
-        for (const chunk of chunks) {
-          let query = supabase
-            .from('feed_posts')
-            .select('*')
-            .eq('post_type', postType)
-            .in('project_id', chunk)
-          if (hasDateRange) {
-            query = query.gte('created_at', dateFilterStart).lte('created_at', dateFilterEnd)
-          }
-          const { data } = await query.order('created_at', { ascending: true })
-          if (data) allResults = allResults.concat(data as FeedPost[])
+      // Helper to fetch feed posts by type for a single project
+      async function fetchPostsForProject(projectId: string, postType: string): Promise<FeedPost[]> {
+        let query = supabase
+          .from('feed_posts')
+          .select('*')
+          .eq('post_type', postType)
+          .eq('project_id', projectId)
+        if (hasDateRange) {
+          query = query.gte('created_at', dateFilterStart).lte('created_at', dateFilterEnd)
         }
-        return allResults
+        const { data } = await query.order('created_at', { ascending: true })
+        return (data || []) as FeedPost[]
       }
 
-      // Helper to fetch feed posts by multiple types
-      async function fetchPostsByTypes(postTypes: string[]): Promise<FeedPost[]> {
-        let allResults: FeedPost[] = []
-        const chunks = chunkArray(options.projectIds, 50)
-        for (const chunk of chunks) {
-          let query = supabase
-            .from('feed_posts')
-            .select('*')
-            .in('post_type', postTypes)
-            .in('project_id', chunk)
-          if (hasDateRange) {
-            query = query.gte('created_at', dateFilterStart).lte('created_at', dateFilterEnd)
-          }
-          const { data } = await query.order('created_at', { ascending: true })
-          if (data) allResults = allResults.concat(data as FeedPost[])
+      // Helper to fetch feed posts by multiple types for a single project
+      async function fetchPostsByTypesForProject(projectId: string, postTypes: string[]): Promise<FeedPost[]> {
+        let query = supabase
+          .from('feed_posts')
+          .select('*')
+          .in('post_type', postTypes)
+          .eq('project_id', projectId)
+        if (hasDateRange) {
+          query = query.gte('created_at', dateFilterStart).lte('created_at', dateFilterEnd)
         }
-        return allResults
+        const { data } = await query.order('created_at', { ascending: true })
+        return (data || []) as FeedPost[]
       }
 
-      // Build a project name lookup
-      const projectMap = new Map<string, string>()
+      // Build project lookup
+      const projectMap = new Map<string, Project>()
       for (const p of allProjects) {
-        projectMap.set(p.id, p.name)
+        projectMap.set(p.id, p)
       }
 
-      // ─── Daily Reports ──────────────────────────────────────────────
-      if (options.includeDaily) {
-        const dailyPosts = await fetchPosts('daily_report')
-        if (dailyPosts.length > 0) {
-          const folder = zip.folder('Daily_Reports')!
-          setProgress({ step: 'Generating Daily Reports...', current: 0, total: dailyPosts.length })
+      // Process each selected project
+      for (let pi = 0; pi < projectIds.length; pi++) {
+        const projectId = projectIds[pi]
+        const project = projectMap.get(projectId)
+        const projectName = project?.name || 'Unknown'
+        const projectFolderName = safeName(projectName)
+        const projectFolder = zip.folder(projectFolderName)!
 
-          for (let i = 0; i < dailyPosts.length; i++) {
-            setProgress({ step: 'Generating Daily Reports...', current: i + 1, total: dailyPosts.length })
-            const post = dailyPosts[i]
-            const content = post.content as DailyReportContent
-            const photoUrls = (content.photos || []).map(getPhotoUrl)
-            const projectName = content.project_name || projectMap.get(post.project_id) || 'Unknown'
-            const date = content.date || post.created_at.split('T')[0]
+        // ─── Daily Reports ──────────────────────────────────────────
+        if (options.includeDaily) {
+          const dailyPosts = await fetchPostsForProject(projectId, 'daily_report')
+          if (dailyPosts.length > 0) {
+            const folder = projectFolder.folder('Daily_Reports')!
+            setProgress({ step: `Generating Daily Reports (${projectName})...`, current: pi + 1, total: projectIds.length })
 
-            try {
-              const buf = await generateDailyReportPdfBuffer(content, photoUrls, logoData, post.dynamic_fields)
-              folder.file(
-                `DailyReport_${formatDateForFilename(date)}_${safeName(projectName)}.pdf`,
-                buf
-              )
-            } catch {
-              // skip failed PDF
-            }
-          }
-        }
-      }
-
-      // ─── Timesheets ─────────────────────────────────────────────────
-      if (options.includeTimesheets) {
-        const timecardPosts = await fetchPosts('timecard')
-        if (timecardPosts.length > 0) {
-          const folder = zip.folder('Timesheets')!
-          setProgress({ step: 'Generating Timesheets...', current: 0, total: timecardPosts.length })
-
-          for (let i = 0; i < timecardPosts.length; i++) {
-            setProgress({ step: 'Generating Timesheets...', current: i + 1, total: timecardPosts.length })
-            const post = timecardPosts[i]
-            const content = post.content as TimecardContent
-            const projectName = content.project_name || projectMap.get(post.project_id) || 'Unknown'
-            const date = content.date || post.created_at.split('T')[0]
-            const empName = content.entries.length > 0 ? content.entries[0].employee_name : projectName
-
-            try {
-              const buf = await generateTimecardPdfBuffer(content, logoData, post.dynamic_fields)
-              folder.file(
-                `Timesheet_${formatDateForFilename(date)}_${safeName(empName)}.pdf`,
-                buf
-              )
-            } catch {
-              // skip failed PDF
-            }
-          }
-        }
-      }
-
-      // ─── Expenses & Receipts ────────────────────────────────────────
-      if (options.includeExpenses) {
-        const expensePosts = await fetchPostsByTypes(['receipt', 'expense'])
-        if (expensePosts.length > 0) {
-          const folder = zip.folder('Expenses')!
-          setProgress({ step: 'Generating Expenses...', current: 0, total: expensePosts.length })
-
-          for (let i = 0; i < expensePosts.length; i++) {
-            setProgress({ step: 'Generating Expenses...', current: i + 1, total: expensePosts.length })
-            const post = expensePosts[i]
-            const projectName = projectMap.get(post.project_id) || 'Unknown'
-
-            if (post.post_type === 'receipt') {
-              const content = post.content as ReceiptContent
-              const date = content.receipt_date || post.created_at.split('T')[0]
-              const photoUrl = content.receipt_photo ? getPhotoUrl(content.receipt_photo) : null
-
-              try {
-                const buf = await generateExpensePdfBuffer(content, photoUrl, logoData, post.dynamic_fields)
-                folder.file(
-                  `Expense_${formatDateForFilename(date)}_${safeName(projectName)}.pdf`,
-                  buf
-                )
-              } catch {
-                // skip failed PDF
-              }
-            } else {
-              const content = post.content as { description: string; amount: number; category: string; date: string; notes: string; attachment: string }
+            for (const post of dailyPosts) {
+              const content = post.content as DailyReportContent
+              const photoUrls = (content.photos || []).map(getPhotoUrl)
               const date = content.date || post.created_at.split('T')[0]
-              const receiptContent: ReceiptContent = {
-                receipt_photo: content.attachment || '',
-                vendor_name: content.description || '—',
-                receipt_date: content.date,
-                total_amount: content.amount || 0,
-                category: (content.category as ReceiptContent['category']) || '',
-              }
-              const photoUrl = content.attachment ? getPhotoUrl(content.attachment) : null
-
               try {
-                const buf = await generateExpensePdfBuffer(receiptContent, photoUrl, logoData, post.dynamic_fields)
-                folder.file(
-                  `Expense_${formatDateForFilename(date)}_${safeName(projectName)}_${i}.pdf`,
-                  buf
-                )
+                const buf = await generateDailyReportPdfBuffer(content, photoUrls, logoData, post.dynamic_fields)
+                folder.file(`DailyReport_${formatDateForFilename(date)}.pdf`, buf)
               } catch {
                 // skip failed PDF
               }
             }
           }
         }
-      }
 
-      // ─── JSA Reports ────────────────────────────────────────────────
-      if (options.includeJsa) {
-        const jsaPosts = await fetchPosts('jsa_report')
-        if (jsaPosts.length > 0) {
-          const folder = zip.folder('JSA_Reports')!
-          setProgress({ step: 'Generating JSA Reports...', current: 0, total: jsaPosts.length })
+        // ─── Timesheets ─────────────────────────────────────────────
+        if (options.includeTimesheets) {
+          const timecardPosts = await fetchPostsForProject(projectId, 'timecard')
+          if (timecardPosts.length > 0) {
+            const folder = projectFolder.folder('Timesheets')!
+            setProgress({ step: `Generating Timesheets (${projectName})...`, current: pi + 1, total: projectIds.length })
 
-          for (let i = 0; i < jsaPosts.length; i++) {
-            setProgress({ step: 'Generating JSA Reports...', current: i + 1, total: jsaPosts.length })
-            const post = jsaPosts[i]
-            const content = post.content as JsaReportContent
-            const projectName = content.projectName || projectMap.get(post.project_id) || 'Unknown'
-            const date = content.date || post.created_at.split('T')[0]
+            for (const post of timecardPosts) {
+              const content = post.content as TimecardContent
+              const date = content.date || post.created_at.split('T')[0]
+              const empName = content.entries.length > 0 ? content.entries[0].employee_name : 'Team'
+              try {
+                const buf = await generateTimecardPdfBuffer(content, logoData, post.dynamic_fields)
+                folder.file(`Timesheet_${formatDateForFilename(date)}_${safeName(empName)}.pdf`, buf)
+              } catch {
+                // skip failed PDF
+              }
+            }
+          }
+        }
+
+        // ─── Expenses & Receipts ────────────────────────────────────
+        if (options.includeExpenses) {
+          const expensePosts = await fetchPostsByTypesForProject(projectId, ['receipt', 'expense'])
+          if (expensePosts.length > 0) {
+            const folder = projectFolder.folder('Expenses')!
+            setProgress({ step: `Generating Expenses (${projectName})...`, current: pi + 1, total: projectIds.length })
+
+            for (let i = 0; i < expensePosts.length; i++) {
+              const post = expensePosts[i]
+              if (post.post_type === 'receipt') {
+                const content = post.content as ReceiptContent
+                const date = content.receipt_date || post.created_at.split('T')[0]
+                const photoUrl = content.receipt_photo ? getPhotoUrl(content.receipt_photo) : null
+                try {
+                  const buf = await generateExpensePdfBuffer(content, photoUrl, logoData, post.dynamic_fields)
+                  folder.file(`Expense_${formatDateForFilename(date)}_${i}.pdf`, buf)
+                } catch {
+                  // skip
+                }
+              } else {
+                const content = post.content as { description: string; amount: number; category: string; date: string; notes: string; attachment: string }
+                const date = content.date || post.created_at.split('T')[0]
+                const receiptContent: ReceiptContent = {
+                  receipt_photo: content.attachment || '',
+                  vendor_name: content.description || '—',
+                  receipt_date: content.date,
+                  total_amount: content.amount || 0,
+                  category: (content.category as ReceiptContent['category']) || '',
+                }
+                const photoUrl = content.attachment ? getPhotoUrl(content.attachment) : null
+                try {
+                  const buf = await generateExpensePdfBuffer(receiptContent, photoUrl, logoData, post.dynamic_fields)
+                  folder.file(`Expense_${formatDateForFilename(date)}_${i}.pdf`, buf)
+                } catch {
+                  // skip
+                }
+              }
+            }
+          }
+        }
+
+        // ─── JSA Reports ────────────────────────────────────────────
+        if (options.includeJsa) {
+          const jsaPosts = await fetchPostsForProject(projectId, 'jsa_report')
+          if (jsaPosts.length > 0) {
+            const folder = projectFolder.folder('JSA_Reports')!
+            setProgress({ step: `Generating JSA Reports (${projectName})...`, current: pi + 1, total: projectIds.length })
+
+            for (const post of jsaPosts) {
+              const content = post.content as JsaReportContent
+              const date = content.date || post.created_at.split('T')[0]
+              try {
+                const buf = await generateJsaPdfBuffer(content, logoData, post.dynamic_fields)
+                folder.file(`JSA_${formatDateForFilename(date)}.pdf`, buf)
+              } catch {
+                // skip
+              }
+            }
+          }
+        }
+
+        // ─── Job Feed Posts ─────────────────────────────────────────
+        if (options.includeFeed) {
+          const feedPosts = await fetchPostsByTypesForProject(projectId, ['text', 'photo', 'daily_report', 'task', 'pdf', 'jsa_report', 'receipt', 'expense', 'timecard'])
+          if (feedPosts.length > 0) {
+            const folder = projectFolder.folder('Job_Feed')!
+            setProgress({ step: `Generating Feed (${projectName})...`, current: pi + 1, total: projectIds.length })
 
             try {
-              const buf = await generateJsaPdfBuffer(content, logoData, post.dynamic_fields)
-              folder.file(
-                `JSA_${formatDateForFilename(date)}_${safeName(projectName)}.pdf`,
-                buf
+              const buf = await generateFeedPdfBuffer(projectName, feedPosts, getPhotoUrl, logoData)
+              folder.file('Feed_Posts.pdf', buf)
+            } catch {
+              // skip
+            }
+          }
+        }
+
+        // ─── Photos ─────────────────────────────────────────────────
+        if (options.includePhotos) {
+          const photoPosts = await fetchPostsByTypesForProject(projectId, ['photo', 'daily_report', 'receipt', 'expense'])
+          const photoEntries: { url: string; date: string }[] = []
+
+          for (const post of photoPosts) {
+            const content = post.content as unknown as Record<string, unknown>
+            const date = post.created_at.split('T')[0]
+            if ('photos' in content && Array.isArray(content.photos)) {
+              for (const path of content.photos) {
+                photoEntries.push({ url: getPhotoUrl(path as string), date })
+              }
+            }
+            if ('receipt_photo' in content && content.receipt_photo) {
+              photoEntries.push({ url: getPhotoUrl(content.receipt_photo as string), date })
+            }
+            if ('attachment' in content && content.attachment) {
+              photoEntries.push({ url: getPhotoUrl(content.attachment as string), date })
+            }
+          }
+
+          if (photoEntries.length > 0) {
+            const folder = projectFolder.folder('Photos')!
+            setProgress({ step: `Downloading Photos (${projectName})...`, current: pi + 1, total: projectIds.length })
+
+            for (let i = 0; i < photoEntries.length; i++) {
+              const entry = photoEntries[i]
+              try {
+                const res = await fetch(entry.url)
+                if (!res.ok) continue
+                const blob = await res.blob()
+                const ext = blob.type.includes('png') ? 'png' : 'jpg'
+                folder.file(`Photo_${formatDateForFilename(entry.date)}_${String(i + 1).padStart(3, '0')}.${ext}`, blob)
+              } catch {
+                // skip
+              }
+            }
+          }
+        }
+
+        // ─── Plans ──────────────────────────────────────────────────
+        if (options.includePlans) {
+          setProgress({ step: `Downloading Plans (${projectName})...`, current: pi + 1, total: projectIds.length })
+
+          const { data: docs } = await supabase
+            .from('project_documents')
+            .select('*')
+            .eq('project_id', projectId)
+            .order('created_at', { ascending: true })
+
+          const planDocs = ((docs || []) as ProjectDocument[])
+
+          if (planDocs.length > 0) {
+            const folder = projectFolder.folder('Plans')!
+            for (const doc of planDocs) {
+              try {
+                const bucket = doc.bucket || 'project-plans'
+                const filePath = doc.file_path
+                const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
+                const res = await fetch(urlData.publicUrl)
+                if (!res.ok) continue
+                const blob = await res.blob()
+                folder.file(doc.file_name, blob)
+              } catch {
+                // skip failed downloads
+              }
+            }
+          }
+        }
+
+        // ─── Project Report ─────────────────────────────────────────
+        if (options.includeProjectReport) {
+          setProgress({ step: `Generating Project Reports (${projectName})...`, current: pi + 1, total: projectIds.length })
+
+          const { data: reportData } = await supabase
+            .from('project_reports')
+            .select('*')
+            .eq('project_id', projectId)
+            .maybeSingle()
+
+          if (reportData?.data) {
+            const folder = projectFolder.folder('Project_Report')!
+            try {
+              const buf = await generateProjectReportPdfBuffer(
+                projectName,
+                reportData.data as ProjectReportData,
+                logoData
               )
+              folder.file(`ProjectReport_${safeName(projectName)}.pdf`, buf)
             } catch {
-              // skip failed PDF
+              // skip
             }
           }
         }
       }
 
-      // ─── Job Feed Posts ─────────────────────────────────────────────
-      if (options.includeFeed) {
-        const allFeedPosts = await fetchPostsByTypes(['text', 'photo', 'daily_report', 'task', 'pdf', 'jsa_report', 'receipt', 'expense', 'timecard'])
-        if (allFeedPosts.length > 0) {
-          const byProject = new Map<string, FeedPost[]>()
-          for (const post of allFeedPosts) {
-            const existing = byProject.get(post.project_id) || []
-            existing.push(post)
-            byProject.set(post.project_id, existing)
-          }
-
-          const folder = zip.folder('Job_Feed')!
-          const projectEntries = Array.from(byProject.entries())
-          setProgress({ step: 'Generating Feed PDFs...', current: 0, total: projectEntries.length })
-
-          for (let i = 0; i < projectEntries.length; i++) {
-            setProgress({ step: 'Generating Feed PDFs...', current: i + 1, total: projectEntries.length })
-            const [projId, posts] = projectEntries[i]
-            const projectName = projectMap.get(projId) || 'Unknown'
-
-            try {
-              const buf = await generateFeedPdfBuffer(projectName, posts, getPhotoUrl, logoData)
-              folder.file(`Feed_${safeName(projectName)}.pdf`, buf)
-            } catch {
-              // skip failed PDF
-            }
-          }
-        }
-      }
-
-      // ─── Photos ─────────────────────────────────────────────────────
-      if (options.includePhotos) {
-        const photoPosts = await fetchPostsByTypes(['photo', 'daily_report', 'receipt', 'expense'])
-        const photoEntries: { url: string; date: string; projectName: string }[] = []
-
-        for (const post of photoPosts) {
-          const projectName = projectMap.get(post.project_id) || 'Unknown'
-          const content = post.content as unknown as Record<string, unknown>
-          const date = post.created_at.split('T')[0]
-
-          if ('photos' in content && Array.isArray(content.photos)) {
-            for (const path of content.photos) {
-              photoEntries.push({ url: getPhotoUrl(path as string), date, projectName })
-            }
-          }
-          if ('receipt_photo' in content && content.receipt_photo) {
-            photoEntries.push({ url: getPhotoUrl(content.receipt_photo as string), date, projectName })
-          }
-          if ('attachment' in content && content.attachment) {
-            photoEntries.push({ url: getPhotoUrl(content.attachment as string), date, projectName })
-          }
-        }
-
-        if (photoEntries.length > 0) {
-          const folder = zip.folder('Photos')!
-          setProgress({ step: 'Downloading Photos...', current: 0, total: photoEntries.length })
-
-          for (let i = 0; i < photoEntries.length; i++) {
-            setProgress({ step: 'Downloading Photos...', current: i + 1, total: photoEntries.length })
-            const entry = photoEntries[i]
-            try {
-              const res = await fetch(entry.url)
-              if (!res.ok) continue
-              const blob = await res.blob()
-              const ext = blob.type.includes('png') ? 'png' : 'jpg'
-              const filename = `Photo_${formatDateForFilename(entry.date)}_${safeName(entry.projectName)}_${String(i + 1).padStart(3, '0')}.${ext}`
-              folder.file(filename, blob)
-            } catch {
-              // skip failed downloads
-            }
-          }
-        }
-      }
-
-      // ─── Calendar / Jobs ────────────────────────────────────────────
+      // ─── Calendar / Jobs (root level) ───────────────────────────
       if (options.includeCalendar) {
         setProgress({ step: 'Generating Jobs Summary...', current: 0, total: 1 })
 
-        const selectedProjects = allProjects.filter((p) => options.projectIds.includes(p.id))
+        const selectedProjects = allProjects.filter((p) => projectIds.includes(p.id))
         const filteredCalProjects = hasDateRange
           ? selectedProjects.filter((p) => {
               if (!p.start_date && !p.end_date) return true
@@ -474,25 +472,20 @@ export default function DataExportClient() {
           const calStart = options.startDate || 'All'
           const calEnd = options.endDate || 'Data'
           try {
-            const buf = await generateCalendarSummaryPdfBuffer(
-              calStart,
-              calEnd,
-              filteredCalProjects,
-              logoData
-            )
+            const buf = await generateCalendarSummaryPdfBuffer(calStart, calEnd, filteredCalProjects, logoData)
             const calFilename = hasDateRange
               ? `Jobs_Summary_${formatDateForFilename(options.startDate)}_to_${formatDateForFilename(options.endDate)}.pdf`
-              : `Jobs_Summary_All.pdf`
+              : 'Jobs_Summary_All.pdf'
             folder.file(calFilename, buf)
           } catch {
-            // skip failed PDF
+            // skip
           }
         }
 
         setProgress({ step: 'Generating Jobs Summary...', current: 1, total: 1 })
       }
 
-      // ─── Build ZIP ──────────────────────────────────────────────────
+      // ─── Build ZIP ──────────────────────────────────────────────
       setProgress({ step: 'Building ZIP file...', current: 0, total: 0 })
 
       const zipEntries = Object.keys(zip.files)
@@ -523,7 +516,7 @@ export default function DataExportClient() {
       setExporting(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, selectedProjectIds, includeDaily, includeTimesheets, includeExpenses, includeJsa, includeFeed, includePhotos, includeCalendar, allProjects, companySettings])
+  }, [startDate, endDate, selectedProjectIds, includeDaily, includeTimesheets, includeExpenses, includeJsa, includeFeed, includePhotos, includeCalendar, includePlans, includeProjectReport, allProjects, companySettings])
 
   const inputCls =
     'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
@@ -536,9 +529,11 @@ export default function DataExportClient() {
     { label: 'Job Feed Posts', checked: includeFeed, onChange: setIncludeFeed },
     { label: 'Photos', checked: includePhotos, onChange: setIncludePhotos },
     { label: 'Calendar / Jobs', checked: includeCalendar, onChange: setIncludeCalendar },
+    { label: 'Plans', checked: includePlans, onChange: setIncludePlans },
+    { label: 'Project Report', checked: includeProjectReport, onChange: setIncludeProjectReport },
   ]
 
-  // Count selected projects that are currently visible
+  const anyDataTypeChecked = dataTypeCheckboxes.some((cb) => cb.checked)
   const selectedVisibleCount = filteredProjects.filter((p) => selectedProjectIds.has(p.id)).length
 
   return (
@@ -714,7 +709,7 @@ export default function DataExportClient() {
 
           <button
             onClick={handleExport}
-            disabled={exporting || selectedProjectIds.size === 0 || !(includeDaily || includeTimesheets || includeExpenses || includeJsa || includeFeed || includePhotos || includeCalendar)}
+            disabled={exporting || selectedProjectIds.size === 0 || !anyDataTypeChecked}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition w-full justify-center"
           >
             {exporting ? (
@@ -733,13 +728,4 @@ export default function DataExportClient() {
       </div>
     </div>
   )
-}
-
-/** Split an array into chunks of the given size. */
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = []
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size))
-  }
-  return chunks
 }

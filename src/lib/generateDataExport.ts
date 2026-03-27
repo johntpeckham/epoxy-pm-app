@@ -8,6 +8,7 @@ import {
   CalendarEvent,
   FeedPost,
   Project,
+  ProjectReportData,
   DynamicFieldEntry,
 } from '@/types'
 import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
@@ -660,6 +661,88 @@ export async function generateCalendarSummaryPdfBuffer(
   return h.doc.output('arraybuffer')
 }
 
+export async function generateProjectReportPdfBuffer(
+  projectName: string,
+  data: ProjectReportData,
+  logoData?: { data: string; format: 'JPEG' | 'PNG'; width: number; height: number } | null
+): Promise<ArrayBuffer> {
+  const h = createDoc()
+  addHeader(h, 'Project Report', projectName || '—', AMBER, logoData)
+
+  // ─── Project Details
+  addSectionTitle(h, 'PROJECT DETAILS', AMBER, AMBER_LIGHT)
+  addFieldRow(h, 'Project Name', data.project_name || '')
+  addFieldRow(h, 'Estimate #', data.estimate_number || '')
+  addFieldRow(h, 'Address', data.address || '')
+  addFieldRow(h, 'Client', data.client_name || '')
+  addFieldRow(h, 'Client Email', data.client_email || '')
+  addFieldRow(h, 'Client Phone', data.client_phone || '')
+  addFieldRow(h, 'Site Contact', data.site_contact || '')
+  addFieldRow(h, 'Prevailing Wage', data.prevailing_wage || '')
+  addFieldRow(h, 'Bonding / Insurance', data.bonding_insurance || '')
+  addFieldRow(h, 'Bid Date', data.bid_date || '')
+  addFieldRow(h, 'Bid Platform', data.bid_platform || '')
+  if (data.project_details_notes) addParagraphBlock(h, 'Notes', data.project_details_notes)
+
+  // ─── Project Durations
+  addSectionTitle(h, 'PROJECT DURATIONS', AMBER, AMBER_LIGHT)
+  addFieldRow(h, 'Start Date', data.start_date || '')
+  addFieldRow(h, 'Finish Date', data.finish_date || '')
+  addFieldRow(h, 'Mobilizations', data.num_mobilizations || '')
+  addFieldRow(h, 'Working Hours', data.working_hours || '')
+  if (data.durations_notes) addParagraphBlock(h, 'Notes', data.durations_notes)
+
+  // ─── Scope Of Work
+  addSectionTitle(h, 'SCOPE OF WORK', AMBER, AMBER_LIGHT)
+  if (data.scope_description) addParagraphBlock(h, 'Description', data.scope_description)
+  addFieldRow(h, 'Rooms / Sections', data.num_rooms_sections || '')
+  addFieldRow(h, 'Square Footages', data.square_footages || '')
+  addFieldRow(h, 'Linear Footage', data.linear_footage || '')
+  addFieldRow(h, 'Cove / Curb Height', data.cove_curb_height || '')
+  addFieldRow(h, 'Room Numbers / Names', data.room_numbers_names || '')
+  addFieldRow(h, 'Open Areas / Machines', data.open_areas_machines || '')
+  if (data.scope_notes) addParagraphBlock(h, 'Notes', data.scope_notes)
+
+  // ─── Site Information
+  addSectionTitle(h, 'SITE INFORMATION', AMBER, AMBER_LIGHT)
+  addFieldRow(h, 'Power Supplied', data.power_supplied || '')
+  addFieldRow(h, 'Lighting Requirements', data.lighting_requirements || '')
+  addFieldRow(h, 'Heating / Cooling', data.heating_cooling_requirements || '')
+  addFieldRow(h, 'Rental Requirements', data.rental_requirements || '')
+  addFieldRow(h, 'Rental Location', data.rental_location || '')
+  addFieldRow(h, 'Rental Duration', data.rental_duration || '')
+  if (data.site_notes) addParagraphBlock(h, 'Notes', data.site_notes)
+
+  // ─── Travel Information
+  addSectionTitle(h, 'TRAVEL INFORMATION', AMBER, AMBER_LIGHT)
+  addFieldRow(h, 'Hotel Name', data.hotel_name || '')
+  addFieldRow(h, 'Hotel Location', data.hotel_location || '')
+  addFieldRow(h, 'Reservation #', data.reservation_number || '')
+  addFieldRow(h, 'Reservation Contact', data.reservation_contact || '')
+  addFieldRow(h, 'Credit Card Auth', data.credit_card_auth || '')
+  addFieldRow(h, 'Drive Time', data.drive_time || '')
+  addFieldRow(h, 'Per Diem', data.per_diem || '')
+  addFieldRow(h, 'Vehicles', data.vehicles || '')
+  addFieldRow(h, 'Trailers', data.trailers || '')
+  if (data.travel_notes) addParagraphBlock(h, 'Notes', data.travel_notes)
+
+  // ─── Prep
+  addSectionTitle(h, 'PREP', AMBER, AMBER_LIGHT)
+  addFieldRow(h, 'Prep Method', data.prep_method || '')
+  addFieldRow(h, 'Prep Removal', data.prep_removal || '')
+  addFieldRow(h, 'Patching Materials', data.patching_materials || '')
+  addFieldRow(h, 'Joint Requirements', data.joint_requirements || '')
+  addFieldRow(h, 'Sloping Requirements', data.sloping_requirements || '')
+  addFieldRow(h, 'Backfill / Patching', data.backfill_patching || '')
+  addFieldRow(h, 'Wet Area', data.wet_area || '')
+  addFieldRow(h, 'Climate Concerns', data.climate_concerns || '')
+  addFieldRow(h, 'Cooling / Heating', data.cooling_heating_constraints || '')
+  if (data.prep_notes) addParagraphBlock(h, 'Notes', data.prep_notes)
+
+  addFooter(h, AMBER_LIGHT)
+  return h.doc.output('arraybuffer')
+}
+
 // ─── Export types ────────────────────────────────────────────────────────────
 
 export interface ExportOptions {
@@ -673,6 +756,8 @@ export interface ExportOptions {
   includeFeed: boolean
   includePhotos: boolean
   includeCalendar: boolean
+  includePlans: boolean
+  includeProjectReport: boolean
 }
 
 export interface ExportProgress {
