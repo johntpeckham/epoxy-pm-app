@@ -169,10 +169,6 @@ export default function DataExportClient() {
   }
 
   const handleExport = useCallback(async () => {
-    if (!startDate || !endDate) {
-      setError('Please select both start and end dates.')
-      return
-    }
     if (selectedProjectIds.size === 0) {
       setError('Please select at least one project.')
       return
@@ -201,24 +197,25 @@ export default function DataExportClient() {
       // Load logo once
       const logoData = await loadLogoData(companySettings?.logo_url)
 
-      // Build base query filter
+      // Build optional date filter
+      const hasDateRange = !!(options.startDate && options.endDate)
       const dateFilterStart = options.startDate
       const dateFilterEnd = options.endDate + 'T23:59:59'
 
       // Helper to fetch feed posts by type, filtered to selected projects
       async function fetchPosts(postType: string): Promise<FeedPost[]> {
         let allResults: FeedPost[] = []
-        // Supabase `.in()` has a limit, batch project IDs in chunks of 50
         const chunks = chunkArray(options.projectIds, 50)
         for (const chunk of chunks) {
-          const { data } = await supabase
+          let query = supabase
             .from('feed_posts')
             .select('*')
             .eq('post_type', postType)
             .in('project_id', chunk)
-            .gte('created_at', dateFilterStart)
-            .lte('created_at', dateFilterEnd)
-            .order('created_at', { ascending: true })
+          if (hasDateRange) {
+            query = query.gte('created_at', dateFilterStart).lte('created_at', dateFilterEnd)
+          }
+          const { data } = await query.order('created_at', { ascending: true })
           if (data) allResults = allResults.concat(data as FeedPost[])
         }
         return allResults
@@ -229,14 +226,15 @@ export default function DataExportClient() {
         let allResults: FeedPost[] = []
         const chunks = chunkArray(options.projectIds, 50)
         for (const chunk of chunks) {
-          const { data } = await supabase
+          let query = supabase
             .from('feed_posts')
             .select('*')
             .in('post_type', postTypes)
             .in('project_id', chunk)
-            .gte('created_at', dateFilterStart)
-            .lte('created_at', dateFilterEnd)
-            .order('created_at', { ascending: true })
+          if (hasDateRange) {
+            query = query.gte('created_at', dateFilterStart).lte('created_at', dateFilterEnd)
+          }
+          const { data } = await query.order('created_at', { ascending: true })
           if (data) allResults = allResults.concat(data as FeedPost[])
         }
         return allResults
@@ -462,26 +460,30 @@ export default function DataExportClient() {
         setProgress({ step: 'Generating Jobs Summary...', current: 0, total: 1 })
 
         const selectedProjects = allProjects.filter((p) => options.projectIds.includes(p.id))
-        const filteredCalProjects = selectedProjects.filter((p) => {
-          if (!p.start_date && !p.end_date) return true
-          const pStart = p.start_date || '1900-01-01'
-          const pEnd = p.end_date || '2099-12-31'
-          return pStart <= options.endDate && pEnd >= options.startDate
-        })
+        const filteredCalProjects = hasDateRange
+          ? selectedProjects.filter((p) => {
+              if (!p.start_date && !p.end_date) return true
+              const pStart = p.start_date || '1900-01-01'
+              const pEnd = p.end_date || '2099-12-31'
+              return pStart <= options.endDate && pEnd >= options.startDate
+            })
+          : selectedProjects
 
         if (filteredCalProjects.length > 0) {
           const folder = zip.folder('Calendar')!
+          const calStart = options.startDate || 'All'
+          const calEnd = options.endDate || 'Data'
           try {
             const buf = await generateCalendarSummaryPdfBuffer(
-              options.startDate,
-              options.endDate,
+              calStart,
+              calEnd,
               filteredCalProjects,
               logoData
             )
-            folder.file(
-              `Jobs_Summary_${formatDateForFilename(options.startDate)}_to_${formatDateForFilename(options.endDate)}.pdf`,
-              buf
-            )
+            const calFilename = hasDateRange
+              ? `Jobs_Summary_${formatDateForFilename(options.startDate)}_to_${formatDateForFilename(options.endDate)}.pdf`
+              : `Jobs_Summary_All.pdf`
+            folder.file(calFilename, buf)
           } catch {
             // skip failed PDF
           }
@@ -495,7 +497,7 @@ export default function DataExportClient() {
 
       const zipEntries = Object.keys(zip.files)
       if (zipEntries.filter((k) => !zip.files[k].dir).length === 0) {
-        setError('No data found for the selected date range and filters.')
+        setError('No data found for the selected projects and filters.')
         setExporting(false)
         setProgress(null)
         return
@@ -505,7 +507,10 @@ export default function DataExportClient() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Export_${formatDateForFilename(options.startDate)}_to_${formatDateForFilename(options.endDate)}.zip`
+      const today = new Date().toISOString().split('T')[0]
+      a.download = hasDateRange
+        ? `Export_${formatDateForFilename(options.startDate)}_to_${formatDateForFilename(options.endDate)}.zip`
+        : `Export_All_Data_${formatDateForFilename(today)}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -709,7 +714,7 @@ export default function DataExportClient() {
 
           <button
             onClick={handleExport}
-            disabled={exporting || !startDate || !endDate || selectedProjectIds.size === 0 || !(includeDaily || includeTimesheets || includeExpenses || includeJsa || includeFeed || includePhotos || includeCalendar)}
+            disabled={exporting || selectedProjectIds.size === 0 || !(includeDaily || includeTimesheets || includeExpenses || includeJsa || includeFeed || includePhotos || includeCalendar)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition w-full justify-center"
           >
             {exporting ? (
