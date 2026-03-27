@@ -5,7 +5,6 @@ import {
   ReceiptContent,
   ExpenseContent,
   JsaReportContent,
-  CalendarEvent,
   FeedPost,
   Project,
   ProjectReportData,
@@ -607,60 +606,6 @@ export async function generateFeedPdfBuffer(
   return h.doc.output('arraybuffer')
 }
 
-export async function generateCalendarSummaryPdfBuffer(
-  startDate: string,
-  endDate: string,
-  projects: Project[],
-  logoData?: { data: string; format: 'JPEG' | 'PNG'; width: number; height: number } | null
-): Promise<ArrayBuffer> {
-  const h = createDoc()
-  const rangeLabel = `${formatDisplayDate(startDate)} — ${formatDisplayDate(endDate)}`
-  addHeader(h, 'Jobs Summary', rangeLabel, AMBER, logoData)
-
-  const sorted = [...projects].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-
-  addSectionTitle(h, `PROJECTS (${sorted.length})`, AMBER, AMBER_LIGHT)
-
-  for (const project of sorted) {
-    checkPage(h, 30)
-
-    // Color dot + project name
-    h.doc.setFont('helvetica', 'bold')
-    h.doc.setFontSize(11)
-    h.doc.setTextColor(...DARK)
-    let nameX = h.M
-    if (project.color) {
-      const hex = project.color.replace('#', '')
-      const r = parseInt(hex.substring(0, 2), 16)
-      const g = parseInt(hex.substring(2, 4), 16)
-      const b = parseInt(hex.substring(4, 6), 16)
-      h.doc.setFillColor(r, g, b)
-      h.doc.circle(h.M + 2.5, h.y - 1.5, 2, 'F')
-      nameX = h.M + 7
-    }
-    h.doc.text(project.name, nameX, h.y)
-    h.y += 6
-
-    addFieldRow(h, 'Client', project.client_name || '—')
-    addFieldRow(h, 'Address', project.address || '—')
-    addFieldRow(h, 'Status', project.status)
-    if (project.start_date) addFieldRow(h, 'Start Date', formatDisplayDate(project.start_date))
-    if (project.end_date) addFieldRow(h, 'End Date', formatDisplayDate(project.end_date))
-    if (project.crew) addFieldRow(h, 'Crew', project.crew)
-    if (project.notes) addParagraphBlock(h, 'Notes', project.notes)
-    if (project.estimate_number) addFieldRow(h, 'Estimate #', project.estimate_number)
-
-    h.y += 4
-    h.doc.setDrawColor(...AMBER_LIGHT)
-    h.doc.setLineWidth(0.3)
-    h.doc.line(h.M, h.y, h.M + h.CW, h.y)
-    h.y += 2
-  }
-
-  addFooter(h, AMBER_LIGHT)
-  return h.doc.output('arraybuffer')
-}
-
 export async function generateProjectReportPdfBuffer(
   projectName: string,
   data: ProjectReportData,
@@ -755,7 +700,6 @@ export interface ExportOptions {
   includeJsa: boolean
   includeFeed: boolean
   includePhotos: boolean
-  includeCalendar: boolean
   includePlans: boolean
   includeProjectReport: boolean
 }
@@ -766,4 +710,4 @@ export interface ExportProgress {
   total: number
 }
 
-export type { CalendarEvent, FeedPost, Project }
+export type { FeedPost, Project }

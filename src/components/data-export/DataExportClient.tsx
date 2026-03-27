@@ -19,7 +19,6 @@ import {
   generateExpensePdfBuffer,
   generateJsaPdfBuffer,
   generateFeedPdfBuffer,
-  generateCalendarSummaryPdfBuffer,
   generateProjectReportPdfBuffer,
 } from '@/lib/generateDataExport'
 import {
@@ -89,7 +88,6 @@ export default function DataExportClient() {
   const [includeJsa, setIncludeJsa] = useState(true)
   const [includeFeed, setIncludeFeed] = useState(true)
   const [includePhotos, setIncludePhotos] = useState(true)
-  const [includeCalendar, setIncludeCalendar] = useState(true)
   const [includePlans, setIncludePlans] = useState(true)
   const [includeProjectReport, setIncludeProjectReport] = useState(true)
 
@@ -185,7 +183,6 @@ export default function DataExportClient() {
         includeJsa,
         includeFeed,
         includePhotos,
-        includeCalendar,
         includePlans,
         includeProjectReport,
       }
@@ -453,38 +450,6 @@ export default function DataExportClient() {
         }
       }
 
-      // ─── Calendar / Jobs (root level) ───────────────────────────
-      if (options.includeCalendar) {
-        setProgress({ step: 'Generating Jobs Summary...', current: 0, total: 1 })
-
-        const selectedProjects = allProjects.filter((p) => projectIds.includes(p.id))
-        const filteredCalProjects = hasDateRange
-          ? selectedProjects.filter((p) => {
-              if (!p.start_date && !p.end_date) return true
-              const pStart = p.start_date || '1900-01-01'
-              const pEnd = p.end_date || '2099-12-31'
-              return pStart <= options.endDate && pEnd >= options.startDate
-            })
-          : selectedProjects
-
-        if (filteredCalProjects.length > 0) {
-          const folder = zip.folder('Calendar')!
-          const calStart = options.startDate || 'All'
-          const calEnd = options.endDate || 'Data'
-          try {
-            const buf = await generateCalendarSummaryPdfBuffer(calStart, calEnd, filteredCalProjects, logoData)
-            const calFilename = hasDateRange
-              ? `Jobs_Summary_${formatDateForFilename(options.startDate)}_to_${formatDateForFilename(options.endDate)}.pdf`
-              : 'Jobs_Summary_All.pdf'
-            folder.file(calFilename, buf)
-          } catch {
-            // skip
-          }
-        }
-
-        setProgress({ step: 'Generating Jobs Summary...', current: 1, total: 1 })
-      }
-
       // ─── Build ZIP ──────────────────────────────────────────────
       setProgress({ step: 'Building ZIP file...', current: 0, total: 0 })
 
@@ -516,7 +481,7 @@ export default function DataExportClient() {
       setExporting(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, selectedProjectIds, includeDaily, includeTimesheets, includeExpenses, includeJsa, includeFeed, includePhotos, includeCalendar, includePlans, includeProjectReport, allProjects, companySettings])
+  }, [startDate, endDate, selectedProjectIds, includeDaily, includeTimesheets, includeExpenses, includeJsa, includeFeed, includePhotos, includePlans, includeProjectReport, allProjects, companySettings])
 
   const inputCls =
     'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
@@ -528,7 +493,6 @@ export default function DataExportClient() {
     { label: 'JSA Reports', checked: includeJsa, onChange: setIncludeJsa },
     { label: 'Job Feed Posts', checked: includeFeed, onChange: setIncludeFeed },
     { label: 'Photos', checked: includePhotos, onChange: setIncludePhotos },
-    { label: 'Calendar / Jobs', checked: includeCalendar, onChange: setIncludeCalendar },
     { label: 'Plans', checked: includePlans, onChange: setIncludePlans },
     { label: 'Project Report', checked: includeProjectReport, onChange: setIncludeProjectReport },
   ]
