@@ -709,7 +709,7 @@ export default function DataExportClient() {
 
           <button
             onClick={handleExport}
-            disabled={exporting || !startDate || !endDate || selectedProjectIds.size === 0}
+            disabled={exporting || !startDate || !endDate || selectedProjectIds.size === 0 || !(includeDaily || includeTimesheets || includeExpenses || includeJsa || includeFeed || includePhotos || includeCalendar)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition w-full justify-center"
           >
             {exporting ? (
