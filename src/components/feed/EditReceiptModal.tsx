@@ -13,6 +13,7 @@ import Portal from '@/components/ui/Portal'
 interface EditReceiptModalProps {
   postId: string
   initialContent: ReceiptContent
+  initialRestricted?: boolean
   onClose: () => void
   onUpdated: () => void
 }
@@ -35,6 +36,7 @@ function isTotalAmountField(field: FormField): boolean {
 export default function EditReceiptModal({
   postId,
   initialContent,
+  initialRestricted = false,
   onClose,
   onUpdated,
 }: EditReceiptModalProps) {
@@ -61,6 +63,7 @@ export default function EditReceiptModal({
     setValues((prev) => ({ ...prev, [key]: val }))
   }
 
+  const [restricted, setRestricted] = useState(initialRestricted)
   const [existingPhoto, setExistingPhoto] = useState<string | null>(initialContent.receipt_photo ?? null)
   const [removedPhoto, setRemovedPhoto] = useState(false)
   const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null)
@@ -121,7 +124,7 @@ export default function EditReceiptModal({
 
       const { error: updateErr } = await supabase
         .from('feed_posts')
-        .update({ content, dynamic_fields: dynamicFields })
+        .update({ content, dynamic_fields: dynamicFields, restricted })
         .eq('id', postId)
 
       if (updateErr) throw updateErr
@@ -276,6 +279,20 @@ export default function EditReceiptModal({
           )}
 
           {templateFields.map((field) => renderField(field))}
+
+          {/* Office Only (restricted) checkbox */}
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer py-1">
+              <input
+                type="checkbox"
+                checked={restricted}
+                onChange={(e) => setRestricted(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-sm text-gray-700">Office Only</span>
+            </label>
+            <p className="text-xs text-gray-400 ml-6">Only visible to Admins, Office Managers, and Salespeople</p>
+          </div>
         </div>
 
         <div className="flex-none flex gap-3 p-4 md:pb-6 border-t border-gray-200" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>

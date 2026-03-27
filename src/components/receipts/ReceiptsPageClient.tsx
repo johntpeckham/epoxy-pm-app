@@ -17,6 +17,7 @@ interface ReceiptRow {
   content: ReceiptContent
   dynamic_fields?: DynamicFieldEntry[]
   confirmed: boolean
+  restricted: boolean
   project_name: string
 }
 

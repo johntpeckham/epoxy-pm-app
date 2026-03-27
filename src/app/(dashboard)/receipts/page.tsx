@@ -11,6 +11,15 @@ export default async function ReceiptsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Fetch user role for restricted-expense filtering
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  const userRole = (profile?.role as string) ?? 'crew'
+  const canSeeRestricted = ['admin', 'office_manager', 'salesman'].includes(userRole)
+
   // Fetch active projects for the "New Receipt" dropdown
   const { data: projectRows } = await supabase
     .from('projects')
@@ -25,11 +34,18 @@ export default async function ReceiptsPage() {
     .order('name', { ascending: true })
 
   // Fetch all receipt posts with joined project name
-  const { data: posts } = await supabase
+  let postsQuery = supabase
     .from('feed_posts')
-    .select('id, project_id, created_at, content, dynamic_fields, confirmed, projects(name)')
+    .select('id, project_id, created_at, content, dynamic_fields, confirmed, restricted, projects(name)')
     .eq('post_type', 'receipt')
     .order('created_at', { ascending: false })
+
+  // If user cannot see restricted expenses, filter them out at query level
+  if (!canSeeRestricted) {
+    postsQuery = postsQuery.or('restricted.is.null,restricted.eq.false')
+  }
+
+  const { data: posts } = await postsQuery
 
   const receipts = (posts ?? [])
     .map((row) => ({
@@ -39,6 +55,7 @@ export default async function ReceiptsPage() {
       content: row.content as ReceiptContent,
       dynamic_fields: (row.dynamic_fields ?? []) as DynamicFieldEntry[],
       confirmed: (row.confirmed as boolean) ?? false,
+      restricted: (row.restricted as boolean) ?? false,
       project_name:
         (row.projects as unknown as { name: string } | null)?.name ?? 'Unknown Project',
     }))
