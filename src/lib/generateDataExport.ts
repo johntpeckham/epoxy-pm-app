@@ -665,7 +665,7 @@ export async function generateCalendarSummaryPdfBuffer(
 export interface ExportOptions {
   startDate: string
   endDate: string
-  projectId: string | null
+  projectIds: string[]
   includeDaily: boolean
   includeTimesheets: boolean
   includeExpenses: boolean

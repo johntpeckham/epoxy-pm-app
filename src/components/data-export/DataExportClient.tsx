@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -8,6 +8,7 @@ import {
   ArrowLeftIcon,
   DownloadIcon,
   Loader2Icon,
+  SearchIcon,
 } from 'lucide-react'
 import JSZip from 'jszip'
 import {
@@ -63,18 +64,20 @@ async function loadLogoData(
   }
 }
 
+type StatusFilter = 'Active' | 'Complete'
+
 export default function DataExportClient() {
   const router = useRouter()
   const supabase = createClient()
   const { settings: companySettings } = useCompanySettings()
 
-  // Date range
+  // Projects state
+  const [allProjects, setAllProjects] = useState<Project[]>([])
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-
-  // Project filter
-  const [projects, setProjects] = useState<Project[]>([])
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set())
 
   // Data type checkboxes
   const [includeDaily, setIncludeDaily] = useState(true)
@@ -90,18 +93,75 @@ export default function DataExportClient() {
   const [progress, setProgress] = useState<ExportProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Load projects
+  // Load all projects once
   useEffect(() => {
     async function load() {
       const { data } = await supabase
         .from('projects')
         .select('*')
         .order('name', { ascending: true })
-      if (data) setProjects(data as Project[])
+      if (data) setAllProjects(data as Project[])
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Filtered project list based on status, date range, and search
+  const filteredProjects = useMemo(() => {
+    return allProjects.filter((p) => {
+      // Status filter
+      if (p.status !== statusFilter) return false
+
+      // Date range overlap filter (only if both dates are set)
+      if (startDate && endDate) {
+        if (p.start_date || p.end_date) {
+          const pStart = p.start_date || '1900-01-01'
+          const pEnd = p.end_date || '2099-12-31'
+          if (!(pStart <= endDate && pEnd >= startDate)) return false
+        }
+      }
+
+      // Search filter
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        const nameMatch = p.name.toLowerCase().includes(q)
+        const clientMatch = p.client_name?.toLowerCase().includes(q) || false
+        if (!nameMatch && !clientMatch) return false
+      }
+
+      return true
+    })
+  }, [allProjects, statusFilter, startDate, endDate, searchQuery])
+
+  // When status filter changes, clear selection
+  useEffect(() => {
+    setSelectedProjectIds(new Set())
+  }, [statusFilter])
+
+  const visibleIds = useMemo(() => new Set(filteredProjects.map((p) => p.id)), [filteredProjects])
+
+  const allVisibleSelected = filteredProjects.length > 0 && filteredProjects.every((p) => selectedProjectIds.has(p.id))
+
+  function handleSelectAll() {
+    if (allVisibleSelected) {
+      // Deselect all visible
+      const next = new Set(selectedProjectIds)
+      for (const p of filteredProjects) next.delete(p.id)
+      setSelectedProjectIds(next)
+    } else {
+      // Select all visible
+      const next = new Set(selectedProjectIds)
+      for (const p of filteredProjects) next.add(p.id)
+      setSelectedProjectIds(next)
+    }
+  }
+
+  function toggleProject(id: string) {
+    const next = new Set(selectedProjectIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelectedProjectIds(next)
+  }
 
   function getPhotoUrl(path: string): string {
     const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
@@ -113,6 +173,10 @@ export default function DataExportClient() {
       setError('Please select both start and end dates.')
       return
     }
+    if (selectedProjectIds.size === 0) {
+      setError('Please select at least one project.')
+      return
+    }
 
     setExporting(true)
     setError(null)
@@ -120,10 +184,11 @@ export default function DataExportClient() {
 
     try {
       const zip = new JSZip()
+      const projectIds = Array.from(selectedProjectIds)
       const options: ExportOptions = {
         startDate,
         endDate,
-        projectId: selectedProjectId || null,
+        projectIds,
         includeDaily,
         includeTimesheets,
         includeExpenses,
@@ -140,45 +205,46 @@ export default function DataExportClient() {
       const dateFilterStart = options.startDate
       const dateFilterEnd = options.endDate + 'T23:59:59'
 
-      // Helper to fetch feed posts by type
+      // Helper to fetch feed posts by type, filtered to selected projects
       async function fetchPosts(postType: string): Promise<FeedPost[]> {
-        let query = supabase
-          .from('feed_posts')
-          .select('*')
-          .eq('post_type', postType)
-          .gte('created_at', dateFilterStart)
-          .lte('created_at', dateFilterEnd)
-          .order('created_at', { ascending: true })
-
-        if (options.projectId) {
-          query = query.eq('project_id', options.projectId)
+        let allResults: FeedPost[] = []
+        // Supabase `.in()` has a limit, batch project IDs in chunks of 50
+        const chunks = chunkArray(options.projectIds, 50)
+        for (const chunk of chunks) {
+          const { data } = await supabase
+            .from('feed_posts')
+            .select('*')
+            .eq('post_type', postType)
+            .in('project_id', chunk)
+            .gte('created_at', dateFilterStart)
+            .lte('created_at', dateFilterEnd)
+            .order('created_at', { ascending: true })
+          if (data) allResults = allResults.concat(data as FeedPost[])
         }
-
-        const { data } = await query
-        return (data || []) as FeedPost[]
+        return allResults
       }
 
       // Helper to fetch feed posts by multiple types
       async function fetchPostsByTypes(postTypes: string[]): Promise<FeedPost[]> {
-        let query = supabase
-          .from('feed_posts')
-          .select('*')
-          .in('post_type', postTypes)
-          .gte('created_at', dateFilterStart)
-          .lte('created_at', dateFilterEnd)
-          .order('created_at', { ascending: true })
-
-        if (options.projectId) {
-          query = query.eq('project_id', options.projectId)
+        let allResults: FeedPost[] = []
+        const chunks = chunkArray(options.projectIds, 50)
+        for (const chunk of chunks) {
+          const { data } = await supabase
+            .from('feed_posts')
+            .select('*')
+            .in('post_type', postTypes)
+            .in('project_id', chunk)
+            .gte('created_at', dateFilterStart)
+            .lte('created_at', dateFilterEnd)
+            .order('created_at', { ascending: true })
+          if (data) allResults = allResults.concat(data as FeedPost[])
         }
-
-        const { data } = await query
-        return (data || []) as FeedPost[]
+        return allResults
       }
 
       // Build a project name lookup
       const projectMap = new Map<string, string>()
-      for (const p of projects) {
+      for (const p of allProjects) {
         projectMap.set(p.id, p.name)
       }
 
@@ -223,8 +289,6 @@ export default function DataExportClient() {
             const content = post.content as TimecardContent
             const projectName = content.project_name || projectMap.get(post.project_id) || 'Unknown'
             const date = content.date || post.created_at.split('T')[0]
-
-            // Build employee name for filename from first entry or use project name
             const empName = content.entries.length > 0 ? content.entries[0].employee_name : projectName
 
             try {
@@ -267,7 +331,6 @@ export default function DataExportClient() {
                 // skip failed PDF
               }
             } else {
-              // expense type
               const content = post.content as { description: string; amount: number; category: string; date: string; notes: string; attachment: string }
               const date = content.date || post.created_at.split('T')[0]
               const receiptContent: ReceiptContent = {
@@ -324,7 +387,6 @@ export default function DataExportClient() {
       if (options.includeFeed) {
         const allFeedPosts = await fetchPostsByTypes(['text', 'photo', 'daily_report', 'task', 'pdf', 'jsa_report', 'receipt', 'expense', 'timecard'])
         if (allFeedPosts.length > 0) {
-          // Group by project
           const byProject = new Map<string, FeedPost[]>()
           for (const post of allFeedPosts) {
             const existing = byProject.get(post.project_id) || []
@@ -353,7 +415,6 @@ export default function DataExportClient() {
 
       // ─── Photos ─────────────────────────────────────────────────────
       if (options.includePhotos) {
-        // Gather all posts that may have photos
         const photoPosts = await fetchPostsByTypes(['photo', 'daily_report', 'receipt', 'expense'])
         const photoEntries: { url: string; date: string; projectName: string }[] = []
 
@@ -400,27 +461,21 @@ export default function DataExportClient() {
       if (options.includeCalendar) {
         setProgress({ step: 'Generating Jobs Summary...', current: 0, total: 1 })
 
-        // Fetch projects that overlap with the date range
-        let query = supabase.from('projects').select('*')
-        if (options.projectId) {
-          query = query.eq('id', options.projectId)
-        }
-        const { data: allProjects } = await query
-        const filteredProjects = ((allProjects || []) as Project[]).filter((p) => {
-          // Include if project date range overlaps with export date range
+        const selectedProjects = allProjects.filter((p) => options.projectIds.includes(p.id))
+        const filteredCalProjects = selectedProjects.filter((p) => {
           if (!p.start_date && !p.end_date) return true
           const pStart = p.start_date || '1900-01-01'
           const pEnd = p.end_date || '2099-12-31'
           return pStart <= options.endDate && pEnd >= options.startDate
         })
 
-        if (filteredProjects.length > 0) {
+        if (filteredCalProjects.length > 0) {
           const folder = zip.folder('Calendar')!
           try {
             const buf = await generateCalendarSummaryPdfBuffer(
               options.startDate,
               options.endDate,
-              filteredProjects,
+              filteredCalProjects,
               logoData
             )
             folder.file(
@@ -438,7 +493,6 @@ export default function DataExportClient() {
       // ─── Build ZIP ──────────────────────────────────────────────────
       setProgress({ step: 'Building ZIP file...', current: 0, total: 0 })
 
-      // Remove empty folders
       const zipEntries = Object.keys(zip.files)
       if (zipEntries.filter((k) => !zip.files[k].dir).length === 0) {
         setError('No data found for the selected date range and filters.')
@@ -464,12 +518,12 @@ export default function DataExportClient() {
       setExporting(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, selectedProjectId, includeDaily, includeTimesheets, includeExpenses, includeJsa, includeFeed, includePhotos, includeCalendar, projects, companySettings])
+  }, [startDate, endDate, selectedProjectIds, includeDaily, includeTimesheets, includeExpenses, includeJsa, includeFeed, includePhotos, includeCalendar, allProjects, companySettings])
 
   const inputCls =
     'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
 
-  const checkboxes: { label: string; checked: boolean; onChange: (v: boolean) => void }[] = [
+  const dataTypeCheckboxes: { label: string; checked: boolean; onChange: (v: boolean) => void }[] = [
     { label: 'Daily Reports', checked: includeDaily, onChange: setIncludeDaily },
     { label: 'Timesheets', checked: includeTimesheets, onChange: setIncludeTimesheets },
     { label: 'Expenses & Receipts', checked: includeExpenses, onChange: setIncludeExpenses },
@@ -478,6 +532,9 @@ export default function DataExportClient() {
     { label: 'Photos', checked: includePhotos, onChange: setIncludePhotos },
     { label: 'Calendar / Jobs', checked: includeCalendar, onChange: setIncludeCalendar },
   ]
+
+  // Count selected projects that are currently visible
+  const selectedVisibleCount = filteredProjects.filter((p) => selectedProjectIds.has(p.id)).length
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -493,10 +550,36 @@ export default function DataExportClient() {
           <h1 className="text-2xl font-bold text-gray-900 flex-1">Data Export</h1>
         </div>
 
-        {/* Date Range */}
+        {/* Unified Projects Card */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Date Range</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Projects</h2>
+
+          {/* Status Toggle */}
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-4">
+            <button
+              onClick={() => setStatusFilter('Active')}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition ${
+                statusFilter === 'Active'
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Ongoing
+            </button>
+            <button
+              onClick={() => setStatusFilter('Complete')}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition border-l border-gray-200 ${
+                statusFilter === 'Complete'
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Completed
+            </button>
+          </div>
+
+          {/* Date Range */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
               <input
@@ -516,30 +599,71 @@ export default function DataExportClient() {
               />
             </div>
           </div>
-        </div>
 
-        {/* Project Filter */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Project Filter</h2>
-          <select
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            className={inputCls}
-          >
-            <option value="">All Projects</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          {/* Search */}
+          <div className="relative mb-4">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`${inputCls} pl-9`}
+            />
+          </div>
+
+          {/* Select All */}
+          <label className="flex items-center gap-3 cursor-pointer py-2 border-b border-gray-100 mb-1">
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={handleSelectAll}
+              disabled={filteredProjects.length === 0}
+              className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+            />
+            <span className="text-sm font-medium text-gray-700">
+              Select All
+              {filteredProjects.length > 0 && (
+                <span className="text-gray-400 font-normal ml-1">
+                  ({selectedVisibleCount}/{filteredProjects.length})
+                </span>
+              )}
+            </span>
+          </label>
+
+          {/* Project List */}
+          <div className="max-h-[300px] overflow-y-auto">
+            {filteredProjects.length === 0 ? (
+              <p className="text-sm text-gray-400 py-4 text-center">No projects match the current filters.</p>
+            ) : (
+              filteredProjects.map((p) => (
+                <label
+                  key={p.id}
+                  className="flex items-center gap-3 cursor-pointer py-2 hover:bg-gray-50 rounded-lg px-1 transition"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedProjectIds.has(p.id)}
+                    onChange={() => toggleProject(p.id)}
+                    className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500 flex-shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <span className="text-sm text-gray-900 block truncate">{p.name}</span>
+                    {p.client_name && (
+                      <span className="text-xs text-gray-400 block truncate">{p.client_name}</span>
+                    )}
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
         </div>
 
         {/* Data Types */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Data Types</h2>
           <div className="space-y-3">
-            {checkboxes.map((cb) => (
+            {dataTypeCheckboxes.map((cb) => (
               <label key={cb.label} className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -585,7 +709,7 @@ export default function DataExportClient() {
 
           <button
             onClick={handleExport}
-            disabled={exporting || !startDate || !endDate}
+            disabled={exporting || !startDate || !endDate || selectedProjectIds.size === 0}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition w-full justify-center"
           >
             {exporting ? (
@@ -604,4 +728,13 @@ export default function DataExportClient() {
       </div>
     </div>
   )
+}
+
+/** Split an array into chunks of the given size. */
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size))
+  }
+  return chunks
 }
