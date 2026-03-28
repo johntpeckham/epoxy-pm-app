@@ -20,7 +20,7 @@ import { Task, TaskStatus, Profile, Project, FormField } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useFormTemplate } from '@/lib/useFormTemplate'
-import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
+import { getContentKey, buildDynamicFields } from '@/lib/formFieldMaps'
 import DynamicFormField from '@/components/ui/DynamicFormField'
 import Portal from '@/components/ui/Portal'
 
@@ -243,11 +243,6 @@ export default function TasksPageClient({
     [grouped, projectStatusMap]
   )
 
-  const groupCount = useMemo(() => {
-    if (sortOption === 'status') return (grouped as GroupedByStatus[]).length
-    return (grouped as GroupedByProject[]).length
-  }, [grouped, sortOption])
-
   function getPhotoUrl(path: string) {
     return supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl
   }
@@ -439,7 +434,7 @@ export default function TasksPageClient({
       }
       const dynamicFields = buildDynamicFields(TASK_FORM_KEY, allValues, taskTemplateFields)
 
-      const { data: taskData, error: insertErr } = await supabase.from('tasks').insert({
+      const { error: insertErr } = await supabase.from('tasks').insert({
         project_id: newProjectId,
         created_by: userId,
         assigned_to: newAssignedTo || null,

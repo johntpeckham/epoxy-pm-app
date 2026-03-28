@@ -141,7 +141,6 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
   const completedProjects = [...filtered.filter((p) => p.status === 'Complete')]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-  const activeCount = projects.filter((p) => p.status === 'Active').length
 
   return (
     // Full viewport height; panels scroll independently

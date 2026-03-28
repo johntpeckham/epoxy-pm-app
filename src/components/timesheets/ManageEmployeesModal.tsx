@@ -33,7 +33,6 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
       .order('name', { ascending: true })
     if (error) {
       console.error('[ManageEmployees] Fetch employees failed:', error)
-      console.error('[ManageEmployees] Fetch error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
     }
     setEmployees((data as Employee[]) ?? [])
     setLoading(false)
@@ -49,7 +48,6 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
     const { error } = await supabase.from('employees').insert({ name: newName.trim() })
     if (error) {
       console.error('[ManageEmployees] Insert employee failed:', error)
-      console.error('[ManageEmployees] Error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
     } else {
       setNewName('')
       await fetchEmployees()
@@ -63,7 +61,6 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
     const { error } = await supabase.from('employees').update({ name: editName.trim() }).eq('id', editingId)
     if (error) {
       console.error('[ManageEmployees] Update employee failed:', error)
-      console.error('[ManageEmployees] Error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
     } else {
       setEditingId(null)
       setEditName('')
@@ -76,7 +73,6 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
     const { error } = await supabase.from('employees').update({ is_active: !emp.is_active }).eq('id', emp.id)
     if (error) {
       console.error('[ManageEmployees] Toggle active failed:', error)
-      console.error('[ManageEmployees] Error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
     }
     await fetchEmployees()
   }
@@ -87,7 +83,6 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
     const { error } = await supabase.from('employees').delete().eq('id', deleteTarget.id)
     if (error) {
       console.error('[ManageEmployees] Delete employee failed:', error)
-      console.error('[ManageEmployees] Error details — code:', error.code, 'message:', error.message, 'details:', error.details, 'hint:', error.hint)
     }
     setDeleteTarget(null)
     setDeleting(false)

@@ -702,7 +702,6 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         })
         if (timecardErr) {
           console.error('[AddPostPanel] Timecard insert failed:', timecardErr)
-          console.error('[AddPostPanel] Timecard error details — code:', timecardErr.code, 'message:', timecardErr.message, 'details:', timecardErr.details, 'hint:', timecardErr.hint)
           throw timecardErr
         }
 

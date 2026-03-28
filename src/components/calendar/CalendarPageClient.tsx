@@ -54,24 +54,6 @@ function skipToWeekday(d: Date): Date {
  * When includeWeekends is false, the start date is snapped to the next weekday
  * and only weekdays are counted.
  */
-function addBusinessDays(start: string, days: number, includeWeekends: boolean): string {
-  const d = new Date(start + 'T12:00:00')
-
-  if (includeWeekends) {
-    d.setDate(d.getDate() + days - 1)
-    return toDateStr(d)
-  }
-
-  // Snap start to a weekday
-  const cur = skipToWeekday(d)
-  let remaining = days - 1 // start date counts as day 1
-  while (remaining > 0) {
-    cur.setDate(cur.getDate() + 1)
-    if (!isWeekend(cur)) remaining--
-  }
-  return toDateStr(cur)
-}
-
 function countDuration(start: string, end: string, includeWeekends: boolean): number {
   const s = new Date(start + 'T12:00:00')
   const e = new Date(end + 'T12:00:00')

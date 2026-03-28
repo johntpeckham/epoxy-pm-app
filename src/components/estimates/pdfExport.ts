@@ -133,8 +133,6 @@ export function exportEstimatePdf(data: PdfData) {
   const descColW = contentWidth - 60 - 70 - 80
   const colFtX = margin + descColW
   const colRateX = colFtX + 60
-  const colAmountX = colRateX + 70
-
   // Header
   doc.setDrawColor(217, 119, 6)
   doc.setLineWidth(1.5)

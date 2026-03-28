@@ -228,10 +228,9 @@ body {
     overflow: visible !important;
   }
 
-  /* Hide modal header, footer, and overlay */
+  /* Hide modal header and footer */
   [data-report-header],
-  [data-report-footer],
-  [data-report-overlay] {
+  [data-report-footer] {
     display: none !important;
   }
 

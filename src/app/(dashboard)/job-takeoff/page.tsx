@@ -199,11 +199,6 @@ export default function JobTakeoffPage() {
     [selectedProject, updateSelected]
   )
 
-  const handleDeleteAllPages = useCallback(() => {
-    if (!selectedProject) return
-    updateSelected({ pages: [] })
-  }, [selectedProject, updateSelected])
-
   const handleRenamePage = useCallback(
     (pdfIndex: number, pageIndex: number, displayName: string) => {
       if (!selectedProject) return

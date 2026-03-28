@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { UsersIcon, MailIcon, Loader2Icon, CheckIcon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon, UserPlusIcon, SettingsIcon } from 'lucide-react'
+import { UsersIcon, MailIcon, Loader2Icon, PencilIcon, XIcon, CameraIcon, Trash2Icon, LockIcon, UserPlusIcon, SettingsIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { UserRole } from '@/types'
 

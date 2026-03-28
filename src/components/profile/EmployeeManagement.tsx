@@ -7,11 +7,11 @@ import {
   PlusIcon,
   PencilIcon,
   Trash2Icon,
-  XIcon,
   Settings2Icon,
   CameraIcon,
   UserIcon,
   Loader2Icon,
+  XIcon,
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
