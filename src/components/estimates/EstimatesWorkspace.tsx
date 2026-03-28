@@ -134,7 +134,7 @@ function formatCurrency(amount: number): string {
 function CustomerEstimatesView({
   customer,
   estimates,
-  settings,
+  settings: _settings,
   userId,
   onSelectEstimate,
   onNewEstimate,

@@ -154,7 +154,6 @@ export async function generateTimecardPdf(
   sectionTitle('EMPLOYEE TIME LOG')
 
   const colX = [M, M + 55, M + 80, M + 105, M + 130, M + CW]
-  const colW = [55, 25, 25, 25, CW - 130]
 
   // Table header
   checkPage(8)

@@ -106,7 +106,7 @@ export default function ReceiptsPageClient({
   const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
-  const [filterProject, setFilterProject] = useState<string>('')
+  const [filterProject, _setFilterProject] = useState<string>('')
   const [showCompleted, setShowCompleted] = useState(false)
   const [downloadingProject, setDownloadingProject] = useState<string | null>(null)
 
@@ -116,12 +116,6 @@ export default function ReceiptsPageClient({
     return map
   }, [allProjects])
 
-  // Unique project names from receipts for filter dropdown
-  const projectNames = useMemo(() => {
-    const names = new Set<string>()
-    initialReceipts.forEach((r) => names.add(r.project_name))
-    return Array.from(names).sort()
-  }, [initialReceipts])
 
   const filtered = useMemo(() => {
     let result = initialReceipts

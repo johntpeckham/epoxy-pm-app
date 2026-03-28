@@ -173,9 +173,9 @@ export default function TimesheetsPageClient({
   const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
-  const [filterProject, setFilterProject] = useState<string>('')
-  const [filterDateFrom, setFilterDateFrom] = useState<string>('')
-  const [filterDateTo, setFilterDateTo] = useState<string>('')
+  const [filterProject, _setFilterProject] = useState<string>('')
+  const [filterDateFrom, _setFilterDateFrom] = useState<string>('')
+  const [filterDateTo, _setFilterDateTo] = useState<string>('')
   const [collapsedProjects, setCollapsedProjects] = useState<Record<string, boolean>>({})
 
   const projectStatusMap = useMemo(() => {
@@ -184,11 +184,6 @@ export default function TimesheetsPageClient({
     return map
   }, [allProjects])
 
-  const projectNames = useMemo(() => {
-    const names = new Set<string>()
-    initialTimecards.forEach((tc) => names.add(tc.project_name))
-    return Array.from(names).sort()
-  }, [initialTimecards])
 
   const filtered = useMemo(() => {
     let result = initialTimecards

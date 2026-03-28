@@ -19,7 +19,6 @@ import {
   CalendarIcon,
   FileTextIcon,
   PrinterIcon,
-  MessageCircleIcon,
   ShieldIcon,
   ReceiptIcon,
   ClockIcon,

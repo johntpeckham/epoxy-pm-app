@@ -20,7 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
   Invoiced: 'bg-amber-100 text-amber-700',
 }
 
-export default function EstimatesList({ estimates, onSelect, userId, onEstimateDeleted }: EstimatesListProps) {
+export default function EstimatesList({ estimates, onSelect, userId: _userId, onEstimateDeleted }: EstimatesListProps) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 

@@ -64,7 +64,7 @@ export default function EditReceiptModal({
   }
 
   const [restricted, setRestricted] = useState(initialRestricted)
-  const [existingPhoto, setExistingPhoto] = useState<string | null>(initialContent.receipt_photo ?? null)
+  const [existingPhoto, _setExistingPhoto] = useState<string | null>(initialContent.receipt_photo ?? null)
   const [removedPhoto, setRemovedPhoto] = useState(false)
   const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null)
   const [newPhotoPreview, setNewPhotoPreview] = useState<string | null>(null)

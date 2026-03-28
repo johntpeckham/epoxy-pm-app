@@ -238,7 +238,7 @@ export default function TakeoffSidebar({
               {/* Measurements (always visible when active) */}
               {isActive && item.measurements.length > 0 && (
                 <div className="px-3 pb-1">
-                  {item.measurements.map((m, idx) => (
+                  {item.measurements.map((m, _idx) => (
                     <div key={m.id} className="flex items-center justify-between py-0.5 group">
                       <span className="text-[10px] text-gray-500">
                         {m.label}
