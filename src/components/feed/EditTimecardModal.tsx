@@ -191,14 +191,14 @@ export default function EditTimecardModal({
                     <span className="text-xs font-bold text-blue-700 tabular-nums">{entry.total_hours.toFixed(2)} hrs</span>
                   )}
                 </div>
-                <div className="grid grid-cols-[1fr_1fr_auto] sm:grid-cols-3 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
                   <div>
                     <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
                     <input
                       type="time"
                       value={entry.time_in}
                       onChange={(e) => updateEntry(idx, 'time_in', e.target.value)}
-                      className="w-full border border-gray-200 rounded-md px-1.5 sm:px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -207,15 +207,15 @@ export default function EditTimecardModal({
                       type="time"
                       value={entry.time_out}
                       onChange={(e) => updateEntry(idx, 'time_out', e.target.value)}
-                      className="w-full border border-gray-200 rounded-md px-1.5 sm:px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <div className="min-w-[5rem]">
+                  <div>
                     <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Lunch</label>
                     <select
                       value={entry.lunch_minutes}
                       onChange={(e) => updateEntry(idx, 'lunch_minutes', Number(e.target.value))}
-                      className="w-full border border-gray-200 rounded-md px-1.5 sm:px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {LUNCH_OPTIONS.map((m) => (
                         <option key={m} value={m}>{m} min</option>
