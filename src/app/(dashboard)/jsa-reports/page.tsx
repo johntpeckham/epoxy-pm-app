@@ -8,8 +8,9 @@ import JsaReportsPageClient from '@/components/jsa-reports/JsaReportsPageClient'
 export default async function JsaReportsPage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/login')
+  const user = session.user
 
   // Fetch active projects for the "New Report" dropdown
   const { data: projectRows } = await supabase

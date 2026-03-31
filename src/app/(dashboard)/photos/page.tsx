@@ -16,8 +16,9 @@ export interface PhotoEntry {
 export default async function PhotosPage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/login')
+  const user = session.user
 
   // Fetch active projects for the "New Photo" dropdown
   const { data: activeProjectRows } = await supabase

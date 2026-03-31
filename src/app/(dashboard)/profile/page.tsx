@@ -6,11 +6,13 @@ import ProfileClient from '@/components/profile/ProfileClient'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { session } } = await supabase.auth.getSession()
 
-  if (!user) {
+  if (!session) {
     redirect('/login')
   }
+
+  const user = session.user
 
   // Fetch or create profile
   const { data: profile } = await supabase

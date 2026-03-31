@@ -10,11 +10,16 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Middleware already validates the token with getUser(). Here we use
+  // getSession() which reads the (refreshed) JWT from cookies without an
+  // extra network round-trip — critical for fast PWA hard-refresh.
+  const { data: { session } } = await supabase.auth.getSession()
 
-  if (!user) {
+  if (!session) {
     redirect('/login')
   }
+
+  const user = session.user
 
   const { data: profile } = await supabase
     .from('profiles')

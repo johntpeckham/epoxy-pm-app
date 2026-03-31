@@ -9,8 +9,9 @@ import CalendarPageClient from '@/components/calendar/CalendarPageClient'
 export default async function CalendarPage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/login')
+  const user = session.user
 
   const [{ data: events }, { data: profile }, { data: projects }] = await Promise.all([
     supabase
