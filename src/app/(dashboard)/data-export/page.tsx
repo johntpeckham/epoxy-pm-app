@@ -8,7 +8,7 @@ export default async function DataExportPage() {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
-  if (!session) redirect('/login')
+  if (!session) return null
   const user = session.user
 
   // Only admin and office_manager can access

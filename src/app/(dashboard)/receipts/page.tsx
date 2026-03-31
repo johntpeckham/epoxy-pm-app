@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ReceiptContent, DynamicFieldEntry, Project } from '@/types'
 import ReceiptsPageClient from '@/components/receipts/ReceiptsPageClient'
@@ -9,7 +8,7 @@ export default async function ReceiptsPage() {
   const supabase = await createClient()
 
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
+  if (!session) return null
   const user = session.user
 
   // Fetch user role for restricted-expense filtering

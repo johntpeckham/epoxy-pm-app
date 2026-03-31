@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Task, Project, Profile } from '@/types'
 import TasksPageClient from '@/components/tasks/TasksPageClient'
@@ -9,7 +8,7 @@ export default async function TasksPage() {
   const supabase = await createClient()
 
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
+  if (!session) return null
   const user = session.user
 
   // Fetch all tasks with project names

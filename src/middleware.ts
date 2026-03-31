@@ -35,23 +35,10 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // IMPORTANT: Do not add logic between createServerClient and getUser().
-  // A simple mistake here can lead to hard-to-debug auth issues.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth') &&
-    !request.nextUrl.pathname.startsWith('/forgot-password') &&
-    !request.nextUrl.pathname.startsWith('/reset-password')
-  ) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
-  }
+  // Refresh the session if cookies are present.  Do NOT redirect to /login
+  // here — the client-side AuthProvider handles auth redirects.  This lets
+  // iOS PWAs recover sessions from localStorage even when cookies are gone.
+  await supabase.auth.getUser()
 
   return supabaseResponse
 }

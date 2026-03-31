@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { CalendarEvent, Project } from '@/types'
 import type { UserRole } from '@/types'
@@ -10,7 +9,7 @@ export default async function CalendarPage() {
   const supabase = await createClient()
 
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
+  if (!session) return null
   const user = session.user
 
   const [{ data: events }, { data: profile }, { data: projects }] = await Promise.all([
