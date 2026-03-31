@@ -6,9 +6,10 @@ import PermissionsClient from '@/components/permissions/PermissionsClient'
 
 export default async function PermissionsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { session } } = await supabase.auth.getSession()
 
-  if (!user) redirect('/login')
+  if (!session) redirect('/login')
+  const user = session.user
 
   // Only admins can access this page
   const { data: profile } = await supabase

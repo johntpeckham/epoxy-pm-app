@@ -8,8 +8,9 @@ import TimesheetsPageClient from '@/components/timesheets/TimesheetsPageClient'
 export default async function TimesheetsPage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/login')
+  const user = session.user
 
   // Fetch active projects for the "New Timecard" dropdown
   const { data: projectRows } = await supabase

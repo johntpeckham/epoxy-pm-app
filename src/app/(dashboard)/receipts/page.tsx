@@ -8,8 +8,9 @@ import ReceiptsPageClient from '@/components/receipts/ReceiptsPageClient'
 export default async function ReceiptsPage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/login')
+  const user = session.user
 
   // Fetch user role for restricted-expense filtering
   const { data: profile } = await supabase

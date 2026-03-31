@@ -16,14 +16,10 @@ const withPWA = require("next-pwa")({
       handler: "NetworkOnly",
     },
     {
-      // Navigation requests (HTML pages) — always go to network first
-      // This prevents the SW from serving a cached login redirect on hard refresh
+      // Navigation requests (HTML pages) — ALWAYS go to network.
+      // Never serve cached pages; auth state must come from the server.
       urlPattern: ({ request }) => request.mode === "navigate",
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "pages",
-        networkTimeoutSeconds: 5,
-      },
+      handler: "NetworkOnly",
     },
   ],
 });
