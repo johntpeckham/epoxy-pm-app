@@ -84,7 +84,7 @@ export default function NewEstimateForm({
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <div className="px-5 py-3 border-b border-gray-200 bg-white flex items-center gap-3">
-        <button onClick={onCancel} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+        <button onClick={onCancel} className="p-2 text-gray-400 hover:text-gray-600 rounded">
           <ArrowLeftIcon className="w-4 h-4" />
         </button>
         <h2 className="text-base font-bold text-gray-900">New Estimate</h2>

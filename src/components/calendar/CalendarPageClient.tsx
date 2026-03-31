@@ -986,7 +986,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                   <h2 className="text-lg font-semibold text-gray-900">{dayLabel}</h2>
                   <button
                     onClick={() => setDaySummaryDate(null)}
-                    className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                    className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
                   >
                     <XIcon className="w-5 h-5" />
                   </button>
@@ -1056,7 +1056,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               <h2 className="text-lg font-semibold text-gray-900">Add to Calendar</h2>
               <button
                 onClick={() => setShowNewPicker(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -1115,7 +1115,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               <h2 className="text-lg font-semibold text-gray-900">New Job</h2>
               <button
                 onClick={() => { setShowCreateNewJob(false); resetNewJobForm() }}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -1444,7 +1444,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               </h2>
               <button
                 onClick={() => { setShowFormModal(false); resetForm() }}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -1631,7 +1631,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               <h2 className="text-lg font-semibold text-gray-900">Edit Project</h2>
               <button
                 onClick={() => { setShowEditProjectModal(false); resetEditProjectForm() }}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -1925,7 +1925,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               <h3 className="text-lg font-semibold text-gray-900">Remove from Calendar</h3>
               <button
                 onClick={() => setShowRemoveFromCalendarConfirm(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -2140,7 +2140,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               <h3 className="text-lg font-semibold text-gray-900">Delete Event</h3>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>

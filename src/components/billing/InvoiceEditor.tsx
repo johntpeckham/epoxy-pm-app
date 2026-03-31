@@ -301,7 +301,7 @@ export default function InvoiceEditor({
       <div className="flex-1 p-6">
         <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           {/* Header */}
-          <div className="px-8 pt-8 pb-4">
+          <div className="px-4 md:px-8 pt-8 pb-4">
             <div className="flex justify-between items-start">
               <div>
                 <h1 className="text-lg font-bold text-gray-900">Peckham Inc. DBA Peckham Coatings</h1>
@@ -315,7 +315,7 @@ export default function InvoiceEditor({
           </div>
 
           {/* Address + Invoice info */}
-          <div className="px-8 py-4 flex justify-between">
+          <div className="px-4 md:px-8 py-4 flex justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Bill To</p>
               <input
@@ -364,7 +364,7 @@ export default function InvoiceEditor({
           </div>
 
           {/* Project info row */}
-          <div className="px-8 py-3 bg-amber-50 border-y border-amber-100">
+          <div className="px-4 md:px-8 py-3 bg-amber-50 border-y border-amber-100">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Project Name</label>
@@ -389,7 +389,7 @@ export default function InvoiceEditor({
           </div>
 
           {/* Line items table */}
-          <div className="px-8 py-4">
+          <div className="px-4 md:px-8 py-4">
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-amber-500">
@@ -435,18 +435,20 @@ export default function InvoiceEditor({
                     <td className="py-2">
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={item.ft ?? ''}
                         onChange={(e) => updateLineItem(item.id, { ft: e.target.value ? Number(e.target.value) : null })}
-                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
+                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
                         placeholder="0"
                       />
                     </td>
                     <td className="py-2">
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={item.rate ?? ''}
                         onChange={(e) => updateLineItem(item.id, { rate: e.target.value ? Number(e.target.value) : null })}
-                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
+                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
                         placeholder="0.00"
                       />
                     </td>
@@ -475,7 +477,7 @@ export default function InvoiceEditor({
           </div>
 
           {/* Totals */}
-          <div className="px-8 py-4 border-t border-gray-200">
+          <div className="px-4 md:px-8 py-4 border-t border-gray-200">
             <div className="flex justify-end">
               <div className="w-64 space-y-2">
                 <div className="flex justify-between text-sm">
@@ -488,9 +490,10 @@ export default function InvoiceEditor({
                     <span className="text-gray-400">$</span>
                     <input
                       type="number"
+                      inputMode="decimal"
                       value={tax || ''}
                       onChange={(e) => setTax(e.target.value ? Number(e.target.value) : 0)}
-                      className="w-24 text-right text-sm text-gray-900 border border-gray-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
+                      className="w-24 text-right text-sm text-gray-900 border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
                       placeholder="0.00"
                     />
                   </div>
@@ -513,7 +516,7 @@ export default function InvoiceEditor({
 
           {/* Terms */}
           {(terms || true) && (
-            <div className="px-8 py-4 border-t border-gray-200">
+            <div className="px-4 md:px-8 py-4 border-t border-gray-200">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Terms and Conditions</p>
               <textarea
                 value={terms}

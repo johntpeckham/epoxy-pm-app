@@ -113,17 +113,17 @@ export default function PushPlansModal({
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
         <div
-          className="w-full max-w-md bg-white rounded-xl flex flex-col overflow-hidden shadow-xl"
+          className="mt-auto md:my-auto md:mx-auto w-full md:max-w-md h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Push Plans to Job</h2>
+          <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
+            <h2 className="text-base font-bold text-gray-900">Push Plans to Job</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -179,7 +179,7 @@ export default function PushPlansModal({
           </div>
 
           {/* Footer */}
-          <div className="flex gap-3 px-5 py-4 border-t border-gray-200">
+          <div className="flex-none flex gap-3 px-5 py-4 border-t border-gray-200" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
             <button
               onClick={onClose}
               disabled={sending}

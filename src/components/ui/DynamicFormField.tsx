@@ -83,6 +83,7 @@ export default function DynamicFormField({ field, value, onChange }: DynamicForm
           </label>
           <input
             type="number"
+            inputMode="decimal"
             step="any"
             value={(value as string) ?? ''}
             onChange={(e) => onChange(e.target.value)}

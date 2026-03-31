@@ -190,10 +190,10 @@ export default function PostCommentsSection({ postId, userId }: PostCommentsSect
                 {isOwn && (
                   <button
                     onClick={() => handleDelete(comment.id)}
-                    className="flex-shrink-0 p-0.5 rounded text-gray-300 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 transition-opacity mt-1"
+                    className="flex-shrink-0 p-1.5 rounded text-gray-300 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 transition-opacity mt-1"
                     title="Delete comment"
                   >
-                    <XIcon className="w-3 h-3" />
+                    <XIcon className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>

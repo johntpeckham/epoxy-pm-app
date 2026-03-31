@@ -494,7 +494,7 @@ export default function EstimateEditor({
       <div className="flex-1 p-6">
         <div id="estimate-content" className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           {/* Header */}
-          <div className="px-8 pt-8 pb-4">
+          <div className="px-4 md:px-8 pt-8 pb-4">
             <div className="flex justify-between items-start">
               <div>
                 <h1 className="text-lg font-bold text-gray-900">{companyName}</h1>
@@ -522,7 +522,7 @@ export default function EstimateEditor({
           </div>
 
           {/* Address + Estimate info */}
-          <div className="px-8 py-4 flex justify-between">
+          <div className="px-4 md:px-8 py-4 flex justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Address</p>
               <input
@@ -544,9 +544,10 @@ export default function EstimateEditor({
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Estimate #</span>
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={estimateNumber}
                   onChange={(e) => setEstimateNumber(Number(e.target.value))}
-                  className="w-24 text-right text-sm font-semibold text-amber-600 border border-amber-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-24 text-right text-sm font-semibold text-amber-600 border border-amber-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
               <div className="flex items-center gap-2 justify-end">
@@ -562,8 +563,8 @@ export default function EstimateEditor({
           </div>
 
           {/* Project info row */}
-          <div className="px-8 py-3 bg-amber-50 border-y border-amber-100">
-            <div className="grid grid-cols-3 gap-4">
+          <div className="px-4 md:px-8 py-3 bg-amber-50 border-y border-amber-100">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Project Name</label>
                 <input
@@ -595,7 +596,7 @@ export default function EstimateEditor({
           </div>
 
           {/* Line items table */}
-          <div className="px-8 py-4">
+          <div className="px-4 md:px-8 py-4">
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-amber-500">
@@ -641,18 +642,20 @@ export default function EstimateEditor({
                     <td className="py-2">
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={item.ft ?? ''}
                         onChange={(e) => updateLineItem(item.id, { ft: e.target.value ? Number(e.target.value) : null })}
-                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
+                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
                         placeholder="0"
                       />
                     </td>
                     <td className="py-2">
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={item.rate ?? ''}
                         onChange={(e) => updateLineItem(item.id, { rate: e.target.value ? Number(e.target.value) : null })}
-                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
+                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
                         placeholder="0.00"
                       />
                     </td>
@@ -681,7 +684,7 @@ export default function EstimateEditor({
           </div>
 
           {/* Material Systems */}
-          <div className="px-8 py-4 border-t border-gray-200">
+          <div className="px-4 md:px-8 py-4 border-t border-gray-200">
             <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">Material Systems</h3>
             <MaterialSystemPicker
               rows={materialSystemRows}
@@ -693,7 +696,7 @@ export default function EstimateEditor({
           </div>
 
           {/* Totals */}
-          <div className="px-8 py-4 border-t border-gray-200">
+          <div className="px-4 md:px-8 py-4 border-t border-gray-200">
             <div className="flex justify-end">
               <div className="w-64 space-y-2">
                 <div className="flex justify-between text-sm">
@@ -706,9 +709,10 @@ export default function EstimateEditor({
                     <span className="text-gray-400">$</span>
                     <input
                       type="number"
+                      inputMode="decimal"
                       value={tax || ''}
                       onChange={(e) => setTax(e.target.value ? Number(e.target.value) : 0)}
-                      className="w-24 text-right text-sm text-gray-900 border border-gray-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
+                      className="w-24 text-right text-sm text-gray-900 border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
                       placeholder="0.00"
                     />
                   </div>
@@ -730,7 +734,7 @@ export default function EstimateEditor({
           />
 
           {/* Terms */}
-          <div className="px-8 py-4 border-t border-gray-200">
+          <div className="px-4 md:px-8 py-4 border-t border-gray-200">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Terms and Conditions</p>
             <textarea
               value={terms}
@@ -741,7 +745,7 @@ export default function EstimateEditor({
           </div>
 
           {/* Signature line */}
-          <div className="px-8 py-6 border-t border-gray-200">
+          <div className="px-4 md:px-8 py-6 border-t border-gray-200">
             <p className="text-sm text-gray-600 mb-4">If you accept these terms, please sign below.</p>
             <div className="flex gap-8">
               <div className="flex-1">

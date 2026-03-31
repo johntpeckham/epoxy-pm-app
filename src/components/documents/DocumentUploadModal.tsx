@@ -162,7 +162,7 @@ export default function DocumentUploadModal({
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+            className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
           >
             <XIcon className="w-5 h-5" />
           </button>
@@ -324,7 +324,7 @@ export default function DocumentUploadModal({
               <span className="truncate text-sm font-semibold text-gray-900">{previewDoc.file_name}</span>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -362,7 +362,7 @@ export default function DocumentUploadModal({
                 </a>
                 <button
                   onClick={() => setPreviewDoc(null)}
-                  className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                  className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
                 >
                   <XIcon className="w-5 h-5" />
                 </button>

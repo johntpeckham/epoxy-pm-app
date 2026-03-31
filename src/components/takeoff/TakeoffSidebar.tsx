@@ -227,9 +227,9 @@ export default function TakeoffSidebar({
                     )}
                     <button
                       onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id) }}
-                      className="p-0.5 text-gray-700 hover:text-red-400 flex-shrink-0 transition-colors"
+                      className="p-1.5 text-gray-700 hover:text-red-400 flex-shrink-0 transition-colors"
                     >
-                      <Trash2Icon className="w-3 h-3" />
+                      <Trash2Icon className="w-3.5 h-3.5" />
                     </button>
                   </>
                 )}
@@ -246,9 +246,9 @@ export default function TakeoffSidebar({
                       </span>
                       <button
                         onClick={(e) => { e.stopPropagation(); onDeleteMeasurement(item.id, m.id) }}
-                        className="p-0.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <XIcon className="w-2.5 h-2.5" />
+                        <XIcon className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
