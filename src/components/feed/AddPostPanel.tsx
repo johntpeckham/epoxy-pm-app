@@ -17,6 +17,7 @@ import {
   ClockIcon,
   DollarSignIcon,
   CheckIcon,
+  PencilIcon,
 } from 'lucide-react'
 import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, ReceiptCategory, ExpenseCategory, EmployeeProfile, TimecardEntry } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
@@ -169,6 +170,9 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [tcCustomName, setTcCustomName] = useState('')
   const [tcSyncTimes, setTcSyncTimes] = useState(false)
   const [tcShowUnsyncConfirm, setTcShowUnsyncConfirm] = useState(false)
+  const [tcMasterTimeIn, setTcMasterTimeIn] = useState('07:00')
+  const [tcMasterTimeOut, setTcMasterTimeOut] = useState('15:30')
+  const [tcMasterLunchMinutes, setTcMasterLunchMinutes] = useState(30)
 
   const LUNCH_OPTIONS = [0, 15, 30, 45, 60]
 
@@ -185,9 +189,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   }
 
   function tcGetDefaultTimes(): Pick<TimecardEntry, 'time_in' | 'time_out' | 'lunch_minutes' | 'total_hours'> {
-    if (tcSyncTimes && tcEntries.length > 0) {
-      const first = tcEntries[0]
-      return { time_in: first.time_in, time_out: first.time_out, lunch_minutes: first.lunch_minutes, total_hours: first.total_hours }
+    if (tcSyncTimes) {
+      return { time_in: tcMasterTimeIn, time_out: tcMasterTimeOut, lunch_minutes: tcMasterLunchMinutes, total_hours: calcHours(tcMasterTimeIn, tcMasterTimeOut, tcMasterLunchMinutes) }
     }
     return { time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }
   }
@@ -213,15 +216,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   }
 
   function tcUpdateEntry(idx: number, field: keyof TimecardEntry, value: string | number) {
-    const isTimeField = field === 'time_in' || field === 'time_out' || field === 'lunch_minutes'
     setTcEntries((prev) =>
       prev.map((e, i) => {
-        if (!tcSyncTimes && i !== idx) return e
-        if (tcSyncTimes && isTimeField) {
-          const updated = { ...e, [field]: value }
-          updated.total_hours = calcHours(updated.time_in, updated.time_out, updated.lunch_minutes)
-          return updated
-        }
         if (i !== idx) return e
         const updated = { ...e, [field]: value }
         updated.total_hours = calcHours(updated.time_in, updated.time_out, updated.lunch_minutes)
@@ -230,20 +226,41 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     )
   }
 
+  function tcUpdateMasterTime(field: 'time_in' | 'time_out' | 'lunch_minutes', value: string | number) {
+    const newTimeIn = field === 'time_in' ? value as string : tcMasterTimeIn
+    const newTimeOut = field === 'time_out' ? value as string : tcMasterTimeOut
+    const newLunch = field === 'lunch_minutes' ? value as number : tcMasterLunchMinutes
+    if (field === 'time_in') setTcMasterTimeIn(value as string)
+    if (field === 'time_out') setTcMasterTimeOut(value as string)
+    if (field === 'lunch_minutes') setTcMasterLunchMinutes(value as number)
+    const hours = calcHours(newTimeIn, newTimeOut, newLunch)
+    setTcEntries((prev) =>
+      prev.map((e) => ({
+        ...e,
+        time_in: newTimeIn,
+        time_out: newTimeOut,
+        lunch_minutes: newLunch,
+        total_hours: hours,
+      }))
+    )
+  }
+
   function tcHandleSyncToggle(checked: boolean) {
     if (checked) {
-      if (tcEntries.length > 1) {
-        const first = tcEntries[0]
-        setTcEntries((prev) =>
-          prev.map((e) => ({
-            ...e,
-            time_in: first.time_in,
-            time_out: first.time_out,
-            lunch_minutes: first.lunch_minutes,
-            total_hours: calcHours(first.time_in, first.time_out, first.lunch_minutes),
-          }))
-        )
-      }
+      const source = tcEntries.length > 0 ? tcEntries[0] : { time_in: '07:00', time_out: '15:30', lunch_minutes: 30 }
+      setTcMasterTimeIn(source.time_in)
+      setTcMasterTimeOut(source.time_out)
+      setTcMasterLunchMinutes(source.lunch_minutes)
+      const hours = calcHours(source.time_in, source.time_out, source.lunch_minutes)
+      setTcEntries((prev) =>
+        prev.map((e) => ({
+          ...e,
+          time_in: source.time_in,
+          time_out: source.time_out,
+          lunch_minutes: source.lunch_minutes,
+          total_hours: hours,
+        }))
+      )
       setTcSyncTimes(true)
     } else {
       setTcShowUnsyncConfirm(true)
@@ -1383,17 +1400,15 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Employees</p>
-              {tcEntries.length >= 2 && (
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={tcSyncTimes}
-                    onChange={(e) => tcHandleSyncToggle(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
-                  />
-                  <span className="text-[11px] font-medium text-gray-500">Sync All Times</span>
-                </label>
-              )}
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={tcSyncTimes}
+                  onChange={(e) => tcHandleSyncToggle(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                />
+                <span className="text-[11px] font-medium text-gray-500">Sync All Times</span>
+              </label>
             </div>
             <div className="flex flex-wrap gap-2 mb-3">
               {employeeProfiles.map((emp) => {
@@ -1457,13 +1472,63 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                 <p className="text-xs text-gray-400">No employees found. Add employees in Employee Management.</p>
               )}
             </div>
+
+            {/* Master time entry (when synced) */}
+            {tcSyncTimes && (
+              <div className="border-2 border-amber-300 bg-amber-50 rounded-lg p-3 space-y-2 mb-3">
+                <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wide">Set Times for All</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
+                    <input
+                      type="time"
+                      value={tcMasterTimeIn}
+                      onChange={(e) => tcUpdateMasterTime('time_in', e.target.value)}
+                      className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time Out</label>
+                    <input
+                      type="time"
+                      value={tcMasterTimeOut}
+                      onChange={(e) => tcUpdateMasterTime('time_out', e.target.value)}
+                      className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Lunch</label>
+                    <select
+                      value={tcMasterLunchMinutes}
+                      onChange={(e) => tcUpdateMasterTime('lunch_minutes', Number(e.target.value))}
+                      className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {LUNCH_OPTIONS.map((m) => (
+                        <option key={m} value={m}>{m} min</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               {tcEntries.map((entry, idx) => (
-                <div key={entry.employee_name} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                <div key={entry.employee_name} className={`border rounded-lg p-3 space-y-2 ${tcSyncTimes ? 'border-gray-100 bg-gray-50 opacity-60' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-2">
-                    <span className="flex-1 text-sm font-medium text-gray-900">{entry.employee_name}</span>
+                    <span className={`flex-1 text-sm font-medium ${tcSyncTimes ? 'text-gray-500' : 'text-gray-900'}`}>{entry.employee_name}</span>
                     {entry.total_hours > 0 && (
-                      <span className="text-xs font-bold text-blue-700 tabular-nums">{entry.total_hours.toFixed(2)} hrs</span>
+                      <span className={`text-xs font-bold tabular-nums ${tcSyncTimes ? 'text-blue-400' : 'text-blue-700'}`}>{entry.total_hours.toFixed(2)} hrs</span>
+                    )}
+                    {tcSyncTimes && (
+                      <button
+                        type="button"
+                        onClick={() => setTcShowUnsyncConfirm(true)}
+                        className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition"
+                        title="Edit individually"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
                     )}
                     <button
                       type="button"
@@ -1480,7 +1545,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                         type="time"
                         value={entry.time_in}
                         onChange={(e) => tcUpdateEntry(idx, 'time_in', e.target.value)}
-                        className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={tcSyncTimes}
+                        className={`w-1/2 sm:w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${tcSyncTimes ? 'border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed' : 'border-gray-200 text-gray-900'}`}
                       />
                     </div>
                     <div>
@@ -1489,7 +1555,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                         type="time"
                         value={entry.time_out}
                         onChange={(e) => tcUpdateEntry(idx, 'time_out', e.target.value)}
-                        className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={tcSyncTimes}
+                        className={`w-1/2 sm:w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${tcSyncTimes ? 'border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed' : 'border-gray-200 text-gray-900'}`}
                       />
                     </div>
                     <div>
@@ -1497,7 +1564,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                       <select
                         value={entry.lunch_minutes}
                         onChange={(e) => tcUpdateEntry(idx, 'lunch_minutes', Number(e.target.value))}
-                        className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={tcSyncTimes}
+                        className={`w-1/2 sm:w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${tcSyncTimes ? 'border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed' : 'border-gray-200 text-gray-900'}`}
                       >
                         {LUNCH_OPTIONS.map((m) => (
                           <option key={m} value={m}>{m} min</option>
