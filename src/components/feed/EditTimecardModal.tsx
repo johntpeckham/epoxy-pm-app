@@ -198,7 +198,7 @@ export default function EditTimecardModal({
                       type="time"
                       value={entry.time_in}
                       onChange={(e) => updateEntry(idx, 'time_in', e.target.value)}
-                      className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -207,7 +207,7 @@ export default function EditTimecardModal({
                       type="time"
                       value={entry.time_out}
                       onChange={(e) => updateEntry(idx, 'time_out', e.target.value)}
-                      className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -215,7 +215,7 @@ export default function EditTimecardModal({
                     <select
                       value={entry.lunch_minutes}
                       onChange={(e) => updateEntry(idx, 'lunch_minutes', Number(e.target.value))}
-                      className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {LUNCH_OPTIONS.map((m) => (
                         <option key={m} value={m}>{m} min</option>
