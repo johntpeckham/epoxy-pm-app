@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -49,7 +49,7 @@ const progressFields: { label: string; key: keyof DailyReportContent }[] = [
   { label: 'Employees', key: 'employees' },
 ]
 
-export default function DailyReportCard({ report }: DailyReportCardProps) {
+export default memo(function DailyReportCard({ report }: DailyReportCardProps) {
   const router = useRouter()
   const supabase = createClient()
   const { settings: companySettings } = useCompanySettings()
@@ -329,4 +329,4 @@ export default function DailyReportCard({ report }: DailyReportCardProps) {
       )}
     </>
   )
-}
+})

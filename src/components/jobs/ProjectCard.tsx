@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { MapPinIcon, UserIcon, PencilIcon, Trash2Icon } from 'lucide-react'
 import { Project } from '@/types'
 
@@ -9,7 +10,7 @@ interface ProjectCardProps {
   onDelete: (project: Project) => void
 }
 
-export default function ProjectCard({
+export default memo(function ProjectCard({
   project,
   isSelected = false,
   onSelect,
@@ -90,4 +91,4 @@ export default function ProjectCard({
       </div>
     </div>
   )
-}
+})
