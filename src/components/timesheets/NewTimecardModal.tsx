@@ -259,19 +259,19 @@ export default function NewTimecardModal({
           {/* Employee time-entry rows */}
           <div className="space-y-2">
             {entries.map((entry, idx) => (
-              <div key={entry.employee_name} className="border border-gray-200 rounded-lg p-3 space-y-2 relative">
-                <button
-                  type="button"
-                  onClick={() => removeEntry(idx)}
-                  className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition"
-                >
-                  <XIcon className="w-3.5 h-3.5" />
-                </button>
+              <div key={entry.employee_name} className="border border-gray-200 rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="flex-1 text-sm font-medium text-gray-900">{entry.employee_name}</span>
                   {entry.total_hours > 0 && (
                     <span className="text-xs font-bold text-blue-700 tabular-nums">{entry.total_hours.toFixed(2)} hrs</span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(idx)}
+                    className="-mr-1 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
                   <div>
