@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, PlusIcon, CheckIcon, LoaderIcon } from 'lucide-react'
+import { XIcon, PlusIcon, CheckIcon, LoaderIcon, PencilIcon } from 'lucide-react'
 import { Project, TimecardEntry, EmployeeProfile, FormField } from '@/types'
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
@@ -84,6 +84,9 @@ export default function NewTimecardModal({
   const [customName, setCustomName] = useState('')
   const [syncTimes, setSyncTimes] = useState(false)
   const [showUnsyncConfirm, setShowUnsyncConfirm] = useState(false)
+  const [masterTimeIn, setMasterTimeIn] = useState('07:00')
+  const [masterTimeOut, setMasterTimeOut] = useState('15:30')
+  const [masterLunchMinutes, setMasterLunchMinutes] = useState(30)
 
   function updateValue(key: string, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }))
@@ -113,15 +116,8 @@ export default function NewTimecardModal({
   }
 
   function updateEntry(idx: number, field: keyof TimecardEntry, value: string | number) {
-    const isTimeField = field === 'time_in' || field === 'time_out' || field === 'lunch_minutes'
     setEntries((prev) =>
       prev.map((e, i) => {
-        if (!syncTimes && i !== idx) return e
-        if (syncTimes && isTimeField) {
-          const updated = { ...e, [field]: value }
-          updated.total_hours = calcHours(updated.time_in, updated.time_out, updated.lunch_minutes)
-          return updated
-        }
         if (i !== idx) return e
         const updated = { ...e, [field]: value }
         updated.total_hours = calcHours(updated.time_in, updated.time_out, updated.lunch_minutes)
@@ -130,14 +126,32 @@ export default function NewTimecardModal({
     )
   }
 
+  function updateMasterTime(field: 'time_in' | 'time_out' | 'lunch_minutes', value: string | number) {
+    const newTimeIn = field === 'time_in' ? value as string : masterTimeIn
+    const newTimeOut = field === 'time_out' ? value as string : masterTimeOut
+    const newLunch = field === 'lunch_minutes' ? value as number : masterLunchMinutes
+    if (field === 'time_in') setMasterTimeIn(value as string)
+    if (field === 'time_out') setMasterTimeOut(value as string)
+    if (field === 'lunch_minutes') setMasterLunchMinutes(value as number)
+    const hours = calcHours(newTimeIn, newTimeOut, newLunch)
+    setEntries((prev) =>
+      prev.map((e) => ({
+        ...e,
+        time_in: newTimeIn,
+        time_out: newTimeOut,
+        lunch_minutes: newLunch,
+        total_hours: hours,
+      }))
+    )
+  }
+
   function removeEntry(idx: number) {
     setEntries((prev) => prev.filter((_, i) => i !== idx))
   }
 
   function getDefaultTimes(): Pick<TimecardEntry, 'time_in' | 'time_out' | 'lunch_minutes' | 'total_hours'> {
-    if (syncTimes && entries.length > 0) {
-      const first = entries[0]
-      return { time_in: first.time_in, time_out: first.time_out, lunch_minutes: first.lunch_minutes, total_hours: first.total_hours }
+    if (syncTimes) {
+      return { time_in: masterTimeIn, time_out: masterTimeOut, lunch_minutes: masterLunchMinutes, total_hours: calcHours(masterTimeIn, masterTimeOut, masterLunchMinutes) }
     }
     return { time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }
   }
@@ -220,43 +234,45 @@ export default function NewTimecardModal({
 
   function handleSyncToggle(checked: boolean) {
     if (checked) {
-      // Turning sync ON: copy first employee's times to all others
-      if (entries.length > 1) {
-        const first = entries[0]
-        setEntries((prev) =>
-          prev.map((e) => ({
-            ...e,
-            time_in: first.time_in,
-            time_out: first.time_out,
-            lunch_minutes: first.lunch_minutes,
-            total_hours: calcHours(first.time_in, first.time_out, first.lunch_minutes),
-          }))
-        )
-      }
+      // Initialize master from first employee or defaults
+      const source = entries.length > 0 ? entries[0] : { time_in: '07:00', time_out: '15:30', lunch_minutes: 30 }
+      setMasterTimeIn(source.time_in)
+      setMasterTimeOut(source.time_out)
+      setMasterLunchMinutes(source.lunch_minutes)
+      const hours = calcHours(source.time_in, source.time_out, source.lunch_minutes)
+      setEntries((prev) =>
+        prev.map((e) => ({
+          ...e,
+          time_in: source.time_in,
+          time_out: source.time_out,
+          lunch_minutes: source.lunch_minutes,
+          total_hours: hours,
+        }))
+      )
       setSyncTimes(true)
     } else {
-      // Turning sync OFF: show confirmation
       setShowUnsyncConfirm(true)
     }
   }
 
   function renderEmployeeSection() {
+    const selectCls = 'w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500'
+    const disabledSelectCls = 'w-1/2 sm:w-full border border-gray-100 rounded-md px-2 py-1.5 text-xs text-gray-400 bg-gray-50 cursor-not-allowed'
+
     return (
       <div key="employee-section">
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Employees</p>
-            {entries.length >= 2 && (
-              <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={syncTimes}
-                  onChange={(e) => handleSyncToggle(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
-                />
-                <span className="text-[11px] font-medium text-gray-500">Sync All Times</span>
-              </label>
-            )}
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={syncTimes}
+                onChange={(e) => handleSyncToggle(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-[11px] font-medium text-gray-500">Sync All Times</span>
+            </label>
           </div>
 
           {/* Roster pill selector */}
@@ -311,14 +327,69 @@ export default function NewTimecardModal({
             )}
           </div>
 
+          {/* Master time entry (when synced) */}
+          {syncTimes && (
+            <div className="border-2 border-amber-300 bg-amber-50 rounded-lg p-3 space-y-2 mb-3">
+              <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wide">Set Times for All</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
+                  <select
+                    value={masterTimeIn}
+                    onChange={(e) => updateMasterTime('time_in', e.target.value)}
+                    className={selectCls}
+                  >
+                    {TIME_OPTIONS.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time Out</label>
+                  <select
+                    value={masterTimeOut}
+                    onChange={(e) => updateMasterTime('time_out', e.target.value)}
+                    className={selectCls}
+                  >
+                    {TIME_OPTIONS.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Lunch</label>
+                  <select
+                    value={masterLunchMinutes}
+                    onChange={(e) => updateMasterTime('lunch_minutes', Number(e.target.value))}
+                    className={selectCls}
+                  >
+                    {LUNCH_OPTIONS.map((m) => (
+                      <option key={m} value={m}>{m} min</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Employee time-entry rows */}
           <div className="space-y-2">
             {entries.map((entry, idx) => (
-              <div key={entry.employee_name} className="border border-gray-200 rounded-lg p-3 space-y-2">
+              <div key={entry.employee_name} className={`border rounded-lg p-3 space-y-2 ${syncTimes ? 'border-gray-100 bg-gray-50 opacity-60' : 'border-gray-200'}`}>
                 <div className="flex items-center gap-2">
-                  <span className="flex-1 text-sm font-medium text-gray-900">{entry.employee_name}</span>
+                  <span className={`flex-1 text-sm font-medium ${syncTimes ? 'text-gray-500' : 'text-gray-900'}`}>{entry.employee_name}</span>
                   {entry.total_hours > 0 && (
-                    <span className="text-xs font-bold text-blue-700 tabular-nums">{entry.total_hours.toFixed(2)} hrs</span>
+                    <span className={`text-xs font-bold tabular-nums ${syncTimes ? 'text-blue-400' : 'text-blue-700'}`}>{entry.total_hours.toFixed(2)} hrs</span>
+                  )}
+                  {syncTimes && (
+                    <button
+                      type="button"
+                      onClick={() => setShowUnsyncConfirm(true)}
+                      className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition"
+                      title="Edit individually"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
                   )}
                   <button
                     type="button"
@@ -334,7 +405,8 @@ export default function NewTimecardModal({
                     <select
                       value={entry.time_in}
                       onChange={(e) => updateEntry(idx, 'time_in', e.target.value)}
-                      className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={syncTimes}
+                      className={syncTimes ? disabledSelectCls : selectCls}
                     >
                       {TIME_OPTIONS.map((t) => (
                         <option key={t.value} value={t.value}>{t.label}</option>
@@ -346,7 +418,8 @@ export default function NewTimecardModal({
                     <select
                       value={entry.time_out}
                       onChange={(e) => updateEntry(idx, 'time_out', e.target.value)}
-                      className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={syncTimes}
+                      className={syncTimes ? disabledSelectCls : selectCls}
                     >
                       {TIME_OPTIONS.map((t) => (
                         <option key={t.value} value={t.value}>{t.label}</option>
@@ -358,7 +431,8 @@ export default function NewTimecardModal({
                     <select
                       value={entry.lunch_minutes}
                       onChange={(e) => updateEntry(idx, 'lunch_minutes', Number(e.target.value))}
-                      className="w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={syncTimes}
+                      className={syncTimes ? disabledSelectCls : selectCls}
                     >
                       {LUNCH_OPTIONS.map((m) => (
                         <option key={m} value={m}>{m} min</option>
