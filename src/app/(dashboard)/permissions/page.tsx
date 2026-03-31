@@ -8,7 +8,7 @@ export default async function PermissionsPage() {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
-  if (!session) redirect('/login')
+  if (!session) return null
   const user = session.user
 
   // Only admins can access this page

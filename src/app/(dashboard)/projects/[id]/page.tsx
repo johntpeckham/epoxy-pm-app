@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import ProjectFeedClient from '@/components/feed/ProjectFeedClient'
 import { FeedPost, Project } from '@/types'
 
@@ -14,7 +14,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const supabase = await createClient()
 
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
+  if (!session) return null
   const user = session.user
 
   const { data: project } = await supabase

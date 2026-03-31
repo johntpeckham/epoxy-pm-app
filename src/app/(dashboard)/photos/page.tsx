@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PhotoContent, DailyReportContent, Project } from '@/types'
 import PhotosPageClient from '@/components/photos/PhotosPageClient'
@@ -17,7 +16,7 @@ export default async function PhotosPage() {
   const supabase = await createClient()
 
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
+  if (!session) return null
   const user = session.user
 
   // Fetch active projects for the "New Photo" dropdown

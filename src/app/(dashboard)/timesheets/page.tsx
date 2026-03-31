@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { TimecardContent, DynamicFieldEntry, Project } from '@/types'
 import TimesheetsPageClient from '@/components/timesheets/TimesheetsPageClient'
@@ -9,7 +8,7 @@ export default async function TimesheetsPage() {
   const supabase = await createClient()
 
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
+  if (!session) return null
   const user = session.user
 
   // Fetch active projects for the "New Timecard" dropdown

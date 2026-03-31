@@ -1,16 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import ProfileClient from '@/components/profile/ProfileClient'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
-  if (!session) {
-    redirect('/login')
-  }
+  if (!session) return null
 
   const user = session.user
 
