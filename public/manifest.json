@@ -1,7 +1,7 @@
 {
   "name": "Peckham Coatings",
   "short_name": "Peckham",
-  "start_url": "/",
+  "start_url": "/jobs",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

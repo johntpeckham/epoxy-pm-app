@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  console.log('MIDDLEWARE HIT:', request.nextUrl.pathname)
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -38,7 +40,11 @@ export async function middleware(request: NextRequest) {
   // Refresh the session if cookies are present.  Do NOT redirect to /login
   // here — the client-side AuthProvider handles auth redirects.  This lets
   // iOS PWAs recover sessions from localStorage even when cookies are gone.
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    console.log('MIDDLEWARE: no session, passing through for', request.nextUrl.pathname)
+  }
 
   return supabaseResponse
 }
