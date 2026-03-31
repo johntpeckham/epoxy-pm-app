@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -47,7 +47,7 @@ function formatReceiptDate(dateStr: string) {
   })
 }
 
-export default function ReceiptCard({ receipt, role }: ReceiptCardProps) {
+export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
   const router = useRouter()
   const supabase = createClient()
   const { settings: companySettings } = useCompanySettings()
@@ -331,4 +331,4 @@ export default function ReceiptCard({ receipt, role }: ReceiptCardProps) {
       )}
     </>
   )
-}
+})

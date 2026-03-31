@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   PlusIcon,
@@ -60,7 +60,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     }
   }, [])
 
-  async function selectProject(project: Project) {
+  const selectProject = useCallback(async (project: Project) => {
     setSelectedProject(project)
     setMobileView('feed')
     setFeedLoading(true)
@@ -92,7 +92,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     })
     setFeedPosts(enriched)
     setFeedLoading(false)
-  }
+  }, [])
 
   async function handleDeleteProject() {
     if (!projectToDelete) return
@@ -127,7 +127,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
   }
 
   // Filter then split into active / completed sections
-  const filtered = projects.filter((p) => {
+  const filtered = useMemo(() => projects.filter((p) => {
     const q = search.toLowerCase()
     return (
       !q ||
@@ -135,11 +135,11 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
       p.client_name.toLowerCase().includes(q) ||
       p.address.toLowerCase().includes(q)
     )
-  })
+  }), [projects, search])
 
-  const activeProjects = filtered.filter((p) => p.status === 'Active')
-  const completedProjects = [...filtered.filter((p) => p.status === 'Complete')]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const activeProjects = useMemo(() => filtered.filter((p) => p.status === 'Active'), [filtered])
+  const completedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Complete')]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered])
 
 
   return (

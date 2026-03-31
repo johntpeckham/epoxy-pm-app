@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -39,7 +39,7 @@ function formatCompactDate(dateStr: string) {
   })
 }
 
-export default function TimecardCard({ timecard }: TimecardCardProps) {
+export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
   const router = useRouter()
   const { settings: companySettings } = useCompanySettings()
   const [expanded, setExpanded] = useState(false)
@@ -256,4 +256,4 @@ export default function TimecardCard({ timecard }: TimecardCardProps) {
       )}
     </>
   )
-}
+})

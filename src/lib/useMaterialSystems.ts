@@ -36,23 +36,13 @@ export function useMaterialSystems() {
     const supabase = createClient()
     const { data: systemsData } = await supabase
       .from('material_systems')
-      .select('*')
+      .select('*, material_system_items(*)')
       .order('name')
-    const { data: itemsData } = await supabase
-      .from('material_system_items')
-      .select('*')
-      .order('sort_order')
 
-    const itemsBySystem = new Map<string, MaterialSystemItem[]>()
-    for (const item of (itemsData ?? []) as MaterialSystemItem[]) {
-      const arr = itemsBySystem.get(item.material_system_id) ?? []
-      arr.push(item)
-      itemsBySystem.set(item.material_system_id, arr)
-    }
-
-    const result: MaterialSystem[] = ((systemsData ?? []) as Omit<MaterialSystem, 'items'>[]).map((s) => ({
+    const result: MaterialSystem[] = ((systemsData ?? []) as (Omit<MaterialSystem, 'items'> & { material_system_items: MaterialSystemItem[] })[]).map((s) => ({
       ...s,
-      items: itemsBySystem.get(s.id) ?? [],
+      items: (s.material_system_items ?? []).sort((a, b) => a.sort_order - b.sort_order),
+      material_system_items: undefined,
     }))
 
     setSystems(result)

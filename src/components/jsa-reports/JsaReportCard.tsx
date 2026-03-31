@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -41,7 +41,7 @@ function formatReportDate(dateStr: string) {
   })
 }
 
-export default function JsaReportCard({ report }: JsaReportCardProps) {
+export default memo(function JsaReportCard({ report }: JsaReportCardProps) {
   const router = useRouter()
   const supabase = createClient()
   const { settings: companySettings } = useCompanySettings()
@@ -340,4 +340,4 @@ export default function JsaReportCard({ report }: JsaReportCardProps) {
       )}
     </>
   )
-}
+})
