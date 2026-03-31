@@ -55,7 +55,7 @@ export default function PhotoLightbox({ photos, currentIndex, onClose, onNavigat
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>

@@ -699,7 +699,7 @@ export default function TasksPageClient({
               <h2 className="text-lg font-semibold text-gray-900">New Task</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -925,7 +925,7 @@ export default function TasksPageClient({
               <h2 className="text-lg font-semibold text-gray-900">Image Preview</h2>
               <button
                 onClick={() => setPreviewImage(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>

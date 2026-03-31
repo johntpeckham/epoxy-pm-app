@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import Portal from '@/components/ui/Portal'
 import type { EstimateSettings } from './types'
 
 interface SettingsModalProps {
@@ -55,15 +56,16 @@ export default function SettingsModal({ settings, userId, onSave, onClose }: Set
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+    <Portal>
+    <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
+      <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-md h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
           <h3 className="text-base font-bold text-gray-900">Estimate Settings</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition">
             <XIcon className="w-5 h-5" />
           </button>
         </div>
-        <div className="px-5 py-4 space-y-3 overflow-y-auto flex-1">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {/* Company Logo */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Company Logo</label>
@@ -103,6 +105,7 @@ export default function SettingsModal({ settings, userId, onSave, onClose }: Set
             <label className="block text-xs font-medium text-gray-600 mb-1">Next Estimate Number</label>
             <input
               type="number"
+              inputMode="numeric"
               value={nextNumber}
               onChange={(e) => setNextNumber(Number(e.target.value))}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
@@ -147,29 +150,30 @@ export default function SettingsModal({ settings, userId, onSave, onClose }: Set
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
             <input
-              type="text"
+              type="tel"
               value={companyPhone}
               onChange={(e) => setCompanyPhone(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
           </div>
         </div>
-        <div className="flex justify-end gap-2 px-5 py-4 pb-6 border-t border-gray-200">
+        <div className="flex-none flex justify-end gap-2 px-5 py-4 border-t border-gray-200" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"
+            className="px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
     </div>
+    </Portal>
   )
 }

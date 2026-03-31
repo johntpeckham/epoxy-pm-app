@@ -109,18 +109,18 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
             <span
               role="button"
               onClick={() => setShowEditModal(true)}
-              className="p-0.5 md:p-1 text-gray-400 hover:text-blue-600 rounded transition"
+              className="p-2 md:p-1 text-gray-400 hover:text-blue-600 rounded transition"
               title="Edit"
             >
-              <PencilIcon className="w-3 h-3 md:w-3.5 md:h-3.5" />
+              <PencilIcon className="w-4 h-4 md:w-3.5 md:h-3.5" />
             </span>
             <span
               role="button"
               onClick={() => setShowDeleteConfirm(true)}
-              className="p-0.5 md:p-1 text-gray-400 hover:text-red-600 rounded transition"
+              className="p-2 md:p-1 text-gray-400 hover:text-red-600 rounded transition"
               title="Delete"
             >
-              <Trash2Icon className="w-3 h-3 md:w-3.5 md:h-3.5" />
+              <Trash2Icon className="w-4 h-4 md:w-3.5 md:h-3.5" />
             </span>
           </span>
 

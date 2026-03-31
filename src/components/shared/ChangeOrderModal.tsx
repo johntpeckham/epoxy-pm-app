@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PlusIcon, XIcon } from 'lucide-react'
+import Portal from '@/components/ui/Portal'
 import type { LineItem } from '../estimates/types'
 
 interface ChangeOrderModalProps {
@@ -51,18 +52,19 @@ export default function ChangeOrderModal({ onSave, onClose, saving }: ChangeOrde
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+    <Portal>
+    <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
+      <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
           <h3 className="text-base font-bold text-gray-900">New Change Order</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition">
             <XIcon className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">
           {/* Description */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Description</label>
@@ -103,18 +105,20 @@ export default function ChangeOrderModal({ onSave, onClose, saving }: ChangeOrde
                     <td className="py-2">
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={item.ft ?? ''}
                         onChange={(e) => updateLineItem(item.id, { ft: e.target.value ? Number(e.target.value) : null })}
-                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
+                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
                         placeholder="0"
                       />
                     </td>
                     <td className="py-2">
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={item.rate ?? ''}
                         onChange={(e) => updateLineItem(item.id, { rate: e.target.value ? Number(e.target.value) : null })}
-                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
+                        className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
                         placeholder="0.00"
                       />
                     </td>
@@ -161,10 +165,10 @@ export default function ChangeOrderModal({ onSave, onClose, saving }: ChangeOrde
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 pb-6 border-t border-gray-200 flex justify-end gap-2">
+        <div className="flex-none px-4 md:px-6 py-4 border-t border-gray-200 flex justify-end gap-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"
+            className="px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"
             disabled={saving}
           >
             Cancel
@@ -172,12 +176,13 @@ export default function ChangeOrderModal({ onSave, onClose, saving }: ChangeOrde
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving...' : 'Save Change Order'}
           </button>
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
