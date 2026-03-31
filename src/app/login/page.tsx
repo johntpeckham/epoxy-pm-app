@@ -1,17 +1,68 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+
+const STORAGE_KEY = 'peckham-auth-backup'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
   const router = useRouter()
   const supabase = createClient()
+
+  // On mount, check if the user already has a valid session — either in
+  // cookies or in the localStorage backup.  iOS PWAs can lose cookies on
+  // hard-refresh / reopen, which causes the server to route here before
+  // the client-side AuthProvider (which only wraps dashboard routes) ever
+  // gets a chance to recover.  This catch-all ensures that even if the
+  // user lands on /login incorrectly, we recover and redirect to /jobs.
+  useEffect(() => {
+    let cancelled = false
+
+    async function tryAutoLogin() {
+      // 1. Check cookie-based session
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.replace('/jobs')
+        return
+      }
+
+      // 2. Try localStorage backup (iOS PWA recovery path)
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (raw) {
+          const { access_token, refresh_token } = JSON.parse(raw)
+          if (access_token && refresh_token) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token,
+              refresh_token,
+            })
+            if (data.session && !error) {
+              router.replace('/jobs')
+              return
+            }
+          }
+          // Tokens were stale — clean up
+          localStorage.removeItem(STORAGE_KEY)
+        }
+      } catch {
+        localStorage.removeItem(STORAGE_KEY)
+      }
+
+      // 3. No valid session — show the login form
+      if (!cancelled) setCheckingSession(false)
+    }
+
+    tryAutoLogin()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -30,6 +81,17 @@ export default function LoginPage() {
       router.push('/jobs')
       router.refresh()
     }
+  }
+
+  // Show a brief loading state while checking for an existing session.
+  // This prevents a flash of the login form when the user is actually
+  // logged in (common on iOS PWA reopen).
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
   return (
