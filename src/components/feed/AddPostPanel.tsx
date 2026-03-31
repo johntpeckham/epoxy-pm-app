@@ -24,6 +24,7 @@ import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
 import JsaSignatureSection from '@/components/jsa-reports/JsaSignatureSection'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 
 type Mode = 'text' | 'photo' | 'daily_report' | 'task' | 'pdf' | 'jsa_report' | 'receipt' | 'expense' | 'timecard'
@@ -166,6 +167,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [tcEntries, setTcEntries] = useState<TimecardEntry[]>([])
   const [tcShowCustomInput, setTcShowCustomInput] = useState(false)
   const [tcCustomName, setTcCustomName] = useState('')
+  const [tcSyncTimes, setTcSyncTimes] = useState(false)
+  const [tcShowUnsyncConfirm, setTcShowUnsyncConfirm] = useState(false)
 
   const LUNCH_OPTIONS = [0, 15, 30, 45, 60]
 
@@ -181,11 +184,20 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     return Math.round(tcEntries.reduce((s, e) => s + e.total_hours, 0) * 100) / 100
   }
 
+  function tcGetDefaultTimes(): Pick<TimecardEntry, 'time_in' | 'time_out' | 'lunch_minutes' | 'total_hours'> {
+    if (tcSyncTimes && tcEntries.length > 0) {
+      const first = tcEntries[0]
+      return { time_in: first.time_in, time_out: first.time_out, lunch_minutes: first.lunch_minutes, total_hours: first.total_hours }
+    }
+    return { time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }
+  }
+
   function tcToggleEmployee(name: string) {
     setTcEntries((prev) => {
       const exists = prev.some((e) => e.employee_name === name)
       if (exists) return prev.filter((e) => e.employee_name !== name)
-      return [...prev, { employee_name: name, time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }]
+      const defaults = tcGetDefaultTimes()
+      return [...prev, { employee_name: name, ...defaults }]
     })
   }
 
@@ -193,21 +205,49 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     const name = tcCustomName.trim()
     if (!name) return
     if (!tcEntries.some((e) => e.employee_name === name)) {
-      setTcEntries((prev) => [...prev, { employee_name: name, time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }])
+      const defaults = tcGetDefaultTimes()
+      setTcEntries((prev) => [...prev, { employee_name: name, ...defaults }])
     }
     setTcCustomName('')
     setTcShowCustomInput(false)
   }
 
   function tcUpdateEntry(idx: number, field: keyof TimecardEntry, value: string | number) {
+    const isTimeField = field === 'time_in' || field === 'time_out' || field === 'lunch_minutes'
     setTcEntries((prev) =>
       prev.map((e, i) => {
+        if (!tcSyncTimes && i !== idx) return e
+        if (tcSyncTimes && isTimeField) {
+          const updated = { ...e, [field]: value }
+          updated.total_hours = calcHours(updated.time_in, updated.time_out, updated.lunch_minutes)
+          return updated
+        }
         if (i !== idx) return e
         const updated = { ...e, [field]: value }
         updated.total_hours = calcHours(updated.time_in, updated.time_out, updated.lunch_minutes)
         return updated
       })
     )
+  }
+
+  function tcHandleSyncToggle(checked: boolean) {
+    if (checked) {
+      if (tcEntries.length > 1) {
+        const first = tcEntries[0]
+        setTcEntries((prev) =>
+          prev.map((e) => ({
+            ...e,
+            time_in: first.time_in,
+            time_out: first.time_out,
+            lunch_minutes: first.lunch_minutes,
+            total_hours: calcHours(first.time_in, first.time_out, first.lunch_minutes),
+          }))
+        )
+      }
+      setTcSyncTimes(true)
+    } else {
+      setTcShowUnsyncConfirm(true)
+    }
   }
 
   function tcRemoveEntry(idx: number) {
@@ -724,6 +764,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   }
 
   return (
+    <>
     <div className="flex-none bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] safe-bottom">
 
       {/* Error toast */}
@@ -1340,7 +1381,20 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
           {/* Employee pill selector */}
           <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Employees</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Employees</p>
+              {tcEntries.length >= 2 && (
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={tcSyncTimes}
+                    onChange={(e) => tcHandleSyncToggle(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                  />
+                  <span className="text-[11px] font-medium text-gray-500">Sync All Times</span>
+                </label>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2 mb-3">
               {employeeProfiles.map((emp) => {
                 const isSelected = tcEntries.some((e) => e.employee_name === emp.name)
@@ -2012,5 +2066,15 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         </button>
       </div>
     </div>
+    {tcShowUnsyncConfirm && (
+      <ConfirmDialog
+        title="Turn Off Sync?"
+        message="Times will no longer be synced. Each employee will keep their current times but can be edited independently."
+        confirmLabel="Turn Off"
+        onConfirm={() => { setTcSyncTimes(false); setTcShowUnsyncConfirm(false) }}
+        onCancel={() => setTcShowUnsyncConfirm(false)}
+      />
+    )}
+    </>
   )
 }

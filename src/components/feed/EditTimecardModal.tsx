@@ -7,6 +7,7 @@ import { TimecardContent, TimecardEntry, EmployeeProfile, FormField } from '@/ty
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import DynamicFormField from '@/components/ui/DynamicFormField'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import Portal from '@/components/ui/Portal'
 
 interface EditTimecardModalProps {
@@ -68,6 +69,8 @@ export default function EditTimecardModal({
 
   const [employees, setEmployees] = useState<EmployeeProfile[]>([])
   const [employeesLoaded, setEmployeesLoaded] = useState(false)
+  const [syncTimes, setSyncTimes] = useState(false)
+  const [showUnsyncConfirm, setShowUnsyncConfirm] = useState(false)
 
   function updateValue(key: string, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }))
@@ -88,8 +91,15 @@ export default function EditTimecardModal({
   }, [employeesLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateEntry(idx: number, field: keyof TimecardEntry, value: string | number) {
+    const isTimeField = field === 'time_in' || field === 'time_out' || field === 'lunch_minutes'
     setEntries((prev) =>
       prev.map((e, i) => {
+        if (!syncTimes && i !== idx) return e
+        if (syncTimes && isTimeField) {
+          const updated = { ...e, [field]: value }
+          updated.total_hours = calcHours(updated.time_in, updated.time_out, updated.lunch_minutes)
+          return updated
+        }
         if (i !== idx) return e
         const updated = { ...e, [field]: value }
         updated.total_hours = calcHours(updated.time_in, updated.time_out, updated.lunch_minutes)
@@ -103,10 +113,33 @@ export default function EditTimecardModal({
   }
 
   function addEntry() {
+    const defaults = syncTimes && entries.length > 0
+      ? { time_in: entries[0].time_in, time_out: entries[0].time_out, lunch_minutes: entries[0].lunch_minutes, total_hours: entries[0].total_hours }
+      : { time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }
     setEntries((prev) => [
       ...prev,
-      { employee_name: '', time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 },
+      { employee_name: '', ...defaults },
     ])
+  }
+
+  function handleSyncToggle(checked: boolean) {
+    if (checked) {
+      if (entries.length > 1) {
+        const first = entries[0]
+        setEntries((prev) =>
+          prev.map((e) => ({
+            ...e,
+            time_in: first.time_in,
+            time_out: first.time_out,
+            lunch_minutes: first.lunch_minutes,
+            total_hours: calcHours(first.time_in, first.time_out, first.lunch_minutes),
+          }))
+        )
+      }
+      setSyncTimes(true)
+    } else {
+      setShowUnsyncConfirm(true)
+    }
   }
 
   const grandTotal = entries.reduce((s, e) => s + e.total_hours, 0)
@@ -159,14 +192,27 @@ export default function EditTimecardModal({
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Employees</p>
-            <button
-              type="button"
-              onClick={addEntry}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition"
-            >
-              <PlusIcon className="w-3 h-3" />
-              Add Row
-            </button>
+            <div className="flex items-center gap-3">
+              {entries.length >= 2 && (
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={syncTimes}
+                    onChange={(e) => handleSyncToggle(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                  />
+                  <span className="text-[11px] font-medium text-gray-500">Sync All Times</span>
+                </label>
+              )}
+              <button
+                type="button"
+                onClick={addEntry}
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition"
+              >
+                <PlusIcon className="w-3 h-3" />
+                Add Row
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             {entries.map((entry, idx) => (
@@ -271,6 +317,7 @@ export default function EditTimecardModal({
   }
 
   return (
+    <>
     <Portal>
     <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
       <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -320,5 +367,15 @@ export default function EditTimecardModal({
       </div>
     </div>
     </Portal>
+    {showUnsyncConfirm && (
+      <ConfirmDialog
+        title="Turn Off Sync?"
+        message="Times will no longer be synced. Each employee will keep their current times but can be edited independently."
+        confirmLabel="Turn Off"
+        onConfirm={() => { setSyncTimes(false); setShowUnsyncConfirm(false) }}
+        onCancel={() => setShowUnsyncConfirm(false)}
+      />
+    )}
+    </>
   )
 }
