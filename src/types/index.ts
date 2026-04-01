@@ -312,6 +312,7 @@ export interface PostComment {
 export interface CalendarEvent {
   id: string
   created_by: string
+  project_id: string | null
   project_name: string
   start_date: string
   end_date: string
