@@ -61,10 +61,9 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([])
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false)
+  const [showNewDropdown, setShowNewDropdown] = useState(false)
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
-  const [addingItem, setAddingItem] = useState(false)
-  const [newItemName, setNewItemName] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const saveTimers = useRef<Map<string, NodeJS.Timeout>>(new Map())
@@ -170,24 +169,20 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
 
   // ── Add manual item ──────────────────────────────────────────────
   const addManualItem = async () => {
-    if (!newItemName.trim()) return
-    setAddingItem(true)
     const maxSort = items.length > 0 ? Math.max(...items.map((i) => i.sort_order)) + 1 : 0
     const supabase = createClient()
     const { error } = await supabase.from('project_checklist_items').insert({
       project_id: project.id,
-      name: newItemName.trim(),
+      name: 'New item',
       sort_order: maxSort,
-      group_name: 'Custom',
+      group_name: 'Project Checklist',
     })
     if (error) {
       console.error('[Checklist] Add item failed:', error)
       showError('Failed to add item: ' + error.message)
     } else {
-      setNewItemName('')
       fetchItems()
     }
-    setAddingItem(false)
   }
 
   // ── Apply template ───────────────────────────────────────────────
@@ -242,7 +237,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
 
   // ── Group items ──────────────────────────────────────────────────
   const grouped = items.reduce<{ group: string; items: ProjectChecklistItem[] }[]>((acc, item) => {
-    const group = item.group_name || 'Custom'
+    const group = (!item.group_name || item.group_name === 'Custom') ? 'Project Checklist' : item.group_name
     const existing = acc.find((g) => g.group === group)
     if (existing) existing.items.push(item)
     else acc.push({ group, items: [item] })
@@ -273,13 +268,41 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
       actions={
         <div className="relative">
           <button
-            onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
+            onClick={() => { setShowNewDropdown(!showNewDropdown); setShowTemplateDropdown(false) }}
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
           >
             <PlusIcon className="w-3.5 h-3.5" />
-            Apply Template
+            New
             <ChevronDownIcon className="w-3.5 h-3.5" />
           </button>
+          {showNewDropdown && !showTemplateDropdown && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowNewDropdown(false)} />
+              <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1">
+                <button
+                  onClick={() => { setShowNewDropdown(false); addManualItem() }}
+                  className="w-full text-left px-4 py-3 hover:bg-amber-50 transition flex items-center gap-2.5"
+                >
+                  <PlusIcon className="w-4 h-4 text-gray-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Add Checklist Item</p>
+                    <p className="text-xs text-gray-400">Add a blank item to edit</p>
+                  </div>
+                </button>
+                <div className="border-t border-gray-100" />
+                <button
+                  onClick={() => { setShowNewDropdown(false); setShowTemplateDropdown(true) }}
+                  className="w-full text-left px-4 py-3 hover:bg-amber-50 transition flex items-center gap-2.5"
+                >
+                  <ClipboardCheckIcon className="w-4 h-4 text-gray-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Apply Template</p>
+                    <p className="text-xs text-gray-400">Add items from a template</p>
+                  </div>
+                </button>
+              </div>
+            </>
+          )}
           {showTemplateDropdown && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowTemplateDropdown(false)} />
@@ -324,22 +347,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
           <div className="text-center py-20">
             <ClipboardCheckIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-gray-500 font-medium">No checklist items yet</p>
-            <p className="text-xs text-gray-400 mt-1 mb-4">Apply a template or add items manually.</p>
-            <div className="flex items-center justify-center gap-2">
-              <button
-                onClick={() => setShowTemplateDropdown(true)}
-                className="text-sm text-amber-600 hover:text-amber-700 font-medium"
-              >
-                Apply Template
-              </button>
-              <span className="text-gray-300">or</span>
-              <button
-                onClick={() => { setNewItemName(''); setAddingItem(false); document.getElementById('add-item-input')?.focus() }}
-                className="text-sm text-amber-600 hover:text-amber-700 font-medium"
-              >
-                Add Item
-              </button>
-            </div>
+            <p className="text-xs text-gray-400 mt-1 mb-4">Use the <span className="font-semibold">+ New</span> button above to add items or apply a template.</p>
           </div>
         ) : (
           <>
@@ -400,25 +408,6 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
           </>
         )}
 
-        {/* Add manual item */}
-        <div className="mt-4 flex items-center gap-2">
-          <input
-            id="add-item-input"
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') addManualItem() }}
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-            placeholder="Add a checklist item..."
-          />
-          <button
-            onClick={addManualItem}
-            disabled={!newItemName.trim() || addingItem}
-            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm disabled:opacity-50"
-          >
-            <PlusIcon className="w-3.5 h-3.5" />
-            Add
-          </button>
-        </div>
       </div>
     </WorkspaceShell>
   )
