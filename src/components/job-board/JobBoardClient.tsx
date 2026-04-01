@@ -39,6 +39,7 @@ import PlansWorkspace from './workspaces/PlansWorkspace'
 import FeedPostListWorkspace from './workspaces/FeedPostListWorkspace'
 import EstimatingWorkspace from './workspaces/EstimatingWorkspace'
 import PlaceholderWorkspace from './workspaces/PlaceholderWorkspace'
+import ChecklistWorkspace from './workspaces/ChecklistWorkspace'
 
 type WorkspaceType =
   | 'job_info' | 'checklist' | 'plans' | 'tasks'
@@ -60,6 +61,8 @@ interface DashboardCounts {
   photos: number
   jsaReports: number
   plans: number
+  checklistTotal: number
+  checklistCompleted: number
 }
 
 interface DashboardPreviews {
@@ -125,7 +128,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     const supabase = createClient()
 
     // Counts (parallel)
-    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount] = await Promise.all([
+    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount] = await Promise.all([
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'daily_report'),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'timecard'),
@@ -133,6 +136,8 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'photo'),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'jsa_report'),
       supabase.from('project_documents').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('category', 'plan'),
+      supabase.from('project_checklist_items').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
+      supabase.from('project_checklist_items').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('is_completed', true),
     ])
 
     setCounts({
@@ -143,6 +148,8 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       photos: photosCount.count ?? 0,
       jsaReports: jsaReportsCount.count ?? 0,
       plans: plansCount.count ?? 0,
+      checklistTotal: checklistTotalCount.count ?? 0,
+      checklistCompleted: checklistCompletedCount.count ?? 0,
     })
 
     // Preview data (parallel)
@@ -367,10 +374,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
         )
       case 'checklist':
         return (
-          <PlaceholderWorkspace
-            title="Checklist"
-            icon={<ClipboardCheckIcon className="w-5 h-5" />}
-            message="Checklist coming soon"
+          <ChecklistWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
             onBack={backToDashboard}
           />
         )
@@ -610,7 +617,18 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       icon={<ClipboardCheckIcon className="w-5 h-5" />}
                       title="Checklist"
                       onClick={() => openWorkspace('checklist')}
-                      content={<p className="text-xs text-gray-400">No checklist items yet</p>}
+                      content={
+                        counts && counts.checklistTotal > 0 ? (
+                          <div className="space-y-1.5">
+                            <p className="text-xs text-gray-500">{counts.checklistCompleted} of {counts.checklistTotal} complete</p>
+                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${Math.round((counts.checklistCompleted / counts.checklistTotal) * 100)}%` }} />
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400">No checklist items — click to set up</p>
+                        )
+                      }
                     />
 
                     {/* 3. Plans */}
