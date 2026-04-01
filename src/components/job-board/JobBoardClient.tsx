@@ -43,12 +43,13 @@ import PlaceholderWorkspace from './workspaces/PlaceholderWorkspace'
 import ChecklistWorkspace from './workspaces/ChecklistWorkspace'
 import MaterialOrdersWorkspace from './workspaces/MaterialOrdersWorkspace'
 import SchedulingWorkspace from './workspaces/SchedulingWorkspace'
+import ReportWorkspace from './workspaces/ReportWorkspace'
 
 type WorkspaceType =
   | 'job_info' | 'checklist' | 'plans' | 'tasks'
   | 'daily_reports' | 'timecards' | 'expenses' | 'photos'
   | 'jsa_reports' | 'estimating' | 'material_orders'
-  | 'scheduling' | 'billing'
+  | 'scheduling' | 'billing' | 'report'
   | null
 
 interface JobBoardClientProps {
@@ -71,6 +72,7 @@ interface DashboardCounts {
   materialOrdersDelivered: number
   materialOrdersBackordered: number
   schedulingEvents: number
+  hasReport: boolean
 }
 
 interface DashboardPreviews {
@@ -141,7 +143,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     const supabase = createClient()
 
     // Counts (parallel)
-    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered, schedulingEventsCount] = await Promise.all([
+    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered, schedulingEventsCount, reportCheck] = await Promise.all([
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'daily_report'),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'timecard'),
@@ -156,6 +158,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Delivered'),
       supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Backordered'),
       supabase.from('calendar_events').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
+      supabase.from('project_reports').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
     ])
 
     setCounts({
@@ -173,6 +176,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       materialOrdersDelivered: moDelivered.count ?? 0,
       materialOrdersBackordered: moBackordered.count ?? 0,
       schedulingEvents: schedulingEventsCount.count ?? 0,
+      hasReport: (reportCheck.count ?? 0) > 0,
     })
 
     // Preview data (parallel)
@@ -428,6 +432,16 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
             emptyMessage="No JSA reports for this project yet"
           />
         )
+      case 'report':
+        return (
+          <ReportWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            userRole={role ?? undefined}
+            onBack={backToDashboard}
+          />
+        )
       case 'estimating':
         return (
           <EstimatingWorkspace
@@ -657,10 +671,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
 
-                    {/* 1. Job Info / Settings */}
+                    {/* 1. Job Info */}
                     <DashboardCard
                       icon={<SettingsIcon className="w-5 h-5" />}
-                      title="Job Info / Settings"
+                      title="Job Info"
                       onClick={() => openWorkspace('job_info')}
                       content={
                         <div className="space-y-1">
@@ -757,7 +771,21 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       }
                     />
 
-                    {/* 6. Timecards */}
+                    {/* 6. Report */}
+                    <DashboardCard
+                      icon={<ClipboardListIcon className="w-5 h-5" />}
+                      title="Report"
+                      onClick={() => openWorkspace('report')}
+                      content={
+                        counts?.hasReport ? (
+                          <p className="text-xs text-green-600">Report created</p>
+                        ) : (
+                          <p className="text-xs text-gray-400">No report yet</p>
+                        )
+                      }
+                    />
+
+                    {/* 7. Timecards */}
                     <DashboardCard
                       icon={<ClockIcon className="w-5 h-5" />}
                       title="Timecards"

@@ -18,7 +18,7 @@ function formatDate(d: string | null | undefined) {
 export default function JobInfoWorkspace({ project, onBack, onEdit }: JobInfoWorkspaceProps) {
   return (
     <WorkspaceShell
-      title="Job Info / Settings"
+      title="Job Info"
       icon={<SettingsIcon className="w-5 h-5" />}
       onBack={onBack}
       actions={
