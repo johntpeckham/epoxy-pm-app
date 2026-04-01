@@ -16,7 +16,7 @@ interface ReportWorkspaceProps {
 export default function ReportWorkspace({ project, userId, userRole, onBack }: ReportWorkspaceProps) {
   return (
     <WorkspaceShell
-      title="Report"
+      title="Job Report"
       icon={<ClipboardListIcon className="w-5 h-5" />}
       onBack={onBack}
     >
