@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -21,6 +21,7 @@ interface SidebarProps {
 export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { settings: companySettings } = useCompanySettings()
   const { role } = useUserRole()
@@ -34,6 +35,11 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
   const isJobBoardActive = pathname === '/job-board'
   const isJobsActive = pathname === '/jobs' || pathname.startsWith('/projects')
+
+  // Carry the selected project param between Job Board and Job Feed
+  const currentProjectId = (isJobBoardActive || isJobsActive) ? searchParams.get('project') : null
+  const jobBoardHref = currentProjectId ? `/job-board?project=${currentProjectId}` : '/job-board'
+  const jobFeedHref = currentProjectId ? `/jobs?project=${currentProjectId}` : '/jobs'
   const isReportsActive = pathname === '/daily-reports'
   const isJsaReportsActive = pathname === '/jsa-reports'
   const isPhotosActive = pathname === '/photos'
@@ -86,7 +92,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
       <nav className="flex-1 px-3 py-4 space-y-1">
         {canView('job_board') && (
           <Link
-            href="/job-board"
+            href={jobBoardHref}
             onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isJobBoardActive
@@ -100,7 +106,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         )}
         {canView('jobs') && (
           <Link
-            href="/jobs"
+            href={jobFeedHref}
             onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isJobsActive

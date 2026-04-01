@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import JobsLayoutClient from '@/components/jobs/JobsLayoutClient'
 import { Project } from '@/types'
@@ -17,9 +18,11 @@ export default async function JobsPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <JobsLayoutClient
-      initialProjects={(projects as Project[]) ?? []}
-      userId={user.id}
-    />
+    <Suspense>
+      <JobsLayoutClient
+        initialProjects={(projects as Project[]) ?? []}
+        userId={user.id}
+      />
+    </Suspense>
   )
 }

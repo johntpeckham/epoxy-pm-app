@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   PlusIcon,
@@ -82,6 +83,8 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; bg: string; text: strin
 }
 
 export default function JobBoardClient({ initialProjects, userId }: JobBoardClientProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { role } = useUserRole()
   const { canCreate } = usePermissions(role)
   const { pinnedProjectIds, isPinned, togglePin } = useProjectPins(userId)
@@ -106,6 +109,9 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
 
   // Workspace state
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceType>(null)
+
+  // Track whether we've done the initial URL restore
+  const initializedFromUrl = useRef(false)
 
   const fetchProjects = useCallback(async () => {
     const supabase = createClient()
@@ -190,6 +196,46 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
 
     setCountsLoading(false)
   }, [])
+
+  // ── URL ↔ State sync ────────────────────────────────────────────────
+  // Helper to build URL with params
+  const buildUrl = useCallback((projectId: string | null, workspace: WorkspaceType) => {
+    const params = new URLSearchParams()
+    if (projectId) params.set('project', projectId)
+    if (workspace) params.set('workspace', workspace)
+    const qs = params.toString()
+    return qs ? `/job-board?${qs}` : '/job-board'
+  }, [])
+
+  // Restore state from URL on initial mount
+  useEffect(() => {
+    if (initializedFromUrl.current) return
+    initializedFromUrl.current = true
+
+    const projectId = searchParams.get('project')
+    const workspace = searchParams.get('workspace') as WorkspaceType
+
+    if (projectId) {
+      const project = initialProjects.find((p) => p.id === projectId)
+      if (project) {
+        setSelectedProject(project)
+        setMobileView('dashboard')
+        if (workspace) setActiveWorkspace(workspace)
+        fetchDashboardData(project.id)
+      }
+    }
+  }, [searchParams, initialProjects, fetchDashboardData])
+
+  // Update URL when selection changes (skip the initial restore)
+  const prevUrlRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!initializedFromUrl.current) return
+    const newUrl = buildUrl(selectedProject?.id ?? null, activeWorkspace)
+    if (prevUrlRef.current !== null && prevUrlRef.current !== newUrl) {
+      router.push(newUrl)
+    }
+    prevUrlRef.current = newUrl
+  }, [selectedProject?.id, activeWorkspace, buildUrl, router])
 
   const selectProject = useCallback((project: Project) => {
     setSelectedProject(project)
