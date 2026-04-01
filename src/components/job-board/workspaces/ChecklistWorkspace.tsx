@@ -28,12 +28,13 @@ interface ProjectChecklistItem {
   template_id: string | null
   template_item_id: string | null
   name: string
-  is_completed: boolean
+  is_complete: boolean
   assigned_to: string | null
   due_date: string | null
   notes: string | null
   sort_order: number
   group_name: string | null
+  completed_at: string | null
   created_at: string
   updated_at: string
 }
@@ -65,7 +66,13 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
   const [addingItem, setAddingItem] = useState(false)
   const [newItemName, setNewItemName] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const saveTimers = useRef<Map<string, NodeJS.Timeout>>(new Map())
+
+  const showError = (msg: string) => {
+    setErrorMessage(msg)
+    setTimeout(() => setErrorMessage(null), 5000)
+  }
 
   const fetchItems = useCallback(async () => {
     const supabase = createClient()
@@ -74,7 +81,10 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
       .select('*')
       .eq('project_id', project.id)
       .order('sort_order', { ascending: true })
-    if (error) console.error('[Checklist] Fetch items failed:', error)
+    if (error) {
+      console.error('[Checklist] Fetch items failed:', error)
+      showError('Failed to load checklist items: ' + error.message)
+    }
     setItems((data as ProjectChecklistItem[]) ?? [])
     setLoading(false)
   }, [project.id])
@@ -121,6 +131,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
         setTimeout(() => setSavedIds((prev) => { const next = new Set(prev); next.delete(item.id); return next }), 1500)
       } else {
         console.error('[Checklist] Save failed:', error)
+        showError('Failed to save changes: ' + error.message)
       }
 
       saveTimers.current.delete(item.id)
@@ -135,9 +146,9 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
   }
 
   const toggleComplete = (item: ProjectChecklistItem) => {
-    const newVal = !item.is_completed
-    updateItemLocal(item.id, { is_completed: newVal })
-    debouncedSave(item, { is_completed: newVal })
+    const newVal = !item.is_complete
+    updateItemLocal(item.id, { is_complete: newVal })
+    debouncedSave(item, { is_complete: newVal })
   }
 
   const updateField = (item: ProjectChecklistItem, field: keyof ProjectChecklistItem, value: string | null) => {
@@ -146,9 +157,15 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
   }
 
   const deleteItem = async (id: string) => {
+    const prevItems = items
     setItems((prev) => prev.filter((i) => i.id !== id))
     const supabase = createClient()
-    await supabase.from('project_checklist_items').delete().eq('id', id)
+    const { error } = await supabase.from('project_checklist_items').delete().eq('id', id)
+    if (error) {
+      console.error('[Checklist] Delete failed:', error)
+      showError('Failed to delete item: ' + error.message)
+      setItems(prevItems)
+    }
   }
 
   // ── Add manual item ──────────────────────────────────────────────
@@ -163,7 +180,10 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
       sort_order: maxSort,
       group_name: 'Custom',
     })
-    if (!error) {
+    if (error) {
+      console.error('[Checklist] Add item failed:', error)
+      showError('Failed to add item: ' + error.message)
+    } else {
       setNewItemName('')
       fetchItems()
     }
@@ -212,7 +232,11 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
     })
 
     const { error } = await supabase.from('project_checklist_items').insert(newItems)
-    if (error) console.error('[Checklist] Apply template failed:', error)
+    if (error) {
+      console.error('[Checklist] Apply template failed:', error)
+      showError('Failed to apply template: ' + error.message)
+      return
+    }
     fetchItems()
   }
 
@@ -236,7 +260,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
 
   // ── Completion stats ─────────────────────────────────────────────
   const totalItems = items.length
-  const completedItems = items.filter((i) => i.is_completed).length
+  const completedItems = items.filter((i) => i.is_complete).length
   const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
 
   const today = new Date().toISOString().split('T')[0]
@@ -281,6 +305,17 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
       }
     >
       <div className="p-4">
+        {errorMessage && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircleIcon className="w-4 h-4 flex-shrink-0" />
+              {errorMessage}
+            </div>
+            <button onClick={() => setErrorMessage(null)} className="text-red-400 hover:text-red-600 p-0.5">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -326,7 +361,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
             <div className="space-y-4">
               {grouped.map(({ group, items: groupItems }) => {
                 const isCollapsed = collapsedGroups.has(group)
-                const groupComplete = groupItems.filter((i) => i.is_completed).length
+                const groupComplete = groupItems.filter((i) => i.is_complete).length
                 return (
                   <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     {/* Group header */}
@@ -417,7 +452,7 @@ function ChecklistItemRow({
   const [nameValue, setNameValue] = useState(item.name)
   const nameRef = useRef<HTMLInputElement>(null)
 
-  const isOverdue = item.due_date && !item.is_completed && item.due_date < today
+  const isOverdue = item.due_date && !item.is_complete && item.due_date < today
 
   useEffect(() => {
     setNameValue(item.name)
@@ -433,18 +468,18 @@ function ChecklistItemRow({
   }
 
   return (
-    <div className={`px-4 py-2.5 ${item.is_completed ? 'bg-gray-50/50' : ''}`}>
+    <div className={`px-4 py-2.5 ${item.is_complete ? 'bg-gray-50/50' : ''}`}>
       <div className="flex items-start gap-3">
         {/* Checkbox */}
         <button
           onClick={onToggleComplete}
           className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-            item.is_completed
+            item.is_complete
               ? 'bg-green-500 border-green-500 text-white'
               : 'border-gray-300 hover:border-amber-400'
           }`}
         >
-          {item.is_completed && <CheckIcon className="w-3 h-3" />}
+          {item.is_complete && <CheckIcon className="w-3 h-3" />}
         </button>
 
         {/* Content */}
@@ -463,7 +498,7 @@ function ChecklistItemRow({
           ) : (
             <button
               onClick={() => setEditingName(true)}
-              className={`text-sm text-left w-full ${item.is_completed ? 'text-gray-400 line-through' : 'text-gray-900'} hover:text-amber-700 transition`}
+              className={`text-sm text-left w-full ${item.is_complete ? 'text-gray-400 line-through' : 'text-gray-900'} hover:text-amber-700 transition`}
             >
               {item.name}
             </button>

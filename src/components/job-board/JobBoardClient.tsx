@@ -137,7 +137,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'jsa_report'),
       supabase.from('project_documents').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('category', 'plan'),
       supabase.from('project_checklist_items').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
-      supabase.from('project_checklist_items').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('is_completed', true),
+      supabase.from('project_checklist_items').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('is_complete', true),
     ])
 
     setCounts({
