@@ -62,6 +62,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
       .from('feed_posts')
       .select('*')
       .eq('project_id', project.id)
+      .eq('is_published', true)
       .order('created_at', { ascending: true })
     if (feedError) console.error('[Jobs] Fetch feed posts failed:', feedError)
 
