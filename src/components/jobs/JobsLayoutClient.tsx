@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   SearchIcon,
@@ -18,6 +19,8 @@ interface JobsLayoutClientProps {
 }
 
 export default function JobsLayoutClient({ initialProjects, userId }: JobsLayoutClientProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { pinnedProjectIds, isPinned, togglePin } = useProjectPins(userId)
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
@@ -30,6 +33,9 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
   // Feed
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([])
   const [feedLoading, setFeedLoading] = useState(false)
+
+  // URL sync
+  const initializedFromUrl = useRef(false)
 
   const fetchProjects = useCallback(async () => {
     const supabase = createClient()
@@ -79,6 +85,30 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     setFeedPosts(enriched)
     setFeedLoading(false)
   }, [])
+
+  // ── URL ↔ State sync ────────────────────────────────────────────────
+  // Restore state from URL on initial mount
+  useEffect(() => {
+    if (initializedFromUrl.current) return
+    initializedFromUrl.current = true
+
+    const projectId = searchParams.get('project')
+    if (projectId) {
+      const project = initialProjects.find((p) => p.id === projectId)
+      if (project) selectProject(project)
+    }
+  }, [searchParams, initialProjects, selectProject])
+
+  // Update URL when selected project changes
+  const prevUrlRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!initializedFromUrl.current) return
+    const newUrl = selectedProject ? `/jobs?project=${selectedProject.id}` : '/jobs'
+    if (prevUrlRef.current !== null && prevUrlRef.current !== newUrl) {
+      router.replace(newUrl)
+    }
+    prevUrlRef.current = newUrl
+  }, [selectedProject?.id, router])
 
   // Filter then split into pinned / active / completed sections
   const filtered = useMemo(() => projects.filter((p) => {
