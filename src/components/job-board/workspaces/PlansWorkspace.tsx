@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { FileTextIcon, UploadCloudIcon, DownloadIcon, Trash2Icon, EyeIcon } from 'lucide-react'
+import { FileTextIcon, UploadCloudIcon, DownloadIcon, Trash2Icon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { Project, ProjectDocument } from '@/types'
 import Image from 'next/image'
 import WorkspaceShell from '../WorkspaceShell'
@@ -42,6 +42,17 @@ export default function PlansWorkspace({ project, userId, onBack }: PlansWorkspa
     setDocs((data as ProjectDocument[]) ?? [])
     setLoading(false)
   }, [project.id])
+
+  const togglePublished = useCallback(async (doc: ProjectDocument) => {
+    const newVal = !(doc as ProjectDocument & { is_published?: boolean }).is_published
+    setDocs((prev) => prev.map((d) => d.id === doc.id ? { ...d, is_published: newVal } as ProjectDocument : d))
+    const sb = createClient()
+    const { error } = await sb.from('project_documents').update({ is_published: newVal }).eq('id', doc.id)
+    if (error) {
+      console.error('[PlansWorkspace] Publish toggle failed:', error)
+      fetchDocs()
+    }
+  }, [fetchDocs])
 
   useEffect(() => {
     setLoading(true)
@@ -144,43 +155,56 @@ export default function PlansWorkspace({ project, userId, onBack }: PlansWorkspa
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {docs.map((doc) => (
-              <div key={doc.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden group hover:shadow-sm hover:border-gray-300 transition-all">
-                {/* Thumbnail */}
-                <div className="aspect-[3/4] relative bg-gray-50 cursor-pointer" onClick={() => handlePreview(doc)}>
-                  {isPdf(doc) ? (
-                    <PdfThumbnail url={getPublicUrl(doc.file_path)} onClick={() => handlePreview(doc)} />
-                  ) : isImage(doc) ? (
-                    <Image src={getPublicUrl(doc.file_path)} alt={doc.file_name} fill className="object-contain" />
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <FileTextIcon className="w-10 h-10 text-gray-300" />
+            {docs.map((doc) => {
+              const published = (doc as ProjectDocument & { is_published?: boolean }).is_published !== false
+              return (
+                <div key={doc.id} className={`bg-white rounded-xl border border-gray-200 overflow-hidden group hover:shadow-sm hover:border-gray-300 transition-all ${!published ? 'opacity-60' : ''}`}>
+                  {/* Thumbnail */}
+                  <div className="aspect-[3/4] relative bg-gray-50 cursor-pointer" onClick={() => handlePreview(doc)}>
+                    {isPdf(doc) ? (
+                      <PdfThumbnail url={getPublicUrl(doc.file_path)} onClick={() => handlePreview(doc)} />
+                    ) : isImage(doc) ? (
+                      <Image src={getPublicUrl(doc.file_path)} alt={doc.file_name} fill className="object-contain" />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <FileTextIcon className="w-10 h-10 text-gray-300" />
+                      </div>
+                    )}
+                  </div>
+                  {/* Info */}
+                  <div className="p-2">
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs font-medium text-gray-900 truncate flex-1">{doc.file_name}</p>
+                      {!published && <span className="text-xs text-gray-400 italic flex-shrink-0">Hidden</span>}
                     </div>
-                  )}
-                </div>
-                {/* Info */}
-                <div className="p-2">
-                  <p className="text-xs font-medium text-gray-900 truncate">{doc.file_name}</p>
-                  <p className="text-xs text-gray-400">{formatDate(doc.created_at)}</p>
-                  <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handlePreview(doc)} className="p-1 text-gray-400 hover:text-amber-600 rounded" title="Preview">
-                      <EyeIcon className="w-3.5 h-3.5" />
-                    </button>
-                    <a href={getPublicUrl(doc.file_path)} download={doc.file_name} className="p-1 text-gray-400 hover:text-amber-600 rounded" title="Download">
-                      <DownloadIcon className="w-3.5 h-3.5" />
-                    </a>
-                    <button
-                      onClick={() => handleDelete(doc)}
-                      disabled={deletingId === doc.id}
-                      className="p-1 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
-                      title="Delete"
-                    >
-                      <Trash2Icon className="w-3.5 h-3.5" />
-                    </button>
+                    <p className="text-xs text-gray-400">{formatDate(doc.created_at)}</p>
+                    <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handlePreview(doc)} className="p-1 text-gray-400 hover:text-amber-600 rounded" title="Preview">
+                        <EyeIcon className="w-3.5 h-3.5" />
+                      </button>
+                      <a href={getPublicUrl(doc.file_path)} download={doc.file_name} className="p-1 text-gray-400 hover:text-amber-600 rounded" title="Download">
+                        <DownloadIcon className="w-3.5 h-3.5" />
+                      </a>
+                      <button
+                        onClick={() => togglePublished(doc)}
+                        className={`p-1 rounded transition ${published ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-300 hover:bg-gray-100'}`}
+                        title={published ? 'Published' : 'Hidden from feed'}
+                      >
+                        {published ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeOffIcon className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(doc)}
+                        disabled={deletingId === doc.id}
+                        className="p-1 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
+                        title="Delete"
+                      >
+                        <Trash2Icon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

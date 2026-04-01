@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, PlusIcon, UploadIcon, XIcon } from 'lucide-react'
+import { CameraIcon, PlusIcon, UploadIcon, XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { Project, FeedPost } from '@/types'
 import Image from 'next/image'
 import WorkspaceShell from '../WorkspaceShell'
@@ -14,8 +14,14 @@ interface PhotosWorkspaceProps {
   onBack: () => void
 }
 
+interface PhotoEntry {
+  path: string
+  postId: string
+  isPublished: boolean
+}
+
 export default function PhotosWorkspace({ project, userId, onBack }: PhotosWorkspaceProps) {
-  const [photos, setPhotos] = useState<string[]>([])
+  const [photoEntries, setPhotoEntries] = useState<PhotoEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
@@ -26,22 +32,36 @@ export default function PhotosWorkspace({ project, userId, onBack }: PhotosWorks
     const sb = createClient()
     const { data, error } = await sb
       .from('feed_posts')
-      .select('content')
+      .select('id, content, is_published')
       .eq('project_id', project.id)
       .in('post_type', ['photo', 'daily_report'])
       .order('created_at', { ascending: false })
     if (error) { console.error('[PhotosWorkspace] Fetch failed:', error); setLoading(false); return }
 
-    const allPhotos: string[] = []
+    const entries: PhotoEntry[] = []
     for (const post of data ?? []) {
       const content = post.content as { photos?: string[] }
+      const published = (post as { is_published?: boolean }).is_published !== false
       if (content.photos?.length) {
-        allPhotos.push(...content.photos)
+        for (const path of content.photos) {
+          entries.push({ path, postId: post.id, isPublished: published })
+        }
       }
     }
-    setPhotos(allPhotos)
+    setPhotoEntries(entries)
     setLoading(false)
   }, [project.id])
+
+  const togglePhotoPublished = useCallback(async (postId: string, currentVal: boolean) => {
+    const newVal = !currentVal
+    setPhotoEntries((prev) => prev.map((e) => e.postId === postId ? { ...e, isPublished: newVal } : e))
+    const sb = createClient()
+    const { error } = await sb.from('feed_posts').update({ is_published: newVal }).eq('id', postId)
+    if (error) {
+      console.error('[PhotosWorkspace] Publish toggle failed:', error)
+      fetchPhotos()
+    }
+  }, [fetchPhotos])
 
   useEffect(() => {
     setLoading(true)
@@ -79,6 +99,7 @@ export default function PhotosWorkspace({ project, userId, onBack }: PhotosWorks
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const photos = photoEntries.map((e) => e.path)
   const photoUrls = photos.map(getPhotoUrl)
 
   return (
@@ -124,20 +145,28 @@ export default function PhotosWorkspace({ project, userId, onBack }: PhotosWorks
           <>
             <p className="text-xs text-gray-400 mb-3">{photos.length} photo{photos.length === 1 ? '' : 's'}</p>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-              {photos.map((path, i) => (
-                <button
-                  key={path}
-                  onClick={() => setLightboxIndex(i)}
-                  className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-amber-400 transition group"
-                >
-                  <Image
-                    src={getPhotoUrl(path)}
-                    alt={`Photo ${i + 1}`}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform"
-                    sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 16vw"
-                  />
-                </button>
+              {photoEntries.map((entry, i) => (
+                <div key={`${entry.postId}-${entry.path}`} className="relative group">
+                  <button
+                    onClick={() => setLightboxIndex(i)}
+                    className={`relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-amber-400 transition w-full ${!entry.isPublished ? 'opacity-50' : ''}`}
+                  >
+                    <Image
+                      src={getPhotoUrl(entry.path)}
+                      alt={`Photo ${i + 1}`}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform"
+                      sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 16vw"
+                    />
+                  </button>
+                  <button
+                    onClick={() => togglePhotoPublished(entry.postId, entry.isPublished)}
+                    className={`absolute top-1 right-1 p-1 rounded-full shadow-sm transition opacity-0 group-hover:opacity-100 ${entry.isPublished ? 'bg-white/90 text-amber-500 hover:bg-white' : 'bg-white/90 text-gray-400 hover:bg-white'}`}
+                    title={entry.isPublished ? 'Published' : 'Hidden from feed'}
+                  >
+                    {entry.isPublished ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeOffIcon className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               ))}
             </div>
           </>

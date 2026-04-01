@@ -45,6 +45,7 @@ export default function ProjectFeedClient({
       .from('feed_posts')
       .select('*')
       .eq('project_id', project.id)
+      .eq('is_published', true)
       .order('created_at', { ascending: true })
 
     if (data) {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon } from 'lucide-react'
+import { XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { Project, FeedPost, PostType } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
 import PostCard from '@/components/feed/PostCard'
@@ -95,6 +95,17 @@ export default function FeedPostListWorkspace({
     setLoading(false)
   }, [project.id, postTypes, title])
 
+  const togglePublished = useCallback(async (post: FeedPost) => {
+    const newVal = !(post as FeedPost & { is_published?: boolean }).is_published
+    setPosts((prev) => prev.map((p) => p.id === post.id ? { ...p, is_published: newVal } as FeedPost : p))
+    const supabase = createClient()
+    const { error } = await supabase.from('feed_posts').update({ is_published: newVal }).eq('id', post.id)
+    if (error) {
+      console.error(`[${title}Workspace] Publish toggle failed:`, error)
+      fetchPosts()
+    }
+  }, [fetchPosts, title])
+
   useEffect(() => {
     setLoading(true)
     fetchPosts()
@@ -141,16 +152,35 @@ export default function FeedPostListWorkspace({
         ) : (
           <div className="space-y-2">
             <p className="text-xs text-gray-400 mb-1">{posts.length} item{posts.length === 1 ? '' : 's'}</p>
-            {posts.map((post) => (
-              <button
-                key={post.id}
-                onClick={() => setSelectedPost(post)}
-                className="w-full text-left bg-white rounded-xl border border-gray-200 p-3 hover:shadow-sm hover:border-gray-300 transition-all"
-              >
-                <p className="text-sm font-medium text-gray-900">{getListItemSummary(post)}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{getListItemMeta(post)}</p>
-              </button>
-            ))}
+            {posts.map((post) => {
+              const published = (post as FeedPost & { is_published?: boolean }).is_published !== false
+              return (
+                <div
+                  key={post.id}
+                  className={`bg-white rounded-xl border border-gray-200 p-3 hover:shadow-sm hover:border-gray-300 transition-all ${!published ? 'opacity-60' : ''}`}
+                >
+                  <div className="flex items-start gap-2">
+                    <button
+                      onClick={() => setSelectedPost(post)}
+                      className="flex-1 min-w-0 text-left"
+                    >
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-gray-900">{getListItemSummary(post)}</p>
+                        {!published && <span className="text-xs text-gray-400 italic">Hidden from feed</span>}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{getListItemMeta(post)}</p>
+                    </button>
+                    <button
+                      onClick={() => togglePublished(post)}
+                      className={`p-1.5 rounded transition flex-shrink-0 ${published ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-300 hover:bg-gray-100'}`}
+                      title={published ? 'Published — visible in Job Feed' : 'Hidden — not visible in Job Feed'}
+                    >
+                      {published ? <EyeIcon className="w-4 h-4" /> : <EyeOffIcon className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

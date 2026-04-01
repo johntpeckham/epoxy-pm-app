@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { CheckSquareIcon, PlusIcon, ChevronDownIcon, CameraIcon, XIcon } from 'lucide-react'
+import { CheckSquareIcon, PlusIcon, ChevronDownIcon, CameraIcon, XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { Project, Task, TaskStatus, Profile } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
 import Portal from '@/components/ui/Portal'
@@ -69,6 +69,17 @@ export default function TasksWorkspace({ project, userId, onBack }: TasksWorkspa
     }
   }, [fetchTasks])
 
+  const togglePublished = useCallback(async (task: Task) => {
+    const newVal = !(task as Task & { is_published?: boolean }).is_published
+    setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, is_published: newVal } as Task : t))
+    const supabase = createClient()
+    const { error } = await supabase.from('tasks').update({ is_published: newVal }).eq('id', task.id)
+    if (error) {
+      console.error('[TasksWorkspace] Publish toggle failed:', error)
+      fetchTasks()
+    }
+  }, [fetchTasks])
+
   const profileMap = new Map(profiles.map((p) => [p.id, p]))
 
   const getAssigneeName = (assignedTo: string | null) => {
@@ -110,43 +121,56 @@ export default function TasksWorkspace({ project, userId, onBack }: TasksWorkspa
           </div>
         ) : (
           <div className="space-y-2">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                onClick={() => setSelectedTask(task)}
-                className="bg-white rounded-xl border border-gray-200 p-3 hover:shadow-sm hover:border-gray-300 transition-all cursor-pointer"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-sm font-semibold text-gray-900 truncate">{task.title}</h4>
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_CONFIG[task.status].bg} ${STATUS_CONFIG[task.status].text}`}>
-                        {STATUS_CONFIG[task.status].label}
-                      </span>
-                    </div>
-                    {task.description && (
-                      <p className="text-xs text-gray-500 mt-1 line-clamp-1">{task.description}</p>
-                    )}
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
-                      <span>Assigned: {getAssigneeName(task.assigned_to)}</span>
-                      {task.due_date && (
-                        <span>Due: {new Date(task.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            {tasks.map((task) => {
+              const published = (task as Task & { is_published?: boolean }).is_published !== false
+              return (
+                <div
+                  key={task.id}
+                  onClick={() => setSelectedTask(task)}
+                  className={`bg-white rounded-xl border border-gray-200 p-3 hover:shadow-sm hover:border-gray-300 transition-all cursor-pointer ${!published ? 'opacity-60' : ''}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-semibold text-gray-900 truncate">{task.title}</h4>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_CONFIG[task.status].bg} ${STATUS_CONFIG[task.status].text}`}>
+                          {STATUS_CONFIG[task.status].label}
+                        </span>
+                        {!published && <span className="text-xs text-gray-400 italic">Hidden from feed</span>}
+                      </div>
+                      {task.description && (
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-1">{task.description}</p>
                       )}
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+                        <span>Assigned: {getAssigneeName(task.assigned_to)}</span>
+                        {task.due_date && (
+                          <span>Due: {new Date(task.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); togglePublished(task) }}
+                        className={`p-1.5 rounded transition ${published ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-300 hover:bg-gray-100'}`}
+                        title={published ? 'Published — visible in Job Feed' : 'Hidden — not visible in Job Feed'}
+                      >
+                        {published ? <EyeIcon className="w-4 h-4" /> : <EyeOffIcon className="w-4 h-4" />}
+                      </button>
+                      <select
+                        value={task.status}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => handleStatusChange(task, e.target.value as TaskStatus)}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
+                      >
+                        {STATUS_OPTIONS.map((s) => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                  <select
-                    value={task.status}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => handleStatusChange(task, e.target.value as TaskStatus)}
-                    className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white flex-shrink-0"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

@@ -41,6 +41,7 @@ import FeedPostListWorkspace from './workspaces/FeedPostListWorkspace'
 import EstimatingWorkspace from './workspaces/EstimatingWorkspace'
 import PlaceholderWorkspace from './workspaces/PlaceholderWorkspace'
 import ChecklistWorkspace from './workspaces/ChecklistWorkspace'
+import MaterialOrdersWorkspace from './workspaces/MaterialOrdersWorkspace'
 
 type WorkspaceType =
   | 'job_info' | 'checklist' | 'plans' | 'tasks'
@@ -64,6 +65,10 @@ interface DashboardCounts {
   plans: number
   checklistTotal: number
   checklistCompleted: number
+  materialOrdersPending: number
+  materialOrdersOrdered: number
+  materialOrdersDelivered: number
+  materialOrdersBackordered: number
 }
 
 interface DashboardPreviews {
@@ -134,7 +139,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     const supabase = createClient()
 
     // Counts (parallel)
-    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount] = await Promise.all([
+    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered] = await Promise.all([
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'daily_report'),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'timecard'),
@@ -144,6 +149,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       supabase.from('project_documents').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('category', 'plan'),
       supabase.from('project_checklist_items').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('project_checklist_items').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('is_complete', true),
+      supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Pending'),
+      supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Ordered'),
+      supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Delivered'),
+      supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Backordered'),
     ])
 
     setCounts({
@@ -156,6 +165,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       plans: plansCount.count ?? 0,
       checklistTotal: checklistTotalCount.count ?? 0,
       checklistCompleted: checklistCompletedCount.count ?? 0,
+      materialOrdersPending: moPending.count ?? 0,
+      materialOrdersOrdered: moOrdered.count ?? 0,
+      materialOrdersDelivered: moDelivered.count ?? 0,
+      materialOrdersBackordered: moBackordered.count ?? 0,
     })
 
     // Preview data (parallel)
@@ -429,10 +442,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
         )
       case 'material_orders':
         return (
-          <PlaceholderWorkspace
-            title="Material Orders"
-            icon={<PackageIcon className="w-5 h-5" />}
-            message="Material Orders coming soon"
+          <MaterialOrdersWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
             onBack={backToDashboard}
           />
         )
@@ -842,7 +855,18 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       icon={<PackageIcon className="w-5 h-5" />}
                       title="Material Orders"
                       onClick={() => openWorkspace('material_orders')}
-                      content={<p className="text-xs text-gray-400">No orders yet</p>}
+                      content={
+                        counts && (counts.materialOrdersPending + counts.materialOrdersOrdered + counts.materialOrdersDelivered + counts.materialOrdersBackordered) > 0 ? (
+                          <div className="space-y-0.5">
+                            {counts.materialOrdersPending > 0 && <p className="text-xs text-yellow-600">{counts.materialOrdersPending} Pending</p>}
+                            {counts.materialOrdersOrdered > 0 && <p className="text-xs text-blue-600">{counts.materialOrdersOrdered} Ordered</p>}
+                            {counts.materialOrdersBackordered > 0 && <p className="text-xs text-red-600">{counts.materialOrdersBackordered} Backordered</p>}
+                            {counts.materialOrdersDelivered > 0 && <p className="text-xs text-green-600">{counts.materialOrdersDelivered} Delivered</p>}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400">No orders yet</p>
+                        )
+                      }
                     />
 
                     {/* 12. Scheduling */}
