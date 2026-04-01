@@ -42,6 +42,7 @@ import EstimatingWorkspace from './workspaces/EstimatingWorkspace'
 import PlaceholderWorkspace from './workspaces/PlaceholderWorkspace'
 import ChecklistWorkspace from './workspaces/ChecklistWorkspace'
 import MaterialOrdersWorkspace from './workspaces/MaterialOrdersWorkspace'
+import SchedulingWorkspace from './workspaces/SchedulingWorkspace'
 
 type WorkspaceType =
   | 'job_info' | 'checklist' | 'plans' | 'tasks'
@@ -69,6 +70,7 @@ interface DashboardCounts {
   materialOrdersOrdered: number
   materialOrdersDelivered: number
   materialOrdersBackordered: number
+  schedulingEvents: number
 }
 
 interface DashboardPreviews {
@@ -139,7 +141,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     const supabase = createClient()
 
     // Counts (parallel)
-    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered] = await Promise.all([
+    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered, schedulingEventsCount] = await Promise.all([
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'daily_report'),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'timecard'),
@@ -153,6 +155,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Ordered'),
       supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Delivered'),
       supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Backordered'),
+      supabase.from('calendar_events').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
     ])
 
     setCounts({
@@ -169,6 +172,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       materialOrdersOrdered: moOrdered.count ?? 0,
       materialOrdersDelivered: moDelivered.count ?? 0,
       materialOrdersBackordered: moBackordered.count ?? 0,
+      schedulingEvents: schedulingEventsCount.count ?? 0,
     })
 
     // Preview data (parallel)
@@ -451,10 +455,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
         )
       case 'scheduling':
         return (
-          <PlaceholderWorkspace
-            title="Scheduling"
-            icon={<CalendarIcon className="w-5 h-5" />}
-            message="Scheduling coming soon"
+          <SchedulingWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
             onBack={backToDashboard}
           />
         )
@@ -874,7 +878,13 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       icon={<CalendarIcon className="w-5 h-5" />}
                       title="Scheduling"
                       onClick={() => openWorkspace('scheduling')}
-                      content={<p className="text-xs text-gray-400">Coming soon</p>}
+                      content={
+                        counts && counts.schedulingEvents > 0 ? (
+                          <p className="text-xs text-gray-600">{counts.schedulingEvents} event{counts.schedulingEvents !== 1 ? 's' : ''}</p>
+                        ) : (
+                          <p className="text-xs text-gray-400">No events scheduled</p>
+                        )
+                      }
                     />
 
                     {/* 13. Billing */}

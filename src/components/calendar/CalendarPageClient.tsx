@@ -162,6 +162,7 @@ function projectToFCEvents(proj: Project): FCEvent[] {
     extendedProps: {
       id: `proj-${proj.id}`,
       created_by: '',
+      project_id: proj.id,
       project_name: proj.name,
       start_date: proj.start_date,
       end_date: proj.end_date,
@@ -296,6 +297,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [formCrewNames, setFormCrewNames] = useState<string[]>([])
   const [formNotes, setFormNotes] = useState('')
   const [formColor, setFormColor] = useState(PRESET_COLORS[0].value)
+  const [formProjectId, setFormProjectId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -528,6 +530,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setFormCrewNames([])
     setFormNotes('')
     setFormColor(PRESET_COLORS[0].value)
+    setFormProjectId(null)
     setFormError(null)
     setEditingEvent(null)
     setShowCustomCrewInput(false)
@@ -600,6 +603,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setFormCrewNames(evt.crew ? evt.crew.split(',').map((s) => s.trim()).filter(Boolean) : [])
     setFormNotes(evt.notes || '')
     setFormColor(evt.color || PRESET_COLORS[0].value)
+    setFormProjectId(evt.project_id ?? null)
     setFormError(null)
     setDetailEvent(null)
     setShowFormModal(true)
@@ -727,6 +731,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
 
       const payload = {
         project_name: formProjectName.trim(),
+        project_id: formProjectId || null,
         start_date: formStartDate,
         end_date: formEndDate,
         include_weekends: formIncludeWeekends,
@@ -1473,6 +1478,21 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                 />
               </div>
 
+              {/* Link to Project (optional) */}
+              <div>
+                <label className={labelCls}>Link to Project</label>
+                <select
+                  value={formProjectId || ''}
+                  onChange={(e) => setFormProjectId(e.target.value || null)}
+                  className={inputCls}
+                >
+                  <option value="">None (standalone event)</option>
+                  {initialProjects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Start Date & End Date */}
               <div className="flex flex-col gap-3 w-1/2">
                 <div>
@@ -2035,6 +2055,20 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                   )}
                 </div>
               )}
+
+              {/* Linked Project (for standalone events linked to a project) */}
+              {detailEvent._isStandalone && detailEvent.project_id && (() => {
+                const linkedProj = initialProjects.find((p) => p.id === detailEvent.project_id)
+                return linkedProj ? (
+                  <div className="flex items-start gap-3">
+                    <LinkIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-gray-500">Linked Project</p>
+                      <p className="text-sm text-gray-700">{linkedProj.name}</p>
+                    </div>
+                  </div>
+                ) : null
+              })()}
 
               {/* Dates */}
               <div className="flex items-start gap-3">
