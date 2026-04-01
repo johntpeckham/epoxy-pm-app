@@ -413,7 +413,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
             project={selectedProject}
             userId={userId}
             onBack={backToDashboard}
-            title="Expenses / Receipts"
+            title="Expenses"
             icon={<ReceiptIcon className="w-5 h-5" />}
             postTypes={['receipt', 'expense']}
             emptyMessage="No expenses for this project yet"
@@ -806,10 +806,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       }
                     />
 
-                    {/* 7. Expenses / Receipts */}
+                    {/* 7. Expenses */}
                     <DashboardCard
                       icon={<ReceiptIcon className="w-5 h-5" />}
-                      title="Expenses / Receipts"
+                      title="Expenses"
                       onClick={() => openWorkspace('expenses')}
                       content={
                         <div>
