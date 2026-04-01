@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -32,6 +32,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     router.push('/login')
   }
 
+  const isJobBoardActive = pathname === '/job-board'
   const isJobsActive = pathname === '/jobs' || pathname.startsWith('/projects')
   const isReportsActive = pathname === '/daily-reports'
   const isJsaReportsActive = pathname === '/jsa-reports'
@@ -83,6 +84,20 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
+        {canView('job_board') && (
+          <Link
+            href="/job-board"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isJobBoardActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <LayoutDashboardIcon className="w-5 h-5 flex-shrink-0" />
+            Job Board
+          </Link>
+        )}
         {canView('jobs') && (
           <Link
             href="/jobs"
@@ -94,7 +109,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             }`}
           >
             <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
-            Jobs
+            Job Feed
           </Link>
         )}
         {canView('daily_reports') && (

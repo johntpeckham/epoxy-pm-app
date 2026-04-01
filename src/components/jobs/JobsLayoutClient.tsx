@@ -3,18 +3,13 @@
 import { useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  PlusIcon,
   SearchIcon,
   BriefcaseIcon,
   ChevronRightIcon,
 } from 'lucide-react'
 import { Project, FeedPost } from '@/types'
-import { useUserRole } from '@/lib/useUserRole'
-import { usePermissions } from '@/lib/usePermissions'
+import { useProjectPins } from '@/lib/useProjectPins'
 import ProjectCard from './ProjectCard'
-import NewProjectModal from './NewProjectModal'
-import EditProjectModal from './EditProjectModal'
-import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import ProjectFeedClient from '@/components/feed/ProjectFeedClient'
 
 interface JobsLayoutClientProps {
@@ -23,8 +18,7 @@ interface JobsLayoutClientProps {
 }
 
 export default function JobsLayoutClient({ initialProjects, userId }: JobsLayoutClientProps) {
-  const { role } = useUserRole()
-  const { canCreate } = usePermissions(role)
+  const { pinnedProjectIds, isPinned, togglePin } = useProjectPins(userId)
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [mobileView, setMobileView] = useState<'list' | 'feed'>('list')
@@ -32,12 +26,6 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
   // List controls
   const [search, setSearch] = useState('')
   const [showCompleted, setShowCompleted] = useState(false)
-
-  // Modals
-  const [showNewProject, setShowNewProject] = useState(false)
-  const [editingProject, setEditingProject] = useState<Project | null>(null)
-  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
 
   // Feed
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([])
@@ -52,7 +40,6 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     if (error) console.error('[Jobs] Fetch projects failed:', error)
     if (data) {
       setProjects(data)
-      // Keep selectedProject in sync with any edits
       setSelectedProject((prev) => {
         if (!prev) return null
         return (data as Project[]).find((p) => p.id === prev.id) ?? prev
@@ -72,7 +59,6 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
       .order('created_at', { ascending: true })
     if (feedError) console.error('[Jobs] Fetch feed posts failed:', feedError)
 
-    // Fetch profiles separately (no FK join available)
     const userIds = [...new Set((data ?? []).map((p) => p.user_id))]
     const { data: profiles, error: profilesError } = userIds.length
       ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds)
@@ -94,39 +80,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     setFeedLoading(false)
   }, [])
 
-  async function handleDeleteProject() {
-    if (!projectToDelete) return
-    setIsDeleting(true)
-    const supabase = createClient()
-
-    // Clean up storage photos before deleting project
-    const { data: photoPosts, error: photoFetchError } = await supabase
-      .from('feed_posts')
-      .select('content')
-      .eq('project_id', projectToDelete.id)
-      .eq('post_type', 'photo')
-    if (photoFetchError) console.error('[Jobs] Fetch photo posts failed:', photoFetchError)
-    if (photoPosts?.length) {
-      const paths = photoPosts.flatMap(
-        (p) => (p.content as { photos?: string[] }).photos ?? []
-      )
-      if (paths.length) await supabase.storage.from('post-photos').remove(paths)
-    }
-
-    const { error: deleteError } = await supabase.from('projects').delete().eq('id', projectToDelete.id)
-    if (deleteError) console.error('[Jobs] Delete project failed:', deleteError)
-
-    if (selectedProject?.id === projectToDelete.id) {
-      setSelectedProject(null)
-      setFeedPosts([])
-      setMobileView('list')
-    }
-    setIsDeleting(false)
-    setProjectToDelete(null)
-    fetchProjects()
-  }
-
-  // Filter then split into active / completed sections
+  // Filter then split into pinned / active / completed sections
   const filtered = useMemo(() => projects.filter((p) => {
     const q = search.toLowerCase()
     return (
@@ -137,13 +91,16 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     )
   }), [projects, search])
 
-  const activeProjects = useMemo(() => filtered.filter((p) => p.status === 'Active'), [filtered])
-  const completedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Complete')]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered])
+  const pinnedProjects = useMemo(() => filtered.filter((p) => pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
+  const activeProjects = useMemo(() => filtered.filter((p) => p.status === 'Active' && !pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
+  const completedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Complete' && !pinnedProjectIds.has(p.id))]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered, pinnedProjectIds])
 
+  const handleTogglePin = useCallback((project: Project) => {
+    togglePin(project.id)
+  }, [togglePin])
 
   return (
-    // Full viewport height; panels scroll independently
     <div className="flex h-full overflow-hidden w-full max-w-full">
 
       {/* ── Panel 2: Project List ───────────────────────────────────────── */}
@@ -156,17 +113,8 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
         <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Jobs</h1>
+              <h1 className="text-lg font-bold text-gray-900">Job Feed</h1>
             </div>
-            {canCreate('jobs') && (
-              <button
-                onClick={() => setShowNewProject(true)}
-                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
-              >
-                <PlusIcon className="w-4 h-4" />
-                New
-              </button>
-            )}
           </div>
 
           {/* Search */}
@@ -194,6 +142,25 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
             </div>
           ) : (
             <>
+              {/* Pinned section */}
+              {pinnedProjects.length > 0 && (
+                <>
+                  <p className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">Pinned</p>
+                  {pinnedProjects.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      isSelected={selectedProject?.id === project.id}
+                      onSelect={selectProject}
+                      showEditDelete={false}
+                      isPinned={true}
+                      onTogglePin={handleTogglePin}
+                    />
+                  ))}
+                  <div className="border-t border-gray-200 mt-4 pt-4" />
+                </>
+              )}
+
               {/* Active section */}
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Active</p>
               {activeProjects.length === 0 ? (
@@ -205,8 +172,9 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
                     project={project}
                     isSelected={selectedProject?.id === project.id}
                     onSelect={selectProject}
-                    onEdit={setEditingProject}
-                    onDelete={setProjectToDelete}
+                    showEditDelete={false}
+                    isPinned={false}
+                    onTogglePin={handleTogglePin}
                   />
                 ))
               )}
@@ -232,8 +200,9 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
                           project={project}
                           isSelected={selectedProject?.id === project.id}
                           onSelect={selectProject}
-                          onEdit={setEditingProject}
-                          onDelete={setProjectToDelete}
+                          showEditDelete={false}
+                          isPinned={false}
+                          onTogglePin={handleTogglePin}
                         />
                       ))}
                     </div>
@@ -263,7 +232,6 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
               initialPosts={feedPosts}
               userId={userId}
               onBack={() => setMobileView('list')}
-              onEdit={() => setEditingProject(selectedProject)}
             />
           )
         ) : (
@@ -278,38 +246,6 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
           </div>
         )}
       </div>
-
-      {/* ── Modals ─────────────────────────────────────────────────────── */}
-      {showNewProject && (
-        <NewProjectModal
-          onClose={() => setShowNewProject(false)}
-          onCreated={() => {
-            setShowNewProject(false)
-            fetchProjects()
-          }}
-        />
-      )}
-
-      {editingProject && (
-        <EditProjectModal
-          project={editingProject}
-          onClose={() => setEditingProject(null)}
-          onUpdated={() => {
-            setEditingProject(null)
-            fetchProjects()
-          }}
-        />
-      )}
-
-      {projectToDelete && (
-        <ConfirmDialog
-          title="Delete Project"
-          message={`Are you sure you want to delete "${projectToDelete.name}"? All posts and photos will be permanently deleted.`}
-          onConfirm={handleDeleteProject}
-          onCancel={() => setProjectToDelete(null)}
-          loading={isDeleting}
-        />
-      )}
     </div>
   )
 }

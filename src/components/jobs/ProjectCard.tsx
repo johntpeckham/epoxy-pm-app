@@ -1,13 +1,16 @@
 import { memo } from 'react'
-import { MapPinIcon, UserIcon, PencilIcon, Trash2Icon } from 'lucide-react'
+import { MapPinIcon, UserIcon, PencilIcon, Trash2Icon, PinIcon } from 'lucide-react'
 import { Project } from '@/types'
 
 interface ProjectCardProps {
   project: Project
   isSelected?: boolean
   onSelect: (project: Project) => void
-  onEdit: (project: Project) => void
-  onDelete: (project: Project) => void
+  onEdit?: (project: Project) => void
+  onDelete?: (project: Project) => void
+  showEditDelete?: boolean
+  isPinned?: boolean
+  onTogglePin?: (project: Project) => void
 }
 
 export default memo(function ProjectCard({
@@ -16,6 +19,9 @@ export default memo(function ProjectCard({
   onSelect,
   onEdit,
   onDelete,
+  showEditDelete = true,
+  isPinned = false,
+  onTogglePin,
 }: ProjectCardProps) {
   return (
     <div
@@ -72,22 +78,39 @@ export default memo(function ProjectCard({
         </div>
       </button>
 
-      {/* Edit / Delete — hover visible */}
+      {/* Action icons — hover visible */}
       <div className="absolute top-2.5 right-2 flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => { e.stopPropagation(); onEdit(project) }}
-          title="Edit project"
-          className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
-        >
-          <PencilIcon className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(project) }}
-          title="Delete project"
-          className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
-        >
-          <Trash2Icon className="w-3.5 h-3.5" />
-        </button>
+        {onTogglePin && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onTogglePin(project) }}
+            title={isPinned ? 'Unpin project' : 'Pin project'}
+            className={`p-1.5 rounded-md transition ${
+              isPinned
+                ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-100'
+                : 'text-gray-400 hover:text-amber-600 hover:bg-amber-100'
+            }`}
+          >
+            <PinIcon className={`w-3.5 h-3.5 ${isPinned ? 'fill-current' : ''}`} />
+          </button>
+        )}
+        {showEditDelete && onEdit && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(project) }}
+            title="Edit project"
+            className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
+          >
+            <PencilIcon className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {showEditDelete && onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(project) }}
+            title="Delete project"
+            className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
+          >
+            <Trash2Icon className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </div>
   )
