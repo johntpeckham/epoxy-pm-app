@@ -771,10 +771,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       }
                     />
 
-                    {/* 6. Report */}
+                    {/* 6. Job Report */}
                     <DashboardCard
                       icon={<ClipboardListIcon className="w-5 h-5" />}
-                      title="Report"
+                      title="Job Report"
                       onClick={() => openWorkspace('report')}
                       content={
                         counts?.hasReport ? (
