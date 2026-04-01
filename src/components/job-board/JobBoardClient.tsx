@@ -20,8 +20,9 @@ import {
   PackageIcon,
   CalendarIcon,
   DollarSignIcon,
+  ArrowLeftIcon,
 } from 'lucide-react'
-import { Project } from '@/types'
+import { Project, Task, FeedPost, TaskStatus } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useProjectPins } from '@/lib/useProjectPins'
@@ -29,6 +30,22 @@ import ProjectCard from '@/components/jobs/ProjectCard'
 import NewProjectModal from '@/components/jobs/NewProjectModal'
 import EditProjectModal from '@/components/jobs/EditProjectModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+
+// Workspace components
+import JobInfoWorkspace from './workspaces/JobInfoWorkspace'
+import TasksWorkspace from './workspaces/TasksWorkspace'
+import PhotosWorkspace from './workspaces/PhotosWorkspace'
+import PlansWorkspace from './workspaces/PlansWorkspace'
+import FeedPostListWorkspace from './workspaces/FeedPostListWorkspace'
+import EstimatingWorkspace from './workspaces/EstimatingWorkspace'
+import PlaceholderWorkspace from './workspaces/PlaceholderWorkspace'
+
+type WorkspaceType =
+  | 'job_info' | 'checklist' | 'plans' | 'tasks'
+  | 'daily_reports' | 'timecards' | 'expenses' | 'photos'
+  | 'jsa_reports' | 'estimating' | 'material_orders'
+  | 'scheduling' | 'billing'
+  | null
 
 interface JobBoardClientProps {
   initialProjects: Project[]
@@ -43,6 +60,22 @@ interface DashboardCounts {
   photos: number
   jsaReports: number
   plans: number
+}
+
+interface DashboardPreviews {
+  recentTasks: { id: string; title: string; status: TaskStatus }[]
+  recentPhotoUrls: string[]
+  recentDailyReportDates: string[]
+  recentTimecardDates: string[]
+  recentJsaDates: string[]
+  totalExpenseAmount: number
+}
+
+const STATUS_CONFIG: Record<TaskStatus, { label: string; bg: string; text: string }> = {
+  new_task: { label: 'New', bg: 'bg-blue-100', text: 'text-blue-800' },
+  in_progress: { label: 'In Progress', bg: 'bg-yellow-100', text: 'text-yellow-800' },
+  completed: { label: 'Done', bg: 'bg-green-100', text: 'text-green-800' },
+  unable_to_complete: { label: 'Unable', bg: 'bg-red-100', text: 'text-red-800' },
 }
 
 export default function JobBoardClient({ initialProjects, userId }: JobBoardClientProps) {
@@ -65,7 +98,11 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
 
   // Dashboard data
   const [counts, setCounts] = useState<DashboardCounts | null>(null)
+  const [previews, setPreviews] = useState<DashboardPreviews | null>(null)
   const [countsLoading, setCountsLoading] = useState(false)
+
+  // Workspace state
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceType>(null)
 
   const fetchProjects = useCallback(async () => {
     const supabase = createClient()
@@ -83,11 +120,12 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     }
   }, [])
 
-  const fetchDashboardCounts = useCallback(async (projectId: string) => {
+  const fetchDashboardData = useCallback(async (projectId: string) => {
     setCountsLoading(true)
     const supabase = createClient()
 
-    const [tasks, dailyReports, timecards, expenses, photos, jsaReports, plans] = await Promise.all([
+    // Counts (parallel)
+    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount] = await Promise.all([
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'daily_report'),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'timecard'),
@@ -98,22 +136,68 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     ])
 
     setCounts({
-      tasks: tasks.count ?? 0,
-      dailyReports: dailyReports.count ?? 0,
-      timecards: timecards.count ?? 0,
-      expenses: expenses.count ?? 0,
-      photos: photos.count ?? 0,
-      jsaReports: jsaReports.count ?? 0,
-      plans: plans.count ?? 0,
+      tasks: tasksCount.count ?? 0,
+      dailyReports: dailyReportsCount.count ?? 0,
+      timecards: timecardsCount.count ?? 0,
+      expenses: expensesCount.count ?? 0,
+      photos: photosCount.count ?? 0,
+      jsaReports: jsaReportsCount.count ?? 0,
+      plans: plansCount.count ?? 0,
     })
+
+    // Preview data (parallel)
+    const [recentTasksRes, recentPhotosRes, recentDailyRes, recentTimecardRes, recentJsaRes, expensesRes] = await Promise.all([
+      supabase.from('tasks').select('id, title, status').eq('project_id', projectId).order('created_at', { ascending: false }).limit(5),
+      supabase.from('feed_posts').select('content').eq('project_id', projectId).eq('post_type', 'photo').order('created_at', { ascending: false }).limit(2),
+      supabase.from('feed_posts').select('content').eq('project_id', projectId).eq('post_type', 'daily_report').order('created_at', { ascending: false }).limit(3),
+      supabase.from('feed_posts').select('content').eq('project_id', projectId).eq('post_type', 'timecard').order('created_at', { ascending: false }).limit(3),
+      supabase.from('feed_posts').select('content').eq('project_id', projectId).eq('post_type', 'jsa_report').order('created_at', { ascending: false }).limit(3),
+      supabase.from('feed_posts').select('content').eq('project_id', projectId).in('post_type', ['receipt', 'expense']),
+    ])
+
+    // Extract photo URLs from recent photo posts
+    const photoUrls: string[] = []
+    for (const post of recentPhotosRes.data ?? []) {
+      const content = post.content as { photos?: string[] }
+      if (content.photos?.length) {
+        photoUrls.push(...content.photos.slice(0, 4 - photoUrls.length))
+        if (photoUrls.length >= 4) break
+      }
+    }
+
+    // Sum up expenses
+    let totalExpenseAmount = 0
+    for (const post of expensesRes.data ?? []) {
+      const content = post.content as { total_amount?: number; amount?: number }
+      totalExpenseAmount += content.total_amount ?? content.amount ?? 0
+    }
+
+    setPreviews({
+      recentTasks: (recentTasksRes.data ?? []).map((t) => ({ id: t.id, title: t.title, status: t.status as TaskStatus })),
+      recentPhotoUrls: photoUrls,
+      recentDailyReportDates: (recentDailyRes.data ?? []).map((p) => (p.content as { date?: string }).date ?? ''),
+      recentTimecardDates: (recentTimecardRes.data ?? []).map((p) => (p.content as { date?: string }).date ?? ''),
+      recentJsaDates: (recentJsaRes.data ?? []).map((p) => (p.content as { date?: string }).date ?? ''),
+      totalExpenseAmount,
+    })
+
     setCountsLoading(false)
   }, [])
 
   const selectProject = useCallback((project: Project) => {
     setSelectedProject(project)
     setMobileView('dashboard')
-    fetchDashboardCounts(project.id)
-  }, [fetchDashboardCounts])
+    setActiveWorkspace(null)
+    fetchDashboardData(project.id)
+  }, [fetchDashboardData])
+
+  // When project changes while in a workspace, reload workspace data
+  useEffect(() => {
+    if (selectedProject && activeWorkspace) {
+      // workspace components fetch their own data based on project.id,
+      // but we need to trigger a re-render by changing the key
+    }
+  }, [selectedProject, activeWorkspace])
 
   async function handleDeleteProject() {
     if (!projectToDelete) return
@@ -139,6 +223,8 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     if (selectedProject?.id === projectToDelete.id) {
       setSelectedProject(null)
       setCounts(null)
+      setPreviews(null)
+      setActiveWorkspace(null)
       setMobileView('list')
     }
     setIsDeleting(false)
@@ -165,6 +251,160 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
   const handleTogglePin = useCallback((project: Project) => {
     togglePin(project.id)
   }, [togglePin])
+
+  const openWorkspace = (ws: WorkspaceType) => {
+    setActiveWorkspace(ws)
+  }
+
+  const backToDashboard = () => {
+    setActiveWorkspace(null)
+    // Refresh counts when returning from a workspace (data may have changed)
+    if (selectedProject) fetchDashboardData(selectedProject.id)
+  }
+
+  // Supabase client for photo URLs on summary cards
+  const supabase = createClient()
+  const getPhotoUrl = (path: string) => supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl
+
+  // ── Render workspace content ────────────────────────────────────────
+  function renderWorkspace() {
+    if (!selectedProject) return null
+
+    switch (activeWorkspace) {
+      case 'job_info':
+        return (
+          <JobInfoWorkspace
+            project={selectedProject}
+            onBack={backToDashboard}
+            onEdit={() => setEditingProject(selectedProject)}
+          />
+        )
+      case 'tasks':
+        return (
+          <TasksWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+          />
+        )
+      case 'photos':
+        return (
+          <PhotosWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+          />
+        )
+      case 'plans':
+        return (
+          <PlansWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+          />
+        )
+      case 'daily_reports':
+        return (
+          <FeedPostListWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+            title="Daily Reports"
+            icon={<ClipboardListIcon className="w-5 h-5" />}
+            postTypes={['daily_report']}
+            emptyMessage="No daily reports for this project yet"
+          />
+        )
+      case 'timecards':
+        return (
+          <FeedPostListWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+            title="Timecards"
+            icon={<ClockIcon className="w-5 h-5" />}
+            postTypes={['timecard']}
+            emptyMessage="No timecards for this project yet"
+          />
+        )
+      case 'expenses':
+        return (
+          <FeedPostListWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+            title="Expenses / Receipts"
+            icon={<ReceiptIcon className="w-5 h-5" />}
+            postTypes={['receipt', 'expense']}
+            emptyMessage="No expenses for this project yet"
+          />
+        )
+      case 'jsa_reports':
+        return (
+          <FeedPostListWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+            title="JSA Reports"
+            icon={<ShieldIcon className="w-5 h-5" />}
+            postTypes={['jsa_report']}
+            emptyMessage="No JSA reports for this project yet"
+          />
+        )
+      case 'estimating':
+        return (
+          <EstimatingWorkspace
+            project={selectedProject}
+            onBack={backToDashboard}
+          />
+        )
+      case 'checklist':
+        return (
+          <PlaceholderWorkspace
+            title="Checklist"
+            icon={<ClipboardCheckIcon className="w-5 h-5" />}
+            message="Checklist coming soon"
+            onBack={backToDashboard}
+          />
+        )
+      case 'material_orders':
+        return (
+          <PlaceholderWorkspace
+            title="Material Orders"
+            icon={<PackageIcon className="w-5 h-5" />}
+            message="Material Orders coming soon"
+            onBack={backToDashboard}
+          />
+        )
+      case 'scheduling':
+        return (
+          <PlaceholderWorkspace
+            title="Scheduling"
+            icon={<CalendarIcon className="w-5 h-5" />}
+            message="Scheduling coming soon"
+            onBack={backToDashboard}
+          />
+        )
+      case 'billing':
+        return (
+          <PlaceholderWorkspace
+            title="Billing"
+            icon={<DollarSignIcon className="w-5 h-5" />}
+            message="Billing coming soon — Estimates, Invoices, Change Orders"
+            onBack={backToDashboard}
+          />
+        )
+      default:
+        return null
+    }
+  }
 
   return (
     <div className="flex h-full overflow-hidden w-full max-w-full">
@@ -294,161 +534,273 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
         </div>
       </div>
 
-      {/* ── Right Panel: Dashboard Cards ──────────────────────────────── */}
+      {/* ── Right Panel: Dashboard or Workspace ──────────────────────── */}
       <div
         className={`flex-1 min-h-0 w-screen max-w-full min-w-0 overflow-hidden bg-gray-50 ${
           mobileView === 'list' ? 'hidden lg:flex' : 'flex'
         } flex-col`}
       >
         {selectedProject ? (
-          <>
-            {/* Project header with back button on mobile */}
-            <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setMobileView('list')}
-                  className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                >
-                  <ChevronRightIcon className="w-5 h-5 rotate-180" />
-                </button>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-base font-bold text-gray-900 truncate">
-                    {selectedProject.estimate_number
-                      ? `Est. #${selectedProject.estimate_number} - ${selectedProject.name}`
-                      : selectedProject.name}
-                  </h2>
-                  <p className="text-xs text-gray-500 truncate">
-                    {selectedProject.client_name} &middot; {selectedProject.address}
-                  </p>
+          activeWorkspace ? (
+            // ── Workspace view ──
+            renderWorkspace()
+          ) : (
+            // ── Dashboard view ──
+            <>
+              {/* Project header */}
+              <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setMobileView('list')}
+                    className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  >
+                    <ChevronRightIcon className="w-5 h-5 rotate-180" />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-base font-bold text-gray-900 truncate">
+                      {selectedProject.estimate_number
+                        ? `Est. #${selectedProject.estimate_number} - ${selectedProject.name}`
+                        : selectedProject.name}
+                    </h2>
+                    <p className="text-xs text-gray-500 truncate">
+                      {selectedProject.client_name} &middot; {selectedProject.address}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
+                      selectedProject.status === 'Active'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {selectedProject.status}
+                  </span>
                 </div>
-                <span
-                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                    selectedProject.status === 'Active'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {selectedProject.status}
-                </span>
               </div>
-            </div>
 
-            {/* Dashboard cards */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {countsLoading ? (
-                <div className="flex items-center justify-center py-20">
-                  <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-                  <DashboardCard
-                    icon={<SettingsIcon className="w-5 h-5" />}
-                    title="Job Info / Settings"
-                    content={
-                      <div className="space-y-1">
-                        <p className="text-xs text-gray-600 truncate">{selectedProject.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{selectedProject.address}</p>
-                        <p className="text-xs text-gray-500 truncate">{selectedProject.client_name}</p>
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                          selectedProject.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {selectedProject.status}
-                        </span>
-                      </div>
-                    }
-                  />
-                  <DashboardCard
-                    icon={<ClipboardCheckIcon className="w-5 h-5" />}
-                    title="Checklist"
-                    content={<p className="text-xs text-gray-400">No checklist items yet</p>}
-                  />
-                  <DashboardCard
-                    icon={<FileTextIcon className="w-5 h-5" />}
-                    title="Plans"
-                    content={
-                      <p className="text-xs text-gray-500">
-                        {counts && counts.plans > 0 ? `${counts.plans} plan${counts.plans === 1 ? '' : 's'} uploaded` : 'No plans uploaded'}
-                      </p>
-                    }
-                  />
-                  <DashboardCard
-                    icon={<CheckSquareIcon className="w-5 h-5" />}
-                    title="Tasks"
-                    content={
-                      <p className="text-xs text-gray-500">
-                        {counts && counts.tasks > 0 ? `${counts.tasks} task${counts.tasks === 1 ? '' : 's'}` : 'No tasks yet'}
-                      </p>
-                    }
-                  />
-                  <DashboardCard
-                    icon={<ClipboardListIcon className="w-5 h-5" />}
-                    title="Daily Reports"
-                    content={
-                      <p className="text-xs text-gray-500">
-                        {counts && counts.dailyReports > 0 ? `${counts.dailyReports} report${counts.dailyReports === 1 ? '' : 's'}` : 'No reports yet'}
-                      </p>
-                    }
-                  />
-                  <DashboardCard
-                    icon={<ClockIcon className="w-5 h-5" />}
-                    title="Timecards"
-                    content={
-                      <p className="text-xs text-gray-500">
-                        {counts && counts.timecards > 0 ? `${counts.timecards} timecard${counts.timecards === 1 ? '' : 's'}` : 'No timecards yet'}
-                      </p>
-                    }
-                  />
-                  <DashboardCard
-                    icon={<ReceiptIcon className="w-5 h-5" />}
-                    title="Expenses / Receipts"
-                    content={
-                      <p className="text-xs text-gray-500">
-                        {counts && counts.expenses > 0 ? `${counts.expenses} expense${counts.expenses === 1 ? '' : 's'}` : 'No expenses yet'}
-                      </p>
-                    }
-                  />
-                  <DashboardCard
-                    icon={<CameraIcon className="w-5 h-5" />}
-                    title="Photos"
-                    content={
-                      <p className="text-xs text-gray-500">
-                        {counts && counts.photos > 0 ? `${counts.photos} photo${counts.photos === 1 ? '' : 's'}` : 'No photos yet'}
-                      </p>
-                    }
-                  />
-                  <DashboardCard
-                    icon={<ShieldIcon className="w-5 h-5" />}
-                    title="JSA Reports"
-                    content={
-                      <p className="text-xs text-gray-500">
-                        {counts && counts.jsaReports > 0 ? `${counts.jsaReports} report${counts.jsaReports === 1 ? '' : 's'}` : 'No JSA reports yet'}
-                      </p>
-                    }
-                  />
-                  <DashboardCard
-                    icon={<RulerIcon className="w-5 h-5" />}
-                    title="Estimating"
-                    content={<p className="text-xs text-gray-400">Project Takeoff</p>}
-                  />
-                  <DashboardCard
-                    icon={<PackageIcon className="w-5 h-5" />}
-                    title="Material Orders"
-                    content={<p className="text-xs text-gray-400">No orders yet</p>}
-                  />
-                  <DashboardCard
-                    icon={<CalendarIcon className="w-5 h-5" />}
-                    title="Scheduling"
-                    content={<p className="text-xs text-gray-400">Coming soon</p>}
-                  />
-                  <DashboardCard
-                    icon={<DollarSignIcon className="w-5 h-5" />}
-                    title="Billing"
-                    content={<p className="text-xs text-gray-400">Estimates, Invoices, Change Orders</p>}
-                  />
-                </div>
-              )}
-            </div>
-          </>
+              {/* Dashboard cards */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {countsLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+
+                    {/* 1. Job Info / Settings */}
+                    <DashboardCard
+                      icon={<SettingsIcon className="w-5 h-5" />}
+                      title="Job Info / Settings"
+                      onClick={() => openWorkspace('job_info')}
+                      content={
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-600 truncate">{selectedProject.name}</p>
+                          <p className="text-xs text-gray-500 truncate">{selectedProject.client_name}</p>
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                            selectedProject.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {selectedProject.status}
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    {/* 2. Checklist */}
+                    <DashboardCard
+                      icon={<ClipboardCheckIcon className="w-5 h-5" />}
+                      title="Checklist"
+                      onClick={() => openWorkspace('checklist')}
+                      content={<p className="text-xs text-gray-400">No checklist items yet</p>}
+                    />
+
+                    {/* 3. Plans */}
+                    <DashboardCard
+                      icon={<FileTextIcon className="w-5 h-5" />}
+                      title="Plans"
+                      onClick={() => openWorkspace('plans')}
+                      content={
+                        <p className="text-xs text-gray-500">
+                          {counts && counts.plans > 0 ? `${counts.plans} plan${counts.plans === 1 ? '' : 's'} uploaded` : 'No plans uploaded'}
+                        </p>
+                      }
+                    />
+
+                    {/* 4. Tasks — enhanced with preview */}
+                    <DashboardCard
+                      icon={<CheckSquareIcon className="w-5 h-5" />}
+                      title="Tasks"
+                      onClick={() => openWorkspace('tasks')}
+                      content={
+                        <div>
+                          {previews && previews.recentTasks.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {previews.recentTasks.slice(0, 3).map((t) => (
+                                <div key={t.id} className="flex items-center gap-1.5">
+                                  <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                    t.status === 'completed' ? 'bg-green-500' :
+                                    t.status === 'in_progress' ? 'bg-yellow-500' :
+                                    t.status === 'unable_to_complete' ? 'bg-red-500' : 'bg-blue-500'
+                                  }`} />
+                                  <span className="text-xs text-gray-600 truncate">{t.title}</span>
+                                </div>
+                              ))}
+                              {(counts?.tasks ?? 0) > 3 && (
+                                <p className="text-xs text-gray-400">+{(counts?.tasks ?? 0) - 3} more</p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">No tasks yet</p>
+                          )}
+                        </div>
+                      }
+                    />
+
+                    {/* 5. Daily Reports */}
+                    <DashboardCard
+                      icon={<ClipboardListIcon className="w-5 h-5" />}
+                      title="Daily Reports"
+                      onClick={() => openWorkspace('daily_reports')}
+                      content={
+                        <div>
+                          {counts && counts.dailyReports > 0 ? (
+                            <div className="space-y-1">
+                              <p className="text-xs text-gray-500">{counts.dailyReports} report{counts.dailyReports === 1 ? '' : 's'}</p>
+                              {previews?.recentDailyReportDates.filter(Boolean).slice(0, 2).map((d, i) => (
+                                <p key={i} className="text-xs text-gray-400">{d}</p>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">No reports yet</p>
+                          )}
+                        </div>
+                      }
+                    />
+
+                    {/* 6. Timecards */}
+                    <DashboardCard
+                      icon={<ClockIcon className="w-5 h-5" />}
+                      title="Timecards"
+                      onClick={() => openWorkspace('timecards')}
+                      content={
+                        <div>
+                          {counts && counts.timecards > 0 ? (
+                            <div className="space-y-1">
+                              <p className="text-xs text-gray-500">{counts.timecards} timecard{counts.timecards === 1 ? '' : 's'}</p>
+                              {previews?.recentTimecardDates.filter(Boolean).slice(0, 2).map((d, i) => (
+                                <p key={i} className="text-xs text-gray-400">{d}</p>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">No timecards yet</p>
+                          )}
+                        </div>
+                      }
+                    />
+
+                    {/* 7. Expenses / Receipts */}
+                    <DashboardCard
+                      icon={<ReceiptIcon className="w-5 h-5" />}
+                      title="Expenses / Receipts"
+                      onClick={() => openWorkspace('expenses')}
+                      content={
+                        <div>
+                          {counts && counts.expenses > 0 ? (
+                            <div className="space-y-1">
+                              <p className="text-xs text-gray-500">{counts.expenses} expense{counts.expenses === 1 ? '' : 's'}</p>
+                              {previews && previews.totalExpenseAmount > 0 && (
+                                <p className="text-xs text-gray-600 font-medium">${previews.totalExpenseAmount.toFixed(2)} total</p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">No expenses yet</p>
+                          )}
+                        </div>
+                      }
+                    />
+
+                    {/* 8. Photos — enhanced with thumbnails */}
+                    <DashboardCard
+                      icon={<CameraIcon className="w-5 h-5" />}
+                      title="Photos"
+                      onClick={() => openWorkspace('photos')}
+                      content={
+                        <div>
+                          {previews && previews.recentPhotoUrls.length > 0 ? (
+                            <div className="space-y-1.5">
+                              <div className="grid grid-cols-4 gap-1">
+                                {previews.recentPhotoUrls.slice(0, 4).map((path, i) => (
+                                  <div key={i} className="aspect-square rounded overflow-hidden bg-gray-100">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={getPhotoUrl(path)} alt="" className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                              <p className="text-xs text-gray-400">{counts?.photos ?? 0} photo{(counts?.photos ?? 0) === 1 ? '' : 's'}</p>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">No photos yet</p>
+                          )}
+                        </div>
+                      }
+                    />
+
+                    {/* 9. JSA Reports */}
+                    <DashboardCard
+                      icon={<ShieldIcon className="w-5 h-5" />}
+                      title="JSA Reports"
+                      onClick={() => openWorkspace('jsa_reports')}
+                      content={
+                        <div>
+                          {counts && counts.jsaReports > 0 ? (
+                            <div className="space-y-1">
+                              <p className="text-xs text-gray-500">{counts.jsaReports} report{counts.jsaReports === 1 ? '' : 's'}</p>
+                              {previews?.recentJsaDates.filter(Boolean).slice(0, 1).map((d, i) => (
+                                <p key={i} className="text-xs text-gray-400">Latest: {d}</p>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">No JSA reports yet</p>
+                          )}
+                        </div>
+                      }
+                    />
+
+                    {/* 10. Estimating */}
+                    <DashboardCard
+                      icon={<RulerIcon className="w-5 h-5" />}
+                      title="Estimating"
+                      onClick={() => openWorkspace('estimating')}
+                      content={<p className="text-xs text-gray-400">Project Takeoff</p>}
+                    />
+
+                    {/* 11. Material Orders */}
+                    <DashboardCard
+                      icon={<PackageIcon className="w-5 h-5" />}
+                      title="Material Orders"
+                      onClick={() => openWorkspace('material_orders')}
+                      content={<p className="text-xs text-gray-400">No orders yet</p>}
+                    />
+
+                    {/* 12. Scheduling */}
+                    <DashboardCard
+                      icon={<CalendarIcon className="w-5 h-5" />}
+                      title="Scheduling"
+                      onClick={() => openWorkspace('scheduling')}
+                      content={<p className="text-xs text-gray-400">Coming soon</p>}
+                    />
+
+                    {/* 13. Billing */}
+                    <DashboardCard
+                      icon={<DollarSignIcon className="w-5 h-5" />}
+                      title="Billing"
+                      onClick={() => openWorkspace('billing')}
+                      content={<p className="text-xs text-gray-400">Estimates, Invoices, Change Orders</p>}
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )
         ) : (
           <div className="flex flex-col items-center justify-center flex-1 text-center px-8">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -497,9 +849,21 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
   )
 }
 
-function DashboardCard({ icon, title, content }: { icon: React.ReactNode; title: string; content: React.ReactNode }) {
+/* ── Dashboard Card ──────────────────────────────────────────────────── */
+
+function DashboardCard({ icon, title, content, onClick }: {
+  icon: React.ReactNode
+  title: string
+  content: React.ReactNode
+  onClick?: () => void
+}) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm hover:border-gray-300 transition-all">
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl border border-gray-200 p-4 transition-all ${
+        onClick ? 'cursor-pointer hover:shadow-md hover:border-amber-300 hover:-translate-y-0.5' : 'hover:shadow-sm hover:border-gray-300'
+      }`}
+    >
       <div className="flex items-center gap-2 mb-2">
         <span className="text-amber-500">{icon}</span>
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
