@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { PlusIcon, XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
+import { PlusIcon, DownloadIcon, XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { Project, FeedPost, PostType } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
 import PostCard from '@/components/feed/PostCard'
@@ -11,6 +11,7 @@ import NewDailyReportModal from '@/components/daily-reports/NewDailyReportModal'
 import NewTimecardModal from '@/components/timesheets/NewTimecardModal'
 import NewReceiptModal from '@/components/receipts/NewReceiptModal'
 import NewJsaReportModal from '@/components/jsa-reports/NewJsaReportModal'
+import { useCompanySettings } from '@/lib/useCompanySettings'
 
 interface FeedPostListWorkspaceProps {
   project: Project
@@ -59,7 +60,10 @@ export default function FeedPostListWorkspace({
   const [loading, setLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const [profiles, setProfiles] = useState<Map<string, { display_name: string | null; avatar_url: string | null }>>(new Map())
+  const { settings: companySettings } = useCompanySettings()
 
   const fetchPosts = useCallback(async () => {
     const supabase = createClient()
@@ -142,8 +146,88 @@ export default function FeedPostListWorkspace({
     return `${author} · ${formatTimestamp(post.created_at)}`
   }
 
-  // Determine which creation modal to show based on post type
+  // Determine primary type early for download and display logic
   const primaryType = postTypes[0]
+
+  // Expense total for the expenses workspace
+  const expenseTotal = useMemo(() => {
+    if (primaryType !== 'receipt' && primaryType !== 'expense') return 0
+    return posts.reduce((sum, post) => {
+      const content = post.content as PostContent
+      return sum + (content.total_amount ?? content.amount ?? 0)
+    }, 0)
+  }, [posts, primaryType])
+
+  // Download report handler
+  async function handleDownloadReport() {
+    if (posts.length === 0) return
+    setDownloading(true)
+    setDownloadError(null)
+    try {
+      const logoUrl = companySettings?.logo_url
+      switch (primaryType) {
+        case 'daily_report': {
+          const { generateReportPdf } = await import('@/lib/generateReportPdf')
+          const supabase = createClient()
+          for (const post of posts) {
+            const photoUrls: string[] = []
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const content = post.content as any
+            const photos: string[] = content.photos ?? []
+            for (const p of photos) {
+              photoUrls.push(supabase.storage.from('post-photos').getPublicUrl(p).data.publicUrl)
+            }
+            await generateReportPdf(content, photoUrls, logoUrl, post.dynamic_fields)
+          }
+          break
+        }
+        case 'jsa_report': {
+          const { generateJsaPdf } = await import('@/lib/generateJsaPdf')
+          for (const post of posts) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await generateJsaPdf(post.content as any, logoUrl, post.dynamic_fields)
+          }
+          break
+        }
+        case 'receipt':
+        case 'expense': {
+          const { generateExpenseReportPdf } = await import('@/lib/generateExpenseReportPdf')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await generateExpenseReportPdf(project.name, posts as any, logoUrl)
+          break
+        }
+        case 'timecard': {
+          const { generateWeeklyTimesheetPdf } = await import('@/lib/generateWeeklyTimesheetPdf')
+          // Group timecards by week (Monday)
+          const byWeek = new Map<string, FeedPost[]>()
+          for (const post of posts) {
+            const content = post.content as PostContent
+            if (!content.date) continue
+            const d = new Date(content.date + 'T12:00:00')
+            const day = d.getDay()
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Monday
+            const monday = new Date(d)
+            monday.setDate(diff)
+            const key = monday.toISOString().split('T')[0]
+            if (!byWeek.has(key)) byWeek.set(key, [])
+            byWeek.get(key)!.push(post)
+          }
+          for (const [weekMonday, timecards] of byWeek) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await generateWeeklyTimesheetPdf(project.name, weekMonday, timecards as any, logoUrl)
+          }
+          break
+        }
+      }
+    } catch (err) {
+      console.error('[FeedPostListWorkspace] Download failed:', err)
+      setDownloadError('Failed to generate report. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  // Determine which creation modal to show based on post type
   const canCreate = ['daily_report', 'timecard', 'receipt', 'expense', 'jsa_report'].includes(primaryType)
 
   const renderCreateModal = () => {
@@ -170,18 +254,41 @@ export default function FeedPostListWorkspace({
       icon={icon}
       onBack={onBack}
       actions={
-        canCreate ? (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
-          >
-            <PlusIcon className="w-3.5 h-3.5" />
-            New
-          </button>
-        ) : undefined
+        <div className="flex items-center gap-2">
+          {posts.length > 0 && (
+            <button
+              onClick={handleDownloadReport}
+              disabled={downloading}
+              className="flex items-center gap-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-sm font-medium transition shadow-sm disabled:opacity-50"
+              title="Download Report"
+            >
+              {downloading ? (
+                <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <DownloadIcon className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden sm:inline">Download</span>
+            </button>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              New
+            </button>
+          )}
+        </div>
       }
     >
       <div className="p-4">
+        {downloadError && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
+            <span>{downloadError}</span>
+            <button onClick={() => setDownloadError(null)} className="ml-2 text-red-400 hover:text-red-600"><XIcon className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -193,7 +300,16 @@ export default function FeedPostListWorkspace({
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-xs text-gray-400 mb-1">{posts.length} item{posts.length === 1 ? '' : 's'}</p>
+            {/* Expense total banner */}
+            {(primaryType === 'receipt' || primaryType === 'expense') && expenseTotal > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 mb-2">
+                <p className="text-sm font-semibold text-amber-800">Total: ${expenseTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-xs text-amber-600">{posts.length} expense{posts.length === 1 ? '' : 's'}</p>
+              </div>
+            )}
+            {primaryType !== 'receipt' && primaryType !== 'expense' && (
+              <p className="text-xs text-gray-400 mb-1">{posts.length} item{posts.length === 1 ? '' : 's'}</p>
+            )}
             {posts.map((post) => {
               const published = (post as FeedPost & { is_published?: boolean }).is_published !== false
               return (
