@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
+import { PlusIcon, XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { Project, FeedPost, PostType } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
 import PostCard from '@/components/feed/PostCard'
 import Portal from '@/components/ui/Portal'
+import NewDailyReportModal from '@/components/daily-reports/NewDailyReportModal'
+import NewTimecardModal from '@/components/timesheets/NewTimecardModal'
+import NewReceiptModal from '@/components/receipts/NewReceiptModal'
+import NewJsaReportModal from '@/components/jsa-reports/NewJsaReportModal'
 
 interface FeedPostListWorkspaceProps {
   project: Project
@@ -54,6 +58,7 @@ export default function FeedPostListWorkspace({
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [profiles, setProfiles] = useState<Map<string, { display_name: string | null; avatar_url: string | null }>>(new Map())
 
   const fetchPosts = useCallback(async () => {
@@ -137,8 +142,45 @@ export default function FeedPostListWorkspace({
     return `${author} · ${formatTimestamp(post.created_at)}`
   }
 
+  // Determine which creation modal to show based on post type
+  const primaryType = postTypes[0]
+  const canCreate = ['daily_report', 'timecard', 'receipt', 'expense', 'jsa_report'].includes(primaryType)
+
+  const renderCreateModal = () => {
+    if (!showCreateModal) return null
+    const modalProps = {
+      projects: [project],
+      userId,
+      onClose: () => setShowCreateModal(false),
+      onCreated: () => { setShowCreateModal(false); fetchPosts() },
+    }
+    switch (primaryType) {
+      case 'daily_report': return <NewDailyReportModal {...modalProps} />
+      case 'timecard': return <NewTimecardModal {...modalProps} />
+      case 'receipt':
+      case 'expense': return <NewReceiptModal {...modalProps} />
+      case 'jsa_report': return <NewJsaReportModal {...modalProps} />
+      default: return null
+    }
+  }
+
   return (
-    <WorkspaceShell title={title} icon={icon} onBack={onBack}>
+    <WorkspaceShell
+      title={title}
+      icon={icon}
+      onBack={onBack}
+      actions={
+        canCreate ? (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
+          >
+            <PlusIcon className="w-3.5 h-3.5" />
+            New
+          </button>
+        ) : undefined
+      }
+    >
       <div className="p-4">
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -217,6 +259,7 @@ export default function FeedPostListWorkspace({
           </div>
         </Portal>
       )}
+      {renderCreateModal()}
     </WorkspaceShell>
   )
 }
