@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -33,6 +34,33 @@ export async function POST(request: NextRequest) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceRoleKey) {
     return NextResponse.json({ error: 'Server configuration error: missing service role key' }, { status: 500 })
+  }
+
+  // Create a service-role client to bypass RLS for cleanup queries
+  const adminClient = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey
+  )
+
+  // Clean up all foreign key references before deleting the user.
+  // Nullable columns: set to NULL. NOT NULL columns: delete the records.
+  const cleanupQueries = [
+    adminClient.from('tasks').update({ assigned_to: null }).eq('assigned_to', user_id),
+    adminClient.from('post_comments').update({ user_id: null }).eq('user_id', user_id),
+    adminClient.from('customers').update({ user_id: null }).eq('user_id', user_id),
+    adminClient.from('estimates').update({ user_id: null }).eq('user_id', user_id),
+    adminClient.from('estimate_settings').update({ user_id: null }).eq('user_id', user_id),
+    adminClient.from('invoices').update({ user_id: null }).eq('user_id', user_id),
+    adminClient.from('change_orders').delete().eq('user_id', user_id),
+  ]
+
+  const results = await Promise.all(cleanupQueries)
+  const failedCleanup = results.find((r) => r.error)
+  if (failedCleanup?.error) {
+    return NextResponse.json(
+      { error: `Failed to clean up user references: ${failedCleanup.error.message}` },
+      { status: 500 }
+    )
   }
 
   // Call Supabase Auth Admin API to delete the user
