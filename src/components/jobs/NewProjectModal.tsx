@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon, ChevronDownIcon, PlusIcon, CheckIcon } from 'lucide-react'
+import { XIcon, ChevronDownIcon, PlusIcon, CheckIcon, ClipboardCheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { Customer } from '@/components/estimates/types'
 import type { EmployeeProfile } from '@/types'
@@ -50,15 +50,21 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   const [showCustomCrewInput, setShowCustomCrewInput] = useState(false)
   const [customCrewName, setCustomCrewName] = useState('')
 
+  // Checklist templates
+  const [checklistTemplates, setChecklistTemplates] = useState<{ id: string; name: string }[]>([])
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
+
   useEffect(() => {
     const supabase = createClient()
     async function fetchData() {
-      const [custResult, empResult] = await Promise.all([
+      const [custResult, empResult, tmplResult] = await Promise.all([
         supabase.from('customers').select('*').order('name', { ascending: true }),
         supabase.from('employee_profiles').select('*').order('name', { ascending: true }),
+        supabase.from('checklist_templates').select('id, name').order('name', { ascending: true }),
       ])
       if (custResult.data) setCustomers(custResult.data)
       if (empResult.data) setEmployeeProfiles(empResult.data as EmployeeProfile[])
+      if (tmplResult.data) setChecklistTemplates(tmplResult.data)
     }
     fetchData()
   }, [])
@@ -135,7 +141,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
     }
 
     const supabase = createClient()
-    const { error } = await supabase.from('projects').insert({
+    const { data: newProject, error } = await supabase.from('projects').insert({
       name: name.trim(),
       client_name: clientName.trim(),
       address: address.trim(),
@@ -150,14 +156,48 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       drive_time_enabled: driveTimeEnabled,
       drive_time_days: driveTimeDays,
       drive_time_position: driveTimePosition,
-    })
+    }).select('id, start_date').single()
 
     if (error) {
       setError(error.message)
       setLoading(false)
-    } else {
-      onCreated()
+      return
     }
+
+    // Apply selected checklist templates
+    if (newProject && selectedTemplateIds.length > 0) {
+      for (const templateId of selectedTemplateIds) {
+        const { data: templateItems } = await supabase
+          .from('checklist_template_items')
+          .select('*')
+          .eq('template_id', templateId)
+          .order('sort_order', { ascending: true })
+
+        const { data: template } = await supabase
+          .from('checklist_templates')
+          .select('name')
+          .eq('id', templateId)
+          .single()
+
+        if (templateItems && templateItems.length > 0) {
+          const projectItems = templateItems.map((item: Record<string, unknown>) => ({
+            project_id: newProject.id,
+            name: item.name,
+            is_complete: false,
+            assigned_to: item.default_assignee_id || null,
+            due_date: item.default_due_days && newProject.start_date
+              ? new Date(new Date(newProject.start_date).getTime() + (item.default_due_days as number) * 86400000).toISOString().split('T')[0]
+              : null,
+            notes: item.default_notes || null,
+            group_name: template?.name || 'Template',
+          }))
+
+          await supabase.from('project_checklist_items').insert(projectItems)
+        }
+      }
+    }
+
+    onCreated()
   }
 
   return (
@@ -440,6 +480,39 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                 )}
               </div>
             </div>
+
+            {/* Checklist Templates */}
+            {checklistTemplates.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
+                  <ClipboardCheckIcon className="w-4 h-4 text-gray-400" />
+                  Checklist Templates
+                </label>
+                <p className="text-xs text-gray-400 mb-2">Select templates to auto-apply when the project is created.</p>
+                <div className="flex flex-wrap gap-2">
+                  {checklistTemplates.map((tmpl) => {
+                    const isSelected = selectedTemplateIds.includes(tmpl.id)
+                    return (
+                      <button
+                        key={tmpl.id}
+                        type="button"
+                        onClick={() => setSelectedTemplateIds(prev =>
+                          isSelected ? prev.filter(id => id !== tmpl.id) : [...prev, tmpl.id]
+                        )}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-amber-500 text-white border-amber-500'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-amber-300 hover:bg-amber-50'
+                        }`}
+                      >
+                        {isSelected && <CheckIcon className="w-3 h-3" />}
+                        {tmpl.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Notes */}
             <div>
