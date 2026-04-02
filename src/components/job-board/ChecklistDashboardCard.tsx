@@ -5,34 +5,34 @@ import { createClient } from '@/lib/supabase/client'
 import {
   ClipboardCheckIcon,
   PlusIcon,
-  XIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   FileTextIcon,
+  Maximize2Icon,
   AlertCircleIcon,
+  XIcon,
 } from 'lucide-react'
 import { Project, Profile } from '@/types'
-import WorkspaceShell from '../WorkspaceShell'
 import {
   ProjectChecklistItem,
   ChecklistTemplate,
   ChecklistTemplateItem,
   ChecklistItemRow,
-} from './ChecklistShared'
+} from './workspaces/ChecklistShared'
 
-interface ChecklistWorkspaceProps {
+interface ChecklistDashboardCardProps {
   project: Project
   userId: string
-  onBack: () => void
+  onExpand: () => void
 }
 
-export default function ChecklistWorkspace({ project, userId, onBack }: ChecklistWorkspaceProps) {
+export default function ChecklistDashboardCard({ project, userId, onExpand }: ChecklistDashboardCardProps) {
   const [items, setItems] = useState<ProjectChecklistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([])
-  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false)
   const [showNewDropdown, setShowNewDropdown] = useState(false)
+  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false)
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
@@ -52,7 +52,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
       .eq('project_id', project.id)
       .order('sort_order', { ascending: true })
     if (error) {
-      console.error('[Checklist] Fetch items failed:', error)
+      console.error('[ChecklistCard] Fetch items failed:', error)
       showError('Failed to load checklist items: ' + error.message)
     }
     setItems((data as ProjectChecklistItem[]) ?? [])
@@ -100,7 +100,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
         setSavedIds((prev) => new Set(prev).add(item.id))
         setTimeout(() => setSavedIds((prev) => { const next = new Set(prev); next.delete(item.id); return next }), 1500)
       } else {
-        console.error('[Checklist] Save failed:', error)
+        console.error('[ChecklistCard] Save failed:', error)
         showError('Failed to save changes: ' + error.message)
       }
 
@@ -132,7 +132,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
     const supabase = createClient()
     const { error } = await supabase.from('project_checklist_items').delete().eq('id', id)
     if (error) {
-      console.error('[Checklist] Delete failed:', error)
+      console.error('[ChecklistCard] Delete failed:', error)
       showError('Failed to delete item: ' + error.message)
       setItems(prevItems)
     }
@@ -149,7 +149,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
       group_name: 'Project Checklist',
     })
     if (error) {
-      console.error('[Checklist] Add item failed:', error)
+      console.error('[ChecklistCard] Add item failed:', error)
       showError('Failed to add item: ' + error.message)
     } else {
       fetchItems()
@@ -160,7 +160,6 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
   const applyTemplate = async (template: ChecklistTemplate) => {
     setShowTemplateDropdown(false)
 
-    // Check if already applied
     const alreadyApplied = items.some((i) => i.template_id === template.id)
     if (alreadyApplied) {
       if (!window.confirm(`"${template.name}" has already been applied. Apply again?`)) return
@@ -199,7 +198,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
 
     const { error } = await supabase.from('project_checklist_items').insert(newItems)
     if (error) {
-      console.error('[Checklist] Apply template failed:', error)
+      console.error('[ChecklistCard] Apply template failed:', error)
       showError('Failed to apply template: ' + error.message)
       return
     }
@@ -232,43 +231,45 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
   const today = new Date().toISOString().split('T')[0]
 
   return (
-    <WorkspaceShell
-      title="Checklist"
-      icon={<ClipboardCheckIcon className="w-5 h-5" />}
-      onBack={onBack}
-      actions={
+    <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-amber-500"><ClipboardCheckIcon className="w-5 h-5" /></span>
+        <h3 className="text-sm font-semibold text-gray-900 flex-1">Checklist</h3>
+
+        {/* + New dropdown */}
         <div className="relative">
           <button
             onClick={() => { setShowNewDropdown(!showNewDropdown); setShowTemplateDropdown(false) }}
-            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
+            className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-white px-2 py-1 rounded-lg text-xs font-semibold transition shadow-sm"
           >
-            <PlusIcon className="w-3.5 h-3.5" />
+            <PlusIcon className="w-3 h-3" />
             New
-            <ChevronDownIcon className="w-3.5 h-3.5" />
+            <ChevronDownIcon className="w-3 h-3" />
           </button>
           {showNewDropdown && !showTemplateDropdown && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowNewDropdown(false)} />
-              <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1">
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1">
                 <button
                   onClick={() => { setShowNewDropdown(false); addManualItem() }}
-                  className="w-full text-left px-4 py-3 hover:bg-amber-50 transition flex items-center gap-2.5"
+                  className="w-full text-left px-3 py-2.5 hover:bg-amber-50 transition flex items-center gap-2"
                 >
-                  <PlusIcon className="w-4 h-4 text-gray-500" />
+                  <PlusIcon className="w-3.5 h-3.5 text-gray-500" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Add Checklist Item</p>
-                    <p className="text-xs text-gray-400">Add a blank item to edit</p>
+                    <p className="text-xs font-medium text-gray-900">Add Checklist Item</p>
+                    <p className="text-[10px] text-gray-400">Add a blank item to edit</p>
                   </div>
                 </button>
                 <div className="border-t border-gray-100" />
                 <button
                   onClick={() => { setShowNewDropdown(false); setShowTemplateDropdown(true) }}
-                  className="w-full text-left px-4 py-3 hover:bg-amber-50 transition flex items-center gap-2.5"
+                  className="w-full text-left px-3 py-2.5 hover:bg-amber-50 transition flex items-center gap-2"
                 >
-                  <ClipboardCheckIcon className="w-4 h-4 text-gray-500" />
+                  <ClipboardCheckIcon className="w-3.5 h-3.5 text-gray-500" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Apply Template</p>
-                    <p className="text-xs text-gray-400">Add items from a template</p>
+                    <p className="text-xs font-medium text-gray-900">Apply Template</p>
+                    <p className="text-[10px] text-gray-400">Add items from a template</p>
                   </div>
                 </button>
               </div>
@@ -277,9 +278,9 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
           {showTemplateDropdown && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowTemplateDropdown(false)} />
-              <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
+              <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
                 {templates.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-gray-400">No templates available. Create one in Settings.</p>
+                  <p className="px-3 py-2 text-xs text-gray-400">No templates available.</p>
                 ) : (
                   templates.map((t) => (
                     <button
@@ -287,8 +288,8 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
                       onClick={() => applyTemplate(t)}
                       className="w-full text-left px-3 py-2 hover:bg-amber-50 transition"
                     >
-                      <p className="text-sm font-medium text-gray-900">{t.name}</p>
-                      {t.description && <p className="text-xs text-gray-400">{t.description}</p>}
+                      <p className="text-xs font-medium text-gray-900">{t.name}</p>
+                      {t.description && <p className="text-[10px] text-gray-400">{t.description}</p>}
                     </button>
                   ))
                 )}
@@ -296,90 +297,99 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
             </>
           )}
         </div>
-      }
-    >
-      <div className="p-4">
-        {errorMessage && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircleIcon className="w-4 h-4 flex-shrink-0" />
-              {errorMessage}
-            </div>
-            <button onClick={() => setErrorMessage(null)} className="text-red-400 hover:text-red-600 p-0.5">
-              <XIcon className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-20">
-            <ClipboardCheckIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-gray-500 font-medium">No checklist items yet</p>
-            <p className="text-xs text-gray-400 mt-1 mb-4">Use the <span className="font-semibold">+ New</span> button above to add items or apply a template.</p>
-          </div>
-        ) : (
-          <>
-            {/* Progress bar */}
-            <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold text-gray-600">{completedItems} of {totalItems} complete</span>
-                <span className="text-xs font-medium text-gray-400">{progress}%</span>
-              </div>
-              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-amber-500 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
 
-            {/* Grouped items */}
-            <div className="space-y-4">
-              {grouped.map(({ group, items: groupItems }) => {
-                const isCollapsed = collapsedGroups.has(group)
-                const groupComplete = groupItems.filter((i) => i.is_complete).length
-                return (
-                  <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    {/* Group header */}
-                    <button
-                      onClick={() => toggleGroup(group)}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 hover:bg-gray-100 transition text-left"
-                    >
-                      <ChevronRightIcon className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
-                      <FileTextIcon className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide flex-1">{group}</span>
-                      <span className="text-xs text-gray-400">{groupComplete}/{groupItems.length}</span>
-                    </button>
-                    {/* Group items */}
-                    {!isCollapsed && (
-                      <div className="divide-y divide-gray-100">
-                        {groupItems.map((item) => (
-                          <ChecklistItemRow
-                            key={item.id}
-                            item={item}
-                            profileMap={profileMap}
-                            profiles={profiles}
-                            today={today}
-                            isSaving={savingIds.has(item.id)}
-                            isSaved={savedIds.has(item.id)}
-                            onToggleComplete={() => toggleComplete(item)}
-                            onUpdateField={(field, value) => updateField(item, field, value)}
-                            onDelete={() => deleteItem(item.id)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </>
-        )}
-
+        {/* Expand button */}
+        <button
+          onClick={onExpand}
+          className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition"
+          title="Open full checklist workspace"
+        >
+          <Maximize2Icon className="w-4 h-4" />
+        </button>
       </div>
-    </WorkspaceShell>
+
+      {/* Error banner */}
+      {errorMessage && (
+        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <AlertCircleIcon className="w-3.5 h-3.5 flex-shrink-0" />
+            {errorMessage}
+          </div>
+          <button onClick={() => setErrorMessage(null)} className="text-red-400 hover:text-red-600 p-0.5">
+            <XIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Content */}
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-8">
+          <ClipboardCheckIcon className="w-6 h-6 text-gray-300 mx-auto mb-1.5" />
+          <p className="text-xs text-gray-500 font-medium">No checklist items yet</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">Use <span className="font-semibold">+ New</span> to add items or apply a template.</p>
+        </div>
+      ) : (
+        <>
+          {/* Progress bar */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-gray-600">{completedItems} of {totalItems} complete</span>
+              <span className="text-xs font-medium text-gray-400">{progress}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Grouped items */}
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {grouped.map(({ group, items: groupItems }) => {
+              const isCollapsed = collapsedGroups.has(group)
+              const groupComplete = groupItems.filter((i) => i.is_complete).length
+              return (
+                <div key={group} className="rounded-lg border border-gray-100 overflow-hidden">
+                  {/* Group header */}
+                  <button
+                    onClick={() => toggleGroup(group)}
+                    className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-100 hover:bg-gray-100 transition text-left"
+                  >
+                    <ChevronRightIcon className={`w-3 h-3 text-gray-400 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+                    <FileTextIcon className="w-3 h-3 text-gray-400" />
+                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide flex-1">{group}</span>
+                    <span className="text-[10px] text-gray-400">{groupComplete}/{groupItems.length}</span>
+                  </button>
+                  {/* Group items */}
+                  {!isCollapsed && (
+                    <div className="divide-y divide-gray-50">
+                      {groupItems.map((item) => (
+                        <ChecklistItemRow
+                          key={item.id}
+                          item={item}
+                          profileMap={profileMap}
+                          profiles={profiles}
+                          today={today}
+                          isSaving={savingIds.has(item.id)}
+                          isSaved={savedIds.has(item.id)}
+                          onToggleComplete={() => toggleComplete(item)}
+                          onUpdateField={(field, value) => updateField(item, field, value)}
+                          onDelete={() => deleteItem(item.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
   )
 }

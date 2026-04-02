@@ -9,7 +9,7 @@ import {
   LayoutDashboardIcon,
   ChevronRightIcon,
   SettingsIcon,
-  ClipboardCheckIcon,
+
   FileTextIcon,
   CheckSquareIcon,
   ClipboardListIcon,
@@ -44,6 +44,7 @@ import ChecklistWorkspace from './workspaces/ChecklistWorkspace'
 import MaterialOrdersWorkspace from './workspaces/MaterialOrdersWorkspace'
 import SchedulingWorkspace from './workspaces/SchedulingWorkspace'
 import ReportWorkspace from './workspaces/ReportWorkspace'
+import ChecklistDashboardCard from './ChecklistDashboardCard'
 
 type WorkspaceType =
   | 'job_info' | 'checklist' | 'plans' | 'tasks'
@@ -689,23 +690,11 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       }
                     />
 
-                    {/* 2. Checklist */}
-                    <DashboardCard
-                      icon={<ClipboardCheckIcon className="w-5 h-5" />}
-                      title="Checklist"
-                      onClick={() => openWorkspace('checklist')}
-                      content={
-                        counts && counts.checklistTotal > 0 ? (
-                          <div className="space-y-1.5">
-                            <p className="text-xs text-gray-500">{counts.checklistCompleted} of {counts.checklistTotal} complete</p>
-                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${Math.round((counts.checklistCompleted / counts.checklistTotal) * 100)}%` }} />
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-400">No checklist items — click to set up</p>
-                        )
-                      }
+                    {/* 2. Checklist — spans 2 columns with full inline editing */}
+                    <ChecklistDashboardCard
+                      project={selectedProject}
+                      userId={userId}
+                      onExpand={() => openWorkspace('checklist')}
                     />
 
                     {/* 3. Plans */}
