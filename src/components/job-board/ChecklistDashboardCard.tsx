@@ -231,7 +231,7 @@ export default function ChecklistDashboardCard({ project, userId, onExpand }: Ch
   const today = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 xl:col-span-3 transition-all hover:shadow-sm hover:border-gray-300">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <span className="text-amber-500"><ClipboardCheckIcon className="w-5 h-5" /></span>
