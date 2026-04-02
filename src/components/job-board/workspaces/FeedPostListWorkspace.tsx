@@ -192,8 +192,24 @@ export default function FeedPostListWorkspace({
         case 'receipt':
         case 'expense': {
           const { generateExpenseReportPdf } = await import('@/lib/generateExpenseReportPdf')
+          // Normalize expense posts to ReceiptContent shape expected by the generator
+          const normalized = posts.map((post) => {
+            const c = post.content as PostContent
+            if (post.post_type === 'expense') {
+              return {
+                content: {
+                  receipt_photo: '',
+                  vendor_name: c.description ?? 'Expense',
+                  receipt_date: c.date ?? '',
+                  total_amount: c.amount ?? 0,
+                  category: c.category ?? '',
+                },
+              }
+            }
+            return { content: post.content }
+          })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await generateExpenseReportPdf(project.name, posts as any, logoUrl)
+          await generateExpenseReportPdf(project.name, normalized as any, logoUrl)
           break
         }
         case 'timecard': {
@@ -220,8 +236,9 @@ export default function FeedPostListWorkspace({
         }
       }
     } catch (err) {
-      console.error('[FeedPostListWorkspace] Download failed:', err)
-      setDownloadError('Failed to generate report. Please try again.')
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[FeedPostListWorkspace] Download failed:', msg, err)
+      setDownloadError(`Failed to generate report: ${msg}`)
     } finally {
       setDownloading(false)
     }
