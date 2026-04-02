@@ -39,7 +39,7 @@ export async function generateReceiptPdf(
   photoUrl: string | null,
   logoUrl?: string | null,
   dynamicFields?: DynamicFieldEntry[]
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
   const PW = doc.internal.pageSize.getWidth()
@@ -207,5 +207,6 @@ export async function generateReceiptPdf(
   }
 
   const safeName = (content.vendor_name || 'receipt').replace(/[^a-z0-9]/gi, '-').toLowerCase()
-  doc.save(`receipt-${safeName}-${content.receipt_date || 'draft'}.pdf`)
+  const filename = `receipt-${safeName}-${content.receipt_date || 'draft'}.pdf`
+  return { blob: doc.output('blob'), filename }
 }

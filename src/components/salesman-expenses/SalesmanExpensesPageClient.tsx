@@ -13,6 +13,8 @@ import { UserRole } from '@/types'
 import SalesmanExpenseCard from './SalesmanExpenseCard'
 import type { SalesmanExpenseRow } from './SalesmanExpenseCard'
 import NewSalesmanExpenseModal from './NewSalesmanExpenseModal'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 import EditSalesmanExpenseModal from './EditSalesmanExpenseModal'
 
 interface SalesmanExpensesPageClientProps {
@@ -31,6 +33,9 @@ export default function SalesmanExpensesPageClient({
   const [editingExpense, setEditingExpense] = useState<SalesmanExpenseRow | null>(null)
   const [showPaid, setShowPaid] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
 
   const isAdminOrOM = userRole === 'admin' || userRole === 'office_manager'
 
@@ -111,6 +116,9 @@ export default function SalesmanExpensesPageClient({
 
   async function handleDownload() {
     setDownloading(true)
+    setPdfError(null)
+    setShowPreview(true)
+    setPdfPreview(null)
     try {
       const { jsPDF } = await import('jspdf')
       const doc = new jsPDF()
@@ -170,9 +178,10 @@ export default function SalesmanExpensesPageClient({
         y += 8
       }
 
-      doc.save('salesman-expenses.pdf')
+      setPdfPreview({ blob: doc.output('blob'), filename: 'salesman-expenses.pdf', title: 'Salesman Expenses' })
     } catch (err) {
       console.error('PDF download failed:', err)
+      setPdfError(err instanceof Error ? err.message : 'Failed to generate report')
     } finally {
       setDownloading(false)
     }
@@ -299,6 +308,16 @@ export default function SalesmanExpensesPageClient({
           expense={editingExpense}
           onClose={() => setEditingExpense(null)}
           onUpdated={handleUpdated}
+        />
+      )}
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          loading={downloading}
+          error={pdfError}
+          title="Salesman Expenses"
+          onClose={() => { setShowPreview(false); setPdfPreview(null); setPdfError(null) }}
         />
       )}
     </div>

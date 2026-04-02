@@ -10,6 +10,8 @@ import type { DateClickArg } from '@fullcalendar/interaction'
 import type { EventClickArg, DatesSetArg } from '@fullcalendar/core'
 import { PlusIcon, XIcon, Trash2Icon, PencilIcon, CalendarIcon, UsersIcon, FileTextIcon, DownloadIcon, LoaderIcon, CheckIcon, LinkIcon, ChevronDownIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 import { CalendarEvent, EmployeeProfile, Project } from '@/types'
 import type { UserRole } from '@/types'
 import { usePermissions } from '@/lib/usePermissions'
@@ -302,6 +304,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [formError, setFormError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
   const [viewTitle, setViewTitle] = useState<string>('')
 
   // Employee pill selector
@@ -680,6 +685,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
 
   async function handleDownloadPdf() {
     setPdfLoading(true)
+    setPdfError(null)
+    setShowPreview(true)
+    setPdfPreview(null)
     try {
       const el = calendarRef.current
       if (!el) return
@@ -709,9 +717,10 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
       doc.addImage(imgData, 'PNG', x, y, imgW, imgH)
 
       const safeTitle = (viewTitle || 'Calendar').replace(/[^a-z0-9]/gi, '-')
-      doc.save(`Calendar-${safeTitle}.pdf`)
-    } catch {
-      // silently fail
+      const filename = `Calendar-${safeTitle}.pdf`
+      setPdfPreview({ blob: doc.output('blob'), filename, title: 'Calendar' })
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Failed to generate calendar PDF')
     } finally {
       setPdfLoading(false)
     }
@@ -2218,6 +2227,16 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
           border-radius: 3px;
         }
       `}</style>
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          loading={pdfLoading}
+          error={pdfError}
+          title="Calendar"
+          onClose={() => { setShowPreview(false); setPdfPreview(null); setPdfError(null) }}
+        />
+      )}
     </div>
   )
 }

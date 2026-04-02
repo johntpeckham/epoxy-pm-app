@@ -18,6 +18,8 @@ import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditJsaReportModal from '@/components/feed/EditJsaReportModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
 interface JsaReportRow {
   id: string
@@ -62,11 +64,21 @@ export default memo(function JsaReportCard({ report }: JsaReportCardProps) {
     router.refresh()
   }
 
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
+
   async function handleDownloadPdf() {
     setPdfLoading(true)
+    setPdfError(null)
+    setShowPreview(true)
+    setPdfPreview(null)
     try {
       const { generateJsaPdf } = await import('@/lib/generateJsaPdf')
-      await generateJsaPdf(content, companySettings?.logo_url, report.dynamic_fields)
+      const result = await generateJsaPdf(content, companySettings?.logo_url, report.dynamic_fields)
+      setPdfPreview({ ...result, title: 'JSA Report' })
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Failed to generate report')
     } finally {
       setPdfLoading(false)
     }
@@ -336,6 +348,16 @@ export default memo(function JsaReportCard({ report }: JsaReportCardProps) {
             setShowEditModal(false)
             router.refresh()
           }}
+        />
+      )}
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          loading={pdfLoading}
+          error={pdfError}
+          title="JSA Report"
+          onClose={() => { setShowPreview(false); setPdfPreview(null); setPdfError(null) }}
         />
       )}
     </>
