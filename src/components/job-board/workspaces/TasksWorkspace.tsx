@@ -90,7 +90,7 @@ export default function TasksWorkspace({ project, userId, onBack }: TasksWorkspa
 
   return (
     <WorkspaceShell
-      title="Tasks"
+      title="Field Tasks"
       icon={<CheckSquareIcon className="w-5 h-5" />}
       onBack={onBack}
       actions={

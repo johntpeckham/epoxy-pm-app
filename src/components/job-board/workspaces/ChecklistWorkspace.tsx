@@ -233,7 +233,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
 
   return (
     <WorkspaceShell
-      title="Checklist"
+      title="Office Checklist"
       icon={<ClipboardCheckIcon className="w-5 h-5" />}
       onBack={onBack}
       actions={
