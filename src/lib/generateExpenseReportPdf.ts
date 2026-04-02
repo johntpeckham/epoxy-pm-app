@@ -41,7 +41,7 @@ export async function generateExpenseReportPdf(
   projectName: string,
   expenses: ExpenseRow[],
   logoUrl?: string | null
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
   const PW = doc.internal.pageSize.getWidth()
@@ -242,5 +242,6 @@ export async function generateExpenseReportPdf(
   }
 
   const safeName = (projectName || 'expenses').replace(/[^a-z0-9]/gi, '-').toLowerCase()
-  doc.save(`expense-report-${safeName}.pdf`)
+  const filename = `expense-report-${safeName}.pdf`
+  return { blob: doc.output('blob'), filename }
 }

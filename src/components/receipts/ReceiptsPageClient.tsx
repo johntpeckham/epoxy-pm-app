@@ -9,6 +9,8 @@ import NewReceiptModal from './NewReceiptModal'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
 interface ReceiptRow {
   id: string
@@ -109,6 +111,9 @@ export default function ReceiptsPageClient({
   const [filterProject, _setFilterProject] = useState<string>('')
   const [showCompleted, setShowCompleted] = useState(false)
   const [downloadingProject, setDownloadingProject] = useState<string | null>(null)
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
 
   const projectStatusMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -182,12 +187,16 @@ export default function ReceiptsPageClient({
 
   async function handleDownloadReport(projectId: string, projectName: string) {
     setDownloadingProject(projectId)
+    setPdfError(null)
+    setShowPreview(true)
+    setPdfPreview(null)
     try {
       const projectReceipts = filtered.filter((r) => r.project_id === projectId)
       const { generateExpenseReportPdf } = await import('@/lib/generateExpenseReportPdf')
-      await generateExpenseReportPdf(projectName, projectReceipts, companySettings?.logo_url)
-    } catch {
-      // silently fail — PDF download will just not trigger
+      const result = await generateExpenseReportPdf(projectName, projectReceipts, companySettings?.logo_url)
+      setPdfPreview({ ...result, title: `Expense Report — ${projectName}` })
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Failed to generate report')
     } finally {
       setDownloadingProject(null)
     }
@@ -381,6 +390,16 @@ export default function ReceiptsPageClient({
           userId={userId}
           onClose={() => setShowModal(false)}
           onCreated={handleCreated}
+        />
+      )}
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          loading={!!downloadingProject}
+          error={pdfError}
+          title="Expense Report"
+          onClose={() => { setShowPreview(false); setPdfPreview(null); setPdfError(null) }}
         />
       )}
     </div>

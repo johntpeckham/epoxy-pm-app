@@ -346,7 +346,7 @@ export async function exportSinglePage(
   pageKey: string,
   storedCanvasSize: { w: number; h: number } | undefined,
   projectName: string,
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const { dataUrl, rawW, rawH } = await renderPageComposite(
     page, items, pageKey, storedCanvasSize,
   )
@@ -356,7 +356,8 @@ export async function exportSinglePage(
   doc.addImage(dataUrl, 'JPEG', 0, 0, rawW, rawH)
 
   const safeName = projectName.replace(/[^a-zA-Z0-9-_]/g, '-').replace(/-+/g, '-') || 'takeoff'
-  doc.save(`${safeName}-page-${page.pageIndex + 1}.pdf`)
+  const filename = `${safeName}-page-${page.pageIndex + 1}.pdf`
+  return { blob: doc.output('blob'), filename }
 }
 
 // ─── Export full report PDF ───
@@ -367,7 +368,7 @@ export async function exportFullReport(
   items: TakeoffItem[],
   pageScales: Record<string, number>,
   pageRenderedSizes: Record<string, { w: number; h: number }>,
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const safeName = projectName.replace(/[^a-zA-Z0-9-_]/g, '-').replace(/-+/g, '-') || 'takeoff'
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' })
   const pw = doc.internal.pageSize.getWidth()
@@ -521,7 +522,8 @@ export async function exportFullReport(
     }
   }
 
-  doc.save(`${safeName}-takeoff-report.pdf`)
+  const filename = `${safeName}-takeoff-report.pdf`
+  return { blob: doc.output('blob'), filename }
 }
 
 // ─── Generate full report as Blob (for uploading to Supabase) ───

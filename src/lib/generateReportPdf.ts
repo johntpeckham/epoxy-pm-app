@@ -40,7 +40,7 @@ export async function generateReportPdf(
   photoUrls: string[],
   logoUrl?: string | null,
   dynamicFields?: DynamicFieldEntry[]
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
   const PW = doc.internal.pageSize.getWidth()   // 215.9
@@ -307,5 +307,6 @@ export async function generateReportPdf(
   }
 
   const safeName = (content.project_name || 'report').replace(/[^a-z0-9]/gi, '-').toLowerCase()
-  doc.save(`daily-report-${safeName}-${content.date || 'draft'}.pdf`)
+  const filename = `daily-report-${safeName}-${content.date || 'draft'}.pdf`
+  return { blob: doc.output('blob'), filename }
 }

@@ -21,6 +21,8 @@ import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditReceiptModal from '@/components/feed/EditReceiptModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
 interface ReceiptRow {
   id: string
@@ -86,11 +88,21 @@ export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
     router.refresh()
   }
 
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
+
   async function handleDownloadPdf() {
     setPdfLoading(true)
+    setPdfError(null)
+    setShowPreview(true)
+    setPdfPreview(null)
     try {
       const { generateReceiptPdf } = await import('@/lib/generateReceiptPdf')
-      await generateReceiptPdf(content, photoUrl, companySettings?.logo_url, receipt.dynamic_fields)
+      const result = await generateReceiptPdf(content, photoUrl, companySettings?.logo_url, receipt.dynamic_fields)
+      setPdfPreview({ ...result, title: 'Expense Receipt' })
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Failed to generate report')
     } finally {
       setPdfLoading(false)
     }
@@ -327,6 +339,16 @@ export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
             setShowEditModal(false)
             router.refresh()
           }}
+        />
+      )}
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          loading={pdfLoading}
+          error={pdfError}
+          title="Expense Receipt"
+          onClose={() => { setShowPreview(false); setPdfPreview(null); setPdfError(null) }}
         />
       )}
     </>

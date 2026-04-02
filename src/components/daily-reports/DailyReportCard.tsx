@@ -18,6 +18,8 @@ import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditDailyReportModal from '@/components/feed/EditDailyReportModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
 interface DailyReportRow {
   id: string
@@ -82,11 +84,21 @@ export default memo(function DailyReportCard({ report }: DailyReportCardProps) {
     router.refresh()
   }
 
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
+
   async function handleDownloadPdf() {
     setPdfLoading(true)
+    setPdfError(null)
+    setShowPreview(true)
+    setPdfPreview(null)
     try {
       const { generateReportPdf } = await import('@/lib/generateReportPdf')
-      await generateReportPdf(content, photoUrls.map((p) => p.url), companySettings?.logo_url, report.dynamic_fields)
+      const result = await generateReportPdf(content, photoUrls.map((p) => p.url), companySettings?.logo_url, report.dynamic_fields)
+      setPdfPreview({ ...result, title: 'Daily Report' })
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Failed to generate report')
     } finally {
       setPdfLoading(false)
     }
@@ -325,6 +337,16 @@ export default memo(function DailyReportCard({ report }: DailyReportCardProps) {
             setShowEditModal(false)
             router.refresh()
           }}
+        />
+      )}
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          loading={pdfLoading}
+          error={pdfError}
+          title="Daily Report"
+          onClose={() => { setShowPreview(false); setPdfPreview(null); setPdfError(null) }}
         />
       )}
     </>

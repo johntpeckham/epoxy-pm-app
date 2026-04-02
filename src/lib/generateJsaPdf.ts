@@ -38,7 +38,7 @@ export async function generateJsaPdf(
   content: JsaReportContent,
   logoUrl?: string | null,
   dynamicFields?: DynamicFieldEntry[]
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
   const PW = doc.internal.pageSize.getWidth()
@@ -313,5 +313,6 @@ export async function generateJsaPdf(
   }
 
   const safeName = (content.projectName || 'jsa-report').replace(/[^a-z0-9]/gi, '-').toLowerCase()
-  doc.save(`jsa-report-${safeName}-${content.date || 'draft'}.pdf`)
+  const filename = `jsa-report-${safeName}-${content.date || 'draft'}.pdf`
+  return { blob: doc.output('blob'), filename }
 }

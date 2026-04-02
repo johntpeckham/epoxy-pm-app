@@ -17,6 +17,8 @@ import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditTimecardModal from '@/components/feed/EditTimecardModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
 interface TimecardRow {
   id: string
@@ -63,11 +65,21 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
     router.refresh()
   }
 
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
+
   async function handleDownloadPdf() {
     setPdfLoading(true)
+    setPdfError(null)
+    setShowPreview(true)
+    setPdfPreview(null)
     try {
       const { generateTimecardPdf } = await import('@/lib/generateTimecardPdf')
-      await generateTimecardPdf(content, companySettings?.logo_url, timecard.dynamic_fields)
+      const result = await generateTimecardPdf(content, companySettings?.logo_url, timecard.dynamic_fields)
+      setPdfPreview({ ...result, title: 'Timecard' })
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Failed to generate report')
     } finally {
       setPdfLoading(false)
     }
@@ -252,6 +264,16 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
             setShowEditModal(false)
             router.refresh()
           }}
+        />
+      )}
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          loading={pdfLoading}
+          error={pdfError}
+          title="Timecard"
+          onClose={() => { setShowPreview(false); setPdfPreview(null); setPdfError(null) }}
         />
       )}
     </>

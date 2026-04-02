@@ -12,6 +12,8 @@ import NewTimecardModal from '@/components/timesheets/NewTimecardModal'
 import NewReceiptModal from '@/components/receipts/NewReceiptModal'
 import NewJsaReportModal from '@/components/jsa-reports/NewJsaReportModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
 interface FeedPostListWorkspaceProps {
   project: Project
@@ -62,6 +64,9 @@ export default function FeedPostListWorkspace({
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
   const [profiles, setProfiles] = useState<Map<string, { display_name: string | null; avatar_url: string | null }>>(new Map())
   const { settings: companySettings } = useCompanySettings()
 
@@ -163,30 +168,32 @@ export default function FeedPostListWorkspace({
     if (posts.length === 0) return
     setDownloading(true)
     setDownloadError(null)
+    setPdfError(null)
+    setShowPreview(true)
+    setPdfPreview(null)
     try {
       const logoUrl = companySettings?.logo_url
+      let result: { blob: Blob; filename: string } | null = null
       switch (primaryType) {
         case 'daily_report': {
           const { generateReportPdf } = await import('@/lib/generateReportPdf')
           const supabase = createClient()
-          for (const post of posts) {
-            const photoUrls: string[] = []
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const content = post.content as any
-            const photos: string[] = content.photos ?? []
-            for (const p of photos) {
-              photoUrls.push(supabase.storage.from('post-photos').getPublicUrl(p).data.publicUrl)
-            }
-            await generateReportPdf(content, photoUrls, logoUrl, post.dynamic_fields)
+          // Generate first report for preview
+          const post = posts[0]
+          const photoUrls: string[] = []
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const content = post.content as any
+          const photos: string[] = content.photos ?? []
+          for (const p of photos) {
+            photoUrls.push(supabase.storage.from('post-photos').getPublicUrl(p).data.publicUrl)
           }
+          result = await generateReportPdf(content, photoUrls, logoUrl, post.dynamic_fields)
           break
         }
         case 'jsa_report': {
           const { generateJsaPdf } = await import('@/lib/generateJsaPdf')
-          for (const post of posts) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await generateJsaPdf(post.content as any, logoUrl, post.dynamic_fields)
-          }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          result = await generateJsaPdf(posts[0].content as any, logoUrl, posts[0].dynamic_fields)
           break
         }
         case 'receipt':
@@ -209,7 +216,7 @@ export default function FeedPostListWorkspace({
             return { content: post.content }
           })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await generateExpenseReportPdf(project.name, normalized as any, logoUrl)
+          result = await generateExpenseReportPdf(project.name, normalized as any, logoUrl)
           break
         }
         case 'timecard': {
@@ -228,17 +235,24 @@ export default function FeedPostListWorkspace({
             if (!byWeek.has(key)) byWeek.set(key, [])
             byWeek.get(key)!.push(post)
           }
-          for (const [weekMonday, timecards] of byWeek) {
+          // Generate first week for preview
+          const firstEntry = byWeek.entries().next().value
+          if (firstEntry) {
+            const [weekMonday, timecards] = firstEntry
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await generateWeeklyTimesheetPdf(project.name, weekMonday, timecards as any, logoUrl)
+            result = await generateWeeklyTimesheetPdf(project.name, weekMonday, timecards as any, logoUrl)
           }
           break
         }
+      }
+      if (result) {
+        setPdfPreview({ ...result, title })
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error('[FeedPostListWorkspace] Download failed:', msg, err)
       setDownloadError(`Failed to generate report: ${msg}`)
+      setPdfError(`Failed to generate report: ${msg}`)
     } finally {
       setDownloading(false)
     }
@@ -393,6 +407,16 @@ export default function FeedPostListWorkspace({
         </Portal>
       )}
       {renderCreateModal()}
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          loading={downloading}
+          error={pdfError}
+          title={title}
+          onClose={() => { setShowPreview(false); setPdfPreview(null); setPdfError(null) }}
+        />
+      )}
     </WorkspaceShell>
   )
 }

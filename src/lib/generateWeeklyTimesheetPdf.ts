@@ -62,7 +62,7 @@ export async function generateWeeklyTimesheetPdf(
   weekMonday: string,
   timecards: WeekTimecard[],
   logoUrl?: string | null
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
   const PW = doc.internal.pageSize.getWidth()
@@ -338,5 +338,6 @@ export async function generateWeeklyTimesheetPdf(
   }
 
   const safeName = (projectName || 'timesheet').replace(/[^a-z0-9]/gi, '-').toLowerCase()
-  doc.save(`weekly-timesheet-${safeName}-${weekMonday}.pdf`)
+  const filename = `weekly-timesheet-${safeName}-${weekMonday}.pdf`
+  return { blob: doc.output('blob'), filename }
 }

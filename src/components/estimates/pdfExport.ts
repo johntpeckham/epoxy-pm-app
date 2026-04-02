@@ -26,7 +26,7 @@ function fmtMoney(n: number): string {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export function exportEstimatePdf(data: PdfData) {
+export function exportEstimatePdf(data: PdfData): { blob: Blob; filename: string } {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const margin = 50
@@ -335,7 +335,7 @@ export function exportEstimatePdf(data: PdfData) {
   doc.text('Accepted By _________________________', margin, y)
   doc.text('Accepted Date _________________________', margin + contentWidth / 2, y)
 
-  // Save
+  // Return blob + filename
   const filename = `Estimate-${data.estimateNumber}-${data.customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
-  doc.save(filename)
+  return { blob: doc.output('blob'), filename }
 }

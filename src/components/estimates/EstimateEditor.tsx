@@ -11,6 +11,8 @@ import ChangeOrdersList from '../shared/ChangeOrdersList'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { useMaterialSystems } from '@/lib/useMaterialSystems'
 import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
 interface EstimateEditorProps {
   estimate: Estimate
@@ -64,6 +66,8 @@ export default function EstimateEditor({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [pushSuccess, setPushSuccess] = useState(false)
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
   const [showConvertConfirm, setShowConvertConfirm] = useState(false)
   const [convertSuccess, setConvertSuccess] = useState(false)
   const [convertError, setConvertError] = useState<string | null>(null)
@@ -194,7 +198,7 @@ export default function EstimateEditor({
 
   function handleExportPdf() {
     const items = lineItems.map((item) => ({ ...item, amount: calcAmount(item) }))
-    exportEstimatePdf({
+    const result = exportEstimatePdf({
       estimateNumber,
       date,
       customerName,
@@ -214,6 +218,8 @@ export default function EstimateEditor({
       companyWebsite,
       logoBase64: settings?.logo_base64 ?? null,
     })
+    setPdfPreview({ ...result, title: 'Estimate' })
+    setShowPreview(true)
   }
 
   // Fetch change orders on mount
@@ -766,6 +772,14 @@ export default function EstimateEditor({
           onConfirm={handleDeleteEstimate}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}
+        />
+      )}
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          title="Estimate"
+          onClose={() => { setShowPreview(false); setPdfPreview(null) }}
         />
       )}
     </div>

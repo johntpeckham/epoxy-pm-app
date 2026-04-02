@@ -6,6 +6,8 @@ import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, P
 import type { TakeoffPage, TakeoffItem, Markup } from './types'
 import { exportFullReport } from './takeoffExport'
 import PushPlansModal from './PushPlansModal'
+import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
+import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -240,6 +242,9 @@ export default function TakeoffDashboard({
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editItemName, setEditItemName] = useState('')
   const [isDownloadingReport, setIsDownloadingReport] = useState(false)
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
   const [showPushModal, setShowPushModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
@@ -326,10 +331,15 @@ export default function TakeoffDashboard({
 
   const handleDownloadReport = useCallback(async () => {
     setIsDownloadingReport(true)
+    setPdfError(null)
+    setShowPreview(true)
+    setPdfPreview(null)
     try {
-      await exportFullReport(projectName, pages, items, pageScales, pageRenderedSizes)
+      const result = await exportFullReport(projectName, pages, items, pageScales, pageRenderedSizes)
+      setPdfPreview({ ...result, title: 'Takeoff Report' })
     } catch (err) {
       console.error('Failed to generate report:', err)
+      setPdfError(err instanceof Error ? err.message : 'Failed to generate report')
     } finally {
       setIsDownloadingReport(false)
     }
@@ -573,6 +583,16 @@ export default function TakeoffDashboard({
             <XIcon className="w-3.5 h-3.5" />
           </button>
         </div>
+      )}
+
+      {showPreview && (
+        <ReportPreviewModal
+          pdfData={pdfPreview}
+          loading={isDownloadingReport}
+          error={pdfError}
+          title="Takeoff Report"
+          onClose={() => { setShowPreview(false); setPdfPreview(null); setPdfError(null) }}
+        />
       )}
     </div>
   )
