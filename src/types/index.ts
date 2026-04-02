@@ -358,7 +358,7 @@ export interface EmployeeCustomFieldDefinition {
   created_at: string
 }
 
-export type FeatureKey = 'jobs' | 'job_board' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports' | 'receipts' | 'timesheets'
+export type FeatureKey = 'jobs' | 'job_board' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports' | 'receipts' | 'timesheets' | 'salesman_expenses'
 
 export interface ProjectPin {
   id: string
