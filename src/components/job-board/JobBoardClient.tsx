@@ -712,7 +712,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                     {/* 4. Tasks — enhanced with preview */}
                     <DashboardCard
                       icon={<CheckSquareIcon className="w-5 h-5" />}
-                      title="Tasks"
+                      title="Field Tasks"
                       onClick={() => openWorkspace('tasks')}
                       content={
                         <div>
