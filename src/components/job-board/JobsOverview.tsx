@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutGridIcon,
   ChevronRightIcon,
+  ChevronDownIcon,
   ArrowRightIcon,
   CheckIcon,
 } from 'lucide-react'
-import { Project } from '@/types'
+import { Project, ProjectStatus } from '@/types'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 interface ChecklistItem {
   id: string
@@ -22,12 +24,34 @@ interface JobsOverviewProps {
   projects: Project[]
   onSelectProject: (project: Project) => void
   onBack?: () => void
+  onProjectStatusChange?: () => void
 }
 
-export default function JobsOverview({ projects, onSelectProject, onBack }: JobsOverviewProps) {
+export default function JobsOverview({ projects, onSelectProject, onBack, onProjectStatusChange }: JobsOverviewProps) {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showClosed, setShowClosed] = useState(false)
+
+  // Status change state
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ projectId: string; projectName: string; newStatus: ProjectStatus } | null>(null)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+
+  async function handleStatusChange() {
+    if (!pendingStatusChange) return
+    setIsUpdatingStatus(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('projects')
+      .update({ status: pendingStatusChange.newStatus })
+      .eq('id', pendingStatusChange.projectId)
+    if (error) {
+      console.error('[JobsOverview] Update status failed:', error)
+    } else {
+      onProjectStatusChange?.()
+    }
+    setIsUpdatingStatus(false)
+    setPendingStatusChange(null)
+  }
 
   // Fetch all checklist items in one query
   useEffect(() => {
@@ -95,6 +119,7 @@ export default function JobsOverview({ projects, onSelectProject, onBack }: Jobs
           projects={activeProjects}
           checklistByProject={checklistByProject}
           onSelectProject={onSelectProject}
+          onRequestStatusChange={(projectId, projectName, newStatus) => setPendingStatusChange({ projectId, projectName, newStatus })}
           defaultExpanded={true}
           badgeColor="bg-green-100 text-green-700"
         />
@@ -106,6 +131,7 @@ export default function JobsOverview({ projects, onSelectProject, onBack }: Jobs
           projects={completedProjects}
           checklistByProject={checklistByProject}
           onSelectProject={onSelectProject}
+          onRequestStatusChange={(projectId, projectName, newStatus) => setPendingStatusChange({ projectId, projectName, newStatus })}
           defaultExpanded={true}
           badgeColor="bg-blue-100 text-blue-700"
         />
@@ -118,12 +144,24 @@ export default function JobsOverview({ projects, onSelectProject, onBack }: Jobs
             projects={closedProjects}
             checklistByProject={checklistByProject}
             onSelectProject={onSelectProject}
+            onRequestStatusChange={(projectId, projectName, newStatus) => setPendingStatusChange({ projectId, projectName, newStatus })}
             defaultExpanded={false}
             badgeColor="bg-gray-100 text-gray-500"
             collapsible={true}
           />
         )}
       </div>
+
+      {pendingStatusChange && (
+        <ConfirmDialog
+          title="Change Project Status"
+          message={`Are you sure you want to change "${pendingStatusChange.projectName}" to "${pendingStatusChange.newStatus}"?`}
+          onConfirm={handleStatusChange}
+          onCancel={() => setPendingStatusChange(null)}
+          loading={isUpdatingStatus}
+          variant="default"
+        />
+      )}
     </div>
   )
 }
@@ -136,6 +174,7 @@ function ProjectSection({
   projects,
   checklistByProject,
   onSelectProject,
+  onRequestStatusChange,
   defaultExpanded,
   badgeColor,
   collapsible = false,
@@ -145,6 +184,7 @@ function ProjectSection({
   projects: Project[]
   checklistByProject: Map<string, ChecklistItem[]>
   onSelectProject: (project: Project) => void
+  onRequestStatusChange: (projectId: string, projectName: string, newStatus: ProjectStatus) => void
   defaultExpanded: boolean
   badgeColor: string
   collapsible?: boolean
@@ -179,6 +219,7 @@ function ProjectSection({
               project={project}
               checklistItems={checklistByProject.get(project.id) ?? []}
               onSelect={() => onSelectProject(project)}
+              onRequestStatusChange={onRequestStatusChange}
               badgeColor={badgeColor}
             />
           ))}
@@ -220,14 +261,30 @@ function ProjectSummaryCard({
   project,
   checklistItems,
   onSelect,
+  onRequestStatusChange,
   badgeColor,
 }: {
   project: Project
   checklistItems: ChecklistItem[]
   onSelect: () => void
+  onRequestStatusChange: (projectId: string, projectName: string, newStatus: ProjectStatus) => void
   badgeColor: string
 }) {
   const totalCount = checklistItems.length
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!showStatusDropdown) return
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowStatusDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showStatusDropdown])
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition">
@@ -253,9 +310,48 @@ function ProjectSummaryCard({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${badgeColor}`}>
-            {project.status}
-          </span>
+          {/* Status dropdown button */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition border ${
+                project.status === 'Active'
+                  ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
+                  : project.status === 'Completed'
+                  ? 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200'
+                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              {project.status}
+              <ChevronDownIcon className={`w-2.5 h-2.5 transition-transform ${showStatusDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            {showStatusDropdown && (
+              <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-1">
+                {(['Active', 'Completed', 'Closed'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => {
+                      setShowStatusDropdown(false)
+                      if (s !== project.status) {
+                        onRequestStatusChange(project.id, project.name, s)
+                      }
+                    }}
+                    className={`w-full text-left px-3 py-2 flex items-center gap-2 transition ${
+                      s === project.status ? 'bg-gray-50 font-semibold' : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                      s === 'Active' ? 'bg-green-500' : s === 'Completed' ? 'bg-blue-500' : 'bg-gray-400'
+                    }`} />
+                    <span className="text-xs text-gray-700 flex-1">{s}</span>
+                    {s === project.status && (
+                      <CheckIcon className="w-3 h-3 text-amber-500" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             onClick={onSelect}
             className="inline-flex items-center gap-1 px-2.5 py-1 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition"
