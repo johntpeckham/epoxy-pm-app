@@ -27,7 +27,7 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
   const [clientName, setClientName] = useState(project.client_name)
   const [address, setAddress] = useState(project.address)
   const [estimateNumber, setEstimateNumber] = useState(project.estimate_number ?? '')
-  const [status, setStatus] = useState<'Active' | 'Complete'>(project.status)
+  const [status, setStatus] = useState<'Active' | 'Complete' | 'Closed'>(project.status)
   const [startDate, setStartDate] = useState(project.start_date ?? '')
   const [endDate, setEndDate] = useState(project.end_date ?? '')
   const [includeWeekends, setIncludeWeekends] = useState(project.include_weekends ?? false)
@@ -209,11 +209,12 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as 'Active' | 'Complete')}
+                onChange={(e) => setStatus(e.target.value as 'Active' | 'Complete' | 'Closed')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
               >
                 <option value="Active">Active</option>
                 <option value="Complete">Complete</option>
+                <option value="Closed">Closed</option>
               </select>
             </div>
 

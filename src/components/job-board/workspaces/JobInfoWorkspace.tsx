@@ -40,7 +40,7 @@ export default function JobInfoWorkspace({ project, onBack, onEdit }: JobInfoWor
             label="Status"
             value={
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                project.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                project.status === 'Active' ? 'bg-green-100 text-green-700' : project.status === 'Complete' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
               }`}>
                 {project.status}
               </span>
