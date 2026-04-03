@@ -274,27 +274,34 @@ function ProjectSummaryCard({
               <div key={group}>
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{group}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {items.map((item) => (
+                  {items.map((item) => {
+                    const isCloseout = group === 'Closeout Checklist'
+                    return (
                     <div
                       key={item.id}
                       className={`relative rounded-lg border px-2 py-1.5 w-[80px] sm:w-[90px] ${
                         item.is_complete
-                          ? 'border-green-200 bg-green-50'
+                          ? isCloseout
+                            ? 'border-blue-200 bg-blue-50'
+                            : 'border-green-200 bg-green-50'
                           : 'border-gray-200 bg-gray-50'
                       }`}
                     >
                       <p className={`text-[10px] leading-tight line-clamp-2 pr-3 ${
-                        item.is_complete ? 'text-green-700' : 'text-gray-600'
+                        item.is_complete
+                          ? isCloseout ? 'text-blue-700' : 'text-green-700'
+                          : 'text-gray-600'
                       }`}>
                         {item.name}
                       </p>
                       {item.is_complete && (
                         <div className="absolute top-1 right-1">
-                          <CheckIcon className="w-2.5 h-2.5 text-green-500" />
+                          <CheckIcon className={`w-2.5 h-2.5 ${isCloseout ? 'text-blue-500' : 'text-green-500'}`} />
                         </div>
                       )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}
