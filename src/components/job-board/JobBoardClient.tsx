@@ -335,7 +335,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
 
   const pinnedProjects = useMemo(() => filtered.filter((p) => pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
   const activeProjects = useMemo(() => filtered.filter((p) => p.status === 'Active' && !pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
-  const completedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Complete' && !pinnedProjectIds.has(p.id))]
+  const completedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Completed' && !pinnedProjectIds.has(p.id))]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered, pinnedProjectIds])
   const closedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Closed' && !pinnedProjectIds.has(p.id))]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered, pinnedProjectIds])
@@ -717,7 +717,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                     className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
                       selectedProject.status === 'Active'
                         ? 'bg-green-100 text-green-700'
-                        : selectedProject.status === 'Complete'
+                        : selectedProject.status === 'Completed'
                         ? 'bg-blue-100 text-blue-700'
                         : 'bg-gray-100 text-gray-500'
                     }`}

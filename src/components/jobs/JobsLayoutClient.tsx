@@ -125,7 +125,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
 
   const pinnedProjects = useMemo(() => filtered.filter((p) => pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
   const activeProjects = useMemo(() => filtered.filter((p) => p.status === 'Active' && !pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
-  const completedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Complete' && !pinnedProjectIds.has(p.id))]
+  const completedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Completed' && !pinnedProjectIds.has(p.id))]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered, pinnedProjectIds])
   const closedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Closed' && !pinnedProjectIds.has(p.id))]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered, pinnedProjectIds])

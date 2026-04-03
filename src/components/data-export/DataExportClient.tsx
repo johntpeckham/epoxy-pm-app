@@ -113,7 +113,7 @@ export default function DataExportClient() {
   const filteredProjects = useMemo(() => {
     return allProjects.filter((p) => {
       if (p.status === 'Active' && !showActive) return false
-      if (p.status === 'Complete' && !showComplete) return false
+      if (p.status === 'Completed' && !showComplete) return false
       if (p.status === 'Closed' && !showClosed) return false
       if (startDate && endDate) {
         if (p.start_date || p.end_date) {

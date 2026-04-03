@@ -58,7 +58,7 @@ export default function JobsOverview({ projects, onSelectProject, onBack }: Jobs
 
   // Split projects by status
   const activeProjects = useMemo(() => projects.filter((p) => p.status === 'Active'), [projects])
-  const completedProjects = useMemo(() => projects.filter((p) => p.status === 'Complete'), [projects])
+  const completedProjects = useMemo(() => projects.filter((p) => p.status === 'Completed'), [projects])
   const closedProjects = useMemo(() => projects.filter((p) => p.status === 'Closed'), [projects])
 
   if (loading) {
