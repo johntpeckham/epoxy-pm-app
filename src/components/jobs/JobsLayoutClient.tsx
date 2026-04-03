@@ -213,34 +213,23 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
                 ))
               )}
 
-              {/* Completed section — collapsible, hidden when empty */}
+              {/* Completed section — always expanded */}
               {completedProjects.length > 0 && (
                 <div className="border-t border-gray-200 mt-4 pt-4">
-                  <button
-                    onClick={() => setShowCompleted(!showCompleted)}
-                    className="flex items-center gap-2 w-full text-left mb-2"
-                  >
-                    <ChevronRightIcon
-                      className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
-                    />
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
-                    <span className="text-xs text-gray-400">({completedProjects.length})</span>
-                  </button>
-                  {showCompleted && (
-                    <div className="space-y-2">
-                      {completedProjects.map((project) => (
-                        <ProjectCard
-                          key={project.id}
-                          project={project}
-                          isSelected={selectedProject?.id === project.id}
-                          onSelect={selectProject}
-                          showEditDelete={false}
-                          isPinned={false}
-                          onTogglePin={handleTogglePin}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Completed</p>
+                  <div className="space-y-2">
+                    {completedProjects.map((project) => (
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                        isSelected={selectedProject?.id === project.id}
+                        onSelect={selectProject}
+                        showEditDelete={false}
+                        isPinned={false}
+                        onTogglePin={handleTogglePin}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
 
