@@ -671,11 +671,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
 
-                    {/* 1. Job Info — spans 2 columns with full inline editing */}
+                    {/* 1. Job Info — spans 2 columns, read-only with gear icon to edit */}
                     <JobInfoDashboardCard
                       project={selectedProject}
-                      onExpand={() => openWorkspace('job_info')}
-                      onProjectUpdated={fetchProjects}
+                      onEdit={() => setEditingProject(selectedProject)}
                     />
 
                     {/* 2. Checklist — spans 2 columns with full inline editing */}
