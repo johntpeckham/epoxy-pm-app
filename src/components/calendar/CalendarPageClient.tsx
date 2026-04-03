@@ -1260,8 +1260,8 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               </div>
 
               {/* Start Date & End Date */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+                <div className="w-1/2 sm:w-full">
                   <label className={labelCls}>Start Date *</label>
                   <input
                     type="date"
@@ -1273,7 +1273,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                     className={inputCls}
                   />
                 </div>
-                <div>
+                <div className="w-1/2 sm:w-full">
                   <label className={labelCls}>End Date *</label>
                   <input
                     type="date"
@@ -1745,8 +1745,8 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               </div>
 
               {/* Calendar Dates */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+                <div className="w-1/2 sm:w-full">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Start Date <span className="text-red-500">*</span>
                   </label>
@@ -1760,7 +1760,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   />
                 </div>
-                <div>
+                <div className="w-1/2 sm:w-full">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     End Date <span className="text-red-500">*</span>
                   </label>
