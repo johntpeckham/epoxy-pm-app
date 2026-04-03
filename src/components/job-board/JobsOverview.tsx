@@ -120,6 +120,7 @@ export default function JobsOverview({ projects, onSelectProject, onBack }: Jobs
             onSelectProject={onSelectProject}
             defaultExpanded={false}
             badgeColor="bg-gray-100 text-gray-500"
+            collapsible={true}
           />
         )}
       </div>
@@ -137,6 +138,7 @@ function ProjectSection({
   onSelectProject,
   defaultExpanded,
   badgeColor,
+  collapsible = false,
 }: {
   title: string
   count: number
@@ -145,6 +147,7 @@ function ProjectSection({
   onSelectProject: (project: Project) => void
   defaultExpanded: boolean
   badgeColor: string
+  collapsible?: boolean
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
@@ -152,16 +155,23 @@ function ProjectSection({
 
   return (
     <div>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 w-full text-left mb-3"
-      >
-        <ChevronRightIcon
-          className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
-        />
-        <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</span>
-        <span className="text-sm text-gray-400">({count})</span>
-      </button>
+      {collapsible ? (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-2 w-full text-left mb-3"
+        >
+          <ChevronRightIcon
+            className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+          />
+          <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</span>
+          <span className="text-sm text-gray-400">({count})</span>
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</span>
+          <span className="text-sm text-gray-400">({count})</span>
+        </div>
+      )}
 
       {expanded && (
         <div className="space-y-3">
@@ -211,7 +221,6 @@ function ProjectSummaryCard({
   onSelect: () => void
   badgeColor: string
 }) {
-  const completedCount = checklistItems.filter((i) => i.is_complete).length
   const totalCount = checklistItems.length
 
   return (
@@ -254,14 +263,6 @@ function ProjectSummaryCard({
       {/* Checklist Squares — grouped by template/group_name */}
       {totalCount > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
-              Checklist
-            </span>
-            <span className="text-[10px] text-gray-400">
-              {completedCount}/{totalCount}
-            </span>
-          </div>
           <div className="space-y-2.5">
             {groupChecklistItems(checklistItems).map(({ group, items }) => (
               <div key={group}>
