@@ -70,7 +70,7 @@ export default function JobInfoDashboardCard({ project, onEdit }: JobInfoDashboa
               project.status === 'Active'
                 ? 'bg-green-100 text-green-700'
                 : project.status === 'Complete'
-                ? 'bg-amber-100 text-amber-700'
+                ? 'bg-blue-100 text-blue-700'
                 : 'bg-gray-100 text-gray-600'
             }`}>
               {project.status}

@@ -622,36 +622,25 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                 ))
               )}
 
-              {/* Completed section */}
+              {/* Completed section — always expanded */}
               {completedProjects.length > 0 && (
                 <div className="border-t border-gray-200 mt-4 pt-4">
-                  <button
-                    onClick={() => setShowCompleted(!showCompleted)}
-                    className="flex items-center gap-2 w-full text-left mb-2"
-                  >
-                    <ChevronRightIcon
-                      className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
-                    />
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
-                    <span className="text-xs text-gray-400">({completedProjects.length})</span>
-                  </button>
-                  {showCompleted && (
-                    <div className="space-y-2">
-                      {completedProjects.map((project) => (
-                        <ProjectCard
-                          key={project.id}
-                          project={project}
-                          isSelected={selectedProject?.id === project.id}
-                          onSelect={selectProject}
-                          onEdit={setEditingProject}
-                          onDelete={setProjectToDelete}
-                          showEditDelete={true}
-                          isPinned={false}
-                          onTogglePin={handleTogglePin}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Completed</p>
+                  <div className="space-y-2">
+                    {completedProjects.map((project) => (
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                        isSelected={selectedProject?.id === project.id}
+                        onSelect={selectProject}
+                        onEdit={setEditingProject}
+                        onDelete={setProjectToDelete}
+                        showEditDelete={true}
+                        isPinned={false}
+                        onTogglePin={handleTogglePin}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -729,7 +718,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       selectedProject.status === 'Active'
                         ? 'bg-green-100 text-green-700'
                         : selectedProject.status === 'Complete'
-                        ? 'bg-amber-100 text-amber-700'
+                        ? 'bg-blue-100 text-blue-700'
                         : 'bg-gray-100 text-gray-500'
                     }`}
                   >

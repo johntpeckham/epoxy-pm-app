@@ -107,7 +107,7 @@ export default function JobsOverview({ projects, onSelectProject, onBack }: Jobs
           checklistByProject={checklistByProject}
           onSelectProject={onSelectProject}
           defaultExpanded={true}
-          badgeColor="bg-amber-100 text-amber-700"
+          badgeColor="bg-blue-100 text-blue-700"
         />
 
         {/* Closed Section */}
@@ -164,12 +164,10 @@ function ProjectSection({
             className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
           />
           <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</span>
-          <span className="text-sm text-gray-400">({count})</span>
         </button>
       ) : (
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</span>
-          <span className="text-sm text-gray-400">({count})</span>
         </div>
       )}
 
