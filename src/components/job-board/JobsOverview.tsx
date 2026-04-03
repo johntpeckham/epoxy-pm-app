@@ -367,41 +367,84 @@ function ProjectSummaryCard({
         <div>
           <div className="space-y-2.5">
             {groupChecklistItems(checklistItems, project.status).map(({ group, items }) => (
-              <div key={group}>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{group}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {items.map((item) => {
-                    const isCloseout = group === 'Closeout Checklist'
-                    return (
-                    <div
-                      key={item.id}
-                      className={`relative rounded-lg border px-2 py-1.5 w-[80px] sm:w-[90px] ${
-                        item.is_complete
-                          ? isCloseout
-                            ? 'border-blue-200 bg-blue-50'
-                            : 'border-green-200 bg-green-50'
-                          : 'border-gray-200 bg-gray-50'
-                      }`}
-                    >
-                      <p className={`text-[10px] leading-tight line-clamp-2 pr-3 ${
-                        item.is_complete
-                          ? isCloseout ? 'text-blue-700' : 'text-green-700'
-                          : 'text-gray-600'
-                      }`}>
-                        {item.name}
-                      </p>
-                      {item.is_complete && (
-                        <div className="absolute top-1 right-1">
-                          <CheckIcon className={`w-2.5 h-2.5 ${isCloseout ? 'text-blue-500' : 'text-green-500'}`} />
-                        </div>
-                      )}
-                    </div>
-                    )
-                  })}
-                </div>
-              </div>
+              <ChecklistGroupSection
+                key={group}
+                group={group}
+                items={items}
+                projectStatus={project.status}
+              />
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Checklist Group with collapse/expand ─────────────────────────── */
+
+function ChecklistGroupSection({
+  group,
+  items,
+  projectStatus,
+}: {
+  group: string
+  items: ChecklistItem[]
+  projectStatus: string
+}) {
+  const isCloseout = group === 'Closeout Checklist'
+  const isActive = projectStatus === 'Active'
+
+  // Active: everything expanded except Closeout
+  // Completed/Closed: only Closeout expanded
+  const defaultExpanded = isActive ? !isCloseout : isCloseout
+
+  const [expanded, setExpanded] = useState(defaultExpanded)
+  const completedCount = items.filter((i) => i.is_complete).length
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 mb-1 group"
+      >
+        <ChevronRightIcon
+          className={`w-3 h-3 text-gray-400 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
+        />
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide group-hover:text-gray-600 transition-colors">
+          {group}
+        </span>
+        <span className="text-[10px] text-gray-300 ml-1">
+          {completedCount}/{items.length}
+        </span>
+      </button>
+      {expanded && (
+        <div className="flex flex-wrap gap-1.5">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className={`relative rounded-lg border px-2 py-1.5 w-[80px] sm:w-[90px] ${
+                item.is_complete
+                  ? isCloseout
+                    ? 'border-blue-200 bg-blue-50'
+                    : 'border-green-200 bg-green-50'
+                  : 'border-gray-200 bg-gray-50'
+              }`}
+            >
+              <p className={`text-[10px] leading-tight line-clamp-2 pr-3 ${
+                item.is_complete
+                  ? isCloseout ? 'text-blue-700' : 'text-green-700'
+                  : 'text-gray-600'
+              }`}>
+                {item.name}
+              </p>
+              {item.is_complete && (
+                <div className="absolute top-1 right-1">
+                  <CheckIcon className={`w-2.5 h-2.5 ${isCloseout ? 'text-blue-500' : 'text-green-500'}`} />
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
