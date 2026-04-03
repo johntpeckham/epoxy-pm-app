@@ -1100,6 +1100,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
           onConfirm={handleStatusChange}
           onCancel={() => setPendingStatus(null)}
           loading={isUpdatingStatus}
+          variant="default"
         />
       )}
     </div>
