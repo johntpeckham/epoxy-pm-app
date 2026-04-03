@@ -15,6 +15,7 @@ import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 import { CalendarEvent, EmployeeProfile, Project } from '@/types'
 import type { UserRole } from '@/types'
 import { usePermissions } from '@/lib/usePermissions'
+import { applyDefaultChecklist } from '@/lib/applyDefaultChecklist'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -790,7 +791,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
       if (!newJobEndDate) throw new Error('Please select an end date')
       if (newJobEndDate < newJobStartDate) throw new Error('End date must be on or after start date')
 
-      const { error } = await supabase.from('projects').insert({
+      const { data: newProject, error } = await supabase.from('projects').insert({
         name: newJobName.trim(),
         client_name: newJobClient.trim(),
         address: newJobAddress.trim(),
@@ -805,9 +806,14 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
         drive_time_enabled: newJobDriveTimeEnabled,
         drive_time_days: newJobDriveTimeDays,
         drive_time_position: newJobDriveTimePosition,
-      })
+      }).select('id, start_date').single()
 
       if (error) throw error
+
+      // Auto-apply default checklist template
+      if (newProject) {
+        await applyDefaultChecklist(supabase, newProject.id, newProject.start_date)
+      }
 
       setShowCreateNewJob(false)
       resetNewJobForm()

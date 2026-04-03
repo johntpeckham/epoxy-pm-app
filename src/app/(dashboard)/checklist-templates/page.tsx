@@ -15,7 +15,7 @@ export default async function ChecklistTemplatesPage() {
     .eq('id', session.user.id)
     .single()
 
-  if (profile?.role !== 'admin' && profile?.role !== 'office_manager') {
+  if (profile?.role !== 'admin') {
     redirect('/jobs')
   }
 

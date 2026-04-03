@@ -456,6 +456,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
             project={selectedProject}
             userId={userId}
             onBack={backToDashboard}
+            isAdmin={role === 'admin'}
           />
         )
       case 'material_orders':
@@ -682,6 +683,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       project={selectedProject}
                       userId={userId}
                       onExpand={() => openWorkspace('checklist')}
+                      isAdmin={role === 'admin'}
                     />
 
                     {/* 3. Plans */}

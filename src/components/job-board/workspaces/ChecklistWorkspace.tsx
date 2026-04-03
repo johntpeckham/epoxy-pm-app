@@ -24,9 +24,10 @@ interface ChecklistWorkspaceProps {
   project: Project
   userId: string
   onBack: () => void
+  isAdmin?: boolean
 }
 
-export default function ChecklistWorkspace({ project, userId, onBack }: ChecklistWorkspaceProps) {
+export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = false }: ChecklistWorkspaceProps) {
   const [items, setItems] = useState<ProjectChecklistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -214,6 +215,12 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
     else acc.push({ group, items: [item] })
     return acc
   }, [])
+  // Pin "Project Checklist" group to top
+  grouped.sort((a, b) => {
+    if (a.group === 'Project Checklist') return -1
+    if (b.group === 'Project Checklist') return 1
+    return 0
+  })
 
   const toggleGroup = (group: string) => {
     setCollapsedGroups((prev) => {
@@ -237,7 +244,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
       icon={<ClipboardCheckIcon className="w-5 h-5" />}
       onBack={onBack}
       actions={
-        <div className="relative">
+        isAdmin ? <div className="relative">
           <button
             onClick={() => { setShowNewDropdown(!showNewDropdown); setShowTemplateDropdown(false) }}
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
@@ -295,7 +302,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
               </div>
             </>
           )}
-        </div>
+        </div> : undefined
       }
     >
       <div className="p-4">
@@ -368,6 +375,7 @@ export default function ChecklistWorkspace({ project, userId, onBack }: Checklis
                             onToggleComplete={() => toggleComplete(item)}
                             onUpdateField={(field, value) => updateField(item, field, value)}
                             onDelete={() => deleteItem(item.id)}
+                            readOnly={!isAdmin}
                           />
                         ))}
                       </div>

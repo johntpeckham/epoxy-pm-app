@@ -22,6 +22,7 @@ interface ChecklistTemplate {
   id: string
   name: string
   description: string | null
+  is_default: boolean
   created_by: string
   created_at: string
   updated_at: string
@@ -76,7 +77,14 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
       .select('*')
       .order('created_at', { ascending: false })
     if (error) console.error('[Templates] Fetch failed:', error)
-    setTemplates((data as ChecklistTemplate[]) ?? [])
+    const all = (data as ChecklistTemplate[]) ?? []
+    // Sort: default template first, then by created_at desc
+    all.sort((a, b) => {
+      if (a.is_default && !b.is_default) return -1
+      if (!a.is_default && b.is_default) return 1
+      return 0
+    })
+    setTemplates(all)
     setLoading(false)
   }, [])
 
@@ -170,7 +178,8 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
   const handleSave = async () => {
     if (!formName.trim()) { setError('Template name is required'); return }
     const validItems = formItems.filter((i) => i.name.trim())
-    if (validItems.length === 0) { setError('Add at least one checklist item'); return }
+    const isDefault = editingTemplate?.is_default === true
+    if (validItems.length === 0 && !isDefault) { setError('Add at least one checklist item'); return }
 
     setSaving(true)
     setError('')
@@ -178,10 +187,17 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
 
     try {
       if (editingTemplate) {
-        // Update template
+        // Update template (preserve name for default templates)
+        const updatePayload: Record<string, unknown> = {
+          description: formDescription.trim() || null,
+          updated_at: new Date().toISOString(),
+        }
+        if (!editingTemplate.is_default) {
+          updatePayload.name = formName.trim()
+        }
         const { error: updateErr } = await supabase
           .from('checklist_templates')
-          .update({ name: formName.trim(), description: formDescription.trim() || null, updated_at: new Date().toISOString() })
+          .update(updatePayload)
           .eq('id', editingTemplate.id)
         if (updateErr) throw updateErr
 
@@ -304,9 +320,13 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
               <input
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                readOnly={editingTemplate?.is_default === true}
+                className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 ${editingTemplate?.is_default ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 placeholder="e.g., Prevailing Wage, Industrial Floor Coating"
               />
+              {editingTemplate?.is_default && (
+                <p className="text-xs text-gray-400 mt-1">The default template name cannot be changed.</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Description</label>
@@ -438,10 +458,15 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
           ) : (
             <div className="space-y-3">
               {templates.map((tpl) => (
-                <div key={tpl.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-all">
+                <div key={tpl.id} className={`bg-white rounded-xl border p-4 hover:shadow-sm transition-all ${tpl.is_default ? 'border-amber-300' : 'border-gray-200'}`}>
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-900">{tpl.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-gray-900">{tpl.name}</h3>
+                        {tpl.is_default && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">Auto-applied</span>
+                        )}
+                      </div>
                       {tpl.description && <p className="text-xs text-gray-500 mt-0.5">{tpl.description}</p>}
                       <p className="text-xs text-gray-400 mt-1">{itemCounts[tpl.id] ?? 0} item{(itemCounts[tpl.id] ?? 0) === 1 ? '' : 's'}</p>
                     </div>
@@ -453,13 +478,15 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setTemplateToDelete(tpl)}
-                        className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
-                        title="Delete template"
-                      >
-                        <Trash2Icon className="w-4 h-4" />
-                      </button>
+                      {!tpl.is_default && (
+                        <button
+                          onClick={() => setTemplateToDelete(tpl)}
+                          className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
+                          title="Delete template"
+                        >
+                          <Trash2Icon className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

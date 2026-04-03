@@ -6,6 +6,7 @@ import { XIcon, ChevronDownIcon, PlusIcon, CheckIcon, ClipboardCheckIcon } from 
 import Portal from '@/components/ui/Portal'
 import type { Customer } from '@/components/estimates/types'
 import type { EmployeeProfile } from '@/types'
+import { applyDefaultChecklist } from '@/lib/applyDefaultChecklist'
 
 const PRESET_COLORS = [
   { value: '#f59e0b', label: 'Amber' },
@@ -60,11 +61,12 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       const [custResult, empResult, tmplResult] = await Promise.all([
         supabase.from('customers').select('*').order('name', { ascending: true }),
         supabase.from('employee_profiles').select('*').order('name', { ascending: true }),
-        supabase.from('checklist_templates').select('id, name').order('name', { ascending: true }),
+        supabase.from('checklist_templates').select('id, name, is_default').order('name', { ascending: true }),
       ])
       if (custResult.data) setCustomers(custResult.data)
       if (empResult.data) setEmployeeProfiles(empResult.data as EmployeeProfile[])
-      if (tmplResult.data) setChecklistTemplates(tmplResult.data)
+      // Filter out the default template from manual selection (it's auto-applied)
+      if (tmplResult.data) setChecklistTemplates(tmplResult.data.filter((t: { is_default?: boolean }) => !t.is_default))
     }
     fetchData()
   }, [])
@@ -162,6 +164,11 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       setError(error.message)
       setLoading(false)
       return
+    }
+
+    // Auto-apply the default "Project Checklist" template
+    if (newProject) {
+      await applyDefaultChecklist(supabase, newProject.id, newProject.start_date)
     }
 
     // Apply selected checklist templates

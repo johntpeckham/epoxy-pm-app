@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon, FilePlusIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { applyDefaultChecklist } from '@/lib/applyDefaultChecklist'
 import type { Customer, Estimate, EstimateSettings, LineItem, ChangeOrder, MaterialSystemRow } from './types'
 import { DEFAULT_TERMS } from './types'
 import { exportEstimatePdf } from './pdfExport'
@@ -183,14 +184,18 @@ export default function EstimateEditor({
 
   async function handlePushToJobs() {
     const supabase = createClient()
-    const { error } = await supabase.from('projects').insert({
+    const { data: newProject, error } = await supabase.from('projects').insert({
       name: projectName || `Estimate #${estimateNumber}`,
       client_name: customerName,
       address: [customer.address, customer.city, customer.state, customer.zip].filter(Boolean).join(', '),
       status: 'Active',
       estimate_number: String(estimateNumber),
-    })
+    }).select('id').single()
     if (!error) {
+      // Auto-apply default checklist template
+      if (newProject) {
+        await applyDefaultChecklist(supabase, newProject.id)
+      }
       setPushSuccess(true)
       setTimeout(() => setPushSuccess(false), 3000)
     }
