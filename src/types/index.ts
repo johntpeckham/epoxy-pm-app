@@ -417,3 +417,37 @@ export interface PersonalNote {
   created_at: string
   updated_at: string
 }
+
+export interface WarrantyTemplate {
+  id: string
+  name: string
+  description: string | null
+  body_text: string
+  warranty_duration: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ManufacturerWarranty {
+  id: string
+  name: string
+  file_url: string
+  file_size: number | null
+  uploaded_by: string | null
+  created_at: string
+}
+
+export interface ProjectWarranty {
+  id: string
+  project_id: string
+  template_id: string | null
+  title: string
+  generated_content: string
+  signature_name: string | null
+  manufacturer_warranty_ids: string[] | null
+  pdf_url: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}

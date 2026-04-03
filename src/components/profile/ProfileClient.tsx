@@ -4,13 +4,14 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon } from 'lucide-react'
 import { Profile } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import UserManagement from './UserManagement'
 import EmployeeManagement from './EmployeeManagement'
 import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
+import WarrantyManagement from '@/components/warranty/WarrantyManagement'
 
 interface ProfileClientProps {
   userId: string
@@ -29,6 +30,9 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
 
   // Customer management modal
   const [showCustomerManagement, setShowCustomerManagement] = useState(false)
+  // Warranty management modal
+  const [showWarrantyManagement, setShowWarrantyManagement] = useState(false)
+  const isSalesman = role === 'salesman'
 
   // Display name state
   const [displayName, setDisplayName] = useState(initialProfile.display_name ?? '')
@@ -453,6 +457,24 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
           </div>
         )}
 
+        {/* Warranty Management — Admin, Office Manager, Salesman */}
+        {(isAdmin || isOfficeManager || isSalesman) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheckIcon className="w-5 h-5 text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Warranty Management</h2>
+              <button
+                onClick={() => setShowWarrantyManagement(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
+              >
+                <ShieldCheckIcon className="w-3.5 h-3.5" />
+                Manage Warranties
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">Create warranty templates and upload manufacturer warranty documents.</p>
+          </div>
+        )}
+
         {/* Data Export — Admin and Office Manager */}
         {(isAdmin || isOfficeManager) && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -521,6 +543,9 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
             onClose={() => setShowCustomerManagement(false)}
             onCustomersChanged={() => {}}
           />
+        )}
+        {showWarrantyManagement && (
+          <WarrantyManagement onClose={() => setShowWarrantyManagement(false)} />
         )}
       </div>
     </div>

@@ -24,6 +24,7 @@ import {
   FileSignatureIcon,
   ChevronDownIcon,
   CheckIcon,
+  ShieldCheckIcon,
 } from 'lucide-react'
 import { Project, Task, FeedPost, TaskStatus } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
@@ -48,6 +49,7 @@ import MaterialOrdersWorkspace from './workspaces/MaterialOrdersWorkspace'
 import SchedulingWorkspace from './workspaces/SchedulingWorkspace'
 import ReportWorkspace from './workspaces/ReportWorkspace'
 import ContractsWorkspace from './workspaces/ContractsWorkspace'
+import WarrantyWorkspace from './workspaces/WarrantyWorkspace'
 import ChecklistDashboardCard from './ChecklistDashboardCard'
 import JobInfoDashboardCard from './JobInfoDashboardCard'
 import JobsOverview from './JobsOverview'
@@ -57,7 +59,7 @@ type WorkspaceType =
   | 'daily_reports' | 'timecards' | 'expenses' | 'photos'
   | 'jsa_reports' | 'estimating' | 'material_orders'
   | 'scheduling' | 'billing' | 'report' | 'contracts'
-  | null
+  | 'warranty' | null
 
 interface JobBoardClientProps {
   initialProjects: Project[]
@@ -80,6 +82,7 @@ interface DashboardCounts {
   materialOrdersBackordered: number
   schedulingEvents: number
   contracts: number
+  warranties: number
   hasReport: boolean
 }
 
@@ -158,7 +161,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     const supabase = createClient()
 
     // Counts (parallel)
-    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered, schedulingEventsCount, reportCheck, contractsCount] = await Promise.all([
+    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered, schedulingEventsCount, reportCheck, contractsCount, warrantiesCount] = await Promise.all([
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'daily_report'),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'timecard'),
@@ -175,6 +178,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       supabase.from('calendar_events').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('project_reports').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('project_contracts').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
+      supabase.from('project_warranties').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
     ])
 
     setCounts({
@@ -193,6 +197,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       materialOrdersBackordered: moBackordered.count ?? 0,
       schedulingEvents: schedulingEventsCount.count ?? 0,
       contracts: contractsCount.count ?? 0,
+      warranties: warrantiesCount.count ?? 0,
       hasReport: (reportCheck.count ?? 0) > 0,
     })
 
@@ -533,6 +538,15 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       case 'contracts':
         return (
           <ContractsWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+          />
+        )
+      case 'warranty':
+        return (
+          <WarrantyWorkspace
             key={selectedProject.id}
             project={selectedProject}
             userId={userId}
@@ -1028,7 +1042,21 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       }
                     />
 
-                    {/* 13. Billing */}
+                    {/* 13. Project Warranty */}
+                    <DashboardCard
+                      icon={<ShieldCheckIcon className="w-5 h-5" />}
+                      title="Project Warranty"
+                      onClick={() => openWorkspace('warranty')}
+                      content={
+                        counts && counts.warranties > 0 ? (
+                          <p className="text-xs text-gray-600">{counts.warranties} warrant{counts.warranties !== 1 ? 'ies' : 'y'}</p>
+                        ) : (
+                          <p className="text-xs text-gray-400">No warranties yet</p>
+                        )
+                      }
+                    />
+
+                    {/* 14. Billing */}
                     <DashboardCard
                       icon={<DollarSignIcon className="w-5 h-5" />}
                       title="Billing"
