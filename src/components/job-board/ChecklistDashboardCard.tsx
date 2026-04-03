@@ -36,9 +36,8 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false)
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() =>
-    project.status === 'Active' ? new Set(['Closeout Checklist']) : new Set()
-  )
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const hasInitCollapse = useRef(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const saveTimers = useRef<Map<string, NodeJS.Timeout>>(new Map())
 
@@ -80,6 +79,23 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
     fetchProfiles()
     fetchTemplates()
   }, [fetchItems, fetchProfiles, fetchTemplates])
+
+  // Set initial collapse state once items are loaded
+  useEffect(() => {
+    if (hasInitCollapse.current || items.length === 0) return
+    hasInitCollapse.current = true
+    if (project.status === 'Active') {
+      setCollapsedGroups(new Set(['Closeout Checklist']))
+    } else {
+      // Completed/Closed: collapse everything except Closeout Checklist
+      const groupNames = new Set<string>()
+      for (const item of items) {
+        const g = (!item.group_name || item.group_name === 'Custom') ? 'Additional Checklist Items' : item.group_name
+        if (g !== 'Closeout Checklist') groupNames.add(g)
+      }
+      setCollapsedGroups(groupNames)
+    }
+  }, [items, project.status])
 
   const profileMap = new Map(profiles.map((p) => [p.id, p]))
 
