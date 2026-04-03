@@ -221,6 +221,11 @@ export function ChecklistItemRow({
           )
         )}
 
+        {/* Dot separator when both assignee and date are present */}
+        {hasAssignee && hasDueDate && (
+          <span className="flex-shrink-0 text-xs text-gray-400">·</span>
+        )}
+
         {/* Inline due date (clickable to edit) */}
         {hasDueDate && (
           readOnly ? (
