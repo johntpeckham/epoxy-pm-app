@@ -24,9 +24,10 @@ interface ChecklistDashboardCardProps {
   project: Project
   userId: string
   onExpand: () => void
+  isAdmin?: boolean
 }
 
-export default function ChecklistDashboardCard({ project, userId, onExpand }: ChecklistDashboardCardProps) {
+export default function ChecklistDashboardCard({ project, userId, onExpand, isAdmin = false }: ChecklistDashboardCardProps) {
   const [items, setItems] = useState<ProjectChecklistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -213,6 +214,12 @@ export default function ChecklistDashboardCard({ project, userId, onExpand }: Ch
     else acc.push({ group, items: [item] })
     return acc
   }, [])
+  // Pin "Project Checklist" group to top
+  grouped.sort((a, b) => {
+    if (a.group === 'Project Checklist') return -1
+    if (b.group === 'Project Checklist') return 1
+    return 0
+  })
 
   const toggleGroup = (group: string) => {
     setCollapsedGroups((prev) => {
@@ -237,8 +244,8 @@ export default function ChecklistDashboardCard({ project, userId, onExpand }: Ch
         <span className="text-amber-500"><ClipboardCheckIcon className="w-5 h-5" /></span>
         <h3 className="text-sm font-semibold text-gray-900 flex-1">Office Checklist</h3>
 
-        {/* + New dropdown */}
-        <div className="relative">
+        {/* + New dropdown (admin only) */}
+        {isAdmin && <div className="relative">
           <button
             onClick={() => { setShowNewDropdown(!showNewDropdown); setShowTemplateDropdown(false) }}
             className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-white px-2 py-1 rounded-lg text-xs font-semibold transition shadow-sm"
@@ -296,7 +303,7 @@ export default function ChecklistDashboardCard({ project, userId, onExpand }: Ch
               </div>
             </>
           )}
-        </div>
+        </div>}
 
         {/* Expand button */}
         <button
@@ -380,6 +387,7 @@ export default function ChecklistDashboardCard({ project, userId, onExpand }: Ch
                           onToggleComplete={() => toggleComplete(item)}
                           onUpdateField={(field, value) => updateField(item, field, value)}
                           onDelete={() => deleteItem(item.id)}
+                          readOnly={!isAdmin}
                         />
                       ))}
                     </div>

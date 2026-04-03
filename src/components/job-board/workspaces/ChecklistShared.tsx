@@ -51,6 +51,7 @@ export function ChecklistItemRow({
   onToggleComplete,
   onUpdateField,
   onDelete,
+  readOnly = false,
 }: {
   item: ProjectChecklistItem
   profileMap: Map<string, Profile>
@@ -61,6 +62,7 @@ export function ChecklistItemRow({
   onToggleComplete: () => void
   onUpdateField: (field: keyof ProjectChecklistItem, value: string | null) => void
   onDelete: () => void
+  readOnly?: boolean
 }) {
   const [showNotes, setShowNotes] = useState(false)
   const [editingName, setEditingName] = useState(false)
@@ -86,21 +88,37 @@ export function ChecklistItemRow({
     <div className={`px-4 py-2.5 ${item.is_complete ? 'bg-gray-50/50' : ''}`}>
       <div className="flex items-start gap-3">
         {/* Checkbox */}
-        <button
-          onClick={onToggleComplete}
-          className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-            item.is_complete
-              ? 'bg-green-500 border-green-500 text-white'
-              : 'border-gray-300 hover:border-amber-400'
-          }`}
-        >
-          {item.is_complete && <CheckIcon className="w-3 h-3" />}
-        </button>
+        {readOnly ? (
+          <div
+            className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
+              item.is_complete
+                ? 'bg-green-500 border-green-500 text-white'
+                : 'border-gray-300'
+            }`}
+          >
+            {item.is_complete && <CheckIcon className="w-3 h-3" />}
+          </div>
+        ) : (
+          <button
+            onClick={onToggleComplete}
+            className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition ${
+              item.is_complete
+                ? 'bg-green-500 border-green-500 text-white'
+                : 'border-gray-300 hover:border-amber-400'
+            }`}
+          >
+            {item.is_complete && <CheckIcon className="w-3 h-3" />}
+          </button>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Name — click to edit */}
-          {editingName ? (
+          {/* Name — click to edit (or display-only in readOnly) */}
+          {readOnly ? (
+            <span className={`text-sm ${item.is_complete ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+              {item.name}
+            </span>
+          ) : editingName ? (
             <input
               ref={nameRef}
               value={nameValue}
@@ -122,26 +140,40 @@ export function ChecklistItemRow({
           {/* Metadata row */}
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {/* Assignee */}
-            <select
-              value={item.assigned_to ?? ''}
-              onChange={(e) => onUpdateField('assigned_to', e.target.value || null)}
-              className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white max-w-[140px]"
-            >
-              <option value="">Unassigned</option>
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>{p.display_name || 'Unknown'}</option>
-              ))}
-            </select>
+            {readOnly ? (
+              <span className="text-xs text-gray-600 px-1.5 py-0.5">
+                {item.assigned_to ? (profileMap.get(item.assigned_to)?.display_name || 'Unknown') : 'Unassigned'}
+              </span>
+            ) : (
+              <select
+                value={item.assigned_to ?? ''}
+                onChange={(e) => onUpdateField('assigned_to', e.target.value || null)}
+                className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white max-w-[140px]"
+              >
+                <option value="">Unassigned</option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>{p.display_name || 'Unknown'}</option>
+                ))}
+              </select>
+            )}
 
             {/* Due date */}
-            <input
-              type="date"
-              value={item.due_date ?? ''}
-              onChange={(e) => onUpdateField('due_date', e.target.value || null)}
-              className={`text-xs border rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white ${
-                isOverdue ? 'border-red-300 text-red-600' : 'border-gray-200 text-gray-600'
-              }`}
-            />
+            {readOnly ? (
+              item.due_date ? (
+                <span className={`text-xs px-1.5 py-0.5 ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
+                  {item.due_date}
+                </span>
+              ) : null
+            ) : (
+              <input
+                type="date"
+                value={item.due_date ?? ''}
+                onChange={(e) => onUpdateField('due_date', e.target.value || null)}
+                className={`text-xs border rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white ${
+                  isOverdue ? 'border-red-300 text-red-600' : 'border-gray-200 text-gray-600'
+                }`}
+              />
+            )}
 
             {isOverdue && (
               <span className="flex items-center gap-0.5 text-xs text-red-500 font-medium">
@@ -151,14 +183,16 @@ export function ChecklistItemRow({
             )}
 
             {/* Notes toggle */}
-            <button
-              onClick={() => setShowNotes(!showNotes)}
-              className={`text-xs px-1.5 py-0.5 rounded transition ${
-                item.notes ? 'text-amber-600 bg-amber-50 hover:bg-amber-100' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {item.notes ? 'Notes' : '+ Note'}
-            </button>
+            {(item.notes || !readOnly) && (
+              <button
+                onClick={() => setShowNotes(!showNotes)}
+                className={`text-xs px-1.5 py-0.5 rounded transition ${
+                  item.notes ? 'text-amber-600 bg-amber-50 hover:bg-amber-100' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {item.notes ? 'Notes' : '+ Note'}
+              </button>
+            )}
 
             {/* Save indicator */}
             {isSaving && <span className="text-xs text-gray-400 animate-pulse">Saving...</span>}
@@ -167,23 +201,29 @@ export function ChecklistItemRow({
 
           {/* Notes area */}
           {showNotes && (
-            <textarea
-              value={item.notes ?? ''}
-              onChange={(e) => onUpdateField('notes', e.target.value || null)}
-              rows={2}
-              className="mt-2 w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none bg-white"
-              placeholder="Add notes..."
-            />
+            readOnly ? (
+              <p className="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg px-2.5 py-1.5">{item.notes}</p>
+            ) : (
+              <textarea
+                value={item.notes ?? ''}
+                onChange={(e) => onUpdateField('notes', e.target.value || null)}
+                rows={2}
+                className="mt-2 w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none bg-white"
+                placeholder="Add notes..."
+              />
+            )
           )}
         </div>
 
         {/* Delete */}
-        <button
-          onClick={onDelete}
-          className="p-1 text-gray-300 hover:text-red-500 transition flex-shrink-0 mt-0.5"
-        >
-          <Trash2Icon className="w-3.5 h-3.5" />
-        </button>
+        {!readOnly && (
+          <button
+            onClick={onDelete}
+            className="p-1 text-gray-300 hover:text-red-500 transition flex-shrink-0 mt-0.5"
+          >
+            <Trash2Icon className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </div>
   )
