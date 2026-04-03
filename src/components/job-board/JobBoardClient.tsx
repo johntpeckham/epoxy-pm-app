@@ -20,6 +20,7 @@ import {
   CalendarIcon,
   DollarSignIcon,
   ArrowLeftIcon,
+  FileSignatureIcon,
 } from 'lucide-react'
 import { Project, Task, FeedPost, TaskStatus } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
@@ -42,6 +43,7 @@ import ChecklistWorkspace from './workspaces/ChecklistWorkspace'
 import MaterialOrdersWorkspace from './workspaces/MaterialOrdersWorkspace'
 import SchedulingWorkspace from './workspaces/SchedulingWorkspace'
 import ReportWorkspace from './workspaces/ReportWorkspace'
+import ContractsWorkspace from './workspaces/ContractsWorkspace'
 import ChecklistDashboardCard from './ChecklistDashboardCard'
 import JobInfoDashboardCard from './JobInfoDashboardCard'
 
@@ -49,7 +51,7 @@ type WorkspaceType =
   | 'job_info' | 'checklist' | 'plans' | 'tasks'
   | 'daily_reports' | 'timecards' | 'expenses' | 'photos'
   | 'jsa_reports' | 'estimating' | 'material_orders'
-  | 'scheduling' | 'billing' | 'report'
+  | 'scheduling' | 'billing' | 'report' | 'contracts'
   | null
 
 interface JobBoardClientProps {
@@ -72,6 +74,7 @@ interface DashboardCounts {
   materialOrdersDelivered: number
   materialOrdersBackordered: number
   schedulingEvents: number
+  contracts: number
   hasReport: boolean
 }
 
@@ -104,6 +107,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
   // List controls
   const [search, setSearch] = useState('')
   const [showCompleted, setShowCompleted] = useState(false)
+  const [showClosed, setShowClosed] = useState(false)
 
   // Modals
   const [showNewProject, setShowNewProject] = useState(false)
@@ -143,7 +147,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     const supabase = createClient()
 
     // Counts (parallel)
-    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered, schedulingEventsCount, reportCheck] = await Promise.all([
+    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered, schedulingEventsCount, reportCheck, contractsCount] = await Promise.all([
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'daily_report'),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'timecard'),
@@ -159,6 +163,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       supabase.from('material_orders').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'Backordered'),
       supabase.from('calendar_events').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('project_reports').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
+      supabase.from('project_contracts').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
     ])
 
     setCounts({
@@ -176,6 +181,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       materialOrdersDelivered: moDelivered.count ?? 0,
       materialOrdersBackordered: moBackordered.count ?? 0,
       schedulingEvents: schedulingEventsCount.count ?? 0,
+      contracts: contractsCount.count ?? 0,
       hasReport: (reportCheck.count ?? 0) > 0,
     })
 
@@ -320,6 +326,8 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
   const pinnedProjects = useMemo(() => filtered.filter((p) => pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
   const activeProjects = useMemo(() => filtered.filter((p) => p.status === 'Active' && !pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
   const completedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Complete' && !pinnedProjectIds.has(p.id))]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered, pinnedProjectIds])
+  const closedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Closed' && !pinnedProjectIds.has(p.id))]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered, pinnedProjectIds])
 
   const handleTogglePin = useCallback((project: Project) => {
@@ -486,6 +494,15 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
             onBack={backToDashboard}
           />
         )
+      case 'contracts':
+        return (
+          <ContractsWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+          />
+        )
       default:
         return null
     }
@@ -614,6 +631,39 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                   )}
                 </div>
               )}
+
+              {/* Closed section */}
+              {closedProjects.length > 0 && (
+                <div className="border-t border-gray-200 mt-4 pt-4">
+                  <button
+                    onClick={() => setShowClosed(!showClosed)}
+                    className="flex items-center gap-2 w-full text-left mb-2"
+                  >
+                    <ChevronRightIcon
+                      className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showClosed ? 'rotate-90' : ''}`}
+                    />
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Closed</span>
+                    <span className="text-xs text-gray-400">({closedProjects.length})</span>
+                  </button>
+                  {showClosed && (
+                    <div className="space-y-2">
+                      {closedProjects.map((project) => (
+                        <ProjectCard
+                          key={project.id}
+                          project={project}
+                          isSelected={selectedProject?.id === project.id}
+                          onSelect={selectProject}
+                          onEdit={setEditingProject}
+                          onDelete={setProjectToDelete}
+                          showEditDelete={true}
+                          isPinned={false}
+                          onTogglePin={handleTogglePin}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -655,6 +705,8 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                     className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
                       selectedProject.status === 'Active'
                         ? 'bg-green-100 text-green-700'
+                        : selectedProject.status === 'Complete'
+                        ? 'bg-amber-100 text-amber-700'
                         : 'bg-gray-100 text-gray-500'
                     }`}
                   >
@@ -694,6 +746,18 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       content={
                         <p className="text-xs text-gray-500">
                           {counts && counts.plans > 0 ? `${counts.plans} plan${counts.plans === 1 ? '' : 's'} uploaded` : 'No plans uploaded'}
+                        </p>
+                      }
+                    />
+
+                    {/* 3b. Contracts & POs */}
+                    <DashboardCard
+                      icon={<FileSignatureIcon className="w-5 h-5" />}
+                      title="Contracts & POs"
+                      onClick={() => openWorkspace('contracts')}
+                      content={
+                        <p className="text-xs text-gray-500">
+                          {counts && counts.contracts > 0 ? `${counts.contracts} document${counts.contracts === 1 ? '' : 's'}` : 'No documents uploaded'}
                         </p>
                       }
                     />

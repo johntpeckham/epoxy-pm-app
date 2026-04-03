@@ -322,7 +322,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [newJobClient, setNewJobClient] = useState('')
   const [newJobAddress, setNewJobAddress] = useState('')
   const [newJobEstimate, setNewJobEstimate] = useState('')
-  const [newJobStatus, setNewJobStatus] = useState<'Active' | 'Complete'>('Active')
+  const [newJobStatus, setNewJobStatus] = useState<'Active' | 'Complete' | 'Closed'>('Active')
   const [newJobStartDate, setNewJobStartDate] = useState('')
   const [newJobEndDate, setNewJobEndDate] = useState('')
   const [newJobIncludeWeekends, setNewJobIncludeWeekends] = useState(false)
@@ -348,7 +348,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [editProjectClient, setEditProjectClient] = useState('')
   const [editProjectAddress, setEditProjectAddress] = useState('')
   const [editProjectEstimate, setEditProjectEstimate] = useState('')
-  const [editProjectStatus, setEditProjectStatus] = useState<'Active' | 'Complete'>('Active')
+  const [editProjectStatus, setEditProjectStatus] = useState<'Active' | 'Complete' | 'Closed'>('Active')
   const [editProjectStartDate, setEditProjectStartDate] = useState('')
   const [editProjectEndDate, setEditProjectEndDate] = useState('')
   const [editProjectIncludeWeekends, setEditProjectIncludeWeekends] = useState(false)
@@ -1251,11 +1251,12 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                 <label className={labelCls}>Status</label>
                 <select
                   value={newJobStatus}
-                  onChange={(e) => setNewJobStatus(e.target.value as 'Active' | 'Complete')}
+                  onChange={(e) => setNewJobStatus(e.target.value as 'Active' | 'Complete' | 'Closed')}
                   className={inputCls + ' bg-white'}
                 >
                   <option value="Active">Active</option>
                   <option value="Complete">Complete</option>
+                  <option value="Closed">Closed</option>
                 </select>
               </div>
 
@@ -1736,11 +1737,12 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
                 <select
                   value={editProjectStatus}
-                  onChange={(e) => setEditProjectStatus(e.target.value as 'Active' | 'Complete')}
+                  onChange={(e) => setEditProjectStatus(e.target.value as 'Active' | 'Complete' | 'Closed')}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
                 >
                   <option value="Active">Active</option>
                   <option value="Complete">Complete</option>
+                  <option value="Closed">Closed</option>
                 </select>
               </div>
 

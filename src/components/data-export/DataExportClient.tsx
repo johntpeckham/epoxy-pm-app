@@ -75,6 +75,7 @@ export default function DataExportClient() {
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [showActive, setShowActive] = useState(true)
   const [showComplete, setShowComplete] = useState(true)
+  const [showClosed, setShowClosed] = useState(true)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -113,6 +114,7 @@ export default function DataExportClient() {
     return allProjects.filter((p) => {
       if (p.status === 'Active' && !showActive) return false
       if (p.status === 'Complete' && !showComplete) return false
+      if (p.status === 'Closed' && !showClosed) return false
       if (startDate && endDate) {
         if (p.start_date || p.end_date) {
           const pStart = p.start_date || '1900-01-01'
@@ -128,7 +130,7 @@ export default function DataExportClient() {
       }
       return true
     })
-  }, [allProjects, showActive, showComplete, startDate, endDate, searchQuery])
+  }, [allProjects, showActive, showComplete, showClosed, startDate, endDate, searchQuery])
 
   const allVisibleSelected = filteredProjects.length > 0 && filteredProjects.every((p) => selectedProjectIds.has(p.id))
 
@@ -571,7 +573,7 @@ export default function DataExportClient() {
                 type="checkbox"
                 checked={showActive}
                 onChange={(e) => {
-                  if (!e.target.checked && !showComplete) return
+                  if (!e.target.checked && !showComplete && !showClosed) return
                   setShowActive(e.target.checked)
                 }}
                 className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
@@ -583,12 +585,24 @@ export default function DataExportClient() {
                 type="checkbox"
                 checked={showComplete}
                 onChange={(e) => {
-                  if (!e.target.checked && !showActive) return
+                  if (!e.target.checked && !showActive && !showClosed) return
                   setShowComplete(e.target.checked)
                 }}
                 className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
               />
               <span className="text-sm font-medium text-gray-700">Completed</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showClosed}
+                onChange={(e) => {
+                  if (!e.target.checked && !showActive && !showComplete) return
+                  setShowClosed(e.target.checked)
+                }}
+                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Closed</span>
             </label>
           </div>
 

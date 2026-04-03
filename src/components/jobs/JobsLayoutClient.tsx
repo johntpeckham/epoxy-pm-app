@@ -29,6 +29,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
   // List controls
   const [search, setSearch] = useState('')
   const [showCompleted, setShowCompleted] = useState(false)
+  const [showClosed, setShowClosed] = useState(false)
 
   // Feed
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([])
@@ -125,6 +126,8 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
   const pinnedProjects = useMemo(() => filtered.filter((p) => pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
   const activeProjects = useMemo(() => filtered.filter((p) => p.status === 'Active' && !pinnedProjectIds.has(p.id)), [filtered, pinnedProjectIds])
   const completedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Complete' && !pinnedProjectIds.has(p.id))]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered, pinnedProjectIds])
+  const closedProjects = useMemo(() => [...filtered.filter((p) => p.status === 'Closed' && !pinnedProjectIds.has(p.id))]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [filtered, pinnedProjectIds])
 
   const handleTogglePin = useCallback((project: Project) => {
@@ -226,6 +229,37 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
                   {showCompleted && (
                     <div className="space-y-2">
                       {completedProjects.map((project) => (
+                        <ProjectCard
+                          key={project.id}
+                          project={project}
+                          isSelected={selectedProject?.id === project.id}
+                          onSelect={selectProject}
+                          showEditDelete={false}
+                          isPinned={false}
+                          onTogglePin={handleTogglePin}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Closed section — collapsible, hidden when empty */}
+              {closedProjects.length > 0 && (
+                <div className="border-t border-gray-200 mt-4 pt-4">
+                  <button
+                    onClick={() => setShowClosed(!showClosed)}
+                    className="flex items-center gap-2 w-full text-left mb-2"
+                  >
+                    <ChevronRightIcon
+                      className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showClosed ? 'rotate-90' : ''}`}
+                    />
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Closed</span>
+                    <span className="text-xs text-gray-400">({closedProjects.length})</span>
+                  </button>
+                  {showClosed && (
+                    <div className="space-y-2">
+                      {closedProjects.map((project) => (
                         <ProjectCard
                           key={project.id}
                           project={project}
