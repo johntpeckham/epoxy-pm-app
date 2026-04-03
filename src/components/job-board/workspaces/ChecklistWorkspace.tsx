@@ -147,7 +147,7 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
       project_id: project.id,
       name: 'New item',
       sort_order: maxSort,
-      group_name: 'Project Checklist',
+      group_name: 'Additional Checklist Items',
     })
     if (error) {
       console.error('[Checklist] Add item failed:', error)
@@ -209,17 +209,16 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
 
   // ── Group items ──────────────────────────────────────────────────
   const grouped = items.reduce<{ group: string; items: ProjectChecklistItem[] }[]>((acc, item) => {
-    const group = (!item.group_name || item.group_name === 'Custom') ? 'Project Checklist' : item.group_name
+    const group = (!item.group_name || item.group_name === 'Custom') ? 'Additional Checklist Items' : item.group_name
     const existing = acc.find((g) => g.group === group)
     if (existing) existing.items.push(item)
     else acc.push({ group, items: [item] })
     return acc
   }, [])
-  // Pin "Project Checklist" group to top
+  // Project Checklist first, Additional Checklist Items last, others in between
   grouped.sort((a, b) => {
-    if (a.group === 'Project Checklist') return -1
-    if (b.group === 'Project Checklist') return 1
-    return 0
+    const order = (g: string) => g === 'Project Checklist' ? 0 : g === 'Additional Checklist Items' ? 2 : 1
+    return order(a.group) - order(b.group)
   })
 
   const toggleGroup = (group: string) => {
@@ -263,7 +262,7 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
                 >
                   <PlusIcon className="w-4 h-4 text-gray-500" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Add Checklist Item</p>
+                    <p className="text-sm font-medium text-gray-900">Add New Checklist Item</p>
                     <p className="text-xs text-gray-400">Add a blank item to edit</p>
                   </div>
                 </button>
@@ -285,10 +284,10 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowTemplateDropdown(false)} />
               <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
-                {templates.length === 0 ? (
+                {templates.filter((t) => t.name !== 'Project Checklist').length === 0 ? (
                   <p className="px-3 py-2 text-xs text-gray-400">No templates available. Create one in Settings.</p>
                 ) : (
-                  templates.map((t) => (
+                  templates.filter((t) => t.name !== 'Project Checklist').map((t) => (
                     <button
                       key={t.id}
                       onClick={() => applyTemplate(t)}

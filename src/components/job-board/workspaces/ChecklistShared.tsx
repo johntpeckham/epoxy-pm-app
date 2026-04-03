@@ -48,6 +48,12 @@ export interface ChecklistTemplateItem {
 
 type EditingField = 'assignee' | 'due_date' | 'notes' | null
 
+/** Format "2026-04-08" → "Due 4/8/26" */
+function formatDueDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-')
+  return `Due ${parseInt(m)}/${parseInt(d)}/${y.slice(2)}`
+}
+
 export function ChecklistItemRow({
   item,
   profileMap,
@@ -220,7 +226,7 @@ export function ChecklistItemRow({
           readOnly ? (
             <span className={`flex-shrink-0 text-xs truncate ${isOverdue ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
               {isOverdue && <AlertCircleIcon className="w-3 h-3 inline mr-0.5 -mt-0.5" />}
-              {item.due_date}
+              {formatDueDate(item.due_date!)}
             </span>
           ) : (
             <button
@@ -229,7 +235,7 @@ export function ChecklistItemRow({
               title="Change due date"
             >
               {isOverdue && <AlertCircleIcon className="w-3 h-3 inline mr-0.5 -mt-0.5" />}
-              {item.due_date}
+              {formatDueDate(item.due_date!)}
             </button>
           )
         )}
