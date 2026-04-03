@@ -467,7 +467,7 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
                           <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">Auto-applied</span>
                         )}
                         {tpl.is_closeout && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-blue-100 text-blue-700 rounded">Closeout</span>
+                          <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">Auto-applied</span>
                         )}
                       </div>
                       {tpl.description && <p className="text-xs text-gray-500 mt-0.5">{tpl.description}</p>}
