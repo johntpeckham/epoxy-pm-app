@@ -676,6 +676,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                     <DashboardCard
                       icon={<SettingsIcon className="w-5 h-5" />}
                       title="Job Info"
+                      className="col-span-2"
                       onClick={() => openWorkspace('job_info')}
                       content={
                         <div className="space-y-1">
@@ -966,18 +967,19 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
 
 /* ── Dashboard Card ──────────────────────────────────────────────────── */
 
-function DashboardCard({ icon, title, content, onClick }: {
+function DashboardCard({ icon, title, content, onClick, className }: {
   icon: React.ReactNode
   title: string
   content: React.ReactNode
   onClick?: () => void
+  className?: string
 }) {
   return (
     <div
       onClick={onClick}
       className={`bg-white rounded-xl border border-gray-200 p-4 transition-all ${
         onClick ? 'cursor-pointer hover:shadow-md hover:border-amber-300 hover:-translate-y-0.5' : 'hover:shadow-sm hover:border-gray-300'
-      }`}
+      } ${className ?? ''}`}
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="text-amber-500">{icon}</span>
