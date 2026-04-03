@@ -11,6 +11,7 @@ import { CalendarIcon, PlusIcon, XIcon, Trash2Icon, PencilIcon, CheckIcon, Users
 import { CalendarEvent, EmployeeProfile, Project } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
 import Portal from '@/components/ui/Portal'
+import { moveToTrash } from '@/lib/trashBin'
 
 const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false })
 
@@ -347,9 +348,20 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
     if (!detailEvent) return
     setDeleting(true)
     const sb = createClient()
-    const { error } = await sb.from('calendar_events').delete().eq('id', detailEvent.id)
-    if (error) {
-      console.error('[SchedulingWorkspace] Delete failed:', error)
+    const { data: snapshot } = await sb.from('calendar_events').select('*').eq('id', detailEvent.id).single()
+    if (snapshot) {
+      const { error } = await moveToTrash(
+        sb,
+        'calendar_event',
+        detailEvent.id,
+        detailEvent.project_name,
+        userId,
+        snapshot as Record<string, unknown>,
+        project.name,
+      )
+      if (error) {
+        console.error('[SchedulingWorkspace] Delete failed:', error)
+      }
     }
     setDeleting(false)
     setShowDeleteConfirm(false)
@@ -561,7 +573,7 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
             <div className="bg-white rounded-xl p-6 mx-4 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
               <h3 className="font-semibold text-gray-900 mb-2">Delete Event</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Are you sure you want to delete &ldquo;{detailEvent.project_name}&rdquo;? This cannot be undone.
+                Are you sure you want to delete &ldquo;{detailEvent.project_name}&rdquo;? It will be moved to the trash bin.
               </p>
               <div className="flex gap-3">
                 <button

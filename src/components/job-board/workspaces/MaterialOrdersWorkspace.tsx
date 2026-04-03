@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PackageIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { Project, Profile } from '@/types'
+import { moveToTrash } from '@/lib/trashBin'
 import WorkspaceShell from '../WorkspaceShell'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -111,9 +112,25 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
     if (!deletingOrder) return
     setIsDeleting(true)
     const supabase = createClient()
-    const { error } = await supabase.from('material_orders').delete().eq('id', deletingOrder.id)
+
+    // Snapshot the record for trash bin
+    const { data: snapshot } = await supabase
+      .from('material_orders')
+      .select('*')
+      .eq('id', deletingOrder.id)
+      .single()
+
+    const { error } = await moveToTrash(
+      supabase,
+      'material_order',
+      deletingOrder.id,
+      deletingOrder.name,
+      userId,
+      (snapshot as Record<string, unknown>) ?? { id: deletingOrder.id, name: deletingOrder.name },
+      project.name,
+    )
     if (error) {
-      showError('Failed to delete order: ' + error.message)
+      showError('Failed to delete order: ' + error)
     } else {
       setOrders((prev) => prev.filter((o) => o.id !== deletingOrder.id))
     }

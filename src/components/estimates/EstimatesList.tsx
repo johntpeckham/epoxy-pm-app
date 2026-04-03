@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { FileTextIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { softDeleteEstimate } from '@/lib/trashBin'
 import type { Estimate } from './types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
@@ -20,7 +21,7 @@ const STATUS_COLORS: Record<string, string> = {
   Invoiced: 'bg-amber-100 text-amber-700',
 }
 
-export default function EstimatesList({ estimates, onSelect, userId: _userId, onEstimateDeleted }: EstimatesListProps) {
+export default function EstimatesList({ estimates, onSelect, userId, onEstimateDeleted }: EstimatesListProps) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -28,8 +29,9 @@ export default function EstimatesList({ estimates, onSelect, userId: _userId, on
     if (!deleteTarget) return
     setIsDeleting(true)
     const supabase = createClient()
-    await supabase.from('change_orders').delete().eq('parent_id', deleteTarget)
-    await supabase.from('estimates').delete().eq('id', deleteTarget)
+    const target = estimates.find((e) => e.id === deleteTarget)
+    const displayName = target ? `Estimate #${target.estimate_number}` : 'Estimate'
+    await softDeleteEstimate(supabase, deleteTarget, displayName, userId, target?.project_name || null)
     setIsDeleting(false)
     setDeleteTarget(null)
     onEstimateDeleted?.()
@@ -85,7 +87,7 @@ export default function EstimatesList({ estimates, onSelect, userId: _userId, on
       {deleteTarget && (
         <ConfirmDialog
           title="Delete Estimate"
-          message="Are you sure you want to delete this estimate? This cannot be undone."
+          message="Are you sure you want to move this estimate to the trash bin? You can restore it within 30 days."
           onConfirm={handleDeleteEstimate}
           onCancel={() => setDeleteTarget(null)}
           loading={isDeleting}

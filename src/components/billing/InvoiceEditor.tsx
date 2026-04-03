@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, FilePlusIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { softDeleteInvoice, moveToTrash } from '@/lib/trashBin'
 import type { Customer, Invoice, LineItem, ChangeOrder } from './types'
 import ChangeOrderModal from '../shared/ChangeOrderModal'
 import ChangeOrdersList from '../shared/ChangeOrdersList'
@@ -207,15 +208,18 @@ export default function InvoiceEditor({
 
   async function handleDeleteCO(id: string) {
     const supabase = createClient()
-    await supabase.from('change_orders').delete().eq('id', id)
+    const co = changeOrders.find((c) => c.id === id)
+    if (co) {
+      await moveToTrash(supabase, 'change_order', id, co.change_order_number || `Change Order`, userId, co as unknown as Record<string, unknown>, projectName || null)
+    }
     setChangeOrders((prev) => prev.filter((co) => co.id !== id))
   }
 
   async function handleDeleteInvoice() {
     setIsDeleting(true)
     const supabase = createClient()
-    await supabase.from('change_orders').delete().eq('parent_id', invoiceIdRef.current)
-    await supabase.from('invoices').delete().eq('id', invoiceIdRef.current)
+    const displayName = `Invoice ${invoiceNumber}`
+    await softDeleteInvoice(supabase, invoiceIdRef.current, displayName, userId, projectName || null)
     setIsDeleting(false)
     setShowDeleteConfirm(false)
     onDeleted?.()
@@ -533,7 +537,7 @@ export default function InvoiceEditor({
       {showDeleteConfirm && (
         <ConfirmDialog
           title="Delete Invoice"
-          message="Are you sure you want to delete this invoice? This cannot be undone."
+          message="Are you sure you want to move this invoice to the trash bin? You can restore it within 30 days."
           onConfirm={handleDeleteInvoice}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}

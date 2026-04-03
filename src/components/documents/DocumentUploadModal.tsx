@@ -12,6 +12,7 @@ import {
   EyeIcon,
 } from 'lucide-react'
 import { DocumentCategory, ProjectDocument } from '@/types'
+import { moveToTrash } from '@/lib/trashBin'
 import PdfThumbnail from './PdfThumbnail'
 import Portal from '@/components/ui/Portal'
 
@@ -115,12 +116,27 @@ export default function DocumentUploadModal({
     setError(null)
 
     try {
-      await supabase.storage.from(bucket).remove([doc.file_path])
-      const { error: deleteErr } = await supabase
+      // Snapshot the record for trash bin
+      const { data: snapshot } = await supabase
         .from('project_documents')
-        .delete()
+        .select('*')
         .eq('id', doc.id)
-      if (deleteErr) throw deleteErr
+        .single()
+
+      // Remove storage file first (can't be restored)
+      await supabase.storage.from(bucket).remove([doc.file_path])
+
+      // Move to trash (handles DB deletion)
+      const { error: trashErr } = await moveToTrash(
+        supabase,
+        'document',
+        doc.id,
+        doc.file_name,
+        userId,
+        (snapshot as Record<string, unknown>) ?? { id: doc.id, file_name: doc.file_name },
+        projectName,
+      )
+      if (trashErr) throw new Error(trashErr)
       setDocs((prev) => prev.filter((d) => d.id !== doc.id))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')

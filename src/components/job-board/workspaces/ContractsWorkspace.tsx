@@ -15,6 +15,7 @@ import {
   AlertCircleIcon,
 } from 'lucide-react'
 import { Project, Profile } from '@/types'
+import { moveToTrash } from '@/lib/trashBin'
 import Image from 'next/image'
 import WorkspaceShell from '../WorkspaceShell'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
@@ -195,11 +196,27 @@ export default function ContractsWorkspace({ project, userId, onBack }: Contract
     if (!fileToDelete) return
     setDeleting(true)
 
-    // Delete from storage
+    // Snapshot the record for trash bin
+    const { data: snapshot } = await supabase
+      .from('project_contracts')
+      .select('*')
+      .eq('id', fileToDelete.id)
+      .single()
+
+    // Delete from storage first (can't be restored)
     await supabase.storage.from(bucket).remove([fileToDelete.file_url])
-    // Delete from database
-    const { error: deleteErr } = await supabase.from('project_contracts').delete().eq('id', fileToDelete.id)
-    if (deleteErr) {
+
+    // Move to trash (handles DB deletion)
+    const { error: trashErr } = await moveToTrash(
+      supabase,
+      'contract',
+      fileToDelete.id,
+      fileToDelete.name,
+      userId,
+      (snapshot as Record<string, unknown>) ?? { id: fileToDelete.id, name: fileToDelete.name },
+      project.name,
+    )
+    if (trashErr) {
       setError('Failed to delete document')
     } else {
       setFiles((prev) => prev.filter((f) => f.id !== fileToDelete.id))
@@ -417,7 +434,7 @@ export default function ContractsWorkspace({ project, userId, onBack }: Contract
       {fileToDelete && (
         <ConfirmDialog
           title="Delete Document"
-          message={`Delete "${fileToDelete.name}"? This action cannot be undone.`}
+          message={`Delete "${fileToDelete.name}"? It will be moved to the trash bin and can be restored within 1 year.`}
           onConfirm={handleDelete}
           onCancel={() => setFileToDelete(null)}
           loading={deleting}

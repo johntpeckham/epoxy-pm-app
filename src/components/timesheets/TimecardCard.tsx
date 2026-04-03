@@ -19,6 +19,7 @@ import EditTimecardModal from '@/components/feed/EditTimecardModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
+import { moveToTrash } from '@/lib/trashBin'
 
 interface TimecardRow {
   id: string
@@ -56,9 +57,10 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
   async function handleDelete() {
     setIsDeleting(true)
     const supabase = createClient()
-    const { error } = await supabase.from('feed_posts').delete().eq('id', timecard.id)
-    if (error) {
-      console.error('[TimecardCard] Delete failed:', error)
+    const { data: snapshot } = await supabase.from('feed_posts').select('*').eq('id', timecard.id).single()
+    if (snapshot) {
+      const itemName = 'Timecard - ' + (content.date ?? new Date(timecard.created_at).toLocaleDateString())
+      await moveToTrash(supabase, 'feed_post', timecard.id, itemName, snapshot.user_id, snapshot as Record<string, unknown>, timecard.project_name)
     }
     setIsDeleting(false)
     setShowDeleteConfirm(false)
@@ -248,7 +250,7 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
       {showDeleteConfirm && (
         <ConfirmDialog
           title="Delete Timecard"
-          message="Are you sure you want to delete this timecard? This cannot be undone."
+          message="Are you sure you want to delete this timecard? It will be moved to the trash bin and can be restored within 1 year."
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}

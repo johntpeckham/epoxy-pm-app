@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { Profile } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { moveToTrash } from '@/lib/trashBin'
 import { useRouter } from 'next/navigation'
 
 interface ChecklistTemplate {
@@ -252,8 +253,13 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
     if (!templateToDelete) return
     setDeleting(true)
     const supabase = createClient()
-    const { error } = await supabase.from('checklist_templates').delete().eq('id', templateToDelete.id)
-    if (error) console.error('[Templates] Delete failed:', error)
+    const { data: snapshot } = await supabase.from('checklist_templates').select('*').eq('id', templateToDelete.id).single()
+    if (snapshot) {
+      const { error: trashError } = await moveToTrash(supabase, 'checklist_template', templateToDelete.id, templateToDelete.name, userId, snapshot as Record<string, unknown>)
+      if (trashError) console.error('[Templates] Move to trash failed:', trashError)
+    } else {
+      console.error('[Templates] Snapshot template failed')
+    }
     setDeleting(false)
     setTemplateToDelete(null)
     fetchTemplates()
@@ -502,7 +508,7 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
       {templateToDelete && (
         <ConfirmDialog
           title="Delete Template"
-          message={`Delete "${templateToDelete.name}"? This will not remove checklist items already added to projects.`}
+          message={`Delete "${templateToDelete.name}"? It will be moved to the trash bin and can be restored within 30 days. This will not remove checklist items already added to projects.`}
           onConfirm={handleDelete}
           onCancel={() => setTemplateToDelete(null)}
           loading={deleting}

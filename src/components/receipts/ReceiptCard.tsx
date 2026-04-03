@@ -23,6 +23,7 @@ import EditReceiptModal from '@/components/feed/EditReceiptModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
+import { moveToTrash } from '@/lib/trashBin'
 
 interface ReceiptRow {
   id: string
@@ -82,7 +83,11 @@ export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
     if (content.receipt_photo) {
       await supabase.storage.from('post-photos').remove([content.receipt_photo])
     }
-    await supabase.from('feed_posts').delete().eq('id', receipt.id)
+    const { data: snapshot } = await supabase.from('feed_posts').select('*').eq('id', receipt.id).single()
+    if (snapshot) {
+      const itemName = 'Receipt - ' + (content.vendor_name ?? '') + ' ' + (content.receipt_date ?? new Date(receipt.created_at).toLocaleDateString())
+      await moveToTrash(supabase, 'feed_post', receipt.id, itemName, snapshot.user_id, snapshot as Record<string, unknown>, receipt.project_name)
+    }
     setIsDeleting(false)
     setShowDeleteConfirm(false)
     router.refresh()
@@ -322,7 +327,7 @@ export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
       {showDeleteConfirm && (
         <ConfirmDialog
           title="Delete Expense"
-          message="Are you sure you want to delete this expense? The receipt photo will also be removed. This cannot be undone."
+          message="Are you sure you want to delete this expense? The receipt photo will also be removed. It will be moved to the trash bin and can be restored within 1 year."
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}

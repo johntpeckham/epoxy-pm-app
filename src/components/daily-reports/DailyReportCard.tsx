@@ -20,6 +20,7 @@ import EditDailyReportModal from '@/components/feed/EditDailyReportModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
+import { moveToTrash } from '@/lib/trashBin'
 
 interface DailyReportRow {
   id: string
@@ -78,7 +79,11 @@ export default memo(function DailyReportCard({ report }: DailyReportCardProps) {
     if (photos.length > 0) {
       await supabase.storage.from('post-photos').remove(photos)
     }
-    await supabase.from('feed_posts').delete().eq('id', report.id)
+    const { data: snapshot } = await supabase.from('feed_posts').select('*').eq('id', report.id).single()
+    if (snapshot) {
+      const itemName = 'Daily Report - ' + (content.date ?? new Date(report.created_at).toLocaleDateString())
+      await moveToTrash(supabase, 'feed_post', report.id, itemName, snapshot.user_id, snapshot as Record<string, unknown>, report.project_name)
+    }
     setIsDeleting(false)
     setShowDeleteConfirm(false)
     router.refresh()
@@ -321,7 +326,7 @@ export default memo(function DailyReportCard({ report }: DailyReportCardProps) {
       {showDeleteConfirm && (
         <ConfirmDialog
           title="Delete Daily Report"
-          message="Are you sure you want to delete this daily report? Photos will also be removed. This cannot be undone."
+          message="Are you sure you want to delete this daily report? Photos will be removed from storage. It will be moved to the trash bin and can be restored within 1 year."
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}

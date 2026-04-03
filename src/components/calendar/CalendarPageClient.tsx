@@ -16,6 +16,7 @@ import { CalendarEvent, EmployeeProfile, Project } from '@/types'
 import type { UserRole } from '@/types'
 import { usePermissions } from '@/lib/usePermissions'
 import { applyDefaultChecklist } from '@/lib/applyDefaultChecklist'
+import { moveToTrash } from '@/lib/trashBin'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -906,8 +907,19 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     if (!detailEvent) return
     setDeleting(true)
     try {
-      const { error } = await supabase.from('calendar_events').delete().eq('id', detailEvent.id)
-      if (error) throw error
+      const { data: snapshot } = await supabase.from('calendar_events').select('*').eq('id', detailEvent.id).single()
+      if (snapshot) {
+        const { error: trashError } = await moveToTrash(
+          supabase,
+          'calendar_event',
+          detailEvent.id,
+          detailEvent.project_name,
+          userId,
+          snapshot as Record<string, unknown>,
+          detailEvent.project_name,
+        )
+        if (trashError) throw new Error(trashError)
+      }
       setShowDeleteConfirm(false)
       setDetailEvent(null)
       router.refresh()
@@ -2203,7 +2215,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                   <Trash2Icon className="w-6 h-6 text-red-500" />
                 </div>
                 <p className="text-sm text-gray-500">
-                  Are you sure you want to delete &ldquo;{detailEvent.project_name}&rdquo; from the calendar? This cannot be undone.
+                  Are you sure you want to delete &ldquo;{detailEvent.project_name}&rdquo; from the calendar? It will be moved to the trash bin.
                 </p>
               </div>
             </div>

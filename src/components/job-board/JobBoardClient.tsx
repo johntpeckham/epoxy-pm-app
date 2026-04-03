@@ -29,6 +29,7 @@ import { Project, Task, FeedPost, TaskStatus } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useProjectPins } from '@/lib/useProjectPins'
+import { softDeleteProject } from '@/lib/trashBin'
 import ProjectCard from '@/components/jobs/ProjectCard'
 import NewProjectModal from '@/components/jobs/NewProjectModal'
 import EditProjectModal from '@/components/jobs/EditProjectModal'
@@ -302,21 +303,8 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     setIsDeleting(true)
     const supabase = createClient()
 
-    const { data: photoPosts, error: photoFetchError } = await supabase
-      .from('feed_posts')
-      .select('content')
-      .eq('project_id', projectToDelete.id)
-      .eq('post_type', 'photo')
-    if (photoFetchError) console.error('[JobBoard] Fetch photo posts failed:', photoFetchError)
-    if (photoPosts?.length) {
-      const paths = photoPosts.flatMap(
-        (p) => (p.content as { photos?: string[] }).photos ?? []
-      )
-      if (paths.length) await supabase.storage.from('post-photos').remove(paths)
-    }
-
-    const { error: deleteError } = await supabase.from('projects').delete().eq('id', projectToDelete.id)
-    if (deleteError) console.error('[JobBoard] Delete project failed:', deleteError)
+    const result = await softDeleteProject(supabase, projectToDelete.id, projectToDelete.name, userId)
+    if (result.error) console.error('[JobBoard] Soft delete project failed:', result.error)
 
     if (selectedProject?.id === projectToDelete.id) {
       setSelectedProject(null)
@@ -1087,7 +1075,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       {projectToDelete && (
         <ConfirmDialog
           title="Delete Project"
-          message={`Are you sure you want to delete "${projectToDelete.name}"? All posts and photos will be permanently deleted.`}
+          message={`Are you sure you want to delete "${projectToDelete.name}"? It will be moved to the trash bin and can be restored within 1 year.`}
           onConfirm={handleDeleteProject}
           onCancel={() => setProjectToDelete(null)}
           loading={isDeleting}
