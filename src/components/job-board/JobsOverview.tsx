@@ -15,6 +15,7 @@ interface ChecklistItem {
   project_id: string
   name: string
   is_complete: boolean
+  group_name: string | null
 }
 
 interface JobsOverviewProps {
@@ -35,7 +36,7 @@ export default function JobsOverview({ projects, onSelectProject, onBack }: Jobs
       const supabase = createClient()
       const { data, error } = await supabase
         .from('project_checklist_items')
-        .select('id, project_id, name, is_complete')
+        .select('id, project_id, name, is_complete, group_name')
         .order('sort_order', { ascending: true })
       if (error) console.error('[JobsOverview] Fetch checklist failed:', error)
       setChecklistItems((data as ChecklistItem[]) ?? [])
@@ -179,6 +180,24 @@ function ProjectSection({
   )
 }
 
+/* ── Group checklist items by template/group_name ──────────────────── */
+
+function groupChecklistItems(items: ChecklistItem[]): { group: string; items: ChecklistItem[] }[] {
+  const groups: { group: string; items: ChecklistItem[] }[] = []
+  for (const item of items) {
+    const group = (!item.group_name || item.group_name === 'Custom') ? 'Additional Checklist Items' : item.group_name
+    const existing = groups.find((g) => g.group === group)
+    if (existing) existing.items.push(item)
+    else groups.push({ group, items: [item] })
+  }
+  // Project Checklist first, Additional Checklist Items last, others in between
+  groups.sort((a, b) => {
+    const order = (g: string) => g === 'Project Checklist' ? 0 : g === 'Additional Checklist Items' ? 2 : 1
+    return order(a.group) - order(b.group)
+  })
+  return groups
+}
+
 /* ── Project Summary Card ──────────────────────────────────────────── */
 
 function ProjectSummaryCard({
@@ -202,7 +221,7 @@ function ProjectSummaryCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             {project.estimate_number && (
-              <span className="text-xs font-medium text-gray-400 flex-shrink-0">Est. #{project.estimate_number}</span>
+              <span className="text-xs font-medium text-gray-900 flex-shrink-0">Est. #{project.estimate_number}</span>
             )}
             {project.estimate_number && <span className="text-xs text-gray-300">-</span>}
             <span className="text-sm font-semibold text-gray-900 truncate">{project.name}</span>
@@ -226,13 +245,13 @@ function ProjectSummaryCard({
             onClick={onSelect}
             className="inline-flex items-center gap-1 px-2.5 py-1 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition"
           >
-            Open
+            View Project
             <ArrowRightIcon className="w-3 h-3" />
           </button>
         </div>
       </div>
 
-      {/* Checklist Squares */}
+      {/* Checklist Squares — grouped by template/group_name */}
       {totalCount > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -243,26 +262,33 @@ function ProjectSummaryCard({
               {completedCount}/{totalCount}
             </span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {checklistItems.map((item) => (
-              <div
-                key={item.id}
-                className={`relative rounded-lg border px-2.5 py-2 w-[110px] sm:w-[120px] ${
-                  item.is_complete
-                    ? 'border-green-200 bg-green-50'
-                    : 'border-gray-200 bg-gray-50'
-                }`}
-              >
-                <p className={`text-[11px] leading-tight line-clamp-2 ${
-                  item.is_complete ? 'text-green-700' : 'text-gray-600'
-                }`}>
-                  {item.name}
-                </p>
-                {item.is_complete && (
-                  <div className="absolute top-1 right-1">
-                    <CheckIcon className="w-3 h-3 text-green-500" />
-                  </div>
-                )}
+          <div className="space-y-2.5">
+            {groupChecklistItems(checklistItems).map(({ group, items }) => (
+              <div key={group}>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{group}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`relative rounded-lg border px-2 py-1.5 w-[80px] sm:w-[90px] ${
+                        item.is_complete
+                          ? 'border-green-200 bg-green-50'
+                          : 'border-gray-200 bg-gray-50'
+                      }`}
+                    >
+                      <p className={`text-[10px] leading-tight line-clamp-2 pr-3 ${
+                        item.is_complete ? 'text-green-700' : 'text-gray-600'
+                      }`}>
+                        {item.name}
+                      </p>
+                      {item.is_complete && (
+                        <div className="absolute top-1 right-1">
+                          <CheckIcon className="w-2.5 h-2.5 text-green-500" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
