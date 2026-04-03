@@ -7,6 +7,7 @@ import {
   PlusIcon,
   SearchIcon,
   LayoutDashboardIcon,
+  LayoutGridIcon,
   ChevronRightIcon,
   FileTextIcon,
   CheckSquareIcon,
@@ -46,6 +47,7 @@ import ReportWorkspace from './workspaces/ReportWorkspace'
 import ContractsWorkspace from './workspaces/ContractsWorkspace'
 import ChecklistDashboardCard from './ChecklistDashboardCard'
 import JobInfoDashboardCard from './JobInfoDashboardCard'
+import JobsOverview from './JobsOverview'
 
 type WorkspaceType =
   | 'job_info' | 'checklist' | 'plans' | 'tasks'
@@ -270,6 +272,14 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     setActiveWorkspace(null)
     fetchDashboardData(project.id)
   }, [fetchDashboardData])
+
+  const deselectProject = useCallback(() => {
+    setSelectedProject(null)
+    setCounts(null)
+    setPreviews(null)
+    setActiveWorkspace(null)
+    setMobileView('dashboard')
+  }, [])
 
   // When project changes while in a workspace, reload workspace data
   useEffect(() => {
@@ -558,6 +568,19 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
             </div>
           ) : (
             <>
+              {/* Jobs Overview link */}
+              <button
+                onClick={deselectProject}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition mb-2 ${
+                  !selectedProject
+                    ? 'bg-amber-50 border border-amber-200 text-amber-700'
+                    : 'hover:bg-gray-100 text-gray-600'
+                }`}
+              >
+                <LayoutGridIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="text-sm font-semibold">Jobs Overview</span>
+              </button>
+
               {/* Pinned section */}
               {pinnedProjects.length > 0 && (
                 <>
@@ -970,15 +993,11 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
             </>
           )
         ) : (
-          <div className="flex flex-col items-center justify-center flex-1 text-center px-8">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <LayoutDashboardIcon className="w-8 h-8 text-gray-300" />
-            </div>
-            <p className="text-gray-500 font-medium">Select a project to view the Job Board</p>
-            <p className="text-gray-400 text-sm mt-1">
-              Choose a project from the list on the left.
-            </p>
-          </div>
+          <JobsOverview
+            projects={projects}
+            onSelectProject={selectProject}
+            onBack={() => setMobileView('list')}
+          />
         )}
       </div>
 
