@@ -28,6 +28,9 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
   const [address, setAddress] = useState(project.address)
   const [estimateNumber, setEstimateNumber] = useState(project.estimate_number ?? '')
   const [status, setStatus] = useState<'Active' | 'Complete'>(project.status)
+  const [startDate, setStartDate] = useState(project.start_date ?? '')
+  const [endDate, setEndDate] = useState(project.end_date ?? '')
+  const [includeWeekends, setIncludeWeekends] = useState(project.include_weekends ?? false)
   const [driveTimeEnabled, setDriveTimeEnabled] = useState(project.drive_time_enabled ?? false)
   const [driveTimeDays, setDriveTimeDays] = useState(project.drive_time_days ?? 1)
   const [driveTimePosition, setDriveTimePosition] = useState<'front' | 'back' | 'both'>(project.drive_time_position ?? 'both')
@@ -108,6 +111,9 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
         address: address.trim(),
         status,
         estimate_number: estimateNumber.trim() || null,
+        start_date: startDate || null,
+        end_date: endDate || null,
+        include_weekends: startDate && endDate ? includeWeekends : false,
         crew: crewNames.join(', ') || null,
         notes: notes.trim() || null,
         color,
@@ -210,6 +216,51 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
                 <option value="Complete">Complete</option>
               </select>
             </div>
+
+            {/* Calendar Dates */}
+            <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+              <div className="w-1/2 sm:w-full">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value)
+                    if (endDate && e.target.value > endDate) setEndDate(e.target.value)
+                  }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+              <div className="w-1/2 sm:w-full">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {startDate && endDate && (
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">Include Weekends?</label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={includeWeekends}
+                  onClick={() => setIncludeWeekends(!includeWeekends)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${includeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${includeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            )}
 
             {/* Drive Time */}
             <div className="space-y-3">
