@@ -115,11 +115,11 @@ export default function DailyReportsPageClient({
   const grouped = useMemo(() => groupByProjectAndDate(filtered, sortOption), [filtered, sortOption])
 
   const inProgressGroups = useMemo(
-    () => grouped.filter((g) => projectStatusMap.get(g.projectId) !== 'Complete'),
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) !== 'Completed'),
     [grouped, projectStatusMap]
   )
   const completedGroups = useMemo(
-    () => grouped.filter((g) => projectStatusMap.get(g.projectId) === 'Complete'),
+    () => grouped.filter((g) => projectStatusMap.get(g.projectId) === 'Completed'),
     [grouped, projectStatusMap]
   )
 

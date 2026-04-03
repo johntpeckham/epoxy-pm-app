@@ -235,11 +235,11 @@ export default function TasksPageClient({
   }, [filtered, sortOption])
 
   const inProgressProjectGroups = useMemo(
-    () => (grouped as GroupedByProject[]).filter((g) => g.kind === 'project' && projectStatusMap.get(g.projectId) !== 'Complete'),
+    () => (grouped as GroupedByProject[]).filter((g) => g.kind === 'project' && projectStatusMap.get(g.projectId) !== 'Completed'),
     [grouped, projectStatusMap]
   )
   const completedProjectGroups = useMemo(
-    () => (grouped as GroupedByProject[]).filter((g) => g.kind === 'project' && projectStatusMap.get(g.projectId) === 'Complete'),
+    () => (grouped as GroupedByProject[]).filter((g) => g.kind === 'project' && projectStatusMap.get(g.projectId) === 'Completed'),
     [grouped, projectStatusMap]
   )
 

@@ -27,7 +27,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   const [clientName, setClientName] = useState('')
   const [address, setAddress] = useState('')
   const [estimateNumber, setEstimateNumber] = useState('')
-  const [status, setStatus] = useState<'Active' | 'Complete' | 'Closed'>('Active')
+  const [status, setStatus] = useState<'Active' | 'Completed' | 'Closed'>('Active')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [includeWeekends, setIncludeWeekends] = useState(false)
@@ -334,11 +334,11 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
               </label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as 'Active' | 'Complete' | 'Closed')}
+                onChange={(e) => setStatus(e.target.value as 'Active' | 'Completed' | 'Closed')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
               >
                 <option value="Active">Active</option>
-                <option value="Complete">Complete</option>
+                <option value="Completed">Completed</option>
                 <option value="Closed">Closed</option>
               </select>
             </div>
