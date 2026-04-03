@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, WalletIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, WalletIcon, ClipboardCheckIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -52,6 +52,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isSalesmanExpensesActive = pathname === '/salesman-expenses'
   const isEstimatesActive = pathname === '/estimates'
   const isBillingActive = pathname === '/billing'
+  const isMyWorkActive = pathname === '/my-work'
 
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
   const userName = displayName || userEmail?.split('@')[0] || 'User'
@@ -91,6 +92,18 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
+        <Link
+          href="/my-work"
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isMyWorkActive
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}
+        >
+          <ClipboardCheckIcon className="w-5 h-5 flex-shrink-0" />
+          My Work
+        </Link>
         {canView('job_board') && (
           <Link
             href={jobBoardHref}
