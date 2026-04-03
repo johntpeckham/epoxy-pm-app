@@ -19,6 +19,7 @@ import {
   ChecklistTemplateItem,
   ChecklistItemRow,
 } from './workspaces/ChecklistShared'
+import { moveToTrash } from '@/lib/trashBin'
 
 interface ChecklistDashboardCardProps {
   project: Project
@@ -149,11 +150,22 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
     const prevItems = items
     setItems((prev) => prev.filter((i) => i.id !== id))
     const supabase = createClient()
-    const { error } = await supabase.from('project_checklist_items').delete().eq('id', id)
-    if (error) {
-      console.error('[ChecklistCard] Delete failed:', error)
-      showError('Failed to delete item: ' + error.message)
-      setItems(prevItems)
+    const { data: snapshot } = await supabase.from('project_checklist_items').select('*').eq('id', id).single()
+    if (snapshot) {
+      const { error } = await moveToTrash(
+        supabase,
+        'checklist_item',
+        id,
+        snapshot.name ?? 'Checklist item',
+        userId,
+        snapshot as Record<string, unknown>,
+        project.name,
+      )
+      if (error) {
+        console.error('[ChecklistCard] Delete failed:', error)
+        showError('Failed to delete item: ' + error)
+        setItems(prevItems)
+      }
     }
   }
 

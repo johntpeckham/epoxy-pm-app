@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { FileTextIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { softDeleteInvoice } from '@/lib/trashBin'
 import type { Invoice, Customer, TimeFilter } from './types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
@@ -43,8 +44,10 @@ export default function BillingDashboard({ invoices, customers, onSelectInvoice,
     if (!deleteTarget) return
     setIsDeleting(true)
     const supabase = createClient()
-    await supabase.from('change_orders').delete().eq('parent_id', deleteTarget)
-    await supabase.from('invoices').delete().eq('id', deleteTarget)
+    const { data: { user } } = await supabase.auth.getUser()
+    const target = invoices.find((inv) => inv.id === deleteTarget)
+    const displayName = target ? `Invoice ${target.invoice_number}` : 'Invoice'
+    await softDeleteInvoice(supabase, deleteTarget, displayName, user?.id ?? '', target?.project_name || null)
     setIsDeleting(false)
     setDeleteTarget(null)
     onInvoiceDeleted?.()
@@ -215,7 +218,7 @@ export default function BillingDashboard({ invoices, customers, onSelectInvoice,
       {deleteTarget && (
         <ConfirmDialog
           title="Delete Invoice"
-          message="Are you sure you want to delete this invoice? This cannot be undone."
+          message="Are you sure you want to move this invoice to the trash bin? You can restore it within 30 days."
           onConfirm={handleDeleteInvoice}
           onCancel={() => setDeleteTarget(null)}
           loading={isDeleting}

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { moveToTrash } from '@/lib/trashBin'
 import type { Customer } from '@/components/estimates/types'
 
 interface CustomerManagementModalProps {
@@ -149,7 +150,10 @@ export default function CustomerManagementModal({
   async function handleDelete() {
     if (!confirmDelete) return
     setDeleting(true)
-    await supabase.from('customers').delete().eq('id', confirmDelete.id)
+    const { data: snapshot } = await supabase.from('customers').select('*').eq('id', confirmDelete.id).single()
+    if (snapshot) {
+      await moveToTrash(supabase, 'customer', confirmDelete.id, confirmDelete.name, userId, snapshot as Record<string, unknown>)
+    }
     setDeleting(false)
     setConfirmDelete(null)
     await fetchCustomers()
@@ -387,7 +391,7 @@ export default function CustomerManagementModal({
       {confirmDelete && (
         <ConfirmDialog
           title="Delete Customer"
-          message={`Are you sure you want to delete "${confirmDelete.name}"? This action cannot be undone.`}
+          message={`Are you sure you want to delete "${confirmDelete.name}"? It will be moved to the trash bin and can be restored within 30 days.`}
           confirmLabel={deleting ? 'Deleting...' : 'Delete'}
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(null)}

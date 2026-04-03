@@ -80,9 +80,29 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleting(true)
-    const { error } = await supabase.from('employees').delete().eq('id', deleteTarget.id)
-    if (error) {
-      console.error('[ManageEmployees] Delete employee failed:', error)
+    const { data: snapshot } = await supabase.from('employees').select('*').eq('id', deleteTarget.id).single()
+    if (snapshot) {
+      const { data: { user } } = await supabase.auth.getUser()
+      const deletedBy = user?.id ?? 'unknown'
+      // Insert into trash bin manually since the 'employee' type maps to employee_profiles table,
+      // but this component uses the separate 'employees' table (timesheets)
+      const { error: trashInsertError } = await supabase.from('trash_bin').insert({
+        item_type: 'employee',
+        item_id: deleteTarget.id,
+        item_name: deleteTarget.name,
+        item_data: snapshot,
+        related_project: null,
+        deleted_by: deletedBy,
+      })
+      if (trashInsertError) {
+        console.error('[ManageEmployees] Trash insert failed:', trashInsertError)
+      }
+      const { error: deleteError } = await supabase.from('employees').delete().eq('id', deleteTarget.id)
+      if (deleteError) {
+        console.error('[ManageEmployees] Delete employee failed:', deleteError)
+      }
+    } else {
+      console.error('[ManageEmployees] Snapshot employee failed')
     }
     setDeleteTarget(null)
     setDeleting(false)
@@ -214,7 +234,7 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
       {deleteTarget && (
         <ConfirmDialog
           title="Delete Employee"
-          message={`Are you sure you want to delete "${deleteTarget.name}"? This cannot be undone.`}
+          message={`Are you sure you want to delete "${deleteTarget.name}"? It will be moved to the trash bin and can be restored within 30 days.`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
           loading={deleting}

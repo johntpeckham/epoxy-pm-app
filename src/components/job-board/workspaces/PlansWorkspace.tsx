@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FileTextIcon, UploadCloudIcon, DownloadIcon, Trash2Icon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { Project, ProjectDocument } from '@/types'
+import { moveToTrash } from '@/lib/trashBin'
 import Image from 'next/image'
 import WorkspaceShell from '../WorkspaceShell'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
@@ -97,9 +98,32 @@ export default function PlansWorkspace({ project, userId, onBack }: PlansWorkspa
 
   async function handleDelete(doc: ProjectDocument) {
     setDeletingId(doc.id)
+
+    // Snapshot the record for trash bin
+    const { data: snapshot } = await supabase
+      .from('project_documents')
+      .select('*')
+      .eq('id', doc.id)
+      .single()
+
+    // Remove storage file first (can't be restored)
     await supabase.storage.from(bucket).remove([doc.file_path])
-    await supabase.from('project_documents').delete().eq('id', doc.id)
-    setDocs((prev) => prev.filter((d) => d.id !== doc.id))
+
+    // Move to trash (handles DB deletion)
+    const { error: trashErr } = await moveToTrash(
+      supabase,
+      'document',
+      doc.id,
+      doc.file_name,
+      userId,
+      (snapshot as Record<string, unknown>) ?? { id: doc.id, file_name: doc.file_name },
+      project.name,
+    )
+    if (trashErr) {
+      setError('Failed to delete: ' + trashErr)
+    } else {
+      setDocs((prev) => prev.filter((d) => d.id !== doc.id))
+    }
     setDeletingId(null)
   }
 

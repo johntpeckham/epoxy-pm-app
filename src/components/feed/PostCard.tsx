@@ -34,6 +34,7 @@ import PostCommentsSection from './PostCommentsSection'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import PhotoLightbox from '@/components/photos/PhotoLightbox'
+import { moveToTrash } from '@/lib/trashBin'
 
 interface PostCardProps {
   post: FeedPost
@@ -1231,7 +1232,12 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
       const attachment = (post.content as ExpenseContent).attachment
       if (attachment) await supabase.storage.from('post-photos').remove([attachment])
     }
-    await supabase.from('feed_posts').delete().eq('id', post.id)
+    const { data: snapshot } = await supabase.from('feed_posts').select('*').eq('id', post.id).single()
+    if (snapshot) {
+      const itemName = post.post_type + ' - ' + new Date(post.created_at).toLocaleDateString()
+      const projectName = (post.content as unknown as Record<string, unknown>)?.project_name as string | undefined
+      await moveToTrash(supabase, 'feed_post', post.id, itemName, userId ?? post.user_id, snapshot as Record<string, unknown>, projectName ?? undefined)
+    }
     setIsDeleting(false)
     setShowDeleteConfirm(false)
     onDeleted?.()
@@ -1496,8 +1502,8 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           title="Delete Post"
           message={
             post.post_type === 'photo'
-              ? 'Are you sure you want to delete this post? All photos will be permanently removed.'
-              : 'Are you sure you want to delete this post? This cannot be undone.'
+              ? 'Are you sure you want to delete this post? Photos will be removed from storage. It will be moved to the trash bin and can be restored within 1 year.'
+              : 'Are you sure you want to delete this post? It will be moved to the trash bin and can be restored within 1 year.'
           }
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}

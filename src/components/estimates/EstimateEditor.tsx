@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon, FilePlusIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { softDeleteEstimate, moveToTrash } from '@/lib/trashBin'
 import { applyDefaultChecklist } from '@/lib/applyDefaultChecklist'
 import type { Customer, Estimate, EstimateSettings, LineItem, ChangeOrder, MaterialSystemRow } from './types'
 import { DEFAULT_TERMS } from './types'
@@ -279,7 +280,10 @@ export default function EstimateEditor({
 
   async function handleDeleteCO(id: string) {
     const supabase = createClient()
-    await supabase.from('change_orders').delete().eq('id', id)
+    const co = changeOrders.find((c) => c.id === id)
+    if (co) {
+      await moveToTrash(supabase, 'change_order', id, co.change_order_number || `Change Order`, userId, co as unknown as Record<string, unknown>, projectName || null)
+    }
     setChangeOrders((prev) => prev.filter((co) => co.id !== id))
   }
 
@@ -342,8 +346,8 @@ export default function EstimateEditor({
   async function handleDeleteEstimate() {
     setIsDeleting(true)
     const supabase = createClient()
-    await supabase.from('change_orders').delete().eq('parent_id', estimateIdRef.current)
-    await supabase.from('estimates').delete().eq('id', estimateIdRef.current)
+    const displayName = `Estimate #${estimateNumber}`
+    await softDeleteEstimate(supabase, estimateIdRef.current, displayName, userId, projectName || null)
     setIsDeleting(false)
     setShowDeleteConfirm(false)
     onDeleted?.()
@@ -773,7 +777,7 @@ export default function EstimateEditor({
       {showDeleteConfirm && (
         <ConfirmDialog
           title="Delete Estimate"
-          message="Are you sure you want to delete this estimate? This cannot be undone."
+          message="Are you sure you want to move this estimate to the trash bin? You can restore it within 30 days."
           onConfirm={handleDeleteEstimate}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}

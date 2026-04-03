@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { moveToTrash } from '@/lib/trashBin'
 import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition } from '@/types'
 
 export default function EmployeeManagement() {
@@ -292,11 +293,14 @@ export default function EmployeeManagement() {
     setDeletingEmployee(true)
 
     try {
-      const { error } = await supabase
-        .from('employee_profiles')
-        .delete()
-        .eq('id', confirmDeleteEmployee.id)
-      if (error) throw error
+      const { data: snapshot } = await supabase.from('employee_profiles').select('*').eq('id', confirmDeleteEmployee.id).single()
+      if (!snapshot) throw new Error('Employee not found')
+
+      const { data: { user } } = await supabase.auth.getUser()
+      const deletedBy = user?.id ?? 'unknown'
+
+      const { error: trashError } = await moveToTrash(supabase, 'employee', confirmDeleteEmployee.id, confirmDeleteEmployee.name, deletedBy, snapshot as Record<string, unknown>)
+      if (trashError) throw new Error(trashError)
 
       await fetchEmployees()
       setConfirmDeleteEmployee(null)
@@ -754,7 +758,7 @@ export default function EmployeeManagement() {
       {confirmDeleteEmployee && (
         <ConfirmDialog
           title="Delete Employee"
-          message={`Are you sure you want to delete "${confirmDeleteEmployee.name}"? This action cannot be undone.`}
+          message={`Are you sure you want to delete "${confirmDeleteEmployee.name}"? It will be moved to the trash bin and can be restored within 30 days.`}
           confirmLabel="Delete"
           onConfirm={handleDeleteEmployee}
           onCancel={() => setConfirmDeleteEmployee(null)}

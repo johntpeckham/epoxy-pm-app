@@ -19,6 +19,7 @@ import {
   ChecklistTemplateItem,
   ChecklistItemRow,
 } from './ChecklistShared'
+import { moveToTrash } from '@/lib/trashBin'
 
 interface ChecklistWorkspaceProps {
   project: Project
@@ -149,11 +150,22 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
     const prevItems = items
     setItems((prev) => prev.filter((i) => i.id !== id))
     const supabase = createClient()
-    const { error } = await supabase.from('project_checklist_items').delete().eq('id', id)
-    if (error) {
-      console.error('[Checklist] Delete failed:', error)
-      showError('Failed to delete item: ' + error.message)
-      setItems(prevItems)
+    const { data: snapshot } = await supabase.from('project_checklist_items').select('*').eq('id', id).single()
+    if (snapshot) {
+      const { error } = await moveToTrash(
+        supabase,
+        'checklist_item',
+        id,
+        snapshot.name ?? 'Checklist item',
+        userId,
+        snapshot as Record<string, unknown>,
+        project.name,
+      )
+      if (error) {
+        console.error('[Checklist] Delete failed:', error)
+        showError('Failed to delete item: ' + error)
+        setItems(prevItems)
+      }
     }
   }
 

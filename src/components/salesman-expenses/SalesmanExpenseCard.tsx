@@ -11,6 +11,7 @@ import {
   UndoIcon,
   XIcon,
 } from 'lucide-react'
+import { moveToTrash } from '@/lib/trashBin'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import Portal from '@/components/ui/Portal'
 
@@ -67,10 +68,29 @@ export default function SalesmanExpenseCard({
   async function handleDelete() {
     setIsDeleting(true)
     const supabase = createClient()
+
+    // Snapshot the record for trash bin
+    const { data: snapshot } = await supabase
+      .from('salesman_expenses')
+      .select('*')
+      .eq('id', expense.id)
+      .single()
+
+    // Remove receipt from storage first (can't be restored)
     if (expense.receipt_url) {
       await supabase.storage.from('salesman-receipts').remove([expense.receipt_url])
     }
-    await supabase.from('salesman_expenses').delete().eq('id', expense.id)
+
+    // Move to trash (handles DB deletion)
+    const itemName = expense.description || `$${expense.amount.toFixed(2)} expense`
+    await moveToTrash(
+      supabase,
+      'salesman_expense',
+      expense.id,
+      itemName,
+      expense.user_id,
+      (snapshot as Record<string, unknown>) ?? { id: expense.id, description: expense.description },
+    )
     setIsDeleting(false)
     setShowDeleteConfirm(false)
     onRefresh()
@@ -213,7 +233,7 @@ export default function SalesmanExpenseCard({
       {showDeleteConfirm && (
         <ConfirmDialog
           title="Delete Expense"
-          message="Are you sure you want to delete this expense? The receipt photo will also be removed. This cannot be undone."
+          message="Are you sure you want to delete this expense? The receipt photo will be permanently removed, but the expense record will be moved to the trash bin where it can be restored."
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}
