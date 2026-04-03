@@ -8,8 +8,6 @@ import {
   SearchIcon,
   LayoutDashboardIcon,
   ChevronRightIcon,
-  SettingsIcon,
-
   FileTextIcon,
   CheckSquareIcon,
   ClipboardListIcon,
@@ -45,6 +43,7 @@ import MaterialOrdersWorkspace from './workspaces/MaterialOrdersWorkspace'
 import SchedulingWorkspace from './workspaces/SchedulingWorkspace'
 import ReportWorkspace from './workspaces/ReportWorkspace'
 import ChecklistDashboardCard from './ChecklistDashboardCard'
+import JobInfoDashboardCard from './JobInfoDashboardCard'
 
 type WorkspaceType =
   | 'job_info' | 'checklist' | 'plans' | 'tasks'
@@ -672,23 +671,11 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
 
-                    {/* 1. Job Info */}
-                    <DashboardCard
-                      icon={<SettingsIcon className="w-5 h-5" />}
-                      title="Job Info"
-                      className="col-span-2"
-                      onClick={() => openWorkspace('job_info')}
-                      content={
-                        <div className="space-y-1">
-                          <p className="text-xs text-gray-600 truncate">{selectedProject.name}</p>
-                          <p className="text-xs text-gray-500 truncate">{selectedProject.client_name}</p>
-                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                            selectedProject.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {selectedProject.status}
-                          </span>
-                        </div>
-                      }
+                    {/* 1. Job Info — spans 2 columns with full inline editing */}
+                    <JobInfoDashboardCard
+                      project={selectedProject}
+                      onExpand={() => openWorkspace('job_info')}
+                      onProjectUpdated={fetchProjects}
                     />
 
                     {/* 2. Checklist — spans 2 columns with full inline editing */}
