@@ -396,3 +396,24 @@ export interface FormTemplate {
   fields: FormField[]
   updated_at: string
 }
+
+export interface PersonalTask {
+  id: string
+  user_id: string
+  title: string
+  is_completed: boolean
+  due_date: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface PersonalNote {
+  id: string
+  user_id: string
+  title: string
+  content: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
