@@ -22,6 +22,8 @@ import {
   DollarSignIcon,
   ArrowLeftIcon,
   FileSignatureIcon,
+  ChevronDownIcon,
+  CheckIcon,
 } from 'lucide-react'
 import { Project, Task, FeedPost, TaskStatus } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
@@ -116,6 +118,12 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Status dropdown
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<'Active' | 'Completed' | 'Closed' | null>(null)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const statusDropdownRef = useRef<HTMLDivElement>(null)
 
   // Dashboard data
   const [counts, setCounts] = useState<DashboardCounts | null>(null)
@@ -320,6 +328,36 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     setIsDeleting(false)
     setProjectToDelete(null)
     fetchProjects()
+  }
+
+  // ── Status dropdown handlers ─────────────────────────────────────────
+  useEffect(() => {
+    if (!showStatusDropdown) return
+    const handler = (e: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setShowStatusDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showStatusDropdown])
+
+  async function handleStatusChange() {
+    if (!selectedProject || !pendingStatus) return
+    setIsUpdatingStatus(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('projects')
+      .update({ status: pendingStatus })
+      .eq('id', selectedProject.id)
+    if (error) {
+      console.error('[JobBoard] Update status failed:', error)
+    } else {
+      setSelectedProject({ ...selectedProject, status: pendingStatus })
+      fetchProjects()
+    }
+    setIsUpdatingStatus(false)
+    setPendingStatus(null)
   }
 
   // Filter then split into pinned / active / completed sections
@@ -713,17 +751,50 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       {selectedProject.client_name} &middot; {selectedProject.address}
                     </p>
                   </div>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                      selectedProject.status === 'Active'
-                        ? 'bg-green-100 text-green-700'
-                        : selectedProject.status === 'Completed'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {selectedProject.status}
-                  </span>
+                  {/* Status dropdown button */}
+                  <div className="relative flex-shrink-0" ref={statusDropdownRef}>
+                    <button
+                      onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition border ${
+                        selectedProject.status === 'Active'
+                          ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
+                          : selectedProject.status === 'Completed'
+                          ? 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200'
+                          : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+                      }`}
+                    >
+                      {selectedProject.status}
+                      <ChevronDownIcon className={`w-4 h-4 transition-transform ${showStatusDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showStatusDropdown && (
+                      <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-1">
+                        {(['Active', 'Completed', 'Closed'] as const).map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => {
+                              if (s !== selectedProject.status) {
+                                setPendingStatus(s)
+                              }
+                              setShowStatusDropdown(false)
+                            }}
+                            className={`w-full text-left px-3 py-2.5 flex items-center gap-2 transition ${
+                              s === selectedProject.status
+                                ? 'bg-gray-50 font-semibold'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              s === 'Active' ? 'bg-green-500' : s === 'Completed' ? 'bg-blue-500' : 'bg-gray-400'
+                            }`} />
+                            <span className="text-sm text-gray-700 flex-1">{s}</span>
+                            {s === selectedProject.status && (
+                              <CheckIcon className="w-4 h-4 text-amber-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1019,6 +1090,16 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
           onConfirm={handleDeleteProject}
           onCancel={() => setProjectToDelete(null)}
           loading={isDeleting}
+        />
+      )}
+
+      {pendingStatus && (
+        <ConfirmDialog
+          title="Change Project Status"
+          message={`Are you sure you want to change the status to "${pendingStatus}"?`}
+          onConfirm={handleStatusChange}
+          onCancel={() => setPendingStatus(null)}
+          loading={isUpdatingStatus}
         />
       )}
     </div>
