@@ -36,7 +36,9 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
   const [showNewDropdown, setShowNewDropdown] = useState(false)
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() =>
+    project.status === 'Active' ? new Set(['Closeout Checklist']) : new Set()
+  )
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const saveTimers = useRef<Map<string, NodeJS.Timeout>>(new Map())
 
@@ -215,9 +217,17 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
     else acc.push({ group, items: [item] })
     return acc
   }, [])
-  // Project Checklist first, Additional Checklist Items last, others in between
+  // Status-dependent ordering:
+  // Active: Project Checklist → others → Additional → Closeout Checklist (last)
+  // Completed/Closed: Closeout Checklist (first) → Project Checklist → others → Additional
+  const isActiveProject = project.status === 'Active'
   grouped.sort((a, b) => {
-    const order = (g: string) => g === 'Project Checklist' ? 0 : g === 'Additional Checklist Items' ? 2 : 1
+    const order = (g: string) => {
+      if (g === 'Closeout Checklist') return isActiveProject ? 4 : -1
+      if (g === 'Project Checklist') return 0
+      if (g === 'Additional Checklist Items') return 2
+      return 1
+    }
     return order(a.group) - order(b.group)
   })
 
@@ -284,10 +294,10 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowTemplateDropdown(false)} />
               <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
-                {templates.filter((t) => t.name !== 'Project Checklist').length === 0 ? (
+                {templates.filter((t) => t.name !== 'Project Checklist' && t.name !== 'Closeout Checklist').length === 0 ? (
                   <p className="px-3 py-2 text-xs text-gray-400">No templates available. Create one in Settings.</p>
                 ) : (
-                  templates.filter((t) => t.name !== 'Project Checklist').map((t) => (
+                  templates.filter((t) => t.name !== 'Project Checklist' && t.name !== 'Closeout Checklist').map((t) => (
                     <button
                       key={t.id}
                       onClick={() => applyTemplate(t)}

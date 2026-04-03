@@ -190,7 +190,7 @@ function ProjectSection({
 
 /* ── Group checklist items by template/group_name ──────────────────── */
 
-function groupChecklistItems(items: ChecklistItem[]): { group: string; items: ChecklistItem[] }[] {
+function groupChecklistItems(items: ChecklistItem[], projectStatus: string): { group: string; items: ChecklistItem[] }[] {
   const groups: { group: string; items: ChecklistItem[] }[] = []
   for (const item of items) {
     const group = (!item.group_name || item.group_name === 'Custom') ? 'Additional Checklist Items' : item.group_name
@@ -198,9 +198,17 @@ function groupChecklistItems(items: ChecklistItem[]): { group: string; items: Ch
     if (existing) existing.items.push(item)
     else groups.push({ group, items: [item] })
   }
-  // Project Checklist first, Additional Checklist Items last, others in between
+  // Status-dependent ordering:
+  // Active: Project Checklist → others → Additional → Closeout Checklist (last)
+  // Completed/Closed: Closeout Checklist (first) → Project Checklist → others → Additional
+  const isActive = projectStatus === 'Active'
   groups.sort((a, b) => {
-    const order = (g: string) => g === 'Project Checklist' ? 0 : g === 'Additional Checklist Items' ? 2 : 1
+    const order = (g: string) => {
+      if (g === 'Closeout Checklist') return isActive ? 4 : -1
+      if (g === 'Project Checklist') return 0
+      if (g === 'Additional Checklist Items') return 2
+      return 1
+    }
     return order(a.group) - order(b.group)
   })
   return groups
@@ -262,7 +270,7 @@ function ProjectSummaryCard({
       {totalCount > 0 && (
         <div>
           <div className="space-y-2.5">
-            {groupChecklistItems(checklistItems).map(({ group, items }) => (
+            {groupChecklistItems(checklistItems, project.status).map(({ group, items }) => (
               <div key={group}>
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{group}</p>
                 <div className="flex flex-wrap gap-1.5">
