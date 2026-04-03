@@ -94,6 +94,12 @@ export default function JobInfoDashboardCard({ project, onEdit }: JobInfoDashboa
           <div className={valueCls}>{formatDate(project.end_date) || emptyValue}</div>
         </div>
 
+        {/* Include Weekends */}
+        <div>
+          <div className={labelCls}>Include Weekends</div>
+          <div className={valueCls}>{project.include_weekends ? 'Yes' : 'No'}</div>
+        </div>
+
         {/* Drive Time */}
         <div>
           <div className={labelCls}>Drive Time</div>
