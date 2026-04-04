@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { OfficeTask, OfficePriority, Profile, UserRole } from '@/types'
@@ -14,6 +14,8 @@ import {
   AlertCircleIcon,
   ExternalLinkIcon,
   XIcon,
+  SearchIcon,
+  Building2Icon,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -52,7 +54,6 @@ function sortTasks(tasks: OfficeTask[]): OfficeTask[] {
     const pa = priorityOrder[a.priority] ?? 2
     const pb = priorityOrder[b.priority] ?? 2
     if (pa !== pb) return pa - pb
-    // Then by due date (nulls last)
     if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date)
     if (a.due_date) return -1
     if (b.due_date) return 1
@@ -60,102 +61,83 @@ function sortTasks(tasks: OfficeTask[]): OfficeTask[] {
   })
 }
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
 type ProjectOption = { id: string; name: string }
 
 interface Props {
   userId: string
-  role: UserRole
-  initialOfficeTasks: OfficeTask[]
-  onCountChange?: (incomplete: number) => void
-  showCreateModal?: boolean
-  onCloseCreateModal?: () => void
-  hideAllToggle?: boolean
+  userRole: UserRole
+  initialTasks: OfficeTask[]
+  initialProfiles: Profile[]
+  initialProjects: ProjectOption[]
 }
 
 /* ================================================================== */
 /*  COMPONENT                                                          */
 /* ================================================================== */
 
-export default function OfficeTasksWorkspace({
+export default function OfficeTasksPageClient({
   userId,
-  role,
-  initialOfficeTasks,
-  onCountChange,
-  showCreateModal = false,
-  onCloseCreateModal,
-  hideAllToggle = false,
+  userRole,
+  initialTasks,
+  initialProfiles,
+  initialProjects,
 }: Props) {
   const supabase = createClient()
-  const isAdminOrOM = role === 'admin' || role === 'office_manager'
 
-  /* ---- State ---- */
-  const [tasks, setTasks] = useState<OfficeTask[]>(initialOfficeTasks)
-  const [showCompleted, setShowCompleted] = useState(false)
-  const [showAll, setShowAll] = useState(false)
-  const [profiles, setProfiles] = useState<Profile[]>([])
-  const [projects, setProjects] = useState<ProjectOption[]>([])
-  const [loadingRefData, setLoadingRefData] = useState(false)
+  const [tasks, setTasks] = useState<OfficeTask[]>(initialTasks)
+  const [profiles] = useState<Profile[]>(initialProfiles)
+  const [projects] = useState<ProjectOption[]>(initialProjects)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [collapsedCompleted, setCollapsedCompleted] = useState<Set<string>>(new Set())
 
-  /* ---- Fetch reference data for selectors ---- */
-  const fetchRefData = useCallback(async () => {
-    setLoadingRefData(true)
-    const [profilesRes, projectsRes] = await Promise.all([
-      supabase.from('profiles').select('id, display_name, avatar_url, role, updated_at'),
-      supabase.from('projects').select('id, name').eq('status', 'Active').order('name', { ascending: true }),
-    ])
-    if (profilesRes.data) setProfiles(profilesRes.data as Profile[])
-    if (projectsRes.data) setProjects(projectsRes.data as ProjectOption[])
-    setLoadingRefData(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    fetchRefData()
-  }, [fetchRefData])
-
-  /* ---- Profile map for display ---- */
-  const profileMap = new Map(profiles.map((p) => [p.id, p]))
+  const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles])
   const getDisplayName = (id: string | null) => {
     if (!id) return 'Unassigned'
     return profileMap.get(id)?.display_name ?? 'Unknown'
   }
 
-  /* ---- Filtered tasks ---- */
-  const visibleTasks = showAll && isAdminOrOM
-    ? tasks
-    : tasks.filter((t) => t.assigned_to === userId || t.created_by === userId)
+  // Filter tasks by search
+  const filteredTasks = useMemo(() => {
+    if (!searchQuery.trim()) return tasks
+    const q = searchQuery.toLowerCase()
+    return tasks.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        (t.description && t.description.toLowerCase().includes(q))
+    )
+  }, [tasks, searchQuery])
 
-  const incomplete = visibleTasks.filter((t) => !t.is_completed)
-  const completed = visibleTasks.filter((t) => t.is_completed)
-  const sortedIncomplete = sortTasks(incomplete)
+  // Group tasks by assigned user
+  const groupedByUser = useMemo(() => {
+    const groups = new Map<string, { name: string; tasks: OfficeTask[] }>()
 
-  /* ---- Notify parent of count changes ---- */
-  useEffect(() => {
-    const myIncomplete = tasks.filter((t) => !t.is_completed && (t.assigned_to === userId || t.created_by === userId))
-    onCountChange?.(myIncomplete.length)
-  }, [tasks, userId, onCountChange])
+    for (const task of filteredTasks) {
+      const assigneeId = task.assigned_to ?? '__unassigned__'
+      const name = task.assigned_to ? getDisplayName(task.assigned_to) : 'Unassigned'
 
-  /* ---- Refetch all tasks (for after toggle change) ---- */
-  const refetchTasks = useCallback(async () => {
-    const { data } = await supabase
-      .from('office_tasks')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (data) setTasks(data as OfficeTask[])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  /* ---- Toggle "All Tasks" refetches so we have everyone's data ---- */
-  useEffect(() => {
-    if (showAll && isAdminOrOM) {
-      refetchTasks()
+      if (!groups.has(assigneeId)) {
+        groups.set(assigneeId, { name, tasks: [] })
+      }
+      groups.get(assigneeId)!.tasks.push(task)
     }
-  }, [showAll, isAdminOrOM, refetchTasks])
+
+    // Sort groups alphabetically, Unassigned last
+    return Array.from(groups.entries())
+      .sort(([aId, a], [bId, b]) => {
+        if (aId === '__unassigned__') return 1
+        if (bId === '__unassigned__') return -1
+        return a.name.localeCompare(b.name)
+      })
+      .map(([id, g]) => ({
+        userId: id,
+        name: g.name,
+        incomplete: sortTasks(g.tasks.filter((t) => !t.is_completed)),
+        completed: g.tasks.filter((t) => t.is_completed),
+      }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredTasks, profileMap])
 
   /* ================================================================ */
   /*  CRUD                                                             */
@@ -228,100 +210,158 @@ export default function OfficeTasksWorkspace({
     }
   }
 
+  function toggleCollapsedCompleted(userId: string) {
+    setCollapsedCompleted((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
   /* ================================================================ */
   /*  RENDER                                                           */
   /* ================================================================ */
 
+  const totalIncomplete = tasks.filter((t) => !t.is_completed).length
+
   return (
-    <div className="p-4 space-y-3">
-      {/* Toggle + Create controls */}
-      {isAdminOrOM && !hideAllToggle && (
-        <div className="flex items-center gap-2 mb-1">
-          <button
-            onClick={() => setShowAll(false)}
-            className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-              !showAll ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            My Tasks
-          </button>
-          <button
-            onClick={() => setShowAll(true)}
-            className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-              showAll ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            All Tasks
-          </button>
-        </div>
-      )}
-
-      {/* Task list */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="divide-y divide-gray-50">
-          {sortedIncomplete.length === 0 && (
-            <p className="px-5 py-8 text-sm text-gray-400 text-center">
-              No office tasks yet
-            </p>
-          )}
-          {sortedIncomplete.map((task) => (
-            <OfficeTaskRow
-              key={task.id}
-              task={task}
-              getDisplayName={getDisplayName}
-              profiles={profiles}
-              projects={projects}
-              onToggle={toggleComplete}
-              onUpdateField={updateField}
-              onDelete={(id) => setDeleteConfirmId(id)}
-            />
-          ))}
-        </div>
-
-        {completed.length > 0 && (
-          <div className="border-t border-gray-100">
+    <div className="flex-1 overflow-y-auto bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <span className="text-amber-500">
+              <Building2Icon className="w-6 h-6" />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Office Tasks</h1>
+              <p className="text-xs text-gray-500">{totalIncomplete} active task{totalIncomplete !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Search */}
+            <div className="relative">
+              <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search tasks..."
+                className="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400 w-48 sm:w-64"
+              />
+            </div>
+            {/* + New Task */}
             <button
-              onClick={() => setShowCompleted(!showCompleted)}
-              className="w-full flex items-center gap-2 px-5 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
             >
-              {showCompleted ? (
-                <ChevronDownIcon className="w-4 h-4" />
-              ) : (
-                <ChevronRightIcon className="w-4 h-4" />
-              )}
-              Completed ({completed.length})
+              <PlusIcon className="w-4 h-4" />
+              New Task
             </button>
-            {showCompleted && (
-              <div className="divide-y divide-gray-50">
-                {completed.map((task) => (
-                  <OfficeTaskRow
-                    key={task.id}
-                    task={task}
-                    getDisplayName={getDisplayName}
-                    profiles={profiles}
-                    projects={projects}
-                    onToggle={toggleComplete}
-                    onUpdateField={updateField}
-                    onDelete={(id) => setDeleteConfirmId(id)}
-                    completed
-                  />
-                ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-4 sm:p-6 space-y-4">
+        {groupedByUser.length === 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-12 text-center">
+            <Building2Icon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-500 font-medium">
+              {searchQuery ? 'No tasks match your search' : 'No office tasks yet'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              {searchQuery ? 'Try a different keyword' : 'Click "+ New Task" to create one'}
+            </p>
+          </div>
+        )}
+
+        {groupedByUser.map((group) => (
+          <div key={group.userId} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            {/* User section header */}
+            <div className="px-4 sm:px-5 py-3 bg-gray-50 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-bold text-amber-700">
+                    {group.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <h2 className="text-sm font-semibold text-gray-900 flex-1">{group.name}</h2>
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
+                  {group.incomplete.length} active
+                </span>
+              </div>
+            </div>
+
+            {/* Incomplete tasks */}
+            <div className="divide-y divide-gray-50">
+              {group.incomplete.length === 0 && group.completed.length === 0 && (
+                <p className="px-5 py-6 text-sm text-gray-400 text-center">
+                  No tasks
+                </p>
+              )}
+              {group.incomplete.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  getDisplayName={getDisplayName}
+                  profiles={profiles}
+                  projects={projects}
+                  onToggle={toggleComplete}
+                  onUpdateField={updateField}
+                  onDelete={(id) => setDeleteConfirmId(id)}
+                />
+              ))}
+            </div>
+
+            {/* Completed section */}
+            {group.completed.length > 0 && (
+              <div className="border-t border-gray-100">
+                <button
+                  onClick={() => toggleCollapsedCompleted(group.userId)}
+                  className="w-full flex items-center gap-2 px-5 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  {!collapsedCompleted.has(group.userId) ? (
+                    <ChevronRightIcon className="w-4 h-4" />
+                  ) : (
+                    <ChevronDownIcon className="w-4 h-4" />
+                  )}
+                  Completed ({group.completed.length})
+                </button>
+                {collapsedCompleted.has(group.userId) && (
+                  <div className="divide-y divide-gray-50">
+                    {group.completed.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        getDisplayName={getDisplayName}
+                        profiles={profiles}
+                        projects={projects}
+                        onToggle={toggleComplete}
+                        onUpdateField={updateField}
+                        onDelete={(id) => setDeleteConfirmId(id)}
+                        completed
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        ))}
       </div>
 
       {/* Create modal */}
       {showCreateModal && (
-        <CreateOfficeTaskModal
+        <CreateTaskModal
           userId={userId}
           profiles={profiles}
           projects={projects}
-          onClose={() => onCloseCreateModal?.()}
+          onClose={() => setShowCreateModal(false)}
           onCreate={(data) => {
             createTask(data)
-            onCloseCreateModal?.()
+            setShowCreateModal(false)
           }}
         />
       )}
@@ -354,10 +394,10 @@ export default function OfficeTasksWorkspace({
 }
 
 /* ================================================================== */
-/*  OFFICE TASK ROW                                                    */
+/*  TASK ROW                                                           */
 /* ================================================================== */
 
-function OfficeTaskRow({
+function TaskRow({
   task,
   getDisplayName,
   profiles,
@@ -370,7 +410,7 @@ function OfficeTaskRow({
   task: OfficeTask
   getDisplayName: (id: string | null) => string
   profiles: Profile[]
-  projects: ProjectOption[]
+  projects: { id: string; name: string }[]
   onToggle: (t: OfficeTask) => void
   onUpdateField: (id: string, field: string, value: string | null) => void
   onDelete: (id: string) => void
@@ -403,7 +443,6 @@ function OfficeTaskRow({
   return (
     <div className={`px-4 sm:px-5 py-3 hover:bg-gray-50 transition-colors group ${completed ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-3">
-        {/* Checkbox */}
         <button
           onClick={() => onToggle(task)}
           className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
@@ -415,9 +454,7 @@ function OfficeTaskRow({
           {task.is_completed && <CheckIcon className="w-3 h-3 text-amber-500" />}
         </button>
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Title */}
           {editing ? (
             <input
               ref={inputRef}
@@ -441,17 +478,13 @@ function OfficeTaskRow({
             </p>
           )}
 
-          {/* Meta row */}
           <div className="flex flex-wrap items-center gap-2 mt-1">
-            {/* Priority badge */}
             <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>
               {task.priority}
             </span>
 
-            {/* Assignee */}
             <span className="text-xs text-gray-500">{getDisplayName(task.assigned_to)}</span>
 
-            {/* Project link */}
             {projectName && task.project_id && (
               <Link
                 href={`/job-board?project=${task.project_id}`}
@@ -462,7 +495,6 @@ function OfficeTaskRow({
               </Link>
             )}
 
-            {/* Due date */}
             {task.due_date && (
               <span
                 className={`text-xs flex items-center gap-1 ${
@@ -477,7 +509,6 @@ function OfficeTaskRow({
               </span>
             )}
 
-            {/* Expand/collapse description */}
             {task.description && (
               <button
                 onClick={() => setExpanded(!expanded)}
@@ -488,7 +519,6 @@ function OfficeTaskRow({
             )}
           </div>
 
-          {/* Description */}
           {expanded && task.description && (
             <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap bg-gray-50 rounded-lg px-3 py-2">
               {task.description}
@@ -496,9 +526,7 @@ function OfficeTaskRow({
           )}
         </div>
 
-        {/* Actions (visible on hover) */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          {/* Assign selector */}
           <select
             value={task.assigned_to ?? ''}
             onChange={(e) => onUpdateField(task.id, 'assigned_to', e.target.value || null)}
@@ -512,7 +540,6 @@ function OfficeTaskRow({
             ))}
           </select>
 
-          {/* Priority selector */}
           <select
             value={task.priority}
             onChange={(e) => onUpdateField(task.id, 'priority', e.target.value)}
@@ -524,7 +551,6 @@ function OfficeTaskRow({
             <option value="Urgent">Urgent</option>
           </select>
 
-          {/* Due date */}
           <input
             type="date"
             value={task.due_date || ''}
@@ -532,7 +558,6 @@ function OfficeTaskRow({
             className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white w-[110px]"
           />
 
-          {/* Delete */}
           <button
             onClick={() => onDelete(task.id)}
             className="p-1 text-gray-400 hover:text-red-500 transition-colors"
@@ -549,7 +574,7 @@ function OfficeTaskRow({
 /*  CREATE MODAL                                                       */
 /* ================================================================== */
 
-function CreateOfficeTaskModal({
+function CreateTaskModal({
   userId,
   profiles,
   projects,
@@ -571,7 +596,7 @@ function CreateOfficeTaskModal({
 }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [assignedTo, setAssignedTo] = useState(userId)
+  const [assignedTo, setAssignedTo] = useState('')
   const [projectId, setProjectId] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [priority, setPriority] = useState<OfficePriority>('Normal')
@@ -600,7 +625,6 @@ function CreateOfficeTaskModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
             <input
@@ -613,7 +637,6 @@ function CreateOfficeTaskModal({
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
@@ -625,7 +648,6 @@ function CreateOfficeTaskModal({
             />
           </div>
 
-          {/* Assign to + Priority row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Assign to</label>
@@ -657,7 +679,6 @@ function CreateOfficeTaskModal({
             </div>
           </div>
 
-          {/* Project + Due date row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
@@ -685,7 +706,6 @@ function CreateOfficeTaskModal({
             </div>
           </div>
 
-          {/* Submit */}
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"

@@ -563,7 +563,7 @@ export default function MyWorkClient({
   if (activeWorkspace === 'office_tasks') {
     return (
       <MyWorkspaceShell
-        title="Office / Shop Tasks"
+        title="Office Tasks"
         icon={<Building2Icon className="w-5 h-5" />}
         onBack={backToDashboard}
         actions={
@@ -583,6 +583,7 @@ export default function MyWorkClient({
           onCountChange={() => {}}
           showCreateModal={showOfficeCreateModal}
           onCloseCreateModal={() => setShowOfficeCreateModal(false)}
+          hideAllToggle
         />
       </MyWorkspaceShell>
     )
@@ -852,10 +853,10 @@ export default function MyWorkClient({
           )}
         </InteractiveCard>
 
-        {/* ── Office / Shop Tasks ── */}
+        {/* ── Office Tasks ── */}
         <InteractiveCard
           icon={<Building2Icon className="w-5 h-5" />}
-          title="Office / Shop Tasks"
+          title="Office Tasks"
           onExpand={() => openWorkspace('office_tasks')}
           headerActions={
             <button
