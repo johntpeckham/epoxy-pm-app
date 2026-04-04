@@ -16,7 +16,7 @@ export default async function TrashBinPage() {
     .single()
 
   if (profile?.role !== 'admin') {
-    redirect('/jobs')
+    redirect('/my-work')
   }
 
   return <TrashBinClient userId={session.user.id} />

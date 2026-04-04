@@ -19,7 +19,7 @@ export default async function FormManagementPage() {
     .single()
 
   if (profile?.role !== 'admin' && profile?.role !== 'office_manager') {
-    redirect('/jobs')
+    redirect('/my-work')
   }
 
   return <FormManagementClient />

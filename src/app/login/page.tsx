@@ -29,7 +29,7 @@ export default function LoginPage() {
       // 1. Check cookie-based session
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        router.replace('/jobs')
+        router.replace('/my-work')
         return
       }
 
@@ -44,7 +44,7 @@ export default function LoginPage() {
               refresh_token,
             })
             if (data.session && !error) {
-              router.replace('/jobs')
+              router.replace('/my-work')
               return
             }
           }
@@ -78,7 +78,7 @@ export default function LoginPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/jobs')
+      router.push('/my-work')
       router.refresh()
     }
   }
