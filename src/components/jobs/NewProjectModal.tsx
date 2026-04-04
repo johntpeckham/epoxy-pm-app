@@ -61,12 +61,12 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       const [custResult, empResult, tmplResult] = await Promise.all([
         supabase.from('customers').select('*').order('name', { ascending: true }),
         supabase.from('employee_profiles').select('*').order('name', { ascending: true }),
-        supabase.from('checklist_templates').select('id, name, is_default').order('name', { ascending: true }),
+        supabase.from('checklist_templates').select('id, name, is_default, is_closeout').order('name', { ascending: true }),
       ])
       if (custResult.data) setCustomers(custResult.data)
       if (empResult.data) setEmployeeProfiles(empResult.data as EmployeeProfile[])
-      // Filter out the default template from manual selection (it's auto-applied)
-      if (tmplResult.data) setChecklistTemplates(tmplResult.data.filter((t: { is_default?: boolean }) => !t.is_default))
+      // Filter out default and closeout templates from manual selection (they're auto-applied)
+      if (tmplResult.data) setChecklistTemplates(tmplResult.data.filter((t: { is_default?: boolean; is_closeout?: boolean }) => !t.is_default && !t.is_closeout))
     }
     fetchData()
   }, [])
