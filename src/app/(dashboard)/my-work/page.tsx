@@ -35,20 +35,6 @@ export default async function MyWorkPage() {
     .eq('assigned_to', user.id)
     .order('sort_order', { ascending: true })
 
-  // Fetch personal tasks
-  const { data: personalTasks } = await supabase
-    .from('personal_tasks')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('sort_order', { ascending: true })
-
-  // Fetch personal notes
-  const { data: personalNotes } = await supabase
-    .from('personal_notes')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('updated_at', { ascending: false })
-
   // Fetch office tasks (assigned to user or created by user)
   const { data: officeTasks } = await supabase
     .from('office_tasks')
@@ -115,10 +101,9 @@ export default async function MyWorkPage() {
     <Suspense>
       <MyWorkClient
         userId={user.id}
+        userRole={userRole}
         initialAssignedTasks={tasksWithProject}
         initialAssignedChecklist={checklistWithProject}
-        initialPersonalTasks={personalTasks ?? []}
-        initialPersonalNotes={personalNotes ?? []}
         initialOfficeTasks={officeTasks ?? []}
         initialExpenses={expenses}
       />
