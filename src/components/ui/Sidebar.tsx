@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -23,6 +23,15 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const router = useRouter()
   const searchParams = useSearchParams()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [jobFeedExpanded, setJobFeedExpanded] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('sidebar-job-feed-expanded') === 'true'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('sidebar-job-feed-expanded', String(jobFeedExpanded))
+  }, [jobFeedExpanded])
+
   const { settings: companySettings } = useCompanySettings()
   const { role } = useUserRole()
   const { canView } = usePermissions(role)
@@ -118,102 +127,121 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           </Link>
         )}
         {canView('jobs') && (
-          <Link
-            href={jobFeedHref}
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          <div>
+            <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
               isJobsActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                 : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
-            Job Feed
-          </Link>
-        )}
-        {canView('daily_reports') && (
-          <Link
-            href="/daily-reports"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isReportsActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
-            Daily Reports
-          </Link>
-        )}
-        {canView('jsa_reports') && (
-          <Link
-            href="/jsa-reports"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isJsaReportsActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <ShieldIcon className="w-4 h-4 flex-shrink-0" />
-            JSA Reports
-          </Link>
-        )}
-        {canView('receipts') && (
-          <Link
-            href="/receipts"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isReceiptsActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <ReceiptIcon className="w-4 h-4 flex-shrink-0" />
-            Job Expenses
-          </Link>
-        )}
-        {canView('timesheets') && (
-          <Link
-            href="/timesheets"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isTimesheetsActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <ClockIcon className="w-4 h-4 flex-shrink-0" />
-            Timesheets
-          </Link>
-        )}
-        {canView('photos') && (
-          <Link
-            href="/photos"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isPhotosActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <ImageIcon className="w-4 h-4 flex-shrink-0" />
-            Photos
-          </Link>
-        )}
-        {canView('tasks') && (
-          <Link
-            href="/tasks"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isTasksActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <CheckSquareIcon className="w-4 h-4 flex-shrink-0" />
-            Tasks
-          </Link>
+            }`}>
+              <Link
+                href={jobFeedHref}
+                onClick={() => setMobileOpen(false)}
+                className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
+              >
+                <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
+                Job Feed
+              </Link>
+              <button
+                onClick={() => setJobFeedExpanded(!jobFeedExpanded)}
+                className="px-2 py-2.5 flex-shrink-0 text-gray-500 hover:text-white transition-colors"
+                aria-label={jobFeedExpanded ? 'Collapse sub-items' : 'Expand sub-items'}
+              >
+                <ChevronRightIcon className={`w-4 h-4 transition-transform duration-200 ${jobFeedExpanded ? 'rotate-90' : ''}`} />
+              </button>
+            </div>
+            <div
+              className="overflow-hidden transition-all duration-200 ease-in-out"
+              style={{
+                maxHeight: jobFeedExpanded ? '400px' : '0px',
+                opacity: jobFeedExpanded ? 1 : 0,
+              }}
+            >
+              {canView('daily_reports') && (
+                <Link
+                  href="/daily-reports"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isReportsActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
+                  Daily Reports
+                </Link>
+              )}
+              {canView('jsa_reports') && (
+                <Link
+                  href="/jsa-reports"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isJsaReportsActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <ShieldIcon className="w-4 h-4 flex-shrink-0" />
+                  JSA Reports
+                </Link>
+              )}
+              {canView('receipts') && (
+                <Link
+                  href="/receipts"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isReceiptsActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <ReceiptIcon className="w-4 h-4 flex-shrink-0" />
+                  Job Expenses
+                </Link>
+              )}
+              {canView('timesheets') && (
+                <Link
+                  href="/timesheets"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isTimesheetsActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <ClockIcon className="w-4 h-4 flex-shrink-0" />
+                  Timesheets
+                </Link>
+              )}
+              {canView('photos') && (
+                <Link
+                  href="/photos"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isPhotosActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <ImageIcon className="w-4 h-4 flex-shrink-0" />
+                  Photos
+                </Link>
+              )}
+              {canView('tasks') && (
+                <Link
+                  href="/tasks"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isTasksActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <CheckSquareIcon className="w-4 h-4 flex-shrink-0" />
+                  Field Tasks
+                </Link>
+              )}
+            </div>
+          </div>
         )}
         {canView('calendar') && (
           <Link
