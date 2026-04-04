@@ -54,6 +54,10 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // ── Upload progress ────────────────────────────────────────────────────────
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; percent: number } | null>(null)
+  const [uploadDone, setUploadDone] = useState(false)
+
   // ── Permissions ──────────────────────────────────────────────────────────────
   const { role } = useUserRole()
   const { canCreate } = usePermissions(role)
@@ -449,24 +453,53 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     setRcptPhotoPreview(null)
   }
 
-  // ── Upload helper ──────────────────────────────────────────────────────────
+  // ── Upload helper with progress tracking ────────────────────────────────────
+  function uploadFileWithProgress(file: File, storagePath: string, token: string): Promise<void> {
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/post-photos/${storagePath}`
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', url, true)
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      xhr.setRequestHeader('x-upsert', 'false')
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          setUploadProgress((prev) => {
+            if (!prev) return prev
+            const fileBase = ((prev.current - 1) / prev.total) * 100
+            const filePortion = (e.loaded / e.total) * (100 / prev.total)
+            return { ...prev, percent: Math.round(fileBase + filePortion) }
+          })
+        }
+      })
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve()
+        else reject(new Error(`Upload failed (${xhr.status}): ${xhr.responseText}`))
+      })
+      xhr.addEventListener('error', () => reject(new Error('Upload failed: network error')))
+      xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
+      xhr.send(file)
+    })
+  }
+
   async function uploadFiles(files: File[], folder: string): Promise<string[]> {
     const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) throw new Error('Not authenticated')
+
+    setUploadProgress({ current: 0, total: files.length, percent: 0 })
     const paths: string[] = []
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
       const ext = file.name.split('.').pop()
       const path = `${project.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error: err } = await supabase.storage.from('post-photos').upload(path, file)
-      if (err) {
-        console.error('[AddPostPanel] Upload failed:', {
-          message: err.message,
-          name: err.name,
-          error: err,
-        })
-        throw err
-      }
+      setUploadProgress((prev) => prev ? { ...prev, current: i + 1 } : prev)
+      await uploadFileWithProgress(file, path, token)
       paths.push(path)
     }
+    setUploadProgress(null)
+    setUploadDone(true)
+    setTimeout(() => setUploadDone(false), 1500)
     return paths
   }
 
@@ -770,6 +803,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
       onPosted()
     } catch (err: unknown) {
       console.error('[AddPostPanel] Submit failed:', err)
+      setUploadProgress(null)
       let msg = 'Failed to post'
       if (err instanceof Error) msg = err.message
       else if (typeof err === 'string') msg = err
@@ -784,14 +818,44 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     <>
     <div className="flex-none bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] safe-bottom">
 
-      {/* Error toast */}
+      {/* Error toast with retry */}
       {error && (
         <div className="px-4 pt-3">
-          <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm flex items-center justify-between">
-            <span>{error}</span>
-            <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
+          <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm flex items-center justify-between gap-2">
+            <span className="flex-1">{error}</span>
+            <button onClick={() => { setError(null); handleSubmit() }} className="text-xs font-semibold text-red-700 bg-red-100 hover:bg-red-200 px-2 py-1 rounded transition flex-shrink-0">
+              Retry
+            </button>
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 flex-shrink-0">
               <XIcon className="w-3.5 h-3.5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Upload progress bar */}
+      {uploadProgress && (
+        <div className="px-4 pt-3">
+          <p className="text-xs font-semibold text-amber-700 mb-1">
+            {uploadProgress.total > 1
+              ? `Uploading ${uploadProgress.current} of ${uploadProgress.total} files… ${uploadProgress.percent}%`
+              : `Uploading… ${uploadProgress.percent}%`}
+          </p>
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-amber-500 rounded-full transition-all duration-200"
+              style={{ width: `${uploadProgress.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Upload complete flash */}
+      {uploadDone && (
+        <div className="px-4 pt-3">
+          <div className="flex items-center gap-1.5 text-green-600 text-xs font-semibold">
+            <CheckIcon className="w-4 h-4" />
+            Upload complete
           </div>
         </div>
       )}
