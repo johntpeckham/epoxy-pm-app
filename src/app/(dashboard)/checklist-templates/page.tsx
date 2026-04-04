@@ -16,7 +16,7 @@ export default async function ChecklistTemplatesPage() {
     .single()
 
   if (profile?.role !== 'admin') {
-    redirect('/jobs')
+    redirect('/my-work')
   }
 
   return <ChecklistTemplatesClient userId={session.user.id} />

@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import MyWorkClient from '@/components/my-work/MyWorkClient'
 
@@ -51,12 +52,14 @@ export default async function MyWorkPage() {
   }))
 
   return (
-    <MyWorkClient
-      userId={user.id}
-      initialAssignedTasks={tasksWithProject}
-      initialAssignedChecklist={checklistWithProject}
-      initialPersonalTasks={personalTasks ?? []}
-      initialPersonalNotes={personalNotes ?? []}
-    />
+    <Suspense>
+      <MyWorkClient
+        userId={user.id}
+        initialAssignedTasks={tasksWithProject}
+        initialAssignedChecklist={checklistWithProject}
+        initialPersonalTasks={personalTasks ?? []}
+        initialPersonalNotes={personalNotes ?? []}
+      />
+    </Suspense>
   )
 }

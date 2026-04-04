@@ -18,7 +18,7 @@ export default async function PermissionsPage() {
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'admin') redirect('/jobs')
+  if (profile?.role !== 'admin') redirect('/my-work')
 
   return <PermissionsClient />
 }

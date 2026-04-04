@@ -19,7 +19,7 @@ export default async function MaterialSystemsPage() {
     .single()
 
   if (profile?.role !== 'admin' && profile?.role !== 'office_manager') {
-    redirect('/jobs')
+    redirect('/my-work')
   }
 
   return <MaterialSystemsClient />
