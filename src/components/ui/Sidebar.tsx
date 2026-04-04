@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, WalletIcon, ClipboardCheckIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -49,7 +49,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isCalendarActive = pathname === '/calendar'
   const isProfileActive = pathname === '/profile'
   const isJobTakeoffActive = pathname === '/job-takeoff'
-  const isSalesmanExpensesActive = pathname === '/salesman-expenses'
   const isEstimatesActive = pathname === '/estimates'
   const isBillingActive = pathname === '/billing'
   const isMyWorkActive = pathname === '/my-work'
@@ -272,21 +271,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           <RulerIcon className="w-5 h-5 flex-shrink-0" />
           Job Takeoff
         </Link>
-
-        {canView('salesman_expenses') && (
-          <Link
-            href="/salesman-expenses"
-            onClick={() => setMobileOpen(false)}
-            className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isSalesmanExpensesActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <WalletIcon className="w-5 h-5 flex-shrink-0" />
-            Salesman Expenses
-          </Link>
-        )}
 
       </nav>
 

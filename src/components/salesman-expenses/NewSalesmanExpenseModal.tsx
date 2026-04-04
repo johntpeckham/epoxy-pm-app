@@ -88,7 +88,7 @@ export default function NewSalesmanExpenseModal({
       <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
         <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
           <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
-            <h2 className="text-lg font-semibold text-gray-900">New Salesman Expense</h2>
+            <h2 className="text-lg font-semibold text-gray-900">New Expense</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"

@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useUserRole } from '@/lib/useUserRole'
 import { Task, TaskStatus, PersonalTask, PersonalNote, OfficeTask } from '@/types'
 import OfficeTasksWorkspace from '@/components/my-work/OfficeTasksWorkspace'
+import ExpensesWorkspace from '@/components/my-work/ExpensesWorkspace'
+import type { SalesmanExpenseRow } from '@/components/salesman-expenses/SalesmanExpenseCard'
 import { ProjectChecklistItem } from '@/components/job-board/workspaces/ChecklistShared'
 import {
   ArrowLeftIcon,
@@ -23,6 +25,7 @@ import {
   ClipboardCheckIcon,
   CheckSquareIcon,
   Building2Icon,
+  WalletIcon,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -32,7 +35,7 @@ import {
 type AssignedTask = Task & { project_name: string }
 type AssignedChecklist = ProjectChecklistItem & { project_name: string }
 
-type WorkspaceType = 'assigned_tasks' | 'assigned_checklist' | 'personal_tasks' | 'personal_notes' | 'office_tasks' | null
+type WorkspaceType = 'assigned_tasks' | 'assigned_checklist' | 'personal_tasks' | 'personal_notes' | 'office_tasks' | 'expenses' | null
 
 interface Props {
   userId: string
@@ -41,6 +44,7 @@ interface Props {
   initialPersonalTasks: PersonalTask[]
   initialPersonalNotes: PersonalNote[]
   initialOfficeTasks: OfficeTask[]
+  initialExpenses: SalesmanExpenseRow[]
 }
 
 /* ------------------------------------------------------------------ */
@@ -157,6 +161,7 @@ export default function MyWorkClient({
   initialPersonalTasks,
   initialPersonalNotes,
   initialOfficeTasks,
+  initialExpenses,
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -190,6 +195,16 @@ export default function MyWorkClient({
   )
   const [showOfficeCreateModal, setShowOfficeCreateModal] = useState(false)
 
+  /* ---- Expenses state ---- */
+  const isAdminOrOM = role === 'admin' || role === 'office_manager'
+  const [expenseUnpaidCount, setExpenseUnpaidCount] = useState(
+    initialExpenses.filter((e) => e.status === 'Unpaid').length
+  )
+  const [expenseUnpaidTotal, setExpenseUnpaidTotal] = useState(
+    initialExpenses.filter((e) => e.status === 'Unpaid').reduce((sum, e) => sum + e.amount, 0)
+  )
+  const [showExpenseCreateModal, setShowExpenseCreateModal] = useState(false)
+
   /* ================================================================ */
   /*  URL STATE MANAGEMENT                                             */
   /* ================================================================ */
@@ -206,7 +221,7 @@ export default function MyWorkClient({
     if (initializedFromUrl.current) return
     initializedFromUrl.current = true
     const workspace = searchParams.get('workspace') as WorkspaceType
-    if (workspace && ['assigned_tasks', 'assigned_checklist', 'personal_tasks', 'personal_notes', 'office_tasks'].includes(workspace)) {
+    if (workspace && ['assigned_tasks', 'assigned_checklist', 'personal_tasks', 'personal_notes', 'office_tasks', 'expenses'].includes(workspace)) {
       setActiveWorkspace(workspace)
     }
   }, [searchParams])
@@ -777,9 +792,45 @@ export default function MyWorkClient({
     )
   }
 
+  if (activeWorkspace === 'expenses') {
+    const expenseTitle = isAdminOrOM ? 'Employee Expenses' : 'Personal Expenses'
+    return (
+      <MyWorkspaceShell
+        title={expenseTitle}
+        icon={<WalletIcon className="w-5 h-5" />}
+        onBack={backToDashboard}
+        actions={
+          <button
+            onClick={() => setShowExpenseCreateModal(true)}
+            className="flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            New
+          </button>
+        }
+      >
+        <ExpensesWorkspace
+          userId={userId}
+          userRole={role}
+          initialExpenses={initialExpenses}
+          showCreateModal={showExpenseCreateModal}
+          onCloseCreateModal={() => setShowExpenseCreateModal(false)}
+          onCountChange={(count, total) => {
+            setExpenseUnpaidCount(count)
+            setExpenseUnpaidTotal(total)
+          }}
+        />
+      </MyWorkspaceShell>
+    )
+  }
+
   /* ================================================================ */
   /*  RENDER — DASHBOARD CARDS                                         */
   /* ================================================================ */
+
+  function formatCurrency(val: number) {
+    return `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
@@ -878,7 +929,24 @@ export default function MyWorkClient({
           }
         />
 
-        {/* Card 5: Personal Notes */}
+        {/* Card 5: Expenses */}
+        <DashboardCard
+          icon={<WalletIcon className="w-5 h-5" />}
+          title={isAdminOrOM ? 'Employee Expenses' : 'Personal Expenses'}
+          onClick={() => openWorkspace('expenses')}
+          content={
+            expenseUnpaidCount > 0 ? (
+              <div className="space-y-0.5">
+                <p className="text-xs text-gray-500">{expenseUnpaidCount} unpaid</p>
+                <p className="text-xs text-amber-600 font-medium tabular-nums">{formatCurrency(expenseUnpaidTotal)}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">No unpaid expenses</p>
+            )
+          }
+        />
+
+        {/* Card 6: Personal Notes */}
         <DashboardCard
           icon={<StickyNoteIcon className="w-5 h-5" />}
           title="Personal Notes"
