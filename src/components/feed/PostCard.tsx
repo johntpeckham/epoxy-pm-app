@@ -124,15 +124,7 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
     return data.publicUrl
   })
 
-  const count = urls.length
-  const gridClass =
-    count === 1
-      ? 'grid grid-cols-1 w-[200px] md:w-[300px]'
-      : count <= 3
-        ? 'grid grid-cols-2 sm:grid-cols-3 gap-2 w-full'
-        : 'grid grid-cols-3 md:grid-cols-4 gap-2 w-full'
-  const sizesHint =
-    count === 1 ? '(min-width:768px) 300px, 200px' : count <= 3 ? '33vw' : '25vw'
+  const gridClass = 'grid grid-cols-4 gap-2 w-full'
 
   return (
     <div className="mt-1 space-y-1.5 w-full">
@@ -148,7 +140,7 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
                 alt={`Photo ${i + 1}`}
                 fill
                 className="object-cover hover:opacity-90 transition"
-                sizes={sizesHint}
+                sizes="25vw"
               />
             </div>
           </button>
@@ -239,7 +231,7 @@ function DailyReportPost({
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
             Photos ({photoUrls.length})
           </p>
-          <div className={`grid ${photoUrls.length === 1 ? 'grid-cols-1 w-[200px] md:w-[300px]' : photoUrls.length <= 3 ? 'grid-cols-2 sm:grid-cols-3 gap-2 w-full' : 'grid-cols-3 md:grid-cols-4 gap-2 w-full'}`}>
+          <div className="grid grid-cols-4 gap-2 w-full">
             {photoUrls.map((url, i) => (
               <button key={i} onClick={() => onImageClick(photoUrls, i)} className="block min-w-[44px] min-h-[44px]">
                 <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
@@ -248,7 +240,7 @@ function DailyReportPost({
                     alt={`Report photo ${i + 1}`}
                     fill
                     className="object-cover hover:opacity-90 transition"
-                    sizes={photoUrls.length === 1 ? '(min-width:768px) 300px, 200px' : photoUrls.length <= 3 ? '33vw' : '25vw'}
+                    sizes="25vw"
                   />
                 </div>
               </button>
