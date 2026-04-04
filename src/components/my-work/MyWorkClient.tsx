@@ -4,8 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useUserRole } from '@/lib/useUserRole'
-import { Task, TaskStatus, PersonalTask, PersonalNote, OfficeTask } from '@/types'
+import { Task, TaskStatus, OfficeTask, OfficePriority, UserRole } from '@/types'
 import OfficeTasksWorkspace from '@/components/my-work/OfficeTasksWorkspace'
 import ExpensesWorkspace from '@/components/my-work/ExpensesWorkspace'
 import type { SalesmanExpenseRow } from '@/components/salesman-expenses/SalesmanExpenseCard'
@@ -20,12 +19,11 @@ import {
   CalendarIcon,
   AlertCircleIcon,
   ExternalLinkIcon,
-  StickyNoteIcon,
   ListTodoIcon,
   ClipboardCheckIcon,
-  CheckSquareIcon,
   Building2Icon,
   WalletIcon,
+  Maximize2Icon,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -35,14 +33,13 @@ import {
 type AssignedTask = Task & { project_name: string }
 type AssignedChecklist = ProjectChecklistItem & { project_name: string }
 
-type WorkspaceType = 'assigned_tasks' | 'assigned_checklist' | 'personal_tasks' | 'personal_notes' | 'office_tasks' | 'expenses' | null
+type WorkspaceType = 'assigned_tasks' | 'assigned_checklist' | 'office_tasks' | 'expenses' | null
 
 interface Props {
   userId: string
+  userRole: UserRole
   initialAssignedTasks: AssignedTask[]
   initialAssignedChecklist: AssignedChecklist[]
-  initialPersonalTasks: PersonalTask[]
-  initialPersonalNotes: PersonalNote[]
   initialOfficeTasks: OfficeTask[]
   initialExpenses: SalesmanExpenseRow[]
 }
@@ -78,39 +75,62 @@ const statusLabels: Record<TaskStatus, string> = {
   unable_to_complete: 'Unable',
 }
 
+const priorityOrder: Record<OfficePriority, number> = {
+  Urgent: 0,
+  High: 1,
+  Normal: 2,
+  Low: 3,
+}
+
+const priorityColors: Record<OfficePriority, string> = {
+  Low: 'bg-gray-100 text-gray-600',
+  Normal: 'bg-blue-100 text-blue-700',
+  High: 'bg-orange-100 text-orange-700',
+  Urgent: 'bg-red-100 text-red-700',
+}
+
+function formatCurrency(val: number) {
+  return `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 /* ================================================================== */
-/*  DASHBOARD CARD                                                     */
+/*  INTERACTIVE CARD SHELL                                             */
 /* ================================================================== */
 
-function DashboardCard({
+function InteractiveCard({
   icon,
   title,
-  onClick,
-  content,
+  onExpand,
+  headerActions,
+  children,
 }: {
   icon: React.ReactNode
   title: string
-  onClick?: () => void
-  content: React.ReactNode
+  onExpand: () => void
+  headerActions?: React.ReactNode
+  children: React.ReactNode
 }) {
   return (
-    <div
-      onClick={onClick}
-      className={`bg-white rounded-xl border border-gray-200 p-4 transition-all ${
-        onClick ? 'cursor-pointer hover:shadow-md hover:border-amber-300 hover:-translate-y-0.5' : 'hover:shadow-sm hover:border-gray-300'
-      }`}
-    >
-      <div className="flex items-center gap-2 mb-2">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+      <div className="flex items-center gap-2 mb-3">
         <span className="text-amber-500">{icon}</span>
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-sm font-semibold text-gray-900 flex-1">{title}</h3>
+        {headerActions}
+        <button
+          onClick={onExpand}
+          className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition"
+          title="Open full workspace"
+        >
+          <Maximize2Icon className="w-4 h-4" />
+        </button>
       </div>
-      <div>{content}</div>
+      {children}
     </div>
   )
 }
 
 /* ================================================================== */
-/*  WORKSPACE SHELL (local to My Work)                                 */
+/*  WORKSPACE SHELL                                                    */
 /* ================================================================== */
 
 function MyWorkspaceShell({
@@ -156,18 +176,18 @@ function MyWorkspaceShell({
 
 export default function MyWorkClient({
   userId,
+  userRole,
   initialAssignedTasks,
   initialAssignedChecklist,
-  initialPersonalTasks,
-  initialPersonalNotes,
   initialOfficeTasks,
   initialExpenses,
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { role } = useUserRole()
-  const isAdmin = role === 'admin'
+  const isAdmin = userRole === 'admin'
+  const isForeman = userRole === 'foreman'
+  const isAdminOrOM = userRole === 'admin' || userRole === 'office_manager'
 
   /* ---- Workspace state ---- */
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceType>(null)
@@ -180,29 +200,12 @@ export default function MyWorkClient({
   const [showCompletedTasks, setShowCompletedTasks] = useState(false)
   const [showCompletedChecklist, setShowCompletedChecklist] = useState(false)
 
-  /* ---- Personal Tasks state ---- */
-  const [personalTasks, setPersonalTasks] = useState(initialPersonalTasks)
-  const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [showCompletedPersonal, setShowCompletedPersonal] = useState(false)
-
-  /* ---- Personal Notes state ---- */
-  const [personalNotes, setPersonalNotes] = useState(initialPersonalNotes)
-
   /* ---- Office Tasks state ---- */
   const [officeTasks, setOfficeTasks] = useState(initialOfficeTasks)
-  const [officeIncompleteCount, setOfficeIncompleteCount] = useState(
-    initialOfficeTasks.filter((t) => !t.is_completed && (t.assigned_to === userId || t.created_by === userId)).length
-  )
   const [showOfficeCreateModal, setShowOfficeCreateModal] = useState(false)
+  const [showCompletedOffice, setShowCompletedOffice] = useState(false)
 
   /* ---- Expenses state ---- */
-  const isAdminOrOM = role === 'admin' || role === 'office_manager'
-  const [expenseUnpaidCount, setExpenseUnpaidCount] = useState(
-    initialExpenses.filter((e) => e.status === 'Unpaid').length
-  )
-  const [expenseUnpaidTotal, setExpenseUnpaidTotal] = useState(
-    initialExpenses.filter((e) => e.status === 'Unpaid').reduce((sum, e) => sum + e.amount, 0)
-  )
   const [showExpenseCreateModal, setShowExpenseCreateModal] = useState(false)
 
   /* ================================================================ */
@@ -216,17 +219,15 @@ export default function MyWorkClient({
     return `/my-work?${params.toString()}`
   }, [])
 
-  // Restore workspace from URL on mount
   useEffect(() => {
     if (initializedFromUrl.current) return
     initializedFromUrl.current = true
     const workspace = searchParams.get('workspace') as WorkspaceType
-    if (workspace && ['assigned_tasks', 'assigned_checklist', 'personal_tasks', 'personal_notes', 'office_tasks', 'expenses'].includes(workspace)) {
+    if (workspace && ['assigned_tasks', 'assigned_checklist', 'office_tasks', 'expenses'].includes(workspace)) {
       setActiveWorkspace(workspace)
     }
   }, [searchParams])
 
-  // Sync URL when workspace changes
   useEffect(() => {
     if (!initializedFromUrl.current) return
     const newUrl = buildUrl(activeWorkspace)
@@ -291,124 +292,44 @@ export default function MyWorkClient({
   }
 
   /* ================================================================ */
-  /*  PERSONAL TASKS                                                   */
+  /*  OFFICE TASKS (inline card operations)                            */
   /* ================================================================ */
 
-  const activePersonal = personalTasks.filter((t) => !t.is_completed)
-  const completedPersonal = personalTasks.filter((t) => t.is_completed)
+  const myOfficeTasks = officeTasks.filter(
+    (t) => t.assigned_to === userId || t.created_by === userId
+  )
+  const activeOfficeTasks = myOfficeTasks
+    .filter((t) => !t.is_completed)
+    .sort((a, b) => {
+      const pa = priorityOrder[a.priority] ?? 2
+      const pb = priorityOrder[b.priority] ?? 2
+      if (pa !== pb) return pa - pb
+      if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date)
+      if (a.due_date) return -1
+      if (b.due_date) return 1
+      return 0
+    })
+  const completedOfficeTasks = myOfficeTasks.filter((t) => t.is_completed)
 
-  async function addPersonalTask() {
-    const title = newTaskTitle.trim()
-    if (!title) return
-    setNewTaskTitle('')
-    const maxSort = personalTasks.reduce((m, t) => Math.max(m, t.sort_order), 0) + 1
-    const optimistic: PersonalTask = {
-      id: crypto.randomUUID(),
-      user_id: userId,
-      title,
-      is_completed: false,
-      due_date: null,
-      sort_order: maxSort,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    setPersonalTasks((prev) => [...prev, optimistic])
-    const { data } = await supabase
-      .from('personal_tasks')
-      .insert({ user_id: userId, title, sort_order: maxSort })
-      .select()
-      .single()
-    if (data) {
-      setPersonalTasks((prev) => prev.map((t) => (t.id === optimistic.id ? data : t)))
-    }
-  }
-
-  async function togglePersonalTask(task: PersonalTask) {
+  async function toggleOfficeTask(task: OfficeTask) {
     const newVal = !task.is_completed
-    setPersonalTasks((prev) =>
+    setOfficeTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, is_completed: newVal } : t))
     )
     await supabase
-      .from('personal_tasks')
+      .from('office_tasks')
       .update({ is_completed: newVal, updated_at: new Date().toISOString() })
       .eq('id', task.id)
   }
 
-  async function updatePersonalTaskTitle(id: string, title: string) {
-    setPersonalTasks((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)))
-    await supabase
-      .from('personal_tasks')
-      .update({ title, updated_at: new Date().toISOString() })
-      .eq('id', id)
-  }
-
-  async function updatePersonalTaskDueDate(id: string, due_date: string | null) {
-    setPersonalTasks((prev) => prev.map((t) => (t.id === id ? { ...t, due_date } : t)))
-    await supabase
-      .from('personal_tasks')
-      .update({ due_date, updated_at: new Date().toISOString() })
-      .eq('id', id)
-  }
-
-  async function deletePersonalTask(id: string) {
-    setPersonalTasks((prev) => prev.filter((t) => t.id !== id))
-    await supabase.from('personal_tasks').delete().eq('id', id)
-  }
-
   /* ================================================================ */
-  /*  PERSONAL NOTES                                                   */
+  /*  EXPENSES (inline card data)                                      */
   /* ================================================================ */
 
-  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({})
-
-  async function addNote() {
-    const optimistic: PersonalNote = {
-      id: crypto.randomUUID(),
-      user_id: userId,
-      title: 'Untitled Note',
-      content: null,
-      sort_order: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    setPersonalNotes((prev) => [optimistic, ...prev])
-    const { data } = await supabase
-      .from('personal_notes')
-      .insert({ user_id: userId })
-      .select()
-      .single()
-    if (data) {
-      setPersonalNotes((prev) => prev.map((n) => (n.id === optimistic.id ? data : n)))
-    }
-  }
-
-  function updateNoteLocal(id: string, field: 'title' | 'content', value: string) {
-    setPersonalNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, [field]: value } : n))
-    )
-    const key = `${id}-${field}`
-    if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key])
-    debounceTimers.current[key] = setTimeout(async () => {
-      await supabase
-        .from('personal_notes')
-        .update({ [field]: value, updated_at: new Date().toISOString() })
-        .eq('id', id)
-    }, 800)
-  }
-
-  function saveNoteNow(id: string, field: 'title' | 'content', value: string) {
-    const key = `${id}-${field}`
-    if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key])
-    supabase
-      .from('personal_notes')
-      .update({ [field]: value, updated_at: new Date().toISOString() })
-      .eq('id', id)
-  }
-
-  async function deleteNote(id: string) {
-    setPersonalNotes((prev) => prev.filter((n) => n.id !== id))
-    await supabase.from('personal_notes').delete().eq('id', id)
-  }
+  const unpaidExpenses = initialExpenses.filter((e) => e.status === 'Unpaid')
+  const unpaidTotal = unpaidExpenses.reduce((sum, e) => sum + e.amount, 0)
+  // Show up to 8 recent unpaid on card
+  const recentUnpaid = unpaidExpenses.slice(0, 8)
 
   /* ================================================================ */
   /*  RENDER — WORKSPACES                                              */
@@ -639,131 +560,6 @@ export default function MyWorkClient({
     )
   }
 
-  if (activeWorkspace === 'personal_tasks') {
-    return (
-      <MyWorkspaceShell
-        title="Personal Tasks"
-        icon={<CheckSquareIcon className="w-5 h-5" />}
-        onBack={backToDashboard}
-      >
-        <div className="p-4">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-            {/* Add task input */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                addPersonalTask()
-              }}
-              className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-gray-100"
-            >
-              <PlusIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <input
-                type="text"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder="Add a task..."
-                className="flex-1 text-sm bg-transparent outline-none placeholder-gray-400 text-gray-900"
-              />
-              {newTaskTitle.trim() && (
-                <button
-                  type="submit"
-                  className="text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
-                >
-                  Add
-                </button>
-              )}
-            </form>
-
-            <div className="divide-y divide-gray-50">
-              {activePersonal.length === 0 && !newTaskTitle && (
-                <p className="px-5 py-8 text-sm text-gray-400 text-center">
-                  No personal tasks yet — add one above
-                </p>
-              )}
-              {activePersonal.map((task) => (
-                <PersonalTaskRow
-                  key={task.id}
-                  task={task}
-                  onToggle={togglePersonalTask}
-                  onUpdateTitle={updatePersonalTaskTitle}
-                  onUpdateDueDate={updatePersonalTaskDueDate}
-                  onDelete={deletePersonalTask}
-                />
-              ))}
-            </div>
-
-            {completedPersonal.length > 0 && (
-              <div className="border-t border-gray-100">
-                <button
-                  onClick={() => setShowCompletedPersonal(!showCompletedPersonal)}
-                  className="w-full flex items-center gap-2 px-5 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  {showCompletedPersonal ? (
-                    <ChevronDownIcon className="w-4 h-4" />
-                  ) : (
-                    <ChevronRightIcon className="w-4 h-4" />
-                  )}
-                  Completed ({completedPersonal.length})
-                </button>
-                {showCompletedPersonal && (
-                  <div className="divide-y divide-gray-50">
-                    {completedPersonal.map((task) => (
-                      <PersonalTaskRow
-                        key={task.id}
-                        task={task}
-                        onToggle={togglePersonalTask}
-                        onUpdateTitle={updatePersonalTaskTitle}
-                        onUpdateDueDate={updatePersonalTaskDueDate}
-                        onDelete={deletePersonalTask}
-                        completed
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </MyWorkspaceShell>
-    )
-  }
-
-  if (activeWorkspace === 'personal_notes') {
-    return (
-      <MyWorkspaceShell
-        title="Personal Notes"
-        icon={<StickyNoteIcon className="w-5 h-5" />}
-        onBack={backToDashboard}
-        actions={
-          <button
-            onClick={addNote}
-            className="flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition-colors"
-          >
-            <PlusIcon className="w-4 h-4" />
-            New Note
-          </button>
-        }
-      >
-        <div className="p-4 space-y-3">
-          {personalNotes.length === 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-8 text-sm text-gray-400 text-center">
-              No notes yet — click &quot;New Note&quot; to create one
-            </div>
-          )}
-          {personalNotes.map((note) => (
-            <NoteCard
-              key={note.id}
-              note={note}
-              onUpdateField={updateNoteLocal}
-              onSaveNow={saveNoteNow}
-              onDelete={deleteNote}
-            />
-          ))}
-        </div>
-      </MyWorkspaceShell>
-    )
-  }
-
   if (activeWorkspace === 'office_tasks') {
     return (
       <MyWorkspaceShell
@@ -782,9 +578,9 @@ export default function MyWorkClient({
       >
         <OfficeTasksWorkspace
           userId={userId}
-          role={role}
+          role={userRole}
           initialOfficeTasks={officeTasks}
-          onCountChange={setOfficeIncompleteCount}
+          onCountChange={() => {}}
           showCreateModal={showOfficeCreateModal}
           onCloseCreateModal={() => setShowOfficeCreateModal(false)}
         />
@@ -811,383 +607,430 @@ export default function MyWorkClient({
       >
         <ExpensesWorkspace
           userId={userId}
-          userRole={role}
+          userRole={userRole}
           initialExpenses={initialExpenses}
           showCreateModal={showExpenseCreateModal}
           onCloseCreateModal={() => setShowExpenseCreateModal(false)}
-          onCountChange={(count, total) => {
-            setExpenseUnpaidCount(count)
-            setExpenseUnpaidTotal(total)
-          }}
         />
       </MyWorkspaceShell>
     )
   }
 
   /* ================================================================ */
-  /*  RENDER — DASHBOARD CARDS                                         */
+  /*  RENDER — DASHBOARD CARDS (interactive)                           */
   /* ================================================================ */
-
-  function formatCurrency(val: number) {
-    return `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
 
   return (
     <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
       <h1 className="text-2xl font-bold text-gray-900 mb-4">My Work</h1>
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-        {/* Card 1: Assigned Field Tasks */}
-        <DashboardCard
-          icon={<ListTodoIcon className="w-5 h-5" />}
-          title="Assigned Field Tasks"
-          onClick={() => openWorkspace('assigned_tasks')}
-          content={
-            activeTasks.length > 0 ? (
-              <div className="space-y-0.5">
-                <p className="text-xs text-gray-500">{activeTasks.length} incomplete</p>
-                {activeTasks.filter((t) => isOverdue(t.due_date)).length > 0 && (
-                  <p className="text-xs text-red-600">
-                    {activeTasks.filter((t) => isOverdue(t.due_date)).length} overdue
-                  </p>
-                )}
-                {completedTasks.length > 0 && (
-                  <p className="text-xs text-green-600">{completedTasks.length} completed</p>
-                )}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+        {/* ── Assigned Field Tasks (foreman only) ── */}
+        {isForeman && (
+          <InteractiveCard
+            icon={<ListTodoIcon className="w-5 h-5" />}
+            title="Assigned Field Tasks"
+            onExpand={() => openWorkspace('assigned_tasks')}
+          >
+            {activeTasks.length === 0 && completedTasks.length === 0 ? (
+              <div className="text-center py-6">
+                <ListTodoIcon className="w-6 h-6 text-gray-300 mx-auto mb-1.5" />
+                <p className="text-xs text-gray-400">No tasks assigned to you</p>
               </div>
             ) : (
-              <p className="text-xs text-gray-400">No tasks assigned</p>
-            )
-          }
-        />
+              <>
+                {activeTasks.length > 0 && (
+                  <div className="mb-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-gray-600">
+                        {activeTasks.length} active
+                      </span>
+                      {activeTasks.filter((t) => isOverdue(t.due_date)).length > 0 && (
+                        <span className="text-xs text-red-600 font-medium flex items-center gap-1">
+                          <AlertCircleIcon className="w-3 h-3" />
+                          {activeTasks.filter((t) => isOverdue(t.due_date)).length} overdue
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-0 max-h-[400px] overflow-y-auto -mx-4 px-4">
+                  <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+                    {activeTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                      >
+                        <button
+                          onClick={() => toggleTaskStatus(task)}
+                          className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
+                        >
+                          {task.status === 'completed' && (
+                            <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                          )}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <Link
+                              href={`/job-board?project=${task.project_id}`}
+                              className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5"
+                            >
+                              {task.project_name}
+                              <ExternalLinkIcon className="w-2.5 h-2.5" />
+                            </Link>
+                            {task.due_date && (
+                              <span
+                                className={`text-[10px] flex items-center gap-0.5 ${
+                                  isOverdue(task.due_date) ? 'text-red-600 font-medium' : 'text-gray-400'
+                                }`}
+                              >
+                                <CalendarIcon className="w-2.5 h-2.5" />
+                                {formatDate(task.due_date)}
+                              </span>
+                            )}
+                            <span
+                              className={`text-[10px] px-1 py-0.5 rounded ${statusColors[task.status]}`}
+                            >
+                              {statusLabels[task.status]}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {completedTasks.length > 0 && (
+                    <button
+                      onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+                      className="w-full flex items-center gap-1.5 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      {showCompletedTasks ? <ChevronDownIcon className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
+                      {completedTasks.length} completed
+                    </button>
+                  )}
+                  {showCompletedTasks && (
+                    <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden opacity-60">
+                      {completedTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className="flex items-start gap-2.5 px-3 py-2.5"
+                        >
+                          <button
+                            onClick={() => toggleTaskStatus(task)}
+                            className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center"
+                          >
+                            <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                          </button>
+                          <p className="text-xs text-gray-500 line-through truncate flex-1">
+                            {task.title}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </InteractiveCard>
+        )}
 
-        {/* Card 2: Assigned Checklist Items */}
-        <DashboardCard
+        {/* ── Assigned Checklist Items ── */}
+        <InteractiveCard
           icon={<ClipboardCheckIcon className="w-5 h-5" />}
           title="Assigned Checklist Items"
-          onClick={() => openWorkspace('assigned_checklist')}
-          content={
-            activeChecklist.length > 0 ? (
-              <div className="space-y-0.5">
-                <p className="text-xs text-gray-500">{activeChecklist.length} incomplete</p>
-                {activeChecklist.filter((c) => isOverdue(c.due_date)).length > 0 && (
-                  <p className="text-xs text-red-600">
-                    {activeChecklist.filter((c) => isOverdue(c.due_date)).length} overdue
-                  </p>
-                )}
-                {completedChecklist.length > 0 && (
-                  <p className="text-xs text-green-600">{completedChecklist.length} completed</p>
-                )}
-              </div>
-            ) : (
+          onExpand={() => openWorkspace('assigned_checklist')}
+        >
+          {activeChecklist.length === 0 && completedChecklist.length === 0 ? (
+            <div className="text-center py-6">
+              <ClipboardCheckIcon className="w-6 h-6 text-gray-300 mx-auto mb-1.5" />
               <p className="text-xs text-gray-400">No checklist items assigned</p>
-            )
-          }
-        />
-
-        {/* Card 3: Personal Tasks */}
-        <DashboardCard
-          icon={<CheckSquareIcon className="w-5 h-5" />}
-          title="Personal Tasks"
-          onClick={() => openWorkspace('personal_tasks')}
-          content={
-            activePersonal.length > 0 ? (
-              <div className="space-y-0.5">
-                <p className="text-xs text-gray-500">{activePersonal.length} incomplete</p>
-                {activePersonal.filter((t) => isOverdue(t.due_date) && !t.is_completed).length > 0 && (
-                  <p className="text-xs text-red-600">
-                    {activePersonal.filter((t) => isOverdue(t.due_date) && !t.is_completed).length} overdue
-                  </p>
+            </div>
+          ) : (
+            <>
+              {activeChecklist.length > 0 && (
+                <div className="mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-gray-600">
+                      {activeChecklist.length} active
+                    </span>
+                    {activeChecklist.filter((c) => isOverdue(c.due_date)).length > 0 && (
+                      <span className="text-xs text-red-600 font-medium flex items-center gap-1">
+                        <AlertCircleIcon className="w-3 h-3" />
+                        {activeChecklist.filter((c) => isOverdue(c.due_date)).length} overdue
+                      </span>
+                    )}
+                  </div>
+                  {/* Progress bar */}
+                  {(activeChecklist.length + completedChecklist.length) > 0 && (
+                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.round((completedChecklist.length / (activeChecklist.length + completedChecklist.length)) * 100)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="space-y-0 max-h-[400px] overflow-y-auto -mx-4 px-4">
+                <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+                  {activeChecklist.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                    >
+                      <button
+                        onClick={() => toggleChecklistItem(item)}
+                        disabled={!isAdmin}
+                        className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                          isAdmin
+                            ? 'border-gray-300 hover:border-amber-500 cursor-pointer'
+                            : 'border-gray-200 cursor-default'
+                        }`}
+                      >
+                        {item.is_complete && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-900 truncate">{item.name}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <Link
+                            href={`/job-board?project=${item.project_id}`}
+                            className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5"
+                          >
+                            {item.project_name}
+                            <ExternalLinkIcon className="w-2.5 h-2.5" />
+                          </Link>
+                          {item.group_name && (
+                            <span className="text-[10px] text-gray-400">{item.group_name}</span>
+                          )}
+                          {item.due_date && (
+                            <span
+                              className={`text-[10px] flex items-center gap-0.5 ${
+                                isOverdue(item.due_date) ? 'text-red-600 font-medium' : 'text-gray-400'
+                              }`}
+                            >
+                              <CalendarIcon className="w-2.5 h-2.5" />
+                              {formatDate(item.due_date)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {completedChecklist.length > 0 && (
+                  <button
+                    onClick={() => setShowCompletedChecklist(!showCompletedChecklist)}
+                    className="w-full flex items-center gap-1.5 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showCompletedChecklist ? <ChevronDownIcon className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
+                    {completedChecklist.length} completed
+                  </button>
                 )}
-                {completedPersonal.length > 0 && (
-                  <p className="text-xs text-green-600">{completedPersonal.length} completed</p>
+                {showCompletedChecklist && (
+                  <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden opacity-60">
+                    {completedChecklist.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-start gap-2.5 px-3 py-2.5"
+                      >
+                        <button
+                          onClick={() => toggleChecklistItem(item)}
+                          disabled={!isAdmin}
+                          className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center"
+                        >
+                          <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                        </button>
+                        <p className="text-xs text-gray-500 line-through truncate flex-1">
+                          {item.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            ) : (
-              <p className="text-xs text-gray-400">No personal tasks</p>
-            )
-          }
-        />
+            </>
+          )}
+        </InteractiveCard>
 
-        {/* Card 4: Office / Shop Tasks */}
-        <DashboardCard
+        {/* ── Office / Shop Tasks ── */}
+        <InteractiveCard
           icon={<Building2Icon className="w-5 h-5" />}
           title="Office / Shop Tasks"
-          onClick={() => openWorkspace('office_tasks')}
-          content={
-            officeIncompleteCount > 0 ? (
-              <div className="space-y-0.5">
-                <p className="text-xs text-gray-500">{officeIncompleteCount} incomplete</p>
-                {officeTasks.filter((t) => !t.is_completed && isOverdue(t.due_date) && (t.assigned_to === userId || t.created_by === userId)).length > 0 && (
-                  <p className="text-xs text-red-600">
-                    {officeTasks.filter((t) => !t.is_completed && isOverdue(t.due_date) && (t.assigned_to === userId || t.created_by === userId)).length} overdue
-                  </p>
+          onExpand={() => openWorkspace('office_tasks')}
+          headerActions={
+            <button
+              onClick={() => { openWorkspace('office_tasks'); setTimeout(() => setShowOfficeCreateModal(true), 100) }}
+              className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-white px-2 py-1 rounded-lg text-xs font-semibold transition shadow-sm"
+            >
+              <PlusIcon className="w-3 h-3" />
+              New
+            </button>
+          }
+        >
+          {activeOfficeTasks.length === 0 && completedOfficeTasks.length === 0 ? (
+            <div className="text-center py-6">
+              <Building2Icon className="w-6 h-6 text-gray-300 mx-auto mb-1.5" />
+              <p className="text-xs text-gray-400">No office tasks</p>
+            </div>
+          ) : (
+            <>
+              {activeOfficeTasks.length > 0 && (
+                <div className="mb-2">
+                  <span className="text-xs font-semibold text-gray-600">
+                    {activeOfficeTasks.length} active
+                  </span>
+                </div>
+              )}
+              <div className="space-y-0 max-h-[400px] overflow-y-auto -mx-4 px-4">
+                <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+                  {activeOfficeTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                    >
+                      <button
+                        onClick={() => toggleOfficeTask(task)}
+                        className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
+                      >
+                        {task.is_completed && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                          {task.priority !== 'Normal' && (
+                            <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>
+                              {task.priority}
+                            </span>
+                          )}
+                          {task.due_date && (
+                            <span
+                              className={`text-[10px] flex items-center gap-0.5 ${
+                                isOverdue(task.due_date) && !task.is_completed ? 'text-red-600 font-medium' : 'text-gray-400'
+                              }`}
+                            >
+                              <CalendarIcon className="w-2.5 h-2.5" />
+                              {formatDate(task.due_date)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {completedOfficeTasks.length > 0 && (
+                  <button
+                    onClick={() => setShowCompletedOffice(!showCompletedOffice)}
+                    className="w-full flex items-center gap-1.5 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showCompletedOffice ? <ChevronDownIcon className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
+                    {completedOfficeTasks.length} completed
+                  </button>
+                )}
+                {showCompletedOffice && (
+                  <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden opacity-60">
+                    {completedOfficeTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-start gap-2.5 px-3 py-2.5"
+                      >
+                        <button
+                          onClick={() => toggleOfficeTask(task)}
+                          className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center"
+                        >
+                          <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                        </button>
+                        <p className="text-xs text-gray-500 line-through truncate flex-1">
+                          {task.title}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            ) : (
-              <p className="text-xs text-gray-400">No office tasks</p>
-            )
-          }
-        />
+            </>
+          )}
+        </InteractiveCard>
 
-        {/* Card 5: Expenses */}
-        <DashboardCard
+        {/* ── Expenses ── */}
+        <InteractiveCard
           icon={<WalletIcon className="w-5 h-5" />}
           title={isAdminOrOM ? 'Employee Expenses' : 'Personal Expenses'}
-          onClick={() => openWorkspace('expenses')}
-          content={
-            expenseUnpaidCount > 0 ? (
-              <div className="space-y-0.5">
-                <p className="text-xs text-gray-500">{expenseUnpaidCount} unpaid</p>
-                <p className="text-xs text-amber-600 font-medium tabular-nums">{formatCurrency(expenseUnpaidTotal)}</p>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400">No unpaid expenses</p>
-            )
-          }
-        />
-
-        {/* Card 6: Personal Notes */}
-        <DashboardCard
-          icon={<StickyNoteIcon className="w-5 h-5" />}
-          title="Personal Notes"
-          onClick={() => openWorkspace('personal_notes')}
-          content={
-            personalNotes.length > 0 ? (
-              <div className="space-y-0.5">
-                <p className="text-xs text-gray-500">{personalNotes.length} note{personalNotes.length !== 1 ? 's' : ''}</p>
-                <p className="text-xs text-gray-400 truncate">{personalNotes[0].title}</p>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400">No notes yet</p>
-            )
-          }
-        />
-      </div>
-    </div>
-  )
-}
-
-/* ================================================================== */
-/*  PERSONAL TASK ROW                                                  */
-/* ================================================================== */
-
-function PersonalTaskRow({
-  task,
-  onToggle,
-  onUpdateTitle,
-  onUpdateDueDate,
-  onDelete,
-  completed,
-}: {
-  task: PersonalTask
-  onToggle: (t: PersonalTask) => void
-  onUpdateTitle: (id: string, title: string) => void
-  onUpdateDueDate: (id: string, d: string | null) => void
-  onDelete: (id: string) => void
-  completed?: boolean
-}) {
-  const [editing, setEditing] = useState(false)
-  const [title, setTitle] = useState(task.title)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setTitle(task.title)
-  }, [task.title])
-
-  useEffect(() => {
-    if (editing && inputRef.current) inputRef.current.focus()
-  }, [editing])
-
-  function commitTitle() {
-    setEditing(false)
-    const trimmed = title.trim()
-    if (trimmed && trimmed !== task.title) {
-      onUpdateTitle(task.id, trimmed)
-    } else {
-      setTitle(task.title)
-    }
-  }
-
-  return (
-    <div
-      className={`flex items-start gap-3 px-4 sm:px-5 py-3 hover:bg-gray-50 transition-colors group ${
-        completed ? 'opacity-60' : ''
-      }`}
-    >
-      <button
-        onClick={() => onToggle(task)}
-        className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-          task.is_completed
-            ? 'border-amber-400 bg-amber-50'
-            : 'border-gray-300 hover:border-amber-500'
-        }`}
-      >
-        {task.is_completed && <CheckIcon className="w-3 h-3 text-amber-500" />}
-      </button>
-      <div className="flex-1 min-w-0">
-        {editing ? (
-          <input
-            ref={inputRef}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitTitle()
-              if (e.key === 'Escape') {
-                setTitle(task.title)
-                setEditing(false)
-              }
-            }}
-            className="text-sm w-full bg-transparent outline-none border-b border-amber-400 text-gray-900 pb-0.5"
-          />
-        ) : (
-          <p
-            onClick={() => !completed && setEditing(true)}
-            className={`text-sm cursor-text truncate ${
-              completed ? 'text-gray-500 line-through' : 'text-gray-900 font-medium'
-            }`}
-          >
-            {task.title}
-          </p>
-        )}
-        {task.due_date && (
-          <span
-            className={`text-xs flex items-center gap-1 mt-1 ${
-              isOverdue(task.due_date) && !task.is_completed
-                ? 'text-red-600 font-medium'
-                : 'text-gray-500'
-            }`}
-          >
-            <CalendarIcon className="w-3 h-3" />
-            {formatDate(task.due_date)}
-          </span>
-        )}
-      </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-        <input
-          type="date"
-          value={task.due_date || ''}
-          onChange={(e) => onUpdateDueDate(task.id, e.target.value || null)}
-          className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white w-[110px]"
-        />
-        <button
-          onClick={() => onDelete(task.id)}
-          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-        >
-          <Trash2Icon className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ================================================================== */
-/*  NOTE CARD                                                          */
-/* ================================================================== */
-
-function NoteCard({
-  note,
-  onUpdateField,
-  onSaveNow,
-  onDelete,
-}: {
-  note: PersonalNote
-  onUpdateField: (id: string, field: 'title' | 'content', value: string) => void
-  onSaveNow: (id: string, field: 'title' | 'content', value: string) => void
-  onDelete: (id: string) => void
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [localTitle, setLocalTitle] = useState(note.title)
-  const [localContent, setLocalContent] = useState(note.content ?? '')
-  const titleRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setLocalTitle(note.title)
-    setLocalContent(note.content ?? '')
-  }, [note.title, note.content])
-
-  useEffect(() => {
-    if (editingTitle && titleRef.current) titleRef.current.focus()
-  }, [editingTitle])
-
-  const timeAgo = (() => {
-    const diff = Date.now() - new Date(note.updated_at).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return 'Just now'
-    if (mins < 60) return `${mins}m ago`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}h ago`
-    const days = Math.floor(hrs / 24)
-    return `${days}d ago`
-  })()
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-      <div className="flex items-center gap-3 px-4 sm:px-5 py-3">
-        <StickyNoteIcon className="w-4 h-4 text-amber-400 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          {editingTitle ? (
-            <input
-              ref={titleRef}
-              value={localTitle}
-              onChange={(e) => setLocalTitle(e.target.value)}
-              onBlur={() => {
-                setEditingTitle(false)
-                const trimmed = localTitle.trim() || 'Untitled Note'
-                onSaveNow(note.id, 'title', trimmed)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setEditingTitle(false)
-                  const trimmed = localTitle.trim() || 'Untitled Note'
-                  onSaveNow(note.id, 'title', trimmed)
-                }
-              }}
-              className="text-sm font-medium w-full bg-transparent outline-none border-b border-amber-400 text-gray-900 pb-0.5"
-            />
-          ) : (
-            <p
-              onClick={() => setEditingTitle(true)}
-              className="text-sm font-medium text-gray-900 truncate cursor-text"
+          onExpand={() => openWorkspace('expenses')}
+          headerActions={
+            <button
+              onClick={() => { openWorkspace('expenses'); setTimeout(() => setShowExpenseCreateModal(true), 100) }}
+              className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-white px-2 py-1 rounded-lg text-xs font-semibold transition shadow-sm"
             >
-              {note.title}
-            </p>
-          )}
-          <p className="text-xs text-gray-400 mt-0.5">{timeAgo}</p>
-        </div>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              <PlusIcon className="w-3 h-3" />
+              New
+            </button>
+          }
         >
-          {expanded ? (
-            <ChevronDownIcon className="w-4 h-4" />
+          {unpaidExpenses.length === 0 ? (
+            <div className="text-center py-6">
+              <WalletIcon className="w-6 h-6 text-gray-300 mx-auto mb-1.5" />
+              <p className="text-xs text-gray-400">No unpaid expenses</p>
+            </div>
           ) : (
-            <ChevronRightIcon className="w-4 h-4" />
+            <>
+              <div className="mb-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-600">
+                    {unpaidExpenses.length} unpaid
+                  </span>
+                  <span className="text-xs font-semibold text-amber-600 tabular-nums">
+                    {formatCurrency(unpaidTotal)}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-0 max-h-[400px] overflow-y-auto -mx-4 px-4">
+                <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+                  {recentUnpaid.map((expense) => (
+                    <div
+                      key={expense.id}
+                      className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => openWorkspace('expenses')}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-medium text-gray-900 truncate flex-1">
+                            {expense.description || 'Expense'}
+                          </p>
+                          <span className="text-xs font-semibold text-gray-700 tabular-nums flex-shrink-0">
+                            {formatCurrency(expense.amount)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-gray-400">
+                            {formatDate(expense.date)}
+                          </span>
+                          {isAdminOrOM && expense.user_display_name && (
+                            <span className="text-[10px] text-gray-400">
+                              &middot; {expense.user_display_name}
+                            </span>
+                          )}
+                          <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">
+                            Unpaid
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {unpaidExpenses.length > recentUnpaid.length && (
+                  <button
+                    onClick={() => openWorkspace('expenses')}
+                    className="w-full py-2 text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors"
+                  >
+                    View all {unpaidExpenses.length} expenses...
+                  </button>
+                )}
+              </div>
+            </>
           )}
-        </button>
-        <button
-          onClick={() => onDelete(note.id)}
-          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-        >
-          <Trash2Icon className="w-4 h-4" />
-        </button>
+        </InteractiveCard>
+
       </div>
-      {expanded && (
-        <div className="px-4 sm:px-5 pb-4">
-          <textarea
-            value={localContent}
-            onChange={(e) => {
-              setLocalContent(e.target.value)
-              onUpdateField(note.id, 'content', e.target.value)
-            }}
-            onBlur={() => onSaveNow(note.id, 'content', localContent)}
-            placeholder="Write your note here..."
-            rows={4}
-            className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 resize-y placeholder-gray-400"
-          />
-        </div>
-      )}
     </div>
   )
 }
