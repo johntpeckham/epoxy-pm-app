@@ -124,21 +124,31 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
     return data.publicUrl
   })
 
+  const count = urls.length
+  const gridClass =
+    count === 1
+      ? 'grid grid-cols-1 w-[200px] md:w-[300px]'
+      : count <= 3
+        ? 'grid grid-cols-2 sm:grid-cols-3 gap-2 w-full'
+        : 'grid grid-cols-3 md:grid-cols-4 gap-2 w-full'
+  const sizesHint =
+    count === 1 ? '(min-width:768px) 300px, 200px' : count <= 3 ? '33vw' : '25vw'
+
   return (
     <div className="mt-1 space-y-1.5 w-full">
       {content.caption && (
         <p className="text-sm text-gray-600">{content.caption}</p>
       )}
-      <div className="grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1 md:gap-2 w-full">
+      <div className={gridClass}>
         {urls.map((url, i) => (
-          <button key={i} onClick={() => onImageClick(urls, i)} className="block">
+          <button key={i} onClick={() => onImageClick(urls, i)} className="block min-w-[44px] min-h-[44px]">
             <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={url}
                 alt={`Photo ${i + 1}`}
                 fill
                 className="object-cover hover:opacity-90 transition"
-                sizes="20vw"
+                sizes={sizesHint}
               />
             </div>
           </button>
@@ -229,16 +239,16 @@ function DailyReportPost({
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
             Photos ({photoUrls.length})
           </p>
-          <div className="grid grid-cols-5 md:[grid-template-columns:repeat(5,minmax(120px,1fr))] gap-1 md:gap-2 w-full">
+          <div className={`grid ${photoUrls.length === 1 ? 'grid-cols-1 w-[200px] md:w-[300px]' : photoUrls.length <= 3 ? 'grid-cols-2 sm:grid-cols-3 gap-2 w-full' : 'grid-cols-3 md:grid-cols-4 gap-2 w-full'}`}>
             {photoUrls.map((url, i) => (
-              <button key={i} onClick={() => onImageClick(photoUrls, i)} className="block">
+              <button key={i} onClick={() => onImageClick(photoUrls, i)} className="block min-w-[44px] min-h-[44px]">
                 <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
                   <Image
                     src={url}
                     alt={`Report photo ${i + 1}`}
                     fill
                     className="object-cover hover:opacity-90 transition"
-                    sizes="20vw"
+                    sizes={photoUrls.length === 1 ? '(min-width:768px) 300px, 200px' : photoUrls.length <= 3 ? '33vw' : '25vw'}
                   />
                 </div>
               </button>
