@@ -39,6 +39,13 @@ export default async function MyWorkPage() {
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false })
 
+  // Fetch office tasks (assigned to user or created by user)
+  const { data: officeTasks } = await supabase
+    .from('office_tasks')
+    .select('*')
+    .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+    .order('created_at', { ascending: false })
+
   const tasksWithProject = (assignedTasks ?? []).map((row) => ({
     ...row,
     project_name:
@@ -59,6 +66,7 @@ export default async function MyWorkPage() {
         initialAssignedChecklist={checklistWithProject}
         initialPersonalTasks={personalTasks ?? []}
         initialPersonalNotes={personalNotes ?? []}
+        initialOfficeTasks={officeTasks ?? []}
       />
     </Suspense>
   )

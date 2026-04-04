@@ -418,6 +418,22 @@ export interface PersonalNote {
   updated_at: string
 }
 
+export type OfficePriority = 'Low' | 'Normal' | 'High' | 'Urgent'
+
+export interface OfficeTask {
+  id: string
+  title: string
+  description: string | null
+  assigned_to: string | null
+  project_id: string | null
+  is_completed: boolean
+  due_date: string | null
+  priority: OfficePriority
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
 export interface WarrantyTemplate {
   id: string
   name: string

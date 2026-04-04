@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUserRole } from '@/lib/useUserRole'
-import { Task, TaskStatus, PersonalTask, PersonalNote } from '@/types'
+import { Task, TaskStatus, PersonalTask, PersonalNote, OfficeTask } from '@/types'
+import OfficeTasksWorkspace from '@/components/my-work/OfficeTasksWorkspace'
 import { ProjectChecklistItem } from '@/components/job-board/workspaces/ChecklistShared'
 import {
   ArrowLeftIcon,
@@ -21,6 +22,7 @@ import {
   ListTodoIcon,
   ClipboardCheckIcon,
   CheckSquareIcon,
+  Building2Icon,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -30,7 +32,7 @@ import {
 type AssignedTask = Task & { project_name: string }
 type AssignedChecklist = ProjectChecklistItem & { project_name: string }
 
-type WorkspaceType = 'assigned_tasks' | 'assigned_checklist' | 'personal_tasks' | 'personal_notes' | null
+type WorkspaceType = 'assigned_tasks' | 'assigned_checklist' | 'personal_tasks' | 'personal_notes' | 'office_tasks' | null
 
 interface Props {
   userId: string
@@ -38,6 +40,7 @@ interface Props {
   initialAssignedChecklist: AssignedChecklist[]
   initialPersonalTasks: PersonalTask[]
   initialPersonalNotes: PersonalNote[]
+  initialOfficeTasks: OfficeTask[]
 }
 
 /* ------------------------------------------------------------------ */
@@ -153,6 +156,7 @@ export default function MyWorkClient({
   initialAssignedChecklist,
   initialPersonalTasks,
   initialPersonalNotes,
+  initialOfficeTasks,
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -179,6 +183,13 @@ export default function MyWorkClient({
   /* ---- Personal Notes state ---- */
   const [personalNotes, setPersonalNotes] = useState(initialPersonalNotes)
 
+  /* ---- Office Tasks state ---- */
+  const [officeTasks, setOfficeTasks] = useState(initialOfficeTasks)
+  const [officeIncompleteCount, setOfficeIncompleteCount] = useState(
+    initialOfficeTasks.filter((t) => !t.is_completed && (t.assigned_to === userId || t.created_by === userId)).length
+  )
+  const [showOfficeCreateModal, setShowOfficeCreateModal] = useState(false)
+
   /* ================================================================ */
   /*  URL STATE MANAGEMENT                                             */
   /* ================================================================ */
@@ -195,7 +206,7 @@ export default function MyWorkClient({
     if (initializedFromUrl.current) return
     initializedFromUrl.current = true
     const workspace = searchParams.get('workspace') as WorkspaceType
-    if (workspace && ['assigned_tasks', 'assigned_checklist', 'personal_tasks', 'personal_notes'].includes(workspace)) {
+    if (workspace && ['assigned_tasks', 'assigned_checklist', 'personal_tasks', 'personal_notes', 'office_tasks'].includes(workspace)) {
       setActiveWorkspace(workspace)
     }
   }, [searchParams])
@@ -738,6 +749,34 @@ export default function MyWorkClient({
     )
   }
 
+  if (activeWorkspace === 'office_tasks') {
+    return (
+      <MyWorkspaceShell
+        title="Office / Shop Tasks"
+        icon={<Building2Icon className="w-5 h-5" />}
+        onBack={backToDashboard}
+        actions={
+          <button
+            onClick={() => setShowOfficeCreateModal(true)}
+            className="flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            New
+          </button>
+        }
+      >
+        <OfficeTasksWorkspace
+          userId={userId}
+          role={role}
+          initialOfficeTasks={officeTasks}
+          onCountChange={setOfficeIncompleteCount}
+          showCreateModal={showOfficeCreateModal}
+          onCloseCreateModal={() => setShowOfficeCreateModal(false)}
+        />
+      </MyWorkspaceShell>
+    )
+  }
+
   /* ================================================================ */
   /*  RENDER — DASHBOARD CARDS                                         */
   /* ================================================================ */
@@ -818,7 +857,28 @@ export default function MyWorkClient({
           }
         />
 
-        {/* Card 4: Personal Notes */}
+        {/* Card 4: Office / Shop Tasks */}
+        <DashboardCard
+          icon={<Building2Icon className="w-5 h-5" />}
+          title="Office / Shop Tasks"
+          onClick={() => openWorkspace('office_tasks')}
+          content={
+            officeIncompleteCount > 0 ? (
+              <div className="space-y-0.5">
+                <p className="text-xs text-gray-500">{officeIncompleteCount} incomplete</p>
+                {officeTasks.filter((t) => !t.is_completed && isOverdue(t.due_date) && (t.assigned_to === userId || t.created_by === userId)).length > 0 && (
+                  <p className="text-xs text-red-600">
+                    {officeTasks.filter((t) => !t.is_completed && isOverdue(t.due_date) && (t.assigned_to === userId || t.created_by === userId)).length} overdue
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">No office tasks</p>
+            )
+          }
+        />
+
+        {/* Card 5: Personal Notes */}
         <DashboardCard
           icon={<StickyNoteIcon className="w-5 h-5" />}
           title="Personal Notes"
