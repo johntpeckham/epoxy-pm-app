@@ -7,6 +7,8 @@ import { Project, Profile } from '@/types'
 import { moveToTrash } from '@/lib/trashBin'
 import WorkspaceShell from '../WorkspaceShell'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import SearchableDropdown from '@/components/ui/SearchableDropdown'
+import type { Manufacturer } from '@/lib/useManufacturers'
 
 interface MaterialOrdersWorkspaceProps {
   project: Project
@@ -336,6 +338,70 @@ function MaterialOrderModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // Manufacturer/product master data
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('manufacturers')
+      .select('*, manufacturer_products(*)')
+      .order('name')
+      .then(({ data }) => {
+        const result = ((data ?? []) as (Omit<Manufacturer, 'products'> & { manufacturer_products: { id: string; manufacturer_id: string; name: string; created_at: string; updated_at: string }[] })[]).map((m) => ({
+          ...m,
+          products: (m.manufacturer_products ?? []).sort((a, b) => a.name.localeCompare(b.name)),
+        }))
+        setManufacturers(result)
+      })
+  }, [])
+
+  const manufacturerNames = manufacturers.map((m) => m.name)
+
+  function getProductsForManufacturer(mfrName: string): string[] {
+    const mfr = manufacturers.find((m) => m.name === mfrName)
+    return mfr ? mfr.products.map((p) => p.name) : []
+  }
+
+  const handleAddNewManufacturer = useCallback(async (name: string): Promise<string | null> => {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('manufacturers')
+      .insert({ name: name.trim() })
+      .select('*, manufacturer_products(*)')
+      .single()
+    if (error) {
+      if (error.code === '23505') return 'A manufacturer with this name already exists'
+      return error.message
+    }
+    const newMfr: Manufacturer = { ...(data as Omit<Manufacturer, 'products'>), products: [] }
+    setManufacturers((prev) => [...prev, newMfr].sort((a, b) => a.name.localeCompare(b.name)))
+    return null
+  }, [])
+
+  const handleAddNewProduct = useCallback(async (name: string, manufacturerName: string): Promise<string | null> => {
+    const mfr = manufacturers.find((m) => m.name === manufacturerName)
+    if (!mfr) return 'Select a manufacturer first'
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('manufacturer_products')
+      .insert({ manufacturer_id: mfr.id, name: name.trim() })
+      .select()
+      .single()
+    if (error) {
+      if (error.code === '23505') return 'A product with this name already exists for this manufacturer'
+      return error.message
+    }
+    const product = data as { id: string; manufacturer_id: string; name: string; created_at: string; updated_at: string }
+    setManufacturers((prev) =>
+      prev.map((m) =>
+        m.id === mfr.id
+          ? { ...m, products: [...m.products, product].sort((a, b) => a.name.localeCompare(b.name)) }
+          : m
+      )
+    )
+    return null
+  }, [manufacturers])
+
   const [lineItems, setLineItems] = useState<LineItemRow[]>(() => {
     if (existing && existing.line_items.length > 0) {
       return existing.line_items.map((li) => ({
@@ -351,7 +417,14 @@ function MaterialOrderModal({
   const isEdit = !!existing
 
   function updateLineItem(key: string, field: keyof LineItemRow, value: string) {
-    setLineItems((prev) => prev.map((li) => li.key === key ? { ...li, [field]: value } : li))
+    setLineItems((prev) => prev.map((li) => {
+      if (li.key !== key) return li
+      // If manufacturer changes, clear product
+      if (field === 'manufacturer' && value !== li.manufacturer) {
+        return { ...li, manufacturer: value, product: '' }
+      }
+      return { ...li, [field]: value }
+    }))
   }
 
   function addLineItem() {
@@ -470,22 +543,25 @@ function MaterialOrderModal({
               <div className="space-y-2">
                 {lineItems.map((li, idx) => (
                   <div key={li.key} className="flex flex-col sm:flex-row sm:items-end gap-2 bg-gray-50 rounded-lg p-2.5">
-                    <div className="w-full sm:w-[140px]">
+                    <div className="w-full sm:w-[180px]">
                       {idx === 0 && <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Manufacturer</label>}
-                      <input
+                      <SearchableDropdown
                         value={li.manufacturer}
-                        onChange={(e) => updateLineItem(li.key, 'manufacturer', e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                        onChange={(val) => updateLineItem(li.key, 'manufacturer', val)}
+                        options={manufacturerNames}
                         placeholder="Manufacturer"
+                        onAddNew={handleAddNewManufacturer}
                       />
                     </div>
                     <div className="flex-1">
                       {idx === 0 && <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Product</label>}
-                      <input
+                      <SearchableDropdown
                         value={li.product}
-                        onChange={(e) => updateLineItem(li.key, 'product', e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                        placeholder="Product *"
+                        onChange={(val) => updateLineItem(li.key, 'product', val)}
+                        options={getProductsForManufacturer(li.manufacturer)}
+                        placeholder={li.manufacturer ? 'Product *' : 'Select manufacturer first'}
+                        disabled={!li.manufacturer}
+                        onAddNew={li.manufacturer ? (name) => handleAddNewProduct(name, li.manufacturer) : undefined}
                       />
                     </div>
                     <div className="w-full sm:w-[35%]">
