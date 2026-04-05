@@ -61,7 +61,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isEstimatesActive = pathname === '/estimates'
   const isBillingActive = pathname === '/billing'
   const isMyWorkActive = pathname === '/my-work'
-  const isOfficeTasksActive = pathname === '/office-tasks'
+  const isOfficeActive = pathname === '/office' || pathname.startsWith('/office/')
 
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
   const userName = displayName || userEmail?.split('@')[0] || 'User'
@@ -262,6 +262,21 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         {/* Divider */}
         <div className="my-2 border-t border-gray-800 hidden md:block" />
 
+        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
+          <Link
+            href="/office"
+            onClick={() => setMobileOpen(false)}
+            className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isOfficeActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
+            Office
+          </Link>
+        )}
+
         <Link
           href="/estimates"
           onClick={() => setMobileOpen(false)}
@@ -301,20 +316,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           Job Takeoff
         </Link>
 
-        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
-          <Link
-            href="/office-tasks"
-            onClick={() => setMobileOpen(false)}
-            className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isOfficeTasksActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <Building2Icon className="w-5 h-5 flex-shrink-0" />
-            Office Tasks
-          </Link>
-        )}
 
       </nav>
 

@@ -226,130 +226,138 @@ export default function OfficeTasksPageClient({
   const totalIncomplete = tasks.filter((t) => !t.is_completed).length
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-3 flex-1">
+    <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+      <h1 className="text-2xl font-bold text-gray-900 mb-4">Office</h1>
+
+      {/* Dashboard grid — matches My Work layout */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+        {/* ── Tasks Card (spans 2 columns) ── */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+          {/* Card header */}
+          <div className="flex items-center gap-2 mb-3">
             <span className="text-amber-500">
-              <Building2Icon className="w-6 h-6" />
+              <Building2Icon className="w-5 h-5" />
             </span>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Office Tasks</h1>
-              <p className="text-xs text-gray-500">{totalIncomplete} active task{totalIncomplete !== 1 ? 's' : ''}</p>
-            </div>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">Tasks</h3>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
+              {totalIncomplete} active
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
+
+          {/* Search + New Task actions */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className="relative flex-1">
               <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search tasks..."
-                className="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400 w-48 sm:w-64"
+                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400"
               />
             </div>
-            {/* + New Task */}
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm flex-shrink-0"
             >
               <PlusIcon className="w-4 h-4" />
               New Task
             </button>
           </div>
-        </div>
-      </div>
 
-      {/* Content */}
-      <div className="p-4 sm:p-6 space-y-4">
-        {groupedByUser.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-12 text-center">
-            <Building2Icon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500 font-medium">
-              {searchQuery ? 'No tasks match your search' : 'No office tasks yet'}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              {searchQuery ? 'Try a different keyword' : 'Click "+ New Task" to create one'}
-            </p>
-          </div>
-        )}
-
-        {groupedByUser.map((group) => (
-          <div key={group.userId} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            {/* User section header */}
-            <div className="px-4 sm:px-5 py-3 bg-gray-50 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-bold text-amber-700">
-                    {group.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <h2 className="text-sm font-semibold text-gray-900 flex-1">{group.name}</h2>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
-                  {group.incomplete.length} active
-                </span>
-              </div>
-            </div>
-
-            {/* Incomplete tasks */}
-            <div className="divide-y divide-gray-50">
-              {group.incomplete.length === 0 && group.completed.length === 0 && (
-                <p className="px-5 py-6 text-sm text-gray-400 text-center">
-                  No tasks
+          {/* Task list content */}
+          <div className="space-y-3 max-h-[600px] overflow-y-auto -mx-4 px-4">
+            {groupedByUser.length === 0 && (
+              <div className="px-5 py-12 text-center">
+                <Building2Icon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500 font-medium">
+                  {searchQuery ? 'No tasks match your search' : 'No office tasks yet'}
                 </p>
-              )}
-              {group.incomplete.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  getDisplayName={getDisplayName}
-                  profiles={profiles}
-                  projects={projects}
-                  onToggle={toggleComplete}
-                  onUpdateField={updateField}
-                  onDelete={(id) => setDeleteConfirmId(id)}
-                />
-              ))}
-            </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  {searchQuery ? 'Try a different keyword' : 'Click "+ New Task" to create one'}
+                </p>
+              </div>
+            )}
 
-            {/* Completed section */}
-            {group.completed.length > 0 && (
-              <div className="border-t border-gray-100">
-                <button
-                  onClick={() => toggleCollapsedCompleted(group.userId)}
-                  className="w-full flex items-center gap-2 px-5 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  {!collapsedCompleted.has(group.userId) ? (
-                    <ChevronRightIcon className="w-4 h-4" />
-                  ) : (
-                    <ChevronDownIcon className="w-4 h-4" />
+            {groupedByUser.map((group) => (
+              <div key={group.userId} className="rounded-lg border border-gray-100 overflow-hidden">
+                {/* User section header */}
+                <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] font-bold text-amber-700">
+                        {group.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <h2 className="text-xs font-semibold text-gray-900 flex-1">{group.name}</h2>
+                    <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full font-medium">
+                      {group.incomplete.length} active
+                    </span>
+                  </div>
+                </div>
+
+                {/* Incomplete tasks */}
+                <div className="divide-y divide-gray-50">
+                  {group.incomplete.length === 0 && group.completed.length === 0 && (
+                    <p className="px-5 py-6 text-sm text-gray-400 text-center">
+                      No tasks
+                    </p>
                   )}
-                  Completed ({group.completed.length})
-                </button>
-                {collapsedCompleted.has(group.userId) && (
-                  <div className="divide-y divide-gray-50">
-                    {group.completed.map((task) => (
-                      <TaskRow
-                        key={task.id}
-                        task={task}
-                        getDisplayName={getDisplayName}
-                        profiles={profiles}
-                        projects={projects}
-                        onToggle={toggleComplete}
-                        onUpdateField={updateField}
-                        onDelete={(id) => setDeleteConfirmId(id)}
-                        completed
-                      />
-                    ))}
+                  {group.incomplete.map((task) => (
+                    <TaskRow
+                      key={task.id}
+                      task={task}
+                      getDisplayName={getDisplayName}
+                      profiles={profiles}
+                      projects={projects}
+                      onToggle={toggleComplete}
+                      onUpdateField={updateField}
+                      onDelete={(id) => setDeleteConfirmId(id)}
+                    />
+                  ))}
+                </div>
+
+                {/* Completed section */}
+                {group.completed.length > 0 && (
+                  <div className="border-t border-gray-100">
+                    <button
+                      onClick={() => toggleCollapsedCompleted(group.userId)}
+                      className="w-full flex items-center gap-2 px-5 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      {!collapsedCompleted.has(group.userId) ? (
+                        <ChevronRightIcon className="w-4 h-4" />
+                      ) : (
+                        <ChevronDownIcon className="w-4 h-4" />
+                      )}
+                      Completed ({group.completed.length})
+                    </button>
+                    {collapsedCompleted.has(group.userId) && (
+                      <div className="divide-y divide-gray-50">
+                        {group.completed.map((task) => (
+                          <TaskRow
+                            key={task.id}
+                            task={task}
+                            getDisplayName={getDisplayName}
+                            profiles={profiles}
+                            projects={projects}
+                            onToggle={toggleComplete}
+                            onUpdateField={updateField}
+                            onDelete={(id) => setDeleteConfirmId(id)}
+                            completed
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* Future dashboard cards can be added here alongside the Tasks card */}
+
       </div>
 
       {/* Create modal */}
