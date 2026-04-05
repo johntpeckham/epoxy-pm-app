@@ -3,10 +3,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PlusIcon, DownloadIcon, XIcon, EyeIcon, EyeOffIcon, ChevronRightIcon } from 'lucide-react'
-import { Project, FeedPost, PostType } from '@/types'
+import { Project, FeedPost, PostType, TimecardContent, DailyReportContent, JsaReportContent } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
 import PostCard from '@/components/feed/PostCard'
 import Portal from '@/components/ui/Portal'
+import TimecardCard from '@/components/timesheets/TimecardCard'
+import DailyReportCard from '@/components/daily-reports/DailyReportCard'
+import JsaReportCard from '@/components/jsa-reports/JsaReportCard'
 import NewDailyReportModal from '@/components/daily-reports/NewDailyReportModal'
 import NewTimecardModal from '@/components/timesheets/NewTimecardModal'
 import NewReceiptModal from '@/components/receipts/NewReceiptModal'
@@ -419,22 +422,52 @@ export default function FeedPostListWorkspace({
                     </button>
                   </div>
 
-                  {/* Inline expanded detail for timecards, daily reports, JSA reports */}
+                  {/* Inline expanded detail — render real card components */}
                   {useInlineExpand && (
                     <ExpandableDetail expanded={isExpanded}>
-                      <div className="border-t border-gray-100 bg-gray-50 p-4">
-                        <PostCard
-                          post={post}
-                          userId={userId}
-                          onPinToggle={() => {}}
-                          onDeleted={() => {
-                            setExpandedPostId(null)
-                            fetchPosts()
-                          }}
-                          onUpdated={() => {
-                            fetchPosts()
-                          }}
-                        />
+                      <div className="border-t border-gray-100">
+                        {post.post_type === 'timecard' && (
+                          <TimecardCard
+                            timecard={{
+                              id: post.id,
+                              project_id: post.project_id,
+                              created_at: post.created_at,
+                              content: post.content as TimecardContent,
+                              dynamic_fields: post.dynamic_fields,
+                              project_name: project.name,
+                            }}
+                            expandedId={post.id}
+                            onToggleExpand={() => handleToggleExpand(post.id)}
+                          />
+                        )}
+                        {post.post_type === 'daily_report' && (
+                          <DailyReportCard
+                            report={{
+                              id: post.id,
+                              project_id: post.project_id,
+                              created_at: post.created_at,
+                              content: post.content as DailyReportContent,
+                              dynamic_fields: post.dynamic_fields,
+                              project_name: project.name,
+                            }}
+                            expandedId={post.id}
+                            onToggleExpand={() => handleToggleExpand(post.id)}
+                          />
+                        )}
+                        {post.post_type === 'jsa_report' && (
+                          <JsaReportCard
+                            report={{
+                              id: post.id,
+                              project_id: post.project_id,
+                              created_at: post.created_at,
+                              content: post.content as JsaReportContent,
+                              dynamic_fields: post.dynamic_fields,
+                              project_name: project.name,
+                            }}
+                            expandedId={post.id}
+                            onToggleExpand={() => handleToggleExpand(post.id)}
+                          />
+                        )}
                       </div>
                     </ExpandableDetail>
                   )}
