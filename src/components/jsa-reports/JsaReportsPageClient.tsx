@@ -92,6 +92,11 @@ export default function JsaReportsPageClient({
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
   const [showCompleted, setShowCompleted] = useState(false)
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null)
+
+  function handleToggleExpand(id: string) {
+    setExpandedReportId((prev) => (prev === id ? null : id))
+  }
 
   const projectStatusMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -214,7 +219,7 @@ export default function JsaReportsPageClient({
                           </div>
                           <div className="divide-y divide-gray-100">
                             {reports.map((report) => (
-                              <JsaReportCard key={report.id} report={report} />
+                              <JsaReportCard key={report.id} report={report} expandedId={expandedReportId} onToggleExpand={handleToggleExpand} />
                             ))}
                           </div>
                         </div>
@@ -258,7 +263,7 @@ export default function JsaReportsPageClient({
                             </div>
                             <div className="divide-y divide-gray-100">
                               {reports.map((report) => (
-                                <JsaReportCard key={report.id} report={report} />
+                                <JsaReportCard key={report.id} report={report} expandedId={expandedReportId} onToggleExpand={handleToggleExpand} />
                               ))}
                             </div>
                           </div>
