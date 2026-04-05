@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { PackageIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
+import { PackageIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon, EyeIcon, EyeOffIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import { Project, Profile } from '@/types'
 import { moveToTrash } from '@/lib/trashBin'
 import WorkspaceShell from '../WorkspaceShell'
@@ -13,6 +13,15 @@ interface MaterialOrdersWorkspaceProps {
   project: Project
   userId: string
   onBack: () => void
+}
+
+interface LineItem {
+  id: string
+  order_id: string
+  manufacturer: string | null
+  product: string
+  quantity: number
+  created_at: string
 }
 
 interface MaterialOrder {
@@ -26,6 +35,7 @@ interface MaterialOrder {
   created_by: string
   created_at: string
   updated_at: string
+  line_items: LineItem[]
 }
 
 const STATUS_OPTIONS = ['Pending', 'Ordered', 'Delivered', 'Backordered'] as const
@@ -47,6 +57,7 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
   const [deletingOrder, setDeletingOrder] = useState<MaterialOrder | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
 
   const showError = (msg: string) => {
     setErrorMessage(msg)
@@ -57,15 +68,18 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
     const supabase = createClient()
     const { data, error } = await supabase
       .from('material_orders')
-      .select('*')
+      .select('*, material_order_line_items(*)')
       .eq('project_id', project.id)
       .order('created_at', { ascending: false })
     if (error) {
       console.error('[MaterialOrders] Fetch failed:', error)
       showError('Failed to load material orders: ' + error.message)
     }
-    // Sort by status priority then created_at
-    const sorted = ((data as MaterialOrder[]) ?? []).sort((a, b) => {
+    const raw = (data ?? []).map((row: Record<string, unknown>) => ({
+      ...row,
+      line_items: (row.material_order_line_items as LineItem[]) ?? [],
+    })) as MaterialOrder[]
+    const sorted = raw.sort((a, b) => {
       const sa = STATUS_SORT[a.status] ?? 9
       const sb = STATUS_SORT[b.status] ?? 9
       if (sa !== sb) return sa - sb
@@ -108,12 +122,20 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
     }
   }
 
+  const toggleExpanded = (orderId: string) => {
+    setExpandedOrders((prev) => {
+      const next = new Set(prev)
+      if (next.has(orderId)) next.delete(orderId)
+      else next.add(orderId)
+      return next
+    })
+  }
+
   const handleDelete = async () => {
     if (!deletingOrder) return
     setIsDeleting(true)
     const supabase = createClient()
 
-    // Snapshot the record for trash bin
     const { data: snapshot } = await supabase
       .from('material_orders')
       .select('*')
@@ -136,6 +158,14 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
     }
     setIsDeleting(false)
     setDeletingOrder(null)
+  }
+
+  function lineItemSummary(order: MaterialOrder) {
+    const items = order.line_items
+    if (items.length === 0) return order.name || 'No items'
+    const names = items.slice(0, 3).map((li) => li.product)
+    const suffix = items.length > 3 ? ` +${items.length - 3} more` : ''
+    return names.join(', ') + suffix
   }
 
   return (
@@ -183,56 +213,99 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
             <p className="text-xs text-gray-400 mb-1">{orders.length} order{orders.length === 1 ? '' : 's'}</p>
             {orders.map((order) => {
               const cfg = STATUS_CONFIG[order.status] ?? { bg: 'bg-gray-100', text: 'text-gray-800' }
+              const isExpanded = expandedOrders.has(order.id)
               return (
                 <div
                   key={order.id}
-                  className={`bg-white rounded-xl border border-gray-200 p-3 hover:shadow-sm hover:border-gray-300 transition-all ${
+                  className={`bg-white rounded-xl border border-gray-200 hover:shadow-sm hover:border-gray-300 transition-all ${
                     !order.is_published ? 'opacity-60' : ''
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm font-semibold text-gray-900 truncate">{order.name}</h4>
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.text}`}>
-                          {order.status}
-                        </span>
-                        {!order.is_published && (
-                          <span className="text-xs text-gray-400 italic">Hidden from feed</span>
-                        )}
+                  <div className="p-3">
+                    <div className="flex items-start gap-3">
+                      <button
+                        onClick={() => toggleExpanded(order.id)}
+                        className="mt-0.5 p-0.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                      >
+                        {isExpanded
+                          ? <ChevronDownIcon className="w-4 h-4" />
+                          : <ChevronRightIcon className="w-4 h-4" />
+                        }
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+                            {order.status}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {order.line_items.length} item{order.line_items.length !== 1 ? 's' : ''}
+                          </span>
+                          {!order.is_published && (
+                            <span className="text-xs text-gray-400 italic">Hidden from feed</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-700 mt-0.5 truncate">{lineItemSummary(order)}</p>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                          <span>Assigned: {getAssigneeName(order.assigned_to)}</span>
+                          <span>{new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                        <span>Assigned: {getAssigneeName(order.assigned_to)}</span>
-                        <span>{new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => togglePublished(order)}
+                          className={`p-1.5 rounded transition ${order.is_published ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-300 hover:bg-gray-100'}`}
+                          title={order.is_published ? 'Published — visible in Job Feed' : 'Hidden — not visible in Job Feed'}
+                        >
+                          {order.is_published ? <EyeIcon className="w-4 h-4" /> : <EyeOffIcon className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => setEditingOrder(order)}
+                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition"
+                          title="Edit"
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeletingOrder(order)}
+                          className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition"
+                          title="Delete"
+                        >
+                          <Trash2Icon className="w-4 h-4" />
+                        </button>
                       </div>
-                      {order.notes && (
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{order.notes}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => togglePublished(order)}
-                        className={`p-1.5 rounded transition ${order.is_published ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-300 hover:bg-gray-100'}`}
-                        title={order.is_published ? 'Published — visible in Job Feed' : 'Hidden — not visible in Job Feed'}
-                      >
-                        {order.is_published ? <EyeIcon className="w-4 h-4" /> : <EyeOffIcon className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={() => setEditingOrder(order)}
-                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition"
-                        title="Edit"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeletingOrder(order)}
-                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition"
-                        title="Delete"
-                      >
-                        <Trash2Icon className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
+
+                  {/* Expanded line items */}
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 px-3 py-2">
+                      {order.notes && (
+                        <p className="text-xs text-gray-500 mb-2 italic">{order.notes}</p>
+                      )}
+                      {order.line_items.length === 0 ? (
+                        <p className="text-xs text-gray-400 py-2">No line items</p>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-gray-400 uppercase tracking-wide">
+                              <th className="text-left py-1 font-semibold">Manufacturer</th>
+                              <th className="text-left py-1 font-semibold">Product</th>
+                              <th className="text-right py-1 font-semibold pr-1">Qty</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-gray-700">
+                            {order.line_items.map((li) => (
+                              <tr key={li.id} className="border-t border-gray-50">
+                                <td className="py-1.5 text-gray-500">{li.manufacturer || '—'}</td>
+                                <td className="py-1.5">{li.product}</td>
+                                <td className="py-1.5 text-right pr-1 tabular-nums">{li.quantity}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -264,7 +337,7 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
       {deletingOrder && (
         <ConfirmDialog
           title="Delete Material Order"
-          message={`Are you sure you want to delete "${deletingOrder.name}"?`}
+          message={`Are you sure you want to delete this order with ${deletingOrder.line_items.length} item${deletingOrder.line_items.length !== 1 ? 's' : ''}?`}
           onConfirm={handleDelete}
           onCancel={() => setDeletingOrder(null)}
           loading={isDeleting}
@@ -272,6 +345,19 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
       )}
     </WorkspaceShell>
   )
+}
+
+/* ── Line item form row type ─────────────────────────────────────── */
+
+interface LineItemRow {
+  key: string // client-side key for React
+  manufacturer: string
+  product: string
+  quantity: string
+}
+
+function emptyRow(): LineItemRow {
+  return { key: crypto.randomUUID(), manufacturer: '', product: '', quantity: '1' }
 }
 
 /* ── Material Order Modal (Create / Edit) ──────────────────────────── */
@@ -291,7 +377,6 @@ function MaterialOrderModal({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [name, setName] = useState(existing?.name ?? '')
   const [status, setStatus] = useState(existing?.status ?? 'Pending')
   const [assignedTo, setAssignedTo] = useState(existing?.assigned_to ?? '')
   const [notes, setNotes] = useState(existing?.notes ?? '')
@@ -299,19 +384,62 @@ function MaterialOrderModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const [lineItems, setLineItems] = useState<LineItemRow[]>(() => {
+    if (existing && existing.line_items.length > 0) {
+      return existing.line_items.map((li) => ({
+        key: li.id,
+        manufacturer: li.manufacturer ?? '',
+        product: li.product,
+        quantity: String(li.quantity),
+      }))
+    }
+    return [emptyRow()]
+  })
+
   const isEdit = !!existing
 
+  function updateLineItem(key: string, field: keyof LineItemRow, value: string) {
+    setLineItems((prev) => prev.map((li) => li.key === key ? { ...li, [field]: value } : li))
+  }
+
+  function addLineItem() {
+    setLineItems((prev) => [...prev, emptyRow()])
+  }
+
+  function removeLineItem(key: string) {
+    if (lineItems.length <= 1) return
+    setLineItems((prev) => prev.filter((li) => li.key !== key))
+  }
+
   const handleSubmit = async () => {
-    if (!name.trim()) { setError('Name is required'); return }
+    // Validate: at least one line item with a product
+    const validItems = lineItems.filter((li) => li.product.trim())
+    if (validItems.length === 0) {
+      setError('At least one line item with a product name is required')
+      return
+    }
+    for (const li of validItems) {
+      const qty = parseFloat(li.quantity)
+      if (isNaN(qty) || qty <= 0) {
+        setError(`Invalid quantity for "${li.product}"`)
+        return
+      }
+    }
+
     setSaving(true)
     setError('')
     const supabase = createClient()
 
+    // Build a summary name from line items for the order's name field
+    const summaryName = validItems.slice(0, 3).map((li) => li.product.trim()).join(', ')
+      + (validItems.length > 3 ? ` +${validItems.length - 3} more` : '')
+
     if (isEdit) {
+      // Update order fields
       const { error: updateErr } = await supabase
         .from('material_orders')
         .update({
-          name: name.trim(),
+          name: summaryName,
           status,
           assigned_to: assignedTo || null,
           notes: notes.trim() || null,
@@ -319,18 +447,44 @@ function MaterialOrderModal({
         })
         .eq('id', existing.id)
       if (updateErr) { setError('Failed to update order: ' + updateErr.message); setSaving(false); return }
+
+      // Replace line items: delete old, insert new
+      await supabase.from('material_order_line_items').delete().eq('order_id', existing.id)
+      const { error: liErr } = await supabase.from('material_order_line_items').insert(
+        validItems.map((li) => ({
+          order_id: existing.id,
+          manufacturer: li.manufacturer.trim() || null,
+          product: li.product.trim(),
+          quantity: parseFloat(li.quantity),
+        }))
+      )
+      if (liErr) { setError('Failed to update line items: ' + liErr.message); setSaving(false); return }
     } else {
-      const { error: insertErr } = await supabase
+      // Create order
+      const { data: newOrder, error: insertErr } = await supabase
         .from('material_orders')
         .insert({
           project_id: project.id,
-          name: name.trim(),
+          name: summaryName,
           status,
           assigned_to: assignedTo || null,
           notes: notes.trim() || null,
           created_by: userId,
         })
-      if (insertErr) { setError('Failed to create order: ' + insertErr.message); setSaving(false); return }
+        .select('id')
+        .single()
+      if (insertErr || !newOrder) { setError('Failed to create order: ' + (insertErr?.message ?? 'Unknown error')); setSaving(false); return }
+
+      // Insert line items
+      const { error: liErr } = await supabase.from('material_order_line_items').insert(
+        validItems.map((li) => ({
+          order_id: newOrder.id,
+          manufacturer: li.manufacturer.trim() || null,
+          product: li.product.trim(),
+          quantity: parseFloat(li.quantity),
+        }))
+      )
+      if (liErr) { setError('Failed to create line items: ' + liErr.message); setSaving(false); return }
 
       // Optionally create a linked task
       if (createTask) {
@@ -338,7 +492,7 @@ function MaterialOrderModal({
           project_id: project.id,
           created_by: userId,
           assigned_to: assignedTo || null,
-          title: `Order: ${name.trim()}`,
+          title: `Order: ${summaryName}`,
           description: notes.trim() || null,
           status: 'new_task',
         })
@@ -352,21 +506,18 @@ function MaterialOrderModal({
     <Portal>
       <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50" onClick={onClose}>
         <div
-          className="bg-white w-full sm:max-w-lg sm:rounded-xl rounded-t-xl max-h-[85vh] overflow-y-auto"
+          className="bg-white w-full sm:max-w-lg sm:rounded-xl rounded-t-xl max-h-[85vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
             <h3 className="text-base font-bold text-gray-900">{isEdit ? 'Edit Order' : 'New Material Order'}</h3>
             <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><XIcon className="w-5 h-5" /></button>
           </div>
-          <div className="p-4 space-y-4">
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Name / Description *</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="e.g. 50 gal Epoxy Primer" />
-            </div>
-
+            {/* ── Order details ──────────────────────────── */}
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Status</label>
               <div className="flex flex-wrap gap-2">
@@ -399,7 +550,55 @@ function MaterialOrderModal({
 
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" placeholder="Optional notes..." />
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" placeholder="Optional notes..." />
+            </div>
+
+            {/* ── Line items ──────────────────────────────── */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Line Items</label>
+              <div className="space-y-2">
+                {lineItems.map((li, idx) => (
+                  <div key={li.key} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-gray-50 rounded-lg p-2.5">
+                    <input
+                      value={li.manufacturer}
+                      onChange={(e) => updateLineItem(li.key, 'manufacturer', e.target.value)}
+                      className="w-full sm:w-[140px] border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                      placeholder="Manufacturer"
+                    />
+                    <input
+                      value={li.product}
+                      onChange={(e) => updateLineItem(li.key, 'product', e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                      placeholder="Product *"
+                    />
+                    <input
+                      value={li.quantity}
+                      onChange={(e) => updateLineItem(li.key, 'quantity', e.target.value)}
+                      type="number"
+                      min="0"
+                      step="any"
+                      className="w-full sm:w-[80px] border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-right tabular-nums"
+                      placeholder="Qty"
+                    />
+                    <button
+                      onClick={() => removeLineItem(li.key)}
+                      disabled={lineItems.length <= 1}
+                      className="self-center p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+                      title={lineItems.length <= 1 ? 'Cannot remove last item' : `Remove item ${idx + 1}`}
+                    >
+                      <Trash2Icon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={addLineItem}
+                className="mt-2 flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 font-medium"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add Item
+              </button>
             </div>
 
             {!isEdit && (
@@ -414,7 +613,8 @@ function MaterialOrderModal({
               </label>
             )}
           </div>
-          <div className="px-4 py-3 border-t border-gray-200 flex justify-end gap-2">
+
+          <div className="px-4 py-3 border-t border-gray-200 flex justify-end gap-2 flex-shrink-0">
             <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Cancel</button>
             <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50">
               {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Order'}
