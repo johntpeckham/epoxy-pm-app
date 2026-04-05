@@ -517,6 +517,60 @@ function MaterialOrderModal({
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
 
+            {/* ── Line items ──────────────────────────────── */}
+            <div>
+              <div className="space-y-2">
+                {lineItems.map((li, idx) => (
+                  <div key={li.key} className="flex flex-col sm:flex-row sm:items-end gap-2 bg-gray-50 rounded-lg p-2.5">
+                    <div className="w-full sm:w-[140px]">
+                      {idx === 0 && <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Manufacturer</label>}
+                      <input
+                        value={li.manufacturer}
+                        onChange={(e) => updateLineItem(li.key, 'manufacturer', e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                        placeholder="Manufacturer"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      {idx === 0 && <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Product</label>}
+                      <input
+                        value={li.product}
+                        onChange={(e) => updateLineItem(li.key, 'product', e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                        placeholder="Product *"
+                      />
+                    </div>
+                    <div className="w-full sm:w-[80px]">
+                      {idx === 0 && <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty</label>}
+                      <input
+                        value={li.quantity}
+                        onChange={(e) => updateLineItem(li.key, 'quantity', e.target.value)}
+                        inputMode="decimal"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-right tabular-nums"
+                        placeholder="Qty"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removeLineItem(li.key)}
+                      disabled={lineItems.length <= 1}
+                      className="self-center p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+                      title={lineItems.length <= 1 ? 'Cannot remove last item' : `Remove item ${idx + 1}`}
+                    >
+                      <Trash2Icon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={addLineItem}
+                className="mt-2 flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 font-medium"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add Item
+              </button>
+            </div>
+
             {/* ── Order details ──────────────────────────── */}
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Status</label>
@@ -551,54 +605,6 @@ function MaterialOrderModal({
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</label>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" placeholder="Optional notes..." />
-            </div>
-
-            {/* ── Line items ──────────────────────────────── */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Line Items</label>
-              <div className="space-y-2">
-                {lineItems.map((li, idx) => (
-                  <div key={li.key} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-gray-50 rounded-lg p-2.5">
-                    <input
-                      value={li.manufacturer}
-                      onChange={(e) => updateLineItem(li.key, 'manufacturer', e.target.value)}
-                      className="w-full sm:w-[140px] border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                      placeholder="Manufacturer"
-                    />
-                    <input
-                      value={li.product}
-                      onChange={(e) => updateLineItem(li.key, 'product', e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                      placeholder="Product *"
-                    />
-                    <input
-                      value={li.quantity}
-                      onChange={(e) => updateLineItem(li.key, 'quantity', e.target.value)}
-                      type="number"
-                      min="0"
-                      step="any"
-                      className="w-full sm:w-[80px] border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-right tabular-nums"
-                      placeholder="Qty"
-                    />
-                    <button
-                      onClick={() => removeLineItem(li.key)}
-                      disabled={lineItems.length <= 1}
-                      className="self-center p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-                      title={lineItems.length <= 1 ? 'Cannot remove last item' : `Remove item ${idx + 1}`}
-                    >
-                      <Trash2Icon className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={addLineItem}
-                className="mt-2 flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 font-medium"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Add Item
-              </button>
             </div>
 
             {!isEdit && (
