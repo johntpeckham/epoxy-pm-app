@@ -4,12 +4,18 @@ import { createClient } from '@/lib/supabase/server'
 import { PhotoContent, DailyReportContent, Project } from '@/types'
 import PhotosPageClient from '@/components/photos/PhotosPageClient'
 
+export interface PhotoItem {
+  path: string       // storage path
+  postId: string     // feed_posts.id this photo belongs to
+  postType: string   // 'photo' | 'daily_report'
+}
+
 export interface PhotoEntry {
   postId: string
   projectId: string
   projectName: string
   date: string // YYYY-MM-DD
-  photos: string[] // storage paths
+  photos: PhotoItem[] // storage paths with metadata
 }
 
 export default async function PhotosPage() {
@@ -53,10 +59,16 @@ export default async function PhotosPage() {
       const projectName =
         (row.projects as unknown as { name: string } | null)?.name ?? 'Unknown Project'
 
-      const photos =
+      const rawPhotos =
         row.post_type === 'photo'
           ? (row.content as PhotoContent).photos
           : (row.content as DailyReportContent).photos ?? []
+
+      const photos: PhotoItem[] = rawPhotos.map((p) => ({
+        path: p,
+        postId: row.id,
+        postType: row.post_type,
+      }))
 
       // Use the report date for daily reports, otherwise the post creation date
       const date =
