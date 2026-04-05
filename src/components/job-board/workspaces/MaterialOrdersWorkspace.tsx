@@ -502,9 +502,13 @@ function MaterialOrderModal({
   }
 
   return (
-      <div className="absolute inset-0 z-30 flex items-end sm:items-center justify-center bg-black/50" onClick={onClose}>
+    <>
+      {/* Full-viewport backdrop */}
+      <div className="fixed inset-0 z-[60] bg-black/50" onClick={onClose} />
+      {/* Modal positioned within workspace */}
+      <div className="absolute inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none">
         <div
-          className="bg-white w-full sm:max-w-[900px] sm:w-[90%] sm:rounded-xl rounded-t-xl max-h-[85%] flex flex-col"
+          className="bg-white w-full sm:max-w-[900px] sm:w-[90%] sm:rounded-xl rounded-t-xl max-h-[85%] flex flex-col pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
@@ -626,5 +630,6 @@ function MaterialOrderModal({
           </div>
         </div>
       </div>
+    </>
   )
 }
