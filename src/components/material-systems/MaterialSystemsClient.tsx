@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeftIcon, LayersIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
+import { ArrowLeftIcon, LayersIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon, ChevronDownIcon, ChevronRightIcon, FactoryIcon } from 'lucide-react'
 import { useMaterialSystems } from '@/lib/useMaterialSystems'
 import type { MaterialSystemInput } from '@/lib/useMaterialSystems'
+import { useManufacturers } from '@/lib/useManufacturers'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 interface ItemRow {
   material_name: string
@@ -350,7 +352,395 @@ export default function MaterialSystemsClient() {
             </div>
           )}
         </div>
+
+        {/* ── Manufacturers & Products ──────────────────────────── */}
+        <ManufacturersSection />
       </div>
     </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Manufacturers & Products Section
+   ════════════════════════════════════════════════════════════════ */
+
+function ManufacturersSection() {
+  const {
+    manufacturers,
+    loading,
+    addManufacturer,
+    updateManufacturer,
+    deleteManufacturer,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+  } = useManufacturers()
+
+  const [addingMfr, setAddingMfr] = useState(false)
+  const [addMfrName, setAddMfrName] = useState('')
+  const [addMfrError, setAddMfrError] = useState('')
+  const [savingMfr, setSavingMfr] = useState(false)
+
+  const [expandedMfrs, setExpandedMfrs] = useState<Set<string>>(new Set())
+  const [editingMfrId, setEditingMfrId] = useState<string | null>(null)
+  const [editMfrName, setEditMfrName] = useState('')
+  const [editMfrError, setEditMfrError] = useState('')
+
+  const [deletingMfr, setDeletingMfr] = useState<{ id: string; name: string; productCount: number } | null>(null)
+  const [deletingProduct, setDeletingProduct] = useState<{ id: string; manufacturerId: string; name: string } | null>(null)
+
+  const [addingProductMfrId, setAddingProductMfrId] = useState<string | null>(null)
+  const [addProductName, setAddProductName] = useState('')
+  const [addProductError, setAddProductError] = useState('')
+  const [savingProduct, setSavingProduct] = useState(false)
+
+  const [editingProductId, setEditingProductId] = useState<string | null>(null)
+  const [editProductName, setEditProductName] = useState('')
+  const [editProductError, setEditProductError] = useState('')
+
+  const addMfrInputRef = useRef<HTMLInputElement>(null)
+  const addProductInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (addingMfr) addMfrInputRef.current?.focus()
+  }, [addingMfr])
+
+  useEffect(() => {
+    if (addingProductMfrId) addProductInputRef.current?.focus()
+  }, [addingProductMfrId])
+
+  const toggleExpanded = (id: string) => {
+    setExpandedMfrs((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleAddMfr = async () => {
+    if (!addMfrName.trim()) return
+    setSavingMfr(true)
+    setAddMfrError('')
+    const result = await addManufacturer(addMfrName)
+    if (typeof result === 'string') {
+      setAddMfrError(result)
+      setSavingMfr(false)
+      return
+    }
+    // Auto-expand newly added manufacturer
+    setExpandedMfrs((prev) => new Set(prev).add(result.id))
+    setAddMfrName('')
+    setAddingMfr(false)
+    setSavingMfr(false)
+  }
+
+  const handleSaveEditMfr = async (id: string) => {
+    if (!editMfrName.trim()) return
+    setEditMfrError('')
+    const result = await updateManufacturer(id, editMfrName)
+    if (result !== true) {
+      setEditMfrError(result)
+      return
+    }
+    setEditingMfrId(null)
+  }
+
+  const handleAddProduct = async (manufacturerId: string) => {
+    if (!addProductName.trim()) return
+    setSavingProduct(true)
+    setAddProductError('')
+    const result = await addProduct(manufacturerId, addProductName)
+    if (typeof result === 'string') {
+      setAddProductError(result)
+      setSavingProduct(false)
+      return
+    }
+    setAddProductName('')
+    setAddingProductMfrId(null)
+    setSavingProduct(false)
+  }
+
+  const handleSaveEditProduct = async (productId: string, manufacturerId: string) => {
+    if (!editProductName.trim()) return
+    setEditProductError('')
+    const result = await updateProduct(productId, manufacturerId, editProductName)
+    if (result !== true) {
+      setEditProductError(result)
+      return
+    }
+    setEditingProductId(null)
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mt-6">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Manufacturers &amp; Products ({manufacturers.length})
+          </h2>
+          {!addingMfr && (
+            <button
+              onClick={() => { setAddingMfr(true); setAddMfrName(''); setAddMfrError('') }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              Add Manufacturer
+            </button>
+          )}
+        </div>
+
+        {/* Add manufacturer inline form */}
+        {addingMfr && (
+          <div className="px-6 py-4 border-b border-gray-100">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Manufacturer Name <span className="text-red-400">*</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                ref={addMfrInputRef}
+                type="text"
+                value={addMfrName}
+                onChange={(e) => setAddMfrName(e.target.value)}
+                placeholder="e.g. Sika, Euclid, Dur-A-Flex..."
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddMfr()
+                  if (e.key === 'Escape') { setAddingMfr(false); setAddMfrError('') }
+                }}
+              />
+              <button
+                onClick={handleAddMfr}
+                disabled={!addMfrName.trim() || savingMfr}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+              >
+                {savingMfr ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                onClick={() => { setAddingMfr(false); setAddMfrError('') }}
+                className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 transition"
+              >
+                Cancel
+              </button>
+            </div>
+            {addMfrError && <p className="text-xs text-red-500 mt-1">{addMfrError}</p>}
+          </div>
+        )}
+
+        {/* List */}
+        {loading ? (
+          <div className="px-6 py-12 text-center text-sm text-gray-400">Loading...</div>
+        ) : manufacturers.length === 0 && !addingMfr ? (
+          <div className="px-6 py-12 text-center">
+            <FactoryIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No manufacturers yet.</p>
+            <p className="text-xs text-gray-400 mt-1">Click &quot;Add Manufacturer&quot; to create your first one.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {manufacturers.map((mfr) => {
+              const isExpanded = expandedMfrs.has(mfr.id)
+              const isEditing = editingMfrId === mfr.id
+              return (
+                <div key={mfr.id} className="group">
+                  {/* Manufacturer header */}
+                  <div className="px-6 py-3 flex items-center gap-2 hover:bg-gray-50 transition">
+                    <button
+                      onClick={() => toggleExpanded(mfr.id)}
+                      className="p-0.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                    >
+                      {isExpanded
+                        ? <ChevronDownIcon className="w-4 h-4" />
+                        : <ChevronRightIcon className="w-4 h-4" />
+                      }
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <div>
+                          <input
+                            type="text"
+                            value={editMfrName}
+                            onChange={(e) => setEditMfrName(e.target.value)}
+                            className="w-full border border-gray-200 rounded-lg px-2.5 py-1 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveEditMfr(mfr.id)
+                              if (e.key === 'Escape') { setEditingMfrId(null); setEditMfrError('') }
+                            }}
+                            onBlur={() => {
+                              if (editMfrName.trim() && editMfrName.trim() !== mfr.name) {
+                                handleSaveEditMfr(mfr.id)
+                              } else {
+                                setEditingMfrId(null)
+                                setEditMfrError('')
+                              }
+                            }}
+                          />
+                          {editMfrError && <p className="text-xs text-red-500 mt-0.5">{editMfrError}</p>}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900">{mfr.name}</span>
+                          <span className="text-xs text-gray-400">
+                            {mfr.products.length} product{mfr.products.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {!isEditing && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => { setEditingMfrId(mfr.id); setEditMfrName(mfr.name); setEditMfrError('') }}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-amber-600 transition-all"
+                          title="Edit manufacturer"
+                        >
+                          <PencilIcon className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeletingMfr({ id: mfr.id, name: mfr.name, productCount: mfr.products.length })}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
+                          title="Delete manufacturer"
+                        >
+                          <Trash2Icon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Expanded products */}
+                  {isExpanded && (
+                    <div className="pl-12 pr-6 pb-3">
+                      {mfr.products.length === 0 && !addingProductMfrId ? (
+                        <p className="text-xs text-gray-400 py-1">No products yet.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {mfr.products.map((product) => {
+                            const isEditingProduct = editingProductId === product.id
+                            return (
+                              <div key={product.id} className="flex items-center gap-2 group/product py-0.5">
+                                {isEditingProduct ? (
+                                  <div className="flex-1">
+                                    <input
+                                      type="text"
+                                      value={editProductName}
+                                      onChange={(e) => setEditProductName(e.target.value)}
+                                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSaveEditProduct(product.id, mfr.id)
+                                        if (e.key === 'Escape') { setEditingProductId(null); setEditProductError('') }
+                                      }}
+                                      onBlur={() => {
+                                        if (editProductName.trim() && editProductName.trim() !== product.name) {
+                                          handleSaveEditProduct(product.id, mfr.id)
+                                        } else {
+                                          setEditingProductId(null)
+                                          setEditProductError('')
+                                        }
+                                      }}
+                                    />
+                                    {editProductError && <p className="text-xs text-red-500 mt-0.5">{editProductError}</p>}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="text-sm text-gray-700 flex-1">{product.name}</span>
+                                    <button
+                                      onClick={() => { setEditingProductId(product.id); setEditProductName(product.name); setEditProductError('') }}
+                                      className="opacity-0 group-hover/product:opacity-100 p-1 text-gray-400 hover:text-amber-600 transition-all"
+                                      title="Edit product"
+                                    >
+                                      <PencilIcon className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeletingProduct({ id: product.id, manufacturerId: mfr.id, name: product.name })}
+                                      className="opacity-0 group-hover/product:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
+                                      title="Delete product"
+                                    >
+                                      <Trash2Icon className="w-3 h-3" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* Add product inline form */}
+                      {addingProductMfrId === mfr.id ? (
+                        <div className="mt-2">
+                          <div className="flex gap-2">
+                            <input
+                              ref={addProductInputRef}
+                              type="text"
+                              value={addProductName}
+                              onChange={(e) => setAddProductName(e.target.value)}
+                              placeholder="Product name"
+                              className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAddProduct(mfr.id)
+                                if (e.key === 'Escape') { setAddingProductMfrId(null); setAddProductError('') }
+                              }}
+                            />
+                            <button
+                              onClick={() => handleAddProduct(mfr.id)}
+                              disabled={!addProductName.trim() || savingProduct}
+                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition"
+                            >
+                              {savingProduct ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={() => { setAddingProductMfrId(null); setAddProductError('') }}
+                              className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700 transition"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          {addProductError && <p className="text-xs text-red-500 mt-1">{addProductError}</p>}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setAddingProductMfrId(mfr.id); setAddProductName(''); setAddProductError('') }}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 mt-2 transition-colors"
+                        >
+                          <PlusIcon className="w-3.5 h-3.5" />
+                          Add Product
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Delete manufacturer confirmation */}
+      {deletingMfr && (
+        <ConfirmDialog
+          title="Delete Manufacturer"
+          message={`Delete "${deletingMfr.name}" and all its ${deletingMfr.productCount} product${deletingMfr.productCount !== 1 ? 's' : ''}? This cannot be undone.`}
+          onConfirm={async () => {
+            await deleteManufacturer(deletingMfr.id)
+            setDeletingMfr(null)
+          }}
+          onCancel={() => setDeletingMfr(null)}
+        />
+      )}
+
+      {/* Delete product confirmation */}
+      {deletingProduct && (
+        <ConfirmDialog
+          title="Delete Product"
+          message={`Delete "${deletingProduct.name}"?`}
+          onConfirm={async () => {
+            await deleteProduct(deletingProduct.id, deletingProduct.manufacturerId)
+            setDeletingProduct(null)
+          }}
+          onCancel={() => setDeletingProduct(null)}
+        />
+      )}
+    </>
   )
 }
