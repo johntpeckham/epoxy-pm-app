@@ -86,7 +86,7 @@ export default function FeedPostListWorkspace({
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null)
-  const [expandedPostId, setExpandedPostId] = useState<string | null>(null)
+  const [expandedPostIds, setExpandedPostIds] = useState<Set<string>>(new Set())
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
@@ -100,7 +100,15 @@ export default function FeedPostListWorkspace({
   const useInlineExpand = INLINE_EXPAND_TYPES.includes(postTypes[0])
 
   function handleToggleExpand(id: string) {
-    setExpandedPostId((prev) => (prev === id ? null : id))
+    setExpandedPostIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
   }
 
   const fetchPosts = useCallback(async () => {
@@ -136,6 +144,15 @@ export default function FeedPostListWorkspace({
           post.author_avatar_url = profile.avatar_url ?? undefined
         }
       }
+    }
+
+    // Sort inline-expand types by content date (newest first) instead of created_at
+    if (INLINE_EXPAND_TYPES.includes(postTypes[0])) {
+      postsData.sort((a, b) => {
+        const dateA = (a.content as PostContent).date ?? ''
+        const dateB = (b.content as PostContent).date ?? ''
+        return dateB.localeCompare(dateA)
+      })
     }
 
     setPosts(postsData)
@@ -376,7 +393,7 @@ export default function FeedPostListWorkspace({
             )}
             {posts.map((post) => {
               const published = (post as FeedPost & { is_published?: boolean }).is_published !== false
-              const isExpanded = useInlineExpand && expandedPostId === post.id
+              const isExpanded = useInlineExpand && expandedPostIds.has(post.id)
               return (
                 <div
                   key={post.id}
@@ -413,13 +430,15 @@ export default function FeedPostListWorkspace({
                         <p className="text-xs text-gray-400 mt-0.5">{getListItemMeta(post)}</p>
                       </button>
                     )}
-                    <button
-                      onClick={() => togglePublished(post)}
-                      className={`p-1.5 rounded transition flex-shrink-0 ${published ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-300 hover:bg-gray-100'}`}
-                      title={published ? 'Published — visible in Job Feed' : 'Hidden — not visible in Job Feed'}
-                    >
-                      {published ? <EyeIcon className="w-4 h-4" /> : <EyeOffIcon className="w-4 h-4" />}
-                    </button>
+                    {!useInlineExpand && (
+                      <button
+                        onClick={() => togglePublished(post)}
+                        className={`p-1.5 rounded transition flex-shrink-0 ${published ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-300 hover:bg-gray-100'}`}
+                        title={published ? 'Published — visible in Job Feed' : 'Hidden — not visible in Job Feed'}
+                      >
+                        {published ? <EyeIcon className="w-4 h-4" /> : <EyeOffIcon className="w-4 h-4" />}
+                      </button>
+                    )}
                   </div>
 
                   {/* Inline expanded detail — render real card components */}
