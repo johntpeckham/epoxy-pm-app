@@ -1094,21 +1094,6 @@ function InlinePdfPost({ content }: { content: PdfContent }) {
   const publicUrl = supabase.storage.from('post-photos').getPublicUrl(content.file_url).data.publicUrl
   const [showPreview, setShowPreview] = useState(false)
 
-  function handleDownload() {
-    const a = document.createElement('a')
-    a.href = publicUrl
-    a.download = content.filename
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-  }
-
-  function handlePrint() {
-    window.open(publicUrl, '_blank')
-  }
-
   return (
     <>
       <div className="mt-1 space-y-1.5">
@@ -1122,23 +1107,6 @@ function InlinePdfPost({ content }: { content: PdfContent }) {
         {content.caption && (
           <p className="text-xs text-gray-400">{content.caption}</p>
         )}
-        {/* Action buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-amber-700 hover:bg-gray-100 transition"
-          >
-            <DownloadIcon className="w-3 h-3" />
-            Download
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-amber-700 hover:bg-gray-100 transition"
-          >
-            <PrinterIcon className="w-3 h-3" />
-            Print
-          </button>
-        </div>
       </div>
 
       {/* PDF preview modal */}
@@ -1416,9 +1384,30 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const initials = post.author_email ? getInitials(post.author_email) : 'U'
   const isText = post.post_type === 'text'
 
+  // PDF file download/print helpers (for pdf post type — direct file, not generated report)
+  function handlePdfFileDownload() {
+    if (post.post_type !== 'pdf') return
+    const url = supabase.storage.from('post-photos').getPublicUrl((post.content as PdfContent).file_url).data.publicUrl
+    const a = document.createElement('a')
+    a.href = url
+    a.download = (post.content as PdfContent).filename
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  function handlePdfFilePrint() {
+    if (post.post_type !== 'pdf') return
+    const url = supabase.storage.from('post-photos').getPublicUrl((post.content as PdfContent).file_url).data.publicUrl
+    window.open(url, '_blank')
+  }
+
   // ── Action buttons (shared) ──────────────────────────────────────────────
   const actionButtons = (
     <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex-shrink-0">
+      {/* Download PDF (generated report for structured posts, direct file for pdf posts) */}
       {(post.post_type === 'daily_report' || post.post_type === 'jsa_report' || post.post_type === 'receipt' || post.post_type === 'timecard') && (
         <button
           onClick={handleDownloadPdf}
@@ -1429,6 +1418,25 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           <DownloadIcon className="w-3.5 h-3.5" />
         </button>
       )}
+      {post.post_type === 'pdf' && (
+        <>
+          <button
+            onClick={handlePdfFileDownload}
+            title="Download file"
+            className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
+          >
+            <DownloadIcon className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handlePdfFilePrint}
+            title="Print / open in new tab"
+            className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
+          >
+            <PrinterIcon className="w-3.5 h-3.5" />
+          </button>
+        </>
+      )}
+      {/* Edit (text, daily_report, jsa_report, receipt, timecard, photo) */}
       {(post.post_type === 'text' || post.post_type === 'daily_report' || post.post_type === 'jsa_report' || post.post_type === 'receipt' || post.post_type === 'timecard') && (
         <button
           onClick={() => {
@@ -1446,6 +1454,15 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
             }
           }}
           title="Edit post"
+          className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
+        >
+          <PencilIcon className="w-3.5 h-3.5" />
+        </button>
+      )}
+      {post.post_type === 'photo' && (
+        <button
+          onClick={() => setPhotoEditMode(true)}
+          title="Edit photos"
           className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
         >
           <PencilIcon className="w-3.5 h-3.5" />
@@ -1650,19 +1667,6 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
                     ? `${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`
                     : 'Comment'}
                 </button>
-                {post.post_type === 'photo' && !photoEditMode && (
-                  <>
-                    <span>·</span>
-                    <button
-                      onClick={() => setPhotoEditMode(true)}
-                      className="hover:text-amber-600 transition flex items-center gap-0.5"
-                      title="Edit photos"
-                    >
-                      <PencilIcon className="w-3 h-3" />
-                      <span>Edit</span>
-                    </button>
-                  </>
-                )}
               </div>
               {showComments && userId && (
                 <PostCommentsSection postId={post.id} userId={userId} />
