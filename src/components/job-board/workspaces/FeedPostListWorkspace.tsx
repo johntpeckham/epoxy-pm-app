@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { PlusIcon, DownloadIcon, XIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
+import { PlusIcon, DownloadIcon, XIcon, EyeIcon, EyeOffIcon, ChevronRightIcon } from 'lucide-react'
 import { Project, FeedPost, PostType } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
 import PostCard from '@/components/feed/PostCard'
@@ -39,14 +39,36 @@ interface PostContent {
   entries?: { employee_name?: string }[]
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
 function formatTimestamp(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
   })
+}
+
+const INLINE_EXPAND_TYPES: PostType[] = ['timecard', 'daily_report', 'jsa_report']
+
+/** Wrapper that animates expand/collapse for a single post inline detail */
+function ExpandableDetail({ expanded, children }: { expanded: boolean; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState(0)
+
+  useEffect(() => {
+    if (expanded && ref.current) {
+      setHeight(ref.current.scrollHeight)
+    } else {
+      setHeight(0)
+    }
+  }, [expanded])
+
+  return (
+    <div
+      ref={ref}
+      className="overflow-hidden transition-[max-height] duration-200 ease-in-out"
+      style={{ maxHeight: expanded ? `${height}px` : '0px' }}
+    >
+      {children}
+    </div>
+  )
 }
 
 export default function FeedPostListWorkspace({
@@ -61,6 +83,7 @@ export default function FeedPostListWorkspace({
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null)
+  const [expandedPostId, setExpandedPostId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
@@ -69,6 +92,13 @@ export default function FeedPostListWorkspace({
   const [showPreview, setShowPreview] = useState(false)
   const [profiles, setProfiles] = useState<Map<string, { display_name: string | null; avatar_url: string | null }>>(new Map())
   const { settings: companySettings } = useCompanySettings()
+
+  // Whether this workspace uses inline expand (timecards, daily reports, JSA) vs modal (receipts, expenses)
+  const useInlineExpand = INLINE_EXPAND_TYPES.includes(postTypes[0])
+
+  function handleToggleExpand(id: string) {
+    setExpandedPostId((prev) => (prev === id ? null : id))
+  }
 
   const fetchPosts = useCallback(async () => {
     const supabase = createClient()
@@ -343,22 +373,43 @@ export default function FeedPostListWorkspace({
             )}
             {posts.map((post) => {
               const published = (post as FeedPost & { is_published?: boolean }).is_published !== false
+              const isExpanded = useInlineExpand && expandedPostId === post.id
               return (
                 <div
                   key={post.id}
-                  className={`bg-white rounded-xl border border-gray-200 p-3 hover:shadow-sm hover:border-gray-300 transition-all ${!published ? 'opacity-60' : ''}`}
+                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-all ${!published ? 'opacity-60' : ''}`}
                 >
-                  <div className="flex items-start gap-2">
-                    <button
-                      onClick={() => setSelectedPost(post)}
-                      className="flex-1 min-w-0 text-left"
-                    >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-gray-900">{getListItemSummary(post)}</p>
-                        {!published && <span className="text-xs text-gray-400 italic">Hidden from feed</span>}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5">{getListItemMeta(post)}</p>
-                    </button>
+                  <div className={`flex items-start gap-2 p-3 ${useInlineExpand ? 'hover:bg-gray-50' : 'hover:shadow-sm hover:border-gray-300'}`}>
+                    {useInlineExpand ? (
+                      <button
+                        onClick={() => handleToggleExpand(post.id)}
+                        className="flex-1 min-w-0 text-left flex items-start gap-2"
+                      >
+                        <ChevronRightIcon
+                          className={`w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5 transition-transform duration-200 ${
+                            isExpanded ? 'rotate-90' : ''
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium text-gray-900">{getListItemSummary(post)}</p>
+                            {!published && <span className="text-xs text-gray-400 italic">Hidden from feed</span>}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-0.5">{getListItemMeta(post)}</p>
+                        </div>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedPost(post)}
+                        className="flex-1 min-w-0 text-left"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-gray-900">{getListItemSummary(post)}</p>
+                          {!published && <span className="text-xs text-gray-400 italic">Hidden from feed</span>}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">{getListItemMeta(post)}</p>
+                      </button>
+                    )}
                     <button
                       onClick={() => togglePublished(post)}
                       className={`p-1.5 rounded transition flex-shrink-0 ${published ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-300 hover:bg-gray-100'}`}
@@ -367,6 +418,26 @@ export default function FeedPostListWorkspace({
                       {published ? <EyeIcon className="w-4 h-4" /> : <EyeOffIcon className="w-4 h-4" />}
                     </button>
                   </div>
+
+                  {/* Inline expanded detail for timecards, daily reports, JSA reports */}
+                  {useInlineExpand && (
+                    <ExpandableDetail expanded={isExpanded}>
+                      <div className="border-t border-gray-100 bg-gray-50 p-4">
+                        <PostCard
+                          post={post}
+                          userId={userId}
+                          onPinToggle={() => {}}
+                          onDeleted={() => {
+                            setExpandedPostId(null)
+                            fetchPosts()
+                          }}
+                          onUpdated={() => {
+                            fetchPosts()
+                          }}
+                        />
+                      </div>
+                    </ExpandableDetail>
+                  )}
                 </div>
               )
             })}
@@ -374,8 +445,8 @@ export default function FeedPostListWorkspace({
         )}
       </div>
 
-      {/* Detail modal using existing PostCard */}
-      {selectedPost && (
+      {/* Detail modal — only for non-inline-expand types (receipts, expenses) */}
+      {!useInlineExpand && selectedPost && (
         <Portal>
           <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50" onClick={() => setSelectedPost(null)}>
             <div
