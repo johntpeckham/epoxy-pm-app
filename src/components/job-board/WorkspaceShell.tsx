@@ -12,7 +12,7 @@ interface WorkspaceShellProps {
 
 export default function WorkspaceShell({ title, icon, onBack, actions, children }: WorkspaceShellProps) {
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3">
         <div className="flex items-center gap-3">
           <button

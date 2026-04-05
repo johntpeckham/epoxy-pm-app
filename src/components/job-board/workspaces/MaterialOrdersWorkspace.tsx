@@ -6,7 +6,6 @@ import { PackageIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon, EyeIcon, EyeOffIc
 import { Project, Profile } from '@/types'
 import { moveToTrash } from '@/lib/trashBin'
 import WorkspaceShell from '../WorkspaceShell'
-import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 interface MaterialOrdersWorkspaceProps {
@@ -503,10 +502,9 @@ function MaterialOrderModal({
   }
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="absolute inset-0 z-30 flex items-end sm:items-center justify-center bg-black/50" onClick={onClose}>
         <div
-          className="bg-white w-full sm:max-w-[900px] sm:w-[90%] sm:rounded-xl rounded-t-xl max-h-[85vh] flex flex-col"
+          className="bg-white w-full sm:max-w-[900px] sm:w-[90%] sm:rounded-xl rounded-t-xl max-h-[85%] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
@@ -628,6 +626,5 @@ function MaterialOrderModal({
           </div>
         </div>
       </div>
-    </Portal>
   )
 }
