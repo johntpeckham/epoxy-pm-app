@@ -1,12 +1,11 @@
 'use client'
 
-import { memo, useState } from 'react'
+import { memo, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
+  ChevronRightIcon,
   ExternalLinkIcon,
   PencilIcon,
   Trash2Icon,
@@ -33,6 +32,8 @@ interface JsaReportRow {
 
 interface JsaReportCardProps {
   report: JsaReportRow
+  expandedId: string | null
+  onToggleExpand: (id: string) => void
 }
 
 function formatReportDate(dateStr: string) {
@@ -44,11 +45,11 @@ function formatReportDate(dateStr: string) {
   })
 }
 
-export default memo(function JsaReportCard({ report }: JsaReportCardProps) {
+export default memo(function JsaReportCard({ report, expandedId, onToggleExpand }: JsaReportCardProps) {
   const router = useRouter()
   const supabase = createClient()
   const { settings: companySettings } = useCompanySettings()
-  const [expanded, setExpanded] = useState(false)
+  const expanded = expandedId === report.id
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -56,6 +57,18 @@ export default memo(function JsaReportCard({ report }: JsaReportCardProps) {
   const { content } = report
   const sectionGroups = groupDynamicFieldsBySection(report.dynamic_fields)
   const HANDLED_SECTIONS = ['Project Info', 'Personnel', 'Tasks', 'Employee Acknowledgment & Signatures']
+
+  // Animation refs
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [animHeight, setAnimHeight] = useState<number>(0)
+
+  useEffect(() => {
+    if (expanded && contentRef.current) {
+      setAnimHeight(contentRef.current.scrollHeight)
+    } else {
+      setAnimHeight(0)
+    }
+  }, [expanded])
 
   async function handleDelete() {
     setIsDeleting(true)
@@ -94,9 +107,18 @@ export default memo(function JsaReportCard({ report }: JsaReportCardProps) {
       <div className="bg-white overflow-hidden group relative">
         {/* Summary row */}
         <button
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => onToggleExpand(report.id)}
           className="w-full text-left px-5 py-4 flex items-start gap-4 hover:bg-gray-50 transition-colors"
         >
+          {/* Chevron on LEFT */}
+          <div className="flex-shrink-0 mt-3">
+            <ChevronRightIcon
+              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                expanded ? 'rotate-90' : ''
+              }`}
+            />
+          </div>
+
           {/* Date block */}
           <div className="flex-shrink-0 w-12 text-center bg-amber-50 rounded-lg py-2">
             <div className="text-xl font-bold text-gray-900 leading-none">
@@ -141,44 +163,14 @@ export default memo(function JsaReportCard({ report }: JsaReportCardProps) {
               </p>
             )}
           </div>
-
-          {/* Expand chevron */}
-          <div className="flex-shrink-0 text-gray-400 mt-1">
-            {expanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
-          </div>
         </button>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-1 px-4 pb-3 sm:absolute sm:top-3 sm:right-10 sm:pb-0 sm:px-0 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity">
-          <button
-            onClick={handleDownloadPdf}
-            disabled={pdfLoading}
-            title="Download PDF"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-amber-600 border border-gray-200 hover:border-amber-300 hover:bg-amber-50 rounded-md transition sm:border-0 sm:p-1.5 disabled:opacity-40"
-          >
-            <DownloadIcon className="w-3.5 h-3.5" />
-            <span className="sm:hidden">{pdfLoading ? 'Generating...' : 'PDF'}</span>
-          </button>
-          <button
-            onClick={() => setShowEditModal(true)}
-            title="Edit report"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-amber-600 border border-gray-200 hover:border-amber-300 hover:bg-amber-50 rounded-md transition sm:border-0 sm:p-1.5"
-          >
-            <PencilIcon className="w-3.5 h-3.5" />
-            <span className="sm:hidden">Edit</span>
-          </button>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            title="Delete report"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-300 hover:bg-red-50 rounded-md transition sm:border-0 sm:p-1.5"
-          >
-            <Trash2Icon className="w-3.5 h-3.5" />
-            <span className="sm:hidden">Delete</span>
-          </button>
-        </div>
-
-        {/* Expanded detail */}
-        {expanded && (
+        {/* Animated expand/collapse */}
+        <div
+          ref={contentRef}
+          className="overflow-hidden transition-[max-height] duration-200 ease-in-out"
+          style={{ maxHeight: expanded ? `${animHeight}px` : '0px' }}
+        >
           <div className="border-t border-amber-100 bg-amber-50 px-5 py-4 space-y-4">
             {/* Base fields */}
             {content.address && (
@@ -312,7 +304,7 @@ export default memo(function JsaReportCard({ report }: JsaReportCardProps) {
               ) : null
             })()}
 
-            {/* Footer actions */}
+            {/* Footer actions — moved here from summary row */}
             <div className="pt-3 border-t border-amber-200 flex items-center justify-between flex-wrap gap-2">
               <Link
                 href={`/projects/${report.project_id}`}
@@ -321,17 +313,36 @@ export default memo(function JsaReportCard({ report }: JsaReportCardProps) {
                 <ExternalLinkIcon className="w-3.5 h-3.5" />
                 View in project feed
               </Link>
-              <button
-                onClick={handleDownloadPdf}
-                disabled={pdfLoading}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors disabled:opacity-40"
-              >
-                <DownloadIcon className="w-3.5 h-3.5" />
-                {pdfLoading ? 'Generating PDF...' : 'Download PDF'}
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={pdfLoading}
+                  title="Download PDF"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:text-amber-900 hover:bg-amber-100 rounded-md transition disabled:opacity-40"
+                >
+                  <DownloadIcon className="w-3.5 h-3.5" />
+                  <span>{pdfLoading ? 'Generating...' : 'PDF'}</span>
+                </button>
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  title="Edit report"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:text-amber-900 hover:bg-amber-100 rounded-md transition"
+                >
+                  <PencilIcon className="w-3.5 h-3.5" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  title="Delete report"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition"
+                >
+                  <Trash2Icon className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {showDeleteConfirm && (

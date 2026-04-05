@@ -177,6 +177,11 @@ export default function TimesheetsPageClient({
   const [filterDateFrom, _setFilterDateFrom] = useState<string>('')
   const [filterDateTo, _setFilterDateTo] = useState<string>('')
   const [collapsedProjects, setCollapsedProjects] = useState<Record<string, boolean>>({})
+  const [expandedTimecardId, setExpandedTimecardId] = useState<string | null>(null)
+
+  function handleToggleExpand(id: string) {
+    setExpandedTimecardId((prev) => (prev === id ? null : id))
+  }
 
   const projectStatusMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -331,7 +336,7 @@ export default function TimesheetsPageClient({
                 {/* Timecard rows */}
                 <div className="divide-y divide-gray-100">
                   {week.timecards.map((tc) => (
-                    <TimecardCard key={tc.id} timecard={tc} />
+                    <TimecardCard key={tc.id} timecard={tc} expandedId={expandedTimecardId} onToggleExpand={handleToggleExpand} />
                   ))}
                 </div>
               </div>

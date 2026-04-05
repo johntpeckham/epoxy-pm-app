@@ -1,12 +1,11 @@
 'use client'
 
-import { memo, useState } from 'react'
+import { memo, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
+  ChevronRightIcon,
   ExternalLinkIcon,
   PencilIcon,
   Trash2Icon,
@@ -32,6 +31,8 @@ interface TimecardRow {
 
 interface TimecardCardProps {
   timecard: TimecardRow
+  expandedId: string | null
+  onToggleExpand: (id: string) => void
 }
 
 function formatCompactDate(dateStr: string) {
@@ -42,10 +43,10 @@ function formatCompactDate(dateStr: string) {
   })
 }
 
-export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
+export default memo(function TimecardCard({ timecard, expandedId, onToggleExpand }: TimecardCardProps) {
   const router = useRouter()
   const { settings: companySettings } = useCompanySettings()
-  const [expanded, setExpanded] = useState(false)
+  const expanded = expandedId === timecard.id
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -53,6 +54,18 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
   const { content } = timecard
   const sectionGroups = groupDynamicFieldsBySection(timecard.dynamic_fields)
   const HANDLED_SECTIONS = ['Project Info', 'Employees']
+
+  // Animation refs
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [animHeight, setAnimHeight] = useState<number>(0)
+
+  useEffect(() => {
+    if (expanded && contentRef.current) {
+      setAnimHeight(contentRef.current.scrollHeight)
+    } else {
+      setAnimHeight(0)
+    }
+  }, [expanded])
 
   async function handleDelete() {
     setIsDeleting(true)
@@ -92,9 +105,16 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
       <div className="group relative w-full max-w-full">
         {/* Compact summary row */}
         <button
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => onToggleExpand(timecard.id)}
           className="w-full max-w-full text-left px-2 md:px-3 py-2 flex items-center gap-1.5 md:gap-3 hover:bg-gray-50 transition-colors flex-wrap"
         >
+          {/* Chevron on LEFT */}
+          <ChevronRightIcon
+            className={`w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${
+              expanded ? 'rotate-90' : ''
+            }`}
+          />
+
           <span className="text-sm text-gray-700 whitespace-nowrap">
             {content.date ? formatCompactDate(content.date) : '—'}
           </span>
@@ -106,45 +126,14 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
           <span className="text-xs font-bold text-blue-700 tabular-nums">
             {content.grand_total_hours.toFixed(2)} hrs
           </span>
-
-          {/* Action buttons — inline on mobile, hover-reveal on desktop */}
-          <span
-            className="ml-auto flex items-center gap-0 md:gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity flex-shrink-0"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span
-              role="button"
-              onClick={handleDownloadPdf}
-              className="p-0.5 md:p-1 text-gray-400 hover:text-blue-600 rounded transition"
-              title="Download PDF"
-            >
-              <DownloadIcon className="w-3 h-3 md:w-3.5 md:h-3.5" />
-            </span>
-            <span
-              role="button"
-              onClick={() => setShowEditModal(true)}
-              className="p-2 md:p-1 text-gray-400 hover:text-blue-600 rounded transition"
-              title="Edit"
-            >
-              <PencilIcon className="w-4 h-4 md:w-3.5 md:h-3.5" />
-            </span>
-            <span
-              role="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="p-2 md:p-1 text-gray-400 hover:text-red-600 rounded transition"
-              title="Delete"
-            >
-              <Trash2Icon className="w-4 h-4 md:w-3.5 md:h-3.5" />
-            </span>
-          </span>
-
-          <span className="flex-shrink-0 text-gray-400">
-            {expanded ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
-          </span>
         </button>
 
-        {/* Expanded detail */}
-        {expanded && (
+        {/* Animated expand/collapse */}
+        <div
+          ref={contentRef}
+          className="overflow-hidden transition-[max-height] duration-200 ease-in-out"
+          style={{ maxHeight: expanded ? `${animHeight}px` : '0px' }}
+        >
           <div className="border-t border-blue-100 bg-blue-50 px-2 md:px-4 py-3 space-y-3 max-w-full">
             {content.address && (
               <p className="text-xs text-blue-700">{content.address}</p>
@@ -225,7 +214,7 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
               </div>
             ))}
 
-            {/* Footer actions */}
+            {/* Footer actions — moved here from summary row */}
             <div className="pt-2 border-t border-blue-200 flex items-center justify-between flex-wrap gap-2">
               <Link
                 href={`/projects/${timecard.project_id}`}
@@ -234,17 +223,36 @@ export default memo(function TimecardCard({ timecard }: TimecardCardProps) {
                 <ExternalLinkIcon className="w-3.5 h-3.5" />
                 View in project feed
               </Link>
-              <button
-                onClick={handleDownloadPdf}
-                disabled={pdfLoading}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 transition-colors disabled:opacity-40"
-              >
-                <DownloadIcon className="w-3.5 h-3.5" />
-                {pdfLoading ? 'Generating PDF…' : 'Download PDF'}
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={pdfLoading}
+                  title="Download PDF"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-100 rounded-md transition"
+                >
+                  <DownloadIcon className="w-3.5 h-3.5" />
+                  <span>{pdfLoading ? 'Generating...' : 'PDF'}</span>
+                </button>
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  title="Edit"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-100 rounded-md transition"
+                >
+                  <PencilIcon className="w-3.5 h-3.5" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  title="Delete"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition"
+                >
+                  <Trash2Icon className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {showDeleteConfirm && (
