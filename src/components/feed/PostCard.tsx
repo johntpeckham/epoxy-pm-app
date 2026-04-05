@@ -122,12 +122,16 @@ function InlinePhotoPost({
   content,
   onImageClick,
   deletedPaths,
-  onRequestDelete,
+  editMode,
+  selectedPaths,
+  onToggleSelect,
 }: {
   content: PhotoContent
   onImageClick: (urls: string[], index: number) => void
   deletedPaths?: Set<string>
-  onRequestDelete?: (path: string) => void
+  editMode?: boolean
+  selectedPaths?: Set<string>
+  onToggleSelect?: (path: string) => void
 }) {
   const supabase = createClient()
   const items = content.photos
@@ -148,27 +152,36 @@ function InlinePhotoPost({
       )}
       <div className={gridClass}>
         {items.map(({ path, url }, i) => (
-          <div key={path} className="relative group">
-            <button onClick={() => onImageClick(items.map((it) => it.url), i)} className="block w-full min-w-[44px] min-h-[44px]">
-              <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+          <div key={path} className="relative">
+            <button
+              onClick={() => {
+                if (editMode && onToggleSelect) {
+                  onToggleSelect(path)
+                } else {
+                  onImageClick(items.map((it) => it.url), i)
+                }
+              }}
+              className="block w-full min-w-[44px] min-h-[44px]"
+            >
+              <div className={`relative aspect-square rounded-lg overflow-hidden bg-gray-100 ${editMode && selectedPaths?.has(path) ? 'ring-2 ring-amber-500' : ''}`}>
                 <Image
                   src={url}
                   alt={`Photo ${i + 1}`}
                   fill
-                  className="object-cover hover:opacity-90 transition"
+                  className={`object-cover transition ${editMode && selectedPaths?.has(path) ? 'opacity-75' : 'hover:opacity-90'}`}
                   sizes="25vw"
                 />
+                {editMode && (
+                  <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center z-10 shadow-sm"
+                    style={{ backgroundColor: selectedPaths?.has(path) ? '#f59e0b' : 'rgba(0,0,0,0.35)' }}
+                  >
+                    {selectedPaths?.has(path) && (
+                      <CheckIcon className="w-3.5 h-3.5 text-white" />
+                    )}
+                  </div>
+                )}
               </div>
             </button>
-            {onRequestDelete && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onRequestDelete(path) }}
-                className="absolute top-1.5 right-1.5 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
-                title="Delete photo"
-              >
-                <Trash2Icon className="w-4 h-4" />
-              </button>
-            )}
           </div>
         ))}
       </div>
@@ -180,19 +193,13 @@ function InlinePhotoPost({
 function DailyReportPost({
   content,
   photoUrls,
-  photoPaths,
   dynamicFields,
   onImageClick,
-  deletedPaths,
-  onRequestDelete,
 }: {
   content: DailyReportContent
   photoUrls: string[]
-  photoPaths?: string[]
   dynamicFields?: DynamicFieldEntry[]
   onImageClick: (urls: string[], index: number) => void
-  deletedPaths?: Set<string>
-  onRequestDelete?: (path: string) => void
 }) {
   const crewFields: { label: string; key: keyof DailyReportContent }[] = [
     { label: 'Reported By', key: 'reported_by' },
@@ -258,45 +265,28 @@ function DailyReportPost({
       <DynamicFieldsPreview fields={dynamicFields} />
 
       {/* Photos */}
-      {(() => {
-        const visibleItems = photoUrls
-          .map((url, i) => ({ url, path: photoPaths?.[i], index: i }))
-          .filter((item) => !item.path || !deletedPaths?.has(item.path))
-        if (visibleItems.length === 0) return null
-        return (
+      {photoUrls.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
-              Photos ({visibleItems.length})
+              Photos ({photoUrls.length})
             </p>
             <div className="grid grid-cols-4 gap-2 w-full">
-              {visibleItems.map((item, vi) => (
-                <div key={item.path ?? item.index} className="relative group">
-                  <button onClick={() => onImageClick(visibleItems.map((it) => it.url), vi)} className="block w-full min-w-[44px] min-h-[44px]">
-                    <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
-                      <Image
-                        src={item.url}
-                        alt={`Report photo ${vi + 1}`}
-                        fill
-                        className="object-cover hover:opacity-90 transition"
-                        sizes="25vw"
-                      />
-                    </div>
-                  </button>
-                  {onRequestDelete && item.path && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onRequestDelete(item.path!) }}
-                      className="absolute top-1.5 right-1.5 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
-                      title="Delete photo"
-                    >
-                      <Trash2Icon className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+              {photoUrls.map((url, i) => (
+                <button key={i} onClick={() => onImageClick(photoUrls, i)} className="block min-w-[44px] min-h-[44px]">
+                  <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
+                    <Image
+                      src={url}
+                      alt={`Report photo ${i + 1}`}
+                      fill
+                      className="object-cover hover:opacity-90 transition"
+                      sizes="25vw"
+                    />
+                  </div>
+                </button>
               ))}
             </div>
           </div>
-        )
-      })()}
+      )}
     </div>
   )
 }
@@ -501,21 +491,15 @@ function CollapsibleTask({
 function CollapsibleDailyReport({
   content,
   photoUrls,
-  photoPaths,
   dynamicFields,
   onImageClick,
   isPinned,
-  deletedPaths,
-  onRequestDelete,
 }: {
   content: DailyReportContent
   photoUrls: string[]
-  photoPaths?: string[]
   dynamicFields?: DynamicFieldEntry[]
   onImageClick: (urls: string[], index: number) => void
   isPinned?: boolean
-  deletedPaths?: Set<string>
-  onRequestDelete?: (path: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -568,7 +552,7 @@ function CollapsibleDailyReport({
 
       {/* Expanded detail — hidden by default, always visible when pinned */}
       {(isPinned || expanded) && (
-        <DailyReportPost content={content} photoUrls={photoUrls} photoPaths={photoPaths} dynamicFields={dynamicFields} onImageClick={onImageClick} deletedPaths={deletedPaths} onRequestDelete={onRequestDelete} />
+        <DailyReportPost content={content} photoUrls={photoUrls} dynamicFields={dynamicFields} onImageClick={onImageClick} />
       )}
     </div>
   )
@@ -1203,9 +1187,11 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const [showComments, setShowComments] = useState(false)
   const [commentCount, setCommentCount] = useState<number>(0)
 
-  // Individual photo deletion
+  // Photo edit mode (select & delete)
   const [deletedPhotoPaths, setDeletedPhotoPaths] = useState<Set<string>>(new Set())
-  const [photoDeleteConfirm, setPhotoDeleteConfirm] = useState<string | null>(null)
+  const [photoEditMode, setPhotoEditMode] = useState(false)
+  const [selectedPhotoPaths, setSelectedPhotoPaths] = useState<Set<string>>(new Set())
+  const [photoDeleteConfirm, setPhotoDeleteConfirm] = useState(false)
   const [photoToast, setPhotoToast] = useState<string | null>(null)
 
   // Inline text editing
@@ -1254,14 +1240,13 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   }, [post.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Resolve photo URLs for daily reports
-  const reportPhotoPaths: string[] =
+  const reportPhotoUrls: string[] =
     post.post_type === 'daily_report'
-      ? ((post.content as DailyReportContent).photos ?? [])
+      ? ((post.content as DailyReportContent).photos ?? []).map((path) => {
+          const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
+          return data.publicUrl
+        })
       : []
-  const reportPhotoUrls: string[] = reportPhotoPaths.map((path) => {
-    const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
-    return data.publicUrl
-  })
 
   async function handlePinToggle() {
     setPinning(true)
@@ -1323,15 +1308,43 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
     setTimeout(() => setPhotoToast(null), 3000)
   }
 
-  async function handleDeleteSinglePhoto(path: string) {
+  function togglePhotoSelect(path: string) {
+    setSelectedPhotoPaths((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }
+
+  function selectAllPhotos() {
+    if (post.post_type !== 'photo') return
+    const allPaths = (post.content as PhotoContent).photos.filter((p) => !deletedPhotoPaths.has(p))
+    setSelectedPhotoPaths(new Set(allPaths))
+  }
+
+  function exitPhotoEditMode() {
+    setPhotoEditMode(false)
+    setSelectedPhotoPaths(new Set())
+  }
+
+  async function handleDeleteSelectedPhotos() {
+    const paths = Array.from(selectedPhotoPaths)
+    if (paths.length === 0) return
+
     // Optimistically remove from UI
-    setDeletedPhotoPaths((prev) => new Set(prev).add(path))
+    setDeletedPhotoPaths((prev) => {
+      const next = new Set(prev)
+      paths.forEach((p) => next.add(p))
+      return next
+    })
+    exitPhotoEditMode()
 
     try {
-      // 1. Delete file from storage
+      // 1. Delete files from storage
       const { error: storageError } = await supabase.storage
         .from('post-photos')
-        .remove([path])
+        .remove(paths)
       if (storageError) throw storageError
 
       // 2. Fetch the current post to update its photos array
@@ -1344,10 +1357,11 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
 
       const content = postData.content as Record<string, unknown>
       const currentPhotos = (content.photos as string[]) ?? []
-      const updatedPhotos = currentPhotos.filter((p) => p !== path)
+      const pathSet = new Set(paths)
+      const updatedPhotos = currentPhotos.filter((p) => !pathSet.has(p))
 
-      if (updatedPhotos.length === 0 && post.post_type === 'photo') {
-        // No photos left on a photo post — delete the entire post
+      if (updatedPhotos.length === 0) {
+        // No photos left — delete the entire post
         await supabase.from('feed_posts').delete().eq('id', post.id)
         onDeleted?.()
         return
@@ -1359,15 +1373,15 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
         .update({ content: { ...content, photos: updatedPhotos } })
         .eq('id', post.id)
 
-      showPhotoToast('Photo deleted')
+      showPhotoToast(`${paths.length} photo${paths.length !== 1 ? 's' : ''} deleted`)
     } catch {
       // Revert optimistic removal on error
       setDeletedPhotoPaths((prev) => {
         const next = new Set(prev)
-        next.delete(path)
+        paths.forEach((p) => next.delete(p))
         return next
       })
-      showPhotoToast('Failed to delete photo')
+      showPhotoToast('Failed to delete photos')
     }
   }
 
@@ -1472,18 +1486,47 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const structuredContent = (
     <>
       {post.post_type === 'photo' && (
-        <InlinePhotoPost content={post.content as PhotoContent} onImageClick={openPreview} deletedPaths={deletedPhotoPaths} onRequestDelete={(path) => setPhotoDeleteConfirm(path)} />
+        <>
+          <InlinePhotoPost
+            content={post.content as PhotoContent}
+            onImageClick={openPreview}
+            deletedPaths={deletedPhotoPaths}
+            editMode={photoEditMode}
+            selectedPaths={selectedPhotoPaths}
+            onToggleSelect={togglePhotoSelect}
+          />
+          {photoEditMode && (
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={selectAllPhotos}
+                className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+              >
+                Select All
+              </button>
+              <button
+                onClick={() => setPhotoDeleteConfirm(true)}
+                disabled={selectedPhotoPaths.size === 0}
+                className="px-2.5 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition"
+              >
+                Delete Selected ({selectedPhotoPaths.size})
+              </button>
+              <button
+                onClick={exitPhotoEditMode}
+                className="px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </>
       )}
       {post.post_type === 'daily_report' && (
         <CollapsibleDailyReport
           content={post.content as DailyReportContent}
           photoUrls={reportPhotoUrls}
-          photoPaths={reportPhotoPaths}
           dynamicFields={post.dynamic_fields}
           onImageClick={openPreview}
           isPinned={post.is_pinned}
-          deletedPaths={deletedPhotoPaths}
-          onRequestDelete={(path) => setPhotoDeleteConfirm(path)}
         />
       )}
       {post.post_type === 'task' && (
@@ -1607,6 +1650,19 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
                     ? `${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`
                     : 'Comment'}
                 </button>
+                {post.post_type === 'photo' && !photoEditMode && (
+                  <>
+                    <span>·</span>
+                    <button
+                      onClick={() => setPhotoEditMode(true)}
+                      className="hover:text-amber-600 transition flex items-center gap-0.5"
+                      title="Edit photos"
+                    >
+                      <PencilIcon className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
+                  </>
+                )}
               </div>
               {showComments && userId && (
                 <PostCommentsSection postId={post.id} userId={userId} />
@@ -1688,26 +1744,26 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
         />
       )}
 
-      {/* Individual photo delete confirmation */}
+      {/* Batch photo delete confirmation */}
       {photoDeleteConfirm && (
         <Portal>
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5">
-              <h3 className="text-base font-semibold text-gray-900 mb-2">Delete Photo</h3>
+              <h3 className="text-base font-semibold text-gray-900 mb-2">Delete Photos</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Are you sure you want to delete this photo? This cannot be undone.
+                Delete {selectedPhotoPaths.size} photo{selectedPhotoPaths.size !== 1 ? 's' : ''}? This cannot be undone.
               </p>
               <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => setPhotoDeleteConfirm(null)}
+                  onClick={() => setPhotoDeleteConfirm(false)}
                   className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => {
-                    handleDeleteSinglePhoto(photoDeleteConfirm)
-                    setPhotoDeleteConfirm(null)
+                    setPhotoDeleteConfirm(false)
+                    handleDeleteSelectedPhotos()
                   }}
                   className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                 >
