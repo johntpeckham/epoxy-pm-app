@@ -23,6 +23,7 @@ import {
   ReceiptIcon,
   ClockIcon,
   DollarSignIcon,
+  CheckCircleIcon,
 } from 'lucide-react'
 import { FeedPost, TextContent, PhotoContent, DailyReportContent, TaskContent, PdfContent, JsaReportContent, ReceiptContent, ExpenseContent, TimecardContent, TaskStatus, DynamicFieldEntry } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -117,12 +118,26 @@ function Avatar({ initials, avatarUrl }: { initials: string; avatarUrl?: string 
 }
 
 // ── Inline photo post (clean grid, no card wrapper) ─────────────────────────
-function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onImageClick: (urls: string[], index: number) => void }) {
+function InlinePhotoPost({
+  content,
+  onImageClick,
+  deletedPaths,
+  onRequestDelete,
+}: {
+  content: PhotoContent
+  onImageClick: (urls: string[], index: number) => void
+  deletedPaths?: Set<string>
+  onRequestDelete?: (path: string) => void
+}) {
   const supabase = createClient()
-  const urls = content.photos.map((path) => {
-    const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
-    return data.publicUrl
-  })
+  const items = content.photos
+    .filter((path) => !deletedPaths?.has(path))
+    .map((path) => {
+      const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
+      return { path, url: data.publicUrl }
+    })
+
+  if (items.length === 0) return null
 
   const gridClass = 'grid grid-cols-4 gap-2 w-full'
 
@@ -132,18 +147,29 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
         <p className="text-sm text-gray-600">{content.caption}</p>
       )}
       <div className={gridClass}>
-        {urls.map((url, i) => (
-          <button key={i} onClick={() => onImageClick(urls, i)} className="block min-w-[44px] min-h-[44px]">
-            <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-              <Image
-                src={url}
-                alt={`Photo ${i + 1}`}
-                fill
-                className="object-cover hover:opacity-90 transition"
-                sizes="25vw"
-              />
-            </div>
-          </button>
+        {items.map(({ path, url }, i) => (
+          <div key={path} className="relative group">
+            <button onClick={() => onImageClick(items.map((it) => it.url), i)} className="block w-full min-w-[44px] min-h-[44px]">
+              <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                <Image
+                  src={url}
+                  alt={`Photo ${i + 1}`}
+                  fill
+                  className="object-cover hover:opacity-90 transition"
+                  sizes="25vw"
+                />
+              </div>
+            </button>
+            {onRequestDelete && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onRequestDelete(path) }}
+                className="absolute top-1.5 right-1.5 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                title="Delete photo"
+              >
+                <Trash2Icon className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         ))}
       </div>
     </div>
@@ -154,13 +180,19 @@ function InlinePhotoPost({ content, onImageClick }: { content: PhotoContent; onI
 function DailyReportPost({
   content,
   photoUrls,
+  photoPaths,
   dynamicFields,
   onImageClick,
+  deletedPaths,
+  onRequestDelete,
 }: {
   content: DailyReportContent
   photoUrls: string[]
+  photoPaths?: string[]
   dynamicFields?: DynamicFieldEntry[]
   onImageClick: (urls: string[], index: number) => void
+  deletedPaths?: Set<string>
+  onRequestDelete?: (path: string) => void
 }) {
   const crewFields: { label: string; key: keyof DailyReportContent }[] = [
     { label: 'Reported By', key: 'reported_by' },
@@ -226,28 +258,45 @@ function DailyReportPost({
       <DynamicFieldsPreview fields={dynamicFields} />
 
       {/* Photos */}
-      {photoUrls.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
-            Photos ({photoUrls.length})
-          </p>
-          <div className="grid grid-cols-4 gap-2 w-full">
-            {photoUrls.map((url, i) => (
-              <button key={i} onClick={() => onImageClick(photoUrls, i)} className="block min-w-[44px] min-h-[44px]">
-                <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
-                  <Image
-                    src={url}
-                    alt={`Report photo ${i + 1}`}
-                    fill
-                    className="object-cover hover:opacity-90 transition"
-                    sizes="25vw"
-                  />
+      {(() => {
+        const visibleItems = photoUrls
+          .map((url, i) => ({ url, path: photoPaths?.[i], index: i }))
+          .filter((item) => !item.path || !deletedPaths?.has(item.path))
+        if (visibleItems.length === 0) return null
+        return (
+          <div>
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+              Photos ({visibleItems.length})
+            </p>
+            <div className="grid grid-cols-4 gap-2 w-full">
+              {visibleItems.map((item, vi) => (
+                <div key={item.path ?? item.index} className="relative group">
+                  <button onClick={() => onImageClick(visibleItems.map((it) => it.url), vi)} className="block w-full min-w-[44px] min-h-[44px]">
+                    <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
+                      <Image
+                        src={item.url}
+                        alt={`Report photo ${vi + 1}`}
+                        fill
+                        className="object-cover hover:opacity-90 transition"
+                        sizes="25vw"
+                      />
+                    </div>
+                  </button>
+                  {onRequestDelete && item.path && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onRequestDelete(item.path!) }}
+                      className="absolute top-1.5 right-1.5 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                      title="Delete photo"
+                    >
+                      <Trash2Icon className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-              </button>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
@@ -452,15 +501,21 @@ function CollapsibleTask({
 function CollapsibleDailyReport({
   content,
   photoUrls,
+  photoPaths,
   dynamicFields,
   onImageClick,
   isPinned,
+  deletedPaths,
+  onRequestDelete,
 }: {
   content: DailyReportContent
   photoUrls: string[]
+  photoPaths?: string[]
   dynamicFields?: DynamicFieldEntry[]
   onImageClick: (urls: string[], index: number) => void
   isPinned?: boolean
+  deletedPaths?: Set<string>
+  onRequestDelete?: (path: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -513,7 +568,7 @@ function CollapsibleDailyReport({
 
       {/* Expanded detail — hidden by default, always visible when pinned */}
       {(isPinned || expanded) && (
-        <DailyReportPost content={content} photoUrls={photoUrls} dynamicFields={dynamicFields} onImageClick={onImageClick} />
+        <DailyReportPost content={content} photoUrls={photoUrls} photoPaths={photoPaths} dynamicFields={dynamicFields} onImageClick={onImageClick} deletedPaths={deletedPaths} onRequestDelete={onRequestDelete} />
       )}
     </div>
   )
@@ -1148,6 +1203,11 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const [showComments, setShowComments] = useState(false)
   const [commentCount, setCommentCount] = useState<number>(0)
 
+  // Individual photo deletion
+  const [deletedPhotoPaths, setDeletedPhotoPaths] = useState<Set<string>>(new Set())
+  const [photoDeleteConfirm, setPhotoDeleteConfirm] = useState<string | null>(null)
+  const [photoToast, setPhotoToast] = useState<string | null>(null)
+
   // Inline text editing
   const [editingText, setEditingText] = useState(false)
   const [editText, setEditText] = useState(
@@ -1194,13 +1254,14 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   }, [post.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Resolve photo URLs for daily reports
-  const reportPhotoUrls: string[] =
+  const reportPhotoPaths: string[] =
     post.post_type === 'daily_report'
-      ? ((post.content as DailyReportContent).photos ?? []).map((path) => {
-          const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
-          return data.publicUrl
-        })
+      ? ((post.content as DailyReportContent).photos ?? [])
       : []
+  const reportPhotoUrls: string[] = reportPhotoPaths.map((path) => {
+    const { data } = supabase.storage.from('post-photos').getPublicUrl(path)
+    return data.publicUrl
+  })
 
   async function handlePinToggle() {
     setPinning(true)
@@ -1255,6 +1316,59 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
     setSavingText(false)
     setEditingText(false)
     onUpdated?.()
+  }
+
+  function showPhotoToast(message: string) {
+    setPhotoToast(message)
+    setTimeout(() => setPhotoToast(null), 3000)
+  }
+
+  async function handleDeleteSinglePhoto(path: string) {
+    // Optimistically remove from UI
+    setDeletedPhotoPaths((prev) => new Set(prev).add(path))
+
+    try {
+      // 1. Delete file from storage
+      const { error: storageError } = await supabase.storage
+        .from('post-photos')
+        .remove([path])
+      if (storageError) throw storageError
+
+      // 2. Fetch the current post to update its photos array
+      const { data: postData, error: fetchError } = await supabase
+        .from('feed_posts')
+        .select('content, post_type')
+        .eq('id', post.id)
+        .single()
+      if (fetchError) throw fetchError
+
+      const content = postData.content as Record<string, unknown>
+      const currentPhotos = (content.photos as string[]) ?? []
+      const updatedPhotos = currentPhotos.filter((p) => p !== path)
+
+      if (updatedPhotos.length === 0 && post.post_type === 'photo') {
+        // No photos left on a photo post — delete the entire post
+        await supabase.from('feed_posts').delete().eq('id', post.id)
+        onDeleted?.()
+        return
+      }
+
+      // Update the content with remaining photos
+      await supabase
+        .from('feed_posts')
+        .update({ content: { ...content, photos: updatedPhotos } })
+        .eq('id', post.id)
+
+      showPhotoToast('Photo deleted')
+    } catch {
+      // Revert optimistic removal on error
+      setDeletedPhotoPaths((prev) => {
+        const next = new Set(prev)
+        next.delete(path)
+        return next
+      })
+      showPhotoToast('Failed to delete photo')
+    }
   }
 
   // Resolve receipt photo URL
@@ -1358,15 +1472,18 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
   const structuredContent = (
     <>
       {post.post_type === 'photo' && (
-        <InlinePhotoPost content={post.content as PhotoContent} onImageClick={openPreview} />
+        <InlinePhotoPost content={post.content as PhotoContent} onImageClick={openPreview} deletedPaths={deletedPhotoPaths} onRequestDelete={(path) => setPhotoDeleteConfirm(path)} />
       )}
       {post.post_type === 'daily_report' && (
         <CollapsibleDailyReport
           content={post.content as DailyReportContent}
           photoUrls={reportPhotoUrls}
+          photoPaths={reportPhotoPaths}
           dynamicFields={post.dynamic_fields}
           onImageClick={openPreview}
           isPinned={post.is_pinned}
+          deletedPaths={deletedPhotoPaths}
+          onRequestDelete={(path) => setPhotoDeleteConfirm(path)}
         />
       )}
       {post.post_type === 'task' && (
@@ -1569,6 +1686,47 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           onClose={() => setPreviewPhotos(null)}
           onNavigate={setPreviewIndex}
         />
+      )}
+
+      {/* Individual photo delete confirmation */}
+      {photoDeleteConfirm && (
+        <Portal>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5">
+              <h3 className="text-base font-semibold text-gray-900 mb-2">Delete Photo</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Are you sure you want to delete this photo? This cannot be undone.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setPhotoDeleteConfirm(null)}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleDeleteSinglePhoto(photoDeleteConfirm)
+                    setPhotoDeleteConfirm(null)
+                  }}
+                  className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* Photo delete toast */}
+      {photoToast && (
+        <Portal>
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium">
+            <CheckCircleIcon className="w-4 h-4 text-green-400 flex-shrink-0" />
+            {photoToast}
+          </div>
+        </Portal>
       )}
     </>
   )
