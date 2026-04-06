@@ -554,10 +554,23 @@ export async function generateWarrantyPdf(
 
   // ── Company info header ───────────────────────────────────────────────────
   const ci = companyInfo ?? {}
-  const displayCompanyName = ci.dba || ci.legal_name || 'Peckham Coatings'
-  const showLegalSub = ci.dba && ci.legal_name && ci.dba.toLowerCase() !== ci.legal_name.toLowerCase()
 
-  // Format CSLB licenses
+  // Line 1: Company identity — "[Legal Name] DBA [DBA Name]"
+  let companyIdentity: string
+  if (ci.legal_name && ci.dba && ci.legal_name.toLowerCase() !== ci.dba.toLowerCase()) {
+    companyIdentity = `${ci.legal_name} DBA ${ci.dba}`
+  } else {
+    companyIdentity = ci.dba || ci.legal_name || 'Peckham Coatings'
+  }
+
+  // Line 2: Contact info — "[Address] | [Phone] | [Email]"
+  const infoParts: string[] = []
+  if (ci.company_address) infoParts.push(ci.company_address.replace(/\n/g, ', '))
+  if (ci.phone) infoParts.push(ci.phone)
+  if (ci.email) infoParts.push(ci.email)
+  const infoLine = infoParts.length > 0 ? infoParts.join(' | ') : null
+
+  // Line 3: CSLB licenses
   let cslbLine: string | null = null
   if (ci.cslb_licenses && ci.cslb_licenses.length > 0) {
     const parts = ci.cslb_licenses.map((l) => {
@@ -567,58 +580,24 @@ export async function generateWarrantyPdf(
     cslbLine = `CSLB Lic. ${parts.join(', ')}`
   }
 
-  // Contact line
-  const contactParts: string[] = []
-  if (ci.phone) contactParts.push(ci.phone)
-  if (ci.email) contactParts.push(ci.email)
-  const contactLine = contactParts.length > 0 ? contactParts.join(' | ') : null
-
-  // Line 1: Company name
+  // Line 1: Company identity — bold 14pt
   let headerY = y + 8
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
+  doc.setFontSize(14)
   doc.setTextColor(...DARK)
-  doc.text(displayCompanyName, M, headerY)
+  doc.text(companyIdentity, M, headerY)
   headerY += 5
 
-  // Line 2: Legal name in parentheses (if different from DBA)
-  if (showLegalSub) {
-    headerY += 1
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(...MED)
-    doc.text(`(${ci.legal_name})`, M, headerY)
-    headerY += 3
-  }
-
-  // Line 3: Company address
-  if (ci.company_address) {
-    headerY += 1
+  // Line 2: Contact info — 8pt gray single line
+  if (infoLine) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
     doc.setTextColor(...LABEL_GRAY)
-    // Handle multi-line address
-    const addrLines = ci.company_address.split('\n')
-    for (const line of addrLines) {
-      const trimmed = line.trim()
-      if (trimmed) {
-        doc.text(trimmed, M, headerY)
-        headerY += 3.5
-      }
-    }
-  }
-
-  // Line 4: Phone | Email
-  if (contactLine) {
-    if (!ci.company_address) headerY += 1
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(...LABEL_GRAY)
-    doc.text(contactLine, M, headerY)
+    doc.text(infoLine, M, headerY)
     headerY += 3.5
   }
 
-  // Line 5: CSLB licenses
+  // Line 3: CSLB licenses — 7pt lighter gray
   if (cslbLine) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
@@ -627,13 +606,13 @@ export async function generateWarrantyPdf(
     headerY += 3.5
   }
 
-  // Warranty title — below company info
-  headerY += 1
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  doc.setTextColor(...MED)
-  doc.text(title, M, headerY)
-  headerY += 4
+  // Warranty title — centered document heading
+  headerY += 2
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(...DARK)
+  doc.text(title, PW / 2, headerY, { align: 'center' })
+  headerY += 5
 
   y = headerY
 
@@ -768,7 +747,7 @@ export async function generateWarrantyPdf(
     doc.setFontSize(7)
     doc.setTextColor(...MED)
     doc.text(
-      `${displayCompanyName} — ${title}`,
+      `${companyIdentity} — ${title}`,
       M,
       PH - 10
     )
