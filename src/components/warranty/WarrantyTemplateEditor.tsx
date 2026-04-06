@@ -256,16 +256,16 @@ function SortableBlockRow({
 
           {/* Color picker — not on signature blocks */}
           {block.type !== 'signature' && (
-            <label className="flex items-center gap-1 cursor-pointer" title="Change color">
+            <label className="relative cursor-pointer" title="Change color">
               <div
-                className="w-4 h-4 rounded-full border border-gray-300"
+                className="w-5 h-5 rounded-full border border-gray-300"
                 style={{ backgroundColor: block.color }}
               />
               <input
                 type="color"
                 value={block.color}
                 onChange={(e) => onUpdate(block.id, { color: e.target.value })}
-                className="sr-only"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
             </label>
           )}
@@ -433,11 +433,12 @@ function PreviewPanel({
   })
 
   function replaceMergeFields(text: string): string {
-    let result = text
+    // Add space between adjacent merge fields (}}{{) before replacing
+    let result = text.replace(/\}\}\{\{/g, '}} {{')
     for (const [tag, sample] of Object.entries(SAMPLE_DATA)) {
-      result = result.replace(new RegExp(tag.replace(/[{}]/g, '\\$&'), 'g'), sample)
+      result = result.split(tag).join(sample)
     }
-    result = result.replace(/\{\{warranty_duration\}\}/g, duration.trim() || 'N/A')
+    result = result.split('{{warranty_duration}}').join(duration.trim() || 'N/A')
     return result
   }
 
@@ -446,8 +447,8 @@ function PreviewPanel({
       {/* Document Header */}
       <div className="flex items-start justify-between mb-2">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 tracking-wide">PECKHAM COATINGS</h1>
-          <p className="text-xs text-gray-500 mt-0.5">{name || 'Untitled Warranty'}</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-wide">PECKHAM COATINGS</h1>
+          <p className="text-sm text-gray-500 mt-1">{name || 'Untitled Warranty'}</p>
         </div>
         {logoUrl && (
           <img
@@ -457,28 +458,28 @@ function PreviewPanel({
           />
         )}
       </div>
-      <div className="h-px bg-amber-500 mb-6" />
+      <div className="h-[2px] bg-amber-500 mb-6 mt-3" />
 
       {/* Block rendering */}
       {blocks.map((block) => {
         switch (block.type) {
           case 'header':
             return (
-              <div key={block.id} className="mt-4 mb-2">
+              <div key={block.id} className="mt-6 mb-2">
                 <h2
-                  className="text-base font-bold tracking-wide"
+                  className="text-lg font-bold tracking-wide uppercase"
                   style={{ color: block.color }}
                 >
                   {replaceMergeFields(block.content) || 'Section Title'}
                 </h2>
-                <div className="h-px mt-1" style={{ backgroundColor: block.color, opacity: 0.2 }} />
+                <div className="h-px mt-1" style={{ backgroundColor: block.color, opacity: 0.25 }} />
               </div>
             )
           case 'sub_header':
             return (
-              <div key={block.id} className="mt-3 mb-1">
+              <div key={block.id} className="mt-4 mb-1">
                 <h3
-                  className="text-sm font-bold"
+                  className="text-base font-bold"
                   style={{ color: block.color }}
                 >
                   {replaceMergeFields(block.content) || 'Sub Section'}
@@ -489,7 +490,7 @@ function PreviewPanel({
             return (
               <p
                 key={block.id}
-                className="text-sm leading-relaxed mb-2 whitespace-pre-wrap"
+                className="text-sm leading-relaxed mt-2 whitespace-pre-wrap"
                 style={{ color: block.color }}
               >
                 {replaceMergeFields(block.content) || ''}
@@ -498,34 +499,31 @@ function PreviewPanel({
           case 'divider':
             return (
               <div key={block.id} className="my-4">
-                <hr className="border-t-2" style={{ borderColor: block.color }} />
+                <div className="h-px w-full" style={{ backgroundColor: block.color }} />
               </div>
             )
           case 'signature':
             return (
-              <div key={block.id} className="mt-8">
+              <div key={block.id} className="mt-6">
+                <div className="w-52 border-b border-gray-900 mb-2" />
                 {block.signatureData ? (
                   <img
                     src={block.signatureData}
                     alt="Signature"
-                    className="h-16 mb-1"
+                    className="max-w-[200px] h-auto mb-2"
                   />
                 ) : (
-                  <div className="w-48 h-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-1">
+                  <div className="w-48 h-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-2">
                     <span className="text-xs text-gray-400">Signature</span>
                   </div>
                 )}
-                <div className="w-48 border-b border-gray-900 mb-1" />
                 {block.signatureName && (
-                  <p
-                    className="text-base text-gray-900"
-                    style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}
-                  >
+                  <p className="text-sm text-gray-900">
                     {block.signatureName}
                   </p>
                 )}
                 {block.signatureTitle && (
-                  <p className="text-xs text-gray-500">{block.signatureTitle}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{block.signatureTitle}</p>
                 )}
               </div>
             )
@@ -536,7 +534,7 @@ function PreviewPanel({
 
       {/* Footer */}
       <div className="mt-8 pt-4 border-t border-gray-200">
-        <p className="text-xs text-gray-400">Date: {today}</p>
+        <p className="text-xs text-gray-500">Date: {today}</p>
       </div>
     </div>
   )
