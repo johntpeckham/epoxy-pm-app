@@ -557,99 +557,137 @@ function PreviewPanel({
     return result
   }
 
+  const displayName = name || 'Untitled Warranty'
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 max-w-[600px] mx-auto">
-      {/* Document Header */}
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-wide">PECKHAM COATINGS</h1>
-          <p className="text-sm text-gray-500 mt-1">{name || 'Untitled Warranty'}</p>
+    <div className="bg-white border border-gray-200 rounded-lg shadow-md max-w-[600px] mx-auto font-[Helvetica,Arial,sans-serif]">
+      {/* Page content area — matches PDF margins proportionally */}
+      <div className="px-8 pt-6 pb-4">
+        {/* Document Header — matches PDF: logo top-right, company name left */}
+        <div className="flex items-start justify-between">
+          <div>
+            {/* PDF: helvetica bold 16pt, color DARK (gray-900), title case */}
+            <h1 className="text-xl font-bold text-gray-900">Peckham Coatings</h1>
+            {/* PDF: helvetica normal 10pt, color MED (gray-500) */}
+            <p className="text-[11px] text-gray-500 mt-1">{displayName}</p>
+          </div>
+          {logoUrl && (
+            <img
+              src={logoUrl}
+              alt="Company logo"
+              className="max-w-[90px] max-h-[45px] object-contain"
+            />
+          )}
         </div>
-        {logoUrl && (
-          <img
-            src={logoUrl}
-            alt="Company logo"
-            className="max-w-[80px] max-h-[40px] object-contain"
-          />
-        )}
-      </div>
-      <div className="h-[2px] bg-amber-500 mb-6 mt-3" />
 
-      {/* Block rendering */}
-      {blocks.map((block) => {
-        switch (block.type) {
-          case 'header':
-            return (
-              <div key={block.id} className="mt-6 mb-2">
-                <h2
-                  className="text-lg font-bold tracking-wide uppercase"
-                  style={{ color: block.color }}
-                >
-                  {replaceMergeFields(block.content) || 'Section Title'}
-                </h2>
-                <div className="h-px mt-1" style={{ backgroundColor: block.color, opacity: 0.25 }} />
-              </div>
-            )
-          case 'sub_header':
-            return (
-              <div key={block.id} className="mt-4 mb-1">
-                <h3
-                  className="text-base font-bold"
-                  style={{ color: block.color }}
-                >
-                  {replaceMergeFields(block.content) || 'Sub Section'}
-                </h3>
-              </div>
-            )
-          case 'body':
-            return (
-              <p
-                key={block.id}
-                className="text-sm leading-relaxed mt-2 whitespace-pre-wrap"
-                style={{ color: block.color }}
-              >
-                {replaceMergeFields(block.content) || ''}
-              </p>
-            )
-          case 'divider':
-            return (
-              <div key={block.id} className="my-4">
-                <div className="h-px w-full" style={{ backgroundColor: block.color }} />
-              </div>
-            )
-          case 'signature':
-            return (
-              <div key={block.id} className="mt-6">
-                <div className="w-52 border-b border-gray-900 mb-2" />
-                {block.signatureData ? (
-                  <img
-                    src={block.signatureData}
-                    alt="Signature"
-                    className="max-w-[200px] h-auto mb-2"
+        {/* PDF: amber separator, AMBER [180,83,9], lineWidth 0.5, full width */}
+        <div className="h-[2px] mt-4 mb-6" style={{ backgroundColor: '#B45309' }} />
+
+        {/* Block rendering */}
+        {blocks.map((block) => {
+          switch (block.type) {
+            case 'header':
+              return (
+                <div key={block.id} className="mt-5 mb-2">
+                  {/* PDF: helvetica bold 14pt, block.color, toUpperCase(), full-width underline in block.color */}
+                  <h2
+                    className="text-[15px] font-bold uppercase leading-snug"
+                    style={{ color: block.color }}
+                  >
+                    {replaceMergeFields(block.content) || 'Section Title'}
+                  </h2>
+                  <div
+                    className="h-[1px] mt-1.5 w-full"
+                    style={{ backgroundColor: block.color }}
                   />
-                ) : (
-                  <div className="w-48 h-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-2">
-                    <span className="text-xs text-gray-400">Signature</span>
-                  </div>
-                )}
-                {block.signatureName && (
-                  <p className="text-sm text-gray-900">
-                    {block.signatureName}
+                </div>
+              )
+            case 'sub_header':
+              return (
+                <div key={block.id} className="mt-4 mb-1">
+                  {/* PDF: helvetica bold 12pt, block.color, no underline */}
+                  <h3
+                    className="text-[13px] font-bold leading-snug"
+                    style={{ color: block.color }}
+                  >
+                    {replaceMergeFields(block.content) || 'Sub Section'}
+                  </h3>
+                </div>
+              )
+            case 'body':
+              return (
+                <div key={block.id} className="mt-2 mb-1">
+                  {/* PDF: helvetica normal 10pt, block.color, line spacing ~5mm */}
+                  <p
+                    className="text-[11px] leading-[1.6] whitespace-pre-wrap"
+                    style={{ color: block.color }}
+                  >
+                    {replaceMergeFields(block.content) || ''}
                   </p>
-                )}
-                {block.signatureTitle && (
-                  <p className="text-xs text-gray-500 mt-0.5">{block.signatureTitle}</p>
-                )}
-              </div>
-            )
-          default:
-            return null
-        }
-      })}
+                </div>
+              )
+            case 'divider':
+              return (
+                <div key={block.id} className="my-3">
+                  {/* PDF: block.color, lineWidth 0.5 */}
+                  <div
+                    className="h-[2px] w-full"
+                    style={{ backgroundColor: block.color }}
+                  />
+                </div>
+              )
+            case 'signature':
+              return (
+                <div key={block.id} className="mt-5">
+                  {/* PDF: dark line 60mm wide (~34% of content width), lineWidth 0.3 */}
+                  <div className="w-[34%] border-t border-gray-900" />
+                  {block.signatureData ? (
+                    /* PDF: signature image 50mm × 25mm */
+                    <img
+                      src={block.signatureData}
+                      alt="Signature"
+                      className="max-w-[180px] h-auto mt-1 mb-1"
+                    />
+                  ) : (
+                    <div className="w-[180px] h-[60px] border-2 border-dashed border-gray-300 rounded flex items-center justify-center mt-1 mb-1">
+                      <span className="text-[10px] text-gray-400 italic">Signature will appear here</span>
+                    </div>
+                  )}
+                  {/* PDF: helvetica normal 10pt, DARK color */}
+                  {block.signatureName && (
+                    <p className="text-[11px] text-gray-900">
+                      {block.signatureName}
+                    </p>
+                  )}
+                  {/* PDF: helvetica normal 9pt, LABEL_GRAY [75,85,99] */}
+                  {block.signatureTitle && (
+                    <p className="text-[10px] mt-0.5" style={{ color: '#4B5563' }}>
+                      {block.signatureTitle}
+                    </p>
+                  )}
+                </div>
+              )
+            default:
+              return null
+          }
+        })}
 
-      {/* Footer */}
-      <div className="mt-8 pt-4 border-t border-gray-200">
-        <p className="text-xs text-gray-500">Date: {today}</p>
+        {/* Date line — PDF: helvetica normal 9pt, LABEL_GRAY, "Date: {today}" */}
+        <div className="mt-6">
+          <p className="text-[10px]" style={{ color: '#4B5563' }}>
+            Date: {today}
+          </p>
+        </div>
+      </div>
+
+      {/* Page footer — PDF: helvetica italic 7pt, MED gray-500 */}
+      <div className="px-8 py-3 border-t border-gray-100 flex items-center justify-between">
+        <p className="text-[9px] italic text-gray-400">
+          Peckham Coatings — {displayName}
+        </p>
+        <p className="text-[9px] italic text-gray-400">
+          Page 1 of 1
+        </p>
       </div>
     </div>
   )
