@@ -16,15 +16,7 @@ import {
   ArrowLeftIcon,
 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-
-const MERGE_FIELDS = [
-  '{{customer_name}}',
-  '{{project_name}}',
-  '{{estimate_number}}',
-  '{{address}}',
-  '{{date}}',
-  '{{warranty_duration}}',
-]
+import WarrantyTemplateEditor from './WarrantyTemplateEditor'
 
 interface Props {
   onClose: () => void
@@ -38,15 +30,8 @@ export default function WarrantyManagement({ onClose }: Props) {
   const [templates, setTemplates] = useState<WarrantyTemplate[]>([])
   const [loadingTemplates, setLoadingTemplates] = useState(true)
   const [editingTemplate, setEditingTemplate] = useState<WarrantyTemplate | null>(null)
-  const [showTemplateForm, setShowTemplateForm] = useState(false)
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false)
   const [deletingTemplate, setDeletingTemplate] = useState<WarrantyTemplate | null>(null)
-
-  // Template form state
-  const [formName, setFormName] = useState('')
-  const [formDescription, setFormDescription] = useState('')
-  const [formDuration, setFormDuration] = useState('')
-  const [formBody, setFormBody] = useState('')
-  const [saving, setSaving] = useState(false)
 
   // Manufacturer state
   const [mfgWarranties, setMfgWarranties] = useState<ManufacturerWarranty[]>([])
@@ -84,36 +69,22 @@ export default function WarrantyManagement({ onClose }: Props) {
     setLoadingMfg(false)
   }
 
-  function openTemplateForm(template?: WarrantyTemplate) {
-    if (template) {
-      setEditingTemplate(template)
-      setFormName(template.name)
-      setFormDescription(template.description ?? '')
-      setFormDuration(template.warranty_duration ?? '')
-      setFormBody(template.body_text)
-    } else {
-      setEditingTemplate(null)
-      setFormName('')
-      setFormDescription('')
-      setFormDuration('')
-      setFormBody('')
-    }
-    setShowTemplateForm(true)
+  function openTemplateEditor(template?: WarrantyTemplate) {
+    setEditingTemplate(template ?? null)
+    setShowTemplateEditor(true)
   }
 
-  function closeTemplateForm() {
-    setShowTemplateForm(false)
+  function closeTemplateEditor() {
+    setShowTemplateEditor(false)
     setEditingTemplate(null)
   }
 
-  async function saveTemplate() {
-    if (!formName.trim() || !formBody.trim()) return
-    setSaving(true)
+  async function saveTemplate(data: { name: string; description: string; duration: string; body: string }) {
     const payload = {
-      name: formName.trim(),
-      description: formDescription.trim() || null,
-      warranty_duration: formDuration.trim() || null,
-      body_text: formBody,
+      name: data.name,
+      description: data.description || null,
+      warranty_duration: data.duration || null,
+      body_text: data.body,
       updated_at: new Date().toISOString(),
     }
     if (editingTemplate) {
@@ -121,8 +92,7 @@ export default function WarrantyManagement({ onClose }: Props) {
     } else {
       await supabase.from('warranty_templates').insert(payload)
     }
-    setSaving(false)
-    closeTemplateForm()
+    closeTemplateEditor()
     fetchTemplates()
   }
 
@@ -207,137 +177,56 @@ export default function WarrantyManagement({ onClose }: Props) {
         {/* Content */}
         <div className="p-6 max-h-[70vh] overflow-y-auto">
           {activeTab === 'templates' && (
-            <>
-              {showTemplateForm ? (
-                /* ── Template Editor ── */
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-700">
-                    {editingTemplate ? 'Edit Template' : 'New Template'}
-                  </h3>
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-gray-500">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
+                <button
+                  onClick={() => openTemplateEditor()}
+                  className="flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  New Template
+                </button>
+              </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
-                    <input
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder="e.g., 1-Year Standard Warranty"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
-                    <input
-                      value={formDescription}
-                      onChange={(e) => setFormDescription(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder="Optional description"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Warranty Duration</label>
-                    <input
-                      value={formDuration}
-                      onChange={(e) => setFormDuration(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder='e.g., "1 year", "15 years"'
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Body Text *</label>
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {MERGE_FIELDS.map((f) => (
-                        <button
-                          key={f}
-                          type="button"
-                          onClick={() => setFormBody((prev) => prev + f)}
-                          className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5 hover:bg-amber-100 transition font-mono"
-                        >
-                          {f}
-                        </button>
-                      ))}
-                    </div>
-                    <textarea
-                      value={formBody}
-                      onChange={(e) => setFormBody(e.target.value)}
-                      rows={12}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y"
-                      placeholder="Enter warranty text with merge fields..."
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 justify-end">
-                    <button
-                      onClick={closeTemplateForm}
-                      className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={saveTemplate}
-                      disabled={saving || !formName.trim() || !formBody.trim()}
-                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
-                    >
-                      {saving ? 'Saving...' : editingTemplate ? 'Update Template' : 'Create Template'}
-                    </button>
-                  </div>
+              {loadingTemplates ? (
+                <div className="flex justify-center py-8">
+                  <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
                 </div>
+              ) : templates.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">No warranty templates yet</p>
               ) : (
-                /* ── Template List ── */
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm text-gray-500">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
-                    <button
-                      onClick={() => openTemplateForm()}
-                      className="flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition"
+                <div className="space-y-2">
+                  {templates.map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
                     >
-                      <PlusIcon className="w-4 h-4" />
-                      New Template
-                    </button>
-                  </div>
-
-                  {loadingTemplates ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
+                      <FileTextIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {t.warranty_duration && <span className="mr-2">{t.warranty_duration}</span>}
+                          {t.description}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => openTemplateEditor(t)}
+                        className="p-1.5 text-gray-400 hover:text-amber-600 transition"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeletingTemplate(t)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 transition"
+                      >
+                        <Trash2Icon className="w-4 h-4" />
+                      </button>
                     </div>
-                  ) : templates.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-8">No warranty templates yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {templates.map((t) => (
-                        <div
-                          key={t.id}
-                          className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-                        >
-                          <FileTextIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
-                            <p className="text-xs text-gray-400 truncate">
-                              {t.warranty_duration && <span className="mr-2">{t.warranty_duration}</span>}
-                              {t.description}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => openTemplateForm(t)}
-                            className="p-1.5 text-gray-400 hover:text-amber-600 transition"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeletingTemplate(t)}
-                            className="p-1.5 text-gray-400 hover:text-red-500 transition"
-                          >
-                            <Trash2Icon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {activeTab === 'manufacturer' && (
@@ -439,6 +328,15 @@ export default function WarrantyManagement({ onClose }: Props) {
           )}
         </div>
       </div>
+
+      {/* Template Editor Modal */}
+      {showTemplateEditor && (
+        <WarrantyTemplateEditor
+          template={editingTemplate}
+          onSave={saveTemplate}
+          onCancel={closeTemplateEditor}
+        />
+      )}
 
       {/* Confirm dialogs */}
       {deletingTemplate && (
