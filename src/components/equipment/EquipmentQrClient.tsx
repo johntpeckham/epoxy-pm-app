@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import Link from 'next/link'
 import { QRCodeSVG } from 'qrcode.react'
 import { ArrowLeftIcon } from 'lucide-react'
@@ -29,11 +28,6 @@ export default function EquipmentQrClient({ equipment }: Props) {
   const yearMakeModel = [equipment.year, equipment.make, equipment.model]
     .filter(Boolean)
     .join(' / ')
-
-  useEffect(() => {
-    const timer = setTimeout(() => window.print(), 500)
-    return () => clearTimeout(timer)
-  }, [])
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8">

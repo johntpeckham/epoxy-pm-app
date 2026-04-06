@@ -10,6 +10,7 @@ import type { MaintenanceLogRow, EquipmentDocumentRow } from '@/app/(dashboard)/
 import EquipmentModal from './EquipmentModal'
 import MaintenanceLogModal from './MaintenanceLogModal'
 import DocumentUploadModal from './DocumentUploadModal'
+import QrPreviewModal from './QrPreviewModal'
 
 const CATEGORY_LABEL: Record<string, string> = {
   vehicle: 'Vehicle',
@@ -54,6 +55,7 @@ export default function EquipmentDetailClient({
   const [showEquipmentModal, setShowEquipmentModal] = useState(false)
   const [showLogModal, setShowLogModal] = useState(false)
   const [showDocModal, setShowDocModal] = useState(false)
+  const [showQrModal, setShowQrModal] = useState(false)
   const [editingLog, setEditingLog] = useState<MaintenanceLogRow | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [deleteDocId, setDeleteDocId] = useState<string | null>(null)
@@ -183,13 +185,13 @@ export default function EquipmentDetailClient({
         >
           {equipment.status === 'active' ? 'Active' : 'Out of Service'}
         </span>
-        <Link
-          href={`/equipment-qr/${equipment.id}`}
+        <button
+          onClick={() => setShowQrModal(true)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
         >
           <QrCodeIcon className="w-4 h-4" />
-          Print QR Sticker
-        </Link>
+          QR Code
+        </button>
       </div>
 
       {/* Two-column layout */}
@@ -436,6 +438,14 @@ export default function EquipmentDetailClient({
           userId={userId}
           onClose={() => setShowDocModal(false)}
           onSaved={handleDocSaved}
+        />
+      )}
+
+      {/* QR preview modal */}
+      {showQrModal && (
+        <QrPreviewModal
+          equipment={equipment}
+          onClose={() => setShowQrModal(false)}
         />
       )}
 
