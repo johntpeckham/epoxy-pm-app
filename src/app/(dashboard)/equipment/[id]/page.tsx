@@ -20,6 +20,15 @@ export interface MaintenanceLogRow {
   created_by: string | null
 }
 
+export interface EquipmentDocumentRow {
+  id: string
+  equipment_id: string
+  label: string
+  file_url: string
+  uploaded_at: string
+  uploaded_by: string | null
+}
+
 export default async function EquipmentDetailPage({ params }: PageProps) {
   const { id } = await params
   const supabase = await createClient()
@@ -49,6 +58,12 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
     .eq('equipment_id', id)
     .order('service_date', { ascending: false })
 
+  const { data: docs } = await supabase
+    .from('equipment_documents')
+    .select('id, equipment_id, label, file_url, uploaded_at, uploaded_by')
+    .eq('equipment_id', id)
+    .order('uploaded_at', { ascending: false })
+
   return (
     <EquipmentDetailClient
       equipment={{
@@ -67,6 +82,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
         created_by: equipment.created_by,
       }}
       initialLogs={(logs ?? []) as MaintenanceLogRow[]}
+      initialDocs={(docs ?? []) as EquipmentDocumentRow[]}
       userId={session.user.id}
       userRole={userRole}
       userDisplayName={displayName}

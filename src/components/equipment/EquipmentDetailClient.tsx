@@ -4,11 +4,12 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon } from 'lucide-react'
+import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon } from 'lucide-react'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
-import type { MaintenanceLogRow } from '@/app/(dashboard)/equipment/[id]/page'
+import type { MaintenanceLogRow, EquipmentDocumentRow } from '@/app/(dashboard)/equipment/[id]/page'
 import EquipmentModal from './EquipmentModal'
 import MaintenanceLogModal from './MaintenanceLogModal'
+import DocumentUploadModal from './DocumentUploadModal'
 
 const CATEGORY_LABEL: Record<string, string> = {
   vehicle: 'Vehicle',
@@ -30,6 +31,7 @@ function formatLogDate(dateStr: string) {
 interface Props {
   equipment: EquipmentRow
   initialLogs: MaintenanceLogRow[]
+  initialDocs: EquipmentDocumentRow[]
   userId: string
   userRole: string
   userDisplayName: string
@@ -38,6 +40,7 @@ interface Props {
 export default function EquipmentDetailClient({
   equipment: initialEquipment,
   initialLogs,
+  initialDocs,
   userId,
   userRole,
   userDisplayName,
@@ -47,11 +50,15 @@ export default function EquipmentDetailClient({
 
   const [equipment, setEquipment] = useState(initialEquipment)
   const [logs, setLogs] = useState(initialLogs)
+  const [docs, setDocs] = useState(initialDocs)
   const [showEquipmentModal, setShowEquipmentModal] = useState(false)
   const [showLogModal, setShowLogModal] = useState(false)
+  const [showDocModal, setShowDocModal] = useState(false)
   const [editingLog, setEditingLog] = useState<MaintenanceLogRow | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deleteDocId, setDeleteDocId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [deletingDoc, setDeletingDoc] = useState(false)
 
   const refreshEquipment = useCallback(async () => {
     const supabase = createClient()
@@ -114,6 +121,34 @@ export default function EquipmentDetailClient({
     setDeleteConfirmId(null)
   }
 
+  const refreshDocs = useCallback(async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('equipment_documents')
+      .select('id, equipment_id, label, file_url, uploaded_at, uploaded_by')
+      .eq('equipment_id', equipment.id)
+      .order('uploaded_at', { ascending: false })
+    if (data) {
+      setDocs(data as EquipmentDocumentRow[])
+    }
+  }, [equipment.id])
+
+  const handleDocSaved = useCallback(() => {
+    setShowDocModal(false)
+    refreshDocs()
+  }, [refreshDocs])
+
+  const handleDeleteDoc = async (id: string) => {
+    setDeletingDoc(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('equipment_documents').delete().eq('id', id)
+    if (!error) {
+      setDocs((prev) => prev.filter((d) => d.id !== id))
+    }
+    setDeletingDoc(false)
+    setDeleteDocId(null)
+  }
+
   const hasDetails =
     equipment.category ||
     equipment.year ||
@@ -137,7 +172,7 @@ export default function EquipmentDetailClient({
       </Link>
 
       {/* Page header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">{equipment.name}</h1>
         <span
           className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
@@ -148,6 +183,13 @@ export default function EquipmentDetailClient({
         >
           {equipment.status === 'active' ? 'Active' : 'Out of Service'}
         </span>
+        <Link
+          href={`/equipment-qr/${equipment.id}`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+        >
+          <QrCodeIcon className="w-4 h-4" />
+          Print QR Sticker
+        </Link>
       </div>
 
       {/* Two-column layout */}
@@ -287,6 +329,51 @@ export default function EquipmentDetailClient({
               </dl>
             </div>
           )}
+
+          {/* Documents card */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Documents</h2>
+              <button
+                onClick={() => setShowDocModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+              >
+                <UploadIcon className="w-4 h-4" />
+                Upload
+              </button>
+            </div>
+            {docs.length === 0 ? (
+              <p className="text-sm text-gray-400">No documents uploaded yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {docs.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                    <span className="text-sm text-gray-900 font-medium">{doc.label}</span>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={doc.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 transition-colors"
+                      >
+                        View
+                        <ExternalLinkIcon className="w-3.5 h-3.5" />
+                      </a>
+                      {canManage && (
+                        <button
+                          onClick={() => setDeleteDocId(doc.id)}
+                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
+                          title="Delete"
+                        >
+                          <TrashIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -340,6 +427,43 @@ export default function EquipmentDetailClient({
           }}
           onSaved={handleLogSaved}
         />
+      )}
+
+      {/* Document upload modal */}
+      {showDocModal && (
+        <DocumentUploadModal
+          equipmentId={equipment.id}
+          userId={userId}
+          onClose={() => setShowDocModal(false)}
+          onSaved={handleDocSaved}
+        />
+      )}
+
+      {/* Delete document confirmation */}
+      {deleteDocId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setDeleteDocId(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900">Delete Document</h3>
+            <p className="text-sm text-gray-500 mt-2">
+              Are you sure you want to delete this document? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setDeleteDocId(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteDoc(deleteDocId)}
+                disabled={deletingDoc}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {deletingDoc ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
