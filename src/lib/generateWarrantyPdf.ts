@@ -371,9 +371,9 @@ async function renderBlockBody(
       case 'header': {
         const rgb = hexToRgb(block.color)
         checkPage(14)
-        setY(getY() + 8)
+        setY(getY() + 3)
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(14)
+        doc.setFontSize(10)
         doc.setTextColor(...rgb)
         const text = block.content.toUpperCase()
         const lines = doc.splitTextToSize(text, CW) as string[]
@@ -382,13 +382,7 @@ async function renderBlockBody(
           doc.text(line, M, getY())
           setY(getY() + 6)
         }
-        // Subtle underline
-        doc.setDrawColor(...rgb)
-        doc.setLineWidth(0.3)
-        const lineAlpha = 0.25
-        // jsPDF doesn't support alpha on lines directly, use a lighter shade
-        doc.line(M, getY(), M + CW, getY())
-        setY(getY() + 4)
+        setY(getY() + 1)
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
         doc.setTextColor(...DARK)
@@ -397,15 +391,15 @@ async function renderBlockBody(
       case 'sub_header': {
         const rgb = hexToRgb(block.color)
         checkPage(12)
-        setY(getY() + 6)
+        setY(getY() + 2)
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(12)
+        doc.setFontSize(10)
         doc.setTextColor(...rgb)
         const lines = doc.splitTextToSize(block.content, CW) as string[]
         for (const line of lines) {
           checkPage(7)
           doc.text(line, M, getY())
-          setY(getY() + 5.5)
+          setY(getY() + 5)
         }
         setY(getY() + 2)
         doc.setFont('helvetica', 'normal')
@@ -416,7 +410,6 @@ async function renderBlockBody(
       case 'body': {
         const rgb = hexToRgb(block.color)
         checkPage(8)
-        setY(getY() + 3)
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
         doc.setTextColor(...rgb)
@@ -424,7 +417,7 @@ async function renderBlockBody(
         for (const textLine of textLines) {
           const trimmed = textLine.trim()
           if (!trimmed) {
-            setY(getY() + 3)
+            setY(getY() + 4)
             continue
           }
           const lines = doc.splitTextToSize(trimmed, CW) as string[]
@@ -440,12 +433,12 @@ async function renderBlockBody(
       }
       case 'divider': {
         const rgb = hexToRgb(block.color)
-        checkPage(10)
-        setY(getY() + 4)
+        checkPage(6)
+        setY(getY() + 3)
         doc.setDrawColor(...rgb)
-        doc.setLineWidth(0.5)
+        doc.setLineWidth(0.3)
         doc.line(M, getY(), M + CW, getY())
-        setY(getY() + 4)
+        setY(getY() + 3)
         break
       }
       case 'signature': {
@@ -653,21 +646,6 @@ export async function generateWarrantyPdf(
     y += 5
 
     // Date
-    const today = new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
-    doc.text(`Date: ${today}`, M, y)
-  }
-
-  // ─── Date line (block format) ─────────────────────────────────────────
-  if (parsedBlocks) {
-    checkPage(10)
-    y += 8
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(...LABEL_GRAY)
     const today = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
