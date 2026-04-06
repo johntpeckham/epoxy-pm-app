@@ -31,18 +31,30 @@ import {
   TypeIcon,
   MinusIcon,
   PenToolIcon,
+  ChevronsUpDownIcon,
 } from 'lucide-react'
 
 // ── Block types ────────────────────────────────────────────────────────────
 
 export interface TemplateBlock {
   id: string
-  type: 'header' | 'sub_header' | 'body' | 'divider' | 'signature'
+  type: 'header' | 'sub_header' | 'body' | 'divider' | 'signature' | 'spacer'
   content: string
   color: string
+  height?: number
   signatureData?: string
   signatureName?: string
   signatureTitle?: string
+}
+
+export interface HeaderDividerSettings {
+  enabled: boolean
+  color: string
+}
+
+const DEFAULT_HEADER_DIVIDER: HeaderDividerSettings = {
+  enabled: true,
+  color: '#D97706',
 }
 
 const MERGE_FIELDS = [
@@ -121,19 +133,29 @@ function generateId(): string {
 
 // ── Legacy conversion ──────────────────────────────────────────────────────
 
-function parseBodyToBlocks(bodyText: string): TemplateBlock[] {
+function parseBodyData(bodyText: string): { blocks: TemplateBlock[]; headerDivider: HeaderDividerSettings } {
   // Try JSON first
   try {
     const parsed = JSON.parse(bodyText)
+    // New object format: { blocks: [...], headerDivider: {...} }
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.blocks) {
+      return {
+        blocks: parsed.blocks as TemplateBlock[],
+        headerDivider: parsed.headerDivider ?? { ...DEFAULT_HEADER_DIVIDER },
+      }
+    }
+    // Old array format
     if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
-      return parsed as TemplateBlock[]
+      return {
+        blocks: parsed as TemplateBlock[],
+        headerDivider: { ...DEFAULT_HEADER_DIVIDER },
+      }
     }
   } catch {
     // not JSON
   }
 
   // Legacy: HTML or plain text → blocks
-  // Strip HTML tags for conversion
   const stripped = bodyText
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n\n')
@@ -154,7 +176,6 @@ function parseBodyToBlocks(bodyText: string): TemplateBlock[] {
     const trimmed = p.trim()
     if (!trimmed) continue
 
-    // Detect headers: ALL CAPS, or short lines ending with ":"
     const isHeader =
       (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && trimmed.length < 60 && !/\d{4}/.test(trimmed)) ||
       (trimmed.endsWith(':') && trimmed.length < 60)
@@ -164,7 +185,7 @@ function parseBodyToBlocks(bodyText: string): TemplateBlock[] {
         id: generateId(),
         type: 'header',
         content: trimmed,
-        color: '#B45309', // amber-700
+        color: '#B45309',
       })
     } else {
       blocks.push({
@@ -176,7 +197,8 @@ function parseBodyToBlocks(bodyText: string): TemplateBlock[] {
     }
   }
 
-  return blocks.length > 0 ? blocks : [{ id: generateId(), type: 'body', content: '', color: '#000000' }]
+  const finalBlocks = blocks.length > 0 ? blocks : [{ id: generateId(), type: 'body' as const, content: '', color: '#000000' }]
+  return { blocks: finalBlocks, headerDivider: { ...DEFAULT_HEADER_DIVIDER } }
 }
 
 // ── Block type metadata ────────────────────────────────────────────────────
@@ -186,6 +208,7 @@ const BLOCK_TYPE_META: Record<TemplateBlock['type'], { label: string; badge: str
   sub_header: { label: 'Sub Header', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
   body: { label: 'Body', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
   divider: { label: 'Divider', badge: 'bg-gray-100 text-gray-600 border-gray-300' },
+  spacer: { label: 'Spacer', badge: 'bg-sky-50 text-sky-600 border-sky-200' },
   signature: { label: 'Signature', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
@@ -392,8 +415,8 @@ function SortableBlockRow({
 
           <div className="flex-1" />
 
-          {/* Color palette — not on signature blocks */}
-          {block.type !== 'signature' && (
+          {/* Color palette — not on signature or spacer blocks */}
+          {block.type !== 'signature' && block.type !== 'spacer' && (
             <div className="relative" ref={colorPickerRef}>
               <button
                 type="button"
@@ -510,6 +533,21 @@ function SortableBlockRow({
             </div>
           )}
 
+          {block.type === 'spacer' && (
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={5}
+                max={100}
+                step={5}
+                value={block.height ?? 20}
+                onChange={(e) => onUpdate(block.id, { height: parseInt(e.target.value) })}
+                className="flex-1 h-1.5 accent-amber-500"
+              />
+              <span className="text-xs text-gray-500 font-mono w-10 text-right">{block.height ?? 20}px</span>
+            </div>
+          )}
+
           {block.type === 'signature' && (
             <div className="space-y-3">
               <div>
@@ -577,11 +615,13 @@ function PreviewPanel({
   duration,
   blocks,
   logoUrl,
+  headerDivider,
 }: {
   name: string
   duration: string
   blocks: TemplateBlock[]
   logoUrl: string | null
+  headerDivider: HeaderDividerSettings
 }) {
   function replaceMergeFields(text: string): string {
     // Add space between adjacent merge fields (}}{{) before replacing
@@ -616,8 +656,11 @@ function PreviewPanel({
           )}
         </div>
 
-        {/* PDF: amber separator, AMBER [180,83,9], lineWidth 0.5, full width */}
-        <div className="h-[2px] mt-4 mb-6" style={{ backgroundColor: '#B45309' }} />
+        {/* Header divider line — configurable */}
+        {headerDivider.enabled && (
+          <div className="h-[2px] mt-4 mb-6" style={{ backgroundColor: headerDivider.color }} />
+        )}
+        {!headerDivider.enabled && <div className="mt-4 mb-6" />}
 
         {/* Block rendering */}
         {blocks.map((block) => {
@@ -664,10 +707,13 @@ function PreviewPanel({
                   />
                 </div>
               )
+            case 'spacer':
+              return (
+                <div key={block.id} style={{ height: block.height ?? 20 }} />
+              )
             case 'signature':
               return (
                 <div key={block.id} className="mt-5">
-                  {/* PDF: dark line 60mm wide (~34% of content width), lineWidth 0.3 */}
                   <div className="w-[34%] border-t border-gray-900" />
                   {block.signatureData ? (
                     /* PDF: signature image 50mm × 25mm */
@@ -728,21 +774,29 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
   const [name, setName] = useState(template?.name ?? '')
   const [description, setDescription] = useState(template?.description ?? '')
   const [duration, setDuration] = useState(template?.warranty_duration ?? '')
-  const [blocks, setBlocks] = useState<TemplateBlock[]>(() => {
+  const [initData] = useState(() => {
     if (template?.body_text) {
-      return parseBodyToBlocks(template.body_text)
+      return parseBodyData(template.body_text)
     }
-    return [{ id: generateId(), type: 'body', content: '', color: '#000000' }]
+    return { blocks: [{ id: generateId(), type: 'body' as const, content: '', color: '#000000' }], headerDivider: { ...DEFAULT_HEADER_DIVIDER } }
   })
+  const [blocks, setBlocks] = useState<TemplateBlock[]>(initData.blocks)
+  const [headerDivider, setHeaderDivider] = useState<HeaderDividerSettings>(initData.headerDivider)
   const [saving, setSaving] = useState(false)
   const [showAddMenu, setShowAddMenu] = useState(false)
+  const [showDividerColorPicker, setShowDividerColorPicker] = useState(false)
   const addMenuRef = useRef<HTMLDivElement>(null)
+  const dividerColorRef = useRef<HTMLDivElement>(null)
+  const blockListRef = useRef<HTMLDivElement>(null)
 
-  // Close add menu on outside click
+  // Close menus on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
         setShowAddMenu(false)
+      }
+      if (dividerColorRef.current && !dividerColorRef.current.contains(e.target as Node)) {
+        setShowDividerColorPicker(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -786,6 +840,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
       sub_header: { content: 'Sub Section', color: '#92400E' },
       body: { content: '', color: '#000000' },
       divider: { content: '', color: '#E5E7EB' },
+      spacer: { content: '', color: '#000000', height: 20 },
       signature: { content: '', color: '#000000', signatureData: '', signatureName: '', signatureTitle: '' },
     }
     setBlocks((prev) => [
@@ -793,6 +848,9 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
       { id: generateId(), type, ...defaults[type] } as TemplateBlock,
     ])
     setShowAddMenu(false)
+    setTimeout(() => {
+      blockListRef.current?.scrollTo({ top: blockListRef.current.scrollHeight, behavior: 'smooth' })
+    }, 50)
   }
 
   // ── Save ──
@@ -805,7 +863,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
         name: name.trim(),
         description: description.trim(),
         duration: duration.trim(),
-        body: JSON.stringify(blocks),
+        body: JSON.stringify({ blocks, headerDivider }),
       })
     } finally {
       setSaving(false)
@@ -840,7 +898,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
         {/* Body — split view */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Left — Block Editor */}
-          <div className="flex-1 flex flex-col overflow-y-auto border-b lg:border-b-0 lg:border-r border-gray-200">
+          <div className="flex-1 flex flex-col overflow-hidden border-b lg:border-b-0 lg:border-r border-gray-200">
             {/* Top fields */}
             <div className="p-6 space-y-4 flex-shrink-0">
               <div>
@@ -870,11 +928,130 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                   placeholder='e.g., "1 year", "15 years"'
                 />
               </div>
+              {/* Header Divider toggle + color */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Header Divider</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={headerDivider.enabled}
+                    onClick={() => setHeaderDivider((prev) => ({ ...prev, enabled: !prev.enabled }))}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      headerDivider.enabled ? 'bg-amber-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                        headerDivider.enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                      }`}
+                    />
+                  </button>
+                  {headerDivider.enabled && (
+                    <div className="relative" ref={dividerColorRef}>
+                      <button
+                        type="button"
+                        onClick={() => setShowDividerColorPicker(!showDividerColorPicker)}
+                        className="w-5 h-5 rounded-full border border-gray-300 cursor-pointer hover:ring-2 hover:ring-amber-300 transition"
+                        style={{ backgroundColor: headerDivider.color }}
+                        title="Divider color"
+                      />
+                      {showDividerColorPicker && (
+                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 w-[136px]">
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {PRESET_COLORS.map((c) => (
+                              <button
+                                key={c.hex}
+                                type="button"
+                                onClick={() => {
+                                  setHeaderDivider((prev) => ({ ...prev, color: c.hex }))
+                                  setShowDividerColorPicker(false)
+                                }}
+                                className="w-5 h-5 rounded-full border border-gray-200 hover:scale-110 transition flex items-center justify-center"
+                                style={{ backgroundColor: c.hex }}
+                                title={c.label}
+                              >
+                                {headerDivider.color.toLowerCase() === c.hex.toLowerCase() && (
+                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Block list */}
-            <div className="flex-1 px-6 pb-4 overflow-y-auto">
-              <label className="block text-xs font-medium text-gray-600 mb-2">Content Blocks</label>
+            {/* Content Blocks label + Add Block button — sticky above the scrollable list */}
+            <div className="px-6 py-2 flex-shrink-0 border-t border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-gray-600">Content Blocks</label>
+                <div className="relative" ref={addMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMenu(!showAddMenu)}
+                    className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded-md border border-amber-200 bg-amber-50 hover:bg-amber-100 transition"
+                  >
+                    <PlusIcon className="w-3.5 h-3.5" />
+                    Add Block
+                  </button>
+                  {showAddMenu && (
+                    <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[150px]">
+                      <button
+                        onClick={() => addBlock('header')}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
+                      >
+                        <Heading1Icon className="w-4 h-4 text-amber-600" />
+                        Header
+                      </button>
+                      <button
+                        onClick={() => addBlock('sub_header')}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
+                      >
+                        <Heading2Icon className="w-4 h-4 text-orange-600" />
+                        Sub Header
+                      </button>
+                      <button
+                        onClick={() => addBlock('body')}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
+                      >
+                        <TypeIcon className="w-4 h-4 text-blue-600" />
+                        Body
+                      </button>
+                      <button
+                        onClick={() => addBlock('divider')}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
+                      >
+                        <MinusIcon className="w-4 h-4 text-gray-500" />
+                        Divider
+                      </button>
+                      <button
+                        onClick={() => addBlock('spacer')}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
+                      >
+                        <ChevronsUpDownIcon className="w-4 h-4 text-sky-500" />
+                        Spacer
+                      </button>
+                      <button
+                        onClick={() => addBlock('signature')}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
+                      >
+                        <PenToolIcon className="w-4 h-4 text-purple-600" />
+                        Signature
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollable block list */}
+            <div className="flex-1 px-6 py-4 overflow-y-auto" ref={blockListRef}>
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-3">
@@ -889,57 +1066,6 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                   </div>
                 </SortableContext>
               </DndContext>
-
-              {/* Add block */}
-              <div className="mt-4 relative" ref={addMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowAddMenu(!showAddMenu)}
-                  className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-amber-600 px-3 py-2 rounded-lg border border-dashed border-gray-300 hover:border-amber-400 transition w-full justify-center"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Add Block
-                </button>
-                {showAddMenu && (
-                  <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
-                    <button
-                      onClick={() => addBlock('header')}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
-                    >
-                      <Heading1Icon className="w-4 h-4 text-amber-600" />
-                      Header
-                    </button>
-                    <button
-                      onClick={() => addBlock('sub_header')}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
-                    >
-                      <Heading2Icon className="w-4 h-4 text-orange-600" />
-                      Sub Header
-                    </button>
-                    <button
-                      onClick={() => addBlock('body')}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
-                    >
-                      <TypeIcon className="w-4 h-4 text-blue-600" />
-                      Body
-                    </button>
-                    <button
-                      onClick={() => addBlock('divider')}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
-                    >
-                      <MinusIcon className="w-4 h-4 text-gray-500" />
-                      Divider
-                    </button>
-                    <button
-                      onClick={() => addBlock('signature')}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
-                    >
-                      <PenToolIcon className="w-4 h-4 text-purple-600" />
-                      Signature
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -954,6 +1080,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                 duration={duration}
                 blocks={blocks}
                 logoUrl={companySettings?.logo_url ?? null}
+                headerDivider={headerDivider}
               />
             </div>
           </div>

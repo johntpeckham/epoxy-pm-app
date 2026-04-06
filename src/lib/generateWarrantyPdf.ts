@@ -28,12 +28,18 @@ async function loadImage(url: string): Promise<{
 // ── Block format types (matches WarrantyTemplateEditor) ─────────────────────
 interface TemplateBlock {
   id: string
-  type: 'header' | 'sub_header' | 'body' | 'divider' | 'signature'
+  type: 'header' | 'sub_header' | 'body' | 'divider' | 'signature' | 'spacer'
   content: string
   color: string
+  height?: number
   signatureData?: string
   signatureName?: string
   signatureTitle?: string
+}
+
+interface HeaderDividerSettings {
+  enabled: boolean
+  color: string
 }
 
 /** Convert hex color string (#RRGGBB or RRGGBB) to RGB tuple */
@@ -483,6 +489,13 @@ async function renderBlockBody(
         doc.setTextColor(...DARK)
         break
       }
+      case 'spacer': {
+        // Convert px height to mm (roughly 1px ≈ 0.3mm)
+        const spaceMm = Math.max(1, Math.round((block.height ?? 20) * 0.3))
+        checkPage(spaceMm)
+        setY(getY() + spaceMm)
+        break
+      }
     }
   }
   // Reset text color
@@ -543,10 +556,33 @@ export async function generateWarrantyPdf(
 
   y += 20
 
-  // Amber separator line
-  doc.setDrawColor(...AMBER)
-  doc.setLineWidth(0.5)
-  doc.line(M, y, M + CW, y)
+  // ─── Header Divider ──────────────────────────────────────────────────────
+
+  // Detect format early to get headerDivider settings
+  let parsedBlocks: TemplateBlock[] | null = null
+  let headerDividerSettings: HeaderDividerSettings = { enabled: true, color: '#B45309' }
+  try {
+    const parsed = JSON.parse(bodyText)
+    // New object format: { blocks: [...], headerDivider: {...} }
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.blocks) {
+      parsedBlocks = parsed.blocks as TemplateBlock[]
+      headerDividerSettings = parsed.headerDivider ?? headerDividerSettings
+    }
+    // Old array format
+    else if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
+      parsedBlocks = parsed as TemplateBlock[]
+    }
+  } catch {
+    // not JSON — fall through to legacy rendering
+  }
+
+  // Draw header divider line if enabled
+  if (headerDividerSettings.enabled) {
+    const dividerRgb = hexToRgb(headerDividerSettings.color)
+    doc.setDrawColor(...dividerRgb)
+    doc.setLineWidth(0.5)
+    doc.line(M, y, M + CW, y)
+  }
   y += 10
 
   // ─── Body Text ───────────────────────────────────────────────────────────
@@ -554,17 +590,6 @@ export async function generateWarrantyPdf(
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(...DARK)
-
-  // Detect format: JSON blocks, HTML, or plain text
-  let parsedBlocks: TemplateBlock[] | null = null
-  try {
-    const parsed = JSON.parse(bodyText)
-    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
-      parsedBlocks = parsed as TemplateBlock[]
-    }
-  } catch {
-    // not JSON — fall through to legacy rendering
-  }
 
   if (parsedBlocks) {
     // New block format rendering
