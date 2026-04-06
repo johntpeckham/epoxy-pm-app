@@ -12,14 +12,10 @@ import {
   ShieldCheckIcon,
   PlusIcon,
   Trash2Icon,
-  DownloadIcon,
   EyeIcon,
-  ArrowLeftIcon,
   ArrowRightIcon,
-  CheckIcon,
   Loader2Icon,
   FileTextIcon,
-  UserIcon,
 } from 'lucide-react'
 
 interface Props {
@@ -28,7 +24,31 @@ interface Props {
   onBack: () => void
 }
 
-type Step = 'list' | 'select_template' | 'edit_text' | 'signature' | 'attach_mfg' | 'generating'
+type Step = 'list' | 'select_template' | 'edit_text' | 'attach_mfg' | 'generating'
+
+/** Block type from the template editor */
+interface TemplateBlock {
+  id: string
+  type: 'header' | 'sub_header' | 'body' | 'divider' | 'signature'
+  content: string
+  color: string
+  signatureData?: string
+  signatureName?: string
+  signatureTitle?: string
+}
+
+/** Try parsing body_text as JSON blocks; returns null if not block format */
+function parseBlocks(bodyText: string): TemplateBlock[] | null {
+  try {
+    const parsed = JSON.parse(bodyText)
+    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
+      return parsed as TemplateBlock[]
+    }
+  } catch {
+    // not JSON
+  }
+  return null
+}
 
 export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
   const supabase = createClient()
@@ -53,7 +73,6 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
   const [mfgWarranties, setMfgWarranties] = useState<ManufacturerWarranty[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<WarrantyTemplate | null>(null)
   const [editedBody, setEditedBody] = useState('')
-  const [signatureName, setSignatureName] = useState('')
   const [selectedMfgIds, setSelectedMfgIds] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
 
@@ -101,7 +120,6 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
   function startNewWarranty() {
     setSelectedTemplate(null)
     setEditedBody('')
-    setSignatureName('')
     setSelectedMfgIds([])
     fetchTemplatesAndMfg()
     setStep('select_template')
@@ -109,7 +127,16 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
 
   function selectTemplate(template: WarrantyTemplate) {
     setSelectedTemplate(template)
-    setEditedBody(applyMergeFields(template.body_text, template))
+    // For block format: apply merge fields to body block content, keep JSON structure
+    const blocks = parseBlocks(template.body_text)
+    if (blocks) {
+      const merged = blocks.map((b) =>
+        b.type === 'body' ? { ...b, content: applyMergeFields(b.content, template) } : b
+      )
+      setEditedBody(JSON.stringify(merged))
+    } else {
+      setEditedBody(applyMergeFields(template.body_text, template))
+    }
     setStep('edit_text')
   }
 
@@ -125,7 +152,7 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
       const result = await generateWarrantyPdf(
         warrantyTitle,
         editedBody,
-        signatureName || null,
+        null,
         companySettings?.logo_url
       )
 
@@ -147,7 +174,7 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
         template_id: selectedTemplate.id,
         title: warrantyTitle,
         generated_content: editedBody,
-        signature_name: signatureName || null,
+        signature_name: null,
         manufacturer_warranty_ids: selectedMfgIds.length > 0 ? selectedMfgIds : null,
         pdf_url: pdfUrl,
         created_by: userId,
@@ -250,26 +277,84 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
 
           {step === 'edit_text' && (
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Review & Edit Warranty Text</h3>
-              <p className="text-xs text-gray-400 mb-3">Merge fields have been filled with project data. Edit as needed.</p>
-              {/<[a-z][\s\S]*>/i.test(editedBody) ? (
-                <div className="w-full border border-gray-200 rounded-lg overflow-hidden">
-                  <div
-                    className="px-3 py-2 text-sm min-h-[300px] prose prose-sm max-w-none
-                      [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2
-                      [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2
-                      [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1"
-                    dangerouslySetInnerHTML={{ __html: editedBody }}
+              <h3 className="text-sm font-semibold text-gray-700 mb-1">Review Warranty Content</h3>
+              <p className="text-xs text-gray-400 mb-3">Merge fields have been filled with project data. Review before generating.</p>
+              {(() => {
+                const blocks = parseBlocks(editedBody)
+                if (blocks) {
+                  // Block format preview
+                  return (
+                    <div className="w-full border border-gray-200 rounded-lg p-4 min-h-[300px] space-y-3 bg-white">
+                      {blocks.map((block) => {
+                        switch (block.type) {
+                          case 'header':
+                            return (
+                              <div key={block.id} className="mt-3">
+                                <h2 className="text-lg font-bold uppercase tracking-wide" style={{ color: block.color }}>
+                                  {block.content || 'Section Title'}
+                                </h2>
+                                <div className="h-px mt-1" style={{ backgroundColor: block.color, opacity: 0.25 }} />
+                              </div>
+                            )
+                          case 'sub_header':
+                            return (
+                              <h3 key={block.id} className="text-base font-bold mt-2" style={{ color: block.color }}>
+                                {block.content || 'Sub Section'}
+                              </h3>
+                            )
+                          case 'body':
+                            return (
+                              <p key={block.id} className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: block.color }}>
+                                {block.content}
+                              </p>
+                            )
+                          case 'divider':
+                            return (
+                              <div key={block.id} className="my-3">
+                                <div className="h-px w-full" style={{ backgroundColor: block.color }} />
+                              </div>
+                            )
+                          case 'signature':
+                            return (
+                              <div key={block.id} className="mt-4 pt-2">
+                                <div className="w-48 border-b border-gray-900 mb-2" />
+                                {block.signatureData && (
+                                  <img src={block.signatureData} alt="Signature" className="max-w-[200px] h-auto mb-2" />
+                                )}
+                                {block.signatureName && <p className="text-sm text-gray-900">{block.signatureName}</p>}
+                                {block.signatureTitle && <p className="text-xs text-gray-500">{block.signatureTitle}</p>}
+                              </div>
+                            )
+                          default:
+                            return null
+                        }
+                      })}
+                    </div>
+                  )
+                }
+                // Legacy format: HTML or plain text
+                if (/<[a-z][\s\S]*>/i.test(editedBody)) {
+                  return (
+                    <div className="w-full border border-gray-200 rounded-lg overflow-hidden">
+                      <div
+                        className="px-3 py-2 text-sm min-h-[300px] prose prose-sm max-w-none
+                          [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2
+                          [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2
+                          [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1"
+                        dangerouslySetInnerHTML={{ __html: editedBody }}
+                      />
+                    </div>
+                  )
+                }
+                return (
+                  <textarea
+                    value={editedBody}
+                    onChange={(e) => setEditedBody(e.target.value)}
+                    rows={16}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y font-mono"
                   />
-                </div>
-              ) : (
-                <textarea
-                  value={editedBody}
-                  onChange={(e) => setEditedBody(e.target.value)}
-                  rows={16}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y font-mono"
-                />
-              )}
+                )
+              })()}
               <div className="flex items-center gap-2 justify-end mt-4">
                 <button
                   onClick={() => setStep('select_template')}
@@ -278,52 +363,9 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
                   Back
                 </button>
                 <button
-                  onClick={() => setStep('signature')}
+                  onClick={() => setStep('attach_mfg')}
                   disabled={!editedBody.trim()}
                   className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition flex items-center gap-1.5"
-                >
-                  Next: Signature
-                  <ArrowRightIcon className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 'signature' && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Signature</h3>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Type your name for signature</label>
-                <input
-                  value={signatureName}
-                  onChange={(e) => setSignatureName(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="e.g., John Peckham"
-                />
-              </div>
-              {signatureName && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-xs text-gray-400 mb-2">Preview:</p>
-                  <div className="border-b border-gray-400 w-48 mb-1" />
-                  <p
-                    className="text-2xl text-gray-900"
-                    style={{ fontFamily: "'Georgia', 'Times New Roman', serif", fontStyle: 'italic' }}
-                  >
-                    {signatureName}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">{signatureName}</p>
-                </div>
-              )}
-              <div className="flex items-center gap-2 justify-end mt-4">
-                <button
-                  onClick={() => setStep('edit_text')}
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={() => setStep('attach_mfg')}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-sm font-semibold transition flex items-center gap-1.5"
                 >
                   Next: Attachments
                   <ArrowRightIcon className="w-4 h-4" />
@@ -367,7 +409,7 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
               )}
               <div className="flex items-center gap-2 justify-end mt-4">
                 <button
-                  onClick={() => setStep('signature')}
+                  onClick={() => setStep('edit_text')}
                   className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
                 >
                   Back
