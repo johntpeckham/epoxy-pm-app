@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon } from 'lucide-react'
-import { Profile } from '@/types'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon } from 'lucide-react'
+import { Profile, CslbLicense } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import UserManagement from './UserManagement'
@@ -58,6 +58,101 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoError, setLogoError] = useState<string | null>(null)
   const [logoSuccess, setLogoSuccess] = useState(false)
+
+  // Company info state
+  const [companyInfoEditing, setCompanyInfoEditing] = useState(false)
+  const [companyInfoSaving, setCompanyInfoSaving] = useState(false)
+  const [companyInfoSuccess, setCompanyInfoSuccess] = useState(false)
+  const [companyInfoError, setCompanyInfoError] = useState<string | null>(null)
+  const [ciLegalName, setCiLegalName] = useState('')
+  const [ciDba, setCiDba] = useState('')
+  const [ciAddress, setCiAddress] = useState('')
+  const [ciMailing, setCiMailing] = useState('')
+  const [ciPhone, setCiPhone] = useState('')
+  const [ciEmail, setCiEmail] = useState('')
+  const [ciLicenses, setCiLicenses] = useState<CslbLicense[]>([])
+
+  // Sync company info state when settings load
+  const companyInfoSynced = useRef(false)
+  useEffect(() => {
+    if (companySettings && !companyInfoSynced.current) {
+      setCiLegalName(companySettings.legal_name ?? '')
+      setCiDba(companySettings.dba ?? '')
+      setCiAddress(companySettings.company_address ?? '')
+      setCiMailing(companySettings.mailing_address ?? '')
+      setCiPhone(companySettings.phone ?? '')
+      setCiEmail(companySettings.email ?? '')
+      setCiLicenses(companySettings.cslb_licenses ?? [])
+      companyInfoSynced.current = true
+    }
+  }, [companySettings])
+
+  function startEditCompanyInfo() {
+    setCiLegalName(companySettings?.legal_name ?? '')
+    setCiDba(companySettings?.dba ?? '')
+    setCiAddress(companySettings?.company_address ?? '')
+    setCiMailing(companySettings?.mailing_address ?? '')
+    setCiPhone(companySettings?.phone ?? '')
+    setCiEmail(companySettings?.email ?? '')
+    setCiLicenses(companySettings?.cslb_licenses ?? [])
+    setCompanyInfoEditing(true)
+    setCompanyInfoError(null)
+  }
+
+  function cancelEditCompanyInfo() {
+    setCompanyInfoEditing(false)
+    setCompanyInfoError(null)
+  }
+
+  async function saveCompanyInfo() {
+    setCompanyInfoSaving(true)
+    setCompanyInfoError(null)
+    try {
+      const payload = {
+        legal_name: ciLegalName.trim() || null,
+        dba: ciDba.trim() || null,
+        company_address: ciAddress.trim() || null,
+        mailing_address: ciMailing.trim() || null,
+        phone: ciPhone.trim() || null,
+        email: ciEmail.trim() || null,
+        cslb_licenses: ciLicenses.filter((l) => l.number.trim()),
+        updated_at: new Date().toISOString(),
+      }
+      if (companySettings?.id) {
+        const { error } = await supabase
+          .from('company_settings')
+          .update(payload)
+          .eq('id', companySettings.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('company_settings')
+          .insert(payload)
+        if (error) throw error
+      }
+      await refetchCompanySettings()
+      companyInfoSynced.current = false
+      setCompanyInfoEditing(false)
+      setCompanyInfoSuccess(true)
+      setTimeout(() => setCompanyInfoSuccess(false), 2000)
+    } catch (err) {
+      setCompanyInfoError(err instanceof Error ? err.message : 'Failed to save')
+    } finally {
+      setCompanyInfoSaving(false)
+    }
+  }
+
+  function addLicense() {
+    setCiLicenses((prev) => [...prev, { id: crypto.randomUUID(), number: '', classification: '' }])
+  }
+
+  function removeLicense(id: string) {
+    setCiLicenses((prev) => prev.filter((l) => l.id !== id))
+  }
+
+  function updateLicense(id: string, field: 'number' | 'classification', value: string) {
+    setCiLicenses((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)))
+  }
 
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
 
@@ -217,6 +312,208 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
           </button>
           <h1 className="text-2xl font-bold text-gray-900 flex-1">Profile Settings</h1>
         </div>
+
+        {/* Company Information Section */}
+        {(isAdmin || isOfficeManager) ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Company Information</h2>
+              {!companyInfoEditing && (
+                <button
+                  onClick={startEditCompanyInfo}
+                  className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
+                >
+                  <PencilIcon className="w-3.5 h-3.5" />
+                  Edit
+                </button>
+              )}
+            </div>
+
+            {companyInfoEditing ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Legal Company Name</label>
+                  <input
+                    value={ciLegalName}
+                    onChange={(e) => setCiLegalName(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="e.g., Peckham Coatings Inc."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">DBA (Doing Business As)</label>
+                  <input
+                    value={ciDba}
+                    onChange={(e) => setCiDba(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="e.g., Peckham Coatings"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Company Address</label>
+                  <textarea
+                    value={ciAddress}
+                    onChange={(e) => setCiAddress(e.target.value)}
+                    rows={2}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                    placeholder="123 Main St, City, State ZIP"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Mailing Address</label>
+                  <textarea
+                    value={ciMailing}
+                    onChange={(e) => setCiMailing(e.target.value)}
+                    rows={2}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                    placeholder="PO Box 123, City, State ZIP"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Phone Number</label>
+                    <input
+                      value={ciPhone}
+                      onChange={(e) => setCiPhone(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={ciEmail}
+                      onChange={(e) => setCiEmail(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      placeholder="info@company.com"
+                    />
+                  </div>
+                </div>
+                {/* CSLB Licenses */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-2">CSLB License Numbers</label>
+                  <div className="space-y-2">
+                    {ciLicenses.map((license) => (
+                      <div key={license.id} className="flex items-center gap-2">
+                        <input
+                          value={license.number}
+                          onChange={(e) => updateLicense(license.id, 'number', e.target.value)}
+                          className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          placeholder="License #"
+                        />
+                        <input
+                          value={license.classification}
+                          onChange={(e) => updateLicense(license.id, 'classification', e.target.value)}
+                          className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          placeholder="Classification"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeLicense(license.id)}
+                          className="p-1 text-gray-400 hover:text-red-500 transition flex-shrink-0"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addLicense}
+                    className="mt-2 flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
+                  >
+                    <PlusIcon className="w-3.5 h-3.5" />
+                    Add License
+                  </button>
+                </div>
+                {companyInfoError && <p className="text-xs text-red-500">{companyInfoError}</p>}
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    onClick={saveCompanyInfo}
+                    disabled={companyInfoSaving}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
+                  >
+                    {companyInfoSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={cancelEditCompanyInfo}
+                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 text-sm">
+                {companyInfoSuccess && <p className="text-xs text-green-600 mb-2">Company info saved successfully</p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-400">Legal Company Name</p>
+                    <p className="text-gray-900">{companySettings?.legal_name || <span className="text-gray-300 italic">Not set</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">DBA</p>
+                    <p className="text-gray-900">{companySettings?.dba || <span className="text-gray-300 italic">Not set</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Company Address</p>
+                    <p className="text-gray-900 whitespace-pre-line">{companySettings?.company_address || <span className="text-gray-300 italic">Not set</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Mailing Address</p>
+                    <p className="text-gray-900 whitespace-pre-line">{companySettings?.mailing_address || <span className="text-gray-300 italic">Not set</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Phone</p>
+                    <p className="text-gray-900">{companySettings?.phone || <span className="text-gray-300 italic">Not set</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Email</p>
+                    <p className="text-gray-900">{companySettings?.email || <span className="text-gray-300 italic">Not set</span>}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">CSLB Licenses</p>
+                  {companySettings?.cslb_licenses && companySettings.cslb_licenses.length > 0 ? (
+                    <div className="space-y-0.5">
+                      {companySettings.cslb_licenses.map((l, i) => (
+                        <p key={i} className="text-gray-900">License #{l.number} — {l.classification}</p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-300 italic">None</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Read-only view for non-admin/non-office-manager users */
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Company Information</h2>
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-gray-400">Legal Company Name</p>
+                  <p className="text-gray-900">{companySettings?.legal_name || <span className="text-gray-300 italic">Not set</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">DBA</p>
+                  <p className="text-gray-900">{companySettings?.dba || <span className="text-gray-300 italic">Not set</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Phone</p>
+                  <p className="text-gray-900">{companySettings?.phone || <span className="text-gray-300 italic">Not set</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Email</p>
+                  <p className="text-gray-900">{companySettings?.email || <span className="text-gray-300 italic">Not set</span>}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Company Logo Section — Admin only */}
         {isAdmin && (

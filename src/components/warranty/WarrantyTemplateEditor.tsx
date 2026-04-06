@@ -616,12 +616,14 @@ function PreviewPanel({
   blocks,
   logoUrl,
   headerDivider,
+  companyName,
 }: {
   name: string
   duration: string
   blocks: TemplateBlock[]
   logoUrl: string | null
   headerDivider: HeaderDividerSettings
+  companyName: string
 }) {
   function replaceMergeFields(text: string): string {
     // Add space between adjacent merge fields (}}{{) before replacing
@@ -643,7 +645,7 @@ function PreviewPanel({
         <div className="flex items-start justify-between">
           <div>
             {/* PDF: helvetica bold 16pt, color DARK (gray-900), title case */}
-            <h1 className="text-xl font-bold text-gray-900">Peckham Coatings</h1>
+            <h1 className="text-xl font-bold text-gray-900">{companyName}</h1>
             {/* PDF: helvetica normal 10pt, color MED (gray-500) */}
             <p className="text-[11px] text-gray-500 mt-1">{displayName}</p>
           </div>
@@ -751,7 +753,7 @@ function PreviewPanel({
       {/* Page footer — PDF: helvetica italic 7pt, MED gray-500 */}
       <div className="px-8 py-3 border-t border-gray-100 flex items-center justify-between">
         <p className="text-[9px] italic text-gray-400">
-          Peckham Coatings — {displayName}
+          {companyName} — {displayName}
         </p>
         <p className="text-[9px] italic text-gray-400">
           Page 1 of 1
@@ -1081,6 +1083,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                 blocks={blocks}
                 logoUrl={companySettings?.logo_url ?? null}
                 headerDivider={headerDivider}
+                companyName={companySettings?.dba || companySettings?.legal_name || 'Peckham Coatings'}
               />
             </div>
           </div>
