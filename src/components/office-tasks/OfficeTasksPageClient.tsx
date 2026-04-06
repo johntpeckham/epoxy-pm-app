@@ -17,6 +17,7 @@ import {
   SearchIcon,
   Building2Icon,
   WrenchIcon,
+  PackageIcon,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -397,6 +398,19 @@ export default function OfficeTasksPageClient({
           >
             View All Equipment →
           </Link>
+        </div>
+
+        {/* ── Material Inventory Card (spans 2 columns) ── */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+          {/* Card header */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-amber-500">
+              <PackageIcon className="w-5 h-5" />
+            </span>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">Material Inventory</h3>
+          </div>
+
+          <p className="text-sm text-gray-400">Coming soon — material tracking and inventory management.</p>
         </div>
 
       </div>
