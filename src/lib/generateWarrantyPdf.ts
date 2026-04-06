@@ -508,7 +508,8 @@ export async function generateWarrantyPdf(
   title: string,
   bodyText: string,
   signatureName: string | null,
-  logoUrl?: string | null
+  logoUrl?: string | null,
+  companyName?: string | null
 ): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -546,7 +547,8 @@ export async function generateWarrantyPdf(
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
   doc.setTextColor(...DARK)
-  doc.text('Peckham Coatings', M, y + 8)
+  const displayCompanyName = companyName || 'Peckham Coatings'
+  doc.text(displayCompanyName, M, y + 8)
 
   // Warranty title
   doc.setFont('helvetica', 'normal')
@@ -687,7 +689,7 @@ export async function generateWarrantyPdf(
     doc.setFontSize(7)
     doc.setTextColor(...MED)
     doc.text(
-      `Peckham Coatings — ${title}`,
+      `${displayCompanyName} — ${title}`,
       M,
       PH - 10
     )

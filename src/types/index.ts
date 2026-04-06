@@ -291,10 +291,23 @@ export interface ProjectPlan {
   updated_at: string
 }
 
+export interface CslbLicense {
+  id: string
+  number: string
+  classification: string
+}
+
 export interface CompanySettings {
   id: string
   logo_url: string | null
   company_name: string | null
+  legal_name: string | null
+  dba: string | null
+  company_address: string | null
+  mailing_address: string | null
+  phone: string | null
+  email: string | null
+  cslb_licenses: CslbLicense[] | null
   updated_at: string
 }
 
