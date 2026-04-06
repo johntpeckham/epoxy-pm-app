@@ -504,12 +504,21 @@ async function renderBlockBody(
   doc.setTextColor(...DARK)
 }
 
+interface CompanyInfo {
+  dba?: string | null
+  legal_name?: string | null
+  company_address?: string | null
+  phone?: string | null
+  email?: string | null
+  cslb_licenses?: { number: string; classification: string }[] | null
+}
+
 export async function generateWarrantyPdf(
   title: string,
   bodyText: string,
   signatureName: string | null,
   logoUrl?: string | null,
-  companyName?: string | null
+  companyInfo?: CompanyInfo | null
 ): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -543,20 +552,90 @@ export async function generateWarrantyPdf(
     }
   }
 
-  // Company name
+  // ── Company info header ───────────────────────────────────────────────────
+  const ci = companyInfo ?? {}
+  const displayCompanyName = ci.dba || ci.legal_name || 'Peckham Coatings'
+  const showLegalSub = ci.dba && ci.legal_name && ci.dba.toLowerCase() !== ci.legal_name.toLowerCase()
+
+  // Format CSLB licenses
+  let cslbLine: string | null = null
+  if (ci.cslb_licenses && ci.cslb_licenses.length > 0) {
+    const parts = ci.cslb_licenses.map((l) => {
+      const code = l.classification.includes(' - ') ? l.classification.split(' - ')[0].trim() : l.classification.trim()
+      return `#${l.number} (${code})`
+    })
+    cslbLine = `CSLB Lic. ${parts.join(', ')}`
+  }
+
+  // Contact line
+  const contactParts: string[] = []
+  if (ci.phone) contactParts.push(ci.phone)
+  if (ci.email) contactParts.push(ci.email)
+  const contactLine = contactParts.length > 0 ? contactParts.join(' | ') : null
+
+  // Line 1: Company name
+  let headerY = y + 8
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
   doc.setTextColor(...DARK)
-  const displayCompanyName = companyName || 'Peckham Coatings'
-  doc.text(displayCompanyName, M, y + 8)
+  doc.text(displayCompanyName, M, headerY)
+  headerY += 5
 
-  // Warranty title
+  // Line 2: Legal name in parentheses (if different from DBA)
+  if (showLegalSub) {
+    headerY += 1
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...MED)
+    doc.text(`(${ci.legal_name})`, M, headerY)
+    headerY += 3
+  }
+
+  // Line 3: Company address
+  if (ci.company_address) {
+    headerY += 1
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...LABEL_GRAY)
+    // Handle multi-line address
+    const addrLines = ci.company_address.split('\n')
+    for (const line of addrLines) {
+      const trimmed = line.trim()
+      if (trimmed) {
+        doc.text(trimmed, M, headerY)
+        headerY += 3.5
+      }
+    }
+  }
+
+  // Line 4: Phone | Email
+  if (contactLine) {
+    if (!ci.company_address) headerY += 1
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...LABEL_GRAY)
+    doc.text(contactLine, M, headerY)
+    headerY += 3.5
+  }
+
+  // Line 5: CSLB licenses
+  if (cslbLine) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.setTextColor(...MED)
+    doc.text(cslbLine, M, headerY)
+    headerY += 3.5
+  }
+
+  // Warranty title — below company info
+  headerY += 1
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(...MED)
-  doc.text(title, M, y + 14)
+  doc.text(title, M, headerY)
+  headerY += 4
 
-  y += 20
+  y = headerY
 
   // ─── Header Divider ──────────────────────────────────────────────────────
 
