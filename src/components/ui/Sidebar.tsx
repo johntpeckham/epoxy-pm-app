@@ -281,13 +281,13 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         <Link
           href="/equipment"
           onClick={() => setMobileOpen(false)}
-          className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          className={`hidden md:flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
             isEquipmentActive
               ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
               : 'text-gray-400 hover:text-white hover:bg-gray-800'
           }`}
         >
-          <WrenchIcon className="w-5 h-5 flex-shrink-0" />
+          <WrenchIcon className="w-4 h-4 flex-shrink-0" />
           Equipment
         </Link>
 
