@@ -617,6 +617,12 @@ function PreviewPanel({
   logoUrl,
   headerDivider,
   companyName,
+  companyLegalName,
+  companyDba,
+  companyAddress,
+  companyPhone,
+  companyEmail,
+  companyLicenses,
 }: {
   name: string
   duration: string
@@ -624,6 +630,12 @@ function PreviewPanel({
   logoUrl: string | null
   headerDivider: HeaderDividerSettings
   companyName: string
+  companyLegalName: string | null
+  companyDba: string | null
+  companyAddress: string | null
+  companyPhone: string | null
+  companyEmail: string | null
+  companyLicenses: { number: string; classification: string }[] | null
 }) {
   function replaceMergeFields(text: string): string {
     // Add space between adjacent merge fields (}}{{) before replacing
@@ -637,23 +649,50 @@ function PreviewPanel({
 
   const displayName = name || 'Untitled Warranty'
 
+  // Format CSLB licenses: "#1234567 (B), #7654321 (C-33)"
+  const formattedLicenses = companyLicenses && companyLicenses.length > 0
+    ? companyLicenses.map((l) => {
+        const code = l.classification.includes(' - ') ? l.classification.split(' - ')[0].trim() : l.classification.trim()
+        return `#${l.number} (${code})`
+      }).join(', ')
+    : null
+
+  // Show legal name in parens if DBA is set and differs from legal name
+  const showLegalSub = companyDba && companyLegalName && companyDba.toLowerCase() !== companyLegalName.toLowerCase()
+
+  // Build contact line: phone | email
+  const contactParts: string[] = []
+  if (companyPhone) contactParts.push(companyPhone)
+  if (companyEmail) contactParts.push(companyEmail)
+  const contactLine = contactParts.length > 0 ? contactParts.join(' | ') : null
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-md max-w-[600px] mx-auto font-[Helvetica,Arial,sans-serif]">
       {/* Page content area — matches PDF margins proportionally */}
       <div className="px-8 pt-6 pb-4">
-        {/* Document Header — matches PDF: logo top-right, company name left */}
-        <div className="flex items-start justify-between">
-          <div>
-            {/* PDF: helvetica bold 16pt, color DARK (gray-900), title case */}
+        {/* Document Header — full company letterhead */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="leading-tight">
             <h1 className="text-xl font-bold text-gray-900">{companyName}</h1>
-            {/* PDF: helvetica normal 10pt, color MED (gray-500) */}
-            <p className="text-[11px] text-gray-500 mt-1">{displayName}</p>
+            {showLegalSub && (
+              <p className="text-[10px] text-gray-400 mt-0.5">({companyLegalName})</p>
+            )}
+            {companyAddress && (
+              <p className="text-[10px] text-gray-500 mt-1 whitespace-pre-line">{companyAddress}</p>
+            )}
+            {contactLine && (
+              <p className="text-[10px] text-gray-500 mt-0.5">{contactLine}</p>
+            )}
+            {formattedLicenses && (
+              <p className="text-[9px] text-gray-400 mt-0.5">CSLB Lic. {formattedLicenses}</p>
+            )}
+            <p className="text-[11px] text-gray-500 mt-1.5">{displayName}</p>
           </div>
           {logoUrl && (
             <img
               src={logoUrl}
               alt="Company logo"
-              className="max-w-[90px] max-h-[45px] object-contain"
+              className="max-w-[90px] max-h-[45px] object-contain flex-shrink-0"
             />
           )}
         </div>
@@ -1084,6 +1123,12 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                 logoUrl={companySettings?.logo_url ?? null}
                 headerDivider={headerDivider}
                 companyName={companySettings?.dba || companySettings?.legal_name || 'Peckham Coatings'}
+                companyLegalName={companySettings?.legal_name ?? null}
+                companyDba={companySettings?.dba ?? null}
+                companyAddress={companySettings?.company_address ?? null}
+                companyPhone={companySettings?.phone ?? null}
+                companyEmail={companySettings?.email ?? null}
+                companyLicenses={companySettings?.cslb_licenses ?? null}
               />
             </div>
           </div>

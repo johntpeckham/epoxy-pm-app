@@ -153,7 +153,14 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
         editedBody,
         null,
         companySettings?.logo_url,
-        companySettings?.dba || companySettings?.legal_name
+        companySettings ? {
+          dba: companySettings.dba,
+          legal_name: companySettings.legal_name,
+          company_address: companySettings.company_address,
+          phone: companySettings.phone,
+          email: companySettings.email,
+          cslb_licenses: companySettings.cslb_licenses,
+        } : null
       )
 
       // Upload PDF to storage
@@ -218,7 +225,14 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
           warranty.generated_content,
           warranty.signature_name,
           companySettings?.logo_url,
-          companySettings?.dba || companySettings?.legal_name
+          companySettings ? {
+            dba: companySettings.dba,
+            legal_name: companySettings.legal_name,
+            company_address: companySettings.company_address,
+            phone: companySettings.phone,
+            email: companySettings.email,
+            cslb_licenses: companySettings.cslb_licenses,
+          } : null
         )
         setPdfPreview({ blob: result.blob, filename: result.filename, title: warranty.title })
       } catch {
