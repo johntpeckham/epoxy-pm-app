@@ -42,6 +42,15 @@ export default async function OfficePage() {
     .eq('status', 'Active')
     .order('name', { ascending: true })
 
+  // Fetch equipment counts for the Equipment dashboard card
+  const { data: equipmentRows } = await supabase
+    .from('equipment')
+    .select('status')
+
+  const equipmentTotal = equipmentRows?.length ?? 0
+  const equipmentActive = equipmentRows?.filter((e) => e.status === 'active').length ?? 0
+  const equipmentOutOfService = equipmentRows?.filter((e) => e.status === 'out_of_service').length ?? 0
+
   return (
     <OfficeTasksPageClient
       userId={user.id}
@@ -49,6 +58,7 @@ export default async function OfficePage() {
       initialTasks={tasks ?? []}
       initialProfiles={profiles ?? []}
       initialProjects={projects ?? []}
+      equipmentCounts={{ total: equipmentTotal, active: equipmentActive, outOfService: equipmentOutOfService }}
     />
   )
 }

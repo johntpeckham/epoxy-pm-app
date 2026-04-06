@@ -16,6 +16,7 @@ import {
   XIcon,
   SearchIcon,
   Building2Icon,
+  WrenchIcon,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -63,12 +64,19 @@ function sortTasks(tasks: OfficeTask[]): OfficeTask[] {
 
 type ProjectOption = { id: string; name: string }
 
+interface EquipmentCounts {
+  total: number
+  active: number
+  outOfService: number
+}
+
 interface Props {
   userId: string
   userRole: UserRole
   initialTasks: OfficeTask[]
   initialProfiles: Profile[]
   initialProjects: ProjectOption[]
+  equipmentCounts: EquipmentCounts
 }
 
 /* ================================================================== */
@@ -81,6 +89,7 @@ export default function OfficeTasksPageClient({
   initialTasks,
   initialProfiles,
   initialProjects,
+  equipmentCounts,
 }: Props) {
   const supabase = createClient()
 
@@ -356,7 +365,39 @@ export default function OfficeTasksPageClient({
           </div>
         </div>
 
-        {/* Future dashboard cards can be added here alongside the Tasks card */}
+        {/* ── Equipment Card (spans 2 columns) ── */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+          {/* Card header */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-amber-500">
+              <WrenchIcon className="w-5 h-5" />
+            </span>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">Equipment</h3>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
+              {equipmentCounts.total} total
+            </span>
+          </div>
+
+          {/* Summary counts */}
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Active</span>
+              <span className="font-medium text-gray-900">{equipmentCounts.active}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Out of Service</span>
+              <span className="font-medium text-gray-900">{equipmentCounts.outOfService}</span>
+            </div>
+          </div>
+
+          {/* Link to full page */}
+          <Link
+            href="/equipment"
+            className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
+          >
+            View All Equipment →
+          </Link>
+        </div>
 
       </div>
 
