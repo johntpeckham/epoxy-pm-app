@@ -252,12 +252,24 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-1">Review & Edit Warranty Text</h3>
               <p className="text-xs text-gray-400 mb-3">Merge fields have been filled with project data. Edit as needed.</p>
-              <textarea
-                value={editedBody}
-                onChange={(e) => setEditedBody(e.target.value)}
-                rows={16}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y font-mono"
-              />
+              {/<[a-z][\s\S]*>/i.test(editedBody) ? (
+                <div className="w-full border border-gray-200 rounded-lg overflow-hidden">
+                  <div
+                    className="px-3 py-2 text-sm min-h-[300px] prose prose-sm max-w-none
+                      [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2
+                      [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2
+                      [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1"
+                    dangerouslySetInnerHTML={{ __html: editedBody }}
+                  />
+                </div>
+              ) : (
+                <textarea
+                  value={editedBody}
+                  onChange={(e) => setEditedBody(e.target.value)}
+                  rows={16}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y font-mono"
+                />
+              )}
               <div className="flex items-center gap-2 justify-end mt-4">
                 <button
                   onClick={() => setStep('select_template')}
