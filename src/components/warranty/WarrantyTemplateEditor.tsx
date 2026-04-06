@@ -189,6 +189,21 @@ const BLOCK_TYPE_META: Record<TemplateBlock['type'], { label: string; badge: str
   signature: { label: 'Signature', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
+// ── Preset Color Palette ──────────────────────────────────────────────────
+
+const PRESET_COLORS = [
+  { label: 'Black', hex: '#000000' },
+  { label: 'Dark Gray', hex: '#4B5563' },
+  { label: 'Orange', hex: '#D97706' },
+  { label: 'Brown', hex: '#92400E' },
+  { label: 'Red', hex: '#DC2626' },
+  { label: 'Blue', hex: '#2563EB' },
+  { label: 'Green', hex: '#16A34A' },
+  { label: 'Purple', hex: '#7C3AED' },
+  { label: 'Teal', hex: '#0D9488' },
+  { label: 'Navy', hex: '#1E3A5A' },
+]
+
 // ── Body ContentEditable ───────────────────────────────────────────────────
 
 function BodyContentEditable({
@@ -273,16 +288,21 @@ function SortableBlockRow({
   }
 
   const [showFieldMenu, setShowFieldMenu] = useState(false)
+  const [showColorPicker, setShowColorPicker] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const fieldMenuRef = useRef<HTMLDivElement>(null)
+  const colorPickerRef = useRef<HTMLDivElement>(null)
   const editableRef = useRef<HTMLDivElement>(null)
   const sigCanvasRef = useRef<SignatureCanvas | null>(null)
 
-  // Close field menu on outside click
+  // Close field menu and color picker on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (fieldMenuRef.current && !fieldMenuRef.current.contains(e.target as Node)) {
         setShowFieldMenu(false)
+      }
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        setShowColorPicker(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -372,20 +392,42 @@ function SortableBlockRow({
 
           <div className="flex-1" />
 
-          {/* Color picker — not on signature blocks */}
+          {/* Color palette — not on signature blocks */}
           {block.type !== 'signature' && (
-            <label className="relative cursor-pointer" title="Change color">
-              <div
-                className="w-5 h-5 rounded-full border border-gray-300"
+            <div className="relative" ref={colorPickerRef}>
+              <button
+                type="button"
+                onClick={() => setShowColorPicker(!showColorPicker)}
+                className="w-5 h-5 rounded-full border border-gray-300 cursor-pointer hover:ring-2 hover:ring-amber-300 transition"
                 style={{ backgroundColor: block.color }}
+                title="Change color"
               />
-              <input
-                type="color"
-                value={block.color}
-                onChange={(e) => onUpdate(block.id, { color: e.target.value })}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-            </label>
+              {showColorPicker && (
+                <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 w-[136px]">
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {PRESET_COLORS.map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        onClick={() => {
+                          onUpdate(block.id, { color: c.hex })
+                          setShowColorPicker(false)
+                        }}
+                        className="w-5 h-5 rounded-full border border-gray-200 hover:scale-110 transition flex items-center justify-center"
+                        style={{ backgroundColor: c.hex }}
+                        title={c.label}
+                      >
+                        {block.color.toLowerCase() === c.hex.toLowerCase() && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Delete */}
@@ -541,12 +583,6 @@ function PreviewPanel({
   blocks: TemplateBlock[]
   logoUrl: string | null
 }) {
-  const today = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-
   function replaceMergeFields(text: string): string {
     // Add space between adjacent merge fields (}}{{) before replacing
     let result = text.replace(/\}\}\{\{/g, '}} {{')
@@ -588,26 +624,20 @@ function PreviewPanel({
           switch (block.type) {
             case 'header':
               return (
-                <div key={block.id} className="mt-5 mb-2">
-                  {/* PDF: helvetica bold 14pt, block.color, toUpperCase(), full-width underline in block.color */}
+                <div key={block.id} className="mt-2 mb-1">
                   <h2
-                    className="text-[15px] font-bold uppercase leading-snug"
+                    className="text-[11px] font-bold uppercase leading-snug"
                     style={{ color: block.color }}
                   >
                     {replaceMergeFields(block.content) || 'Section Title'}
                   </h2>
-                  <div
-                    className="h-[1px] mt-1.5 w-full"
-                    style={{ backgroundColor: block.color }}
-                  />
                 </div>
               )
             case 'sub_header':
               return (
-                <div key={block.id} className="mt-4 mb-1">
-                  {/* PDF: helvetica bold 12pt, block.color, no underline */}
+                <div key={block.id} className="mt-1.5 mb-1">
                   <h3
-                    className="text-[13px] font-bold leading-snug"
+                    className="text-[11px] font-bold leading-snug"
                     style={{ color: block.color }}
                   >
                     {replaceMergeFields(block.content) || 'Sub Section'}
@@ -616,10 +646,9 @@ function PreviewPanel({
               )
             case 'body':
               return (
-                <div key={block.id} className="mt-2 mb-1">
-                  {/* PDF: helvetica normal 10pt, block.color, line spacing ~5mm */}
+                <div key={block.id} className="mb-0.5">
                   <p
-                    className="text-[11px] leading-[1.6] whitespace-pre-wrap"
+                    className="text-[11px] leading-[1.5] whitespace-pre-wrap"
                     style={{ color: block.color }}
                   >
                     {replaceMergeFields(block.content) || ''}
@@ -628,10 +657,9 @@ function PreviewPanel({
               )
             case 'divider':
               return (
-                <div key={block.id} className="my-3">
-                  {/* PDF: block.color, lineWidth 0.5 */}
+                <div key={block.id} className="my-2">
                   <div
-                    className="h-[2px] w-full"
+                    className="h-[1px] w-full"
                     style={{ backgroundColor: block.color }}
                   />
                 </div>
@@ -672,12 +700,6 @@ function PreviewPanel({
           }
         })}
 
-        {/* Date line — PDF: helvetica normal 9pt, LABEL_GRAY, "Date: {today}" */}
-        <div className="mt-6">
-          <p className="text-[10px]" style={{ color: '#4B5563' }}>
-            Date: {today}
-          </p>
-        </div>
       </div>
 
       {/* Page footer — PDF: helvetica italic 7pt, MED gray-500 */}
