@@ -125,10 +125,25 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
           .eq('id', companySettings.id)
         if (error) throw error
       } else {
-        const { error } = await supabase
+        // Check if a row exists that the hook hasn't loaded yet
+        const { data: existing } = await supabase
           .from('company_settings')
-          .insert(payload)
-        if (error) throw error
+          .select('id')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (existing) {
+          const { error } = await supabase
+            .from('company_settings')
+            .update(payload)
+            .eq('id', existing.id)
+          if (error) throw error
+        } else {
+          const { error } = await supabase
+            .from('company_settings')
+            .insert(payload)
+          if (error) throw error
+        }
       }
       await refetchCompanySettings()
       companyInfoSynced.current = false
@@ -189,17 +204,32 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
       const logoUrl = urlData.publicUrl
 
       // Upsert the single company_settings row
+      const logoPayload = { logo_url: logoUrl, updated_at: new Date().toISOString() }
       if (companySettings?.id) {
         const { error: updateError } = await supabase
           .from('company_settings')
-          .update({ logo_url: logoUrl, updated_at: new Date().toISOString() })
+          .update(logoPayload)
           .eq('id', companySettings.id)
         if (updateError) throw updateError
       } else {
-        const { error: insertError } = await supabase
+        const { data: existing } = await supabase
           .from('company_settings')
-          .insert({ logo_url: logoUrl, updated_at: new Date().toISOString() })
-        if (insertError) throw insertError
+          .select('id')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (existing) {
+          const { error: updateError } = await supabase
+            .from('company_settings')
+            .update(logoPayload)
+            .eq('id', existing.id)
+          if (updateError) throw updateError
+        } else {
+          const { error: insertError } = await supabase
+            .from('company_settings')
+            .insert(logoPayload)
+          if (insertError) throw insertError
+        }
       }
 
       await refetchCompanySettings()

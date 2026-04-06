@@ -13,6 +13,7 @@ export function useCompanySettings() {
     const { data } = await supabase
       .from('company_settings')
       .select('*')
+      .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
