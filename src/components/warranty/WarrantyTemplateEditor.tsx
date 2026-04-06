@@ -683,10 +683,10 @@ function PreviewPanel({
           <div className="leading-tight">
             <h1 className="text-base font-bold text-gray-900">{companyIdentity}</h1>
             {addressLine && (
-              <p className="text-[9px] text-gray-500 mt-0.5">{addressLine}</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">{addressLine}</p>
             )}
             {contactLine && (
-              <p className="text-[9px] text-gray-500 mt-0.5">{contactLine}</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">{contactLine}</p>
             )}
             {formattedLicenses && (
               <p className="text-[8px] text-gray-400 mt-0.5">CSLB Lic. {formattedLicenses}</p>
@@ -702,7 +702,7 @@ function PreviewPanel({
         </div>
 
         {/* Warranty title — document heading */}
-        <h2 className="text-base font-semibold text-gray-800 text-center mt-3">{displayName}</h2>
+        <h2 className="text-base font-semibold text-gray-800 mt-4">{displayName}</h2>
 
         {/* Header divider line — configurable */}
         {headerDivider.enabled && (

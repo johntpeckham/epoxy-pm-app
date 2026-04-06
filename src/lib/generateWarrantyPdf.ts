@@ -590,19 +590,19 @@ export async function generateWarrantyPdf(
   doc.text(companyIdentity, M, headerY)
   headerY += 5
 
-  // Line 2: Address — 8pt gray
+  // Line 2: Address — 9pt gray
   if (addressLine) {
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
+    doc.setFontSize(9)
     doc.setTextColor(...LABEL_GRAY)
     doc.text(addressLine, M, headerY)
     headerY += 3.5
   }
 
-  // Line 3: Phone | Email — 8pt gray
+  // Line 3: Phone | Email — 9pt gray
   if (contactLine) {
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
+    doc.setFontSize(9)
     doc.setTextColor(...LABEL_GRAY)
     doc.text(contactLine, M, headerY)
     headerY += 3.5
@@ -617,12 +617,12 @@ export async function generateWarrantyPdf(
     headerY += 3.5
   }
 
-  // Warranty title — centered document heading
-  headerY += 2
+  // Warranty title — left-aligned document heading
+  headerY += 4
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(...DARK)
-  doc.text(title, PW / 2, headerY, { align: 'center' })
+  doc.text(title, M, headerY)
   headerY += 5
 
   y = headerY
