@@ -657,14 +657,16 @@ function PreviewPanel({
     companyIdentity = companyDba || companyLegalName || companyName
   }
 
-  // Line 2: Contact info — "[Address] | [Phone] | [Email]" (single line, pipe-separated)
-  const infoParts: string[] = []
-  if (companyAddress) infoParts.push(companyAddress.replace(/\n/g, ', '))
-  if (companyPhone) infoParts.push(companyPhone)
-  if (companyEmail) infoParts.push(companyEmail)
-  const infoLine = infoParts.length > 0 ? infoParts.join(' | ') : null
+  // Line 2: Address (own line)
+  const addressLine = companyAddress ? companyAddress.replace(/\n/g, ', ') : null
 
-  // Line 3: CSLB licenses — "CSLB Lic. #1234567 (B), #7654321 (C-33)"
+  // Line 3: Phone | Email (own line)
+  const contactParts: string[] = []
+  if (companyPhone) contactParts.push(companyPhone)
+  if (companyEmail) contactParts.push(companyEmail)
+  const contactLine = contactParts.length > 0 ? contactParts.join(' | ') : null
+
+  // Line 4: CSLB licenses — "CSLB Lic. #1234567 (B), #7654321 (C-33)"
   const formattedLicenses = companyLicenses && companyLicenses.length > 0
     ? companyLicenses.map((l) => {
         const code = l.classification.includes(' - ') ? l.classification.split(' - ')[0].trim() : l.classification.trim()
@@ -680,8 +682,11 @@ function PreviewPanel({
         <div className="flex items-start justify-between gap-4">
           <div className="leading-tight">
             <h1 className="text-base font-bold text-gray-900">{companyIdentity}</h1>
-            {infoLine && (
-              <p className="text-[9px] text-gray-500 mt-0.5">{infoLine}</p>
+            {addressLine && (
+              <p className="text-[9px] text-gray-500 mt-0.5">{addressLine}</p>
+            )}
+            {contactLine && (
+              <p className="text-[9px] text-gray-500 mt-0.5">{contactLine}</p>
             )}
             {formattedLicenses && (
               <p className="text-[8px] text-gray-400 mt-0.5">CSLB Lic. {formattedLicenses}</p>

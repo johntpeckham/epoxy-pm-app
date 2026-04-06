@@ -563,12 +563,14 @@ export async function generateWarrantyPdf(
     companyIdentity = ci.dba || ci.legal_name || 'Peckham Coatings'
   }
 
-  // Line 2: Contact info — "[Address] | [Phone] | [Email]"
-  const infoParts: string[] = []
-  if (ci.company_address) infoParts.push(ci.company_address.replace(/\n/g, ', '))
-  if (ci.phone) infoParts.push(ci.phone)
-  if (ci.email) infoParts.push(ci.email)
-  const infoLine = infoParts.length > 0 ? infoParts.join(' | ') : null
+  // Line 2: Address (own line)
+  const addressLine = ci.company_address ? ci.company_address.replace(/\n/g, ', ') : null
+
+  // Line 3: Phone | Email (own line)
+  const contactParts: string[] = []
+  if (ci.phone) contactParts.push(ci.phone)
+  if (ci.email) contactParts.push(ci.email)
+  const contactLine = contactParts.length > 0 ? contactParts.join(' | ') : null
 
   // Line 3: CSLB licenses
   let cslbLine: string | null = null
@@ -588,16 +590,25 @@ export async function generateWarrantyPdf(
   doc.text(companyIdentity, M, headerY)
   headerY += 5
 
-  // Line 2: Contact info — 8pt gray single line
-  if (infoLine) {
+  // Line 2: Address — 8pt gray
+  if (addressLine) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
     doc.setTextColor(...LABEL_GRAY)
-    doc.text(infoLine, M, headerY)
+    doc.text(addressLine, M, headerY)
     headerY += 3.5
   }
 
-  // Line 3: CSLB licenses — 7pt lighter gray
+  // Line 3: Phone | Email — 8pt gray
+  if (contactLine) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...LABEL_GRAY)
+    doc.text(contactLine, M, headerY)
+    headerY += 3.5
+  }
+
+  // Line 4: CSLB licenses — 7pt lighter gray
   if (cslbLine) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
