@@ -54,6 +54,55 @@ const MERGE_FIELDS = [
   { label: 'Warranty Duration', value: '{{warranty_duration}}' },
 ]
 
+const FIELD_KEY_TO_LABEL: Record<string, string> = {
+  customer_name: 'Customer Name',
+  project_name: 'Project Name',
+  estimate_number: 'Estimate Number',
+  address: 'Address',
+  date: 'Date',
+  warranty_duration: 'Warranty Duration',
+}
+
+/** Convert block content string (with {{field}} tags) to HTML with green chip spans */
+function contentToHtml(content: string): string {
+  const escaped = content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  const withChips = escaped.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+    const label = FIELD_KEY_TO_LABEL[key] || key
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-sm font-medium bg-green-100 border border-green-300 text-green-800" contenteditable="false" data-field="${key}">${label}</span>`
+  })
+  return withChips.replace(/\n/g, '<br>')
+}
+
+/** Convert contentEditable HTML back to plain content string with {{field}} tags */
+function htmlToContent(el: HTMLElement): string {
+  let result = ''
+  for (const node of Array.from(el.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent ?? ''
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const elem = node as HTMLElement
+      const field = elem.getAttribute('data-field')
+      if (field) {
+        result += `{{${field}}}`
+      } else if (elem.tagName === 'BR') {
+        result += '\n'
+      } else if (elem.tagName === 'DIV') {
+        // contentEditable wraps new lines in <div>
+        if (result.length > 0 && !result.endsWith('\n')) {
+          result += '\n'
+        }
+        result += htmlToContent(elem)
+      } else {
+        result += htmlToContent(elem)
+      }
+    }
+  }
+  return result
+}
+
 const SAMPLE_DATA: Record<string, string> = {
   '{{customer_name}}': 'John Smith',
   '{{project_name}}': 'Sample Project',
@@ -140,6 +189,64 @@ const BLOCK_TYPE_META: Record<TemplateBlock['type'], { label: string; badge: str
   signature: { label: 'Signature', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
+// ── Body ContentEditable ───────────────────────────────────────────────────
+
+function BodyContentEditable({
+  content,
+  color,
+  editableRef,
+  onSync,
+}: {
+  content: string
+  color: string
+  editableRef: React.RefObject<HTMLDivElement | null>
+  onSync: (content: string) => void
+}) {
+  const internalRef = useRef<HTMLDivElement>(null)
+  const ref = editableRef || internalRef
+  const initializedRef = useRef(false)
+
+  // Set initial HTML on mount only
+  useEffect(() => {
+    if (ref.current && !initializedRef.current) {
+      ref.current.innerHTML = contentToHtml(content)
+      initializedRef.current = true
+    }
+  }, [])
+
+  // If content changes externally (e.g., via insert field), update HTML
+  // But skip if the element is focused (user is typing)
+  useEffect(() => {
+    if (!ref.current) return
+    if (document.activeElement === ref.current) return
+    const currentContent = htmlToContent(ref.current)
+    if (currentContent !== content) {
+      ref.current.innerHTML = contentToHtml(content)
+    }
+  }, [content])
+
+  return (
+    <div
+      ref={ref}
+      contentEditable
+      suppressContentEditableWarning
+      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[80px] whitespace-pre-wrap break-words empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+      style={{ color }}
+      onBlur={() => {
+        if (ref.current) {
+          onSync(htmlToContent(ref.current))
+        }
+      }}
+      onPaste={(e) => {
+        e.preventDefault()
+        const text = e.clipboardData.getData('text/plain')
+        document.execCommand('insertText', false, text)
+      }}
+      data-placeholder="Enter body text... Use 'Insert Field' to add merge fields."
+    />
+  )
+}
+
 // ── Sortable Block Row ─────────────────────────────────────────────────────
 
 function SortableBlockRow({
@@ -168,7 +275,7 @@ function SortableBlockRow({
   const [showFieldMenu, setShowFieldMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const fieldMenuRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const editableRef = useRef<HTMLDivElement>(null)
   const sigCanvasRef = useRef<SignatureCanvas | null>(null)
 
   // Close field menu on outside click
@@ -195,20 +302,31 @@ function SortableBlockRow({
     }
   }, [block.type])
 
-  function insertField(field: string) {
-    if (!textareaRef.current) return
-    const ta = textareaRef.current
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
-    const newContent = block.content.slice(0, start) + field + block.content.slice(end)
-    onUpdate(block.id, { content: newContent })
+  function insertField(fieldValue: string) {
+    const el = editableRef.current
+    if (!el) return
+    // Extract field key from {{key}}
+    const key = fieldValue.replace(/\{|\}/g, '')
+    const label = FIELD_KEY_TO_LABEL[key] || key
+    const chipHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-sm font-medium bg-green-100 border border-green-300 text-green-800" contenteditable="false" data-field="${key}">${label}</span>`
+    el.focus()
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0)
+      range.deleteContents()
+      const temp = document.createElement('div')
+      temp.innerHTML = chipHtml
+      const chip = temp.firstChild!
+      range.insertNode(chip)
+      // Move cursor after the chip
+      range.setStartAfter(chip)
+      range.setEndAfter(chip)
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+    // Sync back
+    onUpdate(block.id, { content: htmlToContent(el) })
     setShowFieldMenu(false)
-    // Restore cursor
-    requestAnimationFrame(() => {
-      ta.focus()
-      const pos = start + field.length
-      ta.setSelectionRange(pos, pos)
-    })
   }
 
   function handleSignatureEnd() {
@@ -335,14 +453,11 @@ function SortableBlockRow({
                   )}
                 </div>
               </div>
-              <textarea
-                ref={textareaRef}
-                value={block.content}
-                onChange={(e) => onUpdate(block.id, { content: e.target.value })}
-                placeholder="Enter body text... Use 'Insert Field' to add merge fields."
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y min-h-[80px] font-mono"
-                style={{ color: block.color }}
-                rows={3}
+              <BodyContentEditable
+                content={block.content}
+                color={block.color}
+                editableRef={editableRef}
+                onSync={(newContent) => onUpdate(block.id, { content: newContent })}
               />
             </div>
           )}
