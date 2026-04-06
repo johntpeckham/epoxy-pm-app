@@ -25,6 +25,26 @@ async function loadImage(url: string): Promise<{
   return { data, format, width: img.naturalWidth, height: img.naturalHeight }
 }
 
+// ── Block format types (matches WarrantyTemplateEditor) ─────────────────────
+interface TemplateBlock {
+  id: string
+  type: 'header' | 'sub_header' | 'body' | 'divider' | 'signature'
+  content: string
+  color: string
+  signatureData?: string
+  signatureName?: string
+  signatureTitle?: string
+}
+
+/** Convert hex color string (#RRGGBB or RRGGBB) to RGB tuple */
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace(/^#/, '')
+  const r = parseInt(h.substring(0, 2), 16)
+  const g = parseInt(h.substring(2, 4), 16)
+  const b = parseInt(h.substring(4, 6), 16)
+  return [isNaN(r) ? 0 : r, isNaN(g) ? 0 : g, isNaN(b) ? 0 : b]
+}
+
 // Black and white palette — matches existing report branding
 const DARK: [number, number, number] = [17, 24, 39]          // gray-900
 const LABEL_GRAY: [number, number, number] = [75, 85, 99]    // gray-600
@@ -336,6 +356,148 @@ function renderSegments(
   doc.setFont('helvetica', 'normal')
 }
 
+/** Render block-format body into the jsPDF document */
+async function renderBlockBody(
+  doc: jsPDF,
+  blocks: TemplateBlock[],
+  M: number,
+  CW: number,
+  getY: () => number,
+  setY: (v: number) => void,
+  checkPage: (needed?: number) => void
+) {
+  for (const block of blocks) {
+    switch (block.type) {
+      case 'header': {
+        const rgb = hexToRgb(block.color)
+        checkPage(14)
+        setY(getY() + 8)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(14)
+        doc.setTextColor(...rgb)
+        const text = block.content.toUpperCase()
+        const lines = doc.splitTextToSize(text, CW) as string[]
+        for (const line of lines) {
+          checkPage(8)
+          doc.text(line, M, getY())
+          setY(getY() + 6)
+        }
+        // Subtle underline
+        doc.setDrawColor(...rgb)
+        doc.setLineWidth(0.3)
+        const lineAlpha = 0.25
+        // jsPDF doesn't support alpha on lines directly, use a lighter shade
+        doc.line(M, getY(), M + CW, getY())
+        setY(getY() + 4)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        doc.setTextColor(...DARK)
+        break
+      }
+      case 'sub_header': {
+        const rgb = hexToRgb(block.color)
+        checkPage(12)
+        setY(getY() + 6)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(12)
+        doc.setTextColor(...rgb)
+        const lines = doc.splitTextToSize(block.content, CW) as string[]
+        for (const line of lines) {
+          checkPage(7)
+          doc.text(line, M, getY())
+          setY(getY() + 5.5)
+        }
+        setY(getY() + 2)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        doc.setTextColor(...DARK)
+        break
+      }
+      case 'body': {
+        const rgb = hexToRgb(block.color)
+        checkPage(8)
+        setY(getY() + 3)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        doc.setTextColor(...rgb)
+        const textLines = block.content.split('\n')
+        for (const textLine of textLines) {
+          const trimmed = textLine.trim()
+          if (!trimmed) {
+            setY(getY() + 3)
+            continue
+          }
+          const lines = doc.splitTextToSize(trimmed, CW) as string[]
+          for (const line of lines) {
+            checkPage(8)
+            doc.text(line, M, getY())
+            setY(getY() + 5)
+          }
+        }
+        setY(getY() + 2)
+        doc.setTextColor(...DARK)
+        break
+      }
+      case 'divider': {
+        const rgb = hexToRgb(block.color)
+        checkPage(10)
+        setY(getY() + 4)
+        doc.setDrawColor(...rgb)
+        doc.setLineWidth(0.5)
+        doc.line(M, getY(), M + CW, getY())
+        setY(getY() + 4)
+        break
+      }
+      case 'signature': {
+        checkPage(40)
+        setY(getY() + 8)
+        // Signature line
+        const SIG_LINE_W = 60
+        doc.setDrawColor(...DARK)
+        doc.setLineWidth(0.3)
+        doc.line(M, getY(), M + SIG_LINE_W, getY())
+        setY(getY() + 2)
+        // Signature image
+        if (block.signatureData) {
+          try {
+            const SIG_W = 50
+            const SIG_H = 25
+            doc.addImage(block.signatureData, 'PNG', M, getY(), SIG_W, SIG_H)
+            setY(getY() + SIG_H + 2)
+          } catch {
+            // skip image if it fails
+            setY(getY() + 4)
+          }
+        } else {
+          setY(getY() + 4)
+        }
+        // Signature name
+        if (block.signatureName) {
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(10)
+          doc.setTextColor(...DARK)
+          doc.text(block.signatureName, M, getY())
+          setY(getY() + 5)
+        }
+        // Signature title
+        if (block.signatureTitle) {
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(9)
+          doc.setTextColor(...LABEL_GRAY)
+          doc.text(block.signatureTitle, M, getY())
+          setY(getY() + 5)
+        }
+        doc.setTextColor(...DARK)
+        break
+      }
+    }
+  }
+  // Reset text color
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(...DARK)
+}
+
 export async function generateWarrantyPdf(
   title: string,
   bodyText: string,
@@ -400,56 +562,72 @@ export async function generateWarrantyPdf(
   doc.setFontSize(10)
   doc.setTextColor(...DARK)
 
-  // Check if the body is HTML or plain text
-  const isHtml = /<[a-z][\s\S]*>/i.test(bodyText)
+  // Detect format: JSON blocks, HTML, or plain text
+  let parsedBlocks: TemplateBlock[] | null = null
+  try {
+    const parsed = JSON.parse(bodyText)
+    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
+      parsedBlocks = parsed as TemplateBlock[]
+    }
+  } catch {
+    // not JSON — fall through to legacy rendering
+  }
 
-  if (isHtml) {
-    renderHtmlBody(doc, bodyText, M, CW, () => y, (val: number) => { y = val }, checkPage)
+  if (parsedBlocks) {
+    // New block format rendering
+    await renderBlockBody(doc, parsedBlocks, M, CW, () => y, (val: number) => { y = val }, checkPage)
   } else {
-    // Legacy plain text rendering
-    const paragraphs = bodyText.split('\n')
-    for (const paragraph of paragraphs) {
-      const trimmed = paragraph.trim()
+    // Legacy: HTML or plain text
+    const isHtml = /<[a-z][\s\S]*>/i.test(bodyText)
 
-      if (!trimmed) {
-        y += 4
-        continue
-      }
+    if (isHtml) {
+      renderHtmlBody(doc, bodyText, M, CW, () => y, (val: number) => { y = val }, checkPage)
+    } else {
+      // Legacy plain text rendering
+      const paragraphs = bodyText.split('\n')
+      for (const paragraph of paragraphs) {
+        const trimmed = paragraph.trim()
 
-      // Check if this looks like a section header (ALL CAPS or ends with :)
-      const isHeader = trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !/\d{4}/.test(trimmed)
+        if (!trimmed) {
+          y += 4
+          continue
+        }
 
-      if (isHeader) {
-        checkPage(14)
-        y += 3
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
-        doc.setTextColor(...AMBER)
-        doc.text(trimmed, M, y)
+        // Check if this looks like a section header (ALL CAPS or ends with :)
+        const isHeader = trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !/\d{4}/.test(trimmed)
+
+        if (isHeader) {
+          checkPage(14)
+          y += 3
+          doc.setFont('helvetica', 'bold')
+          doc.setFontSize(10)
+          doc.setTextColor(...AMBER)
+          doc.text(trimmed, M, y)
+          y += 2
+          doc.setDrawColor(...AMBER_LIGHT)
+          doc.setLineWidth(0.3)
+          doc.line(M, y, M + CW, y)
+          y += 5
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(...DARK)
+          continue
+        }
+
+        // Regular paragraph — word wrap
+        const lines = doc.splitTextToSize(trimmed, CW) as string[]
+        for (const line of lines) {
+          checkPage(8)
+          doc.text(line, M, y)
+          y += 5
+        }
         y += 2
-        doc.setDrawColor(...AMBER_LIGHT)
-        doc.setLineWidth(0.3)
-        doc.line(M, y, M + CW, y)
-        y += 5
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(...DARK)
-        continue
       }
-
-      // Regular paragraph — word wrap
-      const lines = doc.splitTextToSize(trimmed, CW) as string[]
-      for (const line of lines) {
-        checkPage(8)
-        doc.text(line, M, y)
-        y += 5
-      }
-      y += 2
     }
   }
 
-  // ─── Signature ───────────────────────────────────────────────────────────
+  // ─── Signature (legacy only — block format has signatures in blocks) ───
 
-  if (signatureName) {
+  if (signatureName && !parsedBlocks) {
     checkPage(35)
     y += 15
 
@@ -475,6 +653,21 @@ export async function generateWarrantyPdf(
     y += 5
 
     // Date
+    const today = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+    doc.text(`Date: ${today}`, M, y)
+  }
+
+  // ─── Date line (block format) ─────────────────────────────────────────
+  if (parsedBlocks) {
+    checkPage(10)
+    y += 8
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...LABEL_GRAY)
     const today = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
