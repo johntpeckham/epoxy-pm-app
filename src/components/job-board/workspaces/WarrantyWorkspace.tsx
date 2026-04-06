@@ -12,7 +12,6 @@ import {
   ShieldCheckIcon,
   PlusIcon,
   Trash2Icon,
-  EyeIcon,
   ArrowRightIcon,
   Loader2Icon,
   FileTextIcon,
@@ -494,7 +493,8 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
             {warranties.map((w) => (
               <div
                 key={w.id}
-                className="flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                onClick={() => previewWarranty(w)}
+                className="flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition cursor-pointer"
               >
                 <ShieldCheckIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -510,14 +510,7 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
                   </p>
                 </div>
                 <button
-                  onClick={() => previewWarranty(w)}
-                  className="p-2 text-gray-400 hover:text-amber-600 transition"
-                  title="Preview"
-                >
-                  <EyeIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setDeletingWarranty(w)}
+                  onClick={(e) => { e.stopPropagation(); setDeletingWarranty(w) }}
                   className="p-2 text-gray-400 hover:text-red-500 transition"
                   title="Delete"
                 >

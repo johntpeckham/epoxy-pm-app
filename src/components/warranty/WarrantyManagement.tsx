@@ -14,6 +14,7 @@ import {
   Loader2Icon,
   ShieldCheckIcon,
   ArrowLeftIcon,
+  CopyIcon,
 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import WarrantyTemplateEditor from './WarrantyTemplateEditor'
@@ -32,6 +33,7 @@ export default function WarrantyManagement({ onClose }: Props) {
   const [editingTemplate, setEditingTemplate] = useState<WarrantyTemplate | null>(null)
   const [showTemplateEditor, setShowTemplateEditor] = useState(false)
   const [deletingTemplate, setDeletingTemplate] = useState<WarrantyTemplate | null>(null)
+  const [duplicatingTemplate, setDuplicatingTemplate] = useState<WarrantyTemplate | null>(null)
 
   // Manufacturer state
   const [mfgWarranties, setMfgWarranties] = useState<ManufacturerWarranty[]>([])
@@ -100,6 +102,18 @@ export default function WarrantyManagement({ onClose }: Props) {
     if (!deletingTemplate) return
     await supabase.from('warranty_templates').delete().eq('id', deletingTemplate.id)
     setDeletingTemplate(null)
+    fetchTemplates()
+  }
+
+  async function duplicateTemplate() {
+    if (!duplicatingTemplate) return
+    await supabase.from('warranty_templates').insert({
+      name: `${duplicatingTemplate.name} (Copy)`,
+      description: duplicatingTemplate.description,
+      warranty_duration: duplicatingTemplate.warranty_duration,
+      body_text: duplicatingTemplate.body_text,
+    })
+    setDuplicatingTemplate(null)
     fetchTemplates()
   }
 
@@ -213,12 +227,21 @@ export default function WarrantyManagement({ onClose }: Props) {
                       <button
                         onClick={() => openTemplateEditor(t)}
                         className="p-1.5 text-gray-400 hover:text-amber-600 transition"
+                        title="Edit"
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
+                        onClick={() => setDuplicatingTemplate(t)}
+                        className="p-1.5 text-gray-400 hover:text-amber-600 transition"
+                        title="Duplicate"
+                      >
+                        <CopyIcon className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => setDeletingTemplate(t)}
                         className="p-1.5 text-gray-400 hover:text-red-500 transition"
+                        title="Delete"
                       >
                         <Trash2Icon className="w-4 h-4" />
                       </button>
@@ -345,6 +368,14 @@ export default function WarrantyManagement({ onClose }: Props) {
           message={`Are you sure you want to delete "${deletingTemplate.name}"?`}
           onConfirm={deleteTemplate}
           onCancel={() => setDeletingTemplate(null)}
+        />
+      )}
+      {duplicatingTemplate && (
+        <ConfirmDialog
+          title="Duplicate Template"
+          message={`Are you sure you want to duplicate "${duplicatingTemplate.name}"?`}
+          onConfirm={duplicateTemplate}
+          onCancel={() => setDuplicatingTemplate(null)}
         />
       )}
       {deletingMfg && (
