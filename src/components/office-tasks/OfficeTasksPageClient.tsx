@@ -18,7 +18,9 @@ import {
   Building2Icon,
   WrenchIcon,
   PackageIcon,
+  UsersIcon,
 } from 'lucide-react'
+import EmployeeManagement from '@/components/profile/EmployeeManagement'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -78,6 +80,7 @@ interface Props {
   initialProfiles: Profile[]
   initialProjects: ProjectOption[]
   equipmentCounts: EquipmentCounts
+  employeeCount: number
 }
 
 /* ================================================================== */
@@ -91,6 +94,7 @@ export default function OfficeTasksPageClient({
   initialProfiles,
   initialProjects,
   equipmentCounts,
+  employeeCount,
 }: Props) {
   const supabase = createClient()
 
@@ -101,6 +105,9 @@ export default function OfficeTasksPageClient({
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [collapsedCompleted, setCollapsedCompleted] = useState<Set<string>>(new Set())
+  const [employeesOpen, setEmployeesOpen] = useState(false)
+
+  const canManageEmployees = userRole === 'admin' || userRole === 'office_manager'
 
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles])
   const getDisplayName = (id: string | null) => {
@@ -400,6 +407,38 @@ export default function OfficeTasksPageClient({
           </Link>
         </div>
 
+        {/* ── Employees Card (spans 2 columns) ── */}
+        {canManageEmployees && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+            {/* Card header */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-amber-500">
+                <UsersIcon className="w-5 h-5" />
+              </span>
+              <h3 className="text-sm font-semibold text-gray-900 flex-1">Employees</h3>
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
+                {employeeCount} total
+              </span>
+            </div>
+
+            {/* Summary */}
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Active employees</span>
+                <span className="font-medium text-gray-900">{employeeCount}</span>
+              </div>
+            </div>
+
+            {/* Action — opens the same EmployeeManagement component used in Settings */}
+            <button
+              onClick={() => setEmployeesOpen(true)}
+              className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
+            >
+              Manage Employees →
+            </button>
+          </div>
+        )}
+
         {/* ── Material Inventory Card (spans 2 columns) ── */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
           {/* Card header */}
@@ -414,6 +453,15 @@ export default function OfficeTasksPageClient({
         </div>
 
       </div>
+
+      {/* Employee Management — same component used in Settings, opened from the Employees card */}
+      {canManageEmployees && (
+        <EmployeeManagement
+          hideTrigger
+          open={employeesOpen}
+          onOpenChange={setEmployeesOpen}
+        />
+      )}
 
       {/* Create modal */}
       {showCreateModal && (
