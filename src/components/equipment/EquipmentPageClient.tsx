@@ -13,7 +13,11 @@ interface Props {
   userRole: string
   /** When provided, clicking "View" calls this instead of navigating to /equipment/[id]. */
   onViewItem?: (id: string) => void
-  /** When provided, a back button is rendered above the heading. */
+  /**
+   * When provided, the component renders in embedded mode: a full-bleed
+   * header bar with a back button + icon + title + Add Equipment, and a
+   * body that fills the parent (no centered max-width container).
+   */
   onBack?: () => void
 }
 
@@ -112,157 +116,145 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
     setDeleteConfirmId(null)
   }
 
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
-      {/* Back button — only when embedded */}
-      {onBack && (
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Office
-        </button>
-      )}
+  const embedded = !!onBack
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Equipment</h1>
-        {canManage && (
-          <button
-            onClick={() => {
-              setEditingItem(null)
-              setShowModal(true)
-            }}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add Equipment
-          </button>
-        )}
-      </div>
+  const addButton = canManage && (
+    <button
+      onClick={() => {
+        setEditingItem(null)
+        setShowModal(true)
+      }}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
+    >
+      <PlusIcon className="w-3.5 h-3.5" />
+      Add Equipment
+    </button>
+  )
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
-        >
-          {CATEGORY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
-        >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
+  const filtersBlock = (
+    <div className="flex flex-wrap gap-3 mb-6">
+      <select
+        value={categoryFilter}
+        onChange={(e) => setCategoryFilter(e.target.value)}
+        className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
+      >
+        {CATEGORY_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
+      >
+        {STATUS_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
 
-      {/* Equipment Grid */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            <WrenchIcon className="w-6 h-6 text-gray-400" />
-          </div>
-          <p className="text-gray-500 font-medium">No equipment found</p>
-          <p className="text-gray-400 text-sm mt-1">
-            {canManage ? 'Add your first piece of equipment to get started.' : 'No equipment has been added yet.'}
-          </p>
+  const gridBlock =
+    filtered.length === 0 ? (
+      <div className="text-center py-16">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
+          <WrenchIcon className="w-6 h-6 text-gray-400" />
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((item) => (
-            <div
-              key={item.id}
-              className="relative bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow"
-            >
-              {/* Top-right action buttons */}
-              {canManage && (
-                <div className="absolute top-3 right-3 flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      setEditingItem(item)
-                      setShowModal(true)
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-gray-100 rounded-md transition-colors"
-                    title="Edit"
-                  >
-                    <PencilIcon className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirmId(item.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
-                    title="Delete"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              {/* Name */}
-              <h3 className="text-lg font-bold text-gray-900 pr-16">{item.name}</h3>
-
-              {/* Badges */}
-              <div className="flex items-center gap-2 mt-2">
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    CATEGORY_BADGE[item.category] ?? 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {CATEGORY_LABEL[item.category] ?? item.category}
-                </span>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    item.status === 'active'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}
-                >
-                  {item.status === 'active' ? 'Active' : 'Out of Service'}
-                </span>
-              </div>
-
-              {/* Year / Make / Model */}
-              {(item.year || item.make || item.model) && (
-                <p className="text-sm text-gray-600 mt-2">
-                  {[item.year, item.make, item.model].filter(Boolean).join(' / ')}
-                </p>
-              )}
-
-              {/* Serial / VIN */}
-              {item.serial_number && (
-                <p className="text-xs text-gray-400 mt-1">SN: {item.serial_number}</p>
-              )}
-              {item.vin && <p className="text-xs text-gray-400 mt-0.5">VIN: {item.vin}</p>}
-
-              {/* View button */}
-              <div className="mt-4">
+        <p className="text-gray-500 font-medium">No equipment found</p>
+        <p className="text-gray-400 text-sm mt-1">
+          {canManage ? 'Add your first piece of equipment to get started.' : 'No equipment has been added yet.'}
+        </p>
+      </div>
+    ) : (
+      <div className={`grid grid-cols-1 gap-4 ${embedded ? 'md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : 'md:grid-cols-2'}`}>
+        {filtered.map((item) => (
+          <div
+            key={item.id}
+            className="relative bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow"
+          >
+            {/* Top-right action buttons */}
+            {canManage && (
+              <div className="absolute top-3 right-3 flex items-center gap-1">
                 <button
                   onClick={() => {
-                    if (onViewItem) onViewItem(item.id)
-                    else router.push(`/equipment/${item.id}`)
+                    setEditingItem(item)
+                    setShowModal(true)
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Edit"
                 >
-                  <EyeIcon className="w-3.5 h-3.5" />
-                  View
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setDeleteConfirmId(item.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Delete"
+                >
+                  <TrashIcon className="w-4 h-4" />
                 </button>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
 
+            {/* Name */}
+            <h3 className="text-lg font-bold text-gray-900 pr-16">{item.name}</h3>
+
+            {/* Badges */}
+            <div className="flex items-center gap-2 mt-2">
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                  CATEGORY_BADGE[item.category] ?? 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {CATEGORY_LABEL[item.category] ?? item.category}
+              </span>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                  item.status === 'active'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {item.status === 'active' ? 'Active' : 'Out of Service'}
+              </span>
+            </div>
+
+            {/* Year / Make / Model */}
+            {(item.year || item.make || item.model) && (
+              <p className="text-sm text-gray-600 mt-2">
+                {[item.year, item.make, item.model].filter(Boolean).join(' / ')}
+              </p>
+            )}
+
+            {/* Serial / VIN */}
+            {item.serial_number && (
+              <p className="text-xs text-gray-400 mt-1">SN: {item.serial_number}</p>
+            )}
+            {item.vin && <p className="text-xs text-gray-400 mt-0.5">VIN: {item.vin}</p>}
+
+            {/* View button */}
+            <div className="mt-4">
+              <button
+                onClick={() => {
+                  if (onViewItem) onViewItem(item.id)
+                  else router.push(`/equipment/${item.id}`)
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <EyeIcon className="w-3.5 h-3.5" />
+                View
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+
+  const dialogs = (
+    <>
       {/* Delete Confirmation Dialog */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setDeleteConfirmId(null)}>
@@ -302,6 +294,66 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
           onSaved={handleSaved}
         />
       )}
+    </>
+  )
+
+  /* ── Embedded layout (Office work area) — matches EmployeeManagement ── */
+  if (embedded) {
+    return (
+      <div className="w-full h-full min-h-0 flex flex-col bg-white overflow-hidden">
+        {/* Header bar */}
+        <div
+          className="flex-none flex items-center justify-between px-6 border-b border-gray-200"
+          style={{ minHeight: '56px' }}
+        >
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mr-2"
+            >
+              <ArrowLeftIcon className="w-4 h-4" />
+              Office
+            </button>
+            <WrenchIcon className="w-5 h-5 text-gray-400" />
+            <h2 className="text-lg font-semibold text-gray-900">Equipment</h2>
+          </div>
+          <div className="flex items-center gap-2">{addButton}</div>
+        </div>
+
+        {/* Body — fills full width edge to edge */}
+        <div className="flex-1 overflow-y-auto p-6 min-h-0">
+          {filtersBlock}
+          {gridBlock}
+        </div>
+
+        {dialogs}
+      </div>
+    )
+  }
+
+  /* ── Standalone /equipment route layout — unchanged ── */
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Equipment</h1>
+        {canManage && (
+          <button
+            onClick={() => {
+              setEditingItem(null)
+              setShowModal(true)
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Add Equipment
+          </button>
+        )}
+      </div>
+
+      {filtersBlock}
+      {gridBlock}
+      {dialogs}
     </div>
   )
 }
