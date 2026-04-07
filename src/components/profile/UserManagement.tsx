@@ -12,6 +12,7 @@ interface UserRow {
   display_name: string | null
   avatar_url: string | null
   role: UserRole
+  scheduler_access?: boolean
   email?: string
   email_confirmed_at?: string | null
 }
@@ -53,6 +54,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
   const [editingUser, setEditingUser] = useState<UserRow | null>(null)
   const [editDisplayName, setEditDisplayName] = useState('')
   const [editRole, setEditRole] = useState<UserRole>('crew')
+  const [editSchedulerAccess, setEditSchedulerAccess] = useState(false)
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
@@ -94,6 +96,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
     setEditingUser(user)
     setEditDisplayName(user.display_name ?? '')
     setEditRole(user.role)
+    setEditSchedulerAccess(Boolean(user.scheduler_access))
     setEditAvatarUrl(user.avatar_url)
     setEditError(null)
     setShowDeleteConfirm(false)
@@ -152,6 +155,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
           id: editingUser.id,
           display_name: editDisplayName.trim() || null,
           role: editRole,
+          scheduler_access: editSchedulerAccess,
           avatar_url: editAvatarUrl,
           updated_at: new Date().toISOString(),
         })
@@ -161,7 +165,7 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
       setUsers((prev) =>
         prev.map((u) =>
           u.id === editingUser.id
-            ? { ...u, display_name: editDisplayName.trim() || null, role: editRole, avatar_url: editAvatarUrl }
+            ? { ...u, display_name: editDisplayName.trim() || null, role: editRole, scheduler_access: editSchedulerAccess, avatar_url: editAvatarUrl }
             : u
         )
       )
@@ -554,6 +558,36 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Scheduler Access */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Scheduler Access</label>
+                <div className="flex items-center justify-between px-4 py-2.5 border border-gray-200 rounded-lg">
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-900">Allow access to Scheduler</p>
+                    <p className="text-xs text-gray-400">
+                      {editRole === 'admin'
+                        ? 'Admins always have access regardless of this toggle.'
+                        : 'When enabled, this user can view the Scheduler page.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={editSchedulerAccess}
+                    onClick={() => setEditSchedulerAccess((v) => !v)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                      editSchedulerAccess ? 'bg-amber-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                        editSchedulerAccess ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* Email (read-only) */}
