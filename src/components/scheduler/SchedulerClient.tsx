@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { EmployeeProfile, Project } from '@/types'
 import { createClient } from '@/lib/supabase/client'
+import { useCompanySettings } from '@/lib/useCompanySettings'
 import {
   CalendarRangeIcon,
   MonitorIcon,
@@ -10,6 +11,7 @@ import {
   XIcon,
   CheckIcon,
   Loader2Icon,
+  DownloadIcon,
 } from 'lucide-react'
 import {
   DndContext,
@@ -180,6 +182,7 @@ export default function SchedulerClient({
   initialScheduleData,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
+  const { settings: companySettings } = useCompanySettings()
 
   // Weeks for the top strip
   const { thisWeek, nextWeek, followingWeek } = useMemo(() => {
@@ -266,6 +269,51 @@ export default function SchedulerClient({
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [])
+
+  // ── Download schedule PDF ───────────────────────────────────────────────
+  const [downloading, setDownloading] = useState(false)
+  const handleDownload = useCallback(async () => {
+    if (schedule.assignments.length === 0) return
+    setDownloading(true)
+    try {
+      const { generateSchedulePdf } = await import('@/lib/generateSchedulePdf')
+      const scheduleProjects = projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        estimate_number: p.estimate_number ?? null,
+        address: p.address ?? null,
+      }))
+      const { blob, filename } = await generateSchedulePdf(
+        nextWeekISO,
+        schedule.assignments,
+        scheduleProjects,
+        employees.map((e) => ({ id: e.id, name: e.name })),
+        companySettings
+          ? {
+              dba: companySettings.dba,
+              legal_name: companySettings.legal_name,
+              company_address: companySettings.company_address,
+              phone: companySettings.phone,
+              email: companySettings.email,
+              cslb_licenses: companySettings.cslb_licenses,
+            }
+          : null,
+        companySettings?.logo_url ?? null
+      )
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Failed to generate schedule PDF:', err)
+    } finally {
+      setDownloading(false)
+    }
+  }, [schedule.assignments, projects, employees, nextWeekISO, companySettings])
 
   // ── Assignment mutations ────────────────────────────────────────────────
   const addAssignment = useCallback((assignment: Assignment) => {
@@ -354,7 +402,7 @@ export default function SchedulerClient({
       >
         <div className="hidden lg:flex flex-col h-full w-full">
           {/* Header */}
-          <div className="flex-none px-6 pt-5 pb-3 border-b border-gray-200 bg-white flex items-start justify-between">
+          <div className="flex-none px-6 pt-5 pb-3 border-b border-gray-200 bg-white flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
                 <CalendarRangeIcon className="w-5 h-5 text-amber-500" />
@@ -364,7 +412,31 @@ export default function SchedulerClient({
                 Drag employees onto a project bucket and pick which days they&apos;ll be there.
               </p>
             </div>
-            <SaveIndicator state={saveState} />
+            <div className="flex items-center gap-3">
+              <SaveIndicator state={saveState} />
+              <button
+                onClick={handleDownload}
+                disabled={schedule.assignments.length === 0 || downloading}
+                title={
+                  schedule.assignments.length === 0
+                    ? 'Add assignments to generate a report'
+                    : 'Download weekly schedule PDF'
+                }
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
+              >
+                {downloading ? (
+                  <>
+                    <Loader2Icon className="w-4 h-4 animate-spin" />
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <DownloadIcon className="w-4 h-4" />
+                    Download Schedule
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* TOP: Three-week calendar strip */}
