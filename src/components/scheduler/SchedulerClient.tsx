@@ -35,7 +35,8 @@ interface Assignment {
   employee_name: string
   project_id: string
   project_name: string
-  days: DayFlags
+  /** Keyed by Monday-ISO date string; each value is Mon-Sun booleans */
+  weeks: Record<string, DayFlags>
 }
 
 interface ScheduleData {
@@ -64,6 +65,13 @@ function addDays(d: Date, n: number): Date {
   const r = new Date(d)
   r.setDate(r.getDate() + n)
   return r
+}
+
+function toISODate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
 }
 
 function addWeeks(d: Date, n: number): Date {
@@ -121,7 +129,12 @@ function pluralizeGroupLabel(role: string): string {
 }
 
 // ─── Parse initial schedule data safely ────────────────────────────────────
-function parseInitialSchedule(raw: unknown): ScheduleData {
+function toDayFlags(v: unknown): DayFlags | null {
+  if (!Array.isArray(v) || v.length !== 7) return null
+  return v.map(Boolean) as unknown as DayFlags
+}
+
+function parseInitialSchedule(raw: unknown, fallbackWeekISO: string): ScheduleData {
   if (!raw || typeof raw !== 'object') return { assignments: [] }
   const obj = raw as { assignments?: unknown }
   if (!Array.isArray(obj.assignments)) return { assignments: [] }
@@ -129,20 +142,27 @@ function parseInitialSchedule(raw: unknown): ScheduleData {
   for (const a of obj.assignments) {
     if (!a || typeof a !== 'object') continue
     const x = a as Record<string, unknown>
-    if (
-      typeof x.employee_id === 'string' &&
-      typeof x.project_id === 'string' &&
-      Array.isArray(x.days) &&
-      x.days.length === 7
-    ) {
-      assignments.push({
-        employee_id: x.employee_id,
-        employee_name: typeof x.employee_name === 'string' ? x.employee_name : '',
-        project_id: x.project_id,
-        project_name: typeof x.project_name === 'string' ? x.project_name : '',
-        days: x.days.map(Boolean) as unknown as DayFlags,
-      })
+    if (typeof x.employee_id !== 'string' || typeof x.project_id !== 'string') continue
+    const weeks: Record<string, DayFlags> = {}
+    if (x.weeks && typeof x.weeks === 'object' && !Array.isArray(x.weeks)) {
+      for (const [k, v] of Object.entries(x.weeks as Record<string, unknown>)) {
+        const flags = toDayFlags(v)
+        if (flags) weeks[k] = flags
+      }
+    } else if (Array.isArray(x.days)) {
+      // Backward compat: old format used a single `days` array under the row's week
+      const flags = toDayFlags(x.days)
+      if (flags) weeks[fallbackWeekISO] = flags
+    } else {
+      continue
     }
+    assignments.push({
+      employee_id: x.employee_id,
+      employee_name: typeof x.employee_name === 'string' ? x.employee_name : '',
+      project_id: x.project_id,
+      project_name: typeof x.project_name === 'string' ? x.project_name : '',
+      weeks,
+    })
   }
   return { assignments }
 }
@@ -153,24 +173,69 @@ interface Conflict {
   conflictingDays: number[] // indices 0..6
 }
 
-function findConflicts(
+function emptyDaysForWeek(a: Assignment, weekISO: string): DayFlags {
+  return a.weeks[weekISO] ?? emptyDays()
+}
+
+function findConflictsForWeek(
   assignment: Assignment,
-  all: Assignment[]
+  all: Assignment[],
+  weekISO: string
 ): Conflict[] {
   const out: Conflict[] = []
+  const mine = emptyDaysForWeek(assignment, weekISO)
   for (const other of all) {
     if (other === assignment) continue
     if (other.employee_id !== assignment.employee_id) continue
     if (other.project_id === assignment.project_id) continue
+    const theirs = emptyDaysForWeek(other, weekISO)
     const conflictingDays: number[] = []
     for (let i = 0; i < 7; i++) {
-      if (assignment.days[i] && other.days[i]) conflictingDays.push(i)
+      if (mine[i] && theirs[i]) conflictingDays.push(i)
     }
     if (conflictingDays.length > 0) {
       out.push({ otherProjectName: other.project_name, conflictingDays })
     }
   }
   return out
+}
+
+interface MultiWeekConflict {
+  otherProjectName: string
+  // weekISO → day indices
+  byWeek: Record<string, number[]>
+}
+
+/** Find all conflicts across the provided weeks for a prospective assignment */
+function findMultiWeekConflicts(
+  employeeId: string,
+  projectId: string,
+  weeks: Record<string, DayFlags>,
+  all: Assignment[],
+  weekISOs: string[]
+): MultiWeekConflict[] {
+  const byOther = new Map<string, MultiWeekConflict>()
+  for (const other of all) {
+    if (other.employee_id !== employeeId) continue
+    if (other.project_id === projectId) continue
+    for (const w of weekISOs) {
+      const mine = weeks[w] ?? emptyDays()
+      const theirs = other.weeks[w] ?? emptyDays()
+      const days: number[] = []
+      for (let i = 0; i < 7; i++) {
+        if (mine[i] && theirs[i]) days.push(i)
+      }
+      if (days.length > 0) {
+        const existing = byOther.get(other.project_id) ?? {
+          otherProjectName: other.project_name,
+          byWeek: {},
+        }
+        existing.byWeek[w] = days
+        byOther.set(other.project_id, existing)
+      }
+    }
+  }
+  return Array.from(byOther.values())
 }
 
 // ─── Main component ───────────────────────────────────────────────────────
@@ -184,12 +249,28 @@ export default function SchedulerClient({
   const supabase = useMemo(() => createClient(), [])
   const { settings: companySettings } = useCompanySettings()
 
-  // Weeks for the top strip
-  const { thisWeek, nextWeek, followingWeek } = useMemo(() => {
+  // Weeks for the top strip (three weeks, starting with "this week")
+  const { thisWeek, nextWeek, followingWeek, thisWeekISO, followingWeekISO } = useMemo(() => {
     const today = new Date()
     const t = startOfWeekMonday(today)
-    return { thisWeek: t, nextWeek: addWeeks(t, 1), followingWeek: addWeeks(t, 2) }
+    const n = addWeeks(t, 1)
+    const f = addWeeks(t, 2)
+    return {
+      thisWeek: t,
+      nextWeek: n,
+      followingWeek: f,
+      thisWeekISO: toISODate(t),
+      followingWeekISO: toISODate(f),
+    }
   }, [])
+
+  const weekISOs = useMemo(
+    () => [thisWeekISO, nextWeekISO, followingWeekISO],
+    [thisWeekISO, nextWeekISO, followingWeekISO]
+  )
+
+  // Active week (which week's days the buckets show). Defaults to "next week".
+  const [activeWeekISO, setActiveWeekISO] = useState<string>(nextWeekISO)
 
   const employeeGroups = useMemo(() => groupEmployees(employees), [employees])
 
@@ -197,7 +278,9 @@ export default function SchedulerClient({
   const activeProjectIds = useMemo(() => new Set(projects.map((p) => p.id)), [projects])
 
   // Schedule state
-  const [schedule, setSchedule] = useState<ScheduleData>(() => parseInitialSchedule(initialScheduleData))
+  const [schedule, setSchedule] = useState<ScheduleData>(() =>
+    parseInitialSchedule(initialScheduleData, nextWeekISO)
+  )
 
   // Drag state
   const [activeDrag, setActiveDrag] = useState<EmployeeProfile | null>(null)
@@ -207,9 +290,23 @@ export default function SchedulerClient({
     mode: 'add' | 'edit'
     employee: EmployeeProfile
     project: Project
-    initialDays: DayFlags
+    initialWeeks: Record<string, DayFlags>
     // For edit mode, the index of the existing assignment so we can update in place
     editIndex?: number
+  } | null>(null)
+
+  // Duplicate warning popup state
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    employeeName: string
+    projectName: string
+  } | null>(null)
+
+  // Double-book confirmation popup state
+  const [doubleBookPrompt, setDoubleBookPrompt] = useState<{
+    employeeName: string
+    conflicts: MultiWeekConflict[]
+    onContinue: () => void
+    onCancel: () => void
   } | null>(null)
 
   // Auto-save state
@@ -283,9 +380,20 @@ export default function SchedulerClient({
         estimate_number: p.estimate_number ?? null,
         address: p.address ?? null,
       }))
+      // Convert multi-week assignments to single-week format for the active week,
+      // filtering out assignments that have no days in the active week.
+      const weekAssignments = schedule.assignments
+        .map((a) => ({
+          employee_id: a.employee_id,
+          employee_name: a.employee_name,
+          project_id: a.project_id,
+          project_name: a.project_name,
+          days: (a.weeks[activeWeekISO] ?? emptyDays()) as DayFlags,
+        }))
+        .filter((a) => a.days.some(Boolean))
       const { blob, filename } = await generateSchedulePdf(
-        nextWeekISO,
-        schedule.assignments,
+        activeWeekISO,
+        weekAssignments,
         scheduleProjects,
         employees.map((e) => ({ id: e.id, name: e.name })),
         companySettings
@@ -313,18 +421,21 @@ export default function SchedulerClient({
     } finally {
       setDownloading(false)
     }
-  }, [schedule.assignments, projects, employees, nextWeekISO, companySettings])
+  }, [schedule.assignments, projects, employees, activeWeekISO, companySettings])
 
   // ── Assignment mutations ────────────────────────────────────────────────
   const addAssignment = useCallback((assignment: Assignment) => {
     setSchedule((prev) => ({ assignments: [...prev.assignments, assignment] }))
   }, [])
 
-  const updateAssignmentDays = useCallback((index: number, days: DayFlags) => {
-    setSchedule((prev) => ({
-      assignments: prev.assignments.map((a, i) => (i === index ? { ...a, days } : a)),
-    }))
-  }, [])
+  const updateAssignmentWeeks = useCallback(
+    (index: number, weeks: Record<string, DayFlags>) => {
+      setSchedule((prev) => ({
+        assignments: prev.assignments.map((a, i) => (i === index ? { ...a, weeks } : a)),
+      }))
+    },
+    []
+  )
 
   const removeAssignment = useCallback((index: number) => {
     setSchedule((prev) => ({
@@ -345,11 +456,29 @@ export default function SchedulerClient({
     const activeData = active.data.current as { employee?: EmployeeProfile } | undefined
     const overData = over.data.current as { project?: Project } | undefined
     if (!activeData?.employee || !overData?.project) return
+
+    const employee = activeData.employee
+    const project = overData.project
+
+    // Duplicate prevention: block drops if employee is already assigned to this project
+    const existing = schedule.assignments.find(
+      (a) => a.employee_id === employee.id && a.project_id === project.id
+    )
+    if (existing) {
+      setDuplicateWarning({ employeeName: employee.name, projectName: project.name })
+      return
+    }
+
+    const initialWeeks: Record<string, DayFlags> = {
+      [thisWeekISO]: emptyDays(),
+      [nextWeekISO]: emptyDays(),
+      [followingWeekISO]: emptyDays(),
+    }
     setPopover({
       mode: 'add',
-      employee: activeData.employee,
-      project: overData.project,
-      initialDays: emptyDays(),
+      employee,
+      project,
+      initialWeeks,
     })
   }
 
@@ -367,18 +496,18 @@ export default function SchedulerClient({
     return map
   }, [schedule.assignments])
 
-  // Per-employee stats
+  // Per-employee stats (conflict detection is for the active week)
   const employeeStats = useMemo(() => {
     const map = new Map<string, { projectCount: number; hasConflict: boolean }>()
     for (const a of schedule.assignments) {
       const s = map.get(a.employee_id) ?? { projectCount: 0, hasConflict: false }
       s.projectCount += 1
-      const conflicts = findConflicts(a, schedule.assignments)
+      const conflicts = findConflictsForWeek(a, schedule.assignments, activeWeekISO)
       if (conflicts.length > 0) s.hasConflict = true
       map.set(a.employee_id, s)
     }
     return map
-  }, [schedule.assignments])
+  }, [schedule.assignments, activeWeekISO])
 
   // ─── Render ───────────────────────────────────────────────────────────
   return (
@@ -442,9 +571,24 @@ export default function SchedulerClient({
           {/* TOP: Three-week calendar strip */}
           <div className="flex-none px-6 py-4 bg-white border-b border-gray-200">
             <div className="space-y-2">
-              <WeekRow label="This Week" weekStart={thisWeek} tone="muted" />
-              <WeekRow label="Next Week" weekStart={nextWeek} tone="highlight" />
-              <WeekRow label="Following Week" weekStart={followingWeek} tone="muted" />
+              <WeekRow
+                label="This Week"
+                weekStart={thisWeek}
+                active={activeWeekISO === thisWeekISO}
+                onClick={() => setActiveWeekISO(thisWeekISO)}
+              />
+              <WeekRow
+                label="Next Week"
+                weekStart={nextWeek}
+                active={activeWeekISO === nextWeekISO}
+                onClick={() => setActiveWeekISO(nextWeekISO)}
+              />
+              <WeekRow
+                label="Following Week"
+                weekStart={followingWeek}
+                active={activeWeekISO === followingWeekISO}
+                onClick={() => setActiveWeekISO(followingWeekISO)}
+              />
             </div>
           </div>
 
@@ -464,6 +608,8 @@ export default function SchedulerClient({
                       project={project}
                       items={items}
                       allAssignments={schedule.assignments}
+                      activeWeekISO={activeWeekISO}
+                      weekISOs={weekISOs}
                       onRemove={removeAssignment}
                       onEdit={(index) => {
                         const a = schedule.assignments[index]
@@ -473,7 +619,11 @@ export default function SchedulerClient({
                           mode: 'edit',
                           employee: emp,
                           project,
-                          initialDays: a.days,
+                          initialWeeks: {
+                            [thisWeekISO]: a.weeks[thisWeekISO] ?? emptyDays(),
+                            [nextWeekISO]: a.weeks[nextWeekISO] ?? emptyDays(),
+                            [followingWeekISO]: a.weeks[followingWeekISO] ?? emptyDays(),
+                          },
                           editIndex: index,
                         })
                       }}
@@ -502,6 +652,8 @@ export default function SchedulerClient({
                         inactive
                         items={items}
                         allAssignments={schedule.assignments}
+                        activeWeekISO={activeWeekISO}
+                        weekISOs={weekISOs}
                         onRemove={removeAssignment}
                         onEdit={(index) => {
                           const a = schedule.assignments[index]
@@ -511,7 +663,11 @@ export default function SchedulerClient({
                             mode: 'edit',
                             employee: emp,
                             project: fakeProject,
-                            initialDays: a.days,
+                            initialWeeks: {
+                              [thisWeekISO]: a.weeks[thisWeekISO] ?? emptyDays(),
+                              [nextWeekISO]: a.weeks[nextWeekISO] ?? emptyDays(),
+                              [followingWeekISO]: a.weeks[followingWeekISO] ?? emptyDays(),
+                            },
                             editIndex: index,
                           })
                         }}
@@ -568,22 +724,74 @@ export default function SchedulerClient({
       {popover && (
         <DaySelectionModal
           title={`${popover.employee.name} → ${popover.project.name}`}
-          initialDays={popover.initialDays}
+          weekStarts={[
+            { iso: thisWeekISO, label: 'This Week', date: thisWeek },
+            { iso: nextWeekISO, label: 'Next Week', date: nextWeek },
+            { iso: followingWeekISO, label: 'Following Week', date: followingWeek },
+          ]}
+          initialWeeks={popover.initialWeeks}
           onCancel={() => setPopover(null)}
-          onAssign={(days) => {
-            if (popover.mode === 'add') {
-              addAssignment({
-                employee_id: popover.employee.id,
-                employee_name: popover.employee.name,
-                project_id: popover.project.id,
-                project_name: popover.project.name,
-                days,
-              })
-            } else if (popover.editIndex !== undefined) {
-              updateAssignmentDays(popover.editIndex, days)
+          onAssign={(weeks) => {
+            const commit = () => {
+              if (popover.mode === 'add') {
+                addAssignment({
+                  employee_id: popover.employee.id,
+                  employee_name: popover.employee.name,
+                  project_id: popover.project.id,
+                  project_name: popover.project.name,
+                  weeks,
+                })
+              } else if (popover.editIndex !== undefined) {
+                updateAssignmentWeeks(popover.editIndex, weeks)
+              }
+              setPopover(null)
             }
-            setPopover(null)
+            // Check double-book across all three weeks vs other assignments
+            const others =
+              popover.mode === 'edit' && popover.editIndex !== undefined
+                ? schedule.assignments.filter((_, i) => i !== popover.editIndex)
+                : schedule.assignments
+            const conflicts = findMultiWeekConflicts(
+              popover.employee.id,
+              popover.project.id,
+              weeks,
+              others,
+              weekISOs
+            )
+            if (conflicts.length > 0) {
+              setDoubleBookPrompt({
+                employeeName: popover.employee.name,
+                conflicts,
+                onContinue: () => {
+                  setDoubleBookPrompt(null)
+                  commit()
+                },
+                onCancel: () => setDoubleBookPrompt(null),
+              })
+              return
+            }
+            commit()
           }}
+        />
+      )}
+
+      {/* Duplicate employee warning popup */}
+      {duplicateWarning && (
+        <WarningPopup
+          title="Already assigned"
+          message={`${duplicateWarning.employeeName} is already assigned to ${duplicateWarning.projectName}. Click on their assignment to edit days.`}
+          onDismiss={() => setDuplicateWarning(null)}
+        />
+      )}
+
+      {/* Double-book confirmation popup */}
+      {doubleBookPrompt && (
+        <DoubleBookPrompt
+          employeeName={doubleBookPrompt.employeeName}
+          conflicts={doubleBookPrompt.conflicts}
+          weekISOs={weekISOs}
+          onContinue={doubleBookPrompt.onContinue}
+          onCancel={doubleBookPrompt.onCancel}
         />
       )}
     </div>
@@ -616,24 +824,37 @@ function SaveIndicator({ state }: { state: 'idle' | 'saving' | 'saved' | 'error'
 }
 
 // ─── Week row ─────────────────────────────────────────────────────────────
-function WeekRow({ label, weekStart, tone }: { label: string; weekStart: Date; tone: 'muted' | 'highlight' }) {
+function WeekRow({
+  label,
+  weekStart,
+  active,
+  onClick,
+}: {
+  label: string
+  weekStart: Date
+  active: boolean
+  onClick: () => void
+}) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-  const highlight = tone === 'highlight'
   return (
-    <div
-      className={`flex items-stretch rounded-lg border ${
-        highlight ? 'border-amber-300 bg-amber-50/60 shadow-sm' : 'border-gray-200 bg-white'
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left flex items-stretch rounded-lg border transition cursor-pointer ${
+        active
+          ? 'border-amber-400 bg-amber-50/70 shadow-sm ring-2 ring-amber-200'
+          : 'border-gray-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
       }`}
     >
       <div
         className={`flex-none w-36 px-3 py-2 flex flex-col justify-center border-r ${
-          highlight ? 'border-amber-200' : 'border-gray-100'
+          active ? 'border-amber-200' : 'border-gray-100'
         }`}
       >
-        <p className={`text-[11px] font-bold uppercase tracking-wider ${highlight ? 'text-amber-700' : 'text-gray-500'}`}>
+        <p className={`text-[11px] font-bold uppercase tracking-wider ${active ? 'text-amber-700' : 'text-gray-500'}`}>
           {label}
         </p>
-        <p className={`text-xs ${highlight ? 'text-amber-900' : 'text-gray-500'}`}>{rangeLabel(weekStart)}</p>
+        <p className={`text-xs ${active ? 'text-amber-900' : 'text-gray-500'}`}>{rangeLabel(weekStart)}</p>
       </div>
       <div className="flex-1 grid grid-cols-7">
         {days.map((d, i) => {
@@ -642,18 +863,18 @@ function WeekRow({ label, weekStart, tone }: { label: string; weekStart: Date; t
             <div
               key={i}
               className={`px-2 py-2 border-r last:border-r-0 ${
-                highlight ? 'border-amber-100' : 'border-gray-100'
+                active ? 'border-amber-100' : 'border-gray-100'
               } ${isWeekend ? 'bg-gray-50/60' : ''}`}
             >
-              <p className={`text-[10px] font-semibold uppercase tracking-wide ${highlight ? 'text-amber-700' : 'text-gray-400'}`}>
+              <p className={`text-[10px] font-semibold uppercase tracking-wide ${active ? 'text-amber-700' : 'text-gray-400'}`}>
                 {DAY_LABELS[i]}
               </p>
-              <p className={`text-sm font-semibold ${highlight ? 'text-gray-900' : 'text-gray-600'}`}>{d.getDate()}</p>
+              <p className={`text-sm font-semibold ${active ? 'text-gray-900' : 'text-gray-600'}`}>{d.getDate()}</p>
             </div>
           )
         })}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -662,6 +883,8 @@ function JobBucket({
   project,
   items,
   allAssignments,
+  activeWeekISO,
+  weekISOs,
   onRemove,
   onEdit,
   inactive = false,
@@ -669,6 +892,8 @@ function JobBucket({
   project: Project
   items: Array<{ assignment: Assignment; index: number }>
   allAssignments: Assignment[]
+  activeWeekISO: string
+  weekISOs: string[]
   onRemove: (index: number) => void
   onEdit: (index: number) => void
   inactive?: boolean
@@ -713,15 +938,23 @@ function JobBucket({
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {items.map(({ assignment, index }) => (
-            <AssignmentRow
-              key={`${assignment.employee_id}-${index}`}
-              assignment={assignment}
-              conflicts={findConflicts(assignment, allAssignments)}
-              onRemove={() => onRemove(index)}
-              onClick={() => onEdit(index)}
-            />
-          ))}
+          {items.map(({ assignment, index }) => {
+            const days = assignment.weeks[activeWeekISO] ?? emptyDays()
+            const otherWeeksHaveDays = weekISOs.some(
+              (w) => w !== activeWeekISO && (assignment.weeks[w] ?? emptyDays()).some(Boolean)
+            )
+            return (
+              <AssignmentRow
+                key={`${assignment.employee_id}-${index}`}
+                assignment={assignment}
+                days={days}
+                conflicts={findConflictsForWeek(assignment, allAssignments, activeWeekISO)}
+                otherWeeksHaveDays={otherWeeksHaveDays}
+                onRemove={() => onRemove(index)}
+                onClick={() => onEdit(index)}
+              />
+            )
+          })}
         </div>
       )}
     </div>
@@ -731,12 +964,16 @@ function JobBucket({
 // ─── Assignment row inside a bucket ───────────────────────────────────────
 function AssignmentRow({
   assignment,
+  days,
   conflicts,
+  otherWeeksHaveDays,
   onRemove,
   onClick,
 }: {
   assignment: Assignment
+  days: DayFlags
   conflicts: Conflict[]
+  otherWeeksHaveDays: boolean
   onRemove: () => void
   onClick: () => void
 }) {
@@ -765,9 +1002,17 @@ function AssignmentRow({
               <AlertTriangleIcon className="w-3 h-3 text-orange-500 flex-shrink-0" />
             </span>
           )}
+          {otherWeeksHaveDays && (
+            <span
+              title="Also assigned other weeks"
+              className="text-[8px] uppercase font-bold tracking-wide bg-amber-100 text-amber-700 px-1 rounded"
+            >
+              +
+            </span>
+          )}
         </div>
         <div className="flex gap-0.5 mt-0.5">
-          {assignment.days.map((on, i) => {
+          {days.map((on, i) => {
             const conflict = conflictingDaySet.has(i)
             const base = 'w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center'
             let cls = `${base} bg-gray-200 text-gray-400`
@@ -881,69 +1126,125 @@ function EmployeeCardBody({
   )
 }
 
-// ─── Day selection modal ──────────────────────────────────────────────────
+// ─── Day selection modal (multi-week) ─────────────────────────────────────
+interface WeekOption {
+  iso: string
+  label: string
+  date: Date
+}
+
 function DaySelectionModal({
   title,
-  initialDays,
+  weekStarts,
+  initialWeeks,
   onAssign,
   onCancel,
 }: {
   title: string
-  initialDays: DayFlags
-  onAssign: (days: DayFlags) => void
+  weekStarts: WeekOption[]
+  initialWeeks: Record<string, DayFlags>
+  onAssign: (weeks: Record<string, DayFlags>) => void
   onCancel: () => void
 }) {
-  const [days, setDays] = useState<DayFlags>([...initialDays] as DayFlags)
-  function toggle(i: number) {
-    setDays((prev) => {
-      const next = [...prev] as DayFlags
-      next[i] = !next[i]
+  const [weeks, setWeeks] = useState<Record<string, DayFlags>>(() => {
+    const out: Record<string, DayFlags> = {}
+    for (const w of weekStarts) {
+      const existing = initialWeeks[w.iso]
+      out[w.iso] = existing ? ([...existing] as DayFlags) : emptyDays()
+    }
+    return out
+  })
+
+  function toggle(weekISO: string, dayIndex: number) {
+    setWeeks((prev) => {
+      const next = { ...prev }
+      const arr = [...(next[weekISO] ?? emptyDays())] as DayFlags
+      arr[dayIndex] = !arr[dayIndex]
+      next[weekISO] = arr
       return next
     })
   }
-  function setWeekdays() {
-    setDays([true, true, true, true, true, false, false])
+
+  function setWeekdaysAll() {
+    setWeeks(() => {
+      const out: Record<string, DayFlags> = {}
+      for (const w of weekStarts) {
+        out[w.iso] = [true, true, true, true, true, false, false]
+      }
+      return out
+    })
   }
-  function setAllWeek() {
-    setDays([true, true, true, true, true, true, true])
+
+  function setAllWeekAll() {
+    setWeeks(() => {
+      const out: Record<string, DayFlags> = {}
+      for (const w of weekStarts) {
+        out[w.iso] = [true, true, true, true, true, true, true]
+      }
+      return out
+    })
   }
-  const anyChecked = days.some(Boolean)
+
+  function clearAll() {
+    setWeeks(() => {
+      const out: Record<string, DayFlags> = {}
+      for (const w of weekStarts) {
+        out[w.iso] = emptyDays()
+      }
+      return out
+    })
+  }
+
+  const anyChecked = Object.values(weeks).some((d) => d.some(Boolean))
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={onCancel}
     >
       <div
-        className="bg-white rounded-xl border border-gray-200 shadow-xl p-5 w-full max-w-md mx-4"
+        className="bg-white rounded-xl border border-gray-200 shadow-xl p-5 w-full max-w-xl mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
         <p className="text-xs text-gray-500 mb-4">Select the days this employee will work on this project.</p>
 
-        <div className="flex gap-1.5 mb-3">
-          {DAY_LABELS.map((label, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => toggle(i)}
-              className={`flex-1 flex flex-col items-center py-2 rounded-lg border text-xs font-semibold transition ${
-                days[i]
-                  ? 'bg-amber-500 border-amber-500 text-white'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'
-              }`}
-            >
-              <span>{label}</span>
-              <span className="mt-0.5">
-                {days[i] ? <CheckIcon className="w-3 h-3" /> : <span className="w-3 h-3 block" />}
-              </span>
-            </button>
-          ))}
+        <div className="space-y-3 mb-4">
+          {weekStarts.map((w) => {
+            const arr = weeks[w.iso] ?? emptyDays()
+            return (
+              <div key={w.iso}>
+                <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                  {w.label} <span className="text-gray-400 normal-case font-normal">({rangeLabel(w.date)})</span>
+                </p>
+                <div className="flex gap-1.5">
+                  {DAY_LABELS.map((label, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => toggle(w.iso, i)}
+                      className={`flex-1 flex flex-col items-center py-2 rounded-lg border text-xs font-semibold transition ${
+                        arr[i]
+                          ? 'bg-amber-500 border-amber-500 text-white'
+                          : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'
+                      }`}
+                    >
+                      <span>{label}</span>
+                      <span className="mt-0.5">
+                        {arr[i] ? <CheckIcon className="w-3 h-3" /> : <span className="w-3 h-3 block" />}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         <div className="flex items-center gap-2 mb-5">
           <button
             type="button"
-            onClick={setWeekdays}
+            onClick={setWeekdaysAll}
             className="text-xs font-medium text-amber-600 hover:text-amber-700 transition"
           >
             Weekdays
@@ -951,10 +1252,18 @@ function DaySelectionModal({
           <span className="text-gray-300">·</span>
           <button
             type="button"
-            onClick={setAllWeek}
+            onClick={setAllWeekAll}
             className="text-xs font-medium text-amber-600 hover:text-amber-700 transition"
           >
             All Week
+          </button>
+          <span className="text-gray-300">·</span>
+          <button
+            type="button"
+            onClick={clearAll}
+            className="text-xs font-medium text-gray-500 hover:text-gray-700 transition"
+          >
+            Clear All
           </button>
         </div>
 
@@ -966,11 +1275,119 @@ function DaySelectionModal({
             Cancel
           </button>
           <button
-            onClick={() => onAssign(days)}
+            onClick={() => onAssign(weeks)}
             disabled={!anyChecked}
             className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
           >
             Assign
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Generic warning popup (duplicate employee) ───────────────────────────
+function WarningPopup({
+  title,
+  message,
+  onDismiss,
+}: {
+  title: string
+  message: string
+  onDismiss: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
+      onClick={onDismiss}
+    >
+      <div
+        className="bg-white rounded-xl border border-gray-200 shadow-xl p-5 w-full max-w-sm mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3 mb-4">
+          <AlertTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
+            <p className="text-xs text-gray-600">{message}</p>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button
+            onClick={onDismiss}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-sm font-semibold transition"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Double-book confirmation popup ──────────────────────────────────────
+function DoubleBookPrompt({
+  employeeName,
+  conflicts,
+  weekISOs,
+  onContinue,
+  onCancel,
+}: {
+  employeeName: string
+  conflicts: MultiWeekConflict[]
+  weekISOs: string[]
+  onContinue: () => void
+  onCancel: () => void
+}) {
+  const weekLabels = ['This Week', 'Next Week', 'Following Week']
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-xl border border-gray-200 shadow-xl p-5 w-full max-w-md mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3 mb-4">
+          <AlertTriangleIcon className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Schedule conflict</h3>
+            <div className="text-xs text-gray-600 space-y-1">
+              {conflicts.map((c, idx) => {
+                const parts: string[] = []
+                for (const w of weekISOs) {
+                  const days = c.byWeek[w]
+                  if (!days || days.length === 0) continue
+                  const wIdx = weekISOs.indexOf(w)
+                  parts.push(
+                    `${weekLabels[wIdx] ?? w} (${days.map((i) => DAY_LABELS[i]).join(', ')})`
+                  )
+                }
+                return (
+                  <p key={idx}>
+                    <span className="font-semibold">{employeeName}</span> is already assigned to{' '}
+                    <span className="font-semibold">{c.otherProjectName}</span> on {parts.join('; ')}.
+                  </p>
+                )
+              })}
+              <p className="pt-1">Do you want to continue anyway?</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onContinue}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-sm font-semibold transition"
+          >
+            Continue
           </button>
         </div>
       </div>
