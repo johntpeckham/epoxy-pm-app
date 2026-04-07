@@ -821,277 +821,293 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                     <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                  <>
+                    {/* ── Above divider: non-feed cards (existing order preserved) ── */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
 
-                    {/* 1. Job Info — spans 2 columns, read-only with gear icon to edit */}
-                    <JobInfoDashboardCard
-                      project={selectedProject}
-                      onEdit={() => setEditingProject(selectedProject)}
-                    />
+                      {/* 1. Job Info — spans 2 columns, read-only with gear icon to edit */}
+                      <JobInfoDashboardCard
+                        project={selectedProject}
+                        onEdit={() => setEditingProject(selectedProject)}
+                      />
 
-                    {/* 2. Checklist — spans 2 columns with full inline editing */}
-                    <ChecklistDashboardCard
-                      project={selectedProject}
-                      userId={userId}
-                      onExpand={() => openWorkspace('checklist')}
-                      isAdmin={role === 'admin'}
-                    />
+                      {/* 2. Checklist — spans 2 columns with full inline editing */}
+                      <ChecklistDashboardCard
+                        project={selectedProject}
+                        userId={userId}
+                        onExpand={() => openWorkspace('checklist')}
+                        isAdmin={role === 'admin'}
+                      />
 
-                    {/* 3. Plans */}
-                    <DashboardCard
-                      icon={<FileTextIcon className="w-5 h-5" />}
-                      title="Plans"
-                      onClick={() => openWorkspace('plans')}
-                      content={
-                        <p className="text-xs text-gray-500">
-                          {counts && counts.plans > 0 ? `${counts.plans} plan${counts.plans === 1 ? '' : 's'} uploaded` : 'No plans uploaded'}
-                        </p>
-                      }
-                    />
+                      {/* 3. Plans */}
+                      <DashboardCard
+                        icon={<FileTextIcon className="w-5 h-5" />}
+                        title="Plans"
+                        onClick={() => openWorkspace('plans')}
+                        content={
+                          <p className="text-xs text-gray-500">
+                            {counts && counts.plans > 0 ? `${counts.plans} plan${counts.plans === 1 ? '' : 's'} uploaded` : 'No plans uploaded'}
+                          </p>
+                        }
+                      />
 
-                    {/* 3b. Contracts & POs */}
-                    <DashboardCard
-                      icon={<FileSignatureIcon className="w-5 h-5" />}
-                      title="Contracts & POs"
-                      onClick={() => openWorkspace('contracts')}
-                      content={
-                        <p className="text-xs text-gray-500">
-                          {counts && counts.contracts > 0 ? `${counts.contracts} document${counts.contracts === 1 ? '' : 's'}` : 'No documents uploaded'}
-                        </p>
-                      }
-                    />
+                      {/* 3b. Contracts & POs */}
+                      <DashboardCard
+                        icon={<FileSignatureIcon className="w-5 h-5" />}
+                        title="Contracts & POs"
+                        onClick={() => openWorkspace('contracts')}
+                        content={
+                          <p className="text-xs text-gray-500">
+                            {counts && counts.contracts > 0 ? `${counts.contracts} document${counts.contracts === 1 ? '' : 's'}` : 'No documents uploaded'}
+                          </p>
+                        }
+                      />
 
-                    {/* 4. Tasks — enhanced with preview */}
-                    <DashboardCard
-                      icon={<CheckSquareIcon className="w-5 h-5" />}
-                      title="Field Tasks"
-                      onClick={() => openWorkspace('tasks')}
-                      content={
-                        <div>
-                          {previews && previews.recentTasks.length > 0 ? (
-                            <div className="space-y-1.5">
-                              {previews.recentTasks.slice(0, 3).map((t) => (
-                                <div key={t.id} className="flex items-center gap-1.5">
-                                  <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                    t.status === 'completed' ? 'bg-green-500' :
-                                    t.status === 'in_progress' ? 'bg-yellow-500' :
-                                    t.status === 'unable_to_complete' ? 'bg-red-500' : 'bg-blue-500'
-                                  }`} />
-                                  <span className="text-xs text-gray-600 truncate">{t.title}</span>
-                                </div>
-                              ))}
-                              {(counts?.tasks ?? 0) > 3 && (
-                                <p className="text-xs text-gray-400">+{(counts?.tasks ?? 0) - 3} more</p>
-                              )}
+                      {/* 6. Job Report */}
+                      <DashboardCard
+                        icon={<ClipboardListIcon className="w-5 h-5" />}
+                        title="Job Report"
+                        onClick={() => openWorkspace('report')}
+                        content={
+                          counts?.hasReport ? (
+                            <p className="text-xs text-green-600">Report created</p>
+                          ) : (
+                            <p className="text-xs text-gray-400">No report yet</p>
+                          )
+                        }
+                      />
+
+                      {/* 10. Estimating */}
+                      <DashboardCard
+                        icon={<RulerIcon className="w-5 h-5" />}
+                        title="Estimating"
+                        onClick={() => openWorkspace('estimating')}
+                        content={<p className="text-xs text-gray-400">Project Takeoff</p>}
+                      />
+
+                      {/* 11. Material Orders */}
+                      <DashboardCard
+                        icon={<PackageIcon className="w-5 h-5" />}
+                        title="Material Orders"
+                        onClick={() => openWorkspace('material_orders')}
+                        content={
+                          counts && (counts.materialOrdersPending + counts.materialOrdersOrdered + counts.materialOrdersDelivered + counts.materialOrdersBackordered) > 0 ? (
+                            <div className="space-y-0.5">
+                              {counts.materialOrdersPending > 0 && <p className="text-xs text-yellow-600">{counts.materialOrdersPending} Pending</p>}
+                              {counts.materialOrdersOrdered > 0 && <p className="text-xs text-blue-600">{counts.materialOrdersOrdered} Ordered</p>}
+                              {counts.materialOrdersBackordered > 0 && <p className="text-xs text-red-600">{counts.materialOrdersBackordered} Backordered</p>}
+                              {counts.materialOrdersDelivered > 0 && <p className="text-xs text-green-600">{counts.materialOrdersDelivered} Delivered</p>}
                             </div>
                           ) : (
-                            <p className="text-xs text-gray-400">No tasks yet</p>
-                          )}
-                        </div>
-                      }
-                    />
+                            <p className="text-xs text-gray-400">No orders yet</p>
+                          )
+                        }
+                      />
 
-                    {/* 5. Daily Reports */}
-                    <DashboardCard
-                      icon={<ClipboardListIcon className="w-5 h-5" />}
-                      title="Daily Reports"
-                      onClick={() => openWorkspace('daily_reports')}
-                      content={
-                        <div>
-                          {counts && counts.dailyReports > 0 ? (
-                            <div className="space-y-1">
-                              <p className="text-xs text-gray-500">{counts.dailyReports} report{counts.dailyReports === 1 ? '' : 's'}</p>
-                              {previews?.recentDailyReportDates.filter(Boolean).slice(0, 2).map((d, i) => (
-                                <p key={i} className="text-xs text-gray-400">{d}</p>
-                              ))}
-                            </div>
+                      {/* 12. Scheduling */}
+                      <DashboardCard
+                        icon={<CalendarIcon className="w-5 h-5" />}
+                        title="Scheduling"
+                        onClick={() => openWorkspace('scheduling')}
+                        content={
+                          counts && counts.schedulingEvents > 0 ? (
+                            <p className="text-xs text-gray-600">{counts.schedulingEvents} event{counts.schedulingEvents !== 1 ? 's' : ''}</p>
                           ) : (
-                            <p className="text-xs text-gray-400">No reports yet</p>
-                          )}
-                        </div>
-                      }
-                    />
+                            <p className="text-xs text-gray-400">No events scheduled</p>
+                          )
+                        }
+                      />
 
-                    {/* 6. Job Report */}
-                    <DashboardCard
-                      icon={<ClipboardListIcon className="w-5 h-5" />}
-                      title="Job Report"
-                      onClick={() => openWorkspace('report')}
-                      content={
-                        counts?.hasReport ? (
-                          <p className="text-xs text-green-600">Report created</p>
-                        ) : (
-                          <p className="text-xs text-gray-400">No report yet</p>
-                        )
-                      }
-                    />
-
-                    {/* 7. Timecards */}
-                    <DashboardCard
-                      icon={<ClockIcon className="w-5 h-5" />}
-                      title="Timecards"
-                      onClick={() => openWorkspace('timecards')}
-                      content={
-                        <div>
-                          {counts && counts.timecards > 0 ? (
-                            <div className="space-y-1">
-                              <p className="text-xs text-gray-500">{counts.timecards} timecard{counts.timecards === 1 ? '' : 's'}</p>
-                              {previews?.recentTimecardDates.filter(Boolean).slice(0, 2).map((d, i) => (
-                                <p key={i} className="text-xs text-gray-400">{d}</p>
-                              ))}
-                            </div>
+                      {/* 13. Project Warranty */}
+                      <DashboardCard
+                        icon={<ShieldCheckIcon className="w-5 h-5" />}
+                        title="Project Warranty"
+                        onClick={() => openWorkspace('warranty')}
+                        content={
+                          counts && counts.warranties > 0 ? (
+                            <p className="text-xs text-gray-600">{counts.warranties} warrant{counts.warranties !== 1 ? 'ies' : 'y'}</p>
                           ) : (
-                            <p className="text-xs text-gray-400">No timecards yet</p>
-                          )}
-                        </div>
-                      }
-                    />
+                            <p className="text-xs text-gray-400">No warranties yet</p>
+                          )
+                        }
+                      />
 
-                    {/* 7. Expenses */}
-                    <DashboardCard
-                      icon={<ReceiptIcon className="w-5 h-5" />}
-                      title="Expenses"
-                      onClick={() => openWorkspace('expenses')}
-                      content={
-                        <div>
-                          {counts && counts.expenses > 0 ? (
-                            <div className="space-y-1">
-                              <p className="text-xs text-gray-500">{counts.expenses} expense{counts.expenses === 1 ? '' : 's'}</p>
-                              {previews && previews.totalExpenseAmount > 0 && (
-                                <p className="text-xs text-gray-600 font-medium">${previews.totalExpenseAmount.toFixed(2)} total</p>
-                              )}
-                            </div>
+                      {/* 14. Pre-Lien Notice */}
+                      <DashboardCard
+                        icon={<ScrollTextIcon className="w-5 h-5" />}
+                        title="Pre-Lien Notice"
+                        onClick={() => openWorkspace('prelien')}
+                        content={
+                          counts && counts.preliens > 0 ? (
+                            <p className="text-xs text-gray-600">{counts.preliens} notice{counts.preliens !== 1 ? 's' : ''}</p>
                           ) : (
-                            <p className="text-xs text-gray-400">No expenses yet</p>
-                          )}
-                        </div>
-                      }
-                    />
+                            <p className="text-xs text-gray-400">No pre-lien notices yet</p>
+                          )
+                        }
+                      />
 
-                    {/* 8. Photos — enhanced with thumbnails */}
-                    <DashboardCard
-                      icon={<CameraIcon className="w-5 h-5" />}
-                      title="Photos"
-                      onClick={() => openWorkspace('photos')}
-                      content={
-                        <div>
-                          {previews && previews.recentPhotoUrls.length > 0 ? (
-                            <div className="space-y-1.5">
-                              <div className="grid grid-cols-4 gap-1">
-                                {previews.recentPhotoUrls.slice(0, 4).map((path, i) => (
-                                  <div key={i} className="aspect-square rounded overflow-hidden bg-gray-100">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={getPhotoUrl(path)} alt="" className="w-full h-full object-cover" />
-                                  </div>
+                      {/* 15. Billing */}
+                      <DashboardCard
+                        icon={<DollarSignIcon className="w-5 h-5" />}
+                        title="Billing"
+                        onClick={() => openWorkspace('billing')}
+                        content={<p className="text-xs text-gray-400">Estimates, Invoices, Change Orders</p>}
+                      />
+                    </div>
+
+                    {/* ── Divider: "Job Feed Items" ── */}
+                    <div className="flex items-center gap-3 my-6" aria-label="Job Feed Items">
+                      <div className="flex-1 h-px bg-gray-200" />
+                      <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">
+                        Job Feed Items
+                      </span>
+                      <div className="flex-1 h-px bg-gray-200" />
+                    </div>
+
+                    {/* ── Below divider: Job Feed Items ── */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+
+                      {/* 1. Daily Reports */}
+                      <DashboardCard
+                        icon={<ClipboardListIcon className="w-5 h-5" />}
+                        title="Daily Reports"
+                        onClick={() => openWorkspace('daily_reports')}
+                        content={
+                          <div>
+                            {counts && counts.dailyReports > 0 ? (
+                              <div className="space-y-1">
+                                <p className="text-xs text-gray-500">{counts.dailyReports} report{counts.dailyReports === 1 ? '' : 's'}</p>
+                                {previews?.recentDailyReportDates.filter(Boolean).slice(0, 2).map((d, i) => (
+                                  <p key={i} className="text-xs text-gray-400">{d}</p>
                                 ))}
                               </div>
-                              <p className="text-xs text-gray-400">{counts?.photos ?? 0} photo{(counts?.photos ?? 0) === 1 ? '' : 's'}</p>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-gray-400">No photos yet</p>
-                          )}
-                        </div>
-                      }
-                    />
-
-                    {/* 9. JSA Reports */}
-                    <DashboardCard
-                      icon={<ShieldIcon className="w-5 h-5" />}
-                      title="JSA Reports"
-                      onClick={() => openWorkspace('jsa_reports')}
-                      content={
-                        <div>
-                          {counts && counts.jsaReports > 0 ? (
-                            <div className="space-y-1">
-                              <p className="text-xs text-gray-500">{counts.jsaReports} report{counts.jsaReports === 1 ? '' : 's'}</p>
-                              {previews?.recentJsaDates.filter(Boolean).slice(0, 1).map((d, i) => (
-                                <p key={i} className="text-xs text-gray-400">Latest: {d}</p>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-gray-400">No JSA reports yet</p>
-                          )}
-                        </div>
-                      }
-                    />
-
-                    {/* 10. Estimating */}
-                    <DashboardCard
-                      icon={<RulerIcon className="w-5 h-5" />}
-                      title="Estimating"
-                      onClick={() => openWorkspace('estimating')}
-                      content={<p className="text-xs text-gray-400">Project Takeoff</p>}
-                    />
-
-                    {/* 11. Material Orders */}
-                    <DashboardCard
-                      icon={<PackageIcon className="w-5 h-5" />}
-                      title="Material Orders"
-                      onClick={() => openWorkspace('material_orders')}
-                      content={
-                        counts && (counts.materialOrdersPending + counts.materialOrdersOrdered + counts.materialOrdersDelivered + counts.materialOrdersBackordered) > 0 ? (
-                          <div className="space-y-0.5">
-                            {counts.materialOrdersPending > 0 && <p className="text-xs text-yellow-600">{counts.materialOrdersPending} Pending</p>}
-                            {counts.materialOrdersOrdered > 0 && <p className="text-xs text-blue-600">{counts.materialOrdersOrdered} Ordered</p>}
-                            {counts.materialOrdersBackordered > 0 && <p className="text-xs text-red-600">{counts.materialOrdersBackordered} Backordered</p>}
-                            {counts.materialOrdersDelivered > 0 && <p className="text-xs text-green-600">{counts.materialOrdersDelivered} Delivered</p>}
+                            ) : (
+                              <p className="text-xs text-gray-400">No reports yet</p>
+                            )}
                           </div>
-                        ) : (
-                          <p className="text-xs text-gray-400">No orders yet</p>
-                        )
-                      }
-                    />
+                        }
+                      />
 
-                    {/* 12. Scheduling */}
-                    <DashboardCard
-                      icon={<CalendarIcon className="w-5 h-5" />}
-                      title="Scheduling"
-                      onClick={() => openWorkspace('scheduling')}
-                      content={
-                        counts && counts.schedulingEvents > 0 ? (
-                          <p className="text-xs text-gray-600">{counts.schedulingEvents} event{counts.schedulingEvents !== 1 ? 's' : ''}</p>
-                        ) : (
-                          <p className="text-xs text-gray-400">No events scheduled</p>
-                        )
-                      }
-                    />
+                      {/* 2. JSA Reports */}
+                      <DashboardCard
+                        icon={<ShieldIcon className="w-5 h-5" />}
+                        title="JSA Reports"
+                        onClick={() => openWorkspace('jsa_reports')}
+                        content={
+                          <div>
+                            {counts && counts.jsaReports > 0 ? (
+                              <div className="space-y-1">
+                                <p className="text-xs text-gray-500">{counts.jsaReports} report{counts.jsaReports === 1 ? '' : 's'}</p>
+                                {previews?.recentJsaDates.filter(Boolean).slice(0, 1).map((d, i) => (
+                                  <p key={i} className="text-xs text-gray-400">Latest: {d}</p>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-400">No JSA reports yet</p>
+                            )}
+                          </div>
+                        }
+                      />
 
-                    {/* 13. Project Warranty */}
-                    <DashboardCard
-                      icon={<ShieldCheckIcon className="w-5 h-5" />}
-                      title="Project Warranty"
-                      onClick={() => openWorkspace('warranty')}
-                      content={
-                        counts && counts.warranties > 0 ? (
-                          <p className="text-xs text-gray-600">{counts.warranties} warrant{counts.warranties !== 1 ? 'ies' : 'y'}</p>
-                        ) : (
-                          <p className="text-xs text-gray-400">No warranties yet</p>
-                        )
-                      }
-                    />
+                      {/* 3. Job Expenses */}
+                      <DashboardCard
+                        icon={<ReceiptIcon className="w-5 h-5" />}
+                        title="Expenses"
+                        onClick={() => openWorkspace('expenses')}
+                        content={
+                          <div>
+                            {counts && counts.expenses > 0 ? (
+                              <div className="space-y-1">
+                                <p className="text-xs text-gray-500">{counts.expenses} expense{counts.expenses === 1 ? '' : 's'}</p>
+                                {previews && previews.totalExpenseAmount > 0 && (
+                                  <p className="text-xs text-gray-600 font-medium">${previews.totalExpenseAmount.toFixed(2)} total</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-400">No expenses yet</p>
+                            )}
+                          </div>
+                        }
+                      />
 
-                    {/* 14. Pre-Lien Notice */}
-                    <DashboardCard
-                      icon={<ScrollTextIcon className="w-5 h-5" />}
-                      title="Pre-Lien Notice"
-                      onClick={() => openWorkspace('prelien')}
-                      content={
-                        counts && counts.preliens > 0 ? (
-                          <p className="text-xs text-gray-600">{counts.preliens} notice{counts.preliens !== 1 ? 's' : ''}</p>
-                        ) : (
-                          <p className="text-xs text-gray-400">No pre-lien notices yet</p>
-                        )
-                      }
-                    />
+                      {/* 4. Timecards */}
+                      <DashboardCard
+                        icon={<ClockIcon className="w-5 h-5" />}
+                        title="Timecards"
+                        onClick={() => openWorkspace('timecards')}
+                        content={
+                          <div>
+                            {counts && counts.timecards > 0 ? (
+                              <div className="space-y-1">
+                                <p className="text-xs text-gray-500">{counts.timecards} timecard{counts.timecards === 1 ? '' : 's'}</p>
+                                {previews?.recentTimecardDates.filter(Boolean).slice(0, 2).map((d, i) => (
+                                  <p key={i} className="text-xs text-gray-400">{d}</p>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-400">No timecards yet</p>
+                            )}
+                          </div>
+                        }
+                      />
 
-                    {/* 15. Billing */}
-                    <DashboardCard
-                      icon={<DollarSignIcon className="w-5 h-5" />}
-                      title="Billing"
-                      onClick={() => openWorkspace('billing')}
-                      content={<p className="text-xs text-gray-400">Estimates, Invoices, Change Orders</p>}
-                    />
-                  </div>
+                      {/* 5. Photos — enhanced with thumbnails */}
+                      <DashboardCard
+                        icon={<CameraIcon className="w-5 h-5" />}
+                        title="Photos"
+                        onClick={() => openWorkspace('photos')}
+                        content={
+                          <div>
+                            {previews && previews.recentPhotoUrls.length > 0 ? (
+                              <div className="space-y-1.5">
+                                <div className="grid grid-cols-4 gap-1">
+                                  {previews.recentPhotoUrls.slice(0, 4).map((path, i) => (
+                                    <div key={i} className="aspect-square rounded overflow-hidden bg-gray-100">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={getPhotoUrl(path)} alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-xs text-gray-400">{counts?.photos ?? 0} photo{(counts?.photos ?? 0) === 1 ? '' : 's'}</p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-400">No photos yet</p>
+                            )}
+                          </div>
+                        }
+                      />
+
+                      {/* 6. Field Tasks — enhanced with preview */}
+                      <DashboardCard
+                        icon={<CheckSquareIcon className="w-5 h-5" />}
+                        title="Field Tasks"
+                        onClick={() => openWorkspace('tasks')}
+                        content={
+                          <div>
+                            {previews && previews.recentTasks.length > 0 ? (
+                              <div className="space-y-1.5">
+                                {previews.recentTasks.slice(0, 3).map((t) => (
+                                  <div key={t.id} className="flex items-center gap-1.5">
+                                    <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                      t.status === 'completed' ? 'bg-green-500' :
+                                      t.status === 'in_progress' ? 'bg-yellow-500' :
+                                      t.status === 'unable_to_complete' ? 'bg-red-500' : 'bg-blue-500'
+                                    }`} />
+                                    <span className="text-xs text-gray-600 truncate">{t.title}</span>
+                                  </div>
+                                ))}
+                                {(counts?.tasks ?? 0) > 3 && (
+                                  <p className="text-xs text-gray-400">+{(counts?.tasks ?? 0) - 3} more</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-400">No tasks yet</p>
+                            )}
+                          </div>
+                        }
+                      />
+                    </div>
+                  </>
                 )}
               </div>
             </>
