@@ -25,6 +25,7 @@ import {
   ChevronDownIcon,
   CheckIcon,
   ShieldCheckIcon,
+  ScrollTextIcon,
 } from 'lucide-react'
 import { Project, Task, FeedPost, TaskStatus } from '@/types'
 import { useUserRole } from '@/lib/useUserRole'
@@ -50,6 +51,7 @@ import SchedulingWorkspace from './workspaces/SchedulingWorkspace'
 import ReportWorkspace from './workspaces/ReportWorkspace'
 import ContractsWorkspace from './workspaces/ContractsWorkspace'
 import WarrantyWorkspace from './workspaces/WarrantyWorkspace'
+import PreLienWorkspace from './workspaces/PreLienWorkspace'
 import ChecklistDashboardCard from './ChecklistDashboardCard'
 import JobInfoDashboardCard from './JobInfoDashboardCard'
 import JobsOverview from './JobsOverview'
@@ -59,7 +61,7 @@ type WorkspaceType =
   | 'daily_reports' | 'timecards' | 'expenses' | 'photos'
   | 'jsa_reports' | 'estimating' | 'material_orders'
   | 'scheduling' | 'billing' | 'report' | 'contracts'
-  | 'warranty' | null
+  | 'warranty' | 'prelien' | null
 
 interface JobBoardClientProps {
   initialProjects: Project[]
@@ -83,6 +85,7 @@ interface DashboardCounts {
   schedulingEvents: number
   contracts: number
   warranties: number
+  preliens: number
   hasReport: boolean
 }
 
@@ -161,7 +164,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     const supabase = createClient()
 
     // Counts (parallel)
-    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered, schedulingEventsCount, reportCheck, contractsCount, warrantiesCount] = await Promise.all([
+    const [tasksCount, dailyReportsCount, timecardsCount, expensesCount, photosCount, jsaReportsCount, plansCount, checklistTotalCount, checklistCompletedCount, moPending, moOrdered, moDelivered, moBackordered, schedulingEventsCount, reportCheck, contractsCount, warrantiesCount, preliensCount] = await Promise.all([
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'daily_report'),
       supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('post_type', 'timecard'),
@@ -179,6 +182,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       supabase.from('project_reports').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('project_contracts').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
       supabase.from('project_warranties').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
+      supabase.from('project_preliens').select('id', { count: 'exact', head: true }).eq('project_id', projectId).is('deleted_at', null),
     ])
 
     setCounts({
@@ -198,6 +202,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       schedulingEvents: schedulingEventsCount.count ?? 0,
       contracts: contractsCount.count ?? 0,
       warranties: warrantiesCount.count ?? 0,
+      preliens: preliensCount.count ?? 0,
       hasReport: (reportCheck.count ?? 0) > 0,
     })
 
@@ -547,6 +552,15 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
       case 'warranty':
         return (
           <WarrantyWorkspace
+            key={selectedProject.id}
+            project={selectedProject}
+            userId={userId}
+            onBack={backToDashboard}
+          />
+        )
+      case 'prelien':
+        return (
+          <PreLienWorkspace
             key={selectedProject.id}
             project={selectedProject}
             userId={userId}
@@ -1056,7 +1070,21 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                       }
                     />
 
-                    {/* 14. Billing */}
+                    {/* 14. Pre-Lien Notice */}
+                    <DashboardCard
+                      icon={<ScrollTextIcon className="w-5 h-5" />}
+                      title="Pre-Lien Notice"
+                      onClick={() => openWorkspace('prelien')}
+                      content={
+                        counts && counts.preliens > 0 ? (
+                          <p className="text-xs text-gray-600">{counts.preliens} notice{counts.preliens !== 1 ? 's' : ''}</p>
+                        ) : (
+                          <p className="text-xs text-gray-400">No pre-lien notices yet</p>
+                        )
+                      }
+                    />
+
+                    {/* 15. Billing */}
                     <DashboardCard
                       icon={<DollarSignIcon className="w-5 h-5" />}
                       title="Billing"

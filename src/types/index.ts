@@ -459,3 +459,25 @@ export interface ProjectWarranty {
   created_at: string
   updated_at: string
 }
+
+export interface PreLienTemplate {
+  id: string
+  name: string
+  description: string | null
+  body: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectPreLien {
+  id: string
+  project_id: string
+  template_id: string | null
+  template_name: string | null
+  form_data: Record<string, unknown> | null
+  pdf_url: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
