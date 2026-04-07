@@ -21,6 +21,9 @@ import {
   UsersIcon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
+import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
+import EquipmentDetailLoader from '@/components/equipment/EquipmentDetailLoader'
+import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -76,12 +79,20 @@ interface EquipmentCounts {
 interface Props {
   userId: string
   userRole: UserRole
+  userDisplayName: string
   initialTasks: OfficeTask[]
   initialProfiles: Profile[]
   initialProjects: ProjectOption[]
+  initialEquipment: EquipmentRow[]
   equipmentCounts: EquipmentCounts
   employeeCount: number
 }
+
+type OfficeView =
+  | { kind: 'dashboard' }
+  | { kind: 'employees' }
+  | { kind: 'equipment' }
+  | { kind: 'equipment-detail'; equipmentId: string }
 
 /* ================================================================== */
 /*  COMPONENT                                                          */
@@ -90,9 +101,11 @@ interface Props {
 export default function OfficeTasksPageClient({
   userId,
   userRole,
+  userDisplayName,
   initialTasks,
   initialProfiles,
   initialProjects,
+  initialEquipment,
   equipmentCounts,
   employeeCount,
 }: Props) {
@@ -105,7 +118,7 @@ export default function OfficeTasksPageClient({
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [collapsedCompleted, setCollapsedCompleted] = useState<Set<string>>(new Set())
-  const [employeesOpen, setEmployeesOpen] = useState(false)
+  const [view, setView] = useState<OfficeView>({ kind: 'dashboard' })
 
   const canManageEmployees = userRole === 'admin' || userRole === 'office_manager'
 
@@ -241,6 +254,48 @@ export default function OfficeTasksPageClient({
   /* ================================================================ */
 
   const totalIncomplete = tasks.filter((t) => !t.is_completed).length
+
+  /* ── Inline workspaces (fill full work area right of sidebar) ── */
+  if (view.kind === 'employees' && canManageEmployees) {
+    return (
+      <div className="w-full h-full min-h-0 flex flex-col bg-white">
+        <EmployeeManagement
+          hideTrigger
+          open
+          mode="inline"
+          onBack={() => setView({ kind: 'dashboard' })}
+        />
+      </div>
+    )
+  }
+
+  if (view.kind === 'equipment') {
+    return (
+      <div className="w-full h-full min-h-0 flex flex-col bg-gray-50 overflow-y-auto">
+        <EquipmentPageClient
+          initialEquipment={initialEquipment}
+          userId={userId}
+          userRole={userRole}
+          onBack={() => setView({ kind: 'dashboard' })}
+          onViewItem={(id) => setView({ kind: 'equipment-detail', equipmentId: id })}
+        />
+      </div>
+    )
+  }
+
+  if (view.kind === 'equipment-detail') {
+    return (
+      <div className="w-full h-full min-h-0 flex flex-col bg-gray-50 overflow-y-auto">
+        <EquipmentDetailLoader
+          equipmentId={view.equipmentId}
+          userId={userId}
+          userRole={userRole}
+          userDisplayName={userDisplayName}
+          onBack={() => setView({ kind: 'equipment' })}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
@@ -398,13 +453,13 @@ export default function OfficeTasksPageClient({
             </div>
           </div>
 
-          {/* Link to full page */}
-          <Link
-            href="/equipment"
+          {/* Opens the Equipment workspace in the full work area */}
+          <button
+            onClick={() => setView({ kind: 'equipment' })}
             className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
           >
             View All Equipment →
-          </Link>
+          </button>
         </div>
 
         {/* ── Employees Card (spans 2 columns) ── */}
@@ -429,9 +484,9 @@ export default function OfficeTasksPageClient({
               </div>
             </div>
 
-            {/* Action — opens the same EmployeeManagement component used in Settings */}
+            {/* Opens the Employee Management workspace in the full work area */}
             <button
-              onClick={() => setEmployeesOpen(true)}
+              onClick={() => setView({ kind: 'employees' })}
               className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
             >
               Manage Employees →
@@ -453,15 +508,6 @@ export default function OfficeTasksPageClient({
         </div>
 
       </div>
-
-      {/* Employee Management — same component used in Settings, opened from the Employees card */}
-      {canManageEmployees && (
-        <EmployeeManagement
-          hideTrigger
-          open={employeesOpen}
-          onOpenChange={setEmployeesOpen}
-        />
-      )}
 
       {/* Create modal */}
       {showCreateModal && (

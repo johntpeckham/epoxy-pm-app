@@ -16,6 +16,7 @@ import {
   ClipboardCheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ArrowLeftIcon,
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -29,13 +30,20 @@ interface EmployeeManagementProps {
   open?: boolean
   /** Called when the main modal open state should change. */
   onOpenChange?: (open: boolean) => void
+  /** Render mode. "modal" = existing Portal overlay (Settings). "inline" = fills parent (Office work area). */
+  mode?: 'modal' | 'inline'
+  /** When in inline mode, rendered as a back button in the header. */
+  onBack?: () => void
 }
 
 export default function EmployeeManagement({
   hideTrigger = false,
   open: openProp,
   onOpenChange,
+  mode = 'modal',
+  onBack,
 }: EmployeeManagementProps = {}) {
+  const isInline = mode === 'inline'
   const supabase = createClient()
 
   // Main modal open state — controlled when `open` prop is provided, else internal
@@ -410,14 +418,22 @@ export default function EmployeeManagement({
         </div>
       )}
 
-      {/* Full modal */}
-      {mainOpen && (
-      <Portal>
-      <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={() => setMainOpen(false)}>
-        <div className="mt-auto md:my-auto md:mx-auto w-full md:w-[90vw] md:max-w-[90vw] h-full md:h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      {/* Full modal (or inline workspace in Office page) */}
+      {mainOpen && (() => {
+      const mainContent = (
+        <>
           {/* Header */}
           <div className="flex-none flex items-center justify-between px-6 border-b border-gray-200" style={{ minHeight: '56px' }}>
             <div className="flex items-center gap-2">
+              {isInline && onBack && (
+                <button
+                  onClick={onBack}
+                  className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mr-2"
+                >
+                  <ArrowLeftIcon className="w-4 h-4" />
+                  Office
+                </button>
+              )}
               <UsersIcon className="w-5 h-5 text-gray-400" />
               <h2 className="text-lg font-semibold text-gray-900">Employee Management</h2>
             </div>
@@ -443,12 +459,14 @@ export default function EmployeeManagement({
                 <PlusIcon className="w-3.5 h-3.5" />
                 Add Employee
               </button>
-              <button
-                onClick={() => setMainOpen(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-              >
-                <XIcon className="w-5 h-5" />
-              </button>
+              {!isInline && (
+                <button
+                  onClick={() => setMainOpen(false)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                >
+                  <XIcon className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1117,10 +1135,31 @@ export default function EmployeeManagement({
         />
       )}
           </div>
-        </div>
-      </div>
-      </Portal>
-      )}
+        </>
+      )
+      if (isInline) {
+        return (
+          <div className="w-full h-full min-h-0 flex flex-col bg-white overflow-hidden">
+            {mainContent}
+          </div>
+        )
+      }
+      return (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header"
+            onClick={() => setMainOpen(false)}
+          >
+            <div
+              className="mt-auto md:my-auto md:mx-auto w-full md:w-[90vw] md:max-w-[90vw] h-full md:h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {mainContent}
+            </div>
+          </div>
+        </Portal>
+      )
+      })()}
     </>
   )
 }

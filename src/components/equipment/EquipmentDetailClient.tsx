@@ -36,6 +36,8 @@ interface Props {
   userId: string
   userRole: string
   userDisplayName: string
+  /** When provided, the "Equipment" back link calls this callback instead of navigating to /equipment. */
+  onBack?: () => void
 }
 
 export default function EquipmentDetailClient({
@@ -45,6 +47,7 @@ export default function EquipmentDetailClient({
   userId,
   userRole,
   userDisplayName,
+  onBack,
 }: Props) {
   const router = useRouter()
   const canManage = userRole === 'admin' || userRole === 'foreman'
@@ -165,13 +168,23 @@ export default function EquipmentDetailClient({
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
       {/* Back button */}
-      <Link
-        href="/equipment"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors"
-      >
-        <ArrowLeftIcon className="w-4 h-4" />
-        Equipment
-      </Link>
+      {onBack ? (
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Equipment
+        </button>
+      ) : (
+        <Link
+          href="/equipment"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Equipment
+        </Link>
+      )}
 
       {/* Page header */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">

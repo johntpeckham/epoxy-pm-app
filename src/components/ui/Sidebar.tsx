@@ -115,6 +115,20 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           <ClipboardCheckIcon className="w-5 h-5 flex-shrink-0" />
           My Work
         </Link>
+        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
+          <Link
+            href="/office"
+            onClick={() => setMobileOpen(false)}
+            className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isOfficeActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
+            Office
+          </Link>
+        )}
         {canView('job_board') && (
           <Link
             href={jobBoardHref}
@@ -263,21 +277,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
         {/* Divider */}
         <div className="my-2 border-t border-gray-800 hidden md:block" />
-
-        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
-          <Link
-            href="/office"
-            onClick={() => setMobileOpen(false)}
-            className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isOfficeActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
-            Office
-          </Link>
-        )}
 
         <Link
           href="/estimates"
