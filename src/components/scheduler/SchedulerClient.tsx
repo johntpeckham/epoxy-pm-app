@@ -1,19 +1,58 @@
 'use client'
 
-import { useMemo } from 'react'
-import type { EmployeeProfile } from '@/types'
-import { CalendarRangeIcon, MonitorIcon } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { EmployeeProfile, Project } from '@/types'
+import { createClient } from '@/lib/supabase/client'
+import {
+  CalendarRangeIcon,
+  MonitorIcon,
+  AlertTriangleIcon,
+  XIcon,
+  CheckIcon,
+  Loader2Icon,
+} from 'lucide-react'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  pointerWithin,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+
+// ─── Types ────────────────────────────────────────────────────────────────
+type DayFlags = [boolean, boolean, boolean, boolean, boolean, boolean, boolean]
+
+interface Assignment {
+  employee_id: string
+  employee_name: string
+  project_id: string
+  project_name: string
+  days: DayFlags
+}
+
+interface ScheduleData {
+  assignments: Assignment[]
+}
 
 interface Props {
   userId: string
   employees: EmployeeProfile[]
+  projects: Project[]
+  nextWeekISO: string
+  initialScheduleData: unknown
 }
 
-// ── Date helpers ────────────────────────────────────────────────────────────
+// ─── Date helpers ─────────────────────────────────────────────────────────
 function startOfWeekMonday(d: Date): Date {
   const r = new Date(d)
   r.setHours(0, 0, 0, 0)
-  const day = r.getDay() // 0=Sun..6=Sat
+  const day = r.getDay()
   const diff = day === 0 ? -6 : 1 - day
   r.setDate(r.getDate() + diff)
   return r
@@ -39,8 +78,13 @@ function rangeLabel(start: Date): string {
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
-// ── Employee grouping ───────────────────────────────────────────────────────
+function emptyDays(): DayFlags {
+  return [false, false, false, false, false, false, false]
+}
+
+// ─── Employee grouping ────────────────────────────────────────────────────
 const ROLE_ORDER = ['Foreman', 'Laborer', 'Crew']
 
 function groupEmployees(employees: EmployeeProfile[]): Array<{ label: string; members: EmployeeProfile[] }> {
@@ -51,7 +95,6 @@ function groupEmployees(employees: EmployeeProfile[]): Array<{ label: string; me
     buckets.get(key)!.push(e)
   }
   const knownKeys = Array.from(buckets.keys())
-  // Sort so ROLE_ORDER items come first in that order, then the rest alphabetically
   knownKeys.sort((a, b) => {
     const ia = ROLE_ORDER.findIndex((r) => r.toLowerCase() === a.toLowerCase())
     const ib = ROLE_ORDER.findIndex((r) => r.toLowerCase() === b.toLowerCase())
@@ -70,30 +113,229 @@ function pluralizeGroupLabel(role: string): string {
   const t = role.trim()
   if (!t) return 'OTHER'
   const upper = t.toUpperCase()
-  // Simple pluralization for common cases
   if (upper === 'FOREMAN') return 'FOREMAN'
   if (upper.endsWith('S')) return upper
   return `${upper}S`
 }
 
-// ── Component ───────────────────────────────────────────────────────────────
-export default function SchedulerClient({ employees }: Props) {
-  // Weeks
+// ─── Parse initial schedule data safely ────────────────────────────────────
+function parseInitialSchedule(raw: unknown): ScheduleData {
+  if (!raw || typeof raw !== 'object') return { assignments: [] }
+  const obj = raw as { assignments?: unknown }
+  if (!Array.isArray(obj.assignments)) return { assignments: [] }
+  const assignments: Assignment[] = []
+  for (const a of obj.assignments) {
+    if (!a || typeof a !== 'object') continue
+    const x = a as Record<string, unknown>
+    if (
+      typeof x.employee_id === 'string' &&
+      typeof x.project_id === 'string' &&
+      Array.isArray(x.days) &&
+      x.days.length === 7
+    ) {
+      assignments.push({
+        employee_id: x.employee_id,
+        employee_name: typeof x.employee_name === 'string' ? x.employee_name : '',
+        project_id: x.project_id,
+        project_name: typeof x.project_name === 'string' ? x.project_name : '',
+        days: x.days.map(Boolean) as unknown as DayFlags,
+      })
+    }
+  }
+  return { assignments }
+}
+
+// ─── Double-book detection ─────────────────────────────────────────────────
+interface Conflict {
+  otherProjectName: string
+  conflictingDays: number[] // indices 0..6
+}
+
+function findConflicts(
+  assignment: Assignment,
+  all: Assignment[]
+): Conflict[] {
+  const out: Conflict[] = []
+  for (const other of all) {
+    if (other === assignment) continue
+    if (other.employee_id !== assignment.employee_id) continue
+    if (other.project_id === assignment.project_id) continue
+    const conflictingDays: number[] = []
+    for (let i = 0; i < 7; i++) {
+      if (assignment.days[i] && other.days[i]) conflictingDays.push(i)
+    }
+    if (conflictingDays.length > 0) {
+      out.push({ otherProjectName: other.project_name, conflictingDays })
+    }
+  }
+  return out
+}
+
+// ─── Main component ───────────────────────────────────────────────────────
+export default function SchedulerClient({
+  userId,
+  employees,
+  projects,
+  nextWeekISO,
+  initialScheduleData,
+}: Props) {
+  const supabase = useMemo(() => createClient(), [])
+
+  // Weeks for the top strip
   const { thisWeek, nextWeek, followingWeek } = useMemo(() => {
     const today = new Date()
-    const thisWeek = startOfWeekMonday(today)
-    return {
-      thisWeek,
-      nextWeek: addWeeks(thisWeek, 1),
-      followingWeek: addWeeks(thisWeek, 2),
-    }
+    const t = startOfWeekMonday(today)
+    return { thisWeek: t, nextWeek: addWeeks(t, 1), followingWeek: addWeeks(t, 2) }
   }, [])
 
   const employeeGroups = useMemo(() => groupEmployees(employees), [employees])
 
+  // Active project IDs set — used to flag "inactive" saved assignments
+  const activeProjectIds = useMemo(() => new Set(projects.map((p) => p.id)), [projects])
+
+  // Schedule state
+  const [schedule, setSchedule] = useState<ScheduleData>(() => parseInitialSchedule(initialScheduleData))
+
+  // Drag state
+  const [activeDrag, setActiveDrag] = useState<EmployeeProfile | null>(null)
+
+  // Day-selection popover state
+  const [popover, setPopover] = useState<{
+    mode: 'add' | 'edit'
+    employee: EmployeeProfile
+    project: Project
+    initialDays: DayFlags
+    // For edit mode, the index of the existing assignment so we can update in place
+    editIndex?: number
+  } | null>(null)
+
+  // Auto-save state
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const initialScheduleRef = useRef(schedule)
+  const didMountRef = useRef(false)
+
+  // Sensors
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor))
+
+  // ── Auto-save with debounce ─────────────────────────────────────────────
+  const save = useCallback(
+    async (data: ScheduleData) => {
+      setSaveState('saving')
+      const { error } = await supabase
+        .from('scheduler_weeks')
+        .upsert(
+          {
+            week_start: nextWeekISO,
+            schedule_data: data as unknown as Record<string, unknown>,
+            created_by: userId,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'week_start' }
+        )
+      if (error) {
+        console.error('Failed to save schedule:', error)
+        setSaveState('error')
+        return
+      }
+      setSaveState('saved')
+      if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current)
+      savedTimeoutRef.current = setTimeout(() => setSaveState('idle'), 2000)
+    },
+    [supabase, nextWeekISO, userId]
+  )
+
+  useEffect(() => {
+    // Skip first mount — avoid saving the loaded state back immediately
+    if (!didMountRef.current) {
+      didMountRef.current = true
+      initialScheduleRef.current = schedule
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => save(schedule), 700)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [schedule, save])
+
+  useEffect(() => {
+    return () => {
+      if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  // ── Assignment mutations ────────────────────────────────────────────────
+  const addAssignment = useCallback((assignment: Assignment) => {
+    setSchedule((prev) => ({ assignments: [...prev.assignments, assignment] }))
+  }, [])
+
+  const updateAssignmentDays = useCallback((index: number, days: DayFlags) => {
+    setSchedule((prev) => ({
+      assignments: prev.assignments.map((a, i) => (i === index ? { ...a, days } : a)),
+    }))
+  }, [])
+
+  const removeAssignment = useCallback((index: number) => {
+    setSchedule((prev) => ({
+      assignments: prev.assignments.filter((_, i) => i !== index),
+    }))
+  }, [])
+
+  // ── DnD handlers ────────────────────────────────────────────────────────
+  function handleDragStart(event: DragStartEvent) {
+    const data = event.active.data.current as { employee?: EmployeeProfile } | undefined
+    if (data?.employee) setActiveDrag(data.employee)
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveDrag(null)
+    const { active, over } = event
+    if (!over) return
+    const activeData = active.data.current as { employee?: EmployeeProfile } | undefined
+    const overData = over.data.current as { project?: Project } | undefined
+    if (!activeData?.employee || !overData?.project) return
+    setPopover({
+      mode: 'add',
+      employee: activeData.employee,
+      project: overData.project,
+      initialDays: emptyDays(),
+    })
+  }
+
+  function handleDragCancel() {
+    setActiveDrag(null)
+  }
+
+  // ── Derived: assignments grouped per project ────────────────────────────
+  const assignmentsByProject = useMemo(() => {
+    const map = new Map<string, Array<{ assignment: Assignment; index: number }>>()
+    schedule.assignments.forEach((a, i) => {
+      if (!map.has(a.project_id)) map.set(a.project_id, [])
+      map.get(a.project_id)!.push({ assignment: a, index: i })
+    })
+    return map
+  }, [schedule.assignments])
+
+  // Per-employee stats
+  const employeeStats = useMemo(() => {
+    const map = new Map<string, { projectCount: number; hasConflict: boolean }>()
+    for (const a of schedule.assignments) {
+      const s = map.get(a.employee_id) ?? { projectCount: 0, hasConflict: false }
+      s.projectCount += 1
+      const conflicts = findConflicts(a, schedule.assignments)
+      if (conflicts.length > 0) s.hasConflict = true
+      map.set(a.employee_id, s)
+    }
+    return map
+  }, [schedule.assignments])
+
+  // ─── Render ───────────────────────────────────────────────────────────
   return (
     <div className="h-full w-full flex flex-col bg-gray-50 overflow-hidden">
-      {/* Mobile: show unsupported message */}
+      {/* Mobile fallback */}
       <div className="lg:hidden flex-1 flex flex-col items-center justify-center p-6 text-center">
         <MonitorIcon className="w-10 h-10 text-gray-300 mb-3" />
         <h2 className="text-lg font-semibold text-gray-700 mb-1">Scheduler is optimized for desktop</h2>
@@ -103,90 +345,212 @@ export default function SchedulerClient({ employees }: Props) {
       </div>
 
       {/* Desktop layout */}
-      <div className="hidden lg:flex flex-col h-full w-full">
-        {/* Page header */}
-        <div className="flex-none px-6 pt-5 pb-3 border-b border-gray-200 bg-white">
-          <div className="flex items-center gap-2">
-            <CalendarRangeIcon className="w-5 h-5 text-amber-500" />
-            <h1 className="text-lg font-semibold text-gray-900">Scheduler</h1>
-          </div>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Build next week&apos;s crew schedule by dragging employees into job buckets.
-          </p>
-        </div>
-
-        {/* TOP: Three-week calendar strip */}
-        <div className="flex-none px-6 py-4 bg-white border-b border-gray-200">
-          <div className="space-y-2">
-            <WeekRow label="This Week" weekStart={thisWeek} tone="muted" />
-            <WeekRow label="Next Week" weekStart={nextWeek} tone="highlight" />
-            <WeekRow label="Following Week" weekStart={followingWeek} tone="muted" />
-          </div>
-        </div>
-
-        {/* MIDDLE: Scheduling area */}
-        <div className="flex-1 min-h-0 overflow-auto px-6 py-4">
-          <div className="h-full min-h-[240px] rounded-xl border-2 border-dashed border-gray-200 bg-gray-100/60 flex items-center justify-center">
-            <div className="text-center px-6">
-              <CalendarRangeIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-500 font-medium">
-                Drag employees to job buckets to build the schedule
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <div className="hidden lg:flex flex-col h-full w-full">
+          {/* Header */}
+          <div className="flex-none px-6 pt-5 pb-3 border-b border-gray-200 bg-white flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <CalendarRangeIcon className="w-5 h-5 text-amber-500" />
+                <h1 className="text-lg font-semibold text-gray-900">Scheduler</h1>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Drag employees onto a project bucket and pick which days they&apos;ll be there.
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Job buckets for active projects will appear here in Phase 2.
-              </p>
+            </div>
+            <SaveIndicator state={saveState} />
+          </div>
+
+          {/* TOP: Three-week calendar strip */}
+          <div className="flex-none px-6 py-4 bg-white border-b border-gray-200">
+            <div className="space-y-2">
+              <WeekRow label="This Week" weekStart={thisWeek} tone="muted" />
+              <WeekRow label="Next Week" weekStart={nextWeek} tone="highlight" />
+              <WeekRow label="Following Week" weekStart={followingWeek} tone="muted" />
+            </div>
+          </div>
+
+          {/* MIDDLE: Scheduling area — job buckets */}
+          <div className="flex-1 min-h-0 overflow-auto px-6 py-4">
+            {projects.length === 0 ? (
+              <div className="h-full min-h-[240px] rounded-xl border-2 border-dashed border-gray-200 bg-gray-100/60 flex items-center justify-center">
+                <p className="text-sm text-gray-500">No active projects found</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {projects.map((project) => {
+                  const items = assignmentsByProject.get(project.id) ?? []
+                  return (
+                    <JobBucket
+                      key={project.id}
+                      project={project}
+                      items={items}
+                      allAssignments={schedule.assignments}
+                      onRemove={removeAssignment}
+                      onEdit={(index) => {
+                        const a = schedule.assignments[index]
+                        const emp = employees.find((e) => e.id === a.employee_id)
+                        if (!emp) return
+                        setPopover({
+                          mode: 'edit',
+                          employee: emp,
+                          project,
+                          initialDays: a.days,
+                          editIndex: index,
+                        })
+                      }}
+                    />
+                  )
+                })}
+
+                {/* Also render buckets for inactive projects with existing assignments */}
+                {Array.from(assignmentsByProject.entries())
+                  .filter(([pid]) => !activeProjectIds.has(pid))
+                  .map(([pid, items]) => {
+                    const first = items[0]?.assignment
+                    if (!first) return null
+                    const fakeProject: Project = {
+                      id: pid,
+                      name: first.project_name || 'Inactive Project',
+                      client_name: '',
+                      address: '',
+                      status: 'Closed',
+                      created_at: '',
+                    }
+                    return (
+                      <JobBucket
+                        key={pid}
+                        project={fakeProject}
+                        inactive
+                        items={items}
+                        allAssignments={schedule.assignments}
+                        onRemove={removeAssignment}
+                        onEdit={(index) => {
+                          const a = schedule.assignments[index]
+                          const emp = employees.find((e) => e.id === a.employee_id)
+                          if (!emp) return
+                          setPopover({
+                            mode: 'edit',
+                            employee: emp,
+                            project: fakeProject,
+                            initialDays: a.days,
+                            editIndex: index,
+                          })
+                        }}
+                      />
+                    )
+                  })}
+              </div>
+            )}
+          </div>
+
+          {/* BOTTOM: Employee strip */}
+          <div className="flex-none border-t border-gray-200 bg-white" style={{ height: '22vh', minHeight: 180 }}>
+            <div className="h-full overflow-y-auto px-6 py-3">
+              {employeeGroups.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-sm text-gray-400">No employees found. Add employees in Settings → Employee Management.</p>
+                </div>
+              ) : (
+                <div className="flex gap-6 h-full">
+                  {employeeGroups.map((group) => (
+                    <div key={group.label} className="flex flex-col min-w-0 flex-shrink-0">
+                      <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
+                        {group.label}
+                      </h3>
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {group.members.map((emp) => {
+                          const stats = employeeStats.get(emp.id)
+                          return (
+                            <DraggableEmployeeCard
+                              key={emp.id}
+                              employee={emp}
+                              isDragging={activeDrag?.id === emp.id}
+                              projectCount={stats?.projectCount ?? 0}
+                              hasConflict={Boolean(stats?.hasConflict)}
+                            />
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* BOTTOM: Employee cards strip */}
-        <div className="flex-none border-t border-gray-200 bg-white" style={{ height: '22vh', minHeight: 180 }}>
-          <div className="h-full overflow-y-auto px-6 py-3">
-            {employeeGroups.length === 0 ? (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-gray-400">No employees found. Add employees in Settings → Employee Management.</p>
-              </div>
-            ) : (
-              <div className="flex gap-6 h-full">
-                {employeeGroups.map((group) => (
-                  <div key={group.label} className="flex flex-col min-w-0 flex-shrink-0">
-                    <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
-                      {group.label}
-                    </h3>
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                      {group.members.map((emp) => (
-                        <EmployeeCard key={emp.id} employee={emp} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+        {/* Drag overlay */}
+        <DragOverlay dropAnimation={null}>
+          {activeDrag ? <EmployeeCardBody employee={activeDrag} dragging /> : null}
+        </DragOverlay>
+      </DndContext>
+
+      {/* Day selection popover */}
+      {popover && (
+        <DaySelectionModal
+          title={`${popover.employee.name} → ${popover.project.name}`}
+          initialDays={popover.initialDays}
+          onCancel={() => setPopover(null)}
+          onAssign={(days) => {
+            if (popover.mode === 'add') {
+              addAssignment({
+                employee_id: popover.employee.id,
+                employee_name: popover.employee.name,
+                project_id: popover.project.id,
+                project_name: popover.project.name,
+                days,
+              })
+            } else if (popover.editIndex !== undefined) {
+              updateAssignmentDays(popover.editIndex, days)
+            }
+            setPopover(null)
+          }}
+        />
+      )}
     </div>
   )
 }
 
-// ── Week row ────────────────────────────────────────────────────────────────
-function WeekRow({
-  label,
-  weekStart,
-  tone,
-}: {
-  label: string
-  weekStart: Date
-  tone: 'muted' | 'highlight'
-}) {
+// ─── Save indicator ───────────────────────────────────────────────────────
+function SaveIndicator({ state }: { state: 'idle' | 'saving' | 'saved' | 'error' }) {
+  if (state === 'idle') return <div className="h-5 w-20" />
+  if (state === 'saving')
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+        <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+        Saving…
+      </div>
+    )
+  if (state === 'saved')
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-green-600">
+        <CheckIcon className="w-3.5 h-3.5" />
+        Saved
+      </div>
+    )
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-red-500">
+      <AlertTriangleIcon className="w-3.5 h-3.5" />
+      Save failed
+    </div>
+  )
+}
+
+// ─── Week row ─────────────────────────────────────────────────────────────
+function WeekRow({ label, weekStart, tone }: { label: string; weekStart: Date; tone: 'muted' | 'highlight' }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const highlight = tone === 'highlight'
   return (
     <div
       className={`flex items-stretch rounded-lg border ${
-        highlight
-          ? 'border-amber-300 bg-amber-50/60 shadow-sm'
-          : 'border-gray-200 bg-white'
+        highlight ? 'border-amber-300 bg-amber-50/60 shadow-sm' : 'border-gray-200 bg-white'
       }`}
     >
       <div
@@ -197,9 +561,7 @@ function WeekRow({
         <p className={`text-[11px] font-bold uppercase tracking-wider ${highlight ? 'text-amber-700' : 'text-gray-500'}`}>
           {label}
         </p>
-        <p className={`text-xs ${highlight ? 'text-amber-900' : 'text-gray-500'}`}>
-          {rangeLabel(weekStart)}
-        </p>
+        <p className={`text-xs ${highlight ? 'text-amber-900' : 'text-gray-500'}`}>{rangeLabel(weekStart)}</p>
       </div>
       <div className="flex-1 grid grid-cols-7">
         {days.map((d, i) => {
@@ -211,14 +573,10 @@ function WeekRow({
                 highlight ? 'border-amber-100' : 'border-gray-100'
               } ${isWeekend ? 'bg-gray-50/60' : ''}`}
             >
-              <p className={`text-[10px] font-semibold uppercase tracking-wide ${
-                highlight ? 'text-amber-700' : 'text-gray-400'
-              }`}>
+              <p className={`text-[10px] font-semibold uppercase tracking-wide ${highlight ? 'text-amber-700' : 'text-gray-400'}`}>
                 {DAY_LABELS[i]}
               </p>
-              <p className={`text-sm font-semibold ${highlight ? 'text-gray-900' : 'text-gray-600'}`}>
-                {d.getDate()}
-              </p>
+              <p className={`text-sm font-semibold ${highlight ? 'text-gray-900' : 'text-gray-600'}`}>{d.getDate()}</p>
             </div>
           )
         })}
@@ -227,18 +585,203 @@ function WeekRow({
   )
 }
 
-// ── Employee card ───────────────────────────────────────────────────────────
-function EmployeeCard({ employee }: { employee: EmployeeProfile }) {
-  const name = employee.name || 'Unnamed'
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase() ?? '')
-    .join('') || '?'
+// ─── Job bucket (droppable) ───────────────────────────────────────────────
+function JobBucket({
+  project,
+  items,
+  allAssignments,
+  onRemove,
+  onEdit,
+  inactive = false,
+}: {
+  project: Project
+  items: Array<{ assignment: Assignment; index: number }>
+  allAssignments: Assignment[]
+  onRemove: (index: number) => void
+  onEdit: (index: number) => void
+  inactive?: boolean
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `bucket-${project.id}`,
+    data: { project },
+    disabled: inactive,
+  })
   return (
     <div
-      className="w-[130px] h-[60px] flex items-center gap-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-amber-300 cursor-grab select-none flex-shrink-0 transition"
+      ref={setNodeRef}
+      className={`rounded-xl border bg-white p-3 flex flex-col transition ${
+        isOver
+          ? 'border-amber-400 border-dashed bg-amber-50/60 shadow-sm'
+          : inactive
+            ? 'border-gray-200 bg-gray-50 opacity-75'
+            : 'border-gray-200'
+      }`}
+      style={{ minHeight: 120 }}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-gray-100">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-bold text-gray-900 truncate">{project.name}</p>
+            {inactive && (
+              <span className="text-[9px] uppercase tracking-wide bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                Inactive
+              </span>
+            )}
+          </div>
+          {project.estimate_number && (
+            <p className="text-[10px] text-gray-400 font-medium">Est #{project.estimate_number}</p>
+          )}
+          {project.address && <p className="text-xs text-gray-500 truncate">{project.address}</p>}
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-center py-2">
+          <p className="text-[11px] text-gray-400">Drop employees here</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {items.map(({ assignment, index }) => (
+            <AssignmentRow
+              key={`${assignment.employee_id}-${index}`}
+              assignment={assignment}
+              conflicts={findConflicts(assignment, allAssignments)}
+              onRemove={() => onRemove(index)}
+              onClick={() => onEdit(index)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Assignment row inside a bucket ───────────────────────────────────────
+function AssignmentRow({
+  assignment,
+  conflicts,
+  onRemove,
+  onClick,
+}: {
+  assignment: Assignment
+  conflicts: Conflict[]
+  onRemove: () => void
+  onClick: () => void
+}) {
+  const conflictingDaySet = new Set<number>()
+  for (const c of conflicts) for (const d of c.conflictingDays) conflictingDaySet.add(d)
+  const hasConflict = conflicts.length > 0
+  const tooltip = hasConflict
+    ? conflicts
+        .map(
+          (c) =>
+            `Also assigned to ${c.otherProjectName} on ${c.conflictingDays.map((i) => DAY_LABELS[i]).join(', ')}`
+        )
+        .join('\n')
+    : undefined
+
+  return (
+    <div
+      onClick={onClick}
+      className="group flex items-center gap-2 px-2 py-1.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-white hover:border-amber-300 cursor-pointer transition"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1">
+          <p className="text-xs font-semibold text-gray-900 truncate">{assignment.employee_name}</p>
+          {hasConflict && (
+            <span title={tooltip}>
+              <AlertTriangleIcon className="w-3 h-3 text-orange-500 flex-shrink-0" />
+            </span>
+          )}
+        </div>
+        <div className="flex gap-0.5 mt-0.5">
+          {assignment.days.map((on, i) => {
+            const conflict = conflictingDaySet.has(i)
+            const base = 'w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center'
+            let cls = `${base} bg-gray-200 text-gray-400`
+            if (on && conflict) cls = `${base} bg-orange-500 text-white`
+            else if (on) cls = `${base} bg-amber-500 text-white`
+            return (
+              <span key={i} className={cls}>
+                {DAY_LETTERS[i]}
+              </span>
+            )
+          })}
+        </div>
+      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove()
+        }}
+        className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+        title="Remove"
+      >
+        <XIcon className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
+
+// ─── Draggable employee card ──────────────────────────────────────────────
+function DraggableEmployeeCard({
+  employee,
+  isDragging,
+  projectCount,
+  hasConflict,
+}: {
+  employee: EmployeeProfile
+  isDragging: boolean
+  projectCount: number
+  hasConflict: boolean
+}) {
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `employee-${employee.id}`,
+    data: { employee },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`${isDragging ? 'opacity-40' : ''} touch-none`}
+    >
+      <EmployeeCardBody
+        employee={employee}
+        projectCount={projectCount}
+        hasConflict={hasConflict}
+      />
+    </div>
+  )
+}
+
+// ─── Employee card visual body (used by list + drag overlay) ──────────────
+function EmployeeCardBody({
+  employee,
+  dragging = false,
+  projectCount = 0,
+  hasConflict = false,
+}: {
+  employee: EmployeeProfile
+  dragging?: boolean
+  projectCount?: number
+  hasConflict?: boolean
+}) {
+  const name = employee.name || 'Unnamed'
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? '')
+      .join('') || '?'
+  return (
+    <div
+      className={`w-[130px] h-[60px] relative flex items-center gap-2 px-2 py-1.5 bg-white border rounded-lg shadow-sm select-none flex-shrink-0 transition cursor-grab ${
+        dragging ? 'shadow-lg border-amber-400' : 'border-gray-200 hover:shadow-md hover:border-amber-300'
+      } ${projectCount > 0 && !hasConflict ? 'border-l-4 border-l-green-400' : ''} ${
+        hasConflict ? 'border-l-4 border-l-orange-400' : ''
+      }`}
       title={name}
     >
       <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -251,9 +794,113 @@ function EmployeeCard({ employee }: { employee: EmployeeProfile }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold text-gray-900 truncate leading-tight">{name}</p>
-        {employee.role && (
-          <p className="text-[10px] text-gray-400 truncate leading-tight">{employee.role}</p>
-        )}
+        {employee.role && <p className="text-[10px] text-gray-400 truncate leading-tight">{employee.role}</p>}
+      </div>
+      {projectCount > 0 && (
+        <div
+          className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white ${
+            hasConflict ? 'bg-orange-500' : 'bg-amber-500'
+          }`}
+        >
+          {hasConflict ? <AlertTriangleIcon className="w-2.5 h-2.5" /> : projectCount}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Day selection modal ──────────────────────────────────────────────────
+function DaySelectionModal({
+  title,
+  initialDays,
+  onAssign,
+  onCancel,
+}: {
+  title: string
+  initialDays: DayFlags
+  onAssign: (days: DayFlags) => void
+  onCancel: () => void
+}) {
+  const [days, setDays] = useState<DayFlags>([...initialDays] as DayFlags)
+  function toggle(i: number) {
+    setDays((prev) => {
+      const next = [...prev] as DayFlags
+      next[i] = !next[i]
+      return next
+    })
+  }
+  function setWeekdays() {
+    setDays([true, true, true, true, true, false, false])
+  }
+  function setAllWeek() {
+    setDays([true, true, true, true, true, true, true])
+  }
+  const anyChecked = days.some(Boolean)
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-xl border border-gray-200 shadow-xl p-5 w-full max-w-md mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
+        <p className="text-xs text-gray-500 mb-4">Select the days this employee will work on this project.</p>
+
+        <div className="flex gap-1.5 mb-3">
+          {DAY_LABELS.map((label, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => toggle(i)}
+              className={`flex-1 flex flex-col items-center py-2 rounded-lg border text-xs font-semibold transition ${
+                days[i]
+                  ? 'bg-amber-500 border-amber-500 text-white'
+                  : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'
+              }`}
+            >
+              <span>{label}</span>
+              <span className="mt-0.5">
+                {days[i] ? <CheckIcon className="w-3 h-3" /> : <span className="w-3 h-3 block" />}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 mb-5">
+          <button
+            type="button"
+            onClick={setWeekdays}
+            className="text-xs font-medium text-amber-600 hover:text-amber-700 transition"
+          >
+            Weekdays
+          </button>
+          <span className="text-gray-300">·</span>
+          <button
+            type="button"
+            onClick={setAllWeek}
+            className="text-xs font-medium text-amber-600 hover:text-amber-700 transition"
+          >
+            All Week
+          </button>
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onAssign(days)}
+            disabled={!anyChecked}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
+          >
+            Assign
+          </button>
+        </div>
       </div>
     </div>
   )
