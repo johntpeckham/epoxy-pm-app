@@ -12,17 +12,47 @@ import {
   UserIcon,
   Loader2Icon,
   XIcon,
+  UserPlusIcon,
+  ClipboardCheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { moveToTrash } from '@/lib/trashBin'
 import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition } from '@/types'
 
-export default function EmployeeManagement() {
+interface EmployeeManagementProps {
+  /** Hide the built-in collapsed "Manage Employees" trigger card. */
+  hideTrigger?: boolean
+  /** Controlled main modal open state. When provided, parent controls open/close. */
+  open?: boolean
+  /** Called when the main modal open state should change. */
+  onOpenChange?: (open: boolean) => void
+}
+
+export default function EmployeeManagement({
+  hideTrigger = false,
+  open: openProp,
+  onOpenChange,
+}: EmployeeManagementProps = {}) {
   const supabase = createClient()
 
-  // Main modal open state
-  const [mainOpen, setMainOpen] = useState(false)
+  // Main modal open state — controlled when `open` prop is provided, else internal
+  const [internalMainOpen, setInternalMainOpen] = useState(false)
+  const isControlled = openProp !== undefined
+  const mainOpen = isControlled ? (openProp as boolean) : internalMainOpen
+  const setMainOpen = useCallback(
+    (next: boolean) => {
+      if (!isControlled) setInternalMainOpen(next)
+      onOpenChange?.(next)
+    },
+    [isControlled, onOpenChange]
+  )
+
+  // Onboarding flow state
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
+  const [onboardingStep, setOnboardingStep] = useState<1 | 2>(1)
 
   // Employees
   const [employees, setEmployees] = useState<EmployeeProfile[]>([])
@@ -182,7 +212,7 @@ export default function EmployeeManagement() {
 
   // ── Employee Modal ──
 
-  function openAddModal() {
+  function resetEmployeeForm() {
     setEditingEmployee(null)
     setFormName('')
     setFormRole('')
@@ -190,7 +220,54 @@ export default function EmployeeManagement() {
     setFormPhotoUrl(null)
     setFormCustomFields({})
     setModalError(null)
+  }
+
+  function openAddModal() {
+    resetEmployeeForm()
     setModalOpen(true)
+  }
+
+  function openOnboarding() {
+    resetEmployeeForm()
+    setOnboardingStep(1)
+    setOnboardingOpen(true)
+  }
+
+  function closeOnboarding() {
+    setOnboardingOpen(false)
+    setOnboardingStep(1)
+    setModalError(null)
+  }
+
+  async function handleOnboardingStep1Submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!formName.trim()) {
+      setModalError('Name is required')
+      return
+    }
+
+    setSaving(true)
+    setModalError(null)
+
+    const payload = {
+      name: formName.trim(),
+      photo_url: formPhotoUrl,
+      role: formRole || null,
+      notes: formNotes.trim() || null,
+      custom_fields: Object.keys(formCustomFields).length > 0 ? formCustomFields : null,
+      updated_at: new Date().toISOString(),
+    }
+
+    try {
+      const { error } = await supabase.from('employee_profiles').insert(payload)
+      if (error) throw error
+      await fetchEmployees()
+      setOnboardingStep(2)
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : 'Failed to save employee')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function openEditModal(emp: EmployeeProfile) {
@@ -313,23 +390,25 @@ export default function EmployeeManagement() {
 
   return (
     <>
-      {/* Collapsed card */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <div className="flex items-center gap-2 mb-2">
-          <UsersIcon className="w-5 h-5 text-gray-400" />
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">
-            Employee Management
-          </h2>
-          <button
-            onClick={() => setMainOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-          >
-            <UsersIcon className="w-3.5 h-3.5" />
-            Manage Employees
-          </button>
+      {/* Collapsed card — hidden when used as a standalone workspace (e.g. Office page) */}
+      {!hideTrigger && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <UsersIcon className="w-5 h-5 text-gray-400" />
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">
+              Employee Management
+            </h2>
+            <button
+              onClick={() => setMainOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
+            >
+              <UsersIcon className="w-3.5 h-3.5" />
+              Manage Employees
+            </button>
+          </div>
+          <p className="text-xs text-gray-400">Manage employee profiles, roles, and custom fields.</p>
         </div>
-        <p className="text-xs text-gray-400">Manage employee profiles, roles, and custom fields.</p>
-      </div>
+      )}
 
       {/* Full modal */}
       {mainOpen && (
@@ -349,6 +428,13 @@ export default function EmployeeManagement() {
                 title="Employee Settings"
               >
                 <Settings2Icon className="w-4.5 h-4.5" />
+              </button>
+              <button
+                onClick={openOnboarding}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 text-xs font-medium rounded-lg transition"
+              >
+                <UserPlusIcon className="w-3.5 h-3.5" />
+                +Employee Onboarding
               </button>
               <button
                 onClick={openAddModal}
@@ -749,6 +835,259 @@ export default function EmployeeManagement() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* Employee Onboarding Flow */}
+      {onboardingOpen && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header"
+            onClick={closeOnboarding}
+          >
+            <div
+              className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[90vh] bg-white md:rounded-xl flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div
+                className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
+                style={{ minHeight: '56px' }}
+              >
+                <div className="flex items-center gap-2">
+                  <UserPlusIcon className="w-5 h-5 text-amber-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Employee Onboarding</h3>
+                </div>
+                <button
+                  onClick={closeOnboarding}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                >
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Stepper */}
+              <div className="flex-none flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
+                <div className={`flex items-center gap-2 ${onboardingStep === 1 ? 'text-amber-700' : 'text-gray-500'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    onboardingStep === 1 ? 'bg-amber-500 text-white' : 'bg-green-500 text-white'
+                  }`}>
+                    {onboardingStep === 1 ? '1' : '✓'}
+                  </div>
+                  <span className="text-xs font-semibold">Employee Info</span>
+                </div>
+                <div className="flex-1 h-px bg-gray-200" />
+                <div className={`flex items-center gap-2 ${onboardingStep === 2 ? 'text-amber-700' : 'text-gray-400'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    onboardingStep === 2 ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    2
+                  </div>
+                  <span className="text-xs font-semibold">Paperwork</span>
+                </div>
+              </div>
+
+              {onboardingStep === 1 ? (
+                <form
+                  className="flex-1 flex flex-col overflow-hidden min-h-0"
+                  onSubmit={handleOnboardingStep1Submit}
+                >
+                  <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 min-h-0">
+                    {modalError && <p className="text-xs text-red-500">{modalError}</p>}
+
+                    {/* Photo */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-2">Photo</label>
+                      <div className="flex items-center gap-4">
+                        <div className="relative group">
+                          <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            {formPhotoUrl ? (
+                              <img src={formPhotoUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <UserIcon className="w-6 h-6 text-gray-400" />
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={photoUploading}
+                            className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors"
+                          >
+                            <CameraIcon className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        </div>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={photoUploading}
+                            className="text-sm font-medium text-amber-600 hover:text-amber-700 transition"
+                          >
+                            {photoUploading ? 'Uploading...' : 'Upload photo'}
+                          </button>
+                          <p className="text-xs text-gray-400 mt-0.5">JPG, PNG, GIF, or WebP</p>
+                        </div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/webp"
+                          className="hidden"
+                          onChange={handlePhotoUpload}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Name */}
+                    <div>
+                      <label htmlFor="onboard-name" className="block text-xs font-medium text-gray-500 mb-1">
+                        Name *
+                      </label>
+                      <input
+                        id="onboard-name"
+                        type="text"
+                        required
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        placeholder="Employee name"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                      />
+                    </div>
+
+                    {/* Role */}
+                    <div>
+                      <label htmlFor="onboard-role" className="block text-xs font-medium text-gray-500 mb-1">
+                        Role
+                      </label>
+                      <select
+                        id="onboard-role"
+                        value={formRole}
+                        onChange={(e) => setFormRole(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                      >
+                        <option value="">No role</option>
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.name}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <label htmlFor="onboard-notes" className="block text-xs font-medium text-gray-500 mb-1">
+                        Notes
+                      </label>
+                      <textarea
+                        id="onboard-notes"
+                        value={formNotes}
+                        onChange={(e) => setFormNotes(e.target.value)}
+                        placeholder="Optional notes"
+                        rows={3}
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition resize-none"
+                      />
+                    </div>
+
+                    {/* Dynamic Custom Fields */}
+                    {customFields.length > 0 && (
+                      <div className="pt-3 border-t border-gray-100">
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                          Custom Fields
+                        </h4>
+                        <div className="space-y-3">
+                          {customFields.map((field) => (
+                            <div key={field.id}>
+                              <label
+                                htmlFor={`onboard-custom-${field.id}`}
+                                className="block text-xs font-medium text-gray-500 mb-1"
+                              >
+                                {field.label}
+                              </label>
+                              <input
+                                id={`onboard-custom-${field.id}`}
+                                type="text"
+                                value={formCustomFields[field.id] ?? ''}
+                                onChange={(e) =>
+                                  setFormCustomFields((prev) => ({
+                                    ...prev,
+                                    [field.id]: e.target.value,
+                                  }))
+                                }
+                                placeholder={field.label}
+                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div
+                    className="flex-none flex items-center justify-end gap-2 p-4 md:pb-6 border-t border-gray-200"
+                    style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}
+                  >
+                    <button
+                      type="button"
+                      onClick={closeOnboarding}
+                      className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                    >
+                      {saving ? 'Saving...' : 'Save & Continue'}
+                      <ChevronRightIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  {/* Step 2: Paperwork placeholder */}
+                  <div className="flex-1 overflow-y-auto p-6 md:p-10 min-h-0 flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mb-4">
+                      <ClipboardCheckIcon className="w-8 h-8 text-amber-500" />
+                    </div>
+                    <h4 className="text-base font-semibold text-gray-900 mb-2">
+                      Onboarding Paperwork
+                    </h4>
+                    <p className="text-sm text-gray-500 max-w-md mb-1">
+                      Onboarding documents and digital signatures coming soon.
+                    </p>
+                    <p className="text-xs text-gray-400 max-w-md">
+                      New hires will be able to complete forms and sign on an iPad.
+                    </p>
+                  </div>
+
+                  {/* Footer */}
+                  <div
+                    className="flex-none flex items-center justify-between gap-2 p-4 md:pb-6 border-t border-gray-200"
+                    style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setOnboardingStep(1)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition"
+                    >
+                      <ChevronLeftIcon className="w-4 h-4" />
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeOnboarding}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium rounded-lg transition"
+                    >
+                      Finish
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </Portal>

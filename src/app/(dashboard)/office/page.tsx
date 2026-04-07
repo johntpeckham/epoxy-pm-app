@@ -51,6 +51,15 @@ export default async function OfficePage() {
   const equipmentActive = equipmentRows?.filter((e) => e.status === 'active').length ?? 0
   const equipmentOutOfService = equipmentRows?.filter((e) => e.status === 'out_of_service').length ?? 0
 
+  // Fetch employee count for the Employees dashboard card (only for admin/office_manager)
+  let employeeCount = 0
+  if (userRole === 'admin' || userRole === 'office_manager') {
+    const { count } = await supabase
+      .from('employee_profiles')
+      .select('id', { count: 'exact', head: true })
+    employeeCount = count ?? 0
+  }
+
   return (
     <OfficeTasksPageClient
       userId={user.id}
@@ -59,6 +68,7 @@ export default async function OfficePage() {
       initialProfiles={profiles ?? []}
       initialProjects={projects ?? []}
       equipmentCounts={{ total: equipmentTotal, active: equipmentActive, outOfService: equipmentOutOfService }}
+      employeeCount={employeeCount}
     />
   )
 }
