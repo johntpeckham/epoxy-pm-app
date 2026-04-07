@@ -271,7 +271,7 @@ export default function OfficeTasksPageClient({
 
   if (view.kind === 'equipment') {
     return (
-      <div className="w-full h-full min-h-0 flex flex-col bg-gray-50 overflow-y-auto">
+      <div className="w-full h-full min-h-0 flex flex-col bg-white">
         <EquipmentPageClient
           initialEquipment={initialEquipment}
           userId={userId}
