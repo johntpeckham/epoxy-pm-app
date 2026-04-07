@@ -54,10 +54,10 @@ export async function GET() {
   // Fetch all profiles
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_url, role')
+    .select('id, display_name, avatar_url, role, scheduler_access')
 
   const profileMap = new Map(
-    (profiles ?? []).map((p: { id: string; display_name: string | null; avatar_url: string | null; role: string }) => [p.id, p])
+    (profiles ?? []).map((p: { id: string; display_name: string | null; avatar_url: string | null; role: string; scheduler_access?: boolean | null }) => [p.id, p])
   )
 
   // Merge: every auth user gets profile data if it exists, otherwise defaults
@@ -70,6 +70,7 @@ export async function GET() {
       display_name: p?.display_name ?? null,
       avatar_url: p?.avatar_url ?? null,
       role: p?.role ?? 'crew',
+      scheduler_access: Boolean(p?.scheduler_access),
     }
   })
 

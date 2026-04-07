@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -33,8 +33,9 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   }, [jobFeedExpanded])
 
   const { settings: companySettings } = useCompanySettings()
-  const { role } = useUserRole()
+  const { role, schedulerAccess } = useUserRole()
   const { canView } = usePermissions(role)
+  const canSeeScheduler = role === 'admin' || schedulerAccess
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -58,6 +59,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isCalendarActive = pathname === '/calendar'
   const isProfileActive = pathname === '/profile'
   const isJobTakeoffActive = pathname === '/job-takeoff'
+  const isSchedulerActive = pathname === '/scheduler' || pathname.startsWith('/scheduler/')
   const isEstimatesActive = pathname === '/estimates'
   const isBillingActive = pathname === '/billing'
   const isMyWorkActive = pathname === '/my-work'
@@ -316,6 +318,20 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           Job Takeoff
         </Link>
 
+        {canSeeScheduler && (
+          <Link
+            href="/scheduler"
+            onClick={() => setMobileOpen(false)}
+            className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isSchedulerActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <CalendarRangeIcon className="w-5 h-5 flex-shrink-0" />
+            Scheduler
+          </Link>
+        )}
 
       </nav>
 

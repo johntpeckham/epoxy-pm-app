@@ -262,6 +262,7 @@ export interface Profile {
   display_name: string | null
   avatar_url: string | null
   role: UserRole
+  scheduler_access?: boolean
   updated_at: string
 }
 
