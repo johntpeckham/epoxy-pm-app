@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { PlusIcon, PencilIcon, TrashIcon, WrenchIcon, EyeIcon } from 'lucide-react'
+import { PlusIcon, PencilIcon, TrashIcon, WrenchIcon, EyeIcon, ArrowLeftIcon } from 'lucide-react'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import EquipmentModal from './EquipmentModal'
 
@@ -11,6 +11,10 @@ interface Props {
   initialEquipment: EquipmentRow[]
   userId: string
   userRole: string
+  /** When provided, clicking "View" calls this instead of navigating to /equipment/[id]. */
+  onViewItem?: (id: string) => void
+  /** When provided, a back button is rendered above the heading. */
+  onBack?: () => void
 }
 
 const CATEGORY_OPTIONS = [
@@ -41,7 +45,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   tool: 'Tool',
 }
 
-export default function EquipmentPageClient({ initialEquipment, userId, userRole }: Props) {
+export default function EquipmentPageClient({ initialEquipment, userId, userRole, onViewItem, onBack }: Props) {
   const router = useRouter()
   const [equipment, setEquipment] = useState(initialEquipment)
   const [categoryFilter, setCategoryFilter] = useState('')
@@ -110,6 +114,17 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
+      {/* Back button — only when embedded */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Office
+        </button>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Equipment</h1>
@@ -233,7 +248,10 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
               {/* View button */}
               <div className="mt-4">
                 <button
-                  onClick={() => router.push(`/equipment/${item.id}`)}
+                  onClick={() => {
+                    if (onViewItem) onViewItem(item.id)
+                    else router.push(`/equipment/${item.id}`)
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   <EyeIcon className="w-3.5 h-3.5" />

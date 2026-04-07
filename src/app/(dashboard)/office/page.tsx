@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import type { UserRole } from '@/types'
 import OfficeTasksPageClient from '@/components/office-tasks/OfficeTasksPageClient'
+import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 
 export default async function OfficePage() {
   const supabase = await createClient()
@@ -15,10 +16,11 @@ export default async function OfficePage() {
   // Check role — only admin, office_manager, salesman can access
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, display_name')
     .eq('id', user.id)
     .single()
   const userRole = (profile?.role ?? 'crew') as UserRole
+  const userDisplayName = (profile?.display_name as string | null) ?? ''
 
   if (userRole !== 'admin' && userRole !== 'office_manager' && userRole !== 'salesman') {
     return redirect('/my-work')
@@ -42,14 +44,32 @@ export default async function OfficePage() {
     .eq('status', 'Active')
     .order('name', { ascending: true })
 
-  // Fetch equipment counts for the Equipment dashboard card
-  const { data: equipmentRows } = await supabase
+  // Fetch full equipment rows — used both for the dashboard counts and for
+  // rendering the embedded Equipment workspace when the user clicks the card.
+  const { data: equipmentRowsRaw } = await supabase
     .from('equipment')
-    .select('status')
+    .select('*')
+    .order('name', { ascending: true })
 
-  const equipmentTotal = equipmentRows?.length ?? 0
-  const equipmentActive = equipmentRows?.filter((e) => e.status === 'active').length ?? 0
-  const equipmentOutOfService = equipmentRows?.filter((e) => e.status === 'out_of_service').length ?? 0
+  const equipmentRows: EquipmentRow[] = (equipmentRowsRaw ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    year: row.year,
+    make: row.make,
+    model: row.model,
+    serial_number: row.serial_number,
+    vin: row.vin,
+    license_plate: row.license_plate,
+    custom_fields: (row.custom_fields ?? []) as { label: string; value: string }[],
+    status: row.status,
+    created_at: row.created_at,
+    created_by: row.created_by,
+  }))
+
+  const equipmentTotal = equipmentRows.length
+  const equipmentActive = equipmentRows.filter((e) => e.status === 'active').length
+  const equipmentOutOfService = equipmentRows.filter((e) => e.status === 'out_of_service').length
 
   // Fetch employee count for the Employees dashboard card (only for admin/office_manager)
   let employeeCount = 0
@@ -64,9 +84,11 @@ export default async function OfficePage() {
     <OfficeTasksPageClient
       userId={user.id}
       userRole={userRole}
+      userDisplayName={userDisplayName}
       initialTasks={tasks ?? []}
       initialProfiles={profiles ?? []}
       initialProjects={projects ?? []}
+      initialEquipment={equipmentRows}
       equipmentCounts={{ total: equipmentTotal, active: equipmentActive, outOfService: equipmentOutOfService }}
       employeeCount={employeeCount}
     />
