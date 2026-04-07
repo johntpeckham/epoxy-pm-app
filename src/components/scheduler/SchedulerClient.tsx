@@ -581,6 +581,7 @@ export default function SchedulerClient({
                 label="Next Week"
                 weekStart={nextWeek}
                 active={activeWeekISO === nextWeekISO}
+                highlighted
                 onClick={() => setActiveWeekISO(nextWeekISO)}
               />
               <WeekRow
@@ -828,11 +829,13 @@ function WeekRow({
   label,
   weekStart,
   active,
+  highlighted = false,
   onClick,
 }: {
   label: string
   weekStart: Date
   active: boolean
+  highlighted?: boolean
   onClick: () => void
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -842,8 +845,12 @@ function WeekRow({
       onClick={onClick}
       className={`w-full text-left flex items-stretch rounded-lg border transition cursor-pointer ${
         active
-          ? 'border-amber-400 bg-amber-50/70 shadow-sm ring-2 ring-amber-200'
-          : 'border-gray-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
+          ? highlighted
+            ? 'border-amber-400 bg-green-50/80 shadow-sm ring-2 ring-amber-200'
+            : 'border-amber-400 bg-amber-50/70 shadow-sm ring-2 ring-amber-200'
+          : highlighted
+            ? 'border-green-300 bg-green-50/70 ring-1 ring-green-200/80 shadow-[0_0_12px_rgba(134,239,172,0.25)] hover:border-green-400 hover:bg-green-50'
+            : 'border-gray-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
       }`}
     >
       <div
@@ -1212,8 +1219,16 @@ function DaySelectionModal({
         <div className="space-y-3 mb-4">
           {weekStarts.map((w) => {
             const arr = weeks[w.iso] ?? emptyDays()
+            const isNextWeek = w.label === 'Next Week'
             return (
-              <div key={w.iso}>
+              <div
+                key={w.iso}
+                className={
+                  isNextWeek
+                    ? 'rounded-lg bg-green-50/70 ring-1 ring-green-200/80 px-2 py-2 -mx-2'
+                    : ''
+                }
+              >
                 <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide mb-1">
                   {w.label} <span className="text-gray-400 normal-case font-normal">({rangeLabel(w.date)})</span>
                 </p>
