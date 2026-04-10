@@ -37,7 +37,7 @@ export interface ScheduledServiceRow {
   is_recurring: boolean
   recurrence_interval: number | null
   recurrence_unit: 'weeks' | 'months' | null
-  status: 'upcoming' | 'due' | 'overdue' | 'completed'
+  status: 'upcoming' | 'in_progress' | 'due' | 'overdue' | 'completed'
   completed_at: string | null
   completed_by: string | null
   parent_service_id: string | null
