@@ -7,6 +7,7 @@ import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import type {
   MaintenanceLogRow,
   EquipmentDocumentRow,
+  ScheduledServiceRow,
 } from '@/app/(dashboard)/equipment/[id]/page'
 import EquipmentDetailClient from './EquipmentDetailClient'
 
@@ -33,6 +34,7 @@ export default function EquipmentDetailLoader({
   const [equipment, setEquipment] = useState<EquipmentRow | null>(null)
   const [logs, setLogs] = useState<MaintenanceLogRow[]>([])
   const [docs, setDocs] = useState<EquipmentDocumentRow[]>([])
+  const [scheduled, setScheduled] = useState<ScheduledServiceRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,6 +70,12 @@ export default function EquipmentDetailLoader({
           .eq('equipment_id', equipmentId)
           .order('uploaded_at', { ascending: false })
 
+        const { data: scheduledRows } = await supabase
+          .from('equipment_scheduled_services')
+          .select('id, equipment_id, description, scheduled_date, is_recurring, recurrence_interval, recurrence_unit, status, completed_at, completed_by, parent_service_id, created_by, created_at')
+          .eq('equipment_id', equipmentId)
+          .order('scheduled_date', { ascending: true })
+
         if (cancelled) return
         setEquipment({
           id: eq.id,
@@ -86,6 +94,7 @@ export default function EquipmentDetailLoader({
         })
         setLogs((logRows ?? []) as MaintenanceLogRow[])
         setDocs((docRows ?? []) as EquipmentDocumentRow[])
+        setScheduled((scheduledRows ?? []) as ScheduledServiceRow[])
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load equipment')
       } finally {
@@ -136,6 +145,7 @@ export default function EquipmentDetailLoader({
       equipment={equipment}
       initialLogs={logs}
       initialDocs={docs}
+      initialScheduled={scheduled}
       userId={userId}
       userRole={userRole}
       userDisplayName={userDisplayName}

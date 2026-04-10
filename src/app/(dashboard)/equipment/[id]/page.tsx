@@ -29,6 +29,22 @@ export interface EquipmentDocumentRow {
   uploaded_by: string | null
 }
 
+export interface ScheduledServiceRow {
+  id: string
+  equipment_id: string
+  description: string
+  scheduled_date: string
+  is_recurring: boolean
+  recurrence_interval: number | null
+  recurrence_unit: 'weeks' | 'months' | null
+  status: 'upcoming' | 'due' | 'overdue' | 'completed'
+  completed_at: string | null
+  completed_by: string | null
+  parent_service_id: string | null
+  created_by: string | null
+  created_at: string
+}
+
 export default async function EquipmentDetailPage({ params }: PageProps) {
   const { id } = await params
   const supabase = await createClient()
@@ -64,6 +80,12 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
     .eq('equipment_id', id)
     .order('uploaded_at', { ascending: false })
 
+  const { data: scheduled } = await supabase
+    .from('equipment_scheduled_services')
+    .select('id, equipment_id, description, scheduled_date, is_recurring, recurrence_interval, recurrence_unit, status, completed_at, completed_by, parent_service_id, created_by, created_at')
+    .eq('equipment_id', id)
+    .order('scheduled_date', { ascending: true })
+
   return (
     <EquipmentDetailClient
       equipment={{
@@ -83,6 +105,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
       }}
       initialLogs={(logs ?? []) as MaintenanceLogRow[]}
       initialDocs={(docs ?? []) as EquipmentDocumentRow[]}
+      initialScheduled={(scheduled ?? []) as ScheduledServiceRow[]}
       userId={session.user.id}
       userRole={userRole}
       userDisplayName={displayName}
