@@ -89,6 +89,17 @@ export default function NewTimecardModal({
   const [masterTimeOut, setMasterTimeOut] = useState('15:30')
   const [masterLunchMinutes, setMasterLunchMinutes] = useState(30)
 
+  // Merge state
+  const [mergePrompt, setMergePrompt] = useState<{
+    existingId: string
+    existingEntries: TimecardEntry[]
+    newEntries: TimecardEntry[]
+    duplicates: { name: string; existing: TimecardEntry; incoming: TimecardEntry }[]
+    nonDuplicates: TimecardEntry[]
+    dynamicFields: unknown
+    values: Record<string, string>
+  } | null>(null)
+
   function updateValue(key: string, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }))
   }
@@ -182,18 +193,30 @@ export default function NewTimecardModal({
 
   const grandTotal = entries.reduce((s, e) => s + e.total_hours, 0)
 
+  function formatTime12hr(time24: string): string {
+    if (!time24) return ''
+    const [h, m] = time24.split(':').map(Number)
+    const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h
+    const period = h < 12 ? 'AM' : 'PM'
+    return `${displayH}:${String(m).padStart(2, '0')} ${period}`
+  }
+
+  function buildValidEntries(): TimecardEntry[] {
+    return entries
+      .filter((e) => e.employee_name.trim() && e.time_in && e.time_out)
+      .map((e) => ({
+        ...e,
+        drive_time: driveTimeEnabled ? (e.drive_time ?? null) : null,
+      }))
+  }
+
   async function handleSubmit() {
     if (!selectedProjectId) {
       setError('Please select a project')
       return
     }
 
-    const validEntries = entries
-      .filter((e) => e.employee_name.trim() && e.time_in && e.time_out)
-      .map((e) => ({
-        ...e,
-        drive_time: driveTimeEnabled ? (e.drive_time ?? null) : null,
-      }))
+    const validEntries = buildValidEntries()
     if (validEntries.length === 0) {
       setError('Please add at least one employee with time entries')
       return
@@ -203,37 +226,160 @@ export default function NewTimecardModal({
     setError(null)
 
     try {
-      const gt = Math.round(validEntries.reduce((s, e) => s + e.total_hours, 0) * 100) / 100
+      const dateVal = values.date ?? ''
 
-      const content: Record<string, unknown> = {
-        date: values.date ?? '',
-        project_name: (values.project_name ?? '').trim(),
-        address: (values.address ?? '').trim(),
-        entries: validEntries,
-        grand_total_hours: gt,
-      }
+      // Check for existing timecard on the same project + date
+      const { data: existingRows } = await supabase
+        .from('feed_posts')
+        .select('id, content')
+        .eq('project_id', selectedProjectId)
+        .eq('post_type', 'timecard')
+        .eq('content->>date', dateVal)
+        .limit(1)
 
-      for (const [key, val] of Object.entries(values)) {
-        if (!KNOWN_KEYS.has(key) && typeof val === 'string' && val.trim()) {
-          content[key] = val.trim()
+      const existing = existingRows?.[0]
+
+      if (existing) {
+        const existingContent = existing.content as unknown as { entries: TimecardEntry[] }
+        const existingEntries: TimecardEntry[] = existingContent.entries ?? []
+        const existingNames = new Set(existingEntries.map((e) => e.employee_name))
+
+        const duplicates: { name: string; existing: TimecardEntry; incoming: TimecardEntry }[] = []
+        const nonDuplicates: TimecardEntry[] = []
+
+        for (const entry of validEntries) {
+          if (existingNames.has(entry.employee_name)) {
+            const existingEntry = existingEntries.find((e) => e.employee_name === entry.employee_name)!
+            duplicates.push({ name: entry.employee_name, existing: existingEntry, incoming: entry })
+          } else {
+            nonDuplicates.push(entry)
+          }
         }
+
+        if (duplicates.length === 0) {
+          // No overlapping employees — auto-merge
+          await performMerge(existing.id, existingEntries, nonDuplicates, [])
+          onCreated()
+        } else {
+          // Overlapping employees — show prompt
+          const dynamicFields = buildDynamicFields(FORM_KEY, values, templateFields)
+          setMergePrompt({
+            existingId: existing.id,
+            existingEntries,
+            newEntries: validEntries,
+            duplicates,
+            nonDuplicates,
+            dynamicFields,
+            values: { ...values },
+          })
+          setLoading(false)
+        }
+      } else {
+        // No existing timecard — insert normally
+        await insertNew(validEntries)
+        onCreated()
       }
-
-      const dynamicFields = buildDynamicFields(FORM_KEY, values, templateFields)
-
-      const { error: insertErr } = await supabase.from('feed_posts').insert({
-        project_id: selectedProjectId,
-        user_id: userId,
-        post_type: 'timecard',
-        is_pinned: false,
-        content,
-        dynamic_fields: dynamicFields,
-      })
-
-      if (insertErr) throw insertErr
-      onCreated()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create timecard')
+      setLoading(false)
+    }
+  }
+
+  async function insertNew(validEntries: TimecardEntry[]) {
+    const gt = Math.round(validEntries.reduce((s, e) => s + e.total_hours, 0) * 100) / 100
+
+    const content: Record<string, unknown> = {
+      date: values.date ?? '',
+      project_name: (values.project_name ?? '').trim(),
+      address: (values.address ?? '').trim(),
+      entries: validEntries,
+      grand_total_hours: gt,
+    }
+
+    for (const [key, val] of Object.entries(values)) {
+      if (!KNOWN_KEYS.has(key) && typeof val === 'string' && val.trim()) {
+        content[key] = val.trim()
+      }
+    }
+
+    const dynamicFields = buildDynamicFields(FORM_KEY, values, templateFields)
+
+    const { error: insertErr } = await supabase.from('feed_posts').insert({
+      project_id: selectedProjectId,
+      user_id: userId,
+      post_type: 'timecard',
+      is_pinned: false,
+      content,
+      dynamic_fields: dynamicFields,
+    })
+
+    if (insertErr) throw insertErr
+  }
+
+  async function performMerge(
+    existingId: string,
+    existingEntries: TimecardEntry[],
+    newEntries: TimecardEntry[],
+    updatedDuplicates: TimecardEntry[],
+  ) {
+    // Build merged entries: start with existing, replace any updated duplicates, then add new
+    const updatedNames = new Set(updatedDuplicates.map((e) => e.employee_name))
+    const merged = existingEntries.map((e) =>
+      updatedNames.has(e.employee_name)
+        ? updatedDuplicates.find((u) => u.employee_name === e.employee_name)!
+        : e
+    )
+    merged.push(...newEntries)
+
+    const gt = Math.round(merged.reduce((s, e) => s + e.total_hours, 0) * 100) / 100
+
+    const { data: existingRow } = await supabase
+      .from('feed_posts')
+      .select('content')
+      .eq('id', existingId)
+      .single()
+
+    const existingContent = (existingRow?.content ?? {}) as Record<string, unknown>
+
+    const content: Record<string, unknown> = {
+      ...existingContent,
+      entries: merged,
+      grand_total_hours: gt,
+    }
+
+    const { error: updateErr } = await supabase
+      .from('feed_posts')
+      .update({ content })
+      .eq('id', existingId)
+
+    if (updateErr) throw updateErr
+  }
+
+  async function handleMergeUpdate() {
+    if (!mergePrompt) return
+    setLoading(true)
+    setError(null)
+    try {
+      const updatedDuplicates = mergePrompt.duplicates.map((d) => d.incoming)
+      await performMerge(mergePrompt.existingId, mergePrompt.existingEntries, mergePrompt.nonDuplicates, updatedDuplicates)
+      setMergePrompt(null)
+      onCreated()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to merge timecard')
+      setLoading(false)
+    }
+  }
+
+  async function handleMergeKeep() {
+    if (!mergePrompt) return
+    setLoading(true)
+    setError(null)
+    try {
+      await performMerge(mergePrompt.existingId, mergePrompt.existingEntries, mergePrompt.nonDuplicates, [])
+      setMergePrompt(null)
+      onCreated()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to merge timecard')
       setLoading(false)
     }
   }
@@ -616,6 +762,91 @@ export default function NewTimecardModal({
         onConfirm={() => { setSyncTimes(false); setShowUnsyncConfirm(false) }}
         onCancel={() => setShowUnsyncConfirm(false)}
       />
+    )}
+    {mergePrompt && (
+      <Portal>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 pt-5 pb-3">
+              <h3 className="text-base font-semibold text-gray-900">Employees already on timecard</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                The following employees already have entries on the{' '}
+                <span className="font-medium text-gray-700">{mergePrompt.values.project_name}</span>{' '}
+                timecard for{' '}
+                <span className="font-medium text-gray-700">{mergePrompt.values.date}</span>:
+              </p>
+            </div>
+
+            <div className="px-5 pb-3">
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+                {mergePrompt.duplicates.map((dup) => (
+                  <div key={dup.name} className="px-4 py-3">
+                    <p className="text-sm font-medium text-gray-900 mb-1.5">{dup.name}</p>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-gray-50 rounded-md px-3 py-2">
+                        <p className="font-semibold text-gray-400 uppercase text-[10px] mb-1">Existing</p>
+                        <p className="text-gray-700">
+                          {formatTime12hr(dup.existing.time_in)} – {formatTime12hr(dup.existing.time_out)}
+                        </p>
+                        <p className="text-gray-500 mt-0.5">
+                          {dup.existing.lunch_minutes} min lunch · <span className="font-semibold text-gray-700">{dup.existing.total_hours.toFixed(2)} hrs</span>
+                        </p>
+                      </div>
+                      <div className="bg-amber-50 rounded-md px-3 py-2">
+                        <p className="font-semibold text-amber-600 uppercase text-[10px] mb-1">New</p>
+                        <p className="text-gray-700">
+                          {formatTime12hr(dup.incoming.time_in)} – {formatTime12hr(dup.incoming.time_out)}
+                        </p>
+                        <p className="text-gray-500 mt-0.5">
+                          {dup.incoming.lunch_minutes} min lunch · <span className="font-semibold text-gray-700">{dup.incoming.total_hours.toFixed(2)} hrs</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {mergePrompt.nonDuplicates.length > 0 && (
+                <p className="text-xs text-gray-400 mt-2">
+                  {mergePrompt.nonDuplicates.length} new employee{mergePrompt.nonDuplicates.length !== 1 ? 's' : ''} will be added regardless.
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2 px-5 pb-5 pt-2">
+              <button
+                type="button"
+                onClick={() => { setMergePrompt(null) }}
+                className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleMergeKeep}
+                disabled={loading}
+                className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition disabled:opacity-60"
+              >
+                Keep original
+              </button>
+              <button
+                type="button"
+                onClick={handleMergeUpdate}
+                disabled={loading}
+                className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <LoaderIcon className="w-4 h-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  'Update hours'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Portal>
     )}
     </>
   )
