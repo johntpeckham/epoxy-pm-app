@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   UsersIcon,
@@ -115,7 +115,7 @@ export default function EmployeeManagement({
     const { data } = await supabase
       .from('employee_roles')
       .select('*')
-      .order('name')
+      .order('created_at')
     setRoles((data as EmployeeRole[]) ?? [])
   }, [])
 
@@ -396,6 +396,28 @@ export default function EmployeeManagement({
     }
   }
 
+  // Group employees by role, following the order from employee_roles table
+  const groupedEmployees = useMemo(() => {
+    const groups: { roleName: string; employees: EmployeeProfile[] }[] = []
+    const assignedIds = new Set<string>()
+
+    for (const role of roles) {
+      const matched = employees.filter(emp => emp.role === role.name)
+      if (matched.length > 0) {
+        groups.push({ roleName: role.name, employees: matched })
+        matched.forEach(emp => assignedIds.add(emp.id))
+      }
+    }
+
+    // Employees with no role or an unrecognized role
+    const unassigned = employees.filter(emp => !assignedIds.has(emp.id))
+    if (unassigned.length > 0) {
+      groups.push({ roleName: 'Unassigned', employees: unassigned })
+    }
+
+    return groups
+  }, [employees, roles])
+
   return (
     <>
       {/* Collapsed card — hidden when used as a standalone workspace (e.g. Office page) */}
@@ -440,17 +462,18 @@ export default function EmployeeManagement({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setSettingsOpen(true)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 text-xs font-medium rounded-lg transition"
                 title="Employee Settings"
               >
-                <Settings2Icon className="w-4.5 h-4.5" />
+                <Settings2Icon className="w-3.5 h-3.5" />
+                Settings
               </button>
               <button
                 onClick={openOnboarding}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 text-xs font-medium rounded-lg transition"
               >
                 <UserPlusIcon className="w-3.5 h-3.5" />
-                +Employee Onboarding
+                +Onboarding
               </button>
               <button
                 onClick={openAddModal}
@@ -473,7 +496,7 @@ export default function EmployeeManagement({
           {/* Body */}
           <div className="flex-1 overflow-y-auto p-6 min-h-0">
 
-      {/* Employee Grid */}
+      {/* Employee Grid — grouped by role */}
       {loadingEmployees ? (
         <div className="flex items-center justify-center py-8">
           <Loader2Icon className="w-5 h-5 text-amber-500 animate-spin" />
@@ -481,49 +504,64 @@ export default function EmployeeManagement({
       ) : employees.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">No employees added yet.</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 mb-6">
-          {employees.map((emp) => (
-            <div
-              key={emp.id}
-              className="rounded-lg border border-gray-200 overflow-hidden hover:border-gray-300 hover:shadow-sm transition bg-white flex flex-col"
-            >
-              {/* Photo area — ~100px tall */}
-              <div className="w-full aspect-square bg-gray-100 overflow-hidden">
-                {emp.photo_url ? (
-                  <img
-                    src={emp.photo_url}
-                    alt=""
-                    className="w-full h-full object-cover object-top"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <UserIcon className="w-7 h-7 text-gray-300" />
+        <div className="mb-6">
+          {groupedEmployees.map((group, idx) => (
+            <div key={group.roleName}>
+              {/* Role divider */}
+              <div className={`flex items-center gap-3 ${idx === 0 ? 'mb-4' : 'mt-6 mb-4'}`} aria-label={group.roleName}>
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">
+                  {group.roleName}
+                </span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+              {/* Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+                {group.employees.map((emp) => (
+                  <div
+                    key={emp.id}
+                    className="rounded-lg border border-gray-200 overflow-hidden hover:border-gray-300 hover:shadow-sm transition bg-white flex flex-col"
+                  >
+                    {/* Photo area — ~100px tall */}
+                    <div className="w-full aspect-square bg-gray-100 overflow-hidden">
+                      {emp.photo_url ? (
+                        <img
+                          src={emp.photo_url}
+                          alt=""
+                          className="w-full h-full object-cover object-top"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <UserIcon className="w-7 h-7 text-gray-300" />
+                        </div>
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div className="px-2 pt-1.5 pb-0.5">
+                      <p className="text-xs font-bold text-gray-900 truncate leading-tight">{emp.name}</p>
+                      {emp.role && (
+                        <p className="text-[10px] text-amber-600 font-semibold mt-0.5 truncate leading-tight">{emp.role}</p>
+                      )}
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-0.5 px-1.5 pb-1.5 mt-auto">
+                      <button
+                        onClick={() => openEditModal(emp)}
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 hover:text-amber-700 hover:bg-amber-50 rounded transition"
+                      >
+                        <PencilIcon className="w-2.5 h-2.5" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteEmployee(emp)}
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                      >
+                        <Trash2Icon className="w-2.5 h-2.5" />
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
-              {/* Info */}
-              <div className="px-2 pt-1.5 pb-0.5">
-                <p className="text-xs font-bold text-gray-900 truncate leading-tight">{emp.name}</p>
-                {emp.role && (
-                  <p className="text-[10px] text-amber-600 font-semibold mt-0.5 truncate leading-tight">{emp.role}</p>
-                )}
-              </div>
-              {/* Actions */}
-              <div className="flex items-center gap-0.5 px-1.5 pb-1.5 mt-auto">
-                <button
-                  onClick={() => openEditModal(emp)}
-                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 hover:text-amber-700 hover:bg-amber-50 rounded transition"
-                >
-                  <PencilIcon className="w-2.5 h-2.5" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => setConfirmDeleteEmployee(emp)}
-                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
-                >
-                  <Trash2Icon className="w-2.5 h-2.5" />
-                  Delete
-                </button>
+                ))}
               </div>
             </div>
           ))}
