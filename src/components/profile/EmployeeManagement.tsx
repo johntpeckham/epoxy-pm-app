@@ -929,50 +929,71 @@ export default function EmployeeManagement({
           {/* Header */}
           <div className="flex-none flex items-center justify-between px-6 border-b border-gray-200" style={{ minHeight: '56px' }}>
             <div className="flex items-center gap-2">
-              {isInline && onBack && (
+              {settingsOpen ? (
                 <button
-                  onClick={onBack}
+                  onClick={() => setSettingsOpen(false)}
                   className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mr-2"
                 >
                   <ArrowLeftIcon className="w-4 h-4" />
-                  Office
+                  Employee Management
                 </button>
+              ) : (
+                isInline && onBack && (
+                  <button
+                    onClick={onBack}
+                    className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mr-2"
+                  >
+                    <ArrowLeftIcon className="w-4 h-4" />
+                    Office
+                  </button>
+                )
               )}
-              <UsersIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-lg font-semibold text-gray-900">Employee Management</h2>
+              {settingsOpen ? (
+                <>
+                  <Settings2Icon className="w-5 h-5 text-gray-400" />
+                  <h2 className="text-lg font-semibold text-gray-900">Employee Settings</h2>
+                </>
+              ) : (
+                <>
+                  <UsersIcon className="w-5 h-5 text-gray-400" />
+                  <h2 className="text-lg font-semibold text-gray-900">Employee Management</h2>
+                </>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSettingsOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 text-xs font-medium rounded-lg transition"
-                title="Employee Settings"
-              >
-                <Settings2Icon className="w-3.5 h-3.5" />
-                Settings
-              </button>
-              <button
-                onClick={openOnboarding}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 text-xs font-medium rounded-lg transition"
-              >
-                <UserPlusIcon className="w-3.5 h-3.5" />
-                +Onboarding
-              </button>
-              <button
-                onClick={openAddModal}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
-              >
-                <PlusIcon className="w-3.5 h-3.5" />
-                Add Employee
-              </button>
-              {!isInline && (
+            {!settingsOpen && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setMainOpen(false)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                  onClick={() => setSettingsOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 text-xs font-medium rounded-lg transition"
+                  title="Employee Settings"
                 >
-                  <XIcon className="w-5 h-5" />
+                  <Settings2Icon className="w-3.5 h-3.5" />
+                  Settings
                 </button>
-              )}
-            </div>
+                <button
+                  onClick={openOnboarding}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 text-xs font-medium rounded-lg transition"
+                >
+                  <UserPlusIcon className="w-3.5 h-3.5" />
+                  +Onboarding
+                </button>
+                <button
+                  onClick={openAddModal}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
+                >
+                  <PlusIcon className="w-3.5 h-3.5" />
+                  Add Employee
+                </button>
+                {!isInline && (
+                  <button
+                    onClick={() => setMainOpen(false)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                  >
+                    <XIcon className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Body */}
@@ -1072,22 +1093,6 @@ export default function EmployeeManagement({
       {/* Employee Settings — full-size panel */}
       {settingsOpen && (
         <div className="absolute inset-0 z-10 bg-white flex flex-col overflow-hidden">
-          {/* Header */}
-          <div
-            className="flex-none flex items-center px-6 border-b border-gray-200"
-            style={{ minHeight: '56px' }}
-          >
-            <button
-              onClick={() => setSettingsOpen(false)}
-              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mr-2"
-            >
-              <ArrowLeftIcon className="w-4 h-4" />
-              Employee Management
-            </button>
-            <Settings2Icon className="w-5 h-5 text-gray-400" />
-            <h3 className="text-lg font-semibold text-gray-900 ml-2">Employee Settings</h3>
-          </div>
-
           {/* Body */}
           <div className="flex-1 overflow-y-auto p-6 min-h-0">
             <div className="max-w-3xl mx-auto space-y-8">
