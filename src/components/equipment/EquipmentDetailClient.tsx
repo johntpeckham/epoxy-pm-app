@@ -288,23 +288,32 @@ export default function EquipmentDetailClient({
   }
 
   /**
-   * Unified status change handler for active scheduled services. Routes by
+   * Unified status change handler for scheduled services. Routes by
    * requested status:
-   *   - 'upcoming'     → clear any in-progress state, leave completed_at null
-   *   - 'in_progress'  → mark as "Working on it", no recurrence
+   *   - 'upcoming'     → clear any in-progress / completed state. If the
+   *                      service was previously completed, also null out
+   *                      completed_at / completed_by and leave the linked
+   *                      task (if any) in its current state.
+   *   - 'in_progress'  → mark as "Working on it", no recurrence. Clears
+   *                      completed_at / completed_by if re-opening a
+   *                      previously completed service.
    *   - 'completed'    → delegate to handleCompleteScheduled (marks linked
-   *                      task complete + generates next recurrence once)
+   *                      task complete + generates next recurrence once).
+   *                      Only runs if the service isn't already completed.
    *
    * Guards against duplicate submissions via processingStatusIds and bails
-   * out early if the service is already completed or already at that status.
+   * out early if the service is already at that status.
    */
   const handleStatusChange = async (
     service: ScheduledServiceRow,
     newStatus: 'upcoming' | 'in_progress' | 'completed'
   ) => {
     if (processingStatusIds.has(service.id)) return
-    if (service.status === 'completed') return
     if (service.status === newStatus) return
+    // Extra guard: if already completed, only allow moving BACK to
+    // upcoming / in_progress. Re-running the completion flow would
+    // generate another next-recurrence row.
+    if (service.status === 'completed' && newStatus === 'completed') return
 
     setProcessingStatusIds((prev) => {
       const next = new Set(prev)
@@ -314,8 +323,8 @@ export default function EquipmentDetailClient({
 
     try {
       if (newStatus === 'completed') {
-        // Optimistic local update so the card moves to the read-only
-        // completed section immediately and cannot be clicked again.
+        // Optimistic local update so the card moves to the completed
+        // section immediately and cannot trigger another completion.
         setScheduled((prev) =>
           prev.map((s) =>
             s.id === service.id ? { ...s, status: 'completed' as const } : s
@@ -323,14 +332,35 @@ export default function EquipmentDetailClient({
         )
         await handleCompleteScheduled(service)
       } else {
-        // Optimistic update for the active pill change.
+        // Reopening a completed service (or toggling between upcoming /
+        // in_progress). Clear completion metadata so the row no longer
+        // looks "done" in the DB.
+        const wasCompleted = service.status === 'completed'
         setScheduled((prev) =>
-          prev.map((s) => (s.id === service.id ? { ...s, status: newStatus } : s))
+          prev.map((s) =>
+            s.id === service.id
+              ? {
+                  ...s,
+                  status: newStatus,
+                  completed_at: wasCompleted ? null : s.completed_at,
+                  completed_by: wasCompleted ? null : s.completed_by,
+                }
+              : s
+          )
         )
         const supabase = createClient()
+        const updatePayload: {
+          status: 'upcoming' | 'in_progress'
+          completed_at?: null
+          completed_by?: null
+        } = { status: newStatus }
+        if (wasCompleted) {
+          updatePayload.completed_at = null
+          updatePayload.completed_by = null
+        }
         const { error } = await supabase
           .from('equipment_scheduled_services')
-          .update({ status: newStatus })
+          .update(updatePayload)
           .eq('id', service.id)
         if (error) {
           console.error('[EquipmentDetailClient] Failed to update status:', error)
@@ -722,39 +752,81 @@ export default function EquipmentDetailClient({
             if (completedScheduled.length === 0) return null
             return (
               <div className="space-y-3 mb-3">
-                {completedScheduled.map((service) => (
-                  <div
-                    key={service.id}
-                    className="relative bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow"
-                  >
-                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">
-                        Completed
-                      </span>
-                      {service.is_recurring && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
-                          Recurring
-                        </span>
-                      )}
-                      {service.task_id && taskAssignees.get(service.task_id) && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">
-                          Assigned: {taskAssignees.get(service.task_id)}
-                        </span>
-                      )}
+                {completedScheduled.map((service) => {
+                  const isProcessing = processingStatusIds.has(service.id)
+                  return (
+                    <div
+                      key={service.id}
+                      className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow"
+                    >
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">
+                              Completed
+                            </span>
+                            {service.is_recurring && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
+                                Recurring
+                              </span>
+                            )}
+                            {service.task_id && taskAssignees.get(service.task_id) && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">
+                                Assigned: {taskAssignees.get(service.task_id)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400">{formatLogDate(service.scheduled_date)}</p>
+                          <p className="text-sm font-bold text-gray-900 mt-1">{service.description}</p>
+                          {service.completed_at && (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              Completed {new Date(service.completed_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </p>
+                          )}
+                        </div>
+                        {canManage && (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <select
+                              value="completed"
+                              disabled={isProcessing}
+                              onChange={(e) => {
+                                const next = e.target.value as 'upcoming' | 'in_progress' | 'completed'
+                                handleStatusChange(service, next)
+                              }}
+                              className="text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Change status"
+                            >
+                              <option value="upcoming">Upcoming</option>
+                              <option value="in_progress">Working on it</option>
+                              <option value="completed">Completed</option>
+                            </select>
+                            <button
+                              onClick={() => {
+                                setEditingScheduled(service)
+                                setShowScheduledModal(true)
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-gray-100 rounded-md transition-colors"
+                              title="Edit"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteScheduledId(service.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
+                              title="Delete"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-400">{formatLogDate(service.scheduled_date)}</p>
-                    <p className="text-sm font-bold text-gray-900 mt-1">{service.description}</p>
-                    {service.completed_at && (
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Completed {new Date(service.completed_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )
           })()}
