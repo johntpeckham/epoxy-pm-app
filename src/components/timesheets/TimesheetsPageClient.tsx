@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon, PlusIcon, DownloadIcon, LoaderIcon } from 'lucide-react'
+import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon, PlusIcon, DownloadIcon, LoaderIcon, ChevronLeftIcon, CalendarIcon } from 'lucide-react'
 import { Project, TimecardContent, DynamicFieldEntry } from '@/types'
 import TimecardCard from './TimecardCard'
 import ManageEmployeesModal from './ManageEmployeesModal'
@@ -10,6 +10,7 @@ import NewTimecardModal from './NewTimecardModal'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { calculateCaliforniaOvertime } from '@/lib/overtimeCalculator'
 
 interface TimecardRow {
   id: string
@@ -153,6 +154,172 @@ function groupByProjectAndWeek(timecards: TimecardRow[], sort: SortOption): Proj
           }),
         })),
     }))
+}
+
+// ── Weekly Hours Summary ─────────────────────────────────────────────────────
+
+const WEEK_DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+function getCurrentWeekMonday(): string {
+  const now = new Date()
+  now.setHours(12, 0, 0, 0)
+  const day = now.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  now.setDate(now.getDate() + diff)
+  return now.toISOString().split('T')[0]
+}
+
+function shiftWeek(mondayISO: string, delta: number): string {
+  const d = new Date(mondayISO + 'T12:00:00')
+  d.setDate(d.getDate() + delta * 7)
+  return d.toISOString().split('T')[0]
+}
+
+function formatSummaryRange(mondayISO: string): string {
+  const start = new Date(mondayISO + 'T12:00:00')
+  const end = new Date(mondayISO + 'T12:00:00')
+  end.setDate(end.getDate() + 6)
+  const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return `${startStr} – ${endStr}`
+}
+
+function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
+  const [weekMonday, setWeekMonday] = useState(getCurrentWeekMonday)
+
+  const summaries = useMemo(() => {
+    const sundayISO = (() => {
+      const d = new Date(weekMonday + 'T12:00:00')
+      d.setDate(d.getDate() + 6)
+      return d.toISOString().split('T')[0]
+    })()
+
+    // Filter timecards to the selected week
+    const weekTimecards = timecards.filter((tc) => {
+      const d = tc.content.date || tc.created_at.slice(0, 10)
+      return d >= weekMonday && d <= sundayISO
+    })
+
+    if (weekTimecards.length === 0) return []
+
+    // Aggregate hours per employee per day (Mon=0 .. Sun=6)
+    const employeeMap = new Map<string, number[]>()
+
+    for (const tc of weekTimecards) {
+      const tcDate = tc.content.date || tc.created_at.slice(0, 10)
+      // Determine day index (0=Mon .. 6=Sun)
+      const d = new Date(tcDate + 'T12:00:00')
+      const jsDay = d.getDay() // 0=Sun
+      const dayIndex = jsDay === 0 ? 6 : jsDay - 1
+
+      for (const entry of tc.content.entries) {
+        const name = entry.employee_name
+        if (!employeeMap.has(name)) {
+          employeeMap.set(name, [0, 0, 0, 0, 0, 0, 0])
+        }
+        const arr = employeeMap.get(name)!
+        arr[dayIndex] += entry.total_hours
+      }
+    }
+
+    return calculateCaliforniaOvertime(employeeMap)
+  }, [timecards, weekMonday])
+
+  // Compute totals row
+  const totals = useMemo(() => {
+    const daily = [0, 0, 0, 0, 0, 0, 0]
+    let regular = 0, overtime = 0, doubleTime = 0, total = 0
+    for (const s of summaries) {
+      for (let i = 0; i < 7; i++) daily[i] += s.daily[i].total
+      regular += s.regular
+      overtime += s.overtime
+      doubleTime += s.doubleTime
+      total += s.total
+    }
+    return { daily, regular, overtime, doubleTime, total }
+  }, [summaries])
+
+  const fmt = (n: number) => n === 0 ? '—' : n.toFixed(2)
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="w-4 h-4 text-amber-500" />
+          <h2 className="text-sm font-bold text-gray-900">Weekly Hours Summary</h2>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setWeekMonday((m) => shiftWeek(m, -1))}
+            className="p-1 rounded hover:bg-gray-100 transition text-gray-500"
+            title="Previous week"
+          >
+            <ChevronLeftIcon className="w-4 h-4" />
+          </button>
+          <span className="text-xs font-medium text-gray-600 px-1 tabular-nums whitespace-nowrap">
+            {formatSummaryRange(weekMonday)}
+          </span>
+          <button
+            onClick={() => setWeekMonday((m) => shiftWeek(m, 1))}
+            className="p-1 rounded hover:bg-gray-100 transition text-gray-500"
+            title="Next week"
+          >
+            <ChevronRightIcon className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {summaries.length === 0 ? (
+        <div className="px-4 py-6 text-center text-sm text-gray-400">
+          No timecard entries for this week.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/60">
+                <th className="text-left font-semibold text-gray-500 pl-4 pr-2 py-2 whitespace-nowrap sticky left-0 bg-gray-50/60 z-10">Employee</th>
+                {WEEK_DAY_LABELS.map((d) => (
+                  <th key={d} className="text-center font-semibold text-gray-500 px-2 py-2 whitespace-nowrap">{d}</th>
+                ))}
+                <th className="text-center font-semibold text-gray-500 px-2 py-2 whitespace-nowrap">Reg</th>
+                <th className="text-center font-semibold text-amber-600 px-2 py-2 whitespace-nowrap">OT</th>
+                <th className="text-center font-semibold text-red-600 px-2 py-2 whitespace-nowrap">DT</th>
+                <th className="text-center font-bold text-gray-700 pr-4 pl-2 py-2 whitespace-nowrap">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summaries.map((s) => (
+                <tr key={s.employeeName} className="border-b border-gray-50 hover:bg-gray-50/40">
+                  <td className="pl-4 pr-2 py-2 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white z-10">{s.employeeName}</td>
+                  {s.daily.map((d, i) => (
+                    <td key={i} className="text-center text-gray-600 px-2 py-2 tabular-nums">{fmt(d.total)}</td>
+                  ))}
+                  <td className="text-center text-gray-700 px-2 py-2 tabular-nums">{fmt(s.regular)}</td>
+                  <td className="text-center text-amber-600 font-medium px-2 py-2 tabular-nums">{fmt(s.overtime)}</td>
+                  <td className="text-center text-red-600 font-medium px-2 py-2 tabular-nums">{fmt(s.doubleTime)}</td>
+                  <td className="text-center font-bold text-gray-900 pr-4 pl-2 py-2 tabular-nums">{s.total.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-gray-200 bg-gray-50/60">
+                <td className="pl-4 pr-2 py-2 font-bold text-gray-700 sticky left-0 bg-gray-50/60 z-10">Totals</td>
+                {totals.daily.map((h, i) => (
+                  <td key={i} className="text-center font-semibold text-gray-600 px-2 py-2 tabular-nums">{fmt(h)}</td>
+                ))}
+                <td className="text-center font-semibold text-gray-700 px-2 py-2 tabular-nums">{fmt(totals.regular)}</td>
+                <td className="text-center font-semibold text-amber-600 px-2 py-2 tabular-nums">{fmt(totals.overtime)}</td>
+                <td className="text-center font-semibold text-red-600 px-2 py-2 tabular-nums">{fmt(totals.doubleTime)}</td>
+                <td className="text-center font-bold text-gray-900 pr-4 pl-2 py-2 tabular-nums">{totals.total.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -401,6 +568,11 @@ export default function TimesheetsPageClient({
           <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
         </div>
       </div>
+
+      {/* Weekly Hours Summary — always use full unfiltered timecards */}
+      {initialTimecards.length > 0 && (
+        <WeeklyHoursSummary timecards={initialTimecards} />
+      )}
 
       {/* List */}
       {filtered.length === 0 ? (
