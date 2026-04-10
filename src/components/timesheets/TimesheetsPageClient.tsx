@@ -187,7 +187,7 @@ function formatSummaryRange(mondayISO: string): string {
 function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
   const [weekMonday, setWeekMonday] = useState(getCurrentWeekMonday)
 
-  const summaries = useMemo(() => {
+  const { summaries, driveByEmployee } = useMemo(() => {
     const sundayISO = (() => {
       const d = new Date(weekMonday + 'T12:00:00')
       d.setDate(d.getDate() + 6)
@@ -200,16 +200,16 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
       return d >= weekMonday && d <= sundayISO
     })
 
-    if (weekTimecards.length === 0) return []
+    if (weekTimecards.length === 0) return { summaries: [], driveByEmployee: new Map<string, number>() }
 
-    // Aggregate hours per employee per day (Mon=0 .. Sun=6)
+    // Aggregate work hours and drive time per employee per day (Mon=0 .. Sun=6)
     const employeeMap = new Map<string, number[]>()
+    const driveMap = new Map<string, number>()
 
     for (const tc of weekTimecards) {
       const tcDate = tc.content.date || tc.created_at.slice(0, 10)
-      // Determine day index (0=Mon .. 6=Sun)
       const d = new Date(tcDate + 'T12:00:00')
-      const jsDay = d.getDay() // 0=Sun
+      const jsDay = d.getDay()
       const dayIndex = jsDay === 0 ? 6 : jsDay - 1
 
       for (const entry of tc.content.entries) {
@@ -217,27 +217,31 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
         if (!employeeMap.has(name)) {
           employeeMap.set(name, [0, 0, 0, 0, 0, 0, 0])
         }
-        const arr = employeeMap.get(name)!
-        arr[dayIndex] += entry.total_hours
+        employeeMap.get(name)![dayIndex] += entry.total_hours
+
+        if (entry.drive_time != null && entry.drive_time > 0) {
+          driveMap.set(name, (driveMap.get(name) ?? 0) + entry.drive_time)
+        }
       }
     }
 
-    return calculateCaliforniaOvertime(employeeMap)
+    return { summaries: calculateCaliforniaOvertime(employeeMap), driveByEmployee: driveMap }
   }, [timecards, weekMonday])
 
   // Compute totals row
   const totals = useMemo(() => {
     const daily = [0, 0, 0, 0, 0, 0, 0]
-    let regular = 0, overtime = 0, doubleTime = 0, total = 0
+    let regular = 0, overtime = 0, doubleTime = 0, total = 0, drive = 0
     for (const s of summaries) {
       for (let i = 0; i < 7; i++) daily[i] += s.daily[i].total
       regular += s.regular
       overtime += s.overtime
       doubleTime += s.doubleTime
       total += s.total
+      drive += driveByEmployee.get(s.employeeName) ?? 0
     }
-    return { daily, regular, overtime, doubleTime, total }
-  }, [summaries])
+    return { daily, regular, overtime, doubleTime, total, drive }
+  }, [summaries, driveByEmployee])
 
   const fmt = (n: number) => n === 0 ? '—' : n % 1 === 0 ? String(n) : n.toFixed(1)
   const fmtTotal = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(1)
@@ -249,7 +253,7 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
     return 'rgba(163,45,45,0.12)'
   }
 
-  const BAR_COLORS = { reg: '#639922', ot: '#BA7517', dt: '#A32D2D' }
+  const BAR_COLORS = { reg: '#639922', ot: '#BA7517', dt: '#A32D2D', drive: '#185FA5' }
 
   function StackedBar({ regular, overtime, doubleTime, total }: { regular: number; overtime: number; doubleTime: number; total: number }) {
     if (total <= 0) return null
@@ -264,6 +268,8 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
       </div>
     )
   }
+
+  const separatorLeft = '1.5px solid #e5e7eb'
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
@@ -309,33 +315,44 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
                     <th key={d} className="text-center font-semibold text-gray-400 px-1.5 py-2 whitespace-nowrap text-[11px]">{d}</th>
                   ))}
                   <th className="text-center font-semibold text-gray-400 px-2 py-2 whitespace-nowrap text-[11px]" style={{ minWidth: 80 }}>Breakdown</th>
-                  <th className="text-center font-semibold text-gray-400 pr-4 pl-2 py-2 whitespace-nowrap text-[11px]">Total</th>
+                  <th className="text-center font-semibold text-gray-400 px-2 py-2 whitespace-nowrap text-[11px]" style={{ borderLeft: separatorLeft }}>Reg</th>
+                  <th className="text-center font-semibold px-2 py-2 whitespace-nowrap text-[11px]" style={{ color: BAR_COLORS.ot }}>OT</th>
+                  <th className="text-center font-semibold px-2 py-2 whitespace-nowrap text-[11px]" style={{ color: BAR_COLORS.dt }}>DT</th>
+                  <th className="text-center font-semibold text-gray-700 px-2 py-2 whitespace-nowrap text-[11px]">Total</th>
+                  <th className="text-center font-semibold px-2 pr-4 py-2 whitespace-nowrap text-[11px]" style={{ color: BAR_COLORS.drive, borderLeft: separatorLeft }}>Drive</th>
                 </tr>
               </thead>
               <tbody>
-                {summaries.map((s) => (
-                  <tr key={s.employeeName} className="border-b border-gray-50">
-                    <td className="pl-4 pr-2 py-1.5 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white z-10">{s.employeeName}</td>
-                    {s.daily.map((d, i) => (
-                      <td key={i} className="text-center px-1.5 py-1.5">
-                        {d.total > 0 ? (
-                          <span
-                            className="inline-block px-1.5 py-0.5 rounded tabular-nums text-gray-700 font-medium"
-                            style={{ backgroundColor: dayCellBg(d.total) }}
-                          >
-                            {fmt(d.total)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
+                {summaries.map((s) => {
+                  const empDrive = driveByEmployee.get(s.employeeName) ?? 0
+                  return (
+                    <tr key={s.employeeName} className="border-b border-gray-50">
+                      <td className="pl-4 pr-2 py-1.5 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white z-10">{s.employeeName}</td>
+                      {s.daily.map((d, i) => (
+                        <td key={i} className="text-center px-1.5 py-1.5">
+                          {d.total > 0 ? (
+                            <span
+                              className="inline-block px-1.5 py-0.5 rounded tabular-nums text-gray-700 font-medium"
+                              style={{ backgroundColor: dayCellBg(d.total) }}
+                            >
+                              {fmt(d.total)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      ))}
+                      <td className="px-2 py-1.5">
+                        <StackedBar regular={s.regular} overtime={s.overtime} doubleTime={s.doubleTime} total={s.total} />
                       </td>
-                    ))}
-                    <td className="px-2 py-1.5">
-                      <StackedBar regular={s.regular} overtime={s.overtime} doubleTime={s.doubleTime} total={s.total} />
-                    </td>
-                    <td className="text-center font-bold text-gray-900 pr-4 pl-2 py-1.5 tabular-nums">{fmtTotal(s.total)}</td>
-                  </tr>
-                ))}
+                      <td className="text-center text-gray-700 px-2 py-1.5 tabular-nums" style={{ borderLeft: separatorLeft }}>{fmt(s.regular)}</td>
+                      <td className="text-center font-medium px-2 py-1.5 tabular-nums" style={{ color: BAR_COLORS.ot }}>{fmt(s.overtime)}</td>
+                      <td className="text-center font-medium px-2 py-1.5 tabular-nums" style={{ color: BAR_COLORS.dt }}>{fmt(s.doubleTime)}</td>
+                      <td className="text-center font-bold text-gray-900 px-2 py-1.5 tabular-nums">{fmtTotal(s.total)}</td>
+                      <td className="text-center font-medium px-2 pr-4 py-1.5 tabular-nums" style={{ color: BAR_COLORS.drive, borderLeft: separatorLeft }}>{fmt(empDrive)}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50/60" style={{ borderTop: '1px solid #d1d5db' }}>
@@ -346,7 +363,11 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
                   <td className="px-2 py-2">
                     <StackedBar regular={totals.regular} overtime={totals.overtime} doubleTime={totals.doubleTime} total={totals.total} />
                   </td>
-                  <td className="text-center font-bold text-gray-900 pr-4 pl-2 py-2 tabular-nums">{fmtTotal(totals.total)}</td>
+                  <td className="text-center text-gray-500 font-medium px-2 py-2 tabular-nums" style={{ borderLeft: separatorLeft }}>{fmt(totals.regular)}</td>
+                  <td className="text-center font-medium px-2 py-2 tabular-nums" style={{ color: BAR_COLORS.ot }}>{fmt(totals.overtime)}</td>
+                  <td className="text-center font-medium px-2 py-2 tabular-nums" style={{ color: BAR_COLORS.dt }}>{fmt(totals.doubleTime)}</td>
+                  <td className="text-center font-bold text-gray-900 px-2 py-2 tabular-nums">{fmtTotal(totals.total)}</td>
+                  <td className="text-center font-medium px-2 pr-4 py-2 tabular-nums" style={{ color: BAR_COLORS.drive, borderLeft: separatorLeft }}>{fmt(totals.drive)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -365,6 +386,10 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
             <div className="flex items-center gap-1.5">
               <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BAR_COLORS.dt }} />
               <span className="text-[11px] text-gray-500">Double time 2x</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BAR_COLORS.drive }} />
+              <span className="text-[11px] text-gray-500">Drive time (not in totals)</span>
             </div>
           </div>
         </>
