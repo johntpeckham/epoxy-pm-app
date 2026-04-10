@@ -12,6 +12,8 @@ import {
   CheckIcon,
   Loader2Icon,
   DownloadIcon,
+  Maximize2Icon,
+  Minimize2Icon,
 } from 'lucide-react'
 import {
   DndContext,
@@ -310,6 +312,18 @@ export default function SchedulerClient({
     onCancel: () => void
   } | null>(null)
 
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    if (!isFullscreen) return
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setIsFullscreen(false)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [isFullscreen])
+
   // Auto-save state
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -511,8 +525,8 @@ export default function SchedulerClient({
   }, [schedule.assignments, activeWeekISO])
 
   // ─── Render ───────────────────────────────────────────────────────────
-  return (
-    <div className="h-full w-full flex flex-col bg-gray-50 overflow-hidden">
+  const content = (
+    <div className={`h-full w-full flex flex-col bg-gray-50 overflow-hidden${isFullscreen ? ' fixed inset-0 z-50' : ''}`}>
       {/* Mobile fallback */}
       <div className="lg:hidden flex-1 flex flex-col items-center justify-center p-6 text-center">
         <MonitorIcon className="w-10 h-10 text-gray-300 mb-3" />
@@ -544,6 +558,23 @@ export default function SchedulerClient({
             </div>
             <div className="flex items-center gap-3">
               <SaveIndicator state={saveState} />
+              <button
+                onClick={() => setIsFullscreen((f) => !f)}
+                title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+                className="flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 px-3 py-2 rounded-lg text-sm font-medium transition"
+              >
+                {isFullscreen ? (
+                  <>
+                    <Minimize2Icon className="w-4 h-4" />
+                    Exit Full Screen
+                  </>
+                ) : (
+                  <>
+                    <Maximize2Icon className="w-4 h-4" />
+                    Full Screen
+                  </>
+                )}
+              </button>
               <button
                 onClick={handleDownload}
                 disabled={schedule.assignments.length === 0 || downloading}
@@ -798,6 +829,8 @@ export default function SchedulerClient({
       )}
     </div>
   )
+
+  return content
 }
 
 // ─── Save indicator ───────────────────────────────────────────────────────
