@@ -17,11 +17,102 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ArrowLeftIcon,
+  GripVerticalIcon,
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { moveToTrash } from '@/lib/trashBin'
 import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition } from '@/types'
+
+function SortableRoleRow({
+  role,
+  onRename,
+  onDelete,
+  deleting,
+}: {
+  role: EmployeeRole
+  onRename: (role: EmployeeRole, newName: string) => void
+  onDelete: (role: EmployeeRole) => void
+  deleting: boolean
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: role.id })
+  const [localName, setLocalName] = useState(role.name)
+
+  useEffect(() => {
+    setLocalName(role.name)
+  }, [role.name])
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  function handleBlur() {
+    if (localName.trim() !== role.name) {
+      onRename(role, localName)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      ;(e.target as HTMLInputElement).blur()
+    }
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 px-2 py-2 rounded-md bg-gray-50 ${isDragging ? 'z-50 opacity-80 shadow-lg ring-2 ring-amber-400' : ''}`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+      >
+        <GripVerticalIcon className="w-4 h-4" />
+      </div>
+      <input
+        type="text"
+        value={localName}
+        onChange={(e) => setLocalName(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className="flex-1 min-w-0 text-sm text-gray-700 bg-transparent border border-transparent rounded px-2 py-0.5 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 transition"
+      />
+      <button
+        onClick={() => onDelete(role)}
+        disabled={deleting}
+        className="text-gray-400 hover:text-red-500 transition disabled:opacity-50 flex-shrink-0"
+      >
+        <Trash2Icon className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
 
 interface EmployeeManagementProps {
   /** Hide the built-in collapsed "Manage Employees" trigger card. */
@@ -45,6 +136,10 @@ export default function EmployeeManagement({
 }: EmployeeManagementProps = {}) {
   const isInline = mode === 'inline'
   const supabase = createClient()
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  )
 
   // Main modal open state — controlled when `open` prop is provided, else internal
   const [internalMainOpen, setInternalMainOpen] = useState(false)
@@ -115,7 +210,7 @@ export default function EmployeeManagement({
     const { data } = await supabase
       .from('employee_roles')
       .select('*')
-      .order('created_at')
+      .order('sort_order')
     setRoles((data as EmployeeRole[]) ?? [])
   }, [])
 
@@ -140,9 +235,11 @@ export default function EmployeeManagement({
     setAddingRole(true)
     setRoleError(null)
 
+    const nextOrder = roles.length > 0 ? Math.max(...roles.map(r => r.sort_order)) + 1 : 1
+
     const { error } = await supabase
       .from('employee_roles')
-      .insert({ name: newRoleName.trim() })
+      .insert({ name: newRoleName.trim(), sort_order: nextOrder })
 
     if (error) {
       setRoleError(error.message.includes('duplicate') ? 'Role already exists' : error.message)
@@ -179,6 +276,67 @@ export default function EmployeeManagement({
       await fetchRoles()
     }
     setDeletingRoleId(null)
+  }
+
+  async function handleRenameRole(role: EmployeeRole, newName: string) {
+    const trimmed = newName.trim()
+    if (!trimmed) {
+      setRoleError('Role name cannot be empty')
+      return
+    }
+    if (trimmed === role.name) return // no change
+
+    // Check for duplicate name
+    const duplicate = roles.find(r => r.id !== role.id && r.name.toLowerCase() === trimmed.toLowerCase())
+    if (duplicate) {
+      setRoleError(`Role "${trimmed}" already exists`)
+      return
+    }
+
+    setRoleError(null)
+    const { error } = await supabase
+      .from('employee_roles')
+      .update({ name: trimmed })
+      .eq('id', role.id)
+
+    if (error) {
+      setRoleError(error.message)
+      return
+    }
+
+    // Update all employee_profiles that reference the old role name
+    await supabase
+      .from('employee_profiles')
+      .update({ role: trimmed })
+      .eq('role', role.name)
+
+    await fetchRoles()
+    await fetchEmployees()
+  }
+
+  async function handleRoleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIdx = roles.findIndex(r => r.id === active.id)
+    const newIdx = roles.findIndex(r => r.id === over.id)
+    if (oldIdx < 0 || newIdx < 0) return
+
+    const reordered = [...roles]
+    const [moved] = reordered.splice(oldIdx, 1)
+    reordered.splice(newIdx, 0, moved)
+
+    // Optimistically update local state
+    const updated = reordered.map((r, i) => ({ ...r, sort_order: i + 1 }))
+    setRoles(updated)
+
+    // Persist all sort_order values
+    for (const r of updated) {
+      await supabase
+        .from('employee_roles')
+        .update({ sort_order: r.sort_order })
+        .eq('id', r.id)
+    }
   }
 
   // ── Custom Field Management ──
@@ -618,26 +776,24 @@ export default function EmployeeManagement({
                       {addingRole ? '...' : 'Add'}
                     </button>
                   </div>
-                  <div className="space-y-1">
-                    {roles.map((role) => (
-                      <div
-                        key={role.id}
-                        className="flex items-center justify-between px-3 py-2 rounded-md bg-gray-50"
-                      >
-                        <span className="text-sm text-gray-700">{role.name}</span>
-                        <button
-                          onClick={() => handleDeleteRole(role)}
-                          disabled={deletingRoleId === role.id}
-                          className="text-gray-400 hover:text-red-500 transition disabled:opacity-50"
-                        >
-                          <Trash2Icon className="w-3.5 h-3.5" />
-                        </button>
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRoleDragEnd}>
+                    <SortableContext items={roles.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-1">
+                        {roles.map((role) => (
+                          <SortableRoleRow
+                            key={role.id}
+                            role={role}
+                            onRename={handleRenameRole}
+                            onDelete={handleDeleteRole}
+                            deleting={deletingRoleId === role.id}
+                          />
+                        ))}
+                        {roles.length === 0 && (
+                          <p className="text-xs text-gray-400 py-2">No roles defined.</p>
+                        )}
                       </div>
-                    ))}
-                    {roles.length === 0 && (
-                      <p className="text-xs text-gray-400 py-2">No roles defined.</p>
-                    )}
-                  </div>
+                    </SortableContext>
+                  </DndContext>
                 </div>
 
                 {/* Custom Fields */}
