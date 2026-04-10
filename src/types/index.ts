@@ -212,6 +212,7 @@ export interface TimecardEntry {
   time_out: string   // HH:MM format
   lunch_minutes: number
   total_hours: number
+  drive_time?: number | null  // Drive time in hours (not included in total_hours)
 }
 
 export interface TimecardContent {

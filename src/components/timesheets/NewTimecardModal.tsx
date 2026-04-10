@@ -20,6 +20,7 @@ interface NewTimecardModalProps {
 const inputCls =
   'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
 const LUNCH_OPTIONS = [0, 15, 30, 45, 60]
+const DRIVE_TIME_OPTIONS: number[] = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.5, 4]
 
 const FORM_KEY = 'timesheet'
 const KNOWN_KEYS = getKnownContentKeys(FORM_KEY)
@@ -82,6 +83,7 @@ export default function NewTimecardModal({
   const [employeesLoaded, setEmployeesLoaded] = useState(false)
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [customName, setCustomName] = useState('')
+  const [driveTimeEnabled, setDriveTimeEnabled] = useState(false)
   const [syncTimes, setSyncTimes] = useState(false)
   const [showUnsyncConfirm, setShowUnsyncConfirm] = useState(false)
   const [masterTimeIn, setMasterTimeIn] = useState('07:00')
@@ -187,7 +189,12 @@ export default function NewTimecardModal({
       return
     }
 
-    const validEntries = entries.filter((e) => e.employee_name.trim() && e.time_in && e.time_out)
+    const validEntries = entries
+      .filter((e) => e.employee_name.trim() && e.time_in && e.time_out)
+      .map((e) => ({
+        ...e,
+        drive_time: driveTimeEnabled ? (e.drive_time ?? null) : null,
+      }))
     if (validEntries.length === 0) {
       setError('Please add at least one employee with time entries')
       return
@@ -255,12 +262,39 @@ export default function NewTimecardModal({
     }
   }
 
+  function updateDriveTime(idx: number, value: number | null) {
+    setEntries((prev) =>
+      prev.map((e, i) => (i === idx ? { ...e, drive_time: value } : e))
+    )
+  }
+
   function renderEmployeeSection() {
     const selectCls = 'w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500'
     const disabledSelectCls = 'w-1/2 sm:w-full border border-gray-100 rounded-md px-2 py-1.5 text-xs text-gray-400 bg-gray-50 cursor-not-allowed'
+    const driveSelectCls = 'w-1/2 sm:w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500'
 
     return (
       <div key="employee-section">
+        {/* Drive time toggle */}
+        <div
+          className="flex items-center justify-between rounded-lg px-3 py-2.5 mb-4"
+          style={{ backgroundColor: 'rgba(24,95,165,0.05)', border: '1px solid rgba(24,95,165,0.15)' }}
+        >
+          <div>
+            <span className="text-xs font-medium" style={{ color: '#185FA5' }}>Drive time</span>
+            <p className="text-[10px] text-gray-400 mt-0.5">Not included in OT calculations</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={driveTimeEnabled}
+            onClick={() => setDriveTimeEnabled((v) => !v)}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${driveTimeEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${driveTimeEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Employees</p>
@@ -440,6 +474,26 @@ export default function NewTimecardModal({
                     </select>
                   </div>
                 </div>
+                {driveTimeEnabled && (
+                  <div className="pt-2" style={{ borderTop: '0.5px solid rgba(24,95,165,0.15)' }}>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase mb-0.5" style={{ color: '#185FA5' }}>Drive</label>
+                        <select
+                          value={entry.drive_time ?? ''}
+                          onChange={(e) => updateDriveTime(idx, e.target.value === '' ? null : Number(e.target.value))}
+                          className={driveSelectCls}
+                          style={{ color: '#185FA5', borderColor: 'rgba(24,95,165,0.3)' }}
+                        >
+                          <option value="">—</option>
+                          {DRIVE_TIME_OPTIONS.map((v) => (
+                            <option key={v} value={v}>{v} hrs</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
