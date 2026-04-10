@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon, CalendarClockIcon } from 'lucide-react'
+import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon, CalendarClockIcon, ChevronDownIcon, CheckIcon } from 'lucide-react'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import type { MaintenanceLogRow, EquipmentDocumentRow, ScheduledServiceRow, ProfileOption } from '@/app/(dashboard)/equipment/[id]/page'
 import EquipmentModal from './EquipmentModal'
@@ -651,50 +651,48 @@ export default function EquipmentDetailClient({
                   const isInProgress = service.status === 'in_progress'
                   const dateStatus = deriveStatus(service.scheduled_date)
                   const statusLabel = isInProgress
-                    ? 'In progress'
+                    ? 'Working on it'
                     : dateStatus === 'overdue' ? 'Overdue'
                     : dateStatus === 'due' ? 'Due'
                     : dateStatus === 'due_soon' ? 'Due soon'
                     : 'Upcoming'
-                  const statusCls = isInProgress
-                    ? 'bg-orange-100 text-orange-700'
-                    : dateStatus === 'overdue' ? 'bg-red-100 text-red-700'
-                    : dateStatus === 'due' ? 'bg-orange-100 text-orange-700'
-                    : dateStatus === 'due_soon' ? 'bg-amber-100 text-amber-700'
-                    : 'bg-blue-100 text-blue-700'
-                  const borderCls = isInProgress
-                    ? 'border-orange-200'
-                    : dateStatus === 'overdue' ? 'border-red-200'
-                    : dateStatus === 'due' ? 'border-orange-200'
-                    : dateStatus === 'due_soon' ? 'border-amber-200'
-                    : 'border-blue-200'
+                  // Pill classes match the Jobs Overview pattern: bg + text +
+                  // border + hover background.
+                  const pillClass = isInProgress
+                    ? 'bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200'
+                    : dateStatus === 'overdue' ? 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200'
+                    : dateStatus === 'due' ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200'
+                    : dateStatus === 'due_soon' ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200'
+                    : 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200'
                   // Selector value mirrors DB status for in_progress; otherwise
                   // the card is implicitly "upcoming" until the user changes it.
-                  const selectorValue =
+                  const selectorValue: 'upcoming' | 'in_progress' =
                     service.status === 'in_progress' ? 'in_progress' : 'upcoming'
                   const isProcessing = processingStatusIds.has(service.id)
+                  const hasSidePills =
+                    service.is_recurring ||
+                    (service.task_id && taskAssignees.get(service.task_id))
                   return (
                     <div
                       key={service.id}
-                      className={`bg-white border ${borderCls} rounded-xl p-4 hover:shadow-sm transition-shadow`}
+                      className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow"
                     >
                       <div className="flex items-start justify-between gap-3 flex-wrap">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusCls}`}>
-                              {statusLabel}
-                            </span>
-                            {service.is_recurring && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
-                                Recurring
-                              </span>
-                            )}
-                            {service.task_id && taskAssignees.get(service.task_id) && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">
-                                Assigned: {taskAssignees.get(service.task_id)}
-                              </span>
-                            )}
-                          </div>
+                          {hasSidePills && (
+                            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                              {service.is_recurring && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
+                                  Recurring
+                                </span>
+                              )}
+                              {service.task_id && taskAssignees.get(service.task_id) && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">
+                                  Assigned: {taskAssignees.get(service.task_id)}
+                                </span>
+                              )}
+                            </div>
+                          )}
                           <p className="text-xs text-gray-400">{formatLogDate(service.scheduled_date)}</p>
                           <p className="text-sm font-bold text-gray-900 mt-1">{service.description}</p>
                           {service.is_recurring && service.recurrence_interval && service.recurrence_unit && (
@@ -704,21 +702,14 @@ export default function EquipmentDetailClient({
                           )}
                         </div>
                         {canManage && (
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <select
-                              value={selectorValue}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <ScheduledStatusPill
+                              label={statusLabel}
+                              pillClass={pillClass}
+                              currentSelectorValue={selectorValue}
                               disabled={isProcessing}
-                              onChange={(e) => {
-                                const next = e.target.value as 'upcoming' | 'in_progress' | 'completed'
-                                handleStatusChange(service, next)
-                              }}
-                              className="text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Change status"
-                            >
-                              <option value="upcoming">Upcoming</option>
-                              <option value="in_progress">Working on it</option>
-                              <option value="completed">Completed</option>
-                            </select>
+                              onSelect={(next) => handleStatusChange(service, next)}
+                            />
                             <button
                               onClick={() => {
                                 setEditingScheduled(service)
@@ -754,6 +745,9 @@ export default function EquipmentDetailClient({
               <div className="space-y-3 mb-3">
                 {completedScheduled.map((service) => {
                   const isProcessing = processingStatusIds.has(service.id)
+                  const hasSidePills =
+                    service.is_recurring ||
+                    (service.task_id && taskAssignees.get(service.task_id))
                   return (
                     <div
                       key={service.id}
@@ -761,21 +755,20 @@ export default function EquipmentDetailClient({
                     >
                       <div className="flex items-start justify-between gap-3 flex-wrap">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">
-                              Completed
-                            </span>
-                            {service.is_recurring && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
-                                Recurring
-                              </span>
-                            )}
-                            {service.task_id && taskAssignees.get(service.task_id) && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">
-                                Assigned: {taskAssignees.get(service.task_id)}
-                              </span>
-                            )}
-                          </div>
+                          {hasSidePills && (
+                            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                              {service.is_recurring && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
+                                  Recurring
+                                </span>
+                              )}
+                              {service.task_id && taskAssignees.get(service.task_id) && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">
+                                  Assigned: {taskAssignees.get(service.task_id)}
+                                </span>
+                              )}
+                            </div>
+                          )}
                           <p className="text-xs text-gray-400">{formatLogDate(service.scheduled_date)}</p>
                           <p className="text-sm font-bold text-gray-900 mt-1">{service.description}</p>
                           {service.completed_at && (
@@ -789,21 +782,14 @@ export default function EquipmentDetailClient({
                           )}
                         </div>
                         {canManage && (
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <select
-                              value="completed"
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <ScheduledStatusPill
+                              label="Completed"
+                              pillClass="bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
+                              currentSelectorValue="completed"
                               disabled={isProcessing}
-                              onChange={(e) => {
-                                const next = e.target.value as 'upcoming' | 'in_progress' | 'completed'
-                                handleStatusChange(service, next)
-                              }}
-                              className="text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Change status"
-                            >
-                              <option value="upcoming">Upcoming</option>
-                              <option value="in_progress">Working on it</option>
-                              <option value="completed">Completed</option>
-                            </select>
+                              onSelect={(next) => handleStatusChange(service, next)}
+                            />
                             <button
                               onClick={() => {
                                 setEditingScheduled(service)
@@ -1135,6 +1121,86 @@ export default function EquipmentDetailClient({
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================== */
+/*  Scheduled service status pill — clickable, opens a small dropdown  */
+/*  of status options. Matches the Jobs Overview "Active" pill pattern */
+/*  (see JobsOverview.tsx).                                            */
+/* ================================================================== */
+function ScheduledStatusPill({
+  label,
+  pillClass,
+  currentSelectorValue,
+  disabled,
+  onSelect,
+}: {
+  label: string
+  pillClass: string
+  currentSelectorValue: 'upcoming' | 'in_progress' | 'completed'
+  disabled?: boolean
+  onSelect: (next: 'upcoming' | 'in_progress' | 'completed') => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const options: {
+    value: 'upcoming' | 'in_progress' | 'completed'
+    label: string
+    dot: string
+  }[] = [
+    { value: 'upcoming', label: 'Upcoming', dot: 'bg-blue-500' },
+    { value: 'in_progress', label: 'Working on it', dot: 'bg-orange-500' },
+    { value: 'completed', label: 'Completed', dot: 'bg-green-500' },
+  ]
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition border disabled:opacity-50 disabled:cursor-not-allowed ${pillClass}`}
+      >
+        {label}
+        <ChevronDownIcon className={`w-2.5 h-2.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-1">
+          {options.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                if (o.value !== currentSelectorValue) onSelect(o.value)
+              }}
+              className={`w-full text-left px-3 py-2 flex items-center gap-2 transition ${
+                o.value === currentSelectorValue ? 'bg-gray-50 font-semibold' : 'hover:bg-gray-50'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${o.dot}`} />
+              <span className="text-xs text-gray-700 flex-1">{o.label}</span>
+              {o.value === currentSelectorValue && (
+                <CheckIcon className="w-3 h-3 text-amber-500" />
+              )}
+            </button>
+          ))}
         </div>
       )}
     </div>

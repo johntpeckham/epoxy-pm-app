@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { PlusIcon, PencilIcon, TrashIcon, WrenchIcon, EyeIcon, ArrowLeftIcon } from 'lucide-react'
+import { PlusIcon, PencilIcon, TrashIcon, WrenchIcon, ArrowLeftIcon } from 'lucide-react'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import EquipmentModal from './EquipmentModal'
 
@@ -171,85 +171,90 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       </div>
     ) : (
       <div className={`grid grid-cols-1 gap-4 ${embedded ? 'md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : 'md:grid-cols-2'}`}>
-        {filtered.map((item) => (
-          <div
-            key={item.id}
-            className="relative bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow"
-          >
-            {/* Top-right action buttons */}
-            {canManage && (
-              <div className="absolute top-3 right-3 flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    setEditingItem(item)
-                    setShowModal(true)
-                  }}
-                  className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Edit"
+        {filtered.map((item) => {
+          const openDetail = () => {
+            if (onViewItem) onViewItem(item.id)
+            else router.push(`/equipment/${item.id}`)
+          }
+          return (
+            <div
+              key={item.id}
+              role="button"
+              tabIndex={0}
+              onClick={openDetail}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openDetail()
+                }
+              }}
+              className="relative bg-white border border-gray-200 rounded-xl p-5 cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 hover:shadow-md transition"
+            >
+              {/* Top-right action buttons — stopPropagation so clicks don't navigate */}
+              {canManage && (
+                <div className="absolute top-3 right-3 flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingItem(item)
+                      setShowModal(true)
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Edit"
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteConfirmId(item.id)
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Delete"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Name */}
+              <h3 className="text-lg font-bold text-gray-900 pr-16">{item.name}</h3>
+
+              {/* Badges */}
+              <div className="flex items-center gap-2 mt-2">
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    CATEGORY_BADGE[item.category] ?? 'bg-gray-100 text-gray-700'
+                  }`}
                 >
-                  <PencilIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setDeleteConfirmId(item.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Delete"
+                  {CATEGORY_LABEL[item.category] ?? item.category}
+                </span>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    item.status === 'active'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}
                 >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
+                  {item.status === 'active' ? 'Active' : 'Out of Service'}
+                </span>
               </div>
-            )}
 
-            {/* Name */}
-            <h3 className="text-lg font-bold text-gray-900 pr-16">{item.name}</h3>
+              {/* Year / Make / Model */}
+              {(item.year || item.make || item.model) && (
+                <p className="text-sm text-gray-600 mt-2">
+                  {[item.year, item.make, item.model].filter(Boolean).join(' / ')}
+                </p>
+              )}
 
-            {/* Badges */}
-            <div className="flex items-center gap-2 mt-2">
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                  CATEGORY_BADGE[item.category] ?? 'bg-gray-100 text-gray-700'
-                }`}
-              >
-                {CATEGORY_LABEL[item.category] ?? item.category}
-              </span>
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                  item.status === 'active'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'
-                }`}
-              >
-                {item.status === 'active' ? 'Active' : 'Out of Service'}
-              </span>
+              {/* Serial / VIN */}
+              {item.serial_number && (
+                <p className="text-xs text-gray-400 mt-1">SN: {item.serial_number}</p>
+              )}
+              {item.vin && <p className="text-xs text-gray-400 mt-0.5">VIN: {item.vin}</p>}
             </div>
-
-            {/* Year / Make / Model */}
-            {(item.year || item.make || item.model) && (
-              <p className="text-sm text-gray-600 mt-2">
-                {[item.year, item.make, item.model].filter(Boolean).join(' / ')}
-              </p>
-            )}
-
-            {/* Serial / VIN */}
-            {item.serial_number && (
-              <p className="text-xs text-gray-400 mt-1">SN: {item.serial_number}</p>
-            )}
-            {item.vin && <p className="text-xs text-gray-400 mt-0.5">VIN: {item.vin}</p>}
-
-            {/* View button */}
-            <div className="mt-4">
-              <button
-                onClick={() => {
-                  if (onViewItem) onViewItem(item.id)
-                  else router.push(`/equipment/${item.id}`)
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <EyeIcon className="w-3.5 h-3.5" />
-                View
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     )
 
