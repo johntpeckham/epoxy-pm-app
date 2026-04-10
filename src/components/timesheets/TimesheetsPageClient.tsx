@@ -323,11 +323,12 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
                 </tr>
               </thead>
               <tbody>
-                {summaries.map((s) => {
+                {summaries.map((s, rowIdx) => {
                   const empDrive = driveByEmployee.get(s.employeeName) ?? 0
+                  const stripeBg = rowIdx % 2 === 1 ? 'rgba(0,0,0,0.02)' : undefined
                   return (
-                    <tr key={s.employeeName} className="border-b border-gray-50">
-                      <td className="pl-4 pr-2 py-1.5 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white z-10">{s.employeeName}</td>
+                    <tr key={s.employeeName} className="border-b border-gray-50" style={{ backgroundColor: stripeBg }}>
+                      <td className="pl-4 pr-2 py-1.5 font-medium text-gray-800 whitespace-nowrap sticky left-0 z-10" style={{ backgroundColor: stripeBg ?? '#ffffff' }}>{s.employeeName}</td>
                       {s.daily.map((d, i) => (
                         <td key={i} className="text-center px-1.5 py-1.5">
                           {d.total > 0 ? (
@@ -355,8 +356,8 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
                 })}
               </tbody>
               <tfoot>
-                <tr className="bg-gray-50/60" style={{ borderTop: '1px solid #d1d5db' }}>
-                  <td className="pl-4 pr-2 py-2 font-medium text-gray-500 sticky left-0 bg-gray-50/60 z-10">Totals</td>
+                <tr style={{ borderTop: '2px solid #d1d5db', backgroundColor: 'rgba(0,0,0,0.035)' }}>
+                  <td className="pl-4 pr-2 py-2 font-medium text-gray-500 sticky left-0 z-10" style={{ backgroundColor: 'rgba(0,0,0,0.035)' }}>Totals</td>
                   {totals.daily.map((h, i) => (
                     <td key={i} className="text-center text-gray-500 font-medium px-1.5 py-2 tabular-nums">{fmt(h)}</td>
                   ))}
