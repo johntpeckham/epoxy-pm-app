@@ -147,6 +147,9 @@ export default function OfficeTasksPageClient({
   const [view, setView] = useState<OfficeView>({ kind: 'dashboard' })
 
   const canManageEmployees = userRole === 'admin' || userRole === 'office_manager'
+  // Foreman gets an Equipment-only view of the Office dashboard (Tasks,
+  // Employees, Material Inventory cards are hidden).
+  const isForeman = userRole === 'foreman'
 
   // Build a preview list of upcoming scheduled services enriched with the
   // equipment name, sorted by urgency (overdue first), capped at 5 for the
@@ -356,7 +359,8 @@ export default function OfficeTasksPageClient({
       {/* Dashboard grid — matches My Work layout */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
-        {/* ── Tasks Card (spans 2 columns) ── */}
+        {/* ── Tasks Card (spans 2 columns) ── hidden for foreman */}
+        {!isForeman && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
           {/* Card header */}
           <div className="flex items-center gap-2 mb-3">
@@ -479,8 +483,9 @@ export default function OfficeTasksPageClient({
             ))}
           </div>
         </div>
+        )}
 
-        {/* ── Equipment Card (spans 2 columns) ── */}
+        {/* ── Equipment Card (spans 2 columns) ── visible to all roles */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
           {/* Card header */}
           <div className="flex items-center gap-2 mb-3">
@@ -598,7 +603,8 @@ export default function OfficeTasksPageClient({
           </div>
         )}
 
-        {/* ── Material Inventory Card (spans 2 columns) ── */}
+        {/* ── Material Inventory Card (spans 2 columns) ── hidden for foreman */}
+        {!isForeman && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
           {/* Card header */}
           <div className="flex items-center gap-2 mb-3">
@@ -610,6 +616,7 @@ export default function OfficeTasksPageClient({
 
           <p className="text-sm text-gray-400">Coming soon — material tracking and inventory management.</p>
         </div>
+        )}
 
       </div>
 

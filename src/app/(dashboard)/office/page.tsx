@@ -13,7 +13,9 @@ export default async function OfficePage() {
   if (!session) return redirect('/login')
   const user = session.user
 
-  // Check role — only admin, office_manager, salesman can access
+  // Check role — admin, office_manager, salesman get the full dashboard.
+  // Foreman is allowed on this page but sees an Equipment-only view
+  // (card visibility is gated client-side in OfficeTasksPageClient).
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, display_name')
@@ -22,7 +24,12 @@ export default async function OfficePage() {
   const userRole = (profile?.role ?? 'crew') as UserRole
   const userDisplayName = (profile?.display_name as string | null) ?? ''
 
-  if (userRole !== 'admin' && userRole !== 'office_manager' && userRole !== 'salesman') {
+  if (
+    userRole !== 'admin' &&
+    userRole !== 'office_manager' &&
+    userRole !== 'salesman' &&
+    userRole !== 'foreman'
+  ) {
     return redirect('/my-work')
   }
 

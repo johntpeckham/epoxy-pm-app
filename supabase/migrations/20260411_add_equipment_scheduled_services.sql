@@ -8,8 +8,9 @@
 -- optionally be linked to an office_task via task_id, so an assigned user
 -- sees the work on their My Work page.
 --
--- Combined Phase 1 (table + indexes + RLS) and Phase 2 (task_id column)
--- into a single idempotent migration that can be re-run safely.
+-- Combined Phase 1 (table + indexes + RLS), Phase 2 (task_id column), and
+-- Phase 3 (in_progress status + foreman write access) into a single
+-- idempotent migration that can be re-run safely.
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS equipment_scheduled_services (
@@ -21,7 +22,7 @@ CREATE TABLE IF NOT EXISTS equipment_scheduled_services (
   recurrence_interval integer,
   recurrence_unit text CHECK (recurrence_unit IN ('weeks', 'months')),
   status text NOT NULL DEFAULT 'upcoming'
-    CHECK (status IN ('upcoming', 'due', 'overdue', 'completed')),
+    CHECK (status IN ('upcoming', 'in_progress', 'due', 'overdue', 'completed')),
   completed_at timestamptz,
   completed_by uuid REFERENCES auth.users(id),
   parent_service_id uuid REFERENCES equipment_scheduled_services(id) ON DELETE SET NULL,
@@ -34,6 +35,14 @@ CREATE TABLE IF NOT EXISTS equipment_scheduled_services (
 ALTER TABLE equipment_scheduled_services
   ADD COLUMN IF NOT EXISTS task_id uuid REFERENCES office_tasks(id) ON DELETE SET NULL;
 
+-- Phase 3 backfill: widen the status CHECK constraint to include 'in_progress'
+-- ("Working on it"). Drop-and-re-add so existing installs are updated in place.
+ALTER TABLE equipment_scheduled_services
+  DROP CONSTRAINT IF EXISTS equipment_scheduled_services_status_check;
+ALTER TABLE equipment_scheduled_services
+  ADD CONSTRAINT equipment_scheduled_services_status_check
+  CHECK (status IN ('upcoming', 'in_progress', 'due', 'overdue', 'completed'));
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_equipment_scheduled_services_equipment_id
   ON equipment_scheduled_services(equipment_id);
@@ -45,8 +54,9 @@ CREATE INDEX IF NOT EXISTS idx_equipment_scheduled_services_task_id
   ON equipment_scheduled_services(task_id);
 
 -- ============================================================================
--- RLS — matches the existing equipment table pattern: read open to all
--- authenticated users, write access restricted to admin and office_manager.
+-- RLS — read open to all authenticated users; write access for admin,
+-- office_manager, and foreman (matches the equipment detail UI canManage
+-- gate which allows foreman to manage scheduled services).
 -- ============================================================================
 
 ALTER TABLE equipment_scheduled_services ENABLE ROW LEVEL SECURITY;
@@ -68,7 +78,7 @@ CREATE POLICY "equipment_scheduled_services_insert"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.id = auth.uid()
-        AND profiles.role IN ('admin', 'office_manager')
+        AND profiles.role IN ('admin', 'office_manager', 'foreman')
     )
   );
 
@@ -79,7 +89,7 @@ CREATE POLICY "equipment_scheduled_services_update"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.id = auth.uid()
-        AND profiles.role IN ('admin', 'office_manager')
+        AND profiles.role IN ('admin', 'office_manager', 'foreman')
     )
   );
 
@@ -90,6 +100,6 @@ CREATE POLICY "equipment_scheduled_services_delete"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.id = auth.uid()
-        AND profiles.role IN ('admin', 'office_manager')
+        AND profiles.role IN ('admin', 'office_manager', 'foreman')
     )
   );

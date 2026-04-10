@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon, CalendarClockIcon, CheckIcon } from 'lucide-react'
+import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon, CalendarClockIcon } from 'lucide-react'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import type { MaintenanceLogRow, EquipmentDocumentRow, ScheduledServiceRow, ProfileOption } from '@/app/(dashboard)/equipment/[id]/page'
 import EquipmentModal from './EquipmentModal'
@@ -111,6 +111,9 @@ export default function EquipmentDetailClient({
   const [deleting, setDeleting] = useState(false)
   const [deletingDoc, setDeletingDoc] = useState(false)
   const [deletingScheduled, setDeletingScheduled] = useState(false)
+  /** IDs of scheduled services currently mid-status-change. Guards against
+   * duplicate clicks triggering duplicate recurrence inserts. */
+  const [processingStatusIds, setProcessingStatusIds] = useState<Set<string>>(new Set())
 
   const refreshEquipment = useCallback(async () => {
     const supabase = createClient()
@@ -282,6 +285,65 @@ export default function EquipmentDetailClient({
     }
 
     refreshScheduled()
+  }
+
+  /**
+   * Unified status change handler for active scheduled services. Routes by
+   * requested status:
+   *   - 'upcoming'     → clear any in-progress state, leave completed_at null
+   *   - 'in_progress'  → mark as "Working on it", no recurrence
+   *   - 'completed'    → delegate to handleCompleteScheduled (marks linked
+   *                      task complete + generates next recurrence once)
+   *
+   * Guards against duplicate submissions via processingStatusIds and bails
+   * out early if the service is already completed or already at that status.
+   */
+  const handleStatusChange = async (
+    service: ScheduledServiceRow,
+    newStatus: 'upcoming' | 'in_progress' | 'completed'
+  ) => {
+    if (processingStatusIds.has(service.id)) return
+    if (service.status === 'completed') return
+    if (service.status === newStatus) return
+
+    setProcessingStatusIds((prev) => {
+      const next = new Set(prev)
+      next.add(service.id)
+      return next
+    })
+
+    try {
+      if (newStatus === 'completed') {
+        // Optimistic local update so the card moves to the read-only
+        // completed section immediately and cannot be clicked again.
+        setScheduled((prev) =>
+          prev.map((s) =>
+            s.id === service.id ? { ...s, status: 'completed' as const } : s
+          )
+        )
+        await handleCompleteScheduled(service)
+      } else {
+        // Optimistic update for the active pill change.
+        setScheduled((prev) =>
+          prev.map((s) => (s.id === service.id ? { ...s, status: newStatus } : s))
+        )
+        const supabase = createClient()
+        const { error } = await supabase
+          .from('equipment_scheduled_services')
+          .update({ status: newStatus })
+          .eq('id', service.id)
+        if (error) {
+          console.error('[EquipmentDetailClient] Failed to update status:', error)
+        }
+        await refreshScheduled()
+      }
+    } finally {
+      setProcessingStatusIds((prev) => {
+        const next = new Set(prev)
+        next.delete(service.id)
+        return next
+      })
+    }
   }
 
   const handleDeleteScheduled = async (id: string) => {
@@ -546,29 +608,41 @@ export default function EquipmentDetailClient({
             </div>
           </div>
 
-          {/* Upcoming / due / overdue scheduled services */}
+          {/* Upcoming / due / overdue / in-progress scheduled services */}
           {(() => {
             const activeScheduled = scheduled.filter((s) => s.status !== 'completed')
             if (activeScheduled.length === 0) return null
             return (
               <div className="space-y-3 mb-4">
                 {activeScheduled.map((service) => {
-                  const displayStatus = deriveStatus(service.scheduled_date)
-                  const statusLabel =
-                    displayStatus === 'overdue' ? 'Overdue'
-                    : displayStatus === 'due' ? 'Due'
-                    : displayStatus === 'due_soon' ? 'Due soon'
+                  // "In progress" is a DB-driven state that overrides the
+                  // date-derived status. Everything else is derived from the
+                  // scheduled_date vs today.
+                  const isInProgress = service.status === 'in_progress'
+                  const dateStatus = deriveStatus(service.scheduled_date)
+                  const statusLabel = isInProgress
+                    ? 'In progress'
+                    : dateStatus === 'overdue' ? 'Overdue'
+                    : dateStatus === 'due' ? 'Due'
+                    : dateStatus === 'due_soon' ? 'Due soon'
                     : 'Upcoming'
-                  const statusCls =
-                    displayStatus === 'overdue' ? 'bg-red-100 text-red-700'
-                    : displayStatus === 'due' ? 'bg-orange-100 text-orange-700'
-                    : displayStatus === 'due_soon' ? 'bg-amber-100 text-amber-700'
+                  const statusCls = isInProgress
+                    ? 'bg-orange-100 text-orange-700'
+                    : dateStatus === 'overdue' ? 'bg-red-100 text-red-700'
+                    : dateStatus === 'due' ? 'bg-orange-100 text-orange-700'
+                    : dateStatus === 'due_soon' ? 'bg-amber-100 text-amber-700'
                     : 'bg-blue-100 text-blue-700'
-                  const borderCls =
-                    displayStatus === 'overdue' ? 'border-red-200'
-                    : displayStatus === 'due' ? 'border-orange-200'
-                    : displayStatus === 'due_soon' ? 'border-amber-200'
+                  const borderCls = isInProgress
+                    ? 'border-orange-200'
+                    : dateStatus === 'overdue' ? 'border-red-200'
+                    : dateStatus === 'due' ? 'border-orange-200'
+                    : dateStatus === 'due_soon' ? 'border-amber-200'
                     : 'border-blue-200'
+                  // Selector value mirrors DB status for in_progress; otherwise
+                  // the card is implicitly "upcoming" until the user changes it.
+                  const selectorValue =
+                    service.status === 'in_progress' ? 'in_progress' : 'upcoming'
+                  const isProcessing = processingStatusIds.has(service.id)
                   return (
                     <div
                       key={service.id}
@@ -601,14 +675,20 @@ export default function EquipmentDetailClient({
                         </div>
                         {canManage && (
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            <button
-                              onClick={() => handleCompleteScheduled(service)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-green-500 hover:bg-green-400 text-white text-xs font-medium rounded-md transition-colors"
-                              title="Mark complete"
+                            <select
+                              value={selectorValue}
+                              disabled={isProcessing}
+                              onChange={(e) => {
+                                const next = e.target.value as 'upcoming' | 'in_progress' | 'completed'
+                                handleStatusChange(service, next)
+                              }}
+                              className="text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Change status"
                             >
-                              <CheckIcon className="w-3.5 h-3.5" />
-                              Complete
-                            </button>
+                              <option value="upcoming">Upcoming</option>
+                              <option value="in_progress">Working on it</option>
+                              <option value="completed">Completed</option>
+                            </select>
                             <button
                               onClick={() => {
                                 setEditingScheduled(service)
@@ -654,6 +734,11 @@ export default function EquipmentDetailClient({
                       {service.is_recurring && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
                           Recurring
+                        </span>
+                      )}
+                      {service.task_id && taskAssignees.get(service.task_id) && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">
+                          Assigned: {taskAssignees.get(service.task_id)}
                         </span>
                       )}
                     </div>
