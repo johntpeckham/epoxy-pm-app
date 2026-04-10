@@ -32,7 +32,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   const [endDate, setEndDate] = useState('')
   const [includeWeekends, setIncludeWeekends] = useState(false)
   const [driveTimeEnabled, setDriveTimeEnabled] = useState(false)
-  const [driveTimeDays, setDriveTimeDays] = useState(1)
+  const [driveTimeDays, setDriveTimeDays] = useState('1')
   const [driveTimePosition, setDriveTimePosition] = useState<'front' | 'back' | 'both'>('both')
   const [crewNames, setCrewNames] = useState<string[]>([])
   const [notes, setNotes] = useState('')
@@ -156,7 +156,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       notes: notes.trim() || null,
       color,
       drive_time_enabled: driveTimeEnabled,
-      drive_time_days: driveTimeDays,
+      drive_time_days: Math.max(1, Math.min(30, parseInt(driveTimeDays) || 1)),
       drive_time_position: driveTimePosition,
     }).select('id, start_date').single()
 
@@ -406,10 +406,17 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                       <label className="text-xs text-gray-500 font-medium whitespace-nowrap">Days</label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min={1}
                         max={30}
                         value={driveTimeDays}
-                        onChange={(e) => setDriveTimeDays(Math.max(1, parseInt(e.target.value) || 1))}
+                        onChange={(e) => setDriveTimeDays(e.target.value)}
+                        onBlur={() => {
+                          const num = parseInt(driveTimeDays)
+                          if (!num || num < 1) setDriveTimeDays('1')
+                          else if (num > 30) setDriveTimeDays('30')
+                          else setDriveTimeDays(String(num))
+                        }}
                         className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                       />
                     </div>
