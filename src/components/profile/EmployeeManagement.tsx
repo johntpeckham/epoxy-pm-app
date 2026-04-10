@@ -1074,19 +1074,18 @@ export default function EmployeeManagement({
         <div className="absolute inset-0 z-10 bg-white flex flex-col overflow-hidden">
           {/* Header */}
           <div
-            className="flex-none flex items-center justify-between px-6 border-b border-gray-200"
+            className="flex-none flex items-center px-6 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <div className="flex items-center gap-2">
-              <Settings2Icon className="w-5 h-5 text-gray-400" />
-              <h3 className="text-lg font-semibold text-gray-900">Employee Settings</h3>
-            </div>
             <button
               onClick={() => setSettingsOpen(false)}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mr-2"
             >
-              <XIcon className="w-5 h-5" />
+              <ArrowLeftIcon className="w-4 h-4" />
+              Employee Management
             </button>
+            <Settings2Icon className="w-5 h-5 text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900 ml-2">Employee Settings</h3>
           </div>
 
           {/* Body */}
