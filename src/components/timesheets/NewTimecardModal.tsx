@@ -20,7 +20,6 @@ interface NewTimecardModalProps {
 const inputCls =
   'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
 const LUNCH_OPTIONS = [0, 15, 30, 45, 60]
-const DRIVE_TIME_OPTIONS: number[] = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.5, 4]
 
 const FORM_KEY = 'timesheet'
 const KNOWN_KEYS = getKnownContentKeys(FORM_KEY)
@@ -271,8 +270,6 @@ export default function NewTimecardModal({
   function renderEmployeeSection() {
     const selectCls = 'w-1/2 sm:w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500'
     const disabledSelectCls = 'w-1/2 sm:w-full border border-gray-100 rounded-md px-2 py-1.5 text-xs text-gray-400 bg-gray-50 cursor-not-allowed'
-    const driveSelectCls = 'w-1/2 sm:w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500'
-
     return (
       <div key="employee-section">
         {/* Drive time toggle */}
@@ -476,21 +473,19 @@ export default function NewTimecardModal({
                 </div>
                 {driveTimeEnabled && (
                   <div className="pt-2" style={{ borderTop: '0.5px solid rgba(24,95,165,0.15)' }}>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
-                      <div>
-                        <label className="block text-[10px] font-semibold uppercase mb-0.5" style={{ color: '#185FA5' }}>Drive</label>
-                        <select
-                          value={entry.drive_time ?? ''}
-                          onChange={(e) => updateDriveTime(idx, e.target.value === '' ? null : Number(e.target.value))}
-                          className={driveSelectCls}
-                          style={{ color: '#185FA5', borderColor: 'rgba(24,95,165,0.3)' }}
-                        >
-                          <option value="">—</option>
-                          {DRIVE_TIME_OPTIONS.map((v) => (
-                            <option key={v} value={v}>{v} hrs</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase mb-0.5" style={{ color: '#185FA5' }}>Drive</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={24}
+                        step={0.25}
+                        value={entry.drive_time != null ? entry.drive_time : ''}
+                        onChange={(e) => updateDriveTime(idx, e.target.value === '' ? null : Number(e.target.value))}
+                        placeholder="hrs"
+                        className="border rounded-md px-2 py-1.5 text-xs text-right focus:outline-none focus:ring-2 focus:ring-blue-500 tabular-nums"
+                        style={{ color: '#185FA5', borderColor: 'rgba(24,95,165,0.3)', width: 84 }}
+                      />
                     </div>
                   </div>
                 )}
