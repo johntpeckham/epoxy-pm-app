@@ -354,7 +354,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [editProjectEndDate, setEditProjectEndDate] = useState('')
   const [editProjectIncludeWeekends, setEditProjectIncludeWeekends] = useState(false)
   const [editProjectDriveTimeEnabled, setEditProjectDriveTimeEnabled] = useState(false)
-  const [editProjectDriveTimeDays, setEditProjectDriveTimeDays] = useState(1)
+  const [editProjectDriveTimeDays, setEditProjectDriveTimeDays] = useState('1')
   const [editProjectDriveTimePosition, setEditProjectDriveTimePosition] = useState<'front' | 'back' | 'both'>('both')
   const [editProjectCrewNames, setEditProjectCrewNames] = useState<string[]>([])
   const [editProjectNotes, setEditProjectNotes] = useState('')
@@ -629,7 +629,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectEndDate(proj.end_date || '')
     setEditProjectIncludeWeekends(proj.include_weekends ?? false)
     setEditProjectDriveTimeEnabled(proj.drive_time_enabled ?? false)
-    setEditProjectDriveTimeDays(proj.drive_time_days ?? 1)
+    setEditProjectDriveTimeDays(String(proj.drive_time_days ?? 1))
     setEditProjectDriveTimePosition(proj.drive_time_position ?? 'both')
     setEditProjectCrewNames(proj.crew ? proj.crew.split(',').map((s) => s.trim()).filter(Boolean) : [])
     setEditProjectNotes(proj.notes || '')
@@ -653,7 +653,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectEndDate('')
     setEditProjectIncludeWeekends(false)
     setEditProjectDriveTimeEnabled(false)
-    setEditProjectDriveTimeDays(1)
+    setEditProjectDriveTimeDays('1')
     setEditProjectDriveTimePosition('both')
     setEditProjectCrewNames([])
     setEditProjectNotes('')
@@ -859,7 +859,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
           notes: editProjectNotes.trim() || null,
           color: editProjectColor,
           drive_time_enabled: editProjectDriveTimeEnabled,
-          drive_time_days: editProjectDriveTimeDays,
+          drive_time_days: Math.max(1, Math.min(30, parseInt(editProjectDriveTimeDays) || 1)),
           drive_time_position: editProjectDriveTimePosition,
         })
         .eq('id', editProjectId)
@@ -1828,10 +1828,17 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                       <label className="text-xs text-gray-500 font-medium whitespace-nowrap">Days</label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min={1}
                         max={30}
                         value={editProjectDriveTimeDays}
-                        onChange={(e) => setEditProjectDriveTimeDays(Math.max(1, parseInt(e.target.value) || 1))}
+                        onChange={(e) => setEditProjectDriveTimeDays(e.target.value)}
+                        onBlur={() => {
+                          const num = parseInt(editProjectDriveTimeDays)
+                          if (!num || num < 1) setEditProjectDriveTimeDays('1')
+                          else if (num > 30) setEditProjectDriveTimeDays('30')
+                          else setEditProjectDriveTimeDays(String(num))
+                        }}
                         className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                       />
                     </div>
