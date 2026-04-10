@@ -239,7 +239,31 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
     return { daily, regular, overtime, doubleTime, total }
   }, [summaries])
 
-  const fmt = (n: number) => n === 0 ? '—' : n.toFixed(2)
+  const fmt = (n: number) => n === 0 ? '—' : n % 1 === 0 ? String(n) : n.toFixed(1)
+  const fmtTotal = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(1)
+
+  function dayCellBg(total: number): string | undefined {
+    if (total <= 0) return undefined
+    if (total <= 8) return 'rgba(99,153,34,0.08)'
+    if (total <= 12) return 'rgba(186,117,23,0.12)'
+    return 'rgba(163,45,45,0.12)'
+  }
+
+  const BAR_COLORS = { reg: '#639922', ot: '#BA7517', dt: '#A32D2D' }
+
+  function StackedBar({ regular, overtime, doubleTime, total }: { regular: number; overtime: number; doubleTime: number; total: number }) {
+    if (total <= 0) return null
+    const regPct = (regular / total) * 100
+    const otPct = (overtime / total) * 100
+    const dtPct = (doubleTime / total) * 100
+    return (
+      <div className="flex w-full rounded overflow-hidden" style={{ height: 16 }}>
+        {regular > 0 && <div style={{ width: `${regPct}%`, backgroundColor: BAR_COLORS.reg }} />}
+        {overtime > 0 && <div style={{ width: `${otPct}%`, backgroundColor: BAR_COLORS.ot }} />}
+        {doubleTime > 0 && <div style={{ width: `${dtPct}%`, backgroundColor: BAR_COLORS.dt }} />}
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
@@ -275,48 +299,75 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
           No timecard entries for this week.
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/60">
-                <th className="text-left font-semibold text-gray-500 pl-4 pr-2 py-2 whitespace-nowrap sticky left-0 bg-gray-50/60 z-10">Employee</th>
-                {WEEK_DAY_LABELS.map((d) => (
-                  <th key={d} className="text-center font-semibold text-gray-500 px-2 py-2 whitespace-nowrap">{d}</th>
-                ))}
-                <th className="text-center font-semibold text-gray-500 px-2 py-2 whitespace-nowrap">Reg</th>
-                <th className="text-center font-semibold text-amber-600 px-2 py-2 whitespace-nowrap">OT</th>
-                <th className="text-center font-semibold text-red-600 px-2 py-2 whitespace-nowrap">DT</th>
-                <th className="text-center font-bold text-gray-700 pr-4 pl-2 py-2 whitespace-nowrap">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {summaries.map((s) => (
-                <tr key={s.employeeName} className="border-b border-gray-50 hover:bg-gray-50/40">
-                  <td className="pl-4 pr-2 py-2 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white z-10">{s.employeeName}</td>
-                  {s.daily.map((d, i) => (
-                    <td key={i} className="text-center text-gray-600 px-2 py-2 tabular-nums">{fmt(d.total)}</td>
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/60">
+                  <th className="text-left font-semibold text-gray-400 pl-4 pr-2 py-2 whitespace-nowrap sticky left-0 bg-gray-50/60 z-10 text-[11px]">Employee</th>
+                  {WEEK_DAY_LABELS.map((d) => (
+                    <th key={d} className="text-center font-semibold text-gray-400 px-1.5 py-2 whitespace-nowrap text-[11px]">{d}</th>
                   ))}
-                  <td className="text-center text-gray-700 px-2 py-2 tabular-nums">{fmt(s.regular)}</td>
-                  <td className="text-center text-amber-600 font-medium px-2 py-2 tabular-nums">{fmt(s.overtime)}</td>
-                  <td className="text-center text-red-600 font-medium px-2 py-2 tabular-nums">{fmt(s.doubleTime)}</td>
-                  <td className="text-center font-bold text-gray-900 pr-4 pl-2 py-2 tabular-nums">{s.total.toFixed(2)}</td>
+                  <th className="text-center font-semibold text-gray-400 px-2 py-2 whitespace-nowrap text-[11px]" style={{ minWidth: 80 }}>Breakdown</th>
+                  <th className="text-center font-semibold text-gray-400 pr-4 pl-2 py-2 whitespace-nowrap text-[11px]">Total</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-gray-200 bg-gray-50/60">
-                <td className="pl-4 pr-2 py-2 font-bold text-gray-700 sticky left-0 bg-gray-50/60 z-10">Totals</td>
-                {totals.daily.map((h, i) => (
-                  <td key={i} className="text-center font-semibold text-gray-600 px-2 py-2 tabular-nums">{fmt(h)}</td>
+              </thead>
+              <tbody>
+                {summaries.map((s) => (
+                  <tr key={s.employeeName} className="border-b border-gray-50">
+                    <td className="pl-4 pr-2 py-1.5 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white z-10">{s.employeeName}</td>
+                    {s.daily.map((d, i) => (
+                      <td key={i} className="text-center px-1.5 py-1.5">
+                        {d.total > 0 ? (
+                          <span
+                            className="inline-block px-1.5 py-0.5 rounded tabular-nums text-gray-700 font-medium"
+                            style={{ backgroundColor: dayCellBg(d.total) }}
+                          >
+                            {fmt(d.total)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-2 py-1.5">
+                      <StackedBar regular={s.regular} overtime={s.overtime} doubleTime={s.doubleTime} total={s.total} />
+                    </td>
+                    <td className="text-center font-bold text-gray-900 pr-4 pl-2 py-1.5 tabular-nums">{fmtTotal(s.total)}</td>
+                  </tr>
                 ))}
-                <td className="text-center font-semibold text-gray-700 px-2 py-2 tabular-nums">{fmt(totals.regular)}</td>
-                <td className="text-center font-semibold text-amber-600 px-2 py-2 tabular-nums">{fmt(totals.overtime)}</td>
-                <td className="text-center font-semibold text-red-600 px-2 py-2 tabular-nums">{fmt(totals.doubleTime)}</td>
-                <td className="text-center font-bold text-gray-900 pr-4 pl-2 py-2 tabular-nums">{totals.total.toFixed(2)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-50/60" style={{ borderTop: '1px solid #d1d5db' }}>
+                  <td className="pl-4 pr-2 py-2 font-medium text-gray-500 sticky left-0 bg-gray-50/60 z-10">Totals</td>
+                  {totals.daily.map((h, i) => (
+                    <td key={i} className="text-center text-gray-500 font-medium px-1.5 py-2 tabular-nums">{fmt(h)}</td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <StackedBar regular={totals.regular} overtime={totals.overtime} doubleTime={totals.doubleTime} total={totals.total} />
+                  </td>
+                  <td className="text-center font-bold text-gray-900 pr-4 pl-2 py-2 tabular-nums">{fmtTotal(totals.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BAR_COLORS.reg }} />
+              <span className="text-[11px] text-gray-500">Regular</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BAR_COLORS.ot }} />
+              <span className="text-[11px] text-gray-500">Overtime 1.5x</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BAR_COLORS.dt }} />
+              <span className="text-[11px] text-gray-500">Double time 2x</span>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
