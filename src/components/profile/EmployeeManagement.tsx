@@ -37,7 +37,78 @@ import { CSS } from '@dnd-kit/utilities'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { moveToTrash } from '@/lib/trashBin'
-import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition } from '@/types'
+import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition, EmployeeCertification, EmployeeCertificationAssignment } from '@/types'
+
+const PRESET_COLORS = [
+  '#EF4444', '#F97316', '#EAB308', '#22C55E', '#14B8A6',
+  '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#6B7280',
+]
+
+function contrastText(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return lum > 0.55 ? '#1F2937' : '#FFFFFF'
+}
+
+function ColorPickerDropdown({
+  color,
+  onChange,
+  open,
+  onToggle,
+}: {
+  color: string
+  onChange: (c: string) => void
+  open: boolean
+  onToggle: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onToggle()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open, onToggle])
+
+  return (
+    <div className="relative flex-shrink-0" ref={ref}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-7 h-7 rounded-full border-2 border-gray-200 hover:border-gray-400 transition flex-shrink-0"
+        style={{ backgroundColor: color }}
+      />
+      {open && (
+        <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-52">
+          <div className="grid grid-cols-5 gap-2 mb-3">
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => { onChange(c); onToggle() }}
+                className={`w-7 h-7 rounded-full border-2 transition ${c === color ? 'border-gray-900 scale-110' : 'border-transparent hover:border-gray-400'}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Custom:</span>
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => onChange(e.target.value)}
+              className="w-8 h-6 border-0 p-0 cursor-pointer rounded"
+            />
+            <span className="text-xs text-gray-400 font-mono">{color}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function SortableRoleRow({
   role,
@@ -114,6 +185,90 @@ function SortableRoleRow({
   )
 }
 
+function SortableCertRow({
+  cert,
+  onRename,
+  onDelete,
+  onColorChange,
+  deleting,
+}: {
+  cert: EmployeeCertification
+  onRename: (cert: EmployeeCertification, newName: string) => void
+  onDelete: (cert: EmployeeCertification) => void
+  onColorChange: (cert: EmployeeCertification, color: string) => void
+  deleting: boolean
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: cert.id })
+  const [localName, setLocalName] = useState(cert.name)
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  useEffect(() => {
+    setLocalName(cert.name)
+  }, [cert.name])
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  function handleBlur() {
+    if (localName.trim() !== cert.name) {
+      onRename(cert, localName)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      ;(e.target as HTMLInputElement).blur()
+    }
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 px-2 py-2 rounded-md bg-gray-50 ${isDragging ? 'z-50 opacity-80 shadow-lg ring-2 ring-amber-400' : ''}`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+      >
+        <GripVerticalIcon className="w-4 h-4" />
+      </div>
+      <ColorPickerDropdown
+        color={cert.color}
+        onChange={(c) => onColorChange(cert, c)}
+        open={pickerOpen}
+        onToggle={() => setPickerOpen(!pickerOpen)}
+      />
+      <input
+        type="text"
+        value={localName}
+        onChange={(e) => setLocalName(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className="flex-1 min-w-0 text-sm text-gray-700 bg-transparent border border-transparent rounded px-2 py-0.5 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 transition"
+      />
+      <button
+        onClick={() => onDelete(cert)}
+        disabled={deleting}
+        className="text-gray-400 hover:text-red-500 transition disabled:opacity-50 flex-shrink-0"
+      >
+        <Trash2Icon className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
+
 interface EmployeeManagementProps {
   /** Hide the built-in collapsed "Manage Employees" trigger card. */
   hideTrigger?: boolean
@@ -176,6 +331,16 @@ export default function EmployeeManagement({
   const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null)
   const [confirmDeleteField, setConfirmDeleteField] = useState<EmployeeCustomFieldDefinition | null>(null)
 
+  // Certifications
+  const [certifications, setCertifications] = useState<EmployeeCertification[]>([])
+  const [certAssignments, setCertAssignments] = useState<EmployeeCertificationAssignment[]>([])
+  const [newCertName, setNewCertName] = useState('')
+  const [newCertColor, setNewCertColor] = useState('#3B82F6')
+  const [newCertPickerOpen, setNewCertPickerOpen] = useState(false)
+  const [addingCert, setAddingCert] = useState(false)
+  const [certError, setCertError] = useState<string | null>(null)
+  const [deletingCertId, setDeletingCertId] = useState<string | null>(null)
+
   // Add/Edit modal
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<EmployeeProfile | null>(null)
@@ -184,6 +349,7 @@ export default function EmployeeManagement({
   const [formNotes, setFormNotes] = useState('')
   const [formPhotoUrl, setFormPhotoUrl] = useState<string | null>(null)
   const [formCustomFields, setFormCustomFields] = useState<Record<string, string>>({})
+  const [formCertIds, setFormCertIds] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -222,11 +388,28 @@ export default function EmployeeManagement({
     setCustomFields((data as EmployeeCustomFieldDefinition[]) ?? [])
   }, [])
 
+  const fetchCertifications = useCallback(async () => {
+    const { data } = await supabase
+      .from('employee_certifications')
+      .select('*')
+      .order('sort_order')
+    setCertifications((data as EmployeeCertification[]) ?? [])
+  }, [])
+
+  const fetchCertAssignments = useCallback(async () => {
+    const { data } = await supabase
+      .from('employee_certification_assignments')
+      .select('*')
+    setCertAssignments((data as EmployeeCertificationAssignment[]) ?? [])
+  }, [])
+
   useEffect(() => {
     fetchEmployees()
     fetchRoles()
     fetchCustomFields()
-  }, [fetchEmployees, fetchRoles, fetchCustomFields])
+    fetchCertifications()
+    fetchCertAssignments()
+  }, [fetchEmployees, fetchRoles, fetchCustomFields, fetchCertifications, fetchCertAssignments])
 
   // ── Role Management ──
 
@@ -339,6 +522,110 @@ export default function EmployeeManagement({
     }
   }
 
+  // ── Certification Management ──
+
+  async function handleAddCert() {
+    if (!newCertName.trim()) return
+    setAddingCert(true)
+    setCertError(null)
+
+    const nextOrder = certifications.length > 0 ? Math.max(...certifications.map(c => c.sort_order)) + 1 : 1
+
+    const { error } = await supabase
+      .from('employee_certifications')
+      .insert({ name: newCertName.trim(), color: newCertColor, sort_order: nextOrder })
+
+    if (error) {
+      setCertError(error.message)
+    } else {
+      setNewCertName('')
+      setNewCertColor('#3B82F6')
+      await fetchCertifications()
+    }
+    setAddingCert(false)
+  }
+
+  async function handleDeleteCert(cert: EmployeeCertification) {
+    setDeletingCertId(cert.id)
+    const { error } = await supabase
+      .from('employee_certifications')
+      .delete()
+      .eq('id', cert.id)
+
+    if (error) {
+      setCertError(error.message)
+    } else {
+      setCertError(null)
+      await fetchCertifications()
+      await fetchCertAssignments()
+    }
+    setDeletingCertId(null)
+  }
+
+  async function handleRenameCert(cert: EmployeeCertification, newName: string) {
+    const trimmed = newName.trim()
+    if (!trimmed) {
+      setCertError('Certification name cannot be empty')
+      return
+    }
+    if (trimmed === cert.name) return
+
+    const duplicate = certifications.find(c => c.id !== cert.id && c.name.toLowerCase() === trimmed.toLowerCase())
+    if (duplicate) {
+      setCertError(`Certification "${trimmed}" already exists`)
+      return
+    }
+
+    setCertError(null)
+    const { error } = await supabase
+      .from('employee_certifications')
+      .update({ name: trimmed })
+      .eq('id', cert.id)
+
+    if (error) {
+      setCertError(error.message)
+    } else {
+      await fetchCertifications()
+    }
+  }
+
+  async function handleCertColorChange(cert: EmployeeCertification, color: string) {
+    setCertError(null)
+    const { error } = await supabase
+      .from('employee_certifications')
+      .update({ color })
+      .eq('id', cert.id)
+
+    if (error) {
+      setCertError(error.message)
+    } else {
+      await fetchCertifications()
+    }
+  }
+
+  async function handleCertDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIdx = certifications.findIndex(c => c.id === active.id)
+    const newIdx = certifications.findIndex(c => c.id === over.id)
+    if (oldIdx < 0 || newIdx < 0) return
+
+    const reordered = [...certifications]
+    const [moved] = reordered.splice(oldIdx, 1)
+    reordered.splice(newIdx, 0, moved)
+
+    const updated = reordered.map((c, i) => ({ ...c, sort_order: i + 1 }))
+    setCertifications(updated)
+
+    for (const c of updated) {
+      await supabase
+        .from('employee_certifications')
+        .update({ sort_order: c.sort_order })
+        .eq('id', c.id)
+    }
+  }
+
   // ── Custom Field Management ──
 
   async function handleAddField() {
@@ -385,6 +672,7 @@ export default function EmployeeManagement({
     setFormNotes('')
     setFormPhotoUrl(null)
     setFormCustomFields({})
+    setFormCertIds(new Set())
     setModalError(null)
   }
 
@@ -425,9 +713,20 @@ export default function EmployeeManagement({
     }
 
     try {
-      const { error } = await supabase.from('employee_profiles').insert(payload)
+      const { data: inserted, error } = await supabase.from('employee_profiles').insert(payload).select('id').single()
       if (error) throw error
+
+      // Sync certification assignments
+      const certRows = Array.from(formCertIds).map(certId => ({
+        employee_id: inserted.id,
+        certification_id: certId,
+      }))
+      if (certRows.length > 0) {
+        await supabase.from('employee_certification_assignments').insert(certRows)
+      }
+
       await fetchEmployees()
+      await fetchCertAssignments()
       setOnboardingStep(2)
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to save employee')
@@ -443,6 +742,10 @@ export default function EmployeeManagement({
     setFormNotes(emp.notes ?? '')
     setFormPhotoUrl(emp.photo_url)
     setFormCustomFields(emp.custom_fields ?? {})
+    const empCertIds = certAssignments
+      .filter(a => a.employee_id === emp.id)
+      .map(a => a.certification_id)
+    setFormCertIds(new Set(empCertIds))
     setModalError(null)
     setModalOpen(true)
   }
@@ -509,20 +812,41 @@ export default function EmployeeManagement({
     }
 
     try {
+      let employeeId: string
       if (editingEmployee) {
         const { error } = await supabase
           .from('employee_profiles')
           .update(payload)
           .eq('id', editingEmployee.id)
         if (error) throw error
+        employeeId = editingEmployee.id
       } else {
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('employee_profiles')
           .insert(payload)
+          .select('id')
+          .single()
         if (error) throw error
+        employeeId = inserted.id
+      }
+
+      // Sync certification assignments
+      await supabase
+        .from('employee_certification_assignments')
+        .delete()
+        .eq('employee_id', employeeId)
+      const certRows = Array.from(formCertIds).map(certId => ({
+        employee_id: employeeId,
+        certification_id: certId,
+      }))
+      if (certRows.length > 0) {
+        await supabase
+          .from('employee_certification_assignments')
+          .insert(certRows)
       }
 
       await fetchEmployees()
+      await fetchCertAssignments()
       closeModal()
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to save employee')
@@ -652,7 +976,7 @@ export default function EmployeeManagement({
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-6 min-h-0">
+          <div className="flex-1 overflow-y-auto p-6 min-h-0 relative">
 
       {/* Employee Grid — grouped by role */}
       {loadingEmployees ? (
@@ -701,6 +1025,25 @@ export default function EmployeeManagement({
                         <p className="text-[10px] text-amber-600 font-semibold mt-0.5 truncate leading-tight">{emp.role}</p>
                       )}
                     </div>
+                    {/* Certification pills */}
+                    {(() => {
+                      const empCertIds = certAssignments.filter(a => a.employee_id === emp.id).map(a => a.certification_id)
+                      const empCerts = certifications.filter(c => empCertIds.includes(c.id))
+                      if (empCerts.length === 0) return null
+                      return (
+                        <div className="flex flex-wrap gap-0.5 px-1.5 pt-0.5">
+                          {empCerts.map(c => (
+                            <span
+                              key={c.id}
+                              className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold leading-tight"
+                              style={{ backgroundColor: c.color, color: contrastText(c.color) }}
+                            >
+                              {c.name}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
                     {/* Actions */}
                     <div className="flex items-center gap-0.5 px-1.5 pb-1.5 mt-auto">
                       <button
@@ -726,124 +1069,169 @@ export default function EmployeeManagement({
         </div>
       )}
 
-      {/* Employee Settings Modal */}
+      {/* Employee Settings — full-size panel */}
       {settingsOpen && (
-        <Portal>
+        <div className="absolute inset-0 z-10 bg-white flex flex-col overflow-hidden">
+          {/* Header */}
           <div
-            className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header"
-            onClick={() => setSettingsOpen(false)}
+            className="flex-none flex items-center justify-between px-6 border-b border-gray-200"
+            style={{ minHeight: '56px' }}
           >
-            <div
-              className="mt-auto md:my-auto md:mx-auto w-full md:max-w-lg h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
+            <div className="flex items-center gap-2">
+              <Settings2Icon className="w-5 h-5 text-gray-400" />
+              <h3 className="text-lg font-semibold text-gray-900">Employee Settings</h3>
+            </div>
+            <button
+              onClick={() => setSettingsOpen(false)}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
             >
-              {/* Header */}
-              <div
-                className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
-                style={{ minHeight: '56px' }}
-              >
-                <h3 className="text-lg font-semibold text-gray-900">Employee Settings</h3>
-                <button
-                  onClick={() => setSettingsOpen(false)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-                >
-                  <XIcon className="w-5 h-5" />
-                </button>
+              <XIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-6 min-h-0">
+            <div className="max-w-3xl mx-auto space-y-8">
+              {/* Manage Roles */}
+              <div>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Manage Roles
+                </h4>
+                {roleError && <p className="text-xs text-red-500 mb-2">{roleError}</p>}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    placeholder="New role name"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddRole()}
+                  />
+                  <button
+                    onClick={handleAddRole}
+                    disabled={addingRole || !newRoleName.trim()}
+                    className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                  >
+                    {addingRole ? '...' : 'Add'}
+                  </button>
+                </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRoleDragEnd}>
+                  <SortableContext items={roles.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-1">
+                      {roles.map((role) => (
+                        <SortableRoleRow
+                          key={role.id}
+                          role={role}
+                          onRename={handleRenameRole}
+                          onDelete={handleDeleteRole}
+                          deleting={deletingRoleId === role.id}
+                        />
+                      ))}
+                      {roles.length === 0 && (
+                        <p className="text-xs text-gray-400 py-2">No roles defined.</p>
+                      )}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
 
-              {/* Body */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 min-h-0">
-                {/* Manage Roles */}
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                    Manage Roles
-                  </h4>
-                  {roleError && <p className="text-xs text-red-500 mb-2">{roleError}</p>}
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="text"
-                      value={newRoleName}
-                      onChange={(e) => setNewRoleName(e.target.value)}
-                      placeholder="New role name"
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddRole()}
-                    />
-                    <button
-                      onClick={handleAddRole}
-                      disabled={addingRole || !newRoleName.trim()}
-                      className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
-                    >
-                      {addingRole ? '...' : 'Add'}
-                    </button>
-                  </div>
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRoleDragEnd}>
-                    <SortableContext items={roles.map(r => r.id)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-1">
-                        {roles.map((role) => (
-                          <SortableRoleRow
-                            key={role.id}
-                            role={role}
-                            onRename={handleRenameRole}
-                            onDelete={handleDeleteRole}
-                            deleting={deletingRoleId === role.id}
-                          />
-                        ))}
-                        {roles.length === 0 && (
-                          <p className="text-xs text-gray-400 py-2">No roles defined.</p>
-                        )}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
+              {/* Manage Certifications */}
+              <div className="pt-6 border-t border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Manage Certifications
+                </h4>
+                {certError && <p className="text-xs text-red-500 mb-2">{certError}</p>}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={newCertName}
+                    onChange={(e) => setNewCertName(e.target.value)}
+                    placeholder="New certification name"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddCert()}
+                  />
+                  <ColorPickerDropdown
+                    color={newCertColor}
+                    onChange={setNewCertColor}
+                    open={newCertPickerOpen}
+                    onToggle={() => setNewCertPickerOpen(!newCertPickerOpen)}
+                  />
+                  <button
+                    onClick={handleAddCert}
+                    disabled={addingCert || !newCertName.trim()}
+                    className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                  >
+                    {addingCert ? '...' : 'Add'}
+                  </button>
                 </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCertDragEnd}>
+                  <SortableContext items={certifications.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-1">
+                      {certifications.map((cert) => (
+                        <SortableCertRow
+                          key={cert.id}
+                          cert={cert}
+                          onRename={handleRenameCert}
+                          onDelete={handleDeleteCert}
+                          onColorChange={handleCertColorChange}
+                          deleting={deletingCertId === cert.id}
+                        />
+                      ))}
+                      {certifications.length === 0 && (
+                        <p className="text-xs text-gray-400 py-2">No certifications defined.</p>
+                      )}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
 
-                {/* Custom Fields */}
-                <div className="pt-4 border-t border-gray-100">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                    Custom Fields
-                  </h4>
-                  {fieldError && <p className="text-xs text-red-500 mb-2">{fieldError}</p>}
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="text"
-                      value={newFieldLabel}
-                      onChange={(e) => setNewFieldLabel(e.target.value)}
-                      placeholder="Field label"
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
-                    />
-                    <button
-                      onClick={handleAddField}
-                      disabled={addingField || !newFieldLabel.trim()}
-                      className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+              {/* Custom Fields */}
+              <div className="pt-6 border-t border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Custom Fields
+                </h4>
+                {fieldError && <p className="text-xs text-red-500 mb-2">{fieldError}</p>}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={newFieldLabel}
+                    onChange={(e) => setNewFieldLabel(e.target.value)}
+                    placeholder="Field label"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
+                  />
+                  <button
+                    onClick={handleAddField}
+                    disabled={addingField || !newFieldLabel.trim()}
+                    className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                  >
+                    {addingField ? '...' : 'Add'}
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {customFields.map((field) => (
+                    <div
+                      key={field.id}
+                      className="flex items-center justify-between px-3 py-2 rounded-md bg-gray-50"
                     >
-                      {addingField ? '...' : 'Add'}
-                    </button>
-                  </div>
-                  <div className="space-y-1">
-                    {customFields.map((field) => (
-                      <div
-                        key={field.id}
-                        className="flex items-center justify-between px-3 py-2 rounded-md bg-gray-50"
+                      <span className="text-sm text-gray-700">{field.label}</span>
+                      <button
+                        onClick={() => setConfirmDeleteField(field)}
+                        disabled={deletingFieldId === field.id}
+                        className="text-gray-400 hover:text-red-500 transition disabled:opacity-50"
                       >
-                        <span className="text-sm text-gray-700">{field.label}</span>
-                        <button
-                          onClick={() => setConfirmDeleteField(field)}
-                          disabled={deletingFieldId === field.id}
-                          className="text-gray-400 hover:text-red-500 transition disabled:opacity-50"
-                        >
-                          <Trash2Icon className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                    {customFields.length === 0 && (
-                      <p className="text-xs text-gray-400 py-2">No custom fields defined.</p>
-                    )}
-                  </div>
+                        <Trash2Icon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {customFields.length === 0 && (
+                    <p className="text-xs text-gray-400 py-2">No custom fields defined.</p>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-        </Portal>
+        </div>
       )}
 
       {/* Add/Edit Employee Modal */}
@@ -968,6 +1356,40 @@ export default function EmployeeManagement({
                       ))}
                     </select>
                   </div>
+
+                  {/* Certifications */}
+                  {certifications.length > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-2">Certifications</label>
+                      <div className="flex flex-wrap gap-2">
+                        {certifications.map((cert) => {
+                          const selected = formCertIds.has(cert.id)
+                          return (
+                            <button
+                              key={cert.id}
+                              type="button"
+                              onClick={() => {
+                                setFormCertIds(prev => {
+                                  const next = new Set(prev)
+                                  if (next.has(cert.id)) next.delete(cert.id)
+                                  else next.add(cert.id)
+                                  return next
+                                })
+                              }}
+                              className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                                selected
+                                  ? 'border-transparent shadow-sm'
+                                  : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                              }`}
+                              style={selected ? { backgroundColor: cert.color, color: contrastText(cert.color) } : undefined}
+                            >
+                              {cert.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Notes */}
                   <div>
@@ -1186,6 +1608,40 @@ export default function EmployeeManagement({
                         ))}
                       </select>
                     </div>
+
+                    {/* Certifications */}
+                    {certifications.length > 0 && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-2">Certifications</label>
+                        <div className="flex flex-wrap gap-2">
+                          {certifications.map((cert) => {
+                            const selected = formCertIds.has(cert.id)
+                            return (
+                              <button
+                                key={cert.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormCertIds(prev => {
+                                    const next = new Set(prev)
+                                    if (next.has(cert.id)) next.delete(cert.id)
+                                    else next.add(cert.id)
+                                    return next
+                                  })
+                                }}
+                                className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                                  selected
+                                    ? 'border-transparent shadow-sm'
+                                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                                }`}
+                                style={selected ? { backgroundColor: cert.color, color: contrastText(cert.color) } : undefined}
+                              >
+                                {cert.name}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Notes */}
                     <div>

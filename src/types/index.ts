@@ -366,6 +366,21 @@ export interface EmployeeRole {
   created_at: string
 }
 
+export interface EmployeeCertification {
+  id: string
+  name: string
+  color: string
+  sort_order: number
+  created_at: string
+}
+
+export interface EmployeeCertificationAssignment {
+  id: string
+  employee_id: string
+  certification_id: string
+  created_at: string
+}
+
 export interface EmployeeCustomFieldDefinition {
   id: string
   label: string
