@@ -88,6 +88,7 @@ function rangeLabel(start: Date): string {
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAY_FULL_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 function emptyDays(): DayFlags {
@@ -1162,12 +1163,53 @@ function DaySelectionModal({
     return out
   })
 
+  // Confirmation dialog state for unchecking a day from a fully-selected week
+  const [confirmRemove, setConfirmRemove] = useState<{
+    weekISO: string
+    dayIndex: number
+  } | null>(null)
+
+  function isWholeWeekSelected(weekISO: string): boolean {
+    const arr = weeks[weekISO]
+    return arr ? arr.every(Boolean) : false
+  }
+
   function toggle(weekISO: string, dayIndex: number) {
+    const arr = weeks[weekISO] ?? emptyDays()
+    // If unchecking a day and the whole week is currently selected, show confirmation
+    if (arr[dayIndex] && isWholeWeekSelected(weekISO)) {
+      setConfirmRemove({ weekISO, dayIndex })
+      return
+    }
     setWeeks((prev) => {
       const next = { ...prev }
-      const arr = [...(next[weekISO] ?? emptyDays())] as DayFlags
-      arr[dayIndex] = !arr[dayIndex]
-      next[weekISO] = arr
+      const a = [...(next[weekISO] ?? emptyDays())] as DayFlags
+      a[dayIndex] = !a[dayIndex]
+      next[weekISO] = a
+      return next
+    })
+  }
+
+  function confirmDayRemove() {
+    if (!confirmRemove) return
+    const { weekISO, dayIndex } = confirmRemove
+    setWeeks((prev) => {
+      const next = { ...prev }
+      const a = [...(next[weekISO] ?? emptyDays())] as DayFlags
+      a[dayIndex] = false
+      next[weekISO] = a
+      return next
+    })
+    setConfirmRemove(null)
+  }
+
+  function toggleWholeWeek(weekISO: string) {
+    const allSelected = isWholeWeekSelected(weekISO)
+    setWeeks((prev) => {
+      const next = { ...prev }
+      next[weekISO] = allSelected
+        ? emptyDays()
+        : [true, true, true, true, true, true, true]
       return next
     })
   }
@@ -1229,9 +1271,20 @@ function DaySelectionModal({
                     : ''
                 }
               >
-                <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                  {w.label} <span className="text-gray-400 normal-case font-normal">({rangeLabel(w.date)})</span>
-                </p>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="flex items-center gap-1.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={isWholeWeekSelected(w.iso)}
+                      onChange={() => toggleWholeWeek(w.iso)}
+                      className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                      {w.label}
+                    </span>
+                  </label>
+                  <span className="text-[11px] text-gray-400 normal-case font-normal">({rangeLabel(w.date)})</span>
+                </div>
                 <div className="flex gap-1.5">
                   {DAY_LABELS.map((label, i) => (
                     <button
@@ -1298,6 +1351,43 @@ function DaySelectionModal({
           </button>
         </div>
       </div>
+
+      {/* Confirmation dialog for removing a day from a fully-selected week */}
+      {confirmRemove && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50"
+          onClick={() => setConfirmRemove(null)}
+        >
+          <div
+            className="bg-white rounded-xl border border-gray-200 shadow-xl p-5 w-full max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <AlertTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">Remove Day?</h3>
+                <p className="text-xs text-gray-600">
+                  This will uncheck {DAY_FULL_NAMES[confirmRemove.dayIndex]} and the full week selection. Are you sure?
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmRemove(null)}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDayRemove}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-sm font-semibold transition"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
