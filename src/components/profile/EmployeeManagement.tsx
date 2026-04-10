@@ -37,7 +37,7 @@ import { CSS } from '@dnd-kit/utilities'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { moveToTrash } from '@/lib/trashBin'
-import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition, EmployeeCertification, EmployeeCertificationAssignment } from '@/types'
+import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition, EmployeeCertification, EmployeeCertificationAssignment, EmployeeOshaTraining, EmployeeOshaAssignment } from '@/types'
 
 const PRESET_COLORS = [
   '#EF4444', '#F97316', '#EAB308', '#22C55E', '#14B8A6',
@@ -185,17 +185,19 @@ function SortableRoleRow({
   )
 }
 
-function SortableCertRow({
+type ColoredItem = { id: string; name: string; color: string; sort_order: number; created_at: string }
+
+function SortableCertRow<T extends ColoredItem>({
   cert,
   onRename,
   onDelete,
   onColorChange,
   deleting,
 }: {
-  cert: EmployeeCertification
-  onRename: (cert: EmployeeCertification, newName: string) => void
-  onDelete: (cert: EmployeeCertification) => void
-  onColorChange: (cert: EmployeeCertification, color: string) => void
+  cert: T
+  onRename: (cert: T, newName: string) => void
+  onDelete: (cert: T) => void
+  onColorChange: (cert: T, color: string) => void
   deleting: boolean
 }) {
   const {
@@ -341,6 +343,16 @@ export default function EmployeeManagement({
   const [certError, setCertError] = useState<string | null>(null)
   const [deletingCertId, setDeletingCertId] = useState<string | null>(null)
 
+  // OSHA trainings
+  const [oshaTrainings, setOshaTrainings] = useState<EmployeeOshaTraining[]>([])
+  const [oshaAssignments, setOshaAssignments] = useState<EmployeeOshaAssignment[]>([])
+  const [newOshaName, setNewOshaName] = useState('')
+  const [newOshaColor, setNewOshaColor] = useState('#22C55E')
+  const [newOshaPickerOpen, setNewOshaPickerOpen] = useState(false)
+  const [addingOsha, setAddingOsha] = useState(false)
+  const [oshaError, setOshaError] = useState<string | null>(null)
+  const [deletingOshaId, setDeletingOshaId] = useState<string | null>(null)
+
   // Add/Edit modal
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<EmployeeProfile | null>(null)
@@ -350,6 +362,7 @@ export default function EmployeeManagement({
   const [formPhotoUrl, setFormPhotoUrl] = useState<string | null>(null)
   const [formCustomFields, setFormCustomFields] = useState<Record<string, string>>({})
   const [formCertIds, setFormCertIds] = useState<Set<string>>(new Set())
+  const [formOshaIds, setFormOshaIds] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -403,13 +416,30 @@ export default function EmployeeManagement({
     setCertAssignments((data as EmployeeCertificationAssignment[]) ?? [])
   }, [])
 
+  const fetchOshaTrainings = useCallback(async () => {
+    const { data } = await supabase
+      .from('employee_osha_trainings')
+      .select('*')
+      .order('sort_order')
+    setOshaTrainings((data as EmployeeOshaTraining[]) ?? [])
+  }, [])
+
+  const fetchOshaAssignments = useCallback(async () => {
+    const { data } = await supabase
+      .from('employee_osha_assignments')
+      .select('*')
+    setOshaAssignments((data as EmployeeOshaAssignment[]) ?? [])
+  }, [])
+
   useEffect(() => {
     fetchEmployees()
     fetchRoles()
     fetchCustomFields()
     fetchCertifications()
     fetchCertAssignments()
-  }, [fetchEmployees, fetchRoles, fetchCustomFields, fetchCertifications, fetchCertAssignments])
+    fetchOshaTrainings()
+    fetchOshaAssignments()
+  }, [fetchEmployees, fetchRoles, fetchCustomFields, fetchCertifications, fetchCertAssignments, fetchOshaTrainings, fetchOshaAssignments])
 
   // ── Role Management ──
 
@@ -626,6 +656,110 @@ export default function EmployeeManagement({
     }
   }
 
+  // ── OSHA Training Management ──
+
+  async function handleAddOsha() {
+    if (!newOshaName.trim()) return
+    setAddingOsha(true)
+    setOshaError(null)
+
+    const nextOrder = oshaTrainings.length > 0 ? Math.max(...oshaTrainings.map(o => o.sort_order)) + 1 : 1
+
+    const { error } = await supabase
+      .from('employee_osha_trainings')
+      .insert({ name: newOshaName.trim(), color: newOshaColor, sort_order: nextOrder })
+
+    if (error) {
+      setOshaError(error.message)
+    } else {
+      setNewOshaName('')
+      setNewOshaColor('#22C55E')
+      await fetchOshaTrainings()
+    }
+    setAddingOsha(false)
+  }
+
+  async function handleDeleteOsha(osha: EmployeeOshaTraining) {
+    setDeletingOshaId(osha.id)
+    const { error } = await supabase
+      .from('employee_osha_trainings')
+      .delete()
+      .eq('id', osha.id)
+
+    if (error) {
+      setOshaError(error.message)
+    } else {
+      setOshaError(null)
+      await fetchOshaTrainings()
+      await fetchOshaAssignments()
+    }
+    setDeletingOshaId(null)
+  }
+
+  async function handleRenameOsha(osha: EmployeeOshaTraining, newName: string) {
+    const trimmed = newName.trim()
+    if (!trimmed) {
+      setOshaError('Training name cannot be empty')
+      return
+    }
+    if (trimmed === osha.name) return
+
+    const duplicate = oshaTrainings.find(o => o.id !== osha.id && o.name.toLowerCase() === trimmed.toLowerCase())
+    if (duplicate) {
+      setOshaError(`Training "${trimmed}" already exists`)
+      return
+    }
+
+    setOshaError(null)
+    const { error } = await supabase
+      .from('employee_osha_trainings')
+      .update({ name: trimmed })
+      .eq('id', osha.id)
+
+    if (error) {
+      setOshaError(error.message)
+    } else {
+      await fetchOshaTrainings()
+    }
+  }
+
+  async function handleOshaColorChange(osha: EmployeeOshaTraining, color: string) {
+    setOshaError(null)
+    const { error } = await supabase
+      .from('employee_osha_trainings')
+      .update({ color })
+      .eq('id', osha.id)
+
+    if (error) {
+      setOshaError(error.message)
+    } else {
+      await fetchOshaTrainings()
+    }
+  }
+
+  async function handleOshaDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIdx = oshaTrainings.findIndex(o => o.id === active.id)
+    const newIdx = oshaTrainings.findIndex(o => o.id === over.id)
+    if (oldIdx < 0 || newIdx < 0) return
+
+    const reordered = [...oshaTrainings]
+    const [moved] = reordered.splice(oldIdx, 1)
+    reordered.splice(newIdx, 0, moved)
+
+    const updated = reordered.map((o, i) => ({ ...o, sort_order: i + 1 }))
+    setOshaTrainings(updated)
+
+    for (const o of updated) {
+      await supabase
+        .from('employee_osha_trainings')
+        .update({ sort_order: o.sort_order })
+        .eq('id', o.id)
+    }
+  }
+
   // ── Custom Field Management ──
 
   async function handleAddField() {
@@ -673,6 +807,7 @@ export default function EmployeeManagement({
     setFormPhotoUrl(null)
     setFormCustomFields({})
     setFormCertIds(new Set())
+    setFormOshaIds(new Set())
     setModalError(null)
   }
 
@@ -725,8 +860,18 @@ export default function EmployeeManagement({
         await supabase.from('employee_certification_assignments').insert(certRows)
       }
 
+      // Sync OSHA assignments
+      const oshaRows = Array.from(formOshaIds).map(oshaId => ({
+        employee_id: inserted.id,
+        osha_training_id: oshaId,
+      }))
+      if (oshaRows.length > 0) {
+        await supabase.from('employee_osha_assignments').insert(oshaRows)
+      }
+
       await fetchEmployees()
       await fetchCertAssignments()
+      await fetchOshaAssignments()
       setOnboardingStep(2)
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to save employee')
@@ -746,6 +891,10 @@ export default function EmployeeManagement({
       .filter(a => a.employee_id === emp.id)
       .map(a => a.certification_id)
     setFormCertIds(new Set(empCertIds))
+    const empOshaIds = oshaAssignments
+      .filter(a => a.employee_id === emp.id)
+      .map(a => a.osha_training_id)
+    setFormOshaIds(new Set(empOshaIds))
     setModalError(null)
     setModalOpen(true)
   }
@@ -845,8 +994,24 @@ export default function EmployeeManagement({
           .insert(certRows)
       }
 
+      // Sync OSHA assignments
+      await supabase
+        .from('employee_osha_assignments')
+        .delete()
+        .eq('employee_id', employeeId)
+      const oshaRows = Array.from(formOshaIds).map(oshaId => ({
+        employee_id: employeeId,
+        osha_training_id: oshaId,
+      }))
+      if (oshaRows.length > 0) {
+        await supabase
+          .from('employee_osha_assignments')
+          .insert(oshaRows)
+      }
+
       await fetchEmployees()
       await fetchCertAssignments()
+      await fetchOshaAssignments()
       closeModal()
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to save employee')
@@ -1065,6 +1230,25 @@ export default function EmployeeManagement({
                         </div>
                       )
                     })()}
+                    {/* OSHA Training pills */}
+                    {(() => {
+                      const empOshaIds = oshaAssignments.filter(a => a.employee_id === emp.id).map(a => a.osha_training_id)
+                      const empOsha = oshaTrainings.filter(o => empOshaIds.includes(o.id))
+                      if (empOsha.length === 0) return null
+                      return (
+                        <div className="flex flex-wrap gap-0.5 px-1.5 pt-0.5">
+                          {empOsha.map(o => (
+                            <span
+                              key={o.id}
+                              className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-semibold leading-tight"
+                              style={{ backgroundColor: o.color, color: contrastText(o.color) }}
+                            >
+                              {o.name}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
                     {/* Actions */}
                     <div className="flex items-center gap-0.5 px-1.5 pb-1.5 mt-auto">
                       <button
@@ -1183,6 +1367,56 @@ export default function EmployeeManagement({
                       ))}
                       {certifications.length === 0 && (
                         <p className="text-xs text-gray-400 py-2">No certifications defined.</p>
+                      )}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+
+              {/* Manage OSHA Training */}
+              <div className="pt-6 border-t border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Manage OSHA Training
+                </h4>
+                {oshaError && <p className="text-xs text-red-500 mb-2">{oshaError}</p>}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={newOshaName}
+                    onChange={(e) => setNewOshaName(e.target.value)}
+                    placeholder="New OSHA training name"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddOsha()}
+                  />
+                  <ColorPickerDropdown
+                    color={newOshaColor}
+                    onChange={setNewOshaColor}
+                    open={newOshaPickerOpen}
+                    onToggle={() => setNewOshaPickerOpen(!newOshaPickerOpen)}
+                  />
+                  <button
+                    onClick={handleAddOsha}
+                    disabled={addingOsha || !newOshaName.trim()}
+                    className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                  >
+                    {addingOsha ? '...' : 'Add'}
+                  </button>
+                </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleOshaDragEnd}>
+                  <SortableContext items={oshaTrainings.map(o => o.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-1">
+                      {oshaTrainings.map((osha) => (
+                        <SortableCertRow
+                          key={osha.id}
+                          cert={osha}
+                          onRename={handleRenameOsha}
+                          onDelete={handleDeleteOsha}
+                          onColorChange={handleOshaColorChange}
+                          deleting={deletingOshaId === osha.id}
+                        />
+                      ))}
+                      {oshaTrainings.length === 0 && (
+                        <p className="text-xs text-gray-400 py-2">No OSHA trainings defined.</p>
                       )}
                     </div>
                   </SortableContext>
@@ -1388,6 +1622,40 @@ export default function EmployeeManagement({
                               style={selected ? { backgroundColor: cert.color, color: contrastText(cert.color) } : undefined}
                             >
                               {cert.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* OSHA Training */}
+                  {oshaTrainings.length > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-2">OSHA Training</label>
+                      <div className="flex flex-wrap gap-2">
+                        {oshaTrainings.map((osha) => {
+                          const selected = formOshaIds.has(osha.id)
+                          return (
+                            <button
+                              key={osha.id}
+                              type="button"
+                              onClick={() => {
+                                setFormOshaIds(prev => {
+                                  const next = new Set(prev)
+                                  if (next.has(osha.id)) next.delete(osha.id)
+                                  else next.add(osha.id)
+                                  return next
+                                })
+                              }}
+                              className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                                selected
+                                  ? 'border-transparent shadow-sm'
+                                  : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                              }`}
+                              style={selected ? { backgroundColor: osha.color, color: contrastText(osha.color) } : undefined}
+                            >
+                              {osha.name}
                             </button>
                           )
                         })}
@@ -1640,6 +1908,40 @@ export default function EmployeeManagement({
                                 style={selected ? { backgroundColor: cert.color, color: contrastText(cert.color) } : undefined}
                               >
                                 {cert.name}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* OSHA Training */}
+                    {oshaTrainings.length > 0 && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-2">OSHA Training</label>
+                        <div className="flex flex-wrap gap-2">
+                          {oshaTrainings.map((osha) => {
+                            const selected = formOshaIds.has(osha.id)
+                            return (
+                              <button
+                                key={osha.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormOshaIds(prev => {
+                                    const next = new Set(prev)
+                                    if (next.has(osha.id)) next.delete(osha.id)
+                                    else next.add(osha.id)
+                                    return next
+                                  })
+                                }}
+                                className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                                  selected
+                                    ? 'border-transparent shadow-sm'
+                                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                                }`}
+                                style={selected ? { backgroundColor: osha.color, color: contrastText(osha.color) } : undefined}
+                              >
+                                {osha.name}
                               </button>
                             )
                           })}

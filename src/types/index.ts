@@ -381,6 +381,21 @@ export interface EmployeeCertificationAssignment {
   created_at: string
 }
 
+export interface EmployeeOshaTraining {
+  id: string
+  name: string
+  color: string
+  sort_order: number
+  created_at: string
+}
+
+export interface EmployeeOshaAssignment {
+  id: string
+  employee_id: string
+  osha_training_id: string
+  created_at: string
+}
+
 export interface EmployeeCustomFieldDefinition {
   id: string
   label: string
