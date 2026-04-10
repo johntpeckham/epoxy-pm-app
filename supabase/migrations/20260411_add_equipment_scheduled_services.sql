@@ -1,9 +1,15 @@
 -- ============================================================================
--- Equipment Scheduled Services — Phase 1
+-- Equipment Scheduled Services
 -- Table: equipment_scheduled_services
+--
 -- Lets users schedule upcoming services (oil change, tire rotation, etc.)
 -- with optional recurrence. Completed services link to their parent via
--- parent_service_id to form a recurrence chain.
+-- parent_service_id to form a recurrence chain. Each scheduled service may
+-- optionally be linked to an office_task via task_id, so an assigned user
+-- sees the work on their My Work page.
+--
+-- Combined Phase 1 (table + indexes + RLS) and Phase 2 (task_id column)
+-- into a single idempotent migration that can be re-run safely.
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS equipment_scheduled_services (
@@ -19,9 +25,14 @@ CREATE TABLE IF NOT EXISTS equipment_scheduled_services (
   completed_at timestamptz,
   completed_by uuid REFERENCES auth.users(id),
   parent_service_id uuid REFERENCES equipment_scheduled_services(id) ON DELETE SET NULL,
+  task_id uuid REFERENCES office_tasks(id) ON DELETE SET NULL,
   created_by uuid REFERENCES auth.users(id),
   created_at timestamptz DEFAULT now()
 );
+
+-- Phase 2 backfill: add task_id if the table pre-dates Phase 2.
+ALTER TABLE equipment_scheduled_services
+  ADD COLUMN IF NOT EXISTS task_id uuid REFERENCES office_tasks(id) ON DELETE SET NULL;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_equipment_scheduled_services_equipment_id
@@ -30,20 +41,26 @@ CREATE INDEX IF NOT EXISTS idx_equipment_scheduled_services_status
   ON equipment_scheduled_services(status);
 CREATE INDEX IF NOT EXISTS idx_equipment_scheduled_services_parent_service_id
   ON equipment_scheduled_services(parent_service_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_scheduled_services_task_id
+  ON equipment_scheduled_services(task_id);
 
 -- ============================================================================
--- RLS
+-- RLS — matches the existing equipment table pattern: read open to all
+-- authenticated users, write access restricted to admin and office_manager.
 -- ============================================================================
 
 ALTER TABLE equipment_scheduled_services ENABLE ROW LEVEL SECURITY;
 
--- All authenticated users can read scheduled services
+DROP POLICY IF EXISTS "equipment_scheduled_services_select" ON equipment_scheduled_services;
+DROP POLICY IF EXISTS "equipment_scheduled_services_insert" ON equipment_scheduled_services;
+DROP POLICY IF EXISTS "equipment_scheduled_services_update" ON equipment_scheduled_services;
+DROP POLICY IF EXISTS "equipment_scheduled_services_delete" ON equipment_scheduled_services;
+
 CREATE POLICY "equipment_scheduled_services_select"
   ON equipment_scheduled_services
   FOR SELECT TO authenticated
   USING (true);
 
--- admin, foreman, office_manager can insert
 CREATE POLICY "equipment_scheduled_services_insert"
   ON equipment_scheduled_services
   FOR INSERT TO authenticated
@@ -51,11 +68,10 @@ CREATE POLICY "equipment_scheduled_services_insert"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.id = auth.uid()
-        AND profiles.role IN ('admin', 'foreman', 'office_manager')
+        AND profiles.role IN ('admin', 'office_manager')
     )
   );
 
--- admin, foreman, office_manager can update (marks complete, edit)
 CREATE POLICY "equipment_scheduled_services_update"
   ON equipment_scheduled_services
   FOR UPDATE TO authenticated
@@ -63,11 +79,10 @@ CREATE POLICY "equipment_scheduled_services_update"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.id = auth.uid()
-        AND profiles.role IN ('admin', 'foreman', 'office_manager')
+        AND profiles.role IN ('admin', 'office_manager')
     )
   );
 
--- admin, foreman can delete
 CREATE POLICY "equipment_scheduled_services_delete"
   ON equipment_scheduled_services
   FOR DELETE TO authenticated
@@ -75,6 +90,6 @@ CREATE POLICY "equipment_scheduled_services_delete"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.id = auth.uid()
-        AND profiles.role IN ('admin', 'foreman')
+        AND profiles.role IN ('admin', 'office_manager')
     )
   );
