@@ -328,7 +328,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [newJobEndDate, setNewJobEndDate] = useState('')
   const [newJobIncludeWeekends, setNewJobIncludeWeekends] = useState(false)
   const [newJobDriveTimeEnabled, setNewJobDriveTimeEnabled] = useState(false)
-  const [newJobDriveTimeDays, setNewJobDriveTimeDays] = useState(1)
+  const [newJobDriveTimeDays, setNewJobDriveTimeDays] = useState('1')
   const [newJobDriveTimePosition, setNewJobDriveTimePosition] = useState<'front' | 'back' | 'both'>('both')
   const [newJobCrewNames, setNewJobCrewNames] = useState<string[]>([])
   const [newJobNotes, setNewJobNotes] = useState('')
@@ -580,7 +580,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setNewJobEndDate('')
     setNewJobIncludeWeekends(false)
     setNewJobDriveTimeEnabled(false)
-    setNewJobDriveTimeDays(1)
+    setNewJobDriveTimeDays('1')
     setNewJobDriveTimePosition('both')
     setNewJobCrewNames([])
     setNewJobNotes('')
@@ -805,7 +805,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
         notes: newJobNotes.trim() || null,
         color: newJobColor,
         drive_time_enabled: newJobDriveTimeEnabled,
-        drive_time_days: newJobDriveTimeDays,
+        drive_time_days: Math.max(1, Math.min(30, parseInt(newJobDriveTimeDays) || 1)),
         drive_time_position: newJobDriveTimePosition,
       }).select('id, start_date').single()
 
@@ -1331,10 +1331,17 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                       <label className="text-xs text-gray-500 font-medium whitespace-nowrap">Days</label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min={1}
                         max={30}
                         value={newJobDriveTimeDays}
-                        onChange={(e) => setNewJobDriveTimeDays(Math.max(1, parseInt(e.target.value) || 1))}
+                        onChange={(e) => setNewJobDriveTimeDays(e.target.value)}
+                        onBlur={() => {
+                          const num = parseInt(newJobDriveTimeDays)
+                          if (!num || num < 1) setNewJobDriveTimeDays('1')
+                          else if (num > 30) setNewJobDriveTimeDays('30')
+                          else setNewJobDriveTimeDays(String(num))
+                        }}
                         className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                       />
                     </div>
