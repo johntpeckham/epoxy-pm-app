@@ -32,7 +32,7 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
   const [endDate, setEndDate] = useState(project.end_date ?? '')
   const [includeWeekends, setIncludeWeekends] = useState(project.include_weekends ?? false)
   const [driveTimeEnabled, setDriveTimeEnabled] = useState(project.drive_time_enabled ?? false)
-  const [driveTimeDays, setDriveTimeDays] = useState(project.drive_time_days ?? 1)
+  const [driveTimeDays, setDriveTimeDays] = useState(String(project.drive_time_days ?? 1))
   const [driveTimePosition, setDriveTimePosition] = useState<'front' | 'back' | 'both'>(project.drive_time_position ?? 'both')
   const [crewNames, setCrewNames] = useState<string[]>(
     project.crew ? project.crew.split(',').map((s) => s.trim()).filter(Boolean) : []
@@ -118,7 +118,7 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
         notes: notes.trim() || null,
         color,
         drive_time_enabled: driveTimeEnabled,
-        drive_time_days: driveTimeDays,
+        drive_time_days: Math.max(1, Math.min(30, parseInt(driveTimeDays) || 1)),
         drive_time_position: driveTimePosition,
       })
       .eq('id', project.id)
@@ -281,10 +281,17 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
                     <label className="text-xs text-gray-500 font-medium whitespace-nowrap">Days</label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       min={1}
                       max={30}
                       value={driveTimeDays}
-                      onChange={(e) => setDriveTimeDays(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => setDriveTimeDays(e.target.value)}
+                      onBlur={() => {
+                        const num = parseInt(driveTimeDays)
+                        if (!num || num < 1) setDriveTimeDays('1')
+                        else if (num > 30) setDriveTimeDays('30')
+                        else setDriveTimeDays(String(num))
+                      }}
                       className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                     />
                   </div>
