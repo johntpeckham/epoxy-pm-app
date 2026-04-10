@@ -8,6 +8,7 @@ import type {
   MaintenanceLogRow,
   EquipmentDocumentRow,
   ScheduledServiceRow,
+  ProfileOption,
 } from '@/app/(dashboard)/equipment/[id]/page'
 import EquipmentDetailClient from './EquipmentDetailClient'
 
@@ -35,6 +36,7 @@ export default function EquipmentDetailLoader({
   const [logs, setLogs] = useState<MaintenanceLogRow[]>([])
   const [docs, setDocs] = useState<EquipmentDocumentRow[]>([])
   const [scheduled, setScheduled] = useState<ScheduledServiceRow[]>([])
+  const [profiles, setProfiles] = useState<ProfileOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,9 +74,14 @@ export default function EquipmentDetailLoader({
 
         const { data: scheduledRows } = await supabase
           .from('equipment_scheduled_services')
-          .select('id, equipment_id, description, scheduled_date, is_recurring, recurrence_interval, recurrence_unit, status, completed_at, completed_by, parent_service_id, created_by, created_at')
+          .select('id, equipment_id, description, scheduled_date, is_recurring, recurrence_interval, recurrence_unit, status, completed_at, completed_by, parent_service_id, task_id, created_by, created_at')
           .eq('equipment_id', equipmentId)
           .order('scheduled_date', { ascending: true })
+
+        const { data: profileRows } = await supabase
+          .from('profiles')
+          .select('id, display_name')
+          .order('display_name', { ascending: true })
 
         if (cancelled) return
         setEquipment({
@@ -95,6 +102,7 @@ export default function EquipmentDetailLoader({
         setLogs((logRows ?? []) as MaintenanceLogRow[])
         setDocs((docRows ?? []) as EquipmentDocumentRow[])
         setScheduled((scheduledRows ?? []) as ScheduledServiceRow[])
+        setProfiles((profileRows ?? []) as ProfileOption[])
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load equipment')
       } finally {
@@ -146,6 +154,7 @@ export default function EquipmentDetailLoader({
       initialLogs={logs}
       initialDocs={docs}
       initialScheduled={scheduled}
+      profiles={profiles}
       userId={userId}
       userRole={userRole}
       userDisplayName={userDisplayName}

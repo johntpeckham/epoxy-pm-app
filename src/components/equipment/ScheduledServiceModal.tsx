@@ -1,15 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { ScheduledServiceRow } from '@/app/(dashboard)/equipment/[id]/page'
+import type { ScheduledServiceRow, ProfileOption } from '@/app/(dashboard)/equipment/[id]/page'
 
 interface Props {
   entry: ScheduledServiceRow | null
   equipmentId: string
+  equipmentName: string
   userId: string
+  profiles: ProfileOption[]
   onClose: () => void
   onSaved: () => void
 }
@@ -23,10 +25,20 @@ function todayString() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function buildTaskTitle(equipmentName: string, description: string) {
+  return `${equipmentName} — ${description}`
+}
+
+function buildTaskDescription(equipmentName: string, scheduledDate: string) {
+  return `Scheduled service for ${equipmentName}. Due: ${scheduledDate}`
+}
+
 export default function ScheduledServiceModal({
   entry,
   equipmentId,
+  equipmentName,
   userId,
+  profiles,
   onClose,
   onSaved,
 }: Props) {
@@ -41,9 +53,32 @@ export default function ScheduledServiceModal({
   const [recurrenceUnit, setRecurrenceUnit] = useState<'weeks' | 'months'>(
     (entry?.recurrence_unit as 'weeks' | 'months' | null) ?? 'months'
   )
+  const [assignedTo, setAssignedTo] = useState<string>('')
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  /**
+   * When editing a service that has a linked task, fetch the current assignee
+   * from that task so the dropdown reflects the existing assignment.
+   */
+  useEffect(() => {
+    if (!entry?.task_id) return
+    let cancelled = false
+    const supabase = createClient()
+    supabase
+      .from('office_tasks')
+      .select('assigned_to')
+      .eq('id', entry.task_id)
+      .single()
+      .then(({ data }) => {
+        if (cancelled) return
+        setAssignedTo((data?.assigned_to as string | null) ?? '')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [entry?.task_id])
 
   const handleSubmit = async () => {
     if (!description.trim()) {
@@ -56,6 +91,7 @@ export default function ScheduledServiceModal({
     }
 
     const interval = Math.max(1, parseInt(recurrenceInterval) || 1)
+    const trimmedDescription = description.trim()
 
     setError(null)
     setLoading(true)
@@ -64,7 +100,7 @@ export default function ScheduledServiceModal({
 
     const payload = {
       equipment_id: equipmentId,
-      description: description.trim(),
+      description: trimmedDescription,
       scheduled_date: scheduledDate,
       is_recurring: isRecurring,
       recurrence_interval: isRecurring ? interval : null,
@@ -73,15 +109,81 @@ export default function ScheduledServiceModal({
 
     try {
       if (isEdit && entry) {
+        // ─── Task sync for edit ────────────────────────────────────────────
+        let newTaskId: string | null = entry.task_id
+
+        if (entry.task_id && assignedTo) {
+          // Existing task → update its fields (incl. reassignment)
+          const { error: taskErr } = await supabase
+            .from('office_tasks')
+            .update({
+              title: buildTaskTitle(equipmentName, trimmedDescription),
+              description: buildTaskDescription(equipmentName, scheduledDate),
+              assigned_to: assignedTo,
+              due_date: scheduledDate,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', entry.task_id)
+          if (taskErr) throw taskErr
+        } else if (entry.task_id && !assignedTo) {
+          // Assignee cleared → delete the linked task
+          const { error: delErr } = await supabase
+            .from('office_tasks')
+            .delete()
+            .eq('id', entry.task_id)
+          if (delErr) throw delErr
+          newTaskId = null
+        } else if (!entry.task_id && assignedTo) {
+          // No previous task → create a new one
+          const { data: newTask, error: insErr } = await supabase
+            .from('office_tasks')
+            .insert({
+              title: buildTaskTitle(equipmentName, trimmedDescription),
+              description: buildTaskDescription(equipmentName, scheduledDate),
+              assigned_to: assignedTo,
+              due_date: scheduledDate,
+              priority: 'Normal',
+              created_by: userId,
+            })
+            .select('id')
+            .single()
+          if (insErr) throw insErr
+          newTaskId = (newTask?.id as string | undefined) ?? null
+        }
+
         const { error: updateErr } = await supabase
           .from('equipment_scheduled_services')
-          .update(payload)
+          .update({ ...payload, task_id: newTaskId })
           .eq('id', entry.id)
         if (updateErr) throw updateErr
       } else {
+        // ─── Task sync for insert ──────────────────────────────────────────
+        let newTaskId: string | null = null
+        if (assignedTo) {
+          const { data: newTask, error: insErr } = await supabase
+            .from('office_tasks')
+            .insert({
+              title: buildTaskTitle(equipmentName, trimmedDescription),
+              description: buildTaskDescription(equipmentName, scheduledDate),
+              assigned_to: assignedTo,
+              due_date: scheduledDate,
+              priority: 'Normal',
+              created_by: userId,
+            })
+            .select('id')
+            .single()
+          if (insErr) throw insErr
+          newTaskId = (newTask?.id as string | undefined) ?? null
+        }
+
         const { error: insertErr } = await supabase
           .from('equipment_scheduled_services')
-          .insert({ ...payload, status: 'upcoming', created_by: userId })
+          .insert({
+            ...payload,
+            status: 'upcoming',
+            created_by: userId,
+            task_id: newTaskId,
+          })
         if (insertErr) throw insertErr
       }
       onSaved()
@@ -143,6 +245,26 @@ export default function ScheduledServiceModal({
                 onChange={(e) => setScheduledDate(e.target.value)}
                 className={inputCls}
               />
+            </div>
+
+            {/* Assign to */}
+            <div>
+              <label className={labelCls}>Assign to</label>
+              <select
+                value={assignedTo}
+                onChange={(e) => setAssignedTo(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Unassigned</option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.display_name || 'Unknown'}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Creates a linked office task for the assigned user.
+              </p>
             </div>
 
             {/* Recurring toggle */}

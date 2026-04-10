@@ -71,6 +71,24 @@ export default async function OfficePage() {
   const equipmentActive = equipmentRows.filter((e) => e.status === 'active').length
   const equipmentOutOfService = equipmentRows.filter((e) => e.status === 'out_of_service').length
 
+  // Fetch upcoming / due / overdue scheduled services (not completed) for the
+  // Equipment card preview. Ordered by scheduled_date so the most urgent rise
+  // to the top; we limit generously and the client shows the top few.
+  const { data: upcomingScheduledRaw } = await supabase
+    .from('equipment_scheduled_services')
+    .select('id, equipment_id, description, scheduled_date, status')
+    .neq('status', 'completed')
+    .order('scheduled_date', { ascending: true })
+    .limit(20)
+
+  const upcomingScheduled = (upcomingScheduledRaw ?? []) as {
+    id: string
+    equipment_id: string
+    description: string
+    scheduled_date: string
+    status: string
+  }[]
+
   // Fetch employee count for the Employees dashboard card (only for admin/office_manager)
   let employeeCount = 0
   if (userRole === 'admin' || userRole === 'office_manager') {
@@ -90,6 +108,7 @@ export default async function OfficePage() {
       initialProjects={projects ?? []}
       initialEquipment={equipmentRows}
       equipmentCounts={{ total: equipmentTotal, active: equipmentActive, outOfService: equipmentOutOfService }}
+      upcomingScheduledServices={upcomingScheduled}
       employeeCount={employeeCount}
     />
   )

@@ -42,6 +42,22 @@ function isOverdue(d: string | null) {
   return new Date(d + 'T00:00:00') < today
 }
 
+/** Derive urgency bucket for a scheduled service from its date vs today. */
+function scheduledUrgency(scheduledDate: string): 'overdue' | 'soon' | 'later' {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const sd = new Date(scheduledDate + 'T00:00:00')
+  const diffDays = Math.round((sd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays < 0) return 'overdue'
+  if (diffDays <= 7) return 'soon'
+  return 'later'
+}
+
+function formatScheduledDate(d: string) {
+  const date = new Date(d + 'T00:00:00')
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 const priorityOrder: Record<OfficePriority, number> = {
   Urgent: 0,
   High: 1,
@@ -76,6 +92,14 @@ interface EquipmentCounts {
   outOfService: number
 }
 
+export interface UpcomingScheduledService {
+  id: string
+  equipment_id: string
+  description: string
+  scheduled_date: string
+  status: string
+}
+
 interface Props {
   userId: string
   userRole: UserRole
@@ -85,6 +109,7 @@ interface Props {
   initialProjects: ProjectOption[]
   initialEquipment: EquipmentRow[]
   equipmentCounts: EquipmentCounts
+  upcomingScheduledServices: UpcomingScheduledService[]
   employeeCount: number
 }
 
@@ -107,6 +132,7 @@ export default function OfficeTasksPageClient({
   initialProjects,
   initialEquipment,
   equipmentCounts,
+  upcomingScheduledServices,
   employeeCount,
 }: Props) {
   const supabase = createClient()
@@ -121,6 +147,32 @@ export default function OfficeTasksPageClient({
   const [view, setView] = useState<OfficeView>({ kind: 'dashboard' })
 
   const canManageEmployees = userRole === 'admin' || userRole === 'office_manager'
+
+  // Build a preview list of upcoming scheduled services enriched with the
+  // equipment name, sorted by urgency (overdue first), capped at 5 for the
+  // Equipment dashboard card. The full list is reachable via "View all".
+  const equipmentNameById = useMemo(
+    () => new Map(initialEquipment.map((e) => [e.id, e.name])),
+    [initialEquipment]
+  )
+  const upcomingServicesPreview = useMemo(() => {
+    return upcomingScheduledServices
+      .map((s) => ({
+        ...s,
+        equipment_name: equipmentNameById.get(s.equipment_id) ?? 'Unknown',
+        urgency: scheduledUrgency(s.scheduled_date),
+      }))
+      .sort((a, b) => {
+        // Overdue first, then by date ascending
+        const order: Record<string, number> = { overdue: 0, soon: 1, later: 2 }
+        const oa = order[a.urgency] ?? 2
+        const ob = order[b.urgency] ?? 2
+        if (oa !== ob) return oa - ob
+        return a.scheduled_date.localeCompare(b.scheduled_date)
+      })
+  }, [upcomingScheduledServices, equipmentNameById])
+  const upcomingServicesTop = upcomingServicesPreview.slice(0, 5)
+  const upcomingServicesHasMore = upcomingServicesPreview.length > 5
 
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles])
   const getDisplayName = (id: string | null) => {
@@ -451,6 +503,58 @@ export default function OfficeTasksPageClient({
               <span className="text-gray-500">Out of Service</span>
               <span className="font-medium text-gray-900">{equipmentCounts.outOfService}</span>
             </div>
+          </div>
+
+          {/* Upcoming scheduled services preview */}
+          <div className="border-t border-gray-100 pt-3 mb-3">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Upcoming Services
+            </p>
+            {upcomingServicesTop.length === 0 ? (
+              <p className="text-xs text-gray-400">No upcoming services</p>
+            ) : (
+              <div className="space-y-1.5">
+                {upcomingServicesTop.map((s) => {
+                  const pillCls =
+                    s.urgency === 'overdue'
+                      ? 'bg-red-100 text-red-700'
+                      : s.urgency === 'soon'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-500'
+                  const pillLabel =
+                    s.urgency === 'overdue'
+                      ? 'Overdue'
+                      : s.urgency === 'soon'
+                      ? 'Soon'
+                      : 'Upcoming'
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setView({ kind: 'equipment-detail', equipmentId: s.equipment_id })}
+                      className="w-full flex items-center gap-2 text-left px-2 py-1.5 rounded-md hover:bg-gray-50 transition-colors"
+                    >
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0 ${pillCls}`}>
+                        {pillLabel}
+                      </span>
+                      <span className="text-xs text-gray-900 font-medium truncate flex-1 min-w-0">
+                        {s.equipment_name}: {s.description}
+                      </span>
+                      <span className="text-[11px] text-gray-400 flex-shrink-0">
+                        {formatScheduledDate(s.scheduled_date)}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {upcomingServicesHasMore && (
+              <button
+                onClick={() => setView({ kind: 'equipment' })}
+                className="mt-2 text-[11px] font-medium text-amber-600 hover:text-amber-700 transition-colors"
+              >
+                View all →
+              </button>
+            )}
           </div>
 
           {/* Opens the Equipment workspace in the full work area */}

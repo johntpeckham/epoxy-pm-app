@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon, CalendarClockIcon, CheckIcon } from 'lucide-react'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
-import type { MaintenanceLogRow, EquipmentDocumentRow, ScheduledServiceRow } from '@/app/(dashboard)/equipment/[id]/page'
+import type { MaintenanceLogRow, EquipmentDocumentRow, ScheduledServiceRow, ProfileOption } from '@/app/(dashboard)/equipment/[id]/page'
 import EquipmentModal from './EquipmentModal'
 import MaintenanceLogModal from './MaintenanceLogModal'
 import DocumentUploadModal from './DocumentUploadModal'
@@ -70,6 +70,7 @@ interface Props {
   initialLogs: MaintenanceLogRow[]
   initialDocs: EquipmentDocumentRow[]
   initialScheduled?: ScheduledServiceRow[]
+  profiles?: ProfileOption[]
   userId: string
   userRole: string
   userDisplayName: string
@@ -82,6 +83,7 @@ export default function EquipmentDetailClient({
   initialLogs,
   initialDocs,
   initialScheduled = [],
+  profiles = [],
   userId,
   userRole,
   userDisplayName,
@@ -94,6 +96,8 @@ export default function EquipmentDetailClient({
   const [logs, setLogs] = useState(initialLogs)
   const [docs, setDocs] = useState(initialDocs)
   const [scheduled, setScheduled] = useState<ScheduledServiceRow[]>(initialScheduled)
+  /** Map of task_id → assignee display name, used to render the Assigned pill. */
+  const [taskAssignees, setTaskAssignees] = useState<Map<string, string>>(new Map())
   const [showEquipmentModal, setShowEquipmentModal] = useState(false)
   const [showLogModal, setShowLogModal] = useState(false)
   const [showDocModal, setShowDocModal] = useState(false)
@@ -173,7 +177,7 @@ export default function EquipmentDetailClient({
     const supabase = createClient()
     const { data } = await supabase
       .from('equipment_scheduled_services')
-      .select('id, equipment_id, description, scheduled_date, is_recurring, recurrence_interval, recurrence_unit, status, completed_at, completed_by, parent_service_id, created_by, created_at')
+      .select('id, equipment_id, description, scheduled_date, is_recurring, recurrence_interval, recurrence_unit, status, completed_at, completed_by, parent_service_id, task_id, created_by, created_at')
       .eq('equipment_id', equipment.id)
       .order('scheduled_date', { ascending: true })
     if (data) {
@@ -188,8 +192,10 @@ export default function EquipmentDetailClient({
   }, [refreshScheduled])
 
   /**
-   * Mark a scheduled service complete. If it is recurring, also insert the
-   * next occurrence chained via parent_service_id.
+   * Mark a scheduled service complete. If it has a linked office task, also
+   * mark that task complete. If it is recurring, insert the next occurrence
+   * chained via parent_service_id; if the completed service was assigned,
+   * create a new linked task for the next occurrence with the same assignee.
    */
   const handleCompleteScheduled = async (service: ScheduledServiceRow) => {
     const supabase = createClient()
@@ -208,6 +214,22 @@ export default function EquipmentDetailClient({
       return
     }
 
+    // 1b. Mark the linked task complete (if any) and fetch its assignee so
+    //     we can carry the assignment forward to the next recurrence.
+    let carriedAssignee: string | null = null
+    if (service.task_id) {
+      const { data: existingTask } = await supabase
+        .from('office_tasks')
+        .select('assigned_to')
+        .eq('id', service.task_id)
+        .single()
+      carriedAssignee = (existingTask?.assigned_to as string | null) ?? null
+      await supabase
+        .from('office_tasks')
+        .update({ is_completed: true, updated_at: new Date().toISOString() })
+        .eq('id', service.task_id)
+    }
+
     // 2. If recurring, generate the next occurrence
     if (service.is_recurring && service.recurrence_interval && service.recurrence_unit) {
       const nextDate = addInterval(
@@ -216,6 +238,30 @@ export default function EquipmentDetailClient({
         service.recurrence_unit
       )
       const parentId = service.parent_service_id ?? service.id
+
+      // If the completed service was assigned, create a linked task for the
+      // next occurrence with the same assignee.
+      let newTaskId: string | null = null
+      if (carriedAssignee) {
+        const { data: newTask, error: taskErr } = await supabase
+          .from('office_tasks')
+          .insert({
+            title: `${equipment.name} — ${service.description}`,
+            description: `Scheduled service for ${equipment.name}. Due: ${nextDate}`,
+            assigned_to: carriedAssignee,
+            due_date: nextDate,
+            priority: 'Normal',
+            created_by: userId,
+          })
+          .select('id')
+          .single()
+        if (taskErr) {
+          console.error('[EquipmentDetailClient] Failed to create next-recurrence task:', taskErr)
+        } else {
+          newTaskId = (newTask?.id as string | undefined) ?? null
+        }
+      }
+
       const { error: insertErr } = await supabase
         .from('equipment_scheduled_services')
         .insert({
@@ -227,6 +273,7 @@ export default function EquipmentDetailClient({
           recurrence_unit: service.recurrence_unit,
           status: 'upcoming',
           parent_service_id: parentId,
+          task_id: newTaskId,
           created_by: userId,
         })
       if (insertErr) {
@@ -240,6 +287,13 @@ export default function EquipmentDetailClient({
   const handleDeleteScheduled = async (id: string) => {
     setDeletingScheduled(true)
     const supabase = createClient()
+
+    // Delete the linked office task first (if any)
+    const service = scheduled.find((s) => s.id === id)
+    if (service?.task_id) {
+      await supabase.from('office_tasks').delete().eq('id', service.task_id)
+    }
+
     const { error } = await supabase.from('equipment_scheduled_services').delete().eq('id', id)
     if (!error) {
       setScheduled((prev) => prev.filter((s) => s.id !== id))
@@ -295,6 +349,33 @@ export default function EquipmentDetailClient({
           s.recurrence_unit!
         )
         const parentId = s.parent_service_id ?? s.id
+
+        // Carry assignee forward if the overdue service had a linked task.
+        let newTaskId: string | null = null
+        if (s.task_id) {
+          const { data: existingTask } = await supabase
+            .from('office_tasks')
+            .select('assigned_to')
+            .eq('id', s.task_id)
+            .single()
+          const carriedAssignee = (existingTask?.assigned_to as string | null) ?? null
+          if (carriedAssignee) {
+            const { data: newTask } = await supabase
+              .from('office_tasks')
+              .insert({
+                title: `${equipment.name} — ${s.description}`,
+                description: `Scheduled service for ${equipment.name}. Due: ${nextDate}`,
+                assigned_to: carriedAssignee,
+                due_date: nextDate,
+                priority: 'Normal',
+                created_by: userId,
+              })
+              .select('id')
+              .single()
+            newTaskId = (newTask?.id as string | undefined) ?? null
+          }
+        }
+
         const { error: insertErr } = await supabase
           .from('equipment_scheduled_services')
           .insert({
@@ -306,6 +387,7 @@ export default function EquipmentDetailClient({
             recurrence_unit: s.recurrence_unit,
             status: 'upcoming',
             parent_service_id: parentId,
+            task_id: newTaskId,
             created_by: userId,
           })
         if (insertErr) {
@@ -315,7 +397,41 @@ export default function EquipmentDetailClient({
       refreshScheduled()
     }
     run()
-  }, [scheduled, userId, refreshScheduled])
+  }, [scheduled, userId, refreshScheduled, equipment.name])
+
+  /**
+   * Whenever the scheduled services change, fetch the assignee for each
+   * linked task so we can render "Assigned: [Name]" pills on the cards.
+   */
+  useEffect(() => {
+    const taskIds = scheduled
+      .map((s) => s.task_id)
+      .filter((id): id is string => !!id)
+    if (taskIds.length === 0) {
+      setTaskAssignees(new Map())
+      return
+    }
+    let cancelled = false
+    const supabase = createClient()
+    supabase
+      .from('office_tasks')
+      .select('id, assigned_to')
+      .in('id', taskIds)
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        const profileNameById = new Map(profiles.map((p) => [p.id, p.display_name ?? 'Unknown']))
+        const map = new Map<string, string>()
+        for (const row of data as { id: string; assigned_to: string | null }[]) {
+          if (row.assigned_to) {
+            map.set(row.id, profileNameById.get(row.assigned_to) ?? 'Unknown')
+          }
+        }
+        setTaskAssignees(map)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [scheduled, profiles])
 
   const refreshDocs = useCallback(async () => {
     const supabase = createClient()
@@ -467,6 +583,11 @@ export default function EquipmentDetailClient({
                             {service.is_recurring && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
                                 Recurring
+                              </span>
+                            )}
+                            {service.task_id && taskAssignees.get(service.task_id) && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">
+                                Assigned: {taskAssignees.get(service.task_id)}
                               </span>
                             )}
                           </div>
@@ -795,7 +916,9 @@ export default function EquipmentDetailClient({
         <ScheduledServiceModal
           entry={editingScheduled}
           equipmentId={equipment.id}
+          equipmentName={equipment.name}
           userId={userId}
+          profiles={profiles}
           onClose={() => {
             setShowScheduledModal(false)
             setEditingScheduled(null)

@@ -41,8 +41,14 @@ export interface ScheduledServiceRow {
   completed_at: string | null
   completed_by: string | null
   parent_service_id: string | null
+  task_id: string | null
   created_by: string | null
   created_at: string
+}
+
+export interface ProfileOption {
+  id: string
+  display_name: string | null
 }
 
 export default async function EquipmentDetailPage({ params }: PageProps) {
@@ -82,9 +88,14 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
 
   const { data: scheduled } = await supabase
     .from('equipment_scheduled_services')
-    .select('id, equipment_id, description, scheduled_date, is_recurring, recurrence_interval, recurrence_unit, status, completed_at, completed_by, parent_service_id, created_by, created_at')
+    .select('id, equipment_id, description, scheduled_date, is_recurring, recurrence_interval, recurrence_unit, status, completed_at, completed_by, parent_service_id, task_id, created_by, created_at')
     .eq('equipment_id', id)
     .order('scheduled_date', { ascending: true })
+
+  const { data: profileRows } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .order('display_name', { ascending: true })
 
   return (
     <EquipmentDetailClient
@@ -106,6 +117,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
       initialLogs={(logs ?? []) as MaintenanceLogRow[]}
       initialDocs={(docs ?? []) as EquipmentDocumentRow[]}
       initialScheduled={(scheduled ?? []) as ScheduledServiceRow[]}
+      profiles={(profileRows ?? []) as ProfileOption[]}
       userId={session.user.id}
       userRole={userRole}
       userDisplayName={displayName}
