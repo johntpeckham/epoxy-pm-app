@@ -621,6 +621,26 @@ export default function SchedulerClient({
     }
   }, [assignments, projects, employees, activeWeekISO, companySettings])
 
+  // ── Preview modal data ─────────────────────────────────────────────────
+  // Atomically derive the data the SchedulePreviewModal needs from the
+  // currently selected active week. Memoizing the payload here (instead of
+  // computing it inline in JSX) makes the binding to `activeWeekISO`
+  // explicit and guarantees the modal's header, daily table, and employee
+  // summary all reflect the SAME selected week — matching the PDF.
+  const previewWeekAssignments = useMemo(
+    () =>
+      assignments
+        .filter((a) => a.week_start === activeWeekISO && a.days.some(Boolean))
+        .map((a) => ({
+          employee_id: a.employee_id,
+          employee_name: a.employee_name,
+          project_id: a.project_id,
+          project_name: a.project_name,
+          days: a.days,
+        })),
+    [assignments, activeWeekISO]
+  )
+
   // ── Assignment mutations (local state) ──────────────────────────────────
   const updateLocalAssignmentDays = useCallback(
     (id: string, days: DayFlags) => {
@@ -1148,22 +1168,18 @@ export default function SchedulerClient({
       )}
 
       {/* Schedule preview modal — opens before download/print so the user
-          can verify the report before saving or sending it to the printer. */}
+          can verify the report before saving or sending it to the printer.
+          The `key` forces a fresh mount whenever the active week changes,
+          guaranteeing the modal can never display data from a previously
+          selected week. */}
       {previewOpen && (
         <SchedulePreviewModal
+          key={activeWeekISO}
           weekStartISO={activeWeekISO}
           thisWeekISO={thisWeekISO}
           nextWeekISO={nextWeekISO}
           followingWeekISO={followingWeekISO}
-          assignments={assignments
-            .filter((a) => a.week_start === activeWeekISO && a.days.some(Boolean))
-            .map((a) => ({
-              employee_id: a.employee_id,
-              employee_name: a.employee_name,
-              project_id: a.project_id,
-              project_name: a.project_name,
-              days: a.days,
-            }))}
+          assignments={previewWeekAssignments}
           projects={projects.map((p) => ({
             id: p.id,
             name: p.name,
