@@ -76,6 +76,7 @@ html.dark .hover\:bg-gray-50:hover { background-color: var(--dark-bg-hover); }
 html.dark .hover\:bg-gray-100:hover { background-color: var(--dark-bg-hover); }
 
 /* Divide / table borders */
+html.dark .divide-gray-50 > * + * { border-color: var(--dark-border); }
 html.dark .divide-gray-100 > * + * { border-color: var(--dark-border); }
 html.dark .divide-gray-200 > * + * { border-color: var(--dark-border); }
 html.dark .divide-gray-300 > * + * { border-color: var(--dark-border-strong); }
