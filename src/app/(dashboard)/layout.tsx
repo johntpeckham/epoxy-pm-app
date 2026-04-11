@@ -31,7 +31,7 @@ export default async function DashboardLayout({
 
   return (
     <AuthProvider>
-      <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+      <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-gray-50 dark:bg-[#1a1a1a] overflow-hidden">
         <Suspense>
           <Sidebar
             userId={user?.id ?? ''}
