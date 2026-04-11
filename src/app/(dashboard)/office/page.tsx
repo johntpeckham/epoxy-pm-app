@@ -75,10 +75,6 @@ export default async function OfficePage() {
     created_by: row.created_by,
   }))
 
-  const equipmentTotal = equipmentRows.length
-  const equipmentActive = equipmentRows.filter((e) => e.status === 'active').length
-  const equipmentOutOfService = equipmentRows.filter((e) => e.status === 'out_of_service').length
-
   // Fetch upcoming / due / overdue / in-progress scheduled services (everything
   // except completed) for the Equipment card preview. Joins the equipment table
   // so the card can show the equipment name without a second lookup. Ordered by
@@ -123,7 +119,6 @@ export default async function OfficePage() {
       initialProfiles={profiles ?? []}
       initialProjects={projects ?? []}
       initialEquipment={equipmentRows}
-      equipmentCounts={{ total: equipmentTotal, active: equipmentActive, outOfService: equipmentOutOfService }}
       upcomingScheduledServices={upcomingScheduled}
       employeeCount={employeeCount}
     />

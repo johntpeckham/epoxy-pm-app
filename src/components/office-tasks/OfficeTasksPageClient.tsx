@@ -116,12 +116,6 @@ function sortTasks(tasks: OfficeTask[]): OfficeTask[] {
 
 type ProjectOption = { id: string; name: string }
 
-interface EquipmentCounts {
-  total: number
-  active: number
-  outOfService: number
-}
-
 export interface UpcomingScheduledService {
   id: string
   equipment_id: string
@@ -140,7 +134,6 @@ interface Props {
   initialProfiles: Profile[]
   initialProjects: ProjectOption[]
   initialEquipment: EquipmentRow[]
-  equipmentCounts: EquipmentCounts
   upcomingScheduledServices: UpcomingScheduledService[]
   employeeCount: number
 }
@@ -163,7 +156,6 @@ export default function OfficeTasksPageClient({
   initialProfiles,
   initialProjects,
   initialEquipment,
-  equipmentCounts,
   upcomingScheduledServices,
   employeeCount,
 }: Props) {
@@ -572,25 +564,10 @@ export default function OfficeTasksPageClient({
               <WrenchIcon className="w-5 h-5" />
             </span>
             <h3 className="text-sm font-semibold text-gray-900 flex-1">Equipment</h3>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
-              {equipmentCounts.total} total
-            </span>
-          </div>
-
-          {/* Summary counts */}
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Active</span>
-              <span className="font-medium text-gray-900">{equipmentCounts.active}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Out of Service</span>
-              <span className="font-medium text-gray-900">{equipmentCounts.outOfService}</span>
-            </div>
           </div>
 
           {/* Upcoming scheduled services preview */}
-          <div className="border-t border-gray-100 pt-3 mb-3">
+          <div className="mb-3">
             <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
               Upcoming Services
             </p>
