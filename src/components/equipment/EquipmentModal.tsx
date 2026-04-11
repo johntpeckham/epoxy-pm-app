@@ -11,6 +11,8 @@ interface Props {
   userId: string
   onClose: () => void
   onSaved: () => void
+  /** When editing, triggers the delete confirmation flow in the parent. */
+  onDelete?: (id: string) => void
 }
 
 const CATEGORY_OPTIONS = [
@@ -29,7 +31,7 @@ const inputCls =
   'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
-export default function EquipmentModal({ item, userId, onClose, onSaved }: Props) {
+export default function EquipmentModal({ item, userId, onClose, onSaved, onDelete }: Props) {
   const isEdit = !!item
 
   const [name, setName] = useState(item?.name ?? '')
@@ -377,22 +379,37 @@ export default function EquipmentModal({ item, userId, onClose, onSaved }: Props
 
           {/* Footer */}
           <div
-            className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-200 flex-shrink-0"
+            className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-200 flex-shrink-0 flex-wrap"
             style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
           >
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Equipment'}
-            </button>
+            {isEdit && item && onDelete ? (
+              <button
+                type="button"
+                onClick={() => onDelete(item.id)}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <TrashIcon className="w-4 h-4" />
+                Delete Equipment
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Equipment'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
