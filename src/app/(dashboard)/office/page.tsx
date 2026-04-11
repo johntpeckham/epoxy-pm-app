@@ -79,23 +79,31 @@ export default async function OfficePage() {
   const equipmentActive = equipmentRows.filter((e) => e.status === 'active').length
   const equipmentOutOfService = equipmentRows.filter((e) => e.status === 'out_of_service').length
 
-  // Fetch upcoming / due / overdue scheduled services (not completed) for the
-  // Equipment card preview. Ordered by scheduled_date so the most urgent rise
-  // to the top; we limit generously and the client shows the top few.
+  // Fetch upcoming / due / overdue / in-progress scheduled services (everything
+  // except completed) for the Equipment card preview. Joins the equipment table
+  // so the card can show the equipment name without a second lookup. Ordered by
+  // scheduled_date ASC — the oldest/most overdue surface first. This is seed
+  // data for the client component; the client refetches on mount (and when the
+  // user returns to the dashboard view) to stay in sync with the detail page.
   const { data: upcomingScheduledRaw } = await supabase
     .from('equipment_scheduled_services')
-    .select('id, equipment_id, description, scheduled_date, status')
+    .select('id, equipment_id, description, scheduled_date, status, equipment:equipment_id ( name )')
     .neq('status', 'completed')
     .order('scheduled_date', { ascending: true })
-    .limit(20)
+    .limit(50)
 
-  const upcomingScheduled = (upcomingScheduledRaw ?? []) as {
-    id: string
-    equipment_id: string
-    description: string
-    scheduled_date: string
-    status: string
-  }[]
+  const upcomingScheduled = (upcomingScheduledRaw ?? []).map((row) => {
+    const eq = (row as { equipment?: { name?: string } | { name?: string }[] | null }).equipment
+    const equipmentName = Array.isArray(eq) ? eq[0]?.name ?? null : eq?.name ?? null
+    return {
+      id: row.id as string,
+      equipment_id: row.equipment_id as string,
+      description: row.description as string,
+      scheduled_date: row.scheduled_date as string,
+      status: row.status as string,
+      equipment_name: equipmentName,
+    }
+  })
 
   // Fetch employee count for the Employees dashboard card (only for admin/office_manager)
   let employeeCount = 0
