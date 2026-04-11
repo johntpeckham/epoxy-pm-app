@@ -1052,12 +1052,10 @@ function WeekRow({
       onKeyDown={handleKeyDown}
       className={`w-full text-left rounded-lg border transition cursor-pointer overflow-hidden ${
         active
-          ? highlighted
-            ? 'border-amber-300 dark:border-[rgba(245,158,11,0.35)] bg-amber-50/60 dark:bg-[rgba(180,83,9,0.10)] shadow-sm ring-1 ring-amber-200/60 dark:ring-[rgba(245,158,11,0.20)]'
-            : 'border-amber-400 bg-amber-50/70 shadow-sm ring-2 ring-amber-200'
+          ? 'border-amber-300/70 dark:border-[rgba(245,158,11,0.22)] bg-amber-50/30 dark:bg-[rgba(180,83,9,0.05)] shadow-sm ring-1 ring-amber-200/40 dark:ring-[rgba(245,158,11,0.12)]'
           : highlighted
-            ? 'border-amber-200 dark:border-[rgba(245,158,11,0.25)] bg-amber-50/40 dark:bg-[rgba(180,83,9,0.06)] hover:border-amber-300 hover:bg-amber-50/60 dark:hover:bg-[rgba(180,83,9,0.10)]'
-            : 'border-gray-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
+            ? 'border-amber-200/60 dark:border-[rgba(245,158,11,0.15)] bg-amber-50/20 dark:bg-[rgba(180,83,9,0.04)] hover:border-amber-300/70 dark:hover:border-[rgba(245,158,11,0.22)] hover:bg-amber-50/30 dark:hover:bg-[rgba(180,83,9,0.06)]'
+            : 'border-gray-200 bg-white hover:border-amber-200/60 hover:bg-amber-50/20'
       }`}
     >
       {/* Day header row — single line, minimal padding */}
@@ -1067,12 +1065,16 @@ function WeekRow({
       >
         <div
           className={`px-1.5 py-0.5 flex items-center border-r ${
-            active ? 'border-amber-200' : 'border-gray-100'
+            active
+              ? 'border-amber-200 dark:border-[rgba(245,158,11,0.15)]'
+              : 'border-gray-100'
           }`}
         >
           <p
             className={`text-[11px] font-bold uppercase tracking-wider leading-none ${
-              active ? 'text-amber-700' : 'text-gray-500'
+              active
+                ? 'text-amber-700 dark:text-[#c4a776]'
+                : 'text-gray-500'
             }`}
           >
             {label}
@@ -1086,12 +1088,16 @@ function WeekRow({
             <div
               key={i}
               className={`px-1 py-0.5 border-r last:border-r-0 ${
-                active ? 'border-amber-100' : 'border-gray-100'
+                active
+                  ? 'border-amber-100 dark:border-[rgba(245,158,11,0.10)]'
+                  : 'border-gray-100'
               } ${weekendBg}`}
             >
               <span
                 className={`block text-[10px] font-medium leading-none ${
-                  active ? 'text-amber-700' : 'text-gray-400'
+                  active
+                    ? 'text-amber-700 dark:text-[#c4a776]'
+                    : 'text-gray-400'
                 }`}
               >
                 {DAY_LABELS[i]} {d.getDate()}
@@ -1104,7 +1110,9 @@ function WeekRow({
       {/* Content row: date range in label column, Gantt bars in day columns */}
       <div
         className={`border-t ${
-          active ? 'border-amber-100' : 'border-gray-100'
+          active
+            ? 'border-amber-100 dark:border-[rgba(245,158,11,0.10)]'
+            : 'border-gray-100'
         }`}
       >
         <div
@@ -1117,7 +1125,9 @@ function WeekRow({
         >
           <div
             className={`flex items-center px-1.5 text-[9px] leading-none truncate ${
-              active ? 'text-amber-700' : 'text-gray-400'
+              active
+                ? 'text-amber-700 dark:text-[#c4a776]'
+                : 'text-gray-400'
             }`}
             style={{ gridColumn: 1, gridRow: 1 }}
             title={rangeLabel(weekStart)}
@@ -1234,7 +1244,7 @@ function JobBucket({
           <p className="text-[11px] text-gray-400">Drop employees here</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5 justify-items-start">
           {items.map(({ assignment, index }) => {
             const days = assignment.weeks[activeWeekISO] ?? emptyDays()
             const otherWeeksHaveDays = weekISOs.some(
@@ -1289,7 +1299,7 @@ function AssignmentRow({
   return (
     <div
       onClick={onClick}
-      className="group flex items-center gap-2 px-2 py-1.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-white hover:border-amber-300 cursor-pointer transition"
+      className="group flex items-center gap-2 max-w-full px-2 py-1.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-white hover:border-amber-300 cursor-pointer transition"
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1">
