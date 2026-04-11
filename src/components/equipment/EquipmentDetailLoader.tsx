@@ -68,7 +68,7 @@ export default function EquipmentDetailLoader({
 
         const { data: docRows } = await supabase
           .from('equipment_documents')
-          .select('id, equipment_id, label, file_url, uploaded_at, uploaded_by')
+          .select('id, equipment_id, label, file_url, uploaded_at, uploaded_by, document_type')
           .eq('equipment_id', equipmentId)
           .order('uploaded_at', { ascending: false })
 
