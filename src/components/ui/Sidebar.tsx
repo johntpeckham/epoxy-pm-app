@@ -75,7 +75,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {companySettings?.logo_url ? (
-              <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-white flex items-center justify-center">
+              <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: '#ffffff' }}>
                 <Image
                   src={companySettings.logo_url}
                   alt="Company logo"
@@ -391,7 +391,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           </button>
           <div className="flex items-center gap-2 ml-3">
             {companySettings?.logo_url ? (
-              <div className="w-7 h-7 rounded-md overflow-hidden bg-white flex items-center justify-center flex-shrink-0">
+              <div className="w-7 h-7 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#ffffff' }}>
                 <Image
                   src={companySettings.logo_url}
                   alt="Company logo"
