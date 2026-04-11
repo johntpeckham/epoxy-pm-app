@@ -411,7 +411,7 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
                   </button>
                   {/* Group items */}
                   {!isCollapsed && (
-                    <div className="divide-y divide-gray-50">
+                    <div className="divide-y divide-gray-50 dark:divide-[#2a2a2a]">
                       {groupItems.map((item) => (
                         <ChecklistItemRow
                           key={item.id}
