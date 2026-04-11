@@ -12,8 +12,15 @@ html {
    Baseline dark theme overrides for common Tailwind utility classes.
    The Sidebar is already dark (bg-black), and major surfaces use the
    `dark:` prefix where they have been individually styled.  These
-   selectors give the rest of the app a consistent first-pass dark look
-   without having to touch every component.
+   selectors give the rest of the app a consistent 3-tier surface
+   hierarchy without having to touch every component.
+
+   Surface hierarchy:
+     Level 0 (page bg)          — #1a1a1a  (bg-gray-50)
+     Level 1 (cards / panels)   — #242424  (bg-white)
+     Level 2 (nested / inputs)  — #2e2e2e  (bg-gray-100, inputs, hovers)
+     Borders                    — #3a3a3a  (border-gray-*)
+     Text primary / secondary / tertiary — #e5e5e5 / #a0a0a0 / #6b6b6b
 
    Palette: warm neutral charcoal — no blue tint.  Tailwind's default
    gray scale is slightly blue, which made the app feel cold; these
@@ -21,13 +28,26 @@ html {
 .dark {
   --dark-bg-primary: #1a1a1a;
   --dark-bg-secondary: #242424;
-  --dark-bg-tertiary: #2a2a2a;
+  --dark-bg-tertiary: #2e2e2e;
   --dark-bg-hover: #2e2e2e;
-  --dark-border: #2a2a2a;
-  --dark-border-strong: #303030;
+  --dark-bg-elevated: #303030;
+  --dark-border: #3a3a3a;
+  --dark-border-subtle: #2e2e2e;
+  --dark-border-strong: #3a3a3a;
   --dark-text-primary: #e5e5e5;
   --dark-text-secondary: #a0a0a0;
   --dark-text-tertiary: #6b6b6b;
+
+  /* Override Tailwind's gray color palette in dark mode so that utilities
+     using opacity modifiers (e.g. bg-gray-50/60, bg-gray-100/40) pick up
+     the dark surface values automatically.  Class-based overrides below
+     still take precedence via higher specificity for the flat utilities
+     and nested-card contexts.  Gray 300-900 are not remapped here so that
+     *-300..900 text colors keep their original values (the class-based
+     text-gray-* rules handle those explicitly). */
+  --color-gray-50: #1a1a1a;
+  --color-gray-100: #2e2e2e;
+  --color-gray-200: #3a3a3a;
 }
 html.dark {
   background-color: var(--dark-bg-primary);
@@ -39,15 +59,42 @@ html.dark body {
 
 /* Page background surfaces */
 html.dark .bg-gray-50 { background-color: var(--dark-bg-primary); }
-html.dark .bg-gray-100 { background-color: #1e1e1e; }
+/* Level 2 — used for nested cards, pill chips, progress tracks, hover states */
+html.dark .bg-gray-100 { background-color: var(--dark-bg-tertiary); }
+html.dark .bg-gray-200 { background-color: var(--dark-bg-elevated); }
+html.dark .bg-gray-300 { background-color: #3a3a3a; }
 
-/* Card surfaces */
+/* Card surfaces — Level 1 */
 html.dark .bg-white { background-color: var(--dark-bg-secondary); }
+html.dark .bg-black\/50 { background-color: rgba(0, 0, 0, 0.7); }
+html.dark .bg-black\/30 { background-color: rgba(0, 0, 0, 0.55); }
+html.dark .bg-black\/20 { background-color: rgba(0, 0, 0, 0.40); }
 
-/* Borders — kept very subtle so they fade into the dark surfaces */
+/* Nested-surface overrides — when bg-gray-50 or bg-gray-100 are used as
+   sub-sections inside a card (bg-white), they should look *lighter* than
+   the card, not darker.  Top-level bg-gray-50 (page background) keeps
+   its dark #1a1a1a value because there is no bg-white ancestor. */
+html.dark .bg-white .bg-gray-50 { background-color: var(--dark-bg-tertiary); }
+html.dark .bg-white .bg-white  { background-color: var(--dark-bg-tertiary); }
+html.dark .bg-white .bg-gray-100 { background-color: var(--dark-bg-elevated); }
+
+/* Borders — strong enough to separate surfaces from each other */
 html.dark .border-gray-100 { border-color: var(--dark-border); }
 html.dark .border-gray-200 { border-color: var(--dark-border); }
 html.dark .border-gray-300 { border-color: var(--dark-border-strong); }
+html.dark .border-gray-400 { border-color: var(--dark-border-strong); }
+html.dark .border-t-gray-100,
+html.dark .border-t-gray-200 { border-top-color: var(--dark-border); }
+html.dark .border-b-gray-100,
+html.dark .border-b-gray-200 { border-bottom-color: var(--dark-border); }
+html.dark .border-l-gray-100,
+html.dark .border-l-gray-200 { border-left-color: var(--dark-border); }
+html.dark .border-r-gray-100,
+html.dark .border-r-gray-200 { border-right-color: var(--dark-border); }
+
+/* Ring colors (focus outlines) */
+html.dark .ring-gray-100,
+html.dark .ring-gray-200 { --tw-ring-color: var(--dark-border); }
 
 /* Text colors */
 html.dark .text-gray-900 { color: var(--dark-text-primary); }
@@ -57,12 +104,76 @@ html.dark .text-gray-600 { color: var(--dark-text-secondary); }
 html.dark .text-gray-500 { color: var(--dark-text-secondary); }
 html.dark .text-gray-400 { color: var(--dark-text-secondary); }
 html.dark .text-gray-300 { color: var(--dark-text-tertiary); }
+html.dark .text-gray-200 { color: var(--dark-text-tertiary); }
+html.dark .placeholder-gray-400::placeholder,
+html.dark .placeholder-gray-500::placeholder { color: var(--dark-text-tertiary); }
 
-/* Form inputs and selects — keep them legible on dark backgrounds */
+/* ── Semantic / pill colors ───────────────────────────────────────────────
+   Status and category pills use Tailwind *-50/*-100 backgrounds with
+   *-600/*-700/*-800 text.  On a dark surface the raw values are both
+   too bright and too saturated; map them to translucent versions of
+   the brand color so the pills keep their semantics while blending
+   with the dark surface. */
+html.dark .bg-green-50  { background-color: rgba(34, 197, 94, 0.10); }
+html.dark .bg-green-100 { background-color: rgba(34, 197, 94, 0.15); }
+html.dark .bg-emerald-50  { background-color: rgba(16, 185, 129, 0.10); }
+html.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.15); }
+html.dark .bg-red-50    { background-color: rgba(239, 68, 68, 0.10); }
+html.dark .bg-red-100   { background-color: rgba(239, 68, 68, 0.15); }
+html.dark .bg-rose-50   { background-color: rgba(244, 63, 94, 0.10); }
+html.dark .bg-rose-100  { background-color: rgba(244, 63, 94, 0.15); }
+html.dark .bg-orange-50  { background-color: rgba(249, 115, 22, 0.10); }
+html.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.15); }
+html.dark .bg-amber-50  { background-color: rgba(245, 158, 11, 0.10); }
+html.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.18); }
+html.dark .bg-yellow-50  { background-color: rgba(234, 179, 8, 0.10); }
+html.dark .bg-yellow-100 { background-color: rgba(234, 179, 8, 0.15); }
+html.dark .bg-blue-50   { background-color: rgba(59, 130, 246, 0.10); }
+html.dark .bg-blue-100  { background-color: rgba(59, 130, 246, 0.15); }
+html.dark .bg-sky-50    { background-color: rgba(14, 165, 233, 0.10); }
+html.dark .bg-sky-100   { background-color: rgba(14, 165, 233, 0.15); }
+html.dark .bg-indigo-50  { background-color: rgba(99, 102, 241, 0.10); }
+html.dark .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.15); }
+html.dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.10); }
+html.dark .bg-purple-100 { background-color: rgba(168, 85, 247, 0.15); }
+html.dark .bg-pink-50   { background-color: rgba(236, 72, 153, 0.10); }
+html.dark .bg-pink-100  { background-color: rgba(236, 72, 153, 0.15); }
+html.dark .bg-teal-50   { background-color: rgba(20, 184, 166, 0.10); }
+html.dark .bg-teal-100  { background-color: rgba(20, 184, 166, 0.15); }
+
+/* Semantic pill text — brighten so it reads well on the translucent
+   background swatches above. */
+html.dark .text-green-700, html.dark .text-green-800, html.dark .text-green-900 { color: #4ade80; }
+html.dark .text-emerald-700, html.dark .text-emerald-800, html.dark .text-emerald-900 { color: #34d399; }
+html.dark .text-red-700, html.dark .text-red-800, html.dark .text-red-900 { color: #f87171; }
+html.dark .text-rose-700, html.dark .text-rose-800, html.dark .text-rose-900 { color: #fb7185; }
+html.dark .text-orange-700, html.dark .text-orange-800, html.dark .text-orange-900 { color: #fb923c; }
+html.dark .text-amber-700, html.dark .text-amber-800, html.dark .text-amber-900 { color: #fbbf24; }
+html.dark .text-yellow-700, html.dark .text-yellow-800, html.dark .text-yellow-900 { color: #facc15; }
+html.dark .text-blue-700, html.dark .text-blue-800, html.dark .text-blue-900 { color: #60a5fa; }
+html.dark .text-sky-700, html.dark .text-sky-800, html.dark .text-sky-900 { color: #38bdf8; }
+html.dark .text-indigo-700, html.dark .text-indigo-800, html.dark .text-indigo-900 { color: #818cf8; }
+html.dark .text-purple-700, html.dark .text-purple-800, html.dark .text-purple-900 { color: #c084fc; }
+html.dark .text-pink-700, html.dark .text-pink-800, html.dark .text-pink-900 { color: #f472b6; }
+html.dark .text-teal-700, html.dark .text-teal-800, html.dark .text-teal-900 { color: #2dd4bf; }
+
+/* Colored borders on pills */
+html.dark .border-green-200 { border-color: rgba(34, 197, 94, 0.30); }
+html.dark .border-red-200   { border-color: rgba(239, 68, 68, 0.30); }
+html.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.30); }
+html.dark .border-yellow-200 { border-color: rgba(234, 179, 8, 0.30); }
+html.dark .border-blue-200  { border-color: rgba(59, 130, 246, 0.30); }
+html.dark .border-purple-200 { border-color: rgba(168, 85, 247, 0.30); }
+html.dark .border-orange-200 { border-color: rgba(249, 115, 22, 0.30); }
+html.dark .border-pink-200  { border-color: rgba(236, 72, 153, 0.30); }
+html.dark .border-indigo-200 { border-color: rgba(99, 102, 241, 0.30); }
+
+/* Form inputs and selects — keep them legible on dark backgrounds.
+   Use Level 2 so inputs sit visibly *inside* cards. */
 html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
 html.dark select,
 html.dark textarea {
-  background-color: var(--dark-bg-secondary);
+  background-color: var(--dark-bg-tertiary);
   color: var(--dark-text-primary);
   border-color: var(--dark-border);
 }
@@ -70,16 +181,44 @@ html.dark input::placeholder,
 html.dark textarea::placeholder {
   color: var(--dark-text-tertiary);
 }
+/* Date/time input pickers */
+html.dark input[type="date"],
+html.dark input[type="datetime-local"],
+html.dark input[type="time"],
+html.dark input[type="month"],
+html.dark input[type="week"] {
+  color-scheme: dark;
+}
 
 /* Hover states that depended on a light background */
 html.dark .hover\:bg-gray-50:hover { background-color: var(--dark-bg-hover); }
-html.dark .hover\:bg-gray-100:hover { background-color: var(--dark-bg-hover); }
+html.dark .hover\:bg-gray-100:hover { background-color: var(--dark-bg-elevated); }
+html.dark .hover\:bg-gray-200:hover { background-color: var(--dark-bg-elevated); }
+html.dark .hover\:bg-white:hover { background-color: var(--dark-bg-elevated); }
+html.dark .hover\:border-gray-300:hover { border-color: #4a4a4a; }
+html.dark .hover\:border-gray-400:hover { border-color: #4a4a4a; }
+html.dark .hover\:text-gray-600:hover,
+html.dark .hover\:text-gray-700:hover,
+html.dark .hover\:text-gray-800:hover,
+html.dark .hover\:text-gray-900:hover { color: var(--dark-text-primary); }
+
+/* Amber/accent hovers keep amber */
+html.dark .hover\:bg-amber-50:hover { background-color: rgba(245, 158, 11, 0.12); }
 
 /* Divide / table borders */
-html.dark .divide-gray-50 > * + * { border-color: var(--dark-border); }
-html.dark .divide-gray-100 > * + * { border-color: var(--dark-border); }
+html.dark .divide-gray-50 > * + * { border-color: var(--dark-border-subtle); }
+html.dark .divide-gray-100 > * + * { border-color: var(--dark-border-subtle); }
 html.dark .divide-gray-200 > * + * { border-color: var(--dark-border); }
 html.dark .divide-gray-300 > * + * { border-color: var(--dark-border-strong); }
+
+/* Shadows — the Tailwind gray drop-shadows disappear on dark; swap for
+   a real translucent-black shadow so cards still have depth. */
+html.dark .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.4); }
+html.dark .shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.5); }
+html.dark .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5); }
+html.dark .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6); }
+html.dark .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.7); }
+html.dark .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8); }
 
 html, body {
   height: 100%;
@@ -173,6 +312,85 @@ body {
   font-size: 1.25rem;
   font-weight: 700;
   color: #111827;
+}
+
+/* ── FullCalendar dark mode ──────────────────────────────────────────── */
+html.dark .calendar-wrapper .fc {
+  --fc-border-color: #3a3a3a;
+  --fc-page-bg-color: #242424;
+  --fc-neutral-bg-color: #2e2e2e;
+  --fc-list-event-hover-bg-color: #2e2e2e;
+  --fc-today-bg-color: rgba(245, 158, 11, 0.10);
+  --fc-event-text-color: #fff;
+}
+html.dark .calendar-wrapper .fc .fc-scrollgrid,
+html.dark .calendar-wrapper .fc .fc-scrollgrid td,
+html.dark .calendar-wrapper .fc .fc-scrollgrid th,
+html.dark .calendar-wrapper .fc table,
+html.dark .calendar-wrapper .fc td,
+html.dark .calendar-wrapper .fc th {
+  border-color: #3a3a3a;
+}
+html.dark .calendar-wrapper .fc .fc-col-header-cell {
+  background-color: #2e2e2e;
+}
+html.dark .calendar-wrapper .fc .fc-col-header-cell-cushion,
+html.dark .calendar-wrapper .fc .fc-daygrid-day-number {
+  color: #e5e5e5;
+}
+html.dark .calendar-wrapper .fc .fc-toolbar-title {
+  color: #e5e5e5;
+}
+html.dark .calendar-wrapper .fc .fc-daygrid-day {
+  background-color: #242424;
+}
+html.dark .calendar-wrapper .fc .fc-day-other .fc-daygrid-day-number {
+  color: #6b6b6b;
+}
+html.dark .calendar-wrapper .fc .fc-day-other {
+  background-color: #1e1e1e;
+}
+html.dark .calendar-wrapper .fc .fc-daygrid-day:hover {
+  background-color: rgba(245, 158, 11, 0.08);
+}
+html.dark .calendar-wrapper .fc .fc-day-today {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+  box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.5);
+}
+html.dark .calendar-wrapper .fc .fc-day-today .fc-daygrid-day-number {
+  color: #fbbf24;
+  font-weight: 700;
+}
+html.dark .calendar-wrapper .fc .fc-list,
+html.dark .calendar-wrapper .fc .fc-list-day-cushion {
+  background-color: #2e2e2e;
+  color: #e5e5e5;
+}
+html.dark .calendar-wrapper .fc .fc-list-event:hover td {
+  background-color: #303030;
+}
+
+/* Mobile toolbar buttons on dark */
+html.dark .calendar-wrapper .fc .fc-button-primary {
+  background-color: #2e2e2e !important;
+  border-color: #3a3a3a !important;
+  color: #e5e5e5 !important;
+}
+html.dark .calendar-wrapper .fc .fc-button-primary:hover {
+  background-color: #383838 !important;
+  border-color: #4a4a4a !important;
+  color: #ffffff !important;
+}
+html.dark .calendar-wrapper .fc .fc-button-primary:disabled {
+  background-color: #242424 !important;
+  border-color: #3a3a3a !important;
+  color: #6b6b6b !important;
+}
+html.dark .calendar-wrapper .fc .fc-button-primary:not(:disabled).fc-button-active,
+html.dark .calendar-wrapper .fc .fc-button-primary:not(:disabled):active {
+  background-color: rgba(245, 158, 11, 0.20) !important;
+  border-color: #f59e0b !important;
+  color: #fbbf24 !important;
 }
 
 /* ── Mobile-only calendar overrides (below lg: breakpoint) ────────────── */

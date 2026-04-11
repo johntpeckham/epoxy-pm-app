@@ -628,7 +628,7 @@ export default function SchedulerClient({
           {/* MIDDLE: Scheduling area — job buckets */}
           <div className="flex-1 min-h-0 overflow-auto px-6 py-4">
             {projects.length === 0 ? (
-              <div className="h-full min-h-[240px] rounded-xl border-2 border-dashed border-gray-200 bg-gray-100/60 flex items-center justify-center">
+              <div className="h-full min-h-[240px] rounded-xl border-2 border-dashed border-gray-200 dark:border-[#3a3a3a] bg-gray-100/60 dark:bg-[#2a2a2a] flex items-center justify-center">
                 <p className="text-sm text-gray-500">No active projects found</p>
               </div>
             ) : (
@@ -905,7 +905,7 @@ function WeekRow({
               key={i}
               className={`px-2 py-2 border-r last:border-r-0 ${
                 active ? 'border-amber-100' : 'border-gray-100'
-              } ${isWeekend ? 'bg-gray-50/60' : ''}`}
+              } ${isWeekend ? 'bg-gray-50/60 dark:bg-[#1e1e1e]' : ''}`}
             >
               <p className={`text-[10px] font-semibold uppercase tracking-wide ${active ? 'text-amber-700' : 'text-gray-400'}`}>
                 {DAY_LABELS[i]}

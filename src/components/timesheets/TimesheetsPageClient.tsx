@@ -246,11 +246,11 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
   const fmt = (n: number) => n === 0 ? '—' : n % 1 === 0 ? String(n) : n.toFixed(1)
   const fmtTotal = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(1)
 
-  function dayCellBg(total: number): string | undefined {
-    if (total <= 0) return undefined
-    if (total <= 8) return 'rgba(99,153,34,0.08)'
-    if (total <= 12) return 'rgba(186,117,23,0.12)'
-    return 'rgba(163,45,45,0.12)'
+  function dayCellBgClass(total: number): string {
+    if (total <= 0) return ''
+    if (total <= 8) return 'bg-[rgba(99,153,34,0.08)] dark:bg-[rgba(99,153,34,0.22)]'
+    if (total <= 12) return 'bg-[rgba(186,117,23,0.12)] dark:bg-[rgba(186,117,23,0.28)]'
+    return 'bg-[rgba(163,45,45,0.12)] dark:bg-[rgba(163,45,45,0.28)]'
   }
 
   const BAR_COLORS = { reg: '#639922', ot: '#BA7517', dt: '#A32D2D', drive: '#185FA5' }
@@ -309,8 +309,8 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/60">
-                  <th className="text-left font-semibold text-gray-400 pl-4 pr-2 py-2 whitespace-nowrap sticky left-0 bg-gray-50/60 z-10 text-[11px]">Employee</th>
+                <tr className="border-b border-gray-100 bg-gray-50/60 dark:bg-[#2e2e2e]">
+                  <th className="text-left font-semibold text-gray-400 pl-4 pr-2 py-2 whitespace-nowrap sticky left-0 bg-gray-50/60 dark:bg-[#2e2e2e] z-10 text-[11px]">Employee</th>
                   {WEEK_DAY_LABELS.map((d) => (
                     <th key={d} className="text-center font-semibold text-gray-400 px-1.5 py-2 whitespace-nowrap text-[11px]">{d}</th>
                   ))}
@@ -325,16 +325,18 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
               <tbody>
                 {summaries.map((s, rowIdx) => {
                   const empDrive = driveByEmployee.get(s.employeeName) ?? 0
-                  const stripeBg = rowIdx % 2 === 1 ? 'rgba(0,0,0,0.02)' : undefined
+                  const isStripe = rowIdx % 2 === 1
+                  const rowBgClass = isStripe
+                    ? 'bg-gray-50/60 dark:bg-[#2a2a2a]'
+                    : 'bg-white dark:bg-[#242424]'
                   return (
-                    <tr key={s.employeeName} className="border-b border-gray-50" style={{ backgroundColor: stripeBg }}>
-                      <td className="pl-4 pr-2 py-1.5 font-medium text-gray-800 whitespace-nowrap sticky left-0 z-10" style={{ backgroundColor: stripeBg ?? '#ffffff' }}>{s.employeeName}</td>
+                    <tr key={s.employeeName} className={`border-b border-gray-50 ${rowBgClass}`}>
+                      <td className={`pl-4 pr-2 py-1.5 font-medium text-gray-800 whitespace-nowrap sticky left-0 z-10 ${rowBgClass}`}>{s.employeeName}</td>
                       {s.daily.map((d, i) => (
                         <td key={i} className="text-center px-1.5 py-1.5">
                           {d.total > 0 ? (
                             <span
-                              className="inline-block px-1.5 py-0.5 rounded tabular-nums text-gray-700 font-medium"
-                              style={{ backgroundColor: dayCellBg(d.total) }}
+                              className={`inline-block px-1.5 py-0.5 rounded tabular-nums text-gray-700 dark:text-[#e5e5e5] font-medium ${dayCellBgClass(d.total)}`}
                             >
                               {fmt(d.total)}
                             </span>
@@ -356,8 +358,8 @@ function WeeklyHoursSummary({ timecards }: { timecards: TimecardRow[] }) {
                 })}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop: '2px solid #d1d5db', backgroundColor: 'rgba(0,0,0,0.035)' }}>
-                  <td className="pl-4 pr-2 py-2 font-medium text-gray-500 sticky left-0 z-10" style={{ backgroundColor: 'rgba(0,0,0,0.035)' }}>Totals</td>
+                <tr className="bg-gray-100 dark:bg-[#2e2e2e] border-t-2 border-gray-300 dark:border-[#3a3a3a]">
+                  <td className="pl-4 pr-2 py-2 font-medium text-gray-500 sticky left-0 z-10 bg-gray-100 dark:bg-[#2e2e2e]">Totals</td>
                   {totals.daily.map((h, i) => (
                     <td key={i} className="text-center text-gray-500 font-medium px-1.5 py-2 tabular-nums">{fmt(h)}</td>
                   ))}

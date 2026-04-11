@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useTheme } from '@/components/theme/ThemeProvider'
 import { BellIcon, CheckIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Notification } from '@/types'
@@ -19,6 +20,23 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const router = useRouter()
   const supabaseRef = useRef(createClient())
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+
+  // Dark-mode-aware color palette used by the inline-styled panel below.
+  const panelBg = isDark ? '#242424' : '#ffffff'
+  const panelBorder = isDark ? '#3a3a3a' : '#d1d5db'
+  const panelBorderSubtle = isDark ? '#3a3a3a' : '#e5e7eb'
+  const panelRowBorder = isDark ? '#2e2e2e' : '#f3f4f6'
+  const textPrimary = isDark ? '#e5e5e5' : '#111827'
+  const textSecondary = isDark ? '#a0a0a0' : '#6b7280'
+  const textTertiary = isDark ? '#6b6b6b' : '#9ca3af'
+  const textQuaternary = isDark ? '#5a5a5a' : '#d1d5db'
+  const rowHoverBg = isDark ? '#2e2e2e' : '#f9fafb'
+  const unreadBg = isDark ? 'rgba(245,158,11,0.10)' : '#fffbeb'
+  const unreadHoverBg = isDark ? 'rgba(245,158,11,0.18)' : '#fef3c7'
+  const unreadTitleColor = isDark ? '#e5e5e5' : '#111827'
+  const unreadBodyColor = isDark ? '#c0c0c0' : '#374151'
 
   const fetchNotifications = useCallback(async () => {
     const { data } = await supabaseRef.current
@@ -106,7 +124,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           {/* Dark backdrop */}
           <div
             onClick={() => setOpen(false)}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 9998 }}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: isDark ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.3)', zIndex: 9998 }}
           />
           {/* Notification panel */}
           <div style={{
@@ -116,19 +134,19 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
             right: isMobile ? '16px' : 'auto',
             width: isMobile ? 'auto' : '360px',
             maxHeight: '500px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #d1d5db',
+            backgroundColor: panelBg,
+            border: `1px solid ${panelBorder}`,
             borderRadius: '12px',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
+            boxShadow: isDark ? '0 25px 50px rgba(0,0,0,0.6)' : '0 25px 50px rgba(0,0,0,0.25)',
             zIndex: 9999,
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column' as const,
           }}>
             {/* Header */}
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${panelBorderSubtle}`, backgroundColor: panelBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '18px', color: '#111827' }}>Notifications</span>
+                <span style={{ fontWeight: 700, fontSize: '18px', color: textPrimary }}>Notifications</span>
                 {unreadCount > 0 && (
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -147,9 +165,9 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
               )}
             </div>
             {/* Notification list */}
-            <div style={{ overflowY: 'auto', maxHeight: '420px', backgroundColor: '#ffffff' }}>
+            <div style={{ overflowY: 'auto', maxHeight: '420px', backgroundColor: panelBg }}>
               {notifications.length === 0 ? (
-                <div style={{ padding: '32px 16px', textAlign: 'center', color: '#9ca3af', backgroundColor: '#ffffff' }}>
+                <div style={{ padding: '32px 16px', textAlign: 'center', color: textTertiary, backgroundColor: panelBg }}>
                   No notifications yet
                 </div>
               ) : (
@@ -158,9 +176,9 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                   const unread = !n.read
                   let bg: string
                   if (unread) {
-                    bg = isHovered ? '#fef3c7' : '#fffbeb'
+                    bg = isHovered ? unreadHoverBg : unreadBg
                   } else {
-                    bg = isHovered ? '#f9fafb' : '#ffffff'
+                    bg = isHovered ? rowHoverBg : panelBg
                   }
                   return (
                     <button
@@ -170,15 +188,15 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                       onMouseLeave={() => setHoveredId(null)}
                       style={{
                         display: 'block', width: '100%', padding: '12px 16px', textAlign: 'left' as const,
-                        borderTop: 'none', borderRight: 'none', borderBottom: '1px solid #f3f4f6',
+                        borderTop: 'none', borderRight: 'none', borderBottom: `1px solid ${panelRowBorder}`,
                         borderLeft: unread ? '3px solid #d97706' : '3px solid transparent',
                         cursor: 'pointer', backgroundColor: bg,
                         transition: 'background-color 150ms ease',
                       }}
                     >
-                      <div style={{ fontWeight: unread ? 700 : 400, fontSize: '14px', color: unread ? '#111827' : '#6b7280' }}>{n.title}</div>
-                      <div style={{ fontSize: '13px', color: unread ? '#374151' : '#9ca3af', marginTop: '2px' }}>{n.message}</div>
-                      <div style={{ fontSize: '11px', color: unread ? '#9ca3af' : '#d1d5db', marginTop: '4px' }}>{formatTime(n.created_at)}</div>
+                      <div style={{ fontWeight: unread ? 700 : 400, fontSize: '14px', color: unread ? unreadTitleColor : textSecondary }}>{n.title}</div>
+                      <div style={{ fontSize: '13px', color: unread ? unreadBodyColor : textTertiary, marginTop: '2px' }}>{n.message}</div>
+                      <div style={{ fontSize: '11px', color: unread ? textTertiary : textQuaternary, marginTop: '4px' }}>{formatTime(n.created_at)}</div>
                     </button>
                   )
                 })
