@@ -689,6 +689,21 @@ export default function OfficeTasksPageClient({
         </div>
         )}
 
+        {/* ── Scheduling Card (spans 2 columns) ── hidden for foreman */}
+        {!isForeman && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+          {/* Card header */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-amber-500">
+              <CalendarIcon className="w-5 h-5" />
+            </span>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">Scheduling</h3>
+          </div>
+
+          <p className="text-sm text-gray-400">Coming soon — scheduling and shift management.</p>
+        </div>
+        )}
+
       </div>
 
       {/* Create modal */}
