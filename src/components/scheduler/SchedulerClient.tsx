@@ -105,19 +105,18 @@ const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 // ─── Deterministic job color palette ─────────────────────────────────────
 interface JobColor {
-  bar: string
-  dot: string
+  hex: string
 }
 
 const JOB_COLOR_PALETTE: JobColor[] = [
-  { bar: 'bg-amber-500', dot: 'bg-amber-500' },
-  { bar: 'bg-blue-500', dot: 'bg-blue-500' },
-  { bar: 'bg-purple-500', dot: 'bg-purple-500' },
-  { bar: 'bg-teal-500', dot: 'bg-teal-500' },
-  { bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
-  { bar: 'bg-rose-500', dot: 'bg-rose-500' },
-  { bar: 'bg-indigo-500', dot: 'bg-indigo-500' },
-  { bar: 'bg-orange-500', dot: 'bg-orange-500' },
+  { hex: '#f59e0b' }, // amber
+  { hex: '#3b82f6' }, // blue
+  { hex: '#8b5cf6' }, // violet
+  { hex: '#14b8a6' }, // teal
+  { hex: '#10b981' }, // emerald
+  { hex: '#ef4444' }, // red
+  { hex: '#6366f1' }, // indigo
+  { hex: '#ec4899' }, // pink
 ]
 
 function colorForProjectId(id: string): JobColor {
@@ -1075,23 +1074,16 @@ function WeekRow({
           return (
             <div
               key={i}
-              className={`px-2 py-1.5 border-r last:border-r-0 flex items-baseline justify-center gap-1 ${
+              className={`min-h-[26px] px-1.5 pt-1 pb-1 border-r last:border-r-0 ${
                 active ? 'border-amber-100' : 'border-gray-100'
               } ${isWeekend ? 'bg-gray-50/60 dark:bg-[#1e1e1e]' : ''}`}
             >
               <span
-                className={`text-[9px] font-bold uppercase tracking-wide ${
+                className={`block text-[10px] font-medium leading-none ${
                   active ? 'text-amber-700' : 'text-gray-400'
                 }`}
               >
-                {DAY_LETTERS[i]}
-              </span>
-              <span
-                className={`text-xs font-semibold ${
-                  active ? 'text-gray-900' : 'text-gray-600'
-                }`}
-              >
-                {d.getDate()}
+                {DAY_LETTERS[i]} {d.getDate()}
               </span>
             </div>
           )
@@ -1106,7 +1098,7 @@ function WeekRow({
           }`}
         >
           <div
-            className="grid gap-y-0.5 py-1"
+            className="grid gap-y-1 py-1.5"
             style={{ gridTemplateColumns: WEEK_GRID_COLUMNS }}
           >
             {bars.map((bar, idx) => {
@@ -1116,10 +1108,13 @@ function WeekRow({
               return (
                 <div
                   key={`${bar.project.id}-${idx}`}
-                  className={`mx-0.5 min-w-0 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white truncate shadow-sm ${bar.color.bar}`}
+                  className="mx-0.5 flex items-center min-w-0 px-2 text-[11px] font-semibold text-white truncate"
                   style={{
                     gridColumn: `${bar.startDay + 2} / ${bar.endDay + 3}`,
                     gridRow: idx + 1,
+                    backgroundColor: bar.color.hex,
+                    borderRadius: '3px',
+                    height: '22px',
                   }}
                   title={barLabel}
                 >
@@ -1173,26 +1168,40 @@ function JobBucket({
       }`}
       style={{ minHeight: 120 }}
     >
-      <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-gray-100">
+      <div className="flex items-start gap-2 mb-2 pb-2 border-b border-gray-100">
+        <span
+          className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0 mt-1"
+          style={{ backgroundColor: inactive ? '#d1d5db' : color.hex }}
+          aria-hidden="true"
+        />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                inactive ? 'bg-gray-300' : color.dot
-              }`}
-              aria-hidden="true"
-            />
-            <p className="text-sm font-bold text-gray-900 truncate">{project.name}</p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="text-xs font-semibold truncate">
+              {project.estimate_number && (
+                <>
+                  <span className="text-gray-900">Est #{project.estimate_number}</span>
+                  <span className="text-gray-400"> — </span>
+                </>
+              )}
+              <span className="text-gray-900">{project.name}</span>
+              {project.start_date && project.end_date && (
+                <>
+                  <span className="text-gray-400"> — </span>
+                  <span className="font-normal text-gray-500">
+                    {formatShort(parseISODateLocal(project.start_date))} – {formatShort(parseISODateLocal(project.end_date))}
+                  </span>
+                </>
+              )}
+            </p>
             {inactive && (
-              <span className="text-[9px] uppercase tracking-wide bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+              <span className="flex-shrink-0 text-[9px] uppercase tracking-wide bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
                 Inactive
               </span>
             )}
           </div>
-          {project.estimate_number && (
-            <p className="text-[10px] text-gray-400 font-medium">Est #{project.estimate_number}</p>
+          {project.address && (
+            <p className="text-[11px] text-gray-500 truncate mt-0.5">{project.address}</p>
           )}
-          {project.address && <p className="text-xs text-gray-500 truncate">{project.address}</p>}
         </div>
       </div>
 
