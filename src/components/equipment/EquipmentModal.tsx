@@ -1,42 +1,87 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, PlusIcon, TrashIcon, CameraIcon, WrenchIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
+import type { EquipmentCategory } from '@/types'
 
 interface Props {
   item: EquipmentRow | null
   userId: string
+  /**
+   * Dynamic equipment categories pulled from equipment_categories table.
+   * Optional — when not provided (e.g. EquipmentDetailClient), the modal
+   * will fetch them itself.
+   */
+  categories?: EquipmentCategory[]
+  /** Called after a new category is created inline so the parent can refresh. */
+  onCategoriesChanged?: () => void | Promise<void>
   onClose: () => void
   onSaved: () => void
   /** When editing, triggers the delete confirmation flow in the parent. */
   onDelete?: (id: string) => void
 }
 
-const CATEGORY_OPTIONS = [
-  { value: 'vehicle', label: 'Vehicle' },
-  { value: 'heavy_equipment', label: 'Heavy Equipment' },
-  { value: 'trailer', label: 'Trailer' },
-  { value: 'tool', label: 'Tool' },
-]
-
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'out_of_service', label: 'Out of Service' },
 ]
 
+const ADD_NEW_CATEGORY_VALUE = '__add_new_category__'
+
 const inputCls =
   'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
-export default function EquipmentModal({ item, userId, onClose, onSaved, onDelete }: Props) {
+export default function EquipmentModal({
+  item,
+  userId,
+  categories: categoriesProp,
+  onCategoriesChanged,
+  onClose,
+  onSaved,
+  onDelete,
+}: Props) {
   const isEdit = !!item
 
+  // If parent provided categories, use those. Otherwise fetch our own.
+  const [localCategories, setLocalCategories] = useState<EquipmentCategory[]>(categoriesProp ?? [])
+  const categories = categoriesProp ?? localCategories
+
+  const fetchLocalCategories = async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('equipment_categories')
+      .select('*')
+      .order('sort_order', { ascending: true })
+    setLocalCategories((data as EquipmentCategory[]) ?? [])
+  }
+
+  useEffect(() => {
+    if (categoriesProp === undefined) {
+      fetchLocalCategories()
+    }
+  }, [categoriesProp])
+
+  // Default to the current item's category, or the first category.
   const [name, setName] = useState(item?.name ?? '')
-  const [category, setCategory] = useState(item?.category ?? 'vehicle')
+  const [category, setCategory] = useState(item?.category ?? '')
   const [status, setStatus] = useState(item?.status ?? 'active')
+
+  // When categories load and this is a new item with no category yet, auto-select the first.
+  useEffect(() => {
+    if (!isEdit && !category && categories.length > 0) {
+      setCategory(categories[0].name)
+    }
+  }, [isEdit, category, categories])
+
+  // Inline "add new category" state
+  const [showAddCategory, setShowAddCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [savingCategory, setSavingCategory] = useState(false)
+  const [categoryError, setCategoryError] = useState<string | null>(null)
   const [year, setYear] = useState(item?.year ?? '')
   const [make, setMake] = useState(item?.make ?? '')
   const [model, setModel] = useState(item?.model ?? '')
@@ -95,6 +140,46 @@ export default function EquipmentModal({ item, userId, onClose, onSaved, onDelet
 
   const removeCustomField = (index: number) => {
     setCustomFields((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleSaveNewCategory() {
+    const trimmed = newCategoryName.trim()
+    if (!trimmed) return
+
+    // Reject duplicate (case-insensitive) against the categories we already have.
+    if (categories.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
+      setCategoryError(`Category "${trimmed}" already exists`)
+      return
+    }
+
+    setSavingCategory(true)
+    setCategoryError(null)
+
+    const supabase = createClient()
+    const nextOrder = categories.length > 0 ? Math.max(...categories.map(c => c.sort_order)) + 1 : 1
+    const { error: insertErr } = await supabase
+      .from('equipment_categories')
+      .insert({ name: trimmed, sort_order: nextOrder })
+
+    if (insertErr) {
+      setCategoryError(
+        insertErr.message.includes('duplicate') ? 'Category already exists' : insertErr.message
+      )
+      setSavingCategory(false)
+      return
+    }
+
+    // Refresh categories — either from the parent (preferred) or locally.
+    if (onCategoriesChanged) {
+      await onCategoriesChanged()
+    }
+    if (categoriesProp === undefined) {
+      await fetchLocalCategories()
+    }
+    setCategory(trimmed)
+    setShowAddCategory(false)
+    setNewCategoryName('')
+    setSavingCategory(false)
   }
 
   const handleSubmit = async () => {
@@ -241,15 +326,82 @@ export default function EquipmentModal({ item, userId, onClose, onSaved, onDelet
               <label className={labelCls}>Category *</label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val === ADD_NEW_CATEGORY_VALUE) {
+                    setShowAddCategory(true)
+                    setCategoryError(null)
+                    return
+                  }
+                  setCategory(val)
+                }}
                 className={inputCls}
               >
-                {CATEGORY_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+                {categories.length === 0 && (
+                  <option value="" disabled>
+                    No categories available
+                  </option>
+                )}
+                {/* If the current category isn't in the list (e.g. a legacy value),
+                    still render it so the select shows the correct selection. */}
+                {category && !categories.some(c => c.name === category) && (
+                  <option value={category}>{category}</option>
+                )}
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name}
                   </option>
                 ))}
+                <option value={ADD_NEW_CATEGORY_VALUE}>+ Add New Category…</option>
               </select>
+
+              {showAddCategory && (
+                <div className="mt-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="New category name"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleSaveNewCategory()
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault()
+                          setShowAddCategory(false)
+                          setNewCategoryName('')
+                          setCategoryError(null)
+                        }
+                      }}
+                      className={inputCls}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveNewCategory}
+                      disabled={savingCategory || !newCategoryName.trim()}
+                      className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex-shrink-0"
+                    >
+                      {savingCategory ? '...' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddCategory(false)
+                        setNewCategoryName('')
+                        setCategoryError(null)
+                      }}
+                      className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition flex-shrink-0"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {categoryError && (
+                    <p className="text-xs text-red-500 mt-1">{categoryError}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Status */}
