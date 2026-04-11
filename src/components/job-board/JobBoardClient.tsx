@@ -957,11 +957,11 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
 
                     {/* ── Divider: "Job Feed Items" ── */}
                     <div className="flex items-center gap-3 my-6" aria-label="Job Feed Items">
-                      <div className="flex-1 h-px bg-gray-200" />
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">
+                      <div className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
+                      <span className="text-xs font-medium text-gray-400 dark:text-[#4a4a4a] uppercase tracking-widest">
                         Job Feed Items
                       </span>
-                      <div className="flex-1 h-px bg-gray-200" />
+                      <div className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
                     </div>
 
                     {/* ── Below divider: Job Feed Items ── */}

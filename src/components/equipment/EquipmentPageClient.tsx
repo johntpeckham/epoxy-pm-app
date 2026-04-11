@@ -568,11 +568,11 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
               className={`flex items-center gap-3 ${idx === 0 ? 'mb-4' : 'mt-6 mb-4'}`}
               aria-label={group.categoryName}
             >
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">
+              <div className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
+              <span className="text-xs font-medium text-gray-400 dark:text-[#4a4a4a] uppercase tracking-widest">
                 {group.categoryName}
               </span>
-              <div className="flex-1 h-px bg-gray-200" />
+              <div className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
             </div>
             {/* Cards */}
             <div className={gridColsClass}>

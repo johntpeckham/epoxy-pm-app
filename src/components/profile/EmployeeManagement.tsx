@@ -1177,11 +1177,11 @@ export default function EmployeeManagement({
             <div key={group.roleName}>
               {/* Role divider */}
               <div className={`flex items-center gap-3 ${idx === 0 ? 'mb-4' : 'mt-6 mb-4'}`} aria-label={group.roleName}>
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">
+                <div className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
+                <span className="text-xs font-medium text-gray-400 dark:text-[#4a4a4a] uppercase tracking-widest">
                   {group.roleName}
                 </span>
-                <div className="flex-1 h-px bg-gray-200" />
+                <div className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
               </div>
               {/* Cards */}
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
@@ -1784,7 +1784,7 @@ export default function EmployeeManagement({
                   </div>
                   <span className="text-xs font-semibold">Employee Info</span>
                 </div>
-                <div className="flex-1 h-px bg-gray-200" />
+                <div className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
                 <div className={`flex items-center gap-2 ${onboardingStep === 2 ? 'text-amber-700' : 'text-gray-400'}`}>
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                     onboardingStep === 2 ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-500'
