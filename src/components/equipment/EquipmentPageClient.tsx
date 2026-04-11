@@ -112,6 +112,9 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
     const { error } = await supabase.from('equipment').delete().eq('id', id)
     if (!error) {
       setEquipment((prev) => prev.filter((e) => e.id !== id))
+      // If the delete was triggered from inside the Edit modal, close it too.
+      setShowModal(false)
+      setEditingItem(null)
     }
     setDeleting(false)
     setDeleteConfirmId(null)
@@ -205,16 +208,6 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
                   >
                     <PencilIcon className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setDeleteConfirmId(item.id)
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
-                    title="Delete"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
                 </div>
               )}
 
@@ -280,9 +273,10 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
 
   const dialogs = (
     <>
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog — z-[70] so it appears above the Edit
+          Equipment modal (which is in a Portal at z-[60]). */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setDeleteConfirmId(null)}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50" onClick={() => setDeleteConfirmId(null)}>
           <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900">Delete Equipment</h3>
             <p className="text-sm text-gray-500 mt-2">
@@ -317,6 +311,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
             setEditingItem(null)
           }}
           onSaved={handleSaved}
+          onDelete={(id) => setDeleteConfirmId(id)}
         />
       )}
     </>
