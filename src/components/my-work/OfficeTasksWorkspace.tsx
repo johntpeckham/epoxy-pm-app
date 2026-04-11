@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { OfficeTask, OfficePriority, Profile, UserRole } from '@/types'
+import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -166,10 +167,9 @@ export default function OfficeTasksWorkspace({
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, is_completed: newVal, updated_at: new Date().toISOString() } : t))
     )
-    await supabase
-      .from('office_tasks')
-      .update({ is_completed: newVal, updated_at: new Date().toISOString() })
-      .eq('id', task.id)
+    // Routes through the shared utility so any linked equipment scheduled
+    // service is kept in sync with the task.
+    await toggleOfficeTaskCompletion(supabase, task.id, newVal, userId)
   }
 
   async function deleteTask(id: string) {

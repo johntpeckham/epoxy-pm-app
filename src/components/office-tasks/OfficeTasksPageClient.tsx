@@ -24,6 +24,7 @@ import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
 import EquipmentDetailLoader from '@/components/equipment/EquipmentDetailLoader'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
+import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -304,10 +305,14 @@ export default function OfficeTasksPageClient({
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, is_completed: newVal, updated_at: new Date().toISOString() } : t))
     )
-    await supabase
-      .from('office_tasks')
-      .update({ is_completed: newVal, updated_at: new Date().toISOString() })
-      .eq('id', task.id)
+    // Routes through the shared utility so any linked equipment scheduled
+    // service is kept in sync with the task (reverse of the equipment
+    // page's forward cascade).
+    await toggleOfficeTaskCompletion(supabase, task.id, newVal, userId)
+    // If the toggle completed a service linked via task_id, a new
+    // scheduled-service (and new linked task) may have been generated for
+    // the next recurrence — refetch so the Equipment preview stays fresh.
+    refetchUpcomingServices()
   }
 
   async function deleteTask(id: string) {
