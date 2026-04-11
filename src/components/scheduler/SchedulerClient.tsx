@@ -312,17 +312,72 @@ export default function SchedulerClient({
     onCancel: () => void
   } | null>(null)
 
-  // Fullscreen state
+  // Fullscreen state — kept in sync with the browser's Fullscreen API so
+  // pressing Escape (or any other exit path) updates the button label. A
+  // ref on the outermost container is what we pass to requestFullscreen().
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
-    if (!isFullscreen) return
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setIsFullscreen(false)
+    function handleChange() {
+      const fsElement =
+        document.fullscreenElement ??
+        (document as unknown as { webkitFullscreenElement?: Element | null })
+          .webkitFullscreenElement ??
+        null
+      setIsFullscreen(Boolean(fsElement))
     }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [isFullscreen])
+    document.addEventListener('fullscreenchange', handleChange)
+    document.addEventListener('webkitfullscreenchange', handleChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleChange)
+      document.removeEventListener('webkitfullscreenchange', handleChange)
+    }
+  }, [])
+
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current
+    if (!el) return
+    const fsElement =
+      document.fullscreenElement ??
+      (document as unknown as { webkitFullscreenElement?: Element | null })
+        .webkitFullscreenElement ??
+      null
+    if (!fsElement) {
+      const req =
+        el.requestFullscreen?.bind(el) ??
+        (
+          el as unknown as {
+            webkitRequestFullscreen?: () => Promise<void> | void
+          }
+        ).webkitRequestFullscreen?.bind(el)
+      try {
+        const r = req?.()
+        if (r && typeof (r as Promise<void>).catch === 'function') {
+          ;(r as Promise<void>).catch(() => setIsFullscreen(true))
+        }
+      } catch {
+        // Fall back to CSS-based fullscreen if the API throws.
+        setIsFullscreen(true)
+      }
+    } else {
+      const exit =
+        document.exitFullscreen?.bind(document) ??
+        (
+          document as unknown as {
+            webkitExitFullscreen?: () => Promise<void> | void
+          }
+        ).webkitExitFullscreen?.bind(document)
+      try {
+        const r = exit?.()
+        if (r && typeof (r as Promise<void>).catch === 'function') {
+          ;(r as Promise<void>).catch(() => setIsFullscreen(false))
+        }
+      } catch {
+        setIsFullscreen(false)
+      }
+    }
+  }, [])
 
   // Auto-save state
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -526,7 +581,14 @@ export default function SchedulerClient({
 
   // ─── Render ───────────────────────────────────────────────────────────
   const content = (
-    <div className={`h-full w-full flex flex-col bg-gray-50 overflow-hidden${isFullscreen ? ' fixed inset-0 z-50' : ''}`}>
+    <div
+      ref={containerRef}
+      className={`flex flex-col bg-gray-50 ${
+        isFullscreen
+          ? 'fixed inset-0 z-50 w-screen h-screen overflow-y-auto'
+          : 'h-full w-full overflow-hidden'
+      }`}
+    >
       {/* Mobile fallback */}
       <div className="lg:hidden flex-1 flex flex-col items-center justify-center p-6 text-center">
         <MonitorIcon className="w-10 h-10 text-gray-300 mb-3" />
@@ -559,7 +621,7 @@ export default function SchedulerClient({
             <div className="flex items-center gap-3">
               <SaveIndicator state={saveState} />
               <button
-                onClick={() => setIsFullscreen((f) => !f)}
+                onClick={toggleFullscreen}
                 title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
                 className="flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 px-3 py-2 rounded-lg text-sm font-medium transition"
               >
@@ -632,7 +694,11 @@ export default function SchedulerClient({
                 <p className="text-sm text-gray-500">No active projects found</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div
+                className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${
+                  isFullscreen ? 'xl:grid-cols-4 2xl:grid-cols-5' : 'xl:grid-cols-3'
+                }`}
+              >
                 {projects.map((project) => {
                   const items = assignmentsByProject.get(project.id) ?? []
                   return (
