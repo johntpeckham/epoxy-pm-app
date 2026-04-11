@@ -2123,7 +2123,7 @@ export default function EmployeeManagement({
       )
       if (isInline) {
         return (
-          <div className="w-full h-full min-h-0 flex flex-col bg-white overflow-hidden">
+          <div className="w-full h-full min-h-0 flex flex-col bg-gray-50 dark:bg-[#1a1a1a]! overflow-hidden">
             {mainContent}
           </div>
         )
