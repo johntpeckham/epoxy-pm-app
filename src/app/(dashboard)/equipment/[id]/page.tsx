@@ -16,6 +16,7 @@ export interface MaintenanceLogRow {
   mileage_or_hours: string | null
   performed_by: string
   notes: string | null
+  photo_url: string | null
   created_at: string
   created_by: string | null
 }
@@ -68,7 +69,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
 
   const { data: equipment } = await supabase
     .from('equipment')
-    .select('id, name, category, year, make, model, serial_number, vin, license_plate, custom_fields, status, created_at, created_by')
+    .select('id, name, category, year, make, model, serial_number, vin, license_plate, custom_fields, status, photo_url, created_at, created_by')
     .eq('id', id)
     .single()
 
@@ -76,7 +77,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
 
   const { data: logs } = await supabase
     .from('maintenance_logs')
-    .select('id, equipment_id, service_date, service_type, mileage_or_hours, performed_by, notes, created_at, created_by')
+    .select('id, equipment_id, service_date, service_type, mileage_or_hours, performed_by, notes, photo_url, created_at, created_by')
     .eq('equipment_id', id)
     .order('service_date', { ascending: false })
 
@@ -111,6 +112,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
         license_plate: equipment.license_plate,
         custom_fields: (equipment.custom_fields ?? []) as { label: string; value: string }[],
         status: equipment.status,
+        photo_url: (equipment as { photo_url?: string | null }).photo_url ?? null,
         created_at: equipment.created_at,
         created_by: equipment.created_by,
       }}

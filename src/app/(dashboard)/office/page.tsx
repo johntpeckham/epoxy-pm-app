@@ -70,6 +70,7 @@ export default async function OfficePage() {
     license_plate: row.license_plate,
     custom_fields: (row.custom_fields ?? []) as { label: string; value: string }[],
     status: row.status,
+    photo_url: row.photo_url ?? null,
     created_at: row.created_at,
     created_by: row.created_by,
   }))

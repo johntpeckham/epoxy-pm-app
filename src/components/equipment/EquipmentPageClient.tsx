@@ -97,6 +97,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
               license_plate: row.license_plate,
               custom_fields: (row.custom_fields ?? []) as { label: string; value: string }[],
               status: row.status,
+              photo_url: row.photo_url ?? null,
               created_at: row.created_at,
               created_by: row.created_by,
             }))
@@ -217,41 +218,60 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
                 </div>
               )}
 
-              {/* Name */}
-              <h3 className="text-lg font-bold text-gray-900 pr-16">{item.name}</h3>
+              <div className="flex items-start gap-4">
+                {/* Photo thumbnail on the left */}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 border border-gray-200">
+                  {item.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.photo_url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <WrenchIcon className="w-8 h-8 text-gray-400" />
+                  )}
+                </div>
 
-              {/* Badges */}
-              <div className="flex items-center gap-2 mt-2">
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    CATEGORY_BADGE[item.category] ?? 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {CATEGORY_LABEL[item.category] ?? item.category}
-                </span>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    item.status === 'active'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}
-                >
-                  {item.status === 'active' ? 'Active' : 'Out of Service'}
-                </span>
+                {/* Content on the right */}
+                <div className="flex-1 min-w-0">
+                  {/* Name */}
+                  <h3 className="text-lg font-bold text-gray-900 pr-16">{item.name}</h3>
+
+                  {/* Badges */}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        CATEGORY_BADGE[item.category] ?? 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {CATEGORY_LABEL[item.category] ?? item.category}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        item.status === 'active'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {item.status === 'active' ? 'Active' : 'Out of Service'}
+                    </span>
+                  </div>
+
+                  {/* Year / Make / Model */}
+                  {(item.year || item.make || item.model) && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      {[item.year, item.make, item.model].filter(Boolean).join(' / ')}
+                    </p>
+                  )}
+
+                  {/* Serial / VIN */}
+                  {item.serial_number && (
+                    <p className="text-xs text-gray-400 mt-1">SN: {item.serial_number}</p>
+                  )}
+                  {item.vin && <p className="text-xs text-gray-400 mt-0.5">VIN: {item.vin}</p>}
+                </div>
               </div>
-
-              {/* Year / Make / Model */}
-              {(item.year || item.make || item.model) && (
-                <p className="text-sm text-gray-600 mt-2">
-                  {[item.year, item.make, item.model].filter(Boolean).join(' / ')}
-                </p>
-              )}
-
-              {/* Serial / VIN */}
-              {item.serial_number && (
-                <p className="text-xs text-gray-400 mt-1">SN: {item.serial_number}</p>
-              )}
-              {item.vin && <p className="text-xs text-gray-400 mt-0.5">VIN: {item.vin}</p>}
             </div>
           )
         })}

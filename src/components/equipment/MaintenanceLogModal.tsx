@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { XIcon } from 'lucide-react'
+import { XIcon, CameraIcon, ImageIcon, TrashIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { MaintenanceLogRow } from '@/app/(dashboard)/equipment/[id]/page'
 
@@ -50,9 +50,42 @@ export default function MaintenanceLogModal({
   const [mileageOrHours, setMileageOrHours] = useState(entry?.mileage_or_hours ?? '')
   const [performedBy, setPerformedBy] = useState(entry?.performed_by ?? userDisplayName)
   const [notes, setNotes] = useState(entry?.notes ?? '')
+  const [photoUrl, setPhotoUrl] = useState<string | null>(entry?.photo_url ?? null)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      setError('Please upload a PNG, JPG, GIF, or WebP file')
+      return
+    }
+    setPhotoUploading(true)
+    setError(null)
+    try {
+      const supabase = createClient()
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `equipment/${equipmentId}/maintenance/${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('equipment-photos')
+        .upload(path, file, { upsert: true })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabase.storage
+        .from('equipment-photos')
+        .getPublicUrl(path)
+      setPhotoUrl(urlData.publicUrl)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload photo')
+    } finally {
+      setPhotoUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   const handleSubmit = async () => {
     if (!serviceDate) {
@@ -80,6 +113,7 @@ export default function MaintenanceLogModal({
       mileage_or_hours: mileageOrHours.trim() || null,
       performed_by: performedBy.trim(),
       notes: notes.trim() || null,
+      photo_url: photoUrl,
     }
 
     try {
@@ -196,6 +230,58 @@ export default function MaintenanceLogModal({
                 rows={3}
                 className={inputCls}
               />
+            </div>
+
+            {/* Photo */}
+            <div>
+              <label className={labelCls}>Photo</label>
+              <div className="flex items-center gap-4">
+                <div className="relative group">
+                  <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 border border-gray-200">
+                    {photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-gray-400" />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={photoUploading}
+                    className="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors"
+                  >
+                    <CameraIcon className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={photoUploading}
+                    className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {photoUploading ? 'Uploading...' : photoUrl ? 'Change photo' : 'Upload photo'}
+                  </button>
+                  {photoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setPhotoUrl(null)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <TrashIcon className="w-3.5 h-3.5" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+              </div>
             </div>
           </div>
 
