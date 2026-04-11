@@ -350,7 +350,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         </div>
 
         {/* Appearance Section */}
-        <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#3a3a3a] p-6 mb-6">
+        <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <MoonIcon className="w-5 h-5 text-gray-400" />
             <h2 className="text-sm font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide">Appearance</h2>
