@@ -27,7 +27,7 @@ export default memo(function ProjectCard({
     <div
       className={`relative group rounded-xl border transition-all duration-150 cursor-pointer ${
         isSelected
-          ? 'bg-amber-50 dark:bg-[#2a2a2a] border-amber-400 dark:border-[#3a3a3a] shadow-sm'
+          ? 'bg-amber-50 dark:bg-[#2a2a2a]! border-amber-400 dark:border-[#3a3a3a]! shadow-sm'
           : 'bg-white dark:bg-[#1e1e1e]! border-gray-200 dark:border-[#2a2a2a] hover:border-amber-300 dark:hover:border-[#3a3a3a] hover:shadow-sm dark:hover:bg-[#2a2a2a]!'
       }`}
     >
@@ -46,7 +46,7 @@ export default memo(function ProjectCard({
             <div className="flex items-center gap-2 flex-wrap">
               <h3
                 className={`text-sm font-semibold truncate transition-colors ${
-                  isSelected ? 'text-amber-700 dark:text-[#d4a24a]' : 'text-gray-900 dark:text-[#e5e5e5] group-hover:text-amber-600'
+                  isSelected ? 'text-amber-700 dark:text-[#d4a24a]!' : 'text-gray-900 dark:text-[#e5e5e5] group-hover:text-amber-600'
                 }`}
               >
                 {project.estimate_number
