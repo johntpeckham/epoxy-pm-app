@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { EmployeeProfile, Project } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { useTheme } from '@/components/theme/ThemeProvider'
 import {
   CalendarRangeIcon,
   MonitorIcon,
@@ -104,35 +105,39 @@ const DAY_FULL_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 // ─── Deterministic job color palette ─────────────────────────────────────
-interface JobColor {
-  hex: string
+// Each palette entry has a light-mode and a dark-mode hex. The dark tones
+// are deliberately desaturated so they blend into the dark UI instead of
+// looking neon, while still remaining distinguishable from each other.
+interface JobColorPair {
+  light: string
+  dark: string
 }
 
-const JOB_COLOR_PALETTE: JobColor[] = [
-  { hex: '#f59e0b' }, // amber
-  { hex: '#3b82f6' }, // blue
-  { hex: '#8b5cf6' }, // violet
-  { hex: '#14b8a6' }, // teal
-  { hex: '#10b981' }, // emerald
-  { hex: '#ef4444' }, // red
-  { hex: '#6366f1' }, // indigo
-  { hex: '#ec4899' }, // pink
+const JOB_COLOR_PALETTE: JobColorPair[] = [
+  { light: '#d97706', dark: '#8a5a18' }, // amber
+  { light: '#4a6fa5', dark: '#3e5c85' }, // slate blue
+  { light: '#7c6b9e', dark: '#5e527a' }, // muted purple
+  { light: '#3f8a7e', dark: '#336b62' }, // muted teal
+  { light: '#6b7c4a', dark: '#556038' }, // muted olive
+  { light: '#b05a4a', dark: '#8a4938' }, // muted coral
+  { light: '#4682b4', dark: '#3a6a92' }, // steel blue
+  { light: '#9c7c4a', dark: '#7a6138' }, // muted bronze
 ]
 
-function colorForProjectId(id: string): JobColor {
+function colorForProjectId(id: string, isDark: boolean): string {
   let hash = 0
   for (let i = 0; i < id.length; i++) {
     hash = (hash << 5) - hash + id.charCodeAt(i)
     hash |= 0
   }
-  return JOB_COLOR_PALETTE[Math.abs(hash) % JOB_COLOR_PALETTE.length]
+  const entry = JOB_COLOR_PALETTE[Math.abs(hash) % JOB_COLOR_PALETTE.length]
+  return isDark ? entry.dark : entry.light
 }
 
 interface JobBar {
   project: Project
   startDay: number // 0..6 relative to week's Monday
   endDay: number // 0..6 inclusive
-  color: JobColor
 }
 
 function computeBarsForWeek(weekStart: Date, projects: Project[]): JobBar[] {
@@ -151,7 +156,6 @@ function computeBarsForWeek(weekStart: Date, projects: Project[]): JobBar[] {
       project,
       startDay,
       endDay,
-      color: colorForProjectId(project.id),
     })
   }
   bars.sort((a, b) => {
@@ -320,6 +324,8 @@ export default function SchedulerClient({
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const { settings: companySettings } = useCompanySettings()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
 
   // Weeks for the top strip (three weeks, starting with "this week")
   const { thisWeek, nextWeek, followingWeek, thisWeekISO, followingWeekISO } = useMemo(() => {
@@ -748,6 +754,7 @@ export default function SchedulerClient({
                 weekStart={thisWeek}
                 active={activeWeekISO === thisWeekISO}
                 bars={barsByWeek[thisWeekISO]}
+                isDark={isDark}
                 onClick={() => setActiveWeekISO(thisWeekISO)}
               />
               <WeekRow
@@ -756,6 +763,7 @@ export default function SchedulerClient({
                 active={activeWeekISO === nextWeekISO}
                 bars={barsByWeek[nextWeekISO]}
                 highlighted
+                isDark={isDark}
                 onClick={() => setActiveWeekISO(nextWeekISO)}
               />
               <WeekRow
@@ -763,6 +771,7 @@ export default function SchedulerClient({
                 weekStart={followingWeek}
                 active={activeWeekISO === followingWeekISO}
                 bars={barsByWeek[followingWeekISO]}
+                isDark={isDark}
                 onClick={() => setActiveWeekISO(followingWeekISO)}
               />
             </div>
@@ -790,7 +799,7 @@ export default function SchedulerClient({
                       allAssignments={schedule.assignments}
                       activeWeekISO={activeWeekISO}
                       weekISOs={weekISOs}
-                      color={colorForProjectId(project.id)}
+                      color={colorForProjectId(project.id, isDark)}
                       onRemove={removeAssignment}
                       onEdit={(index) => {
                         const a = schedule.assignments[index]
@@ -835,7 +844,7 @@ export default function SchedulerClient({
                         allAssignments={schedule.assignments}
                         activeWeekISO={activeWeekISO}
                         weekISOs={weekISOs}
-                        color={colorForProjectId(pid)}
+                        color={colorForProjectId(pid, isDark)}
                         onRemove={removeAssignment}
                         onEdit={(index) => {
                           const a = schedule.assignments[index]
@@ -1016,6 +1025,7 @@ function WeekRow({
   active,
   highlighted = false,
   bars,
+  isDark,
   onClick,
 }: {
   label: string
@@ -1023,6 +1033,7 @@ function WeekRow({
   active: boolean
   highlighted?: boolean
   bars: JobBar[]
+  isDark: boolean
   onClick: () => void
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -1032,6 +1043,7 @@ function WeekRow({
       onClick()
     }
   }
+  const barTextColor = isDark ? '#e5e5e5' : '#ffffff'
   return (
     <div
       role="button"
@@ -1041,10 +1053,10 @@ function WeekRow({
       className={`w-full text-left rounded-lg border transition cursor-pointer overflow-hidden ${
         active
           ? highlighted
-            ? 'border-amber-400 bg-green-50/80 shadow-sm ring-2 ring-amber-200'
+            ? 'border-amber-300 dark:border-[rgba(245,158,11,0.35)] bg-amber-50/60 dark:bg-[rgba(180,83,9,0.10)] shadow-sm ring-1 ring-amber-200/60 dark:ring-[rgba(245,158,11,0.20)]'
             : 'border-amber-400 bg-amber-50/70 shadow-sm ring-2 ring-amber-200'
           : highlighted
-            ? 'border-green-300 bg-green-50/70 ring-1 ring-green-200/80 shadow-[0_0_12px_rgba(134,239,172,0.25)] hover:border-green-400 hover:bg-green-50'
+            ? 'border-amber-200 dark:border-[rgba(245,158,11,0.25)] bg-amber-50/40 dark:bg-[rgba(180,83,9,0.06)] hover:border-amber-300 hover:bg-amber-50/60 dark:hover:bg-[rgba(180,83,9,0.10)]'
             : 'border-gray-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
       }`}
     >
@@ -1071,19 +1083,21 @@ function WeekRow({
         </div>
         {days.map((d, i) => {
           const isWeekend = i >= 5
+          const weekendBg =
+            isWeekend && !highlighted ? 'bg-gray-50/60 dark:bg-[#1e1e1e]' : ''
           return (
             <div
               key={i}
               className={`min-h-[26px] px-1.5 pt-1 pb-1 border-r last:border-r-0 ${
                 active ? 'border-amber-100' : 'border-gray-100'
-              } ${isWeekend ? 'bg-gray-50/60 dark:bg-[#1e1e1e]' : ''}`}
+              } ${weekendBg}`}
             >
               <span
                 className={`block text-[10px] font-medium leading-none ${
                   active ? 'text-amber-700' : 'text-gray-400'
                 }`}
               >
-                {DAY_LETTERS[i]} {d.getDate()}
+                {DAY_LABELS[i]} {d.getDate()}
               </span>
             </div>
           )
@@ -1098,23 +1112,25 @@ function WeekRow({
           }`}
         >
           <div
-            className="grid gap-y-1 py-1.5"
+            className="grid gap-y-0.5 py-1"
             style={{ gridTemplateColumns: WEEK_GRID_COLUMNS }}
           >
             {bars.map((bar, idx) => {
               const barLabel = bar.project.estimate_number
                 ? `${bar.project.name} — Est #${bar.project.estimate_number}`
                 : bar.project.name
+              const barColor = colorForProjectId(bar.project.id, isDark)
               return (
                 <div
                   key={`${bar.project.id}-${idx}`}
-                  className="mx-0.5 flex items-center min-w-0 px-2 text-[11px] font-semibold text-white truncate"
+                  className="mx-0.5 flex items-center min-w-0 px-2 text-[10px] font-semibold truncate"
                   style={{
                     gridColumn: `${bar.startDay + 2} / ${bar.endDay + 3}`,
                     gridRow: idx + 1,
-                    backgroundColor: bar.color.hex,
+                    backgroundColor: barColor,
+                    color: barTextColor,
                     borderRadius: '3px',
-                    height: '22px',
+                    height: '17px',
                   }}
                   title={barLabel}
                 >
@@ -1149,7 +1165,7 @@ function JobBucket({
   onRemove: (index: number) => void
   onEdit: (index: number) => void
   inactive?: boolean
-  color: JobColor
+  color: string
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `bucket-${project.id}`,
@@ -1171,7 +1187,7 @@ function JobBucket({
       <div className="flex items-start gap-2 mb-2 pb-2 border-b border-gray-100">
         <span
           className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0 mt-1"
-          style={{ backgroundColor: inactive ? '#d1d5db' : color.hex }}
+          style={{ backgroundColor: inactive ? '#d1d5db' : color }}
           aria-hidden="true"
         />
         <div className="min-w-0 flex-1">
