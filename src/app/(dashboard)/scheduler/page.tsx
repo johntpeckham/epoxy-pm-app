@@ -28,6 +28,20 @@ function addDaysISO(iso: string, days: number): string {
   return `${yy}-${mm}-${dd}`
 }
 
+export interface SchedulerAssignmentRow {
+  id: string
+  job_id: string
+  employee_id: string
+  week_start: string
+  day_mon: boolean
+  day_tue: boolean
+  day_wed: boolean
+  day_thu: boolean
+  day_fri: boolean
+  day_sat: boolean
+  day_sun: boolean
+}
+
 export default async function SchedulerPage() {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
@@ -46,24 +60,34 @@ export default async function SchedulerPage() {
   const hasAccess = role === 'admin' || Boolean((profile as { scheduler_access?: boolean } | null)?.scheduler_access)
   if (!hasAccess) return redirect('/my-work')
 
-  // Compute "next week" Monday ISO
+  // Compute the three visible week Monday ISOs
   const thisWeekISO = startOfWeekMondayISO(new Date())
   const nextWeekISO = addDaysISO(thisWeekISO, 7)
+  const followingWeekISO = addDaysISO(thisWeekISO, 14)
 
-  // Parallel fetches
-  const [employeesRes, projectsRes, savedWeekRes] = await Promise.all([
+  // Parallel fetches — employees, active projects, and all assignments for
+  // the three visible weeks. Assignment fetch is tolerant of the table not
+  // yet existing (e.g. before the 20260414 migration has been run).
+  const [employeesRes, projectsRes, assignmentsRes] = await Promise.all([
     supabase.from('employee_profiles').select('*').order('name', { ascending: true }),
     supabase.from('projects').select('*').eq('status', 'Active').order('name', { ascending: true }),
-    supabase.from('scheduler_weeks').select('*').eq('week_start', nextWeekISO).maybeSingle(),
+    supabase
+      .from('scheduler_assignments')
+      .select('*')
+      .in('week_start', [thisWeekISO, nextWeekISO, followingWeekISO]),
   ])
+
+  const initialAssignments = (assignmentsRes.data as SchedulerAssignmentRow[] | null) ?? []
 
   return (
     <SchedulerClient
       userId={user.id}
       employees={(employeesRes.data as EmployeeProfile[]) ?? []}
       projects={(projectsRes.data as Project[]) ?? []}
+      thisWeekISO={thisWeekISO}
       nextWeekISO={nextWeekISO}
-      initialScheduleData={(savedWeekRes.data as { schedule_data: unknown } | null)?.schedule_data ?? null}
+      followingWeekISO={followingWeekISO}
+      initialAssignments={initialAssignments}
     />
   )
 }
