@@ -5,6 +5,7 @@ import type { EmployeeProfile, Project } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useTheme } from '@/components/theme/ThemeProvider'
+import SchedulePreviewModal from './SchedulePreviewModal'
 import {
   CalendarRangeIcon,
   MonitorIcon,
@@ -567,6 +568,7 @@ export default function SchedulerClient({
 
   // ── Download schedule PDF ───────────────────────────────────────────────
   const [downloading, setDownloading] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const handleDownload = useCallback(async () => {
     const weekAssignments = assignments
       .filter((a) => a.week_start === activeWeekISO && a.days.some(Boolean))
@@ -797,32 +799,23 @@ export default function SchedulerClient({
                 )}
               </button>
               <button
-                onClick={handleDownload}
+                onClick={() => setPreviewOpen(true)}
                 disabled={
                   assignments.filter(
                     (a) => a.week_start === activeWeekISO && a.days.some(Boolean)
-                  ).length === 0 || downloading
+                  ).length === 0
                 }
                 title={
                   assignments.filter(
                     (a) => a.week_start === activeWeekISO && a.days.some(Boolean)
                   ).length === 0
                     ? 'Add assignments to generate a report'
-                    : 'Download weekly schedule PDF for the selected week'
+                    : 'Preview the weekly schedule before downloading or printing'
                 }
                 className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
               >
-                {downloading ? (
-                  <>
-                    <Loader2Icon className="w-4 h-4 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    <DownloadIcon className="w-4 h-4" />
-                    Download Schedule
-                  </>
-                )}
+                <DownloadIcon className="w-4 h-4" />
+                Download Schedule
               </button>
             </div>
           </div>
@@ -1151,6 +1144,51 @@ export default function SchedulerClient({
           conflicts={doubleBookPrompt.conflicts}
           onContinue={doubleBookPrompt.onContinue}
           onCancel={doubleBookPrompt.onCancel}
+        />
+      )}
+
+      {/* Schedule preview modal — opens before download/print so the user
+          can verify the report before saving or sending it to the printer. */}
+      {previewOpen && (
+        <SchedulePreviewModal
+          weekStartISO={activeWeekISO}
+          thisWeekISO={thisWeekISO}
+          nextWeekISO={nextWeekISO}
+          followingWeekISO={followingWeekISO}
+          assignments={assignments
+            .filter((a) => a.week_start === activeWeekISO && a.days.some(Boolean))
+            .map((a) => ({
+              employee_id: a.employee_id,
+              employee_name: a.employee_name,
+              project_id: a.project_id,
+              project_name: a.project_name,
+              days: a.days,
+            }))}
+          projects={projects.map((p) => ({
+            id: p.id,
+            name: p.name,
+            estimate_number: p.estimate_number ?? null,
+            address: p.address ?? null,
+            start_date: p.start_date ?? null,
+            end_date: p.end_date ?? null,
+          }))}
+          employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+          companyInfo={
+            companySettings
+              ? {
+                  dba: companySettings.dba,
+                  legal_name: companySettings.legal_name,
+                  company_address: companySettings.company_address,
+                  phone: companySettings.phone,
+                  email: companySettings.email,
+                  cslb_licenses: companySettings.cslb_licenses,
+                }
+              : null
+          }
+          logoUrl={companySettings?.logo_url ?? null}
+          onClose={() => setPreviewOpen(false)}
+          onDownload={handleDownload}
+          downloading={downloading}
         />
       )}
     </div>
