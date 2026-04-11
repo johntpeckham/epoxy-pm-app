@@ -89,9 +89,79 @@ function rangeLabel(start: Date): string {
   return `${formatShort(start)} – ${formatShort(end)}`
 }
 
+function parseISODateLocal(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+function daysBetween(a: Date, b: Date): number {
+  const ms = b.getTime() - a.getTime()
+  return Math.round(ms / (1000 * 60 * 60 * 24))
+}
+
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const DAY_FULL_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+// ─── Deterministic job color palette ─────────────────────────────────────
+interface JobColor {
+  bar: string
+  dot: string
+}
+
+const JOB_COLOR_PALETTE: JobColor[] = [
+  { bar: 'bg-amber-500', dot: 'bg-amber-500' },
+  { bar: 'bg-blue-500', dot: 'bg-blue-500' },
+  { bar: 'bg-purple-500', dot: 'bg-purple-500' },
+  { bar: 'bg-teal-500', dot: 'bg-teal-500' },
+  { bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
+  { bar: 'bg-rose-500', dot: 'bg-rose-500' },
+  { bar: 'bg-indigo-500', dot: 'bg-indigo-500' },
+  { bar: 'bg-orange-500', dot: 'bg-orange-500' },
+]
+
+function colorForProjectId(id: string): JobColor {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i)
+    hash |= 0
+  }
+  return JOB_COLOR_PALETTE[Math.abs(hash) % JOB_COLOR_PALETTE.length]
+}
+
+interface JobBar {
+  project: Project
+  startDay: number // 0..6 relative to week's Monday
+  endDay: number // 0..6 inclusive
+  color: JobColor
+}
+
+function computeBarsForWeek(weekStart: Date, projects: Project[]): JobBar[] {
+  const weekEnd = addDays(weekStart, 6)
+  const bars: JobBar[] = []
+  for (const project of projects) {
+    if (!project.start_date || !project.end_date) continue
+    const start = parseISODateLocal(project.start_date)
+    const end = parseISODateLocal(project.end_date)
+    if (end < weekStart || start > weekEnd) continue
+    const clampedStart = start < weekStart ? weekStart : start
+    const clampedEnd = end > weekEnd ? weekEnd : end
+    const startDay = Math.max(0, Math.min(6, daysBetween(weekStart, clampedStart)))
+    const endDay = Math.max(0, Math.min(6, daysBetween(weekStart, clampedEnd)))
+    bars.push({
+      project,
+      startDay,
+      endDay,
+      color: colorForProjectId(project.id),
+    })
+  }
+  bars.sort((a, b) => {
+    if (a.startDay !== b.startDay) return a.startDay - b.startDay
+    if (a.endDay !== b.endDay) return b.endDay - a.endDay
+    return a.project.name.localeCompare(b.project.name)
+  })
+  return bars
+}
 
 function emptyDays(): DayFlags {
   return [false, false, false, false, false, false, false]
@@ -271,6 +341,15 @@ export default function SchedulerClient({
     () => [thisWeekISO, nextWeekISO, followingWeekISO],
     [thisWeekISO, nextWeekISO, followingWeekISO]
   )
+
+  // Gantt-style bars for each of the three weeks in the strip
+  const barsByWeek = useMemo(() => {
+    return {
+      [thisWeekISO]: computeBarsForWeek(thisWeek, projects),
+      [nextWeekISO]: computeBarsForWeek(nextWeek, projects),
+      [followingWeekISO]: computeBarsForWeek(followingWeek, projects),
+    }
+  }, [thisWeek, nextWeek, followingWeek, thisWeekISO, nextWeekISO, followingWeekISO, projects])
 
   // Active week (which week's days the buckets show). Defaults to "next week".
   const [activeWeekISO, setActiveWeekISO] = useState<string>(nextWeekISO)
@@ -669,12 +748,14 @@ export default function SchedulerClient({
                 label="This Week"
                 weekStart={thisWeek}
                 active={activeWeekISO === thisWeekISO}
+                bars={barsByWeek[thisWeekISO]}
                 onClick={() => setActiveWeekISO(thisWeekISO)}
               />
               <WeekRow
                 label="Next Week"
                 weekStart={nextWeek}
                 active={activeWeekISO === nextWeekISO}
+                bars={barsByWeek[nextWeekISO]}
                 highlighted
                 onClick={() => setActiveWeekISO(nextWeekISO)}
               />
@@ -682,6 +763,7 @@ export default function SchedulerClient({
                 label="Following Week"
                 weekStart={followingWeek}
                 active={activeWeekISO === followingWeekISO}
+                bars={barsByWeek[followingWeekISO]}
                 onClick={() => setActiveWeekISO(followingWeekISO)}
               />
             </div>
@@ -709,6 +791,7 @@ export default function SchedulerClient({
                       allAssignments={schedule.assignments}
                       activeWeekISO={activeWeekISO}
                       weekISOs={weekISOs}
+                      color={colorForProjectId(project.id)}
                       onRemove={removeAssignment}
                       onEdit={(index) => {
                         const a = schedule.assignments[index]
@@ -753,6 +836,7 @@ export default function SchedulerClient({
                         allAssignments={schedule.assignments}
                         activeWeekISO={activeWeekISO}
                         weekISOs={weekISOs}
+                        color={colorForProjectId(pid)}
                         onRemove={removeAssignment}
                         onEdit={(index) => {
                           const a = schedule.assignments[index]
@@ -791,7 +875,7 @@ export default function SchedulerClient({
                       <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
                         {group.label}
                       </h3>
-                      <div className="flex gap-2 overflow-x-auto pb-1">
+                      <div className="flex gap-2 overflow-x-auto pt-2 pr-2 pb-1">
                         {group.members.map((emp) => {
                           const stats = employeeStats.get(emp.id)
                           return (
@@ -925,25 +1009,37 @@ function SaveIndicator({ state }: { state: 'idle' | 'saving' | 'saved' | 'error'
 }
 
 // ─── Week row ─────────────────────────────────────────────────────────────
+const WEEK_GRID_COLUMNS = '144px repeat(7, minmax(0, 1fr))'
+
 function WeekRow({
   label,
   weekStart,
   active,
   highlighted = false,
+  bars,
   onClick,
 }: {
   label: string
   weekStart: Date
   active: boolean
   highlighted?: boolean
+  bars: JobBar[]
   onClick: () => void
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClick()
+    }
+  }
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`w-full text-left flex items-stretch rounded-lg border transition cursor-pointer ${
+      onKeyDown={handleKeyDown}
+      className={`w-full text-left rounded-lg border transition cursor-pointer overflow-hidden ${
         active
           ? highlighted
             ? 'border-amber-400 bg-green-50/80 shadow-sm ring-2 ring-amber-200'
@@ -953,35 +1049,88 @@ function WeekRow({
             : 'border-gray-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
       }`}
     >
+      {/* Day header row */}
       <div
-        className={`flex-none w-36 px-3 py-2 flex flex-col justify-center border-r ${
-          active ? 'border-amber-200' : 'border-gray-100'
-        }`}
+        className="grid items-stretch"
+        style={{ gridTemplateColumns: WEEK_GRID_COLUMNS }}
       >
-        <p className={`text-[11px] font-bold uppercase tracking-wider ${active ? 'text-amber-700' : 'text-gray-500'}`}>
-          {label}
-        </p>
-        <p className={`text-xs ${active ? 'text-amber-900' : 'text-gray-500'}`}>{rangeLabel(weekStart)}</p>
-      </div>
-      <div className="flex-1 grid grid-cols-7">
+        <div
+          className={`px-3 py-1.5 flex flex-col justify-center border-r ${
+            active ? 'border-amber-200' : 'border-gray-100'
+          }`}
+        >
+          <p
+            className={`text-[11px] font-bold uppercase tracking-wider ${
+              active ? 'text-amber-700' : 'text-gray-500'
+            }`}
+          >
+            {label}
+          </p>
+          <p className={`text-[10px] ${active ? 'text-amber-900' : 'text-gray-500'}`}>
+            {rangeLabel(weekStart)}
+          </p>
+        </div>
         {days.map((d, i) => {
           const isWeekend = i >= 5
           return (
             <div
               key={i}
-              className={`px-2 py-2 border-r last:border-r-0 ${
+              className={`px-2 py-1.5 border-r last:border-r-0 flex items-baseline justify-center gap-1 ${
                 active ? 'border-amber-100' : 'border-gray-100'
               } ${isWeekend ? 'bg-gray-50/60 dark:bg-[#1e1e1e]' : ''}`}
             >
-              <p className={`text-[10px] font-semibold uppercase tracking-wide ${active ? 'text-amber-700' : 'text-gray-400'}`}>
-                {DAY_LABELS[i]}
-              </p>
-              <p className={`text-sm font-semibold ${active ? 'text-gray-900' : 'text-gray-600'}`}>{d.getDate()}</p>
+              <span
+                className={`text-[9px] font-bold uppercase tracking-wide ${
+                  active ? 'text-amber-700' : 'text-gray-400'
+                }`}
+              >
+                {DAY_LETTERS[i]}
+              </span>
+              <span
+                className={`text-xs font-semibold ${
+                  active ? 'text-gray-900' : 'text-gray-600'
+                }`}
+              >
+                {d.getDate()}
+              </span>
             </div>
           )
         })}
       </div>
-    </button>
+
+      {/* Gantt bars row */}
+      {bars.length > 0 && (
+        <div
+          className={`border-t ${
+            active ? 'border-amber-100' : 'border-gray-100'
+          }`}
+        >
+          <div
+            className="grid gap-y-0.5 py-1"
+            style={{ gridTemplateColumns: WEEK_GRID_COLUMNS }}
+          >
+            {bars.map((bar, idx) => {
+              const barLabel = bar.project.estimate_number
+                ? `${bar.project.name} — Est #${bar.project.estimate_number}`
+                : bar.project.name
+              return (
+                <div
+                  key={`${bar.project.id}-${idx}`}
+                  className={`mx-0.5 min-w-0 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white truncate shadow-sm ${bar.color.bar}`}
+                  style={{
+                    gridColumn: `${bar.startDay + 2} / ${bar.endDay + 3}`,
+                    gridRow: idx + 1,
+                  }}
+                  title={barLabel}
+                >
+                  {barLabel}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -995,6 +1144,7 @@ function JobBucket({
   onRemove,
   onEdit,
   inactive = false,
+  color,
 }: {
   project: Project
   items: Array<{ assignment: Assignment; index: number }>
@@ -1004,6 +1154,7 @@ function JobBucket({
   onRemove: (index: number) => void
   onEdit: (index: number) => void
   inactive?: boolean
+  color: JobColor
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `bucket-${project.id}`,
@@ -1025,6 +1176,12 @@ function JobBucket({
       <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-gray-100">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
+            <span
+              className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                inactive ? 'bg-gray-300' : color.dot
+              }`}
+              aria-hidden="true"
+            />
             <p className="text-sm font-bold text-gray-900 truncate">{project.name}</p>
             {inactive && (
               <span className="text-[9px] uppercase tracking-wide bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
