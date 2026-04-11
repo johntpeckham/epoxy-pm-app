@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon, CalendarClockIcon, ChevronDownIcon, CheckIcon } from 'lucide-react'
+import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon, CalendarClockIcon, ChevronDownIcon, CheckIcon, CameraIcon, XIcon } from 'lucide-react'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import type { MaintenanceLogRow, EquipmentDocumentRow, ScheduledServiceRow, ProfileOption } from '@/app/(dashboard)/equipment/[id]/page'
 import EquipmentModal from './EquipmentModal'
@@ -115,11 +115,55 @@ export default function EquipmentDetailClient({
    * duplicate clicks triggering duplicate recurrence inserts. */
   const [processingStatusIds, setProcessingStatusIds] = useState<Set<string>>(new Set())
 
+  /** Header photo upload state */
+  const headerPhotoInputRef = useRef<HTMLInputElement>(null)
+  const [headerPhotoUploading, setHeaderPhotoUploading] = useState(false)
+  const [headerPhotoError, setHeaderPhotoError] = useState<string | null>(null)
+
+  /** Lightbox state for viewing a full-size maintenance photo */
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+
+  async function handleHeaderPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      setHeaderPhotoError('Please upload a PNG, JPG, GIF, or WebP file')
+      return
+    }
+    setHeaderPhotoUploading(true)
+    setHeaderPhotoError(null)
+    try {
+      const supabase = createClient()
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `equipment/${equipment.id}/${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('equipment-photos')
+        .upload(path, file, { upsert: true })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabase.storage
+        .from('equipment-photos')
+        .getPublicUrl(path)
+      const newUrl = urlData.publicUrl
+      const { error: updateErr } = await supabase
+        .from('equipment')
+        .update({ photo_url: newUrl })
+        .eq('id', equipment.id)
+      if (updateErr) throw updateErr
+      setEquipment((prev) => ({ ...prev, photo_url: newUrl }))
+    } catch (err) {
+      setHeaderPhotoError(err instanceof Error ? err.message : 'Failed to upload photo')
+    } finally {
+      setHeaderPhotoUploading(false)
+      if (headerPhotoInputRef.current) headerPhotoInputRef.current.value = ''
+    }
+  }
+
   const refreshEquipment = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase
       .from('equipment')
-      .select('id, name, category, year, make, model, serial_number, vin, license_plate, custom_fields, status, created_at, created_by')
+      .select('id, name, category, year, make, model, serial_number, vin, license_plate, custom_fields, status, photo_url, created_at, created_by')
       .eq('id', equipment.id)
       .single()
     if (data) {
@@ -135,6 +179,7 @@ export default function EquipmentDetailClient({
         license_plate: data.license_plate,
         custom_fields: (data.custom_fields ?? []) as { label: string; value: string }[],
         status: data.status,
+        photo_url: (data as { photo_url?: string | null }).photo_url ?? null,
         created_at: data.created_at,
         created_by: data.created_by,
       })
@@ -145,7 +190,7 @@ export default function EquipmentDetailClient({
     const supabase = createClient()
     const { data } = await supabase
       .from('maintenance_logs')
-      .select('id, equipment_id, service_date, service_type, mileage_or_hours, performed_by, notes, created_at, created_by')
+      .select('id, equipment_id, service_date, service_type, mileage_or_hours, performed_by, notes, photo_url, created_at, created_by')
       .eq('equipment_id', equipment.id)
       .order('service_date', { ascending: false })
     if (data) {
@@ -586,24 +631,73 @@ export default function EquipmentDetailClient({
       )}
 
       {/* Page header */}
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-900">{equipment.name}</h1>
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
-            equipment.status === 'active'
-              ? 'bg-green-100 text-green-700'
-              : 'bg-red-100 text-red-700'
-          }`}
-        >
-          {equipment.status === 'active' ? 'Active' : 'Out of Service'}
-        </span>
-        <button
-          onClick={() => setShowQrModal(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-        >
-          <QrCodeIcon className="w-4 h-4" />
-          QR Code
-        </button>
+      <div className="flex items-start gap-4 mb-6">
+        {/* Profile photo */}
+        <div className="relative group flex-shrink-0">
+          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200">
+            {equipment.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={equipment.photo_url}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <WrenchIcon className="w-10 h-10 text-gray-400" />
+            )}
+          </div>
+          {canManage && (
+            <>
+              <button
+                type="button"
+                onClick={() => headerPhotoInputRef.current?.click()}
+                disabled={headerPhotoUploading}
+                className="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors"
+                title={equipment.photo_url ? 'Change photo' : 'Add photo'}
+              >
+                <CameraIcon className="w-7 h-7 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+              <input
+                ref={headerPhotoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                className="hidden"
+                onChange={handleHeaderPhotoUpload}
+              />
+            </>
+          )}
+          {headerPhotoUploading && (
+            <div className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
+              <span className="text-white text-xs font-medium">Uploading...</span>
+            </div>
+          )}
+        </div>
+
+        {/* Name + status + QR code */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold text-gray-900">{equipment.name}</h1>
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
+                equipment.status === 'active'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-700'
+              }`}
+            >
+              {equipment.status === 'active' ? 'Active' : 'Out of Service'}
+            </span>
+            <button
+              onClick={() => setShowQrModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              <QrCodeIcon className="w-4 h-4" />
+              QR Code
+            </button>
+          </div>
+          {headerPhotoError && (
+            <p className="text-xs text-red-600 mt-2">{headerPhotoError}</p>
+          )}
+        </div>
       </div>
 
       {/* Two-column layout */}
@@ -853,15 +947,37 @@ export default function EquipmentDetailClient({
                     </button>
                   </div>
 
-                  <p className="text-xs text-gray-400">{formatLogDate(log.service_date)}</p>
-                  <p className="text-sm font-bold text-gray-900 mt-1 pr-16">{log.service_type}</p>
-                  {log.mileage_or_hours && (
-                    <p className="text-sm text-gray-600 mt-1">Mileage / Hours: {log.mileage_or_hours}</p>
-                  )}
-                  <p className="text-sm text-gray-600 mt-1">Performed by: {log.performed_by}</p>
-                  {log.notes && (
-                    <p className="text-sm text-gray-500 mt-2 whitespace-pre-wrap">{log.notes}</p>
-                  )}
+                  <div className="flex items-start gap-3">
+                    {/* Photo thumbnail (only when present) */}
+                    {log.photo_url && (
+                      <button
+                        type="button"
+                        onClick={() => setLightboxUrl(log.photo_url)}
+                        className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 hover:border-amber-300 transition-colors"
+                        title="View photo"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={log.photo_url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    )}
+
+                    {/* Text content */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-400">{formatLogDate(log.service_date)}</p>
+                      <p className="text-sm font-bold text-gray-900 mt-1 pr-16">{log.service_type}</p>
+                      {log.mileage_or_hours && (
+                        <p className="text-sm text-gray-600 mt-1">Mileage / Hours: {log.mileage_or_hours}</p>
+                      )}
+                      <p className="text-sm text-gray-600 mt-1">Performed by: {log.performed_by}</p>
+                      {log.notes && (
+                        <p className="text-sm text-gray-500 mt-2 whitespace-pre-wrap">{log.notes}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1121,6 +1237,30 @@ export default function EquipmentDetailClient({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Maintenance photo lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+            title="Close"
+          >
+            <XIcon className="w-6 h-6" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt=""
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

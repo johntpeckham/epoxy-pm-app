@@ -51,7 +51,7 @@ export default function EquipmentDetailLoader({
         const { data: eq, error: eqErr } = await supabase
           .from('equipment')
           .select(
-            'id, name, category, year, make, model, serial_number, vin, license_plate, custom_fields, status, created_at, created_by'
+            'id, name, category, year, make, model, serial_number, vin, license_plate, custom_fields, status, photo_url, created_at, created_by'
           )
           .eq('id', equipmentId)
           .single()
@@ -61,7 +61,7 @@ export default function EquipmentDetailLoader({
         const { data: logRows } = await supabase
           .from('maintenance_logs')
           .select(
-            'id, equipment_id, service_date, service_type, mileage_or_hours, performed_by, notes, created_at, created_by'
+            'id, equipment_id, service_date, service_type, mileage_or_hours, performed_by, notes, photo_url, created_at, created_by'
           )
           .eq('equipment_id', equipmentId)
           .order('service_date', { ascending: false })
@@ -96,6 +96,7 @@ export default function EquipmentDetailLoader({
           license_plate: eq.license_plate,
           custom_fields: (eq.custom_fields ?? []) as { label: string; value: string }[],
           status: eq.status,
+          photo_url: (eq as { photo_url?: string | null }).photo_url ?? null,
           created_at: eq.created_at,
           created_by: eq.created_by,
         })
