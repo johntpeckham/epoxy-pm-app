@@ -336,29 +336,29 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#1a1a1a]">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <button
             onClick={() => router.push('/jobs')}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-[#e5e5e5] hover:bg-gray-100 dark:hover:bg-[#2e2e2e] transition"
           >
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex-1">Profile Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-[#e5e5e5] flex-1">Profile Settings</h1>
         </div>
 
         {/* Appearance Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#3a3a3a] p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <MoonIcon className="w-5 h-5 text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Appearance</h2>
+            <h2 className="text-sm font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide">Appearance</h2>
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Dark mode</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Switch to dark theme</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-[#e5e5e5]">Dark mode</p>
+              <p className="text-xs text-gray-400 dark:text-[#6b6b6b] mt-0.5">Switch to dark theme</p>
             </div>
             <button
               type="button"

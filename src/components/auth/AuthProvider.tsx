@@ -105,7 +105,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   if (!isReady) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-[#1a1a1a]">
         <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
