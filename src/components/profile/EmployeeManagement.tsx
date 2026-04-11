@@ -38,7 +38,7 @@ import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import { moveToTrash } from '@/lib/trashBin'
-import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition, EmployeeCertification, EmployeeCertificationAssignment, EmployeeOshaTraining, EmployeeOshaAssignment } from '@/types'
+import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition, EmployeeCertification, EmployeeCertificationAssignment, EmployeeOshaTraining, EmployeeOshaAssignment, Crew, SkillType } from '@/types'
 
 const PRESET_COLORS = [
   '#EF4444', '#F97316', '#EAB308', '#22C55E', '#14B8A6',
@@ -297,6 +297,62 @@ function SortableCertRow<T extends ColoredItem>({
   )
 }
 
+type NamedItem = { id: string; name: string }
+
+function SimpleNamedRow<T extends NamedItem>({
+  item,
+  onRename,
+  onDelete,
+  deleting,
+}: {
+  item: T
+  onRename: (item: T, newName: string) => void
+  onDelete: (item: T) => void
+  deleting: boolean
+}) {
+  const [localName, setLocalName] = useState(item.name)
+  const [lastSeenName, setLastSeenName] = useState(item.name)
+  // Sync local edit buffer when the prop name changes (e.g. after rename)
+  // without using useEffect — avoids cascading render warnings.
+  if (item.name !== lastSeenName) {
+    setLastSeenName(item.name)
+    setLocalName(item.name)
+  }
+
+  function handleBlur() {
+    if (localName.trim() !== item.name) {
+      onRename(item, localName)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      ;(e.target as HTMLInputElement).blur()
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 px-2 py-2 rounded-md bg-gray-50">
+      <input
+        type="text"
+        value={localName}
+        onChange={(e) => setLocalName(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className="flex-1 min-w-0 text-sm text-gray-700 bg-transparent border border-transparent rounded px-2 py-0.5 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 transition"
+      />
+      <button
+        onClick={() => onDelete(item)}
+        disabled={deleting}
+        className="text-gray-400 hover:text-red-500 transition disabled:opacity-50 flex-shrink-0"
+      >
+        <Trash2Icon className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
+
 interface EmployeeManagementProps {
   /** Hide the built-in collapsed "Manage Employees" trigger card. */
   hideTrigger?: boolean
@@ -381,6 +437,22 @@ export default function EmployeeManagement({
   const [oshaError, setOshaError] = useState<string | null>(null)
   const [deletingOshaId, setDeletingOshaId] = useState<string | null>(null)
 
+  // Crews
+  const [crews, setCrews] = useState<Crew[]>([])
+  const [newCrewName, setNewCrewName] = useState('')
+  const [addingCrew, setAddingCrew] = useState(false)
+  const [crewError, setCrewError] = useState<string | null>(null)
+  const [confirmDeleteCrew, setConfirmDeleteCrew] = useState<Crew | null>(null)
+  const [deletingCrewId, setDeletingCrewId] = useState<string | null>(null)
+
+  // Skill Types
+  const [skillTypes, setSkillTypes] = useState<SkillType[]>([])
+  const [newSkillTypeName, setNewSkillTypeName] = useState('')
+  const [addingSkillType, setAddingSkillType] = useState(false)
+  const [skillTypeError, setSkillTypeError] = useState<string | null>(null)
+  const [confirmDeleteSkillType, setConfirmDeleteSkillType] = useState<SkillType | null>(null)
+  const [deletingSkillTypeId, setDeletingSkillTypeId] = useState<string | null>(null)
+
   // Add/Edit modal
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<EmployeeProfile | null>(null)
@@ -459,6 +531,22 @@ export default function EmployeeManagement({
     setOshaAssignments((data as EmployeeOshaAssignment[]) ?? [])
   }, [])
 
+  const fetchCrews = useCallback(async () => {
+    const { data } = await supabase
+      .from('crews')
+      .select('*')
+      .order('name')
+    setCrews((data as Crew[]) ?? [])
+  }, [])
+
+  const fetchSkillTypes = useCallback(async () => {
+    const { data } = await supabase
+      .from('skill_types')
+      .select('*')
+      .order('name')
+    setSkillTypes((data as SkillType[]) ?? [])
+  }, [])
+
   useEffect(() => {
     fetchEmployees()
     fetchRoles()
@@ -467,7 +555,9 @@ export default function EmployeeManagement({
     fetchCertAssignments()
     fetchOshaTrainings()
     fetchOshaAssignments()
-  }, [fetchEmployees, fetchRoles, fetchCustomFields, fetchCertifications, fetchCertAssignments, fetchOshaTrainings, fetchOshaAssignments])
+    fetchCrews()
+    fetchSkillTypes()
+  }, [fetchEmployees, fetchRoles, fetchCustomFields, fetchCertifications, fetchCertAssignments, fetchOshaTrainings, fetchOshaAssignments, fetchCrews, fetchSkillTypes])
 
   // ── Role Management ──
 
@@ -786,6 +876,150 @@ export default function EmployeeManagement({
         .update({ sort_order: o.sort_order })
         .eq('id', o.id)
     }
+  }
+
+  // ── Crew Management ──
+
+  async function handleAddCrew() {
+    if (!newCrewName.trim()) return
+    setAddingCrew(true)
+    setCrewError(null)
+
+    const trimmed = newCrewName.trim()
+    const duplicate = crews.find(c => c.name.toLowerCase() === trimmed.toLowerCase())
+    if (duplicate) {
+      setCrewError(`Crew "${trimmed}" already exists`)
+      setAddingCrew(false)
+      return
+    }
+
+    const { error } = await supabase
+      .from('crews')
+      .insert({ name: trimmed })
+
+    if (error) {
+      setCrewError(error.message)
+    } else {
+      setNewCrewName('')
+      await fetchCrews()
+    }
+    setAddingCrew(false)
+  }
+
+  async function handleRenameCrew(crew: Crew, newName: string) {
+    const trimmed = newName.trim()
+    if (!trimmed) {
+      setCrewError('Crew name cannot be empty')
+      return
+    }
+    if (trimmed === crew.name) return
+
+    const duplicate = crews.find(c => c.id !== crew.id && c.name.toLowerCase() === trimmed.toLowerCase())
+    if (duplicate) {
+      setCrewError(`Crew "${trimmed}" already exists`)
+      return
+    }
+
+    setCrewError(null)
+    const { error } = await supabase
+      .from('crews')
+      .update({ name: trimmed })
+      .eq('id', crew.id)
+
+    if (error) {
+      setCrewError(error.message)
+    } else {
+      await fetchCrews()
+    }
+  }
+
+  async function handleDeleteCrew(crew: Crew) {
+    setDeletingCrewId(crew.id)
+    const { error } = await supabase
+      .from('crews')
+      .delete()
+      .eq('id', crew.id)
+
+    if (error) {
+      setCrewError(error.message)
+    } else {
+      setCrewError(null)
+      setConfirmDeleteCrew(null)
+      await fetchCrews()
+    }
+    setDeletingCrewId(null)
+  }
+
+  // ── Skill Type Management ──
+
+  async function handleAddSkillType() {
+    if (!newSkillTypeName.trim()) return
+    setAddingSkillType(true)
+    setSkillTypeError(null)
+
+    const trimmed = newSkillTypeName.trim()
+    const duplicate = skillTypes.find(s => s.name.toLowerCase() === trimmed.toLowerCase())
+    if (duplicate) {
+      setSkillTypeError(`Skill type "${trimmed}" already exists`)
+      setAddingSkillType(false)
+      return
+    }
+
+    const { error } = await supabase
+      .from('skill_types')
+      .insert({ name: trimmed })
+
+    if (error) {
+      setSkillTypeError(error.message)
+    } else {
+      setNewSkillTypeName('')
+      await fetchSkillTypes()
+    }
+    setAddingSkillType(false)
+  }
+
+  async function handleRenameSkillType(skillType: SkillType, newName: string) {
+    const trimmed = newName.trim()
+    if (!trimmed) {
+      setSkillTypeError('Skill type name cannot be empty')
+      return
+    }
+    if (trimmed === skillType.name) return
+
+    const duplicate = skillTypes.find(s => s.id !== skillType.id && s.name.toLowerCase() === trimmed.toLowerCase())
+    if (duplicate) {
+      setSkillTypeError(`Skill type "${trimmed}" already exists`)
+      return
+    }
+
+    setSkillTypeError(null)
+    const { error } = await supabase
+      .from('skill_types')
+      .update({ name: trimmed })
+      .eq('id', skillType.id)
+
+    if (error) {
+      setSkillTypeError(error.message)
+    } else {
+      await fetchSkillTypes()
+    }
+  }
+
+  async function handleDeleteSkillType(skillType: SkillType) {
+    setDeletingSkillTypeId(skillType.id)
+    const { error } = await supabase
+      .from('skill_types')
+      .delete()
+      .eq('id', skillType.id)
+
+    if (error) {
+      setSkillTypeError(error.message)
+    } else {
+      setSkillTypeError(null)
+      setConfirmDeleteSkillType(null)
+      await fetchSkillTypes()
+    }
+    setDeletingSkillTypeId(null)
   }
 
   // ── Custom Field Management ──
@@ -1449,6 +1683,86 @@ export default function EmployeeManagement({
                     </div>
                   </SortableContext>
                 </DndContext>
+              </div>
+
+              {/* Crews */}
+              <div className="pt-6 border-t border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Crews
+                </h4>
+                <p className="text-xs text-gray-400 mb-3">Group employees into work crews</p>
+                {crewError && <p className="text-xs text-red-500 mb-2">{crewError}</p>}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={newCrewName}
+                    onChange={(e) => setNewCrewName(e.target.value)}
+                    placeholder="New crew name"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddCrew()}
+                  />
+                  <button
+                    onClick={handleAddCrew}
+                    disabled={addingCrew || !newCrewName.trim()}
+                    className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                  >
+                    {addingCrew ? '...' : 'Add'}
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {crews.map((crew) => (
+                    <SimpleNamedRow
+                      key={crew.id}
+                      item={crew}
+                      onRename={handleRenameCrew}
+                      onDelete={(c) => setConfirmDeleteCrew(c)}
+                      deleting={deletingCrewId === crew.id}
+                    />
+                  ))}
+                  {crews.length === 0 && (
+                    <p className="text-xs text-gray-400 py-2">No crews defined.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Skill Types */}
+              <div className="pt-6 border-t border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Skill Types
+                </h4>
+                <p className="text-xs text-gray-400 mb-3">Categorize employees by skill specialization</p>
+                {skillTypeError && <p className="text-xs text-red-500 mb-2">{skillTypeError}</p>}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={newSkillTypeName}
+                    onChange={(e) => setNewSkillTypeName(e.target.value)}
+                    placeholder="New skill type name"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddSkillType()}
+                  />
+                  <button
+                    onClick={handleAddSkillType}
+                    disabled={addingSkillType || !newSkillTypeName.trim()}
+                    className="px-3 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                  >
+                    {addingSkillType ? '...' : 'Add'}
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {skillTypes.map((skillType) => (
+                    <SimpleNamedRow
+                      key={skillType.id}
+                      item={skillType}
+                      onRename={handleRenameSkillType}
+                      onDelete={(s) => setConfirmDeleteSkillType(s)}
+                      deleting={deletingSkillTypeId === skillType.id}
+                    />
+                  ))}
+                  {skillTypes.length === 0 && (
+                    <p className="text-xs text-gray-400 py-2">No skill types defined.</p>
+                  )}
+                </div>
               </div>
 
               {/* Custom Fields */}
@@ -2116,6 +2430,30 @@ export default function EmployeeManagement({
           onConfirm={() => handleDeleteField(confirmDeleteField)}
           onCancel={() => setConfirmDeleteField(null)}
           loading={deletingFieldId === confirmDeleteField.id}
+        />
+      )}
+
+      {/* Confirm Delete Crew */}
+      {confirmDeleteCrew && (
+        <ConfirmDialog
+          title="Delete Crew"
+          message={`Are you sure you want to delete "${confirmDeleteCrew.name}"? All employees assigned to this crew will be unassigned.`}
+          confirmLabel="Delete Crew"
+          onConfirm={() => handleDeleteCrew(confirmDeleteCrew)}
+          onCancel={() => setConfirmDeleteCrew(null)}
+          loading={deletingCrewId === confirmDeleteCrew.id}
+        />
+      )}
+
+      {/* Confirm Delete Skill Type */}
+      {confirmDeleteSkillType && (
+        <ConfirmDialog
+          title="Delete Skill Type"
+          message={`Are you sure you want to delete "${confirmDeleteSkillType.name}"? All employees assigned to this skill type will be unassigned.`}
+          confirmLabel="Delete Skill Type"
+          onConfirm={() => handleDeleteSkillType(confirmDeleteSkillType)}
+          onCancel={() => setConfirmDeleteSkillType(null)}
+          loading={deletingSkillTypeId === confirmDeleteSkillType.id}
         />
       )}
           </div>
