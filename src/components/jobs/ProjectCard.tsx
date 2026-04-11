@@ -27,13 +27,13 @@ export default memo(function ProjectCard({
     <div
       className={`relative group rounded-xl border transition-all duration-150 cursor-pointer ${
         isSelected
-          ? 'bg-amber-50 border-amber-400 shadow-sm'
-          : 'bg-white border-gray-200 hover:border-amber-300 hover:shadow-sm'
+          ? 'bg-amber-50 dark:bg-[#2a2a2a] border-amber-400 dark:border-[#3a3a3a] shadow-sm'
+          : 'bg-white dark:bg-[#1e1e1e]! border-gray-200 dark:border-[#2a2a2a] hover:border-amber-300 dark:hover:border-[#3a3a3a] hover:shadow-sm dark:hover:bg-[#2a2a2a]!'
       }`}
     >
       {/* Selected indicator bar */}
       {isSelected && (
-        <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-amber-500 rounded-full" />
+        <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-amber-500 dark:bg-[#b8860b] rounded-full" />
       )}
 
       {/* Main clickable body */}
@@ -46,7 +46,7 @@ export default memo(function ProjectCard({
             <div className="flex items-center gap-2 flex-wrap">
               <h3
                 className={`text-sm font-semibold truncate transition-colors ${
-                  isSelected ? 'text-amber-700' : 'text-gray-900 group-hover:text-amber-600'
+                  isSelected ? 'text-amber-700 dark:text-[#d4a24a]' : 'text-gray-900 dark:text-[#e5e5e5] group-hover:text-amber-600'
                 }`}
               >
                 {project.estimate_number
@@ -56,7 +56,7 @@ export default memo(function ProjectCard({
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
                   project.status === 'Active'
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-green-100 dark:bg-[rgba(34,197,94,0.15)] text-green-700 dark:text-[#4ade80]'
                     : project.status === 'Completed'
                     ? 'bg-blue-100 text-blue-700'
                     : 'bg-gray-100 text-gray-500'
