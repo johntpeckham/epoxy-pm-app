@@ -1514,33 +1514,33 @@ function DaySelectionModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70"
       onClick={onCancel}
     >
       <div
-        className="bg-white rounded-xl border border-gray-200 shadow-xl p-5 w-full max-w-xl mx-4"
+        className="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-[#3a3a3a] shadow-xl p-5 w-full max-w-xl mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
-        <p className="text-xs text-gray-500 mb-4">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-[#e5e5e5] mb-1">{title}</h3>
+        <p className="text-xs text-gray-500 dark:text-[#9a9a9a] mb-4">
           Select the days this employee will work on this project for the selected week.
         </p>
 
         <div className="space-y-3 mb-4">
-          <div className="rounded-lg bg-amber-50/70 ring-1 ring-amber-200/80 px-2 py-2 -mx-2">
+          <div className="rounded-lg bg-amber-50/70 dark:bg-[#2a2a2a] ring-1 ring-amber-200/80 dark:ring-[#3a3a3a] px-2 py-2 -mx-2">
             <div className="flex items-center gap-2 mb-1">
               <label className="flex items-center gap-1.5 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={isWholeWeekSelected}
                   onChange={toggleWholeWeek}
-                  className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                  className="w-3.5 h-3.5 rounded border-gray-300 dark:border-[#4a4a4a] dark:bg-[#1e1e1e] text-amber-500 focus:ring-amber-500 cursor-pointer"
                 />
-                <span className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                <span className="text-[11px] font-semibold text-gray-600 dark:text-[#c4a776] uppercase tracking-wide">
                   {weekLabel}
                 </span>
               </label>
-              <span className="text-[11px] text-gray-400 normal-case font-normal">
+              <span className="text-[11px] text-gray-400 dark:text-[#7a7a7a] normal-case font-normal">
                 ({rangeLabel(weekDate)})
               </span>
             </div>
@@ -1552,8 +1552,8 @@ function DaySelectionModal({
                   onClick={() => toggle(i)}
                   className={`flex-1 flex flex-col items-center py-2 rounded-lg border text-xs font-semibold transition ${
                     days[i]
-                      ? 'bg-amber-500 border-amber-500 text-white'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'
+                      ? 'bg-amber-500 border-amber-500 text-white dark:bg-[#b45309] dark:border-[#b45309]'
+                      : 'bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-[#3a3a3a] text-gray-600 dark:text-[#c0c0c0] hover:border-amber-300 dark:hover:bg-[#2a2a2a] dark:hover:border-[#4a4a4a]'
                   }`}
                 >
                   <span>{label}</span>
@@ -1570,23 +1570,23 @@ function DaySelectionModal({
           <button
             type="button"
             onClick={setWeekdays}
-            className="text-xs font-medium text-amber-600 hover:text-amber-700 transition"
+            className="text-xs font-medium text-amber-600 dark:text-[#c4a776] hover:text-amber-700 dark:hover:text-[#d4b886] transition"
           >
             Weekdays
           </button>
-          <span className="text-gray-300">·</span>
+          <span className="text-gray-300 dark:text-[#4a4a4a]">·</span>
           <button
             type="button"
             onClick={setAllWeek}
-            className="text-xs font-medium text-amber-600 hover:text-amber-700 transition"
+            className="text-xs font-medium text-amber-600 dark:text-[#c4a776] hover:text-amber-700 dark:hover:text-[#d4b886] transition"
           >
             All Week
           </button>
-          <span className="text-gray-300">·</span>
+          <span className="text-gray-300 dark:text-[#4a4a4a]">·</span>
           <button
             type="button"
             onClick={clear}
-            className="text-xs font-medium text-gray-500 hover:text-gray-700 transition"
+            className="text-xs font-medium text-gray-500 dark:text-[#9a9a9a] hover:text-gray-700 dark:hover:text-[#c0c0c0] transition"
           >
             Clear
           </button>
@@ -1595,14 +1595,14 @@ function DaySelectionModal({
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
+            className="px-4 py-2 border border-gray-200 dark:border-[#3a3a3a] bg-white dark:bg-[#1e1e1e] rounded-lg text-sm text-gray-600 dark:text-[#c0c0c0] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition"
           >
             Cancel
           </button>
           <button
             onClick={() => onAssign(days)}
             disabled={!anyChecked}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 dark:bg-[#b45309] dark:hover:bg-[#c66510] disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
           >
             Assign
           </button>
@@ -1612,18 +1612,18 @@ function DaySelectionModal({
       {/* Confirmation dialog for removing a day from a fully-selected week */}
       {confirmRemoveIdx !== null && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 dark:bg-black/70"
           onClick={() => setConfirmRemoveIdx(null)}
         >
           <div
-            className="bg-white rounded-xl border border-gray-200 shadow-xl p-5 w-full max-w-sm mx-4"
+            className="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-[#3a3a3a] shadow-xl p-5 w-full max-w-sm mx-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3 mb-4">
-              <AlertTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <AlertTriangleIcon className="w-5 h-5 text-amber-500 dark:text-[#c4a776] flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">Remove Day?</h3>
-                <p className="text-xs text-gray-600">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-[#e5e5e5] mb-1">Remove Day?</h3>
+                <p className="text-xs text-gray-600 dark:text-[#9a9a9a]">
                   This will uncheck {DAY_FULL_NAMES[confirmRemoveIdx]} and the full week selection. Are you sure?
                 </p>
               </div>
@@ -1631,13 +1631,13 @@ function DaySelectionModal({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setConfirmRemoveIdx(null)}
-                className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
+                className="px-4 py-2 border border-gray-200 dark:border-[#3a3a3a] bg-white dark:bg-[#1e1e1e] rounded-lg text-sm text-gray-600 dark:text-[#c0c0c0] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDayRemove}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-sm font-semibold transition"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 dark:bg-[#b45309] dark:hover:bg-[#c66510] text-white rounded-lg text-sm font-semibold transition"
               >
                 Confirm
               </button>
