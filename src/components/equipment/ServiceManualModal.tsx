@@ -57,18 +57,39 @@ export default function ServiceManualModal({
     .sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at))
 
   async function handleUpload() {
+    console.log('[ServiceManualModal] handleUpload() called', {
+      label,
+      hasFile: !!file,
+      fileName: file?.name,
+      fileType: file?.type,
+      fileSize: file?.size,
+      equipmentId,
+    })
+
+    // Validate INSIDE the handler (instead of disabling the button) so the
+    // click always registers and the user sees a concrete error when they
+    // forget a field.
     if (!label.trim()) {
+      console.warn('[ServiceManualModal] blocked: missing label')
       setError('Please enter a name for the manual.')
       return
     }
     if (!file) {
+      console.warn('[ServiceManualModal] blocked: no file selected')
       setError('Please select a PDF file.')
       return
     }
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    const nameEndsWithPdf = file.name.toLowerCase().endsWith('.pdf')
+    const mimeIsPdf = file.type === 'application/pdf' || file.type === 'application/x-pdf'
+    if (!mimeIsPdf && !nameEndsWithPdf) {
+      console.warn('[ServiceManualModal] blocked: file is not a PDF', {
+        mime: file.type,
+        name: file.name,
+      })
       setError('Service manuals must be PDF files.')
       return
     }
+    console.log('[ServiceManualModal] validation passed')
 
     setError(null)
     setUploading(true)
@@ -77,17 +98,21 @@ export default function ServiceManualModal({
     try {
       const ext = file.name.split('.').pop() || 'pdf'
       const path = `${equipmentId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      console.log('[ServiceManualModal] uploading to storage', { bucket: 'equipment-documents', path })
 
-      const { error: uploadErr } = await supabase.storage
+      const { data: uploadData, error: uploadErr } = await supabase.storage
         .from('equipment-documents')
         .upload(path, file, { contentType: 'application/pdf' })
+      console.log('[ServiceManualModal] storage upload response', { uploadData, uploadErr })
       if (uploadErr) throw uploadErr
 
       const fileUrl = supabase.storage
         .from('equipment-documents')
         .getPublicUrl(path).data.publicUrl
+      console.log('[ServiceManualModal] resolved public url', fileUrl)
 
-      const { error: insertErr } = await supabase
+      console.log('[ServiceManualModal] inserting equipment_documents row')
+      const { data: insertData, error: insertErr } = await supabase
         .from('equipment_documents')
         .insert({
           equipment_id: equipmentId,
@@ -96,13 +121,18 @@ export default function ServiceManualModal({
           uploaded_by: userId,
           document_type: 'manual',
         })
+        .select()
+        .single()
+      console.log('[ServiceManualModal] insert response', { insertData, insertErr })
       if (insertErr) throw insertErr
 
+      console.log('[ServiceManualModal] upload complete, resetting form')
       setLabel('')
       setFile(null)
       if (fileRef.current) fileRef.current.value = ''
       onChanged()
     } catch (err) {
+      console.error('[ServiceManualModal] upload failed', err)
       setError(err instanceof Error ? err.message : 'Failed to upload manual.')
     } finally {
       setUploading(false)
@@ -183,7 +213,10 @@ export default function ServiceManualModal({
                     <input
                       type="text"
                       value={label}
-                      onChange={(e) => setLabel(e.target.value)}
+                      onChange={(e) => {
+                        setLabel(e.target.value)
+                        if (error) setError(null)
+                      }}
                       placeholder="e.g. Owner's Manual, Parts Catalog, Service Guide"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
                     />
@@ -196,14 +229,33 @@ export default function ServiceManualModal({
                       ref={fileRef}
                       type="file"
                       accept="application/pdf,.pdf"
-                      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                      onChange={(e) => {
+                        const picked = e.target.files?.[0] ?? null
+                        console.log('[ServiceManualModal] file input changed', {
+                          name: picked?.name,
+                          type: picked?.type,
+                          size: picked?.size,
+                        })
+                        setFile(picked)
+                        if (error) setError(null)
+                      }}
                       className="w-full text-sm text-gray-900 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 file:transition-colors"
                     />
-                    <p className="text-xs text-gray-400 mt-1">PDF files only</p>
+                    {file ? (
+                      <p className="text-xs text-gray-600 mt-1 truncate">
+                        Selected: <span className="font-medium text-gray-900">{file.name}</span>
+                        {typeof file.size === 'number' && (
+                          <span className="text-gray-400"> ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400 mt-1">PDF files only</p>
+                    )}
                   </div>
                   <button
+                    type="button"
                     onClick={handleUpload}
-                    disabled={uploading || !label.trim() || !file}
+                    disabled={uploading}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {uploading ? (
