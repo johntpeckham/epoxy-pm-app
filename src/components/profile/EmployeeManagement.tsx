@@ -1212,14 +1212,14 @@ export default function EmployeeManagement({
                 <div className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
               </div>
               {/* Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
                 {group.employees.map((emp) => (
                   <div
                     key={emp.id}
                     className="rounded-lg border border-gray-200 dark:border-[#3a3a3a] overflow-hidden hover:border-gray-300 dark:hover:border-[#4a4a4a] hover:shadow-sm transition bg-white dark:bg-[#242424]! flex flex-col"
                   >
-                    {/* Photo area — ~100px tall */}
-                    <div className="w-full aspect-square bg-gray-100 dark:bg-[#2e2e2e]! overflow-hidden">
+                    {/* Photo area — compact fixed height */}
+                    <div className="w-full h-32 bg-gray-100 dark:bg-[#2e2e2e]! overflow-hidden">
                       {emp.photo_url ? (
                         <img
                           src={emp.photo_url}
@@ -1228,7 +1228,7 @@ export default function EmployeeManagement({
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <UserIcon className="w-7 h-7 text-gray-300 dark:text-[#4a4a4a]!" />
+                          <UserIcon className="w-5 h-5 text-gray-300 dark:text-[#4a4a4a]!" />
                         </div>
                       )}
                     </div>
