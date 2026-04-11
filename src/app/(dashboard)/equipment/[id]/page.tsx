@@ -28,6 +28,10 @@ export interface EquipmentDocumentRow {
   file_url: string
   uploaded_at: string
   uploaded_by: string | null
+  /** 'general' = shown in the Documents card. 'manual' = shown in the
+   *  Service Manual modal. Defaults to 'general' for rows predating the
+   *  20260412 migration. */
+  document_type: 'general' | 'manual'
 }
 
 export interface ScheduledServiceRow {
@@ -83,7 +87,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
 
   const { data: docs } = await supabase
     .from('equipment_documents')
-    .select('id, equipment_id, label, file_url, uploaded_at, uploaded_by')
+    .select('id, equipment_id, label, file_url, uploaded_at, uploaded_by, document_type')
     .eq('equipment_id', id)
     .order('uploaded_at', { ascending: false })
 

@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon, CalendarClockIcon, ChevronDownIcon, CheckIcon, CameraIcon, XIcon } from 'lucide-react'
+import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon, WrenchIcon, QrCodeIcon, UploadIcon, ExternalLinkIcon, CalendarClockIcon, ChevronDownIcon, CheckIcon, CameraIcon, XIcon, BookOpenIcon } from 'lucide-react'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import type { MaintenanceLogRow, EquipmentDocumentRow, ScheduledServiceRow, ProfileOption } from '@/app/(dashboard)/equipment/[id]/page'
 import EquipmentModal from './EquipmentModal'
@@ -12,6 +12,7 @@ import MaintenanceLogModal from './MaintenanceLogModal'
 import DocumentUploadModal from './DocumentUploadModal'
 import QrPreviewModal from './QrPreviewModal'
 import ScheduledServiceModal from './ScheduledServiceModal'
+import ServiceManualModal from './ServiceManualModal'
 
 const CATEGORY_LABEL: Record<string, string> = {
   vehicle: 'Vehicle',
@@ -102,6 +103,7 @@ export default function EquipmentDetailClient({
   const [showLogModal, setShowLogModal] = useState(false)
   const [showDocModal, setShowDocModal] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
+  const [showManualModal, setShowManualModal] = useState(false)
   const [showScheduledModal, setShowScheduledModal] = useState(false)
   const [editingLog, setEditingLog] = useState<MaintenanceLogRow | null>(null)
   const [editingScheduled, setEditingScheduled] = useState<ScheduledServiceRow | null>(null)
@@ -574,7 +576,7 @@ export default function EquipmentDetailClient({
     const supabase = createClient()
     const { data } = await supabase
       .from('equipment_documents')
-      .select('id, equipment_id, label, file_url, uploaded_at, uploaded_by')
+      .select('id, equipment_id, label, file_url, uploaded_at, uploaded_by, document_type')
       .eq('equipment_id', equipment.id)
       .order('uploaded_at', { ascending: false })
     if (data) {
@@ -692,6 +694,13 @@ export default function EquipmentDetailClient({
             >
               <QrCodeIcon className="w-4 h-4" />
               QR Code
+            </button>
+            <button
+              onClick={() => setShowManualModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <BookOpenIcon className="w-4 h-4" />
+              Service Manual
             </button>
           </div>
           {headerPhotoError && (
@@ -1065,37 +1074,44 @@ export default function EquipmentDetailClient({
                 Upload
               </button>
             </div>
-            {docs.length === 0 ? (
-              <p className="text-sm text-gray-400">No documents uploaded yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {docs.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                    <span className="text-sm text-gray-900 font-medium">{doc.label}</span>
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={doc.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 transition-colors"
-                      >
-                        View
-                        <ExternalLinkIcon className="w-3.5 h-3.5" />
-                      </a>
-                      {canManage && (
-                        <button
-                          onClick={() => setDeleteDocId(doc.id)}
-                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
-                          title="Delete"
+            {(() => {
+              // The general Documents section excludes service manuals so
+              // the two surfaces don't show the same row twice. Manuals live
+              // in the dedicated Service Manual modal (header button).
+              const generalDocs = docs.filter((d) => d.document_type !== 'manual')
+              if (generalDocs.length === 0) {
+                return <p className="text-sm text-gray-400">No documents uploaded yet.</p>
+              }
+              return (
+                <div className="space-y-2">
+                  {generalDocs.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                      <span className="text-sm text-gray-900 font-medium">{doc.label}</span>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={doc.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 transition-colors"
                         >
-                          <TrashIcon className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                          View
+                          <ExternalLinkIcon className="w-3.5 h-3.5" />
+                        </a>
+                        {canManage && (
+                          <button
+                            onClick={() => setDeleteDocId(doc.id)}
+                            className="p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
+                            title="Delete"
+                          >
+                            <TrashIcon className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )
+            })()}
           </div>
         </div>
       </div>
@@ -1167,6 +1183,19 @@ export default function EquipmentDetailClient({
         <QrPreviewModal
           equipment={equipment}
           onClose={() => setShowQrModal(false)}
+        />
+      )}
+
+      {/* Service manual modal */}
+      {showManualModal && (
+        <ServiceManualModal
+          equipmentId={equipment.id}
+          equipmentName={equipment.name}
+          userId={userId}
+          canManage={canManage}
+          docs={docs}
+          onClose={() => setShowManualModal(false)}
+          onChanged={refreshDocs}
         />
       )}
 
