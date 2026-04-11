@@ -367,6 +367,13 @@ export interface EmployeeRole {
   created_at: string
 }
 
+export interface EquipmentCategory {
+  id: string
+  name: string
+  sort_order: number
+  created_at: string
+}
+
 export interface EmployeeCertification {
   id: string
   name: string
