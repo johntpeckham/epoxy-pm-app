@@ -203,6 +203,29 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
     return result
   }, [equipment, categoryFilter, statusFilter])
 
+  // Group filtered equipment by category, following the order from
+  // equipment_categories.sort_order. Categories with no items are skipped.
+  // Any equipment whose category doesn't match a known category is collected
+  // under "Other" at the bottom.
+  const groupedEquipment = useMemo(() => {
+    const groups: { categoryName: string; items: EquipmentRow[] }[] = []
+    const knownNames = new Set(categories.map((c) => c.name))
+
+    for (const c of categories) {
+      const matched = filtered.filter((e) => e.category === c.name)
+      if (matched.length > 0) {
+        groups.push({ categoryName: c.name, items: matched })
+      }
+    }
+
+    const other = filtered.filter((e) => !e.category || !knownNames.has(e.category))
+    if (other.length > 0) {
+      groups.push({ categoryName: 'Other', items: other })
+    }
+
+    return groups
+  }, [filtered, categories])
+
   const handleSaved = useCallback(() => {
     setShowModal(false)
     setEditingItem(null)
@@ -429,6 +452,102 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
     </div>
   )
 
+  const renderCard = (item: EquipmentRow) => {
+    const openDetail = () => {
+      if (onViewItem) onViewItem(item.id)
+      else router.push(`/equipment/${item.id}`)
+    }
+    return (
+      <div
+        key={item.id}
+        role="button"
+        tabIndex={0}
+        onClick={openDetail}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            openDetail()
+          }
+        }}
+        className="relative bg-white border border-gray-200 rounded-xl p-5 cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 hover:shadow-md transition"
+      >
+        {/* Top-right action buttons — stopPropagation so clicks don't navigate */}
+        {canManage && (
+          <div className="absolute top-3 right-3 flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditingItem(item)
+                setShowModal(true)
+              }}
+              className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-gray-100 rounded-md transition-colors"
+              title="Edit"
+            >
+              <PencilIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-start gap-4">
+          {/* Photo thumbnail on the left */}
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 border border-gray-200">
+            {item.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.photo_url}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <WrenchIcon className="w-8 h-8 text-gray-400" />
+            )}
+          </div>
+
+          {/* Content on the right */}
+          <div className="flex-1 min-w-0">
+            {/* Name */}
+            <h3 className="text-lg font-bold text-gray-900 pr-16">{item.name}</h3>
+
+            {/* Badges */}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${categoryBadgeClass(item.category)}`}
+              >
+                {item.category}
+              </span>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                  item.status === 'active'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {item.status === 'active' ? 'Active' : 'Out of Service'}
+              </span>
+            </div>
+
+            {/* Year / Make / Model */}
+            {(item.year || item.make || item.model) && (
+              <p className="text-sm text-gray-600 mt-2">
+                {[item.year, item.make, item.model].filter(Boolean).join(' / ')}
+              </p>
+            )}
+
+            {/* Serial / VIN */}
+            {item.serial_number && (
+              <p className="text-xs text-gray-400 mt-1">SN: {item.serial_number}</p>
+            )}
+            {item.vin && <p className="text-xs text-gray-400 mt-0.5">VIN: {item.vin}</p>}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const gridColsClass = `grid grid-cols-1 gap-4 ${
+    embedded ? 'md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : 'md:grid-cols-2'
+  }`
+
   const gridBlock =
     filtered.length === 0 ? (
       <div className="text-center py-16">
@@ -441,98 +560,26 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
         </p>
       </div>
     ) : (
-      <div className={`grid grid-cols-1 gap-4 ${embedded ? 'md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : 'md:grid-cols-2'}`}>
-        {filtered.map((item) => {
-          const openDetail = () => {
-            if (onViewItem) onViewItem(item.id)
-            else router.push(`/equipment/${item.id}`)
-          }
-          return (
+      <div>
+        {groupedEquipment.map((group, idx) => (
+          <div key={group.categoryName}>
+            {/* Category divider — matches Employee Management role divider */}
             <div
-              key={item.id}
-              role="button"
-              tabIndex={0}
-              onClick={openDetail}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  openDetail()
-                }
-              }}
-              className="relative bg-white border border-gray-200 rounded-xl p-5 cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 hover:shadow-md transition"
+              className={`flex items-center gap-3 ${idx === 0 ? 'mb-4' : 'mt-6 mb-4'}`}
+              aria-label={group.categoryName}
             >
-              {/* Top-right action buttons — stopPropagation so clicks don't navigate */}
-              {canManage && (
-                <div className="absolute top-3 right-3 flex items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setEditingItem(item)
-                      setShowModal(true)
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-gray-100 rounded-md transition-colors"
-                    title="Edit"
-                  >
-                    <PencilIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              <div className="flex items-start gap-4">
-                {/* Photo thumbnail on the left */}
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 border border-gray-200">
-                  {item.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.photo_url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <WrenchIcon className="w-8 h-8 text-gray-400" />
-                  )}
-                </div>
-
-                {/* Content on the right */}
-                <div className="flex-1 min-w-0">
-                  {/* Name */}
-                  <h3 className="text-lg font-bold text-gray-900 pr-16">{item.name}</h3>
-
-                  {/* Badges */}
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${categoryBadgeClass(item.category)}`}
-                    >
-                      {item.category}
-                    </span>
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        item.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}
-                    >
-                      {item.status === 'active' ? 'Active' : 'Out of Service'}
-                    </span>
-                  </div>
-
-                  {/* Year / Make / Model */}
-                  {(item.year || item.make || item.model) && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      {[item.year, item.make, item.model].filter(Boolean).join(' / ')}
-                    </p>
-                  )}
-
-                  {/* Serial / VIN */}
-                  {item.serial_number && (
-                    <p className="text-xs text-gray-400 mt-1">SN: {item.serial_number}</p>
-                  )}
-                  {item.vin && <p className="text-xs text-gray-400 mt-0.5">VIN: {item.vin}</p>}
-                </div>
-              </div>
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">
+                {group.categoryName}
+              </span>
+              <div className="flex-1 h-px bg-gray-200" />
             </div>
-          )
-        })}
+            {/* Cards */}
+            <div className={gridColsClass}>
+              {group.items.map((item) => renderCard(item))}
+            </div>
+          </div>
+        ))}
       </div>
     )
 
