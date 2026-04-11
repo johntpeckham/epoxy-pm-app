@@ -365,11 +365,22 @@ export default function SchedulerClient({
 
   // Drag state
   const [activeDrag, setActiveDrag] = useState<EmployeeProfile | null>(null)
+  const [activeDragCount, setActiveDragCount] = useState<number>(1)
 
-  // Day-selection popover state — scoped to a single week
+  // Multi-select state for the employee pool — when ON, clicking an
+  // employee chip toggles selection and dragging any selected chip moves
+  // the whole selected group as a single drop.
+  const [multiSelectMode, setMultiSelectMode] = useState(false)
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(
+    () => new Set()
+  )
+
+  // Day-selection popover state — scoped to a single week. The employees
+  // array has length 1 for a single-employee assignment and length N for a
+  // group drop from the multi-select pool.
   const [popover, setPopover] = useState<{
     mode: 'add' | 'edit'
-    employee: EmployeeProfile
+    employees: EmployeeProfile[]
     project: Project
     weekISO: string
     initialDays: DayFlags
@@ -609,10 +620,6 @@ export default function SchedulerClient({
   }, [assignments, projects, employees, activeWeekISO, companySettings])
 
   // ── Assignment mutations (local state) ──────────────────────────────────
-  const addLocalAssignment = useCallback((assignment: Assignment) => {
-    setAssignments((prev) => [...prev, assignment])
-  }, [])
-
   const updateLocalAssignmentDays = useCallback(
     (id: string, days: DayFlags) => {
       setAssignments((prev) => prev.map((a) => (a.id === id ? { ...a, days } : a)))
@@ -635,36 +642,65 @@ export default function SchedulerClient({
   // ── DnD handlers ────────────────────────────────────────────────────────
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current as { employee?: EmployeeProfile } | undefined
-    if (data?.employee) setActiveDrag(data.employee)
+    if (!data?.employee) return
+    setActiveDrag(data.employee)
+    if (
+      multiSelectMode &&
+      selectedEmployeeIds.has(data.employee.id) &&
+      selectedEmployeeIds.size > 1
+    ) {
+      setActiveDragCount(selectedEmployeeIds.size)
+    } else {
+      setActiveDragCount(1)
+    }
   }
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveDrag(null)
+    setActiveDragCount(1)
     const { active, over } = event
     if (!over) return
     const activeData = active.data.current as { employee?: EmployeeProfile } | undefined
     const overData = over.data.current as { project?: Project } | undefined
     if (!activeData?.employee || !overData?.project) return
 
-    const employee = activeData.employee
+    const draggedEmployee = activeData.employee
     const project = overData.project
 
-    // Duplicate prevention (per active week): block drops if the employee
-    // already has an assignment for this project in the selected week.
-    const existing = assignments.find(
-      (a) =>
-        a.employee_id === employee.id &&
-        a.project_id === project.id &&
-        a.week_start === activeWeekISO
+    // Determine if this is a group drop from multi-select mode
+    const isGroup =
+      multiSelectMode &&
+      selectedEmployeeIds.has(draggedEmployee.id) &&
+      selectedEmployeeIds.size > 1
+
+    const employeesToAssign = isGroup
+      ? employees.filter((e) => selectedEmployeeIds.has(e.id))
+      : [draggedEmployee]
+
+    // Filter out employees already assigned to this project for this week.
+    // The unique constraint (job_id, employee_id, week_start) would block
+    // these and the user shouldn't be re-prompted in the modal for them.
+    const eligible = employeesToAssign.filter(
+      (emp) =>
+        !assignments.some(
+          (a) =>
+            a.employee_id === emp.id &&
+            a.project_id === project.id &&
+            a.week_start === activeWeekISO
+        )
     )
-    if (existing) {
-      setDuplicateWarning({ employeeName: employee.name, projectName: project.name })
+
+    if (eligible.length === 0) {
+      setDuplicateWarning({
+        employeeName: isGroup ? 'All selected employees' : draggedEmployee.name,
+        projectName: project.name,
+      })
       return
     }
 
     setPopover({
       mode: 'add',
-      employee,
+      employees: eligible,
       project,
       weekISO: activeWeekISO,
       initialDays: emptyDays(),
@@ -673,6 +709,7 @@ export default function SchedulerClient({
 
   function handleDragCancel() {
     setActiveDrag(null)
+    setActiveDragCount(1)
   }
 
   // ── Derived: per-bucket items filtered to the active week ───────────────
@@ -847,7 +884,7 @@ export default function SchedulerClient({
                         if (!emp) return
                         setPopover({
                           mode: 'edit',
-                          employee: emp,
+                          employees: [emp],
                           project,
                           weekISO: assignment.week_start,
                           initialDays: [...assignment.days] as DayFlags,
@@ -886,7 +923,7 @@ export default function SchedulerClient({
                           if (!emp) return
                           setPopover({
                             mode: 'edit',
-                            employee: emp,
+                            employees: [emp],
                             project: fakeProject,
                             weekISO: assignment.week_start,
                             initialDays: [...assignment.days] as DayFlags,
@@ -902,13 +939,45 @@ export default function SchedulerClient({
 
           {/* BOTTOM: Employee strip */}
           <div className="flex-none border-t border-gray-200 bg-white" style={{ height: '22vh', minHeight: 180 }}>
-            <div className="h-full overflow-y-auto px-6 py-3">
+            <div className="h-full overflow-y-auto px-6 py-2">
+              {/* Multi-select toolbar */}
+              <div className="flex items-center gap-3 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (multiSelectMode) {
+                      setMultiSelectMode(false)
+                      setSelectedEmployeeIds(new Set())
+                    } else {
+                      setMultiSelectMode(true)
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition border ${
+                    multiSelectMode
+                      ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-400'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300 hover:bg-amber-50'
+                  }`}
+                  title={multiSelectMode ? 'Exit multi-select mode' : 'Select multiple employees to assign as a group'}
+                >
+                  {multiSelectMode ? 'Cancel Selection' : 'Select Multiple'}
+                </button>
+                {multiSelectMode && (
+                  <span className="text-[11px] font-medium text-gray-500">
+                    {selectedEmployeeIds.size} selected
+                  </span>
+                )}
+                {multiSelectMode && selectedEmployeeIds.size === 0 && (
+                  <span className="text-[11px] text-gray-400 italic">
+                    Click employees to select, then drag any one onto a job bucket.
+                  </span>
+                )}
+              </div>
               {employeeGroups.length === 0 ? (
                 <div className="h-full flex items-center justify-center">
                   <p className="text-sm text-gray-400">No employees found. Add employees in Settings → Employee Management.</p>
                 </div>
               ) : (
-                <div className="flex gap-6 h-full">
+                <div className="flex gap-6">
                   {employeeGroups.map((group) => (
                     <div key={group.label} className="flex flex-col min-w-0 flex-shrink-0">
                       <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
@@ -924,6 +993,16 @@ export default function SchedulerClient({
                               isDragging={activeDrag?.id === emp.id}
                               projectCount={stats?.projectCount ?? 0}
                               hasConflict={Boolean(stats?.hasConflict)}
+                              multiSelectMode={multiSelectMode}
+                              isSelected={selectedEmployeeIds.has(emp.id)}
+                              onToggleSelect={() => {
+                                setSelectedEmployeeIds((prev) => {
+                                  const next = new Set(prev)
+                                  if (next.has(emp.id)) next.delete(emp.id)
+                                  else next.add(emp.id)
+                                  return next
+                                })
+                              }}
                             />
                           )
                         })}
@@ -938,14 +1017,38 @@ export default function SchedulerClient({
 
         {/* Drag overlay */}
         <DragOverlay dropAnimation={null}>
-          {activeDrag ? <EmployeeCardBody employee={activeDrag} dragging /> : null}
+          {activeDrag ? (
+            <div className="relative">
+              {activeDragCount > 1 && (
+                <>
+                  <div
+                    className="absolute inset-0 bg-white border border-gray-200 rounded-lg shadow-sm"
+                    style={{ transform: 'translate(8px, 8px)' }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="absolute inset-0 bg-white border border-gray-200 rounded-lg shadow-sm"
+                    style={{ transform: 'translate(4px, 4px)' }}
+                    aria-hidden="true"
+                  />
+                </>
+              )}
+              <EmployeeCardBody employee={activeDrag} dragging />
+              {activeDragCount > 1 && (
+                <div className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shadow-md ring-2 ring-white z-10">
+                  {activeDragCount}
+                </div>
+              )}
+            </div>
+          ) : null}
         </DragOverlay>
       </DndContext>
 
       {/* Day selection popover (single week — the active week) */}
       {popover && (
         <DaySelectionModal
-          title={`${popover.employee.name} → ${popover.project.name}`}
+          employees={popover.employees}
+          project={popover.project}
           weekISO={popover.weekISO}
           weekDate={parseISODateLocal(popover.weekISO)}
           weekLabel={
@@ -958,34 +1061,67 @@ export default function SchedulerClient({
           initialDays={popover.initialDays}
           onCancel={() => setPopover(null)}
           onAssign={async (days) => {
+            const isMulti = popover.employees.length > 1
             const commit = async () => {
               if (popover.mode === 'add') {
-                const created = await insertAssignment(
-                  popover.employee,
-                  popover.project,
-                  popover.weekISO,
-                  days
+                // Insert one row per employee in parallel. Each insert
+                // creates an independent assignment so days can be edited
+                // per-employee after the group drop completes.
+                const results = await Promise.all(
+                  popover.employees.map((emp) =>
+                    insertAssignment(emp, popover.project, popover.weekISO, days)
+                  )
                 )
-                if (created) addLocalAssignment(created)
+                const created = results.filter(
+                  (r): r is Assignment => r !== null
+                )
+                if (created.length > 0) {
+                  setAssignments((prev) => [...prev, ...created])
+                }
+                if (isMulti) {
+                  // Clear group selection after a successful group drop so
+                  // the user returns to normal single-drag behavior.
+                  setSelectedEmployeeIds(new Set())
+                  setMultiSelectMode(false)
+                }
               } else if (popover.editId !== undefined) {
                 const ok = await updateAssignmentDaysRemote(popover.editId, days)
                 if (ok) updateLocalAssignmentDays(popover.editId, days)
               }
               setPopover(null)
             }
-            // Same-week double-book check against other assignments
-            const conflicts = findConflictsForProposed(
-              popover.employee.id,
-              popover.project.id,
-              popover.weekISO,
-              days,
-              assignments,
-              popover.editId
-            )
-            if (conflicts.length > 0) {
+            // Same-week double-book check across all employees being
+            // assigned. For multi-employee drops we aggregate conflicts and
+            // prefix the conflicting project name with the employee name so
+            // the user can tell which person triggered which conflict.
+            const aggregated: Conflict[] = []
+            let firstConflictName = ''
+            for (const emp of popover.employees) {
+              const conflicts = findConflictsForProposed(
+                emp.id,
+                popover.project.id,
+                popover.weekISO,
+                days,
+                assignments,
+                popover.editId
+              )
+              if (conflicts.length > 0) {
+                if (!firstConflictName) firstConflictName = emp.name
+                for (const c of conflicts) {
+                  aggregated.push(
+                    isMulti
+                      ? { ...c, otherProjectName: `${c.otherProjectName} (${emp.name})` }
+                      : c
+                  )
+                }
+              }
+            }
+            if (aggregated.length > 0) {
               setDoubleBookPrompt({
-                employeeName: popover.employee.name,
-                conflicts,
+                employeeName: isMulti
+                  ? 'One or more selected employees'
+                  : firstConflictName,
+                conflicts: aggregated,
                 onContinue: () => {
                   setDoubleBookPrompt(null)
                   void commit()
@@ -1362,11 +1498,17 @@ function DraggableEmployeeCard({
   isDragging,
   projectCount,
   hasConflict,
+  multiSelectMode,
+  isSelected,
+  onToggleSelect,
 }: {
   employee: EmployeeProfile
   isDragging: boolean
   projectCount: number
   hasConflict: boolean
+  multiSelectMode: boolean
+  isSelected: boolean
+  onToggleSelect: () => void
 }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `employee-${employee.id}`,
@@ -1377,12 +1519,23 @@ function DraggableEmployeeCard({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      onClick={(e) => {
+        // In multi-select mode, a plain click (no drag) toggles selection.
+        // dnd-kit's PointerSensor only starts a drag after the activation
+        // distance is met, so click events still fire on a stationary tap.
+        if (multiSelectMode) {
+          e.stopPropagation()
+          onToggleSelect()
+        }
+      }}
       className={`${isDragging ? 'opacity-40' : ''} touch-none`}
     >
       <EmployeeCardBody
         employee={employee}
         projectCount={projectCount}
         hasConflict={hasConflict}
+        selectable={multiSelectMode}
+        selected={isSelected}
       />
     </div>
   )
@@ -1394,11 +1547,15 @@ function EmployeeCardBody({
   dragging = false,
   projectCount = 0,
   hasConflict = false,
+  selectable = false,
+  selected = false,
 }: {
   employee: EmployeeProfile
   dragging?: boolean
   projectCount?: number
   hasConflict?: boolean
+  selectable?: boolean
+  selected?: boolean
 }) {
   const name = employee.name || 'Unnamed'
   const initials =
@@ -1410,13 +1567,29 @@ function EmployeeCardBody({
       .join('') || '?'
   return (
     <div
-      className={`w-[130px] h-[60px] relative flex items-center gap-2 px-2 py-1.5 bg-white border rounded-lg shadow-sm select-none flex-shrink-0 transition cursor-grab ${
-        dragging ? 'shadow-lg border-amber-400' : 'border-gray-200 hover:shadow-md hover:border-amber-300'
+      className={`w-[130px] h-[60px] relative flex items-center gap-2 px-2 py-1.5 border rounded-lg shadow-sm select-none flex-shrink-0 transition cursor-grab ${
+        dragging
+          ? 'bg-white shadow-lg border-amber-400'
+          : selected
+            ? 'bg-amber-50 border-amber-500 ring-2 ring-amber-300'
+            : 'bg-white border-gray-200 hover:shadow-md hover:border-amber-300'
       } ${projectCount > 0 && !hasConflict ? 'border-l-4 border-l-green-400' : ''} ${
         hasConflict ? 'border-l-4 border-l-orange-400' : ''
       }`}
       title={name}
     >
+      {selectable && (
+        <div
+          className={`absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-sm transition ${
+            selected
+              ? 'bg-amber-500 text-white'
+              : 'bg-white border border-gray-300'
+          }`}
+          aria-hidden="true"
+        >
+          {selected && <CheckIcon className="w-2.5 h-2.5" />}
+        </div>
+      )}
       <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
         {employee.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -1444,7 +1617,8 @@ function EmployeeCardBody({
 
 // ─── Day selection modal (single week — the active week) ─────────────────
 function DaySelectionModal({
-  title,
+  employees,
+  project,
   weekISO,
   weekDate,
   weekLabel,
@@ -1452,7 +1626,8 @@ function DaySelectionModal({
   onAssign,
   onCancel,
 }: {
-  title: string
+  employees: EmployeeProfile[]
+  project: Project
   weekISO: string
   weekDate: Date
   weekLabel: string
@@ -1461,6 +1636,13 @@ function DaySelectionModal({
   onCancel: () => void
 }) {
   void weekISO
+  const isMulti = employees.length > 1
+  const headerTitle = isMulti
+    ? `Assigning ${employees.length} employees to ${project.name}`
+    : `${employees[0]?.name ?? ''} → ${project.name}`
+  const subtitleText = isMulti
+    ? 'Select the days these employees will work on this project for the selected week. Each employee can be edited independently after the group is assigned.'
+    : 'Select the days this employee will work on this project for the selected week.'
   const [days, setDays] = useState<DayFlags>(() => [...initialDays] as DayFlags)
 
   // Confirmation dialog for unchecking a day from a fully-selected week
@@ -1521,9 +1703,21 @@ function DaySelectionModal({
         className="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-[#3a3a3a] shadow-xl p-5 w-full max-w-xl mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-[#e5e5e5] mb-1">{title}</h3>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-[#e5e5e5] mb-1">{headerTitle}</h3>
+        {isMulti && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {employees.map((e) => (
+              <span
+                key={e.id}
+                className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 dark:bg-[#3a2a18] text-amber-800 dark:text-[#c4a776] text-[11px] font-medium"
+              >
+                {e.name}
+              </span>
+            ))}
+          </div>
+        )}
         <p className="text-xs text-gray-500 dark:text-[#9a9a9a] mb-4">
-          Select the days this employee will work on this project for the selected week.
+          {subtitleText}
         </p>
 
         <div className="space-y-3 mb-4">
