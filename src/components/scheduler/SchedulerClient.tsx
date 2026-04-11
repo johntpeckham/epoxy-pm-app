@@ -747,8 +747,8 @@ export default function SchedulerClient({
           </div>
 
           {/* TOP: Three-week calendar strip */}
-          <div className="flex-none px-6 py-4 bg-white border-b border-gray-200">
-            <div className="space-y-2">
+          <div className="flex-none px-4 py-2 bg-white border-b border-gray-200">
+            <div className="space-y-1">
               <WeekRow
                 label="This Week"
                 weekStart={thisWeek}
@@ -1060,25 +1060,22 @@ function WeekRow({
             : 'border-gray-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
       }`}
     >
-      {/* Day header row */}
+      {/* Day header row — single line, minimal padding */}
       <div
         className="grid items-stretch"
         style={{ gridTemplateColumns: WEEK_GRID_COLUMNS }}
       >
         <div
-          className={`px-3 py-1.5 flex flex-col justify-center border-r ${
+          className={`px-1.5 py-0.5 flex items-center border-r ${
             active ? 'border-amber-200' : 'border-gray-100'
           }`}
         >
           <p
-            className={`text-[11px] font-bold uppercase tracking-wider ${
+            className={`text-[11px] font-bold uppercase tracking-wider leading-none ${
               active ? 'text-amber-700' : 'text-gray-500'
             }`}
           >
             {label}
-          </p>
-          <p className={`text-[10px] ${active ? 'text-amber-900' : 'text-gray-500'}`}>
-            {rangeLabel(weekStart)}
           </p>
         </div>
         {days.map((d, i) => {
@@ -1088,7 +1085,7 @@ function WeekRow({
           return (
             <div
               key={i}
-              className={`min-h-[26px] px-1.5 pt-1 pb-1 border-r last:border-r-0 ${
+              className={`px-1 py-0.5 border-r last:border-r-0 ${
                 active ? 'border-amber-100' : 'border-gray-100'
               } ${weekendBg}`}
             >
@@ -1104,43 +1101,54 @@ function WeekRow({
         })}
       </div>
 
-      {/* Gantt bars row */}
-      {bars.length > 0 && (
+      {/* Content row: date range in label column, Gantt bars in day columns */}
+      <div
+        className={`border-t ${
+          active ? 'border-amber-100' : 'border-gray-100'
+        }`}
+      >
         <div
-          className={`border-t ${
-            active ? 'border-amber-100' : 'border-gray-100'
-          }`}
+          className="grid gap-y-px py-0.5"
+          style={{
+            gridTemplateColumns: WEEK_GRID_COLUMNS,
+            gridAutoRows: '18px',
+            minHeight: '20px',
+          }}
         >
           <div
-            className="grid gap-y-0.5 py-1"
-            style={{ gridTemplateColumns: WEEK_GRID_COLUMNS }}
+            className={`flex items-center px-1.5 text-[9px] leading-none truncate ${
+              active ? 'text-amber-700' : 'text-gray-400'
+            }`}
+            style={{ gridColumn: 1, gridRow: 1 }}
+            title={rangeLabel(weekStart)}
           >
-            {bars.map((bar, idx) => {
-              const barLabel = bar.project.estimate_number
-                ? `${bar.project.name} — Est #${bar.project.estimate_number}`
-                : bar.project.name
-              const barColor = colorForProjectId(bar.project.id, isDark)
-              return (
-                <div
-                  key={`${bar.project.id}-${idx}`}
-                  className="mx-0.5 flex items-center min-w-0 px-2 text-[10px] font-semibold truncate"
-                  style={{
-                    gridColumn: `${bar.startDay + 2} / ${bar.endDay + 3}`,
-                    gridRow: idx + 1,
-                    backgroundColor: barColor,
-                    color: barTextColor,
-                    borderRadius: '3px',
-                    height: '17px',
-                  }}
-                  title={barLabel}
-                >
-                  {barLabel}
-                </div>
-              )
-            })}
+            {rangeLabel(weekStart)}
           </div>
+          {bars.map((bar, idx) => {
+            const barLabel = bar.project.estimate_number
+              ? `${bar.project.name} — Est #${bar.project.estimate_number}`
+              : bar.project.name
+            const barColor = colorForProjectId(bar.project.id, isDark)
+            return (
+              <div
+                key={`${bar.project.id}-${idx}`}
+                className="mx-0.5 flex items-center min-w-0 px-2 text-[10px] font-semibold truncate"
+                style={{
+                  gridColumn: `${bar.startDay + 2} / ${bar.endDay + 3}`,
+                  gridRow: idx + 1,
+                  backgroundColor: barColor,
+                  color: barTextColor,
+                  borderRadius: '3px',
+                  height: '17px',
+                }}
+                title={barLabel}
+              >
+                {barLabel}
+              </div>
+            )
+          })}
         </div>
-      )}
+      </div>
     </div>
   )
 }
