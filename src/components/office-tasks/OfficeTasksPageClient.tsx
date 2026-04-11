@@ -42,15 +42,45 @@ function isOverdue(d: string | null) {
   return new Date(d + 'T00:00:00') < today
 }
 
-/** Derive urgency bucket for a scheduled service from its date vs today. */
-function scheduledUrgency(scheduledDate: string): 'overdue' | 'soon' | 'later' {
+/**
+ * Derive the display status for a scheduled service. Matches the bands used
+ * by EquipmentDetailClient so the Office card pill and the detail page pill
+ * stay in sync:
+ *   - 'in_progress' is a DB-driven override ("Working on it")
+ *   - 'overdue'  → scheduled_date < today
+ *   - 'due'      → scheduled_date == today
+ *   - 'due_soon' → 1–7 days out
+ *   - 'upcoming' → > 7 days out
+ */
+type ScheduledDisplayStatus =
+  | 'in_progress'
+  | 'overdue'
+  | 'due'
+  | 'due_soon'
+  | 'upcoming'
+
+function scheduledDisplayStatus(
+  scheduledDate: string,
+  dbStatus: string
+): ScheduledDisplayStatus {
+  if (dbStatus === 'in_progress') return 'in_progress'
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const sd = new Date(scheduledDate + 'T00:00:00')
   const diffDays = Math.round((sd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
   if (diffDays < 0) return 'overdue'
-  if (diffDays <= 7) return 'soon'
-  return 'later'
+  if (diffDays === 0) return 'due'
+  if (diffDays <= 7) return 'due_soon'
+  return 'upcoming'
+}
+
+/** Sort order for the Equipment card preview: most-urgent first. */
+const scheduledUrgencyOrder: Record<ScheduledDisplayStatus, number> = {
+  overdue: 0,
+  due: 1,
+  due_soon: 2,
+  in_progress: 3,
+  upcoming: 4,
 }
 
 function formatScheduledDate(d: string) {
@@ -98,6 +128,8 @@ export interface UpcomingScheduledService {
   description: string
   scheduled_date: string
   status: string
+  /** Joined from equipment table on the server; may be null if the join fails. */
+  equipment_name?: string | null
 }
 
 interface Props {
@@ -146,36 +178,83 @@ export default function OfficeTasksPageClient({
   const [collapsedCompleted, setCollapsedCompleted] = useState<Set<string>>(new Set())
   const [view, setView] = useState<OfficeView>({ kind: 'dashboard' })
 
+  // Upcoming scheduled services for the Equipment card preview. Seeded from
+  // the server prop (for instant paint) and refetched on mount + whenever the
+  // user returns to the dashboard view, so edits made in the embedded
+  // equipment detail view are reflected without a hard page refresh.
+  const [upcomingServices, setUpcomingServices] = useState<UpcomingScheduledService[]>(
+    upcomingScheduledServices
+  )
+
   const canManageEmployees = userRole === 'admin' || userRole === 'office_manager'
   // Foreman gets an Equipment-only view of the Office dashboard (Tasks,
   // Employees, Material Inventory cards are hidden).
   const isForeman = userRole === 'foreman'
 
   // Build a preview list of upcoming scheduled services enriched with the
-  // equipment name, sorted by urgency (overdue first), capped at 5 for the
-  // Equipment dashboard card. The full list is reachable via "View all".
+  // equipment name, sorted by urgency (overdue first), deduped so only the
+  // NEXT / most-urgent service per equipment is shown, and capped at 5 for
+  // the Equipment dashboard card. The full list is reachable via "View all".
   const equipmentNameById = useMemo(
     () => new Map(initialEquipment.map((e) => [e.id, e.name])),
     [initialEquipment]
   )
   const upcomingServicesPreview = useMemo(() => {
-    return upcomingScheduledServices
-      .map((s) => ({
-        ...s,
-        equipment_name: equipmentNameById.get(s.equipment_id) ?? 'Unknown',
-        urgency: scheduledUrgency(s.scheduled_date),
-      }))
-      .sort((a, b) => {
-        // Overdue first, then by date ascending
-        const order: Record<string, number> = { overdue: 0, soon: 1, later: 2 }
-        const oa = order[a.urgency] ?? 2
-        const ob = order[b.urgency] ?? 2
-        if (oa !== ob) return oa - ob
-        return a.scheduled_date.localeCompare(b.scheduled_date)
-      })
-  }, [upcomingScheduledServices, equipmentNameById])
+    const enriched = upcomingServices.map((s) => ({
+      ...s,
+      equipment_name: s.equipment_name ?? equipmentNameById.get(s.equipment_id) ?? 'Unknown',
+      displayStatus: scheduledDisplayStatus(s.scheduled_date, s.status),
+    }))
+    // Sort by urgency bucket first, then by date ascending within each bucket.
+    enriched.sort((a, b) => {
+      const oa = scheduledUrgencyOrder[a.displayStatus]
+      const ob = scheduledUrgencyOrder[b.displayStatus]
+      if (oa !== ob) return oa - ob
+      return a.scheduled_date.localeCompare(b.scheduled_date)
+    })
+    // Dedupe: keep only the first (most urgent) row per equipment_id.
+    const seen = new Set<string>()
+    return enriched.filter((s) => {
+      if (seen.has(s.equipment_id)) return false
+      seen.add(s.equipment_id)
+      return true
+    })
+  }, [upcomingServices, equipmentNameById])
   const upcomingServicesTop = upcomingServicesPreview.slice(0, 5)
   const upcomingServicesHasMore = upcomingServicesPreview.length > 5
+
+  // Refetch upcoming scheduled services from Supabase whenever the user is
+  // viewing the dashboard (on mount and when returning from the embedded
+  // equipment views). This keeps the Equipment card preview in sync with
+  // any edits, deletes, or recurring-service rollovers made on the detail
+  // page — without it the prop stays frozen at the original server snapshot.
+  const refetchUpcomingServices = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('equipment_scheduled_services')
+      .select('id, equipment_id, description, scheduled_date, status, equipment:equipment_id ( name )')
+      .neq('status', 'completed')
+      .order('scheduled_date', { ascending: true })
+      .limit(50)
+    if (error || !data) return
+    const rows: UpcomingScheduledService[] = data.map((row) => {
+      const eq = (row as { equipment?: { name?: string } | { name?: string }[] | null }).equipment
+      const equipmentName = Array.isArray(eq) ? eq[0]?.name ?? null : eq?.name ?? null
+      return {
+        id: row.id as string,
+        equipment_id: row.equipment_id as string,
+        description: row.description as string,
+        scheduled_date: row.scheduled_date as string,
+        status: row.status as string,
+        equipment_name: equipmentName,
+      }
+    })
+    setUpcomingServices(rows)
+  }, [supabase])
+
+  useEffect(() => {
+    if (view.kind !== 'dashboard') return
+    refetchUpcomingServices()
+  }, [view.kind, refetchUpcomingServices])
 
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles])
   const getDisplayName = (id: string | null) => {
@@ -520,17 +599,27 @@ export default function OfficeTasksPageClient({
             ) : (
               <div className="space-y-1.5">
                 {upcomingServicesTop.map((s) => {
+                  // Pill palette mirrors EquipmentDetailClient so the card
+                  // preview matches the detail page exactly.
                   const pillCls =
-                    s.urgency === 'overdue'
+                    s.displayStatus === 'in_progress'
+                      ? 'bg-orange-100 text-orange-700'
+                      : s.displayStatus === 'overdue'
                       ? 'bg-red-100 text-red-700'
-                      : s.urgency === 'soon'
+                      : s.displayStatus === 'due'
                       ? 'bg-amber-100 text-amber-700'
-                      : 'bg-gray-100 text-gray-500'
+                      : s.displayStatus === 'due_soon'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-blue-100 text-blue-700'
                   const pillLabel =
-                    s.urgency === 'overdue'
+                    s.displayStatus === 'in_progress'
+                      ? 'Working on it'
+                      : s.displayStatus === 'overdue'
                       ? 'Overdue'
-                      : s.urgency === 'soon'
-                      ? 'Soon'
+                      : s.displayStatus === 'due'
+                      ? 'Due'
+                      : s.displayStatus === 'due_soon'
+                      ? 'Due soon'
                       : 'Upcoming'
                   return (
                     <button
