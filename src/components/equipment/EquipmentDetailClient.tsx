@@ -119,11 +119,16 @@ export default function EquipmentDetailClient({
 
   /** Header photo upload state */
   const headerPhotoInputRef = useRef<HTMLInputElement>(null)
+  /** Second file input used by the Details tab photo camera overlay. */
+  const detailsPhotoInputRef = useRef<HTMLInputElement>(null)
   const [headerPhotoUploading, setHeaderPhotoUploading] = useState(false)
   const [headerPhotoError, setHeaderPhotoError] = useState<string | null>(null)
 
   /** Lightbox state for viewing a full-size maintenance photo */
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+
+  /** Active tab in the detail view body. Maintenance is the default. */
+  const [activeTab, setActiveTab] = useState<'maintenance' | 'details' | 'documents'>('maintenance')
 
   async function handleHeaderPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -158,6 +163,7 @@ export default function EquipmentDetailClient({
     } finally {
       setHeaderPhotoUploading(false)
       if (headerPhotoInputRef.current) headerPhotoInputRef.current.value = ''
+      if (detailsPhotoInputRef.current) detailsPhotoInputRef.current.value = ''
     }
   }
 
@@ -709,10 +715,34 @@ export default function EquipmentDetailClient({
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column — Maintenance Log */}
-        <div className="lg:col-span-2">
+      {/* Tab Bar */}
+      <div className="border-b border-gray-200 mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-x-auto">
+        <nav className="-mb-px flex gap-8 min-w-max" aria-label="Equipment sections">
+          {([
+            { id: 'maintenance', label: 'Maintenance' },
+            { id: 'details', label: 'Details' },
+            { id: 'documents', label: 'Documents' },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-3 border-b-2 text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'border-[#BA7517] text-[#BA7517]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              aria-current={activeTab === tab.id ? 'page' : undefined}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Maintenance Tab */}
+      {activeTab === 'maintenance' && (
+        <div>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h2 className="text-lg font-semibold text-gray-900">Maintenance Log</h2>
             <div className="flex items-center gap-2 flex-wrap">
@@ -992,9 +1022,54 @@ export default function EquipmentDetailClient({
             </div>
           )}
         </div>
+      )}
 
-        {/* Right column — Details + Additional Info */}
-        <div className="space-y-6">
+      {/* Details Tab */}
+      {activeTab === 'details' && (
+        <div className="max-w-2xl mx-auto space-y-6">
+          {/* Equipment photo with camera overlay */}
+          <div className="flex justify-center">
+            <div className="relative group flex-shrink-0">
+              <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200">
+                {equipment.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={equipment.photo_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <WrenchIcon className="w-14 h-14 text-gray-400" />
+                )}
+              </div>
+              {canManage && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => detailsPhotoInputRef.current?.click()}
+                    disabled={headerPhotoUploading}
+                    className="absolute inset-0 rounded-2xl bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors"
+                    title={equipment.photo_url ? 'Change photo' : 'Add photo'}
+                  >
+                    <CameraIcon className="w-10 h-10 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                  <input
+                    ref={detailsPhotoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    className="hidden"
+                    onChange={handleHeaderPhotoUpload}
+                  />
+                </>
+              )}
+              {headerPhotoUploading && (
+                <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">Uploading...</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Details card */}
           {hasDetails && (
             <div className="bg-white border border-gray-200 rounded-xl p-5">
@@ -1062,7 +1137,27 @@ export default function EquipmentDetailClient({
             </div>
           )}
 
-          {/* Documents card */}
+          {/* Empty state when no standard or custom fields are set yet. */}
+          {!hasDetails && !hasCustomFields && (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-500">No details set yet.</p>
+              {canManage && (
+                <button
+                  onClick={() => setShowEquipmentModal(true)}
+                  className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Add Details
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Documents Tab */}
+      {activeTab === 'documents' && (
+        <div className="max-w-2xl mx-auto">
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Documents</h2>
@@ -1114,7 +1209,7 @@ export default function EquipmentDetailClient({
             })()}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Delete confirmation for maintenance log */}
       {deleteConfirmId && (
