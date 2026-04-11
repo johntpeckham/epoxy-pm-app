@@ -689,7 +689,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
   /* ── Embedded layout (Office work area) — matches EmployeeManagement ── */
   if (embedded) {
     return (
-      <div className="w-full h-full min-h-0 flex flex-col bg-white overflow-hidden relative">
+      <div className="w-full h-full min-h-0 flex flex-col bg-gray-50 dark:bg-[#1a1a1a]! overflow-hidden relative">
         {/* Header bar */}
         <div
           className="flex-none flex items-center justify-between px-6 border-b border-gray-200"
