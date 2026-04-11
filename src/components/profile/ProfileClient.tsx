@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon } from 'lucide-react'
 import { Profile, CslbLicense } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
+import { useTheme } from '@/components/theme/ThemeProvider'
 import UserManagement from './UserManagement'
 import EmployeeManagement from './EmployeeManagement'
 import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
@@ -24,6 +25,8 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const router = useRouter()
   const supabase = createClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { theme, toggleTheme } = useTheme()
+  const isDarkMode = theme === 'dark'
   const { role } = useUserRole()
   const isAdmin = role === 'admin'
   const isOfficeManager = role === 'office_manager'
@@ -333,17 +336,41 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <button
             onClick={() => router.push('/jobs')}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
           >
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 flex-1">Profile Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex-1">Profile Settings</h1>
+        </div>
+
+        {/* Appearance Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <MoonIcon className="w-5 h-5 text-gray-400" />
+            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Appearance</h2>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Dark mode</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Switch to dark theme</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isDarkMode}
+              aria-label="Toggle dark mode"
+              onClick={toggleTheme}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isDarkMode ? 'bg-amber-500' : 'bg-gray-300'}`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
         </div>
 
         {/* Company Information Section */}

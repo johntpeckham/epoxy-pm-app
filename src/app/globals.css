@@ -1,8 +1,68 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode for Tailwind v4.
+   The 'dark' class is toggled on the <html> element by ThemeProvider. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 html {
   background-color: #000;
 }
+
+/* ── Dark mode base ──────────────────────────────────────────────────────
+   Baseline dark theme overrides for common Tailwind utility classes.
+   The Sidebar is already dark (bg-black), and major surfaces use the
+   `dark:` prefix where they have been individually styled.  These
+   selectors give the rest of the app a consistent first-pass dark look
+   without having to touch every component. */
+html.dark {
+  background-color: #0f172a;
+  color-scheme: dark;
+}
+html.dark body {
+  color: #e5e7eb;
+}
+
+/* Page background surfaces */
+html.dark .bg-gray-50 { background-color: #0f172a; }
+html.dark .bg-gray-100 { background-color: #111827; }
+
+/* Card surfaces */
+html.dark .bg-white { background-color: #1f2937; }
+
+/* Borders */
+html.dark .border-gray-100 { border-color: #374151; }
+html.dark .border-gray-200 { border-color: #374151; }
+html.dark .border-gray-300 { border-color: #4b5563; }
+
+/* Text colors */
+html.dark .text-gray-900 { color: #f3f4f6; }
+html.dark .text-gray-800 { color: #e5e7eb; }
+html.dark .text-gray-700 { color: #d1d5db; }
+html.dark .text-gray-600 { color: #d1d5db; }
+html.dark .text-gray-500 { color: #9ca3af; }
+html.dark .text-gray-400 { color: #9ca3af; }
+html.dark .text-gray-300 { color: #6b7280; }
+
+/* Form inputs and selects — keep them legible on dark backgrounds */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+html.dark select,
+html.dark textarea {
+  background-color: #1f2937;
+  color: #f3f4f6;
+  border-color: #4b5563;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #9ca3af;
+}
+
+/* Hover states that depended on a light background */
+html.dark .hover\:bg-gray-50:hover { background-color: #374151; }
+html.dark .hover\:bg-gray-100:hover { background-color: #374151; }
+
+/* Divide / table borders */
+html.dark .divide-gray-100 > * + * { border-color: #374151; }
+html.dark .divide-gray-200 > * + * { border-color: #374151; }
 
 html, body {
   height: 100%;
