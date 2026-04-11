@@ -119,8 +119,6 @@ export default function EquipmentDetailClient({
 
   /** Header photo upload state */
   const headerPhotoInputRef = useRef<HTMLInputElement>(null)
-  /** Second file input used by the Details tab photo camera overlay. */
-  const detailsPhotoInputRef = useRef<HTMLInputElement>(null)
   const [headerPhotoUploading, setHeaderPhotoUploading] = useState(false)
   const [headerPhotoError, setHeaderPhotoError] = useState<string | null>(null)
 
@@ -163,7 +161,6 @@ export default function EquipmentDetailClient({
     } finally {
       setHeaderPhotoUploading(false)
       if (headerPhotoInputRef.current) headerPhotoInputRef.current.value = ''
-      if (detailsPhotoInputRef.current) detailsPhotoInputRef.current.value = ''
     }
   }
 
@@ -1027,49 +1024,6 @@ export default function EquipmentDetailClient({
       {/* Details Tab */}
       {activeTab === 'details' && (
         <div className="max-w-2xl mx-auto space-y-6">
-          {/* Equipment photo with camera overlay */}
-          <div className="flex justify-center">
-            <div className="relative group flex-shrink-0">
-              <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200">
-                {equipment.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={equipment.photo_url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <WrenchIcon className="w-14 h-14 text-gray-400" />
-                )}
-              </div>
-              {canManage && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => detailsPhotoInputRef.current?.click()}
-                    disabled={headerPhotoUploading}
-                    className="absolute inset-0 rounded-2xl bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors"
-                    title={equipment.photo_url ? 'Change photo' : 'Add photo'}
-                  >
-                    <CameraIcon className="w-10 h-10 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </button>
-                  <input
-                    ref={detailsPhotoInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    className="hidden"
-                    onChange={handleHeaderPhotoUpload}
-                  />
-                </>
-              )}
-              {headerPhotoUploading && (
-                <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">Uploading...</span>
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Details card */}
           {hasDetails && (
             <div className="bg-white border border-gray-200 rounded-xl p-5">
