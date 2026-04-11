@@ -36,6 +36,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { useTheme } from '@/components/theme/ThemeProvider'
 import { moveToTrash } from '@/lib/trashBin'
 import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition, EmployeeCertification, EmployeeCertificationAssignment, EmployeeOshaTraining, EmployeeOshaAssignment } from '@/types'
 
@@ -50,6 +51,31 @@ function contrastText(hex: string): string {
   const b = parseInt(hex.slice(5, 7), 16)
   const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   return lum > 0.55 ? '#1F2937' : '#FFFFFF'
+}
+
+/**
+ * Dark-mode-aware pill style for the certification / OSHA pills, which use
+ * raw hex colors from the database.  In light mode we keep the existing
+ * full-saturation background + contrast text.  In dark mode we drop to a
+ * 20%-opacity background of the same color and use a lightened version of
+ * the color as text, so bright neon pills don't clash with dark cards.
+ */
+function pillStyle(hex: string, isDark: boolean): { backgroundColor: string; color: string } {
+  if (!isDark) {
+    return { backgroundColor: hex, color: contrastText(hex) }
+  }
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  // Lighten the text toward white so it reads well on the 20% translucent
+  // version of itself sitting on a #242424 card.
+  const lr = Math.round(r + (255 - r) * 0.4)
+  const lg = Math.round(g + (255 - g) * 0.4)
+  const lb = Math.round(b + (255 - b) * 0.4)
+  return {
+    backgroundColor: `rgba(${r}, ${g}, ${b}, 0.20)`,
+    color: `rgb(${lr}, ${lg}, ${lb})`,
+  }
 }
 
 function ColorPickerDropdown({
@@ -293,6 +319,8 @@ export default function EmployeeManagement({
 }: EmployeeManagementProps = {}) {
   const isInline = mode === 'inline'
   const supabase = createClient()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor)
@@ -1188,10 +1216,10 @@ export default function EmployeeManagement({
                 {group.employees.map((emp) => (
                   <div
                     key={emp.id}
-                    className="rounded-lg border border-gray-200 overflow-hidden hover:border-gray-300 hover:shadow-sm transition bg-white flex flex-col"
+                    className="rounded-lg border border-gray-200 dark:border-[#3a3a3a] overflow-hidden hover:border-gray-300 dark:hover:border-[#4a4a4a] hover:shadow-sm transition bg-white dark:bg-[#242424]! flex flex-col"
                   >
                     {/* Photo area — ~100px tall */}
-                    <div className="w-full aspect-square bg-gray-100 overflow-hidden">
+                    <div className="w-full aspect-square bg-gray-100 dark:bg-[#2e2e2e]! overflow-hidden">
                       {emp.photo_url ? (
                         <img
                           src={emp.photo_url}
@@ -1200,7 +1228,7 @@ export default function EmployeeManagement({
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <UserIcon className="w-7 h-7 text-gray-300" />
+                          <UserIcon className="w-7 h-7 text-gray-300 dark:text-[#4a4a4a]!" />
                         </div>
                       )}
                     </div>
@@ -1222,7 +1250,7 @@ export default function EmployeeManagement({
                             <span
                               key={c.id}
                               className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold leading-tight"
-                              style={{ backgroundColor: c.color, color: contrastText(c.color) }}
+                              style={pillStyle(c.color, isDark)}
                             >
                               {c.name}
                             </span>
@@ -1241,7 +1269,7 @@ export default function EmployeeManagement({
                             <span
                               key={o.id}
                               className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-semibold leading-tight"
-                              style={{ backgroundColor: o.color, color: contrastText(o.color) }}
+                              style={pillStyle(o.color, isDark)}
                             >
                               {o.name}
                             </span>
@@ -1253,14 +1281,14 @@ export default function EmployeeManagement({
                     <div className="flex items-center gap-0.5 px-1.5 pb-1.5 mt-auto">
                       <button
                         onClick={() => openEditModal(emp)}
-                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 hover:text-amber-700 hover:bg-amber-50 rounded transition"
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:text-[#6b6b6b]! hover:text-amber-700 dark:hover:text-[#a0a0a0]! hover:bg-amber-50 rounded transition"
                       >
                         <PencilIcon className="w-2.5 h-2.5" />
                         Edit
                       </button>
                       <button
                         onClick={() => setConfirmDeleteEmployee(emp)}
-                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:text-[#6b6b6b]! hover:text-red-600 dark:hover:text-[#a0a0a0]! hover:bg-red-50 rounded transition"
                       >
                         <Trash2Icon className="w-2.5 h-2.5" />
                         Delete
