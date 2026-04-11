@@ -429,7 +429,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       <select
         value={categoryFilter}
         onChange={(e) => setCategoryFilter(e.target.value)}
-        className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
+        className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-[#a0a0a0]! bg-white dark:bg-[#2e2e2e]! focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
       >
         <option value="">All</option>
         {categories.map((c) => (
@@ -441,7 +441,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       <select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
-        className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
+        className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-[#a0a0a0]! bg-white dark:bg-[#2e2e2e]! focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
       >
         {STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
@@ -469,7 +469,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
             openDetail()
           }
         }}
-        className="relative bg-white border border-gray-200 rounded-xl p-5 cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 hover:shadow-md transition"
+        className="relative bg-white dark:bg-[#242424]! border border-gray-200 dark:border-[#3a3a3a] rounded-xl p-5 cursor-pointer hover:border-amber-300 dark:hover:border-[#4a4a4a] hover:bg-amber-50/30 dark:hover:bg-[#2a2a2a]! hover:shadow-md transition"
       >
         {/* Top-right action buttons — stopPropagation so clicks don't navigate */}
         {canManage && (
@@ -480,7 +480,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
                 setEditingItem(item)
                 setShowModal(true)
               }}
-              className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-1.5 text-gray-400 dark:text-[#6b6b6b]! hover:text-amber-500 dark:hover:text-[#a0a0a0]! hover:bg-gray-100 rounded-md transition-colors"
               title="Edit"
             >
               <PencilIcon className="w-4 h-4" />
@@ -490,7 +490,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
 
         <div className="flex items-start gap-4">
           {/* Photo thumbnail on the left */}
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 border border-gray-200">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-gray-100 dark:bg-[#2e2e2e]! flex items-center justify-center flex-shrink-0 border border-gray-200 dark:border-[#3a3a3a]">
             {item.photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -499,7 +499,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
                 className="w-full h-full object-cover"
               />
             ) : (
-              <WrenchIcon className="w-8 h-8 text-gray-400" />
+              <WrenchIcon className="w-8 h-8 text-gray-400 dark:text-[#4a4a4a]!" />
             )}
           </div>
 
