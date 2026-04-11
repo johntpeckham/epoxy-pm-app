@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Task, TaskStatus, OfficeTask, OfficePriority, UserRole } from '@/types'
 import OfficeTasksWorkspace from '@/components/my-work/OfficeTasksWorkspace'
 import ExpensesWorkspace from '@/components/my-work/ExpensesWorkspace'
+import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
 import type { SalesmanExpenseRow } from '@/components/salesman-expenses/SalesmanExpenseCard'
 import { ProjectChecklistItem } from '@/components/job-board/workspaces/ChecklistShared'
 import {
@@ -316,10 +317,9 @@ export default function MyWorkClient({
     setOfficeTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, is_completed: newVal } : t))
     )
-    await supabase
-      .from('office_tasks')
-      .update({ is_completed: newVal, updated_at: new Date().toISOString() })
-      .eq('id', task.id)
+    // Routes through the shared utility so any linked equipment scheduled
+    // service is kept in sync with the task.
+    await toggleOfficeTaskCompletion(supabase, task.id, newVal, userId)
   }
 
   /* ================================================================ */
