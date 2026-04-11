@@ -566,10 +566,12 @@ export default function SchedulerClient({
     [supabase]
   )
 
-  // ── Download schedule PDF ───────────────────────────────────────────────
-  const [downloading, setDownloading] = useState(false)
+  // ── Schedule preview / PDF generation ──────────────────────────────────
+  // Opening the preview modal generates the actual PDF and displays it in
+  // an embedded iframe, so what the user sees in the preview is byte-for-
+  // byte the same document they'll save or print.
   const [previewOpen, setPreviewOpen] = useState(false)
-  const handleDownload = useCallback(async () => {
+  const buildSchedulePdf = useCallback(async () => {
     const weekAssignments = assignments
       .filter((a) => a.week_start === activeWeekISO && a.days.some(Boolean))
       .map((a) => ({
@@ -579,67 +581,31 @@ export default function SchedulerClient({
         project_name: a.project_name,
         days: a.days,
       }))
-    if (weekAssignments.length === 0) return
-    setDownloading(true)
-    try {
-      const { generateSchedulePdf } = await import('@/lib/generateSchedulePdf')
-      const scheduleProjects = projects.map((p) => ({
-        id: p.id,
-        name: p.name,
-        estimate_number: p.estimate_number ?? null,
-        address: p.address ?? null,
-      }))
-      const { blob, filename } = await generateSchedulePdf(
-        activeWeekISO,
-        weekAssignments,
-        scheduleProjects,
-        employees.map((e) => ({ id: e.id, name: e.name })),
-        companySettings
-          ? {
-              dba: companySettings.dba,
-              legal_name: companySettings.legal_name,
-              company_address: companySettings.company_address,
-              phone: companySettings.phone,
-              email: companySettings.email,
-              cslb_licenses: companySettings.cslb_licenses,
-            }
-          : null,
-        companySettings?.logo_url ?? null
-      )
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error('Failed to generate schedule PDF:', err)
-    } finally {
-      setDownloading(false)
-    }
+    const { generateSchedulePdf } = await import('@/lib/generateSchedulePdf')
+    const scheduleProjects = projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      estimate_number: p.estimate_number ?? null,
+      address: p.address ?? null,
+    }))
+    return generateSchedulePdf(
+      activeWeekISO,
+      weekAssignments,
+      scheduleProjects,
+      employees.map((e) => ({ id: e.id, name: e.name })),
+      companySettings
+        ? {
+            dba: companySettings.dba,
+            legal_name: companySettings.legal_name,
+            company_address: companySettings.company_address,
+            phone: companySettings.phone,
+            email: companySettings.email,
+            cslb_licenses: companySettings.cslb_licenses,
+          }
+        : null,
+      companySettings?.logo_url ?? null
+    )
   }, [assignments, projects, employees, activeWeekISO, companySettings])
-
-  // ── Preview modal data ─────────────────────────────────────────────────
-  // Atomically derive the data the SchedulePreviewModal needs from the
-  // currently selected active week. Memoizing the payload here (instead of
-  // computing it inline in JSX) makes the binding to `activeWeekISO`
-  // explicit and guarantees the modal's header, daily table, and employee
-  // summary all reflect the SAME selected week — matching the PDF.
-  const previewWeekAssignments = useMemo(
-    () =>
-      assignments
-        .filter((a) => a.week_start === activeWeekISO && a.days.some(Boolean))
-        .map((a) => ({
-          employee_id: a.employee_id,
-          employee_name: a.employee_name,
-          project_id: a.project_id,
-          project_name: a.project_name,
-          days: a.days,
-        })),
-    [assignments, activeWeekISO]
-  )
 
   // ── Assignment mutations (local state) ──────────────────────────────────
   const updateLocalAssignmentDays = useCallback(
@@ -1167,44 +1133,16 @@ export default function SchedulerClient({
         />
       )}
 
-      {/* Schedule preview modal — opens before download/print so the user
-          can verify the report before saving or sending it to the printer.
-          The `key` forces a fresh mount whenever the active week changes,
-          guaranteeing the modal can never display data from a previously
-          selected week. */}
+      {/* Schedule preview modal — renders the actual generated PDF inside
+          an iframe so the user can verify the exact document that will be
+          downloaded or printed. The `key` forces a fresh mount whenever
+          the active week changes, so the modal never displays a stale
+          PDF from a previously selected week. */}
       {previewOpen && (
         <SchedulePreviewModal
           key={activeWeekISO}
-          weekStartISO={activeWeekISO}
-          thisWeekISO={thisWeekISO}
-          nextWeekISO={nextWeekISO}
-          followingWeekISO={followingWeekISO}
-          assignments={previewWeekAssignments}
-          projects={projects.map((p) => ({
-            id: p.id,
-            name: p.name,
-            estimate_number: p.estimate_number ?? null,
-            address: p.address ?? null,
-            start_date: p.start_date ?? null,
-            end_date: p.end_date ?? null,
-          }))}
-          employees={employees.map((e) => ({ id: e.id, name: e.name }))}
-          companyInfo={
-            companySettings
-              ? {
-                  dba: companySettings.dba,
-                  legal_name: companySettings.legal_name,
-                  company_address: companySettings.company_address,
-                  phone: companySettings.phone,
-                  email: companySettings.email,
-                  cslb_licenses: companySettings.cslb_licenses,
-                }
-              : null
-          }
-          logoUrl={companySettings?.logo_url ?? null}
+          generatePdf={buildSchedulePdf}
           onClose={() => setPreviewOpen(false)}
-          onDownload={handleDownload}
-          downloading={downloading}
         />
       )}
     </div>
