@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { XIcon, PlusIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { InventoryUnit } from '@/types'
+import type { InventoryUnit, UnitType } from '@/types'
 
 export interface AddKitSubItemFormData {
   name: string
@@ -18,6 +18,7 @@ export interface AddKitFormData {
 
 interface Props {
   supplierName: string
+  unitTypes: UnitType[]
   onClose: () => void
   onSave: (data: AddKitFormData) => Promise<void> | void
 }
@@ -30,13 +31,13 @@ interface RowState {
 }
 
 let rowCounter = 0
-function createEmptyRow(): RowState {
+function createEmptyRow(defaultUnit: InventoryUnit = 'gal'): RowState {
   rowCounter += 1
   return {
     localId: `row-${rowCounter}`,
     name: '',
     quantity: '0',
-    unit: 'gallons',
+    unit: defaultUnit,
   }
 }
 
@@ -47,9 +48,10 @@ function createEmptyRow(): RowState {
  * item, all linked via kit_group_id. Starts with 2 empty rows because most
  * kits have at least two parts (base + activator).
  */
-export default function AddKitModal({ supplierName, onClose, onSave }: Props) {
+export default function AddKitModal({ supplierName, unitTypes, onClose, onSave }: Props) {
+  const defaultUnit = unitTypes.length > 0 ? unitTypes[0].abbreviation : 'gal'
   const [kitName, setKitName] = useState('')
-  const [rows, setRows] = useState<RowState[]>(() => [createEmptyRow(), createEmptyRow()])
+  const [rows, setRows] = useState<RowState[]>(() => [createEmptyRow(defaultUnit), createEmptyRow(defaultUnit)])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -63,7 +65,7 @@ export default function AddKitModal({ supplierName, onClose, onSave }: Props) {
   }
 
   function addRow() {
-    setRows((prev) => [...prev, createEmptyRow()])
+    setRows((prev) => [...prev, createEmptyRow(defaultUnit)])
   }
 
   function removeRow(localId: string) {
@@ -187,13 +189,20 @@ export default function AddKitModal({ supplierName, onClose, onSave }: Props) {
                       <select
                         value={row.unit}
                         onChange={(e) =>
-                          updateRow(row.localId, { unit: e.target.value as InventoryUnit })
+                          updateRow(row.localId, { unit: e.target.value })
                         }
                         aria-label="Unit"
                         className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
                       >
-                        <option value="gallons">Gallons</option>
-                        <option value="parts">Parts</option>
+                        {unitTypes.length === 0 ? (
+                          <option value="" disabled>No units</option>
+                        ) : (
+                          unitTypes.map((ut) => (
+                            <option key={ut.id} value={ut.abbreviation}>
+                              {ut.abbreviation}
+                            </option>
+                          ))
+                        )}
                       </select>
                       <button
                         type="button"

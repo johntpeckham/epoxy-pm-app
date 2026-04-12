@@ -13,6 +13,7 @@ import {
   PackageIcon,
   PencilIcon,
   PlusIcon,
+  Settings2Icon,
   Trash2Icon,
 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -20,12 +21,14 @@ import SupplierModal from './SupplierModal'
 import ProductModal, { type ProductFormData } from './ProductModal'
 import KitGroupModal, { type KitGroupFormData } from './KitGroupModal'
 import AddKitModal, { type AddKitFormData } from './AddKitModal'
+import InventorySettingsModal from './InventorySettingsModal'
 import StockCheckRequestModal from './StockCheckRequestModal'
 import type {
   InventoryKitGroup,
   InventoryProduct,
   InventoryUnit,
   MaterialSupplier,
+  UnitType,
   UserRole,
 } from '@/types'
 
@@ -46,6 +49,7 @@ interface Props {
   initialSuppliers: MaterialSupplier[]
   initialProducts: InventoryProduct[]
   initialKitGroups: InventoryKitGroup[]
+  initialUnitTypes: UnitType[]
   profiles: InventoryProfileOption[]
   /** Keyed by task id — the pending stock check task → assignee info. */
   initialPendingStockChecks: Record<string, PendingStockCheckInfo>
@@ -192,7 +196,7 @@ function InlineQuantityEditor({
   const inputRef = useRef<HTMLInputElement>(null)
   const committedRef = useRef(false)
 
-  const unitLabel = unit === 'parts' ? 'parts' : 'gal'
+  const unitLabel = unit === 'gallons' ? 'gal' : unit
 
   // Keep the local editor value in sync with external changes when we're
   // not actively editing (e.g. stock check completion updates the row).
@@ -261,7 +265,7 @@ function InlineQuantityEditor({
         <span className="w-[76px] text-sm text-right text-gray-600 dark:text-[#a0a0a0]">
           {quantity}
         </span>
-        <span className="text-xs text-gray-500 dark:text-[#6b6b6b]">{unitLabel}</span>
+        <span className="w-[40px] text-xs text-gray-500 dark:text-[#6b6b6b] text-left">{unitLabel}</span>
       </span>
     )
   }
@@ -316,11 +320,11 @@ function InlineQuantityEditor({
         title="Click to edit quantity"
       />
       <span
-        className={
+        className={`w-[40px] text-left ${
           justSaved
             ? 'text-xs text-green-600 dark:text-green-400'
             : 'text-xs text-gray-500 dark:text-[#6b6b6b]'
-        }
+        }`}
       >
         {unitLabel}
       </span>
@@ -339,6 +343,7 @@ export default function InventoryPageClient({
   initialSuppliers,
   initialProducts,
   initialKitGroups,
+  initialUnitTypes,
   profiles,
   initialPendingStockChecks,
 }: Props) {
@@ -347,6 +352,7 @@ export default function InventoryPageClient({
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>(initialSuppliers)
   const [products, setProducts] = useState<InventoryProduct[]>(initialProducts)
   const [kitGroups, setKitGroups] = useState<InventoryKitGroup[]>(initialKitGroups)
+  const [unitTypes, setUnitTypes] = useState<UnitType[]>(initialUnitTypes)
 
   // Pending stock check lookup keyed by task id. When a new request is made,
   // we insert the new task info here keyed by the newly created task id.
@@ -355,6 +361,9 @@ export default function InventoryPageClient({
   >(initialPendingStockChecks)
 
   const [collapsedSuppliers, setCollapsedSuppliers] = useState<Set<string>>(new Set())
+
+  // Settings modal state
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
 
   // Supplier modal state
   const [supplierModalOpen, setSupplierModalOpen] = useState(false)
@@ -1083,14 +1092,23 @@ export default function InventoryPageClient({
           </h1>
         </div>
         {canManage && (
-          <button
-            onClick={openAddSupplier}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition flex-shrink-0"
-          >
-            <PlusIcon className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Add Supplier</span>
-            <span className="sm:hidden">Supplier</span>
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => setSettingsModalOpen(true)}
+              className="p-2 text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#2e2e2e] rounded-lg transition-colors"
+              title="Inventory Settings"
+            >
+              <Settings2Icon className="w-4.5 h-4.5" />
+            </button>
+            <button
+              onClick={openAddSupplier}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Add Supplier</span>
+              <span className="sm:hidden">Supplier</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -1196,7 +1214,7 @@ export default function InventoryPageClient({
                         {/* Desktop/tablet table header */}
                         <div className="hidden sm:grid grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-2.5 bg-gray-50 dark:bg-[#2e2e2e] border-t border-b border-gray-200 dark:border-[#3a3a3a] text-[11px] font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide">
                           <div>Product Name</div>
-                          <div className="text-right">Gallons / Parts</div>
+                          <div className="text-right">Quantity</div>
                           <div className="text-center">Stock Check Request</div>
                           <div className="text-center">Stock Check Date</div>
                           <div className="text-right">Actions</div>
@@ -1271,6 +1289,15 @@ export default function InventoryPageClient({
         />
       )}
 
+      {/* Settings modal */}
+      {settingsModalOpen && (
+        <InventorySettingsModal
+          unitTypes={unitTypes}
+          onClose={() => setSettingsModalOpen(false)}
+          onUnitTypesChange={setUnitTypes}
+        />
+      )}
+
       {/* Product modal */}
       {productModalOpen && productModalSupplierId && (
         <ProductModal
@@ -1279,6 +1306,7 @@ export default function InventoryPageClient({
             suppliers.find((s) => s.id === productModalSupplierId)?.name ?? ''
           }
           kitGroups={kitGroupsBySupplier.get(productModalSupplierId) ?? []}
+          unitTypes={unitTypes}
           onClose={() => {
             setProductModalOpen(false)
             setEditingProduct(null)
@@ -1310,6 +1338,7 @@ export default function InventoryPageClient({
           supplierName={
             suppliers.find((s) => s.id === addKitSupplierId)?.name ?? ''
           }
+          unitTypes={unitTypes}
           onClose={() => {
             setAddKitModalOpen(false)
             setAddKitSupplierId(null)
