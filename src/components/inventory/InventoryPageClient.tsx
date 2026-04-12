@@ -4,13 +4,30 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   ArrowLeftIcon,
+  ArrowUpDownIcon,
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   ClipboardListIcon,
   DollarSignIcon,
+  GripVerticalIcon,
   PackageIcon,
   PencilIcon,
   PlusIcon,
@@ -533,6 +550,87 @@ function InlinePriceEditor({
 }
 
 /* ================================================================== */
+/*  SORTABLE WRAPPERS                                                  */
+/* ================================================================== */
+
+/**
+ * A thin wrapper that applies useSortable to a supplier section. We need a
+ * separate component because hooks can't be called inside .map().
+ */
+function SortableSupplierSection({
+  id,
+  reorderMode,
+  children,
+}: {
+  id: string
+  reorderMode: boolean
+  children: React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+  return (
+    <section
+      ref={setNodeRef}
+      style={style}
+      className={isDragging ? 'z-50 relative opacity-80' : ''}
+    >
+      {reorderMode && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute -left-2 top-3 p-1 text-gray-300 hover:text-gray-500 dark:text-[#6b6b6b] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none z-10 hidden sm:block"
+          title="Drag to reorder supplier"
+        >
+          <GripVerticalIcon className="w-4 h-4" />
+        </div>
+      )}
+      {children}
+    </section>
+  )
+}
+
+/**
+ * A thin sortable wrapper for product/kit rows.
+ */
+function SortableItemRow({
+  id,
+  reorderMode,
+  children,
+}: {
+  id: string
+  reorderMode: boolean
+  children: React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative ${isDragging ? 'z-50 opacity-80 bg-amber-50 dark:bg-amber-900/10' : ''}`}
+    >
+      {reorderMode && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute left-0.5 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-500 dark:text-[#6b6b6b] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none z-10"
+          title="Drag to reorder"
+        >
+          <GripVerticalIcon className="w-3.5 h-3.5" />
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
+
+/* ================================================================== */
 /*  MAIN COMPONENT                                                     */
 /* ================================================================== */
 
@@ -561,6 +659,9 @@ export default function InventoryPageClient({
   >(initialPendingStockChecks)
 
   const [collapsedSuppliers, setCollapsedSuppliers] = useState<Set<string>>(new Set())
+
+  // Reorder mode
+  const [reorderMode, setReorderMode] = useState(false)
 
   // Settings modal state
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
@@ -614,6 +715,12 @@ export default function InventoryPageClient({
   const canManage =
     userRole === 'admin' || userRole === 'office_manager' || userRole === 'salesman'
   const canDelete = userRole === 'admin' || userRole === 'office_manager'
+
+  // dnd-kit sensors: 5px distance before drag starts to avoid accidental drags.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  )
 
   // Group products by supplier id for quick render.
   const productsBySupplier = useMemo(() => {
@@ -722,9 +829,9 @@ export default function InventoryPageClient({
   /*  PRODUCT CRUD                                                     */
   /* ================================================================ */
 
-  function openAddProduct(supplierId: string) {
+  function openAddProduct(supplierId?: string) {
     setEditingProduct(null)
-    setProductModalSupplierId(supplierId)
+    setProductModalSupplierId(supplierId ?? null)
     setProductModalOpen(true)
   }
 
@@ -736,7 +843,11 @@ export default function InventoryPageClient({
 
   async function saveProduct(data: ProductFormData) {
     const trimmedName = data.name.trim()
-    if (!trimmedName || !productModalSupplierId) return
+    // For edits use the existing product's supplier; for adds use the form's supplier_id.
+    const supplierId = editingProduct
+      ? productModalSupplierId ?? editingProduct.supplier_id
+      : data.supplier_id ?? productModalSupplierId
+    if (!trimmedName || !supplierId) return
 
     if (editingProduct) {
       const previous = editingProduct
@@ -769,7 +880,7 @@ export default function InventoryPageClient({
       const { data: inserted, error } = await supabase
         .from('inventory_products')
         .insert({
-          supplier_id: productModalSupplierId,
+          supplier_id: supplierId,
           name: trimmedName,
           quantity: data.quantity,
           unit: data.unit,
@@ -806,8 +917,8 @@ export default function InventoryPageClient({
   /*  KIT GROUP CRUD                                                   */
   /* ================================================================ */
 
-  function openAddKit(supplierId: string) {
-    setAddKitSupplierId(supplierId)
+  function openAddKit(supplierId?: string) {
+    setAddKitSupplierId(supplierId ?? null)
     setAddKitModalOpen(true)
   }
 
@@ -824,8 +935,8 @@ export default function InventoryPageClient({
    * back so the UI isn't left with an empty phantom kit.
    */
   async function saveNewKit(data: AddKitFormData) {
-    if (!addKitSupplierId) return
-    const supplierId = addKitSupplierId
+    const supplierId = data.supplier_id ?? addKitSupplierId
+    if (!supplierId) return
 
     // 1. Insert the kit group. The legacy full_kits/partial_kits columns
     //    still exist on the table (Phase 4 only hid them) so we pass
@@ -1243,6 +1354,109 @@ export default function InventoryPageClient({
   }
 
   /* ================================================================ */
+  /*  DRAG-AND-DROP REORDER                                            */
+  /* ================================================================ */
+
+  async function handleSupplierDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = suppliers.findIndex((s) => s.id === active.id)
+    const newIdx = suppliers.findIndex((s) => s.id === over.id)
+    if (oldIdx < 0 || newIdx < 0) return
+    const reordered = [...suppliers]
+    const [moved] = reordered.splice(oldIdx, 1)
+    reordered.splice(newIdx, 0, moved)
+    const updated = reordered.map((s, i) => ({ ...s, sort_order: i + 1 }))
+    setSuppliers(updated)
+    for (const s of updated) {
+      await supabase.from('material_suppliers').update({ sort_order: s.sort_order }).eq('id', s.id)
+    }
+  }
+
+  /**
+   * Reorder items within a single supplier. The items list is a flat array of
+   * product ids and kit-group ids (prefixed with "kg-" to avoid id collisions).
+   * After reorder we write sort_order back to both inventory_products and
+   * inventory_kit_groups tables for the affected supplier.
+   */
+  async function handleItemDragEnd(supplierId: string, event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    // Build a flat ordered list of items for this supplier: standalone products
+    // first, then kit groups interleaved with their nested products — matching
+    // the render order.
+    const supplierProducts = productsBySupplier.get(supplierId) ?? []
+    const supplierKitGroups = kitGroupsBySupplier.get(supplierId) ?? []
+    const standalone = supplierProducts
+      .filter((p) => !p.kit_group_id)
+      .sort((a, b) => (a.sort_order !== b.sort_order ? a.sort_order - b.sort_order : a.name.localeCompare(b.name)))
+    const productsByGroup = new Map<string, InventoryProduct[]>()
+    for (const p of supplierProducts) {
+      if (!p.kit_group_id) continue
+      const arr = productsByGroup.get(p.kit_group_id) ?? []
+      arr.push(p)
+      productsByGroup.set(p.kit_group_id, arr)
+    }
+
+    type FlatItem = { type: 'product'; id: string } | { type: 'kitgroup'; id: string }
+    const flatItems: FlatItem[] = []
+    for (const p of standalone) flatItems.push({ type: 'product', id: p.id })
+    for (const g of supplierKitGroups) {
+      flatItems.push({ type: 'kitgroup', id: g.id })
+      const gp = [...(productsByGroup.get(g.id) ?? [])].sort((a, b) =>
+        a.sort_order !== b.sort_order ? a.sort_order - b.sort_order : a.name.localeCompare(b.name)
+      )
+      for (const p of gp) flatItems.push({ type: 'product', id: p.id })
+    }
+
+    const activeKey = active.id as string
+    const overKey = over.id as string
+    const oldIdx = flatItems.findIndex((item) =>
+      item.type === 'kitgroup' ? `kg-${item.id}` === activeKey : item.id === activeKey
+    )
+    const newIdx = flatItems.findIndex((item) =>
+      item.type === 'kitgroup' ? `kg-${item.id}` === overKey : item.id === overKey
+    )
+    if (oldIdx < 0 || newIdx < 0) return
+
+    const reordered = [...flatItems]
+    const [moved] = reordered.splice(oldIdx, 1)
+    reordered.splice(newIdx, 0, moved)
+
+    // Write back sort_order separately for products and kit groups.
+    let productOrder = 1
+    let kitGroupOrder = 1
+    const productUpdates: { id: string; sort_order: number }[] = []
+    const kitGroupUpdates: { id: string; sort_order: number }[] = []
+    for (const item of reordered) {
+      if (item.type === 'product') {
+        productUpdates.push({ id: item.id, sort_order: productOrder++ })
+      } else {
+        kitGroupUpdates.push({ id: item.id, sort_order: kitGroupOrder++ })
+      }
+    }
+
+    // Optimistic local update
+    setProducts((prev) => {
+      const updates = new Map(productUpdates.map((u) => [u.id, u.sort_order]))
+      return prev.map((p) => (updates.has(p.id) ? { ...p, sort_order: updates.get(p.id)! } : p))
+    })
+    setKitGroups((prev) => {
+      const updates = new Map(kitGroupUpdates.map((u) => [u.id, u.sort_order]))
+      return prev.map((g) => (updates.has(g.id) ? { ...g, sort_order: updates.get(g.id)! } : g))
+    })
+
+    // Persist
+    for (const u of productUpdates) {
+      await supabase.from('inventory_products').update({ sort_order: u.sort_order }).eq('id', u.id)
+    }
+    for (const u of kitGroupUpdates) {
+      await supabase.from('inventory_kit_groups').update({ sort_order: u.sort_order }).eq('id', u.id)
+    }
+  }
+
+  /* ================================================================ */
   /*  RENDER HELPERS                                                   */
   /* ================================================================ */
 
@@ -1535,13 +1749,38 @@ export default function InventoryPageClient({
           </h1>
         </div>
         {canManage && (
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <button
+              onClick={() => setReorderMode((v) => !v)}
+              className={`p-2 rounded-lg transition-colors ${
+                reorderMode
+                  ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-300 dark:ring-amber-700'
+                  : 'text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#2e2e2e]'
+              }`}
+              title={reorderMode ? 'Exit reorder mode' : 'Reorder items'}
+            >
+              <ArrowUpDownIcon className="w-4.5 h-4.5" />
+            </button>
             <button
               onClick={() => setSettingsModalOpen(true)}
               className="p-2 text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#2e2e2e] rounded-lg transition-colors"
               title="Inventory Settings"
             >
               <Settings2Icon className="w-4.5 h-4.5" />
+            </button>
+            <button
+              onClick={() => openAddProduct()}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition border border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-[#a0a0a0] bg-white dark:bg-[#2e2e2e] hover:bg-gray-50 dark:hover:bg-[#3a3a3a]"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              Add Product
+            </button>
+            <button
+              onClick={() => openAddKit()}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition border border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-[#a0a0a0] bg-white dark:bg-[#2e2e2e] hover:bg-gray-50 dark:hover:bg-[#3a3a3a]"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              Add Kit
             </button>
             <button
               onClick={openAddSupplier}
@@ -1572,6 +1811,8 @@ export default function InventoryPageClient({
             </p>
           </div>
         ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSupplierDragEnd}>
+          <SortableContext items={suppliers.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-8">
             {suppliers.map((supplier) => {
               const supplierProducts = productsBySupplier.get(supplier.id) ?? []
@@ -1598,10 +1839,21 @@ export default function InventoryPageClient({
 
               const supplierColors = getSupplierColors(supplier.color)
 
+              // Build flat item ids for the inner DndContext on this supplier.
+              const innerSortableIds: string[] = []
+              for (const p of standaloneProducts) innerSortableIds.push(p.id)
+              for (const g of supplierKitGroups) {
+                innerSortableIds.push(`kg-${g.id}`)
+                const gp = [...(productsByGroup.get(g.id) ?? [])].sort((a, b) =>
+                  a.sort_order !== b.sort_order ? a.sort_order - b.sort_order : a.name.localeCompare(b.name)
+                )
+                for (const p of gp) innerSortableIds.push(p.id)
+              }
+
               return (
-                <section key={supplier.id}>
+                <SortableSupplierSection key={supplier.id} id={supplier.id} reorderMode={reorderMode}>
                   {/* Unified card: supplier header + product table */}
-                  <div className="bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#3a3a3a] rounded-xl overflow-hidden">
+                  <div className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#3a3a3a] rounded-xl overflow-hidden ${reorderMode ? 'sm:ml-5' : ''}`}>
                     {/* Supplier header — Option 4 style: accent bar + tinted background */}
                     <div
                       className="flex items-center gap-3"
@@ -1670,15 +1922,40 @@ export default function InventoryPageClient({
                           <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-[#6b6b6b]">
                             No products or kit groups yet
                           </div>
+                        ) : reorderMode ? (
+                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleItemDragEnd(supplier.id, e)}>
+                          <SortableContext items={innerSortableIds} strategy={verticalListSortingStrategy}>
+                          <div className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
+                            {standaloneProducts.map((p) => (
+                              <SortableItemRow key={p.id} id={p.id} reorderMode={reorderMode}>
+                                {renderProductRow(p)}
+                              </SortableItemRow>
+                            ))}
+                            {supplierKitGroups.flatMap((group) => {
+                              const groupProducts = [
+                                ...(productsByGroup.get(group.id) ?? []),
+                              ].sort((a, b) => {
+                                if (a.sort_order !== b.sort_order)
+                                  return a.sort_order - b.sort_order
+                                return a.name.localeCompare(b.name)
+                              })
+                              return [
+                                <SortableItemRow key={`kg-${group.id}`} id={`kg-${group.id}`} reorderMode={reorderMode}>
+                                  {renderKitGroupHeaderRow(group)}
+                                </SortableItemRow>,
+                                ...groupProducts.map((p) => (
+                                  <SortableItemRow key={p.id} id={p.id} reorderMode={reorderMode}>
+                                    {renderProductRow(p, true)}
+                                  </SortableItemRow>
+                                )),
+                              ]
+                            })}
+                          </div>
+                          </SortableContext>
+                          </DndContext>
                         ) : (
                           <div className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
-                            {/* Standalone products first */}
                             {standaloneProducts.map((p) => renderProductRow(p))}
-
-                            {/* Kit group header rows followed by their nested
-                                products. flatMap keeps everything as direct
-                                children of the divide-y container so dividers
-                                render consistently between every row. */}
                             {supplierKitGroups.flatMap((group) => {
                               const groupProducts = [
                                 ...(productsByGroup.get(group.id) ?? []),
@@ -1695,31 +1972,15 @@ export default function InventoryPageClient({
                           </div>
                         )}
 
-                        {canManage && (
-                          <div className="border-t border-gray-100 dark:border-[#3a3a3a] px-4 py-2.5 bg-gray-50/50 dark:bg-[#2a2a2a] flex items-center gap-4 flex-wrap">
-                            <button
-                              onClick={() => openAddProduct(supplier.id)}
-                              className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
-                            >
-                              <PlusIcon className="w-3.5 h-3.5" />
-                              Add Single Product
-                            </button>
-                            <button
-                              onClick={() => openAddKit(supplier.id)}
-                              className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
-                            >
-                              <PlusIcon className="w-3.5 h-3.5" />
-                              Add Kit
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
-                </section>
+                </SortableSupplierSection>
               )
             })}
           </div>
+          </SortableContext>
+          </DndContext>
         )}
       </div>
 
@@ -1745,14 +2006,19 @@ export default function InventoryPageClient({
       )}
 
       {/* Product modal */}
-      {productModalOpen && productModalSupplierId && (
+      {productModalOpen && (
         <ProductModal
           product={editingProduct}
           supplierName={
-            suppliers.find((s) => s.id === productModalSupplierId)?.name ?? ''
+            productModalSupplierId
+              ? suppliers.find((s) => s.id === productModalSupplierId)?.name ?? ''
+              : ''
           }
-          kitGroups={kitGroupsBySupplier.get(productModalSupplierId) ?? []}
+          suppliers={suppliers}
+          kitGroups={productModalSupplierId ? (kitGroupsBySupplier.get(productModalSupplierId) ?? []) : []}
+          kitGroupsBySupplier={kitGroupsBySupplier}
           unitTypes={unitTypes}
+          initialSupplierId={productModalSupplierId}
           onClose={() => {
             setProductModalOpen(false)
             setEditingProduct(null)
@@ -1779,12 +2045,16 @@ export default function InventoryPageClient({
       )}
 
       {/* Combined Add Kit modal — creates kit + sub-items in one step. */}
-      {addKitModalOpen && addKitSupplierId && (
+      {addKitModalOpen && (
         <AddKitModal
           supplierName={
-            suppliers.find((s) => s.id === addKitSupplierId)?.name ?? ''
+            addKitSupplierId
+              ? suppliers.find((s) => s.id === addKitSupplierId)?.name ?? ''
+              : ''
           }
+          suppliers={suppliers}
           unitTypes={unitTypes}
+          initialSupplierId={addKitSupplierId}
           onClose={() => {
             setAddKitModalOpen(false)
             setAddKitSupplierId(null)

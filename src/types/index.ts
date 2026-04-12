@@ -562,6 +562,7 @@ export interface MaterialSupplier {
   id: string
   name: string
   color: string | null
+  sort_order: number
   created_at: string
 }
 
