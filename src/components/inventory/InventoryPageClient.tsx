@@ -135,18 +135,18 @@ function stockCheckDotTitle(level: StockCheckLevel): string {
 /* ================================================================== */
 
 const SUPPLIER_COLOR_MAP: Record<string, { bar: string; tint: string }> = {
-  amber:  { bar: '#92600a', tint: 'rgba(146, 96, 10, 0.1)' },
-  blue:   { bar: '#2563a8', tint: 'rgba(37, 99, 168, 0.1)' },
-  teal:   { bar: '#1d6b4f', tint: 'rgba(29, 107, 79, 0.1)' },
-  purple: { bar: '#7c3aed', tint: 'rgba(124, 58, 237, 0.1)' },
-  coral:  { bar: '#d85a30', tint: 'rgba(216, 90, 48, 0.1)' },
-  pink:   { bar: '#d4537e', tint: 'rgba(212, 83, 126, 0.1)' },
-  green:  { bar: '#4a9e22', tint: 'rgba(74, 158, 34, 0.1)' },
-  red:    { bar: '#c53030', tint: 'rgba(197, 48, 48, 0.1)' },
-  gray:   { bar: '#666666', tint: 'rgba(102, 102, 102, 0.1)' },
-  navy:   { bar: '#2d3a8c', tint: 'rgba(45, 58, 140, 0.1)' },
-  olive:  { bar: '#6b7c4a', tint: 'rgba(107, 124, 74, 0.1)' },
-  cyan:   { bar: '#0891b2', tint: 'rgba(8, 145, 178, 0.1)' },
+  amber:  { bar: '#92600a', tint: 'rgba(146, 96, 10, 0.22)' },
+  blue:   { bar: '#2563a8', tint: 'rgba(37, 99, 168, 0.22)' },
+  teal:   { bar: '#1d6b4f', tint: 'rgba(29, 107, 79, 0.22)' },
+  purple: { bar: '#7c3aed', tint: 'rgba(124, 58, 237, 0.22)' },
+  coral:  { bar: '#d85a30', tint: 'rgba(216, 90, 48, 0.22)' },
+  pink:   { bar: '#d4537e', tint: 'rgba(212, 83, 126, 0.22)' },
+  green:  { bar: '#4a9e22', tint: 'rgba(74, 158, 34, 0.22)' },
+  red:    { bar: '#c53030', tint: 'rgba(197, 48, 48, 0.22)' },
+  gray:   { bar: '#666666', tint: 'rgba(102, 102, 102, 0.22)' },
+  navy:   { bar: '#2d3a8c', tint: 'rgba(45, 58, 140, 0.22)' },
+  olive:  { bar: '#6b7c4a', tint: 'rgba(107, 124, 74, 0.22)' },
+  cyan:   { bar: '#0891b2', tint: 'rgba(8, 145, 178, 0.22)' },
 }
 
 function getSupplierColors(colorKey: string | null) {
@@ -257,66 +257,64 @@ function InlineQuantityEditor({
 
   if (disabled) {
     return (
-      <span className="text-sm text-gray-600 dark:text-[#a0a0a0]">
-        {quantity} {unitLabel}
+      <span className="inline-flex items-center gap-1.5">
+        <span className="w-[76px] text-sm text-right text-gray-600 dark:text-[#a0a0a0]">
+          {quantity}
+        </span>
+        <span className="text-xs text-gray-500 dark:text-[#6b6b6b]">{unitLabel}</span>
       </span>
     )
   }
 
-  if (editing) {
-    return (
-      <span className="inline-flex items-center gap-1">
-        <input
-          ref={inputRef}
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0"
-          value={value}
-          disabled={saving}
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={commit}
-          onKeyDown={handleKeyDown}
-          aria-label="Quantity"
-          className="w-16 border border-amber-400 dark:border-amber-500 rounded px-1.5 py-0.5 text-sm text-right bg-white dark:bg-[#2e2e2e] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-400"
-        />
-        <span className="text-xs text-gray-500 dark:text-[#a0a0a0]">{unitLabel}</span>
-      </span>
-    )
-  }
+  // Both editing and display states use the same fixed-width input so the
+  // layout never shifts. In display mode the input is read-only; clicking
+  // it enters edit mode.
+  const isActive = editing
+  const borderColor = justSaved
+    ? undefined
+    : isActive
+      ? 'rgba(180, 83, 9, 0.5)'
+      : 'rgba(255, 255, 255, 0.12)'
 
   return (
-    <button
-      type="button"
-      onClick={startEdit}
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-sm transition-all cursor-text ${
-        justSaved
-          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700'
-          : 'text-gray-600 dark:text-[#a0a0a0] hover:bg-gray-100 dark:hover:bg-[#2e2e2e]'
-      }`}
-      style={
-        justSaved
-          ? undefined
-          : {
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              background: 'transparent',
-            }
-      }
-      onMouseEnter={(e) => {
-        if (!justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.22)'
-      }}
-      onMouseLeave={(e) => {
-        if (!justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'
-      }}
-      onFocus={(e) => {
-        if (!justSaved) e.currentTarget.style.borderColor = 'rgba(180, 83, 9, 0.5)'
-      }}
-      onBlur={(e) => {
-        if (!justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'
-      }}
-      title="Click to edit quantity"
-    >
-      <span>{quantity}</span>
+    <span className="inline-flex items-center gap-1.5">
+      <input
+        ref={inputRef}
+        type="number"
+        inputMode="decimal"
+        step="0.01"
+        min="0"
+        value={editing ? value : String(quantity)}
+        readOnly={!editing}
+        disabled={saving}
+        onChange={(e) => setValue(e.target.value)}
+        onClick={() => { if (!editing) startEdit() }}
+        onBlur={() => { if (editing) commit() }}
+        onKeyDown={editing ? handleKeyDown : undefined}
+        aria-label="Quantity"
+        className={`w-[76px] rounded px-1.5 py-0.5 text-sm text-right bg-transparent focus:outline-none inventory-qty-input ${
+          justSaved
+            ? 'border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+            : isActive
+              ? 'border text-gray-900 dark:text-white'
+              : 'border text-gray-600 dark:text-[#a0a0a0] cursor-text'
+        }`}
+        style={
+          justSaved
+            ? undefined
+            : { borderColor: borderColor }
+        }
+        onMouseEnter={(e) => {
+          if (!editing && !justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.22)'
+        }}
+        onMouseLeave={(e) => {
+          if (!editing && !justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'
+        }}
+        onFocus={(e) => {
+          if (!justSaved) e.currentTarget.style.borderColor = 'rgba(180, 83, 9, 0.5)'
+        }}
+        title="Click to edit quantity"
+      />
       <span
         className={
           justSaved
@@ -327,7 +325,7 @@ function InlineQuantityEditor({
         {unitLabel}
       </span>
       {justSaved && <CheckIcon className="w-3 h-3 text-green-600 dark:text-green-400" />}
-    </button>
+    </span>
   )
 }
 
