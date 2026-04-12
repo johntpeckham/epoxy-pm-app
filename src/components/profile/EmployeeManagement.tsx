@@ -38,7 +38,7 @@ import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import { moveToTrash } from '@/lib/trashBin'
-import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition, EmployeeCertification, EmployeeCertificationAssignment, EmployeeOshaTraining, EmployeeOshaAssignment, Crew, SkillType } from '@/types'
+import type { EmployeeProfile, EmployeeRole, EmployeeCustomFieldDefinition, EmployeeCertification, EmployeeCertificationAssignment, EmployeeOshaTraining, EmployeeOshaAssignment, Crew, SkillType, EmployeeCrew, EmployeeSkillType } from '@/types'
 
 const PRESET_COLORS = [
   '#EF4444', '#F97316', '#EAB308', '#22C55E', '#14B8A6',
@@ -439,6 +439,7 @@ export default function EmployeeManagement({
 
   // Crews
   const [crews, setCrews] = useState<Crew[]>([])
+  const [crewAssignments, setCrewAssignments] = useState<EmployeeCrew[]>([])
   const [newCrewName, setNewCrewName] = useState('')
   const [addingCrew, setAddingCrew] = useState(false)
   const [crewError, setCrewError] = useState<string | null>(null)
@@ -447,6 +448,7 @@ export default function EmployeeManagement({
 
   // Skill Types
   const [skillTypes, setSkillTypes] = useState<SkillType[]>([])
+  const [skillTypeAssignments, setSkillTypeAssignments] = useState<EmployeeSkillType[]>([])
   const [newSkillTypeName, setNewSkillTypeName] = useState('')
   const [addingSkillType, setAddingSkillType] = useState(false)
   const [skillTypeError, setSkillTypeError] = useState<string | null>(null)
@@ -463,6 +465,11 @@ export default function EmployeeManagement({
   const [formCustomFields, setFormCustomFields] = useState<Record<string, string>>({})
   const [formCertIds, setFormCertIds] = useState<Set<string>>(new Set())
   const [formOshaIds, setFormOshaIds] = useState<Set<string>>(new Set())
+  const [formCrewIds, setFormCrewIds] = useState<Set<string>>(new Set())
+  const [formSkillTypeIds, setFormSkillTypeIds] = useState<Set<string>>(new Set())
+  // Pending crew selection awaiting user confirmation when employee is
+  // already assigned to another crew. null = no pending confirmation.
+  const [pendingCrewId, setPendingCrewId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -539,12 +546,26 @@ export default function EmployeeManagement({
     setCrews((data as Crew[]) ?? [])
   }, [])
 
+  const fetchCrewAssignments = useCallback(async () => {
+    const { data } = await supabase
+      .from('employee_crews')
+      .select('*')
+    setCrewAssignments((data as EmployeeCrew[]) ?? [])
+  }, [])
+
   const fetchSkillTypes = useCallback(async () => {
     const { data } = await supabase
       .from('skill_types')
       .select('*')
       .order('name')
     setSkillTypes((data as SkillType[]) ?? [])
+  }, [])
+
+  const fetchSkillTypeAssignments = useCallback(async () => {
+    const { data } = await supabase
+      .from('employee_skill_types')
+      .select('*')
+    setSkillTypeAssignments((data as EmployeeSkillType[]) ?? [])
   }, [])
 
   useEffect(() => {
@@ -556,8 +577,10 @@ export default function EmployeeManagement({
     fetchOshaTrainings()
     fetchOshaAssignments()
     fetchCrews()
+    fetchCrewAssignments()
     fetchSkillTypes()
-  }, [fetchEmployees, fetchRoles, fetchCustomFields, fetchCertifications, fetchCertAssignments, fetchOshaTrainings, fetchOshaAssignments, fetchCrews, fetchSkillTypes])
+    fetchSkillTypeAssignments()
+  }, [fetchEmployees, fetchRoles, fetchCustomFields, fetchCertifications, fetchCertAssignments, fetchOshaTrainings, fetchOshaAssignments, fetchCrews, fetchCrewAssignments, fetchSkillTypes, fetchSkillTypeAssignments])
 
   // ── Role Management ──
 
@@ -1070,6 +1093,9 @@ export default function EmployeeManagement({
     setFormCustomFields({})
     setFormCertIds(new Set())
     setFormOshaIds(new Set())
+    setFormCrewIds(new Set())
+    setFormSkillTypeIds(new Set())
+    setPendingCrewId(null)
     setModalError(null)
   }
 
@@ -1131,9 +1157,29 @@ export default function EmployeeManagement({
         await supabase.from('employee_osha_assignments').insert(oshaRows)
       }
 
+      // Sync crew assignments
+      const crewRows = Array.from(formCrewIds).map(crewId => ({
+        employee_id: inserted.id,
+        crew_id: crewId,
+      }))
+      if (crewRows.length > 0) {
+        await supabase.from('employee_crews').insert(crewRows)
+      }
+
+      // Sync skill type assignments
+      const skillTypeRows = Array.from(formSkillTypeIds).map(skillTypeId => ({
+        employee_id: inserted.id,
+        skill_type_id: skillTypeId,
+      }))
+      if (skillTypeRows.length > 0) {
+        await supabase.from('employee_skill_types').insert(skillTypeRows)
+      }
+
       await fetchEmployees()
       await fetchCertAssignments()
       await fetchOshaAssignments()
+      await fetchCrewAssignments()
+      await fetchSkillTypeAssignments()
       setOnboardingStep(2)
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to save employee')
@@ -1157,6 +1203,15 @@ export default function EmployeeManagement({
       .filter(a => a.employee_id === emp.id)
       .map(a => a.osha_training_id)
     setFormOshaIds(new Set(empOshaIds))
+    const empCrewIds = crewAssignments
+      .filter(a => a.employee_id === emp.id)
+      .map(a => a.crew_id)
+    setFormCrewIds(new Set(empCrewIds))
+    const empSkillTypeIds = skillTypeAssignments
+      .filter(a => a.employee_id === emp.id)
+      .map(a => a.skill_type_id)
+    setFormSkillTypeIds(new Set(empSkillTypeIds))
+    setPendingCrewId(null)
     setModalError(null)
     setModalOpen(true)
   }
@@ -1165,6 +1220,58 @@ export default function EmployeeManagement({
     setModalOpen(false)
     setEditingEmployee(null)
     setModalError(null)
+  }
+
+  // ── Crew / Skill Type selection on the employee form ──
+
+  /**
+   * Toggles a crew selection on the employee form. If the user is trying
+   * to ADD a new crew and the employee already has at least one other
+   * crew assigned, show a confirmation dialog first.
+   */
+  function toggleFormCrew(crewId: string) {
+    if (formCrewIds.has(crewId)) {
+      // Removing an existing selection — no confirmation needed.
+      setFormCrewIds(prev => {
+        const next = new Set(prev)
+        next.delete(crewId)
+        return next
+      })
+      return
+    }
+    // Adding a new crew. If any other crew is already selected, ask.
+    if (formCrewIds.size > 0) {
+      setPendingCrewId(crewId)
+      return
+    }
+    setFormCrewIds(prev => {
+      const next = new Set(prev)
+      next.add(crewId)
+      return next
+    })
+  }
+
+  function confirmPendingCrew() {
+    if (!pendingCrewId) return
+    const id = pendingCrewId
+    setFormCrewIds(prev => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+    setPendingCrewId(null)
+  }
+
+  function toggleFormSkillType(skillTypeId: string) {
+    setFormSkillTypeIds(prev => {
+      const next = new Set(prev)
+      if (next.has(skillTypeId)) {
+        next.delete(skillTypeId)
+      } else {
+        next.add(skillTypeId)
+      }
+      return next
+    })
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1271,9 +1378,53 @@ export default function EmployeeManagement({
           .insert(oshaRows)
       }
 
+      // Sync crew assignments — compute diff so unchanged rows are left alone
+      const existingCrewIds = new Set(
+        crewAssignments
+          .filter(a => a.employee_id === employeeId)
+          .map(a => a.crew_id)
+      )
+      const crewIdsToAdd = Array.from(formCrewIds).filter(id => !existingCrewIds.has(id))
+      const crewIdsToRemove = Array.from(existingCrewIds).filter(id => !formCrewIds.has(id))
+      if (crewIdsToRemove.length > 0) {
+        await supabase
+          .from('employee_crews')
+          .delete()
+          .eq('employee_id', employeeId)
+          .in('crew_id', crewIdsToRemove)
+      }
+      if (crewIdsToAdd.length > 0) {
+        await supabase
+          .from('employee_crews')
+          .insert(crewIdsToAdd.map(crewId => ({ employee_id: employeeId, crew_id: crewId })))
+      }
+
+      // Sync skill type assignments — compute diff so unchanged rows are left alone
+      const existingSkillTypeIds = new Set(
+        skillTypeAssignments
+          .filter(a => a.employee_id === employeeId)
+          .map(a => a.skill_type_id)
+      )
+      const skillTypeIdsToAdd = Array.from(formSkillTypeIds).filter(id => !existingSkillTypeIds.has(id))
+      const skillTypeIdsToRemove = Array.from(existingSkillTypeIds).filter(id => !formSkillTypeIds.has(id))
+      if (skillTypeIdsToRemove.length > 0) {
+        await supabase
+          .from('employee_skill_types')
+          .delete()
+          .eq('employee_id', employeeId)
+          .in('skill_type_id', skillTypeIdsToRemove)
+      }
+      if (skillTypeIdsToAdd.length > 0) {
+        await supabase
+          .from('employee_skill_types')
+          .insert(skillTypeIdsToAdd.map(skillTypeId => ({ employee_id: employeeId, skill_type_id: skillTypeId })))
+      }
+
       await fetchEmployees()
       await fetchCertAssignments()
       await fetchOshaAssignments()
+      await fetchCrewAssignments()
+      await fetchSkillTypeAssignments()
       closeModal()
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to save employee')
@@ -2005,6 +2156,106 @@ export default function EmployeeManagement({
                     </div>
                   )}
 
+                  {/* Crew */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-2">Crew</label>
+                    {formCrewIds.size > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {Array.from(formCrewIds).map((id) => {
+                          const crew = crews.find((c) => c.id === id)
+                          if (!crew) return null
+                          return (
+                            <span
+                              key={crew.id}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
+                            >
+                              {crew.name}
+                              <button
+                                type="button"
+                                onClick={() => toggleFormCrew(crew.id)}
+                                className="rounded-full hover:bg-amber-200/70 transition p-0.5"
+                                aria-label={`Remove ${crew.name}`}
+                              >
+                                <XIcon className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {crews.length === 0 ? (
+                      <p className="text-xs text-gray-400">No crews defined. Add crews in Settings.</p>
+                    ) : (
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const id = e.target.value
+                          if (id) toggleFormCrew(id)
+                        }}
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                      >
+                        <option value="">Add crew...</option>
+                        {crews
+                          .filter((c) => !formCrewIds.has(c.id))
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Skill Type */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-2">Skill Type</label>
+                    {formSkillTypeIds.size > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {Array.from(formSkillTypeIds).map((id) => {
+                          const st = skillTypes.find((s) => s.id === id)
+                          if (!st) return null
+                          return (
+                            <span
+                              key={st.id}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800 border border-sky-200"
+                            >
+                              {st.name}
+                              <button
+                                type="button"
+                                onClick={() => toggleFormSkillType(st.id)}
+                                className="rounded-full hover:bg-sky-200/70 transition p-0.5"
+                                aria-label={`Remove ${st.name}`}
+                              >
+                                <XIcon className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {skillTypes.length === 0 ? (
+                      <p className="text-xs text-gray-400">No skill types defined. Add skill types in Settings.</p>
+                    ) : (
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const id = e.target.value
+                          if (id) toggleFormSkillType(id)
+                        }}
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                      >
+                        <option value="">Add skill type...</option>
+                        {skillTypes
+                          .filter((s) => !formSkillTypeIds.has(s.id))
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
+
                   {/* Notes */}
                   <div>
                     <label
@@ -2291,6 +2542,106 @@ export default function EmployeeManagement({
                       </div>
                     )}
 
+                    {/* Crew */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-2">Crew</label>
+                      {formCrewIds.size > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {Array.from(formCrewIds).map((id) => {
+                            const crew = crews.find((c) => c.id === id)
+                            if (!crew) return null
+                            return (
+                              <span
+                                key={crew.id}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
+                              >
+                                {crew.name}
+                                <button
+                                  type="button"
+                                  onClick={() => toggleFormCrew(crew.id)}
+                                  className="rounded-full hover:bg-amber-200/70 transition p-0.5"
+                                  aria-label={`Remove ${crew.name}`}
+                                >
+                                  <XIcon className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {crews.length === 0 ? (
+                        <p className="text-xs text-gray-400">No crews defined. Add crews in Settings.</p>
+                      ) : (
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const id = e.target.value
+                            if (id) toggleFormCrew(id)
+                          }}
+                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                        >
+                          <option value="">Add crew...</option>
+                          {crews
+                            .filter((c) => !formCrewIds.has(c.id))
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Skill Type */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-2">Skill Type</label>
+                      {formSkillTypeIds.size > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {Array.from(formSkillTypeIds).map((id) => {
+                            const st = skillTypes.find((s) => s.id === id)
+                            if (!st) return null
+                            return (
+                              <span
+                                key={st.id}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800 border border-sky-200"
+                              >
+                                {st.name}
+                                <button
+                                  type="button"
+                                  onClick={() => toggleFormSkillType(st.id)}
+                                  className="rounded-full hover:bg-sky-200/70 transition p-0.5"
+                                  aria-label={`Remove ${st.name}`}
+                                >
+                                  <XIcon className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {skillTypes.length === 0 ? (
+                        <p className="text-xs text-gray-400">No skill types defined. Add skill types in Settings.</p>
+                      ) : (
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const id = e.target.value
+                            if (id) toggleFormSkillType(id)
+                          }}
+                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                        >
+                          <option value="">Add skill type...</option>
+                          {skillTypes
+                            .filter((s) => !formSkillTypeIds.has(s.id))
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                        </select>
+                      )}
+                    </div>
+
                     {/* Notes */}
                     <div>
                       <label htmlFor="onboard-notes" className="block text-xs font-medium text-gray-500 mb-1">
@@ -2432,6 +2783,27 @@ export default function EmployeeManagement({
           loading={deletingFieldId === confirmDeleteField.id}
         />
       )}
+
+      {/* Confirm Add Second Crew */}
+      {pendingCrewId && (() => {
+        const pendingCrew = crews.find(c => c.id === pendingCrewId)
+        const existingCrewNames = Array.from(formCrewIds)
+          .map(id => crews.find(c => c.id === id)?.name)
+          .filter((n): n is string => !!n)
+        const existingLabel = existingCrewNames.length === 1
+          ? existingCrewNames[0]
+          : existingCrewNames.join(', ')
+        return (
+          <ConfirmDialog
+            title="Already Assigned to a Crew"
+            message={`This employee is already assigned to ${existingLabel}. Add to ${pendingCrew?.name ?? 'this crew'} as well?`}
+            confirmLabel="Add Crew"
+            variant="default"
+            onConfirm={confirmPendingCrew}
+            onCancel={() => setPendingCrewId(null)}
+          />
+        )
+      })()}
 
       {/* Confirm Delete Crew */}
       {confirmDeleteCrew && (
