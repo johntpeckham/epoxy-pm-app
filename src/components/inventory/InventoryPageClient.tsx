@@ -130,6 +130,29 @@ function stockCheckDotTitle(level: StockCheckLevel): string {
   }
 }
 
+/* ================================================================== */
+/*  SUPPLIER COLOR MAP                                                 */
+/* ================================================================== */
+
+const SUPPLIER_COLOR_MAP: Record<string, { bar: string; tint: string }> = {
+  amber:  { bar: '#92600a', tint: 'rgba(146, 96, 10, 0.1)' },
+  blue:   { bar: '#2563a8', tint: 'rgba(37, 99, 168, 0.1)' },
+  teal:   { bar: '#1d6b4f', tint: 'rgba(29, 107, 79, 0.1)' },
+  purple: { bar: '#7c3aed', tint: 'rgba(124, 58, 237, 0.1)' },
+  coral:  { bar: '#d85a30', tint: 'rgba(216, 90, 48, 0.1)' },
+  pink:   { bar: '#d4537e', tint: 'rgba(212, 83, 126, 0.1)' },
+  green:  { bar: '#4a9e22', tint: 'rgba(74, 158, 34, 0.1)' },
+  red:    { bar: '#c53030', tint: 'rgba(197, 48, 48, 0.1)' },
+  gray:   { bar: '#666666', tint: 'rgba(102, 102, 102, 0.1)' },
+  navy:   { bar: '#2d3a8c', tint: 'rgba(45, 58, 140, 0.1)' },
+  olive:  { bar: '#6b7c4a', tint: 'rgba(107, 124, 74, 0.1)' },
+  cyan:   { bar: '#0891b2', tint: 'rgba(8, 145, 178, 0.1)' },
+}
+
+function getSupplierColors(colorKey: string | null) {
+  return SUPPLIER_COLOR_MAP[colorKey ?? 'amber'] ?? SUPPLIER_COLOR_MAP.amber
+}
+
 /** Convert a timestamptz to a YYYY-MM-DD string for <input type="date">. */
 function toDateInputValue(value: string | null): string {
   if (!value) return ''
@@ -266,11 +289,31 @@ function InlineQuantityEditor({
     <button
       type="button"
       onClick={startEdit}
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-sm transition-colors cursor-text ${
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-sm transition-all cursor-text ${
         justSaved
-          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700'
           : 'text-gray-600 dark:text-[#a0a0a0] hover:bg-gray-100 dark:hover:bg-[#2e2e2e]'
       }`}
+      style={
+        justSaved
+          ? undefined
+          : {
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              background: 'transparent',
+            }
+      }
+      onMouseEnter={(e) => {
+        if (!justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.22)'
+      }}
+      onMouseLeave={(e) => {
+        if (!justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'
+      }}
+      onFocus={(e) => {
+        if (!justSaved) e.currentTarget.style.borderColor = 'rgba(180, 83, 9, 0.5)'
+      }}
+      onBlur={(e) => {
+        if (!justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'
+      }}
       title="Click to edit quantity"
     >
       <span>{quantity}</span>
@@ -404,18 +447,18 @@ export default function InventoryPageClient({
     setSupplierModalOpen(true)
   }
 
-  async function saveSupplier(name: string) {
+  async function saveSupplier(name: string, color: string) {
     const trimmed = name.trim()
     if (!trimmed) return
 
     if (editingSupplier) {
       const previous = editingSupplier
       setSuppliers((prev) =>
-        prev.map((s) => (s.id === previous.id ? { ...s, name: trimmed } : s))
+        prev.map((s) => (s.id === previous.id ? { ...s, name: trimmed, color } : s))
       )
       const { error } = await supabase
         .from('material_suppliers')
-        .update({ name: trimmed })
+        .update({ name: trimmed, color })
         .eq('id', previous.id)
       if (error) {
         setSuppliers((prev) =>
@@ -425,7 +468,7 @@ export default function InventoryPageClient({
     } else {
       const { data, error } = await supabase
         .from('material_suppliers')
-        .insert({ name: trimmed })
+        .insert({ name: trimmed, color })
         .select()
         .single()
       if (!error && data) {
@@ -1094,14 +1137,22 @@ export default function InventoryPageClient({
               const hasAnyContent =
                 standaloneProducts.length > 0 || supplierKitGroups.length > 0
 
+              const supplierColors = getSupplierColors(supplier.color)
+
               return (
                 <section key={supplier.id}>
-                  {/* Supplier header with HR underneath */}
-                  <div className="flex items-center gap-2 mb-2">
+                  {/* Supplier header — Option 4 style: accent bar + tinted background */}
+                  <div
+                    className="flex items-center gap-3 mb-3 rounded-lg overflow-hidden"
+                    style={{
+                      borderLeft: `3px solid ${supplierColors.bar}`,
+                      backgroundColor: supplierColors.tint,
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() => toggleSupplierCollapsed(supplier.id)}
-                      className="p-1 -ml-1 text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white transition-colors flex-shrink-0"
+                      className="p-1 ml-2 text-gray-400 hover:text-gray-600 dark:text-[#8a8a8a] dark:hover:text-white transition-colors flex-shrink-0"
                       aria-label={collapsed ? 'Expand supplier' : 'Collapse supplier'}
                     >
                       {collapsed ? (
@@ -1111,12 +1162,12 @@ export default function InventoryPageClient({
                       )}
                     </button>
                     <h2
-                      className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white flex-1 truncate cursor-pointer"
+                      className="text-[18px] font-medium uppercase tracking-wider text-gray-900 dark:text-[#f0f0f0] flex-1 truncate cursor-pointer py-3"
                       onClick={() => toggleSupplierCollapsed(supplier.id)}
                     >
                       {supplier.name}
                     </h2>
-                    <span className="text-[11px] text-gray-500 dark:text-[#a0a0a0] bg-gray-100 dark:bg-[#2e2e2e] px-2 py-0.5 rounded-full font-medium">
+                    <span className="text-[11px] text-gray-500 dark:text-[#a0a0a0] bg-white/60 dark:bg-[#2e2e2e]/80 px-2.5 py-0.5 rounded-full font-medium">
                       {supplierProducts.length}{' '}
                       {supplierProducts.length === 1 ? 'product' : 'products'}
                     </span>
@@ -1132,14 +1183,13 @@ export default function InventoryPageClient({
                     {canDelete && (
                       <button
                         onClick={() => setDeleteSupplierTarget(supplier)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors"
+                        className="p-1.5 mr-2 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors"
                         title="Delete supplier"
                       >
                         <Trash2Icon className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
-                  <div className="h-px bg-gray-200 dark:bg-[#2a2a2a] mb-3" />
 
                   {!collapsed && (
                     <div className="bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#3a3a3a] rounded-xl overflow-hidden">
