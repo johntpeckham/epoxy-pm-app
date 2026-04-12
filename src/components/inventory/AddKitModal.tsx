@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { XIcon, PlusIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { InventoryUnit, UnitType } from '@/types'
+import type { InventoryUnit, MaterialSupplier, UnitType } from '@/types'
 
 export interface AddKitSubItemFormData {
   name: string
@@ -14,11 +14,16 @@ export interface AddKitSubItemFormData {
 export interface AddKitFormData {
   name: string
   products: AddKitSubItemFormData[]
+  supplier_id: string | null
 }
 
 interface Props {
   supplierName: string
   unitTypes: UnitType[]
+  /** All suppliers — used for the supplier dropdown when adding from page header. */
+  suppliers?: MaterialSupplier[]
+  /** When true, show supplier picker (adding from page header, not from a supplier card). */
+  showSupplierPicker?: boolean
   onClose: () => void
   onSave: (data: AddKitFormData) => Promise<void> | void
 }
@@ -48,13 +53,17 @@ function createEmptyRow(defaultUnit: InventoryUnit = 'gal'): RowState {
  * item, all linked via kit_group_id. Starts with 2 empty rows because most
  * kits have at least two parts (base + activator).
  */
-export default function AddKitModal({ supplierName, unitTypes, onClose, onSave }: Props) {
+export default function AddKitModal({ supplierName, unitTypes, suppliers, showSupplierPicker, onClose, onSave }: Props) {
   const defaultUnit = unitTypes.length > 0 ? unitTypes[0].abbreviation : 'gal'
   const [kitName, setKitName] = useState('')
   const [rows, setRows] = useState<RowState[]>(() => [createEmptyRow(defaultUnit), createEmptyRow(defaultUnit)])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>(
+    suppliers?.length === 1 ? suppliers[0].id : ''
+  )
+  const noSuppliers = showSupplierPicker && (!suppliers || suppliers.length === 0)
 
   useEffect(() => {
     nameInputRef.current?.focus()
@@ -82,6 +91,10 @@ export default function AddKitModal({ supplierName, unitTypes, onClose, onSave }
       setError('Kit name is required.')
       return
     }
+    if (showSupplierPicker && !selectedSupplierId) {
+      setError('Please select a supplier.')
+      return
+    }
     // Drop rows without a name so users can leave trailing blanks harmlessly.
     const nonEmptyRows = rows.filter((r) => r.name.trim() !== '')
     if (nonEmptyRows.length === 0) {
@@ -104,7 +117,7 @@ export default function AddKitModal({ supplierName, unitTypes, onClose, onSave }
     setError(null)
     setSaving(true)
     try {
-      await onSave({ name: trimmedKitName, products })
+      await onSave({ name: trimmedKitName, products, supplier_id: showSupplierPicker ? selectedSupplierId : null })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save kit.')
       setSaving(false)
@@ -145,6 +158,32 @@ export default function AddKitModal({ supplierName, unitTypes, onClose, onSave }
               {error && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
                   {error}
+                </div>
+              )}
+
+              {showSupplierPicker && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                    Supplier *
+                  </label>
+                  {noSuppliers ? (
+                    <p className="text-sm text-amber-600 dark:text-amber-400">
+                      Create a supplier first
+                    </p>
+                  ) : (
+                    <select
+                      value={selectedSupplierId}
+                      onChange={(e) => setSelectedSupplierId(e.target.value)}
+                      className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                    >
+                      <option value="">Select a supplier…</option>
+                      {(suppliers ?? []).map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
 
@@ -244,7 +283,7 @@ export default function AddKitModal({ supplierName, unitTypes, onClose, onSave }
               </button>
               <button
                 type="submit"
-                disabled={saving || !kitName.trim()}
+                disabled={saving || !kitName.trim() || !!noSuppliers}
                 className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-lg transition"
               >
                 {saving ? 'Saving…' : 'Add Kit'}
