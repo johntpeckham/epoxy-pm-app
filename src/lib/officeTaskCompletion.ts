@@ -1,18 +1,22 @@
 /**
  * Shared utility for toggling an office task's completion state.
  *
- * The equipment detail page creates an office task when a scheduled service
- * is assigned to a user, and links them via equipment_scheduled_services.task_id.
- * Completing the service from the equipment page already cascades to the
- * linked task (see EquipmentDetailClient.handleCompleteScheduled).
+ * This utility cascades a task's completion to anything the task might be
+ * linked to, so all office-task toggle handlers in the app (Office Tasks,
+ * My Work, etc.) should call this instead of updating office_tasks directly.
  *
- * This utility implements the REVERSE sync: when a task is toggled from an
- * office-tasks UI, we look for a linked scheduled service and mirror the
- * equipment page's completion logic — status change, completed_at/by,
- * recurrence generation, and a new linked task for the next occurrence.
- *
- * Call this from every office-task toggle handler instead of updating
- * office_tasks directly.
+ * Current cascades:
+ *  1. Equipment scheduled services — when an equipment page creates an office
+ *     task for a scheduled service, it's linked via
+ *     equipment_scheduled_services.task_id. On completion we mirror the
+ *     equipment page's status change, set completed_at/by, and generate the
+ *     next recurrence with a fresh linked task. On un-completion we revert the
+ *     service back to 'upcoming'.
+ *  2. Inventory stock check requests — when the inventory page creates an
+ *     office task for a stock check, it's linked via
+ *     inventory_products.stock_check_task_id. On completion we auto-update
+ *     stock_check_date = now and clear the link so a new request can be
+ *     made. Un-completion is a no-op for stock checks (the date stays).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -82,7 +86,39 @@ export async function toggleOfficeTaskCompletion(
     throw taskErr
   }
 
-  // 2. Find any linked scheduled service.
+  // 2a. If the task is being completed, cascade to any linked inventory
+  //     product stock check request. The inventory page links the task via
+  //     inventory_products.stock_check_task_id, and we mirror the equipment
+  //     cascade by auto-setting stock_check_date to now and clearing the
+  //     link so a new request can be made. This runs in parallel with the
+  //     equipment-service lookup below because a task can only be one or the
+  //     other in practice — the queries are cheap and idempotent.
+  if (newIsCompleted) {
+    const { data: linkedProduct, error: productLookupErr } = await supabase
+      .from('inventory_products')
+      .select('id')
+      .eq('stock_check_task_id', taskId)
+      .maybeSingle()
+    if (productLookupErr) {
+      console.error(
+        '[toggleOfficeTaskCompletion] Linked-product lookup failed:',
+        productLookupErr
+      )
+    } else if (linkedProduct) {
+      const { error: productUpdateErr } = await supabase
+        .from('inventory_products')
+        .update({ stock_check_date: nowIso, stock_check_task_id: null })
+        .eq('id', (linkedProduct as { id: string }).id)
+      if (productUpdateErr) {
+        console.error(
+          '[toggleOfficeTaskCompletion] Failed to update inventory product:',
+          productUpdateErr
+        )
+      }
+    }
+  }
+
+  // 2b. Find any linked scheduled service.
   const { data: linked, error: lookupErr } = await supabase
     .from('equipment_scheduled_services')
     .select(
