@@ -1141,116 +1141,119 @@ export default function InventoryPageClient({
 
               return (
                 <section key={supplier.id}>
-                  {/* Supplier header — Option 4 style: accent bar + tinted background */}
-                  <div
-                    className="flex items-center gap-3 mb-3 rounded-lg overflow-hidden"
-                    style={{
-                      borderLeft: `3px solid ${supplierColors.bar}`,
-                      backgroundColor: supplierColors.tint,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleSupplierCollapsed(supplier.id)}
-                      className="p-1 ml-2 text-gray-400 hover:text-gray-600 dark:text-[#8a8a8a] dark:hover:text-white transition-colors flex-shrink-0"
-                      aria-label={collapsed ? 'Expand supplier' : 'Collapse supplier'}
+                  {/* Unified card: supplier header + product table */}
+                  <div className="bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#3a3a3a] rounded-xl overflow-hidden">
+                    {/* Supplier header — Option 4 style: accent bar + tinted background */}
+                    <div
+                      className="flex items-center gap-3"
+                      style={{
+                        borderLeft: `3px solid ${supplierColors.bar}`,
+                        backgroundColor: supplierColors.tint,
+                      }}
                     >
-                      {collapsed ? (
-                        <ChevronRightIcon className="w-4 h-4" />
-                      ) : (
-                        <ChevronDownIcon className="w-4 h-4" />
-                      )}
-                    </button>
-                    <h2
-                      className="text-[18px] font-medium uppercase tracking-wider text-gray-900 dark:text-[#f0f0f0] flex-1 truncate cursor-pointer py-3"
-                      onClick={() => toggleSupplierCollapsed(supplier.id)}
-                    >
-                      {supplier.name}
-                    </h2>
-                    <span className="text-[11px] text-gray-500 dark:text-[#a0a0a0] bg-white/60 dark:bg-[#2e2e2e]/80 px-2.5 py-0.5 rounded-full font-medium">
-                      {supplierProducts.length}{' '}
-                      {supplierProducts.length === 1 ? 'product' : 'products'}
-                    </span>
-                    {canManage && (
                       <button
-                        onClick={() => openEditSupplier(supplier)}
-                        className="p-1.5 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors"
-                        title="Edit supplier"
+                        type="button"
+                        onClick={() => toggleSupplierCollapsed(supplier.id)}
+                        className="p-1 ml-2 text-gray-400 hover:text-gray-600 dark:text-[#8a8a8a] dark:hover:text-white transition-colors flex-shrink-0"
+                        aria-label={collapsed ? 'Expand supplier' : 'Collapse supplier'}
                       >
-                        <PencilIcon className="w-3.5 h-3.5" />
+                        {collapsed ? (
+                          <ChevronRightIcon className="w-4 h-4" />
+                        ) : (
+                          <ChevronDownIcon className="w-4 h-4" />
+                        )}
                       </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        onClick={() => setDeleteSupplierTarget(supplier)}
-                        className="p-1.5 mr-2 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors"
-                        title="Delete supplier"
+                      <h2
+                        className="text-[18px] font-medium uppercase tracking-wider text-gray-900 dark:text-[#f0f0f0] flex-1 truncate cursor-pointer py-3"
+                        onClick={() => toggleSupplierCollapsed(supplier.id)}
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {!collapsed && (
-                    <div className="bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#3a3a3a] rounded-xl overflow-hidden">
-                      {/* Desktop/tablet table header */}
-                      <div className="hidden sm:grid grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-2.5 bg-gray-50 dark:bg-[#2e2e2e] border-b border-gray-200 dark:border-[#3a3a3a] text-[11px] font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide">
-                        <div>Product Name</div>
-                        <div className="text-right">Gallons / Parts</div>
-                        <div className="text-center">Stock Check Request</div>
-                        <div className="text-center">Stock Check Date</div>
-                        <div className="text-right">Actions</div>
-                      </div>
-
-                      {!hasAnyContent ? (
-                        <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-[#6b6b6b]">
-                          No products or kit groups yet
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
-                          {/* Standalone products first */}
-                          {standaloneProducts.map((p) => renderProductRow(p))}
-
-                          {/* Kit group header rows followed by their nested
-                              products. flatMap keeps everything as direct
-                              children of the divide-y container so dividers
-                              render consistently between every row. */}
-                          {supplierKitGroups.flatMap((group) => {
-                            const groupProducts = [
-                              ...(productsByGroup.get(group.id) ?? []),
-                            ].sort((a, b) => {
-                              if (a.sort_order !== b.sort_order)
-                                return a.sort_order - b.sort_order
-                              return a.name.localeCompare(b.name)
-                            })
-                            return [
-                              renderKitGroupHeaderRow(group),
-                              ...groupProducts.map((p) => renderProductRow(p, true)),
-                            ]
-                          })}
-                        </div>
-                      )}
-
+                        {supplier.name}
+                      </h2>
+                      <span className="text-[11px] text-gray-500 dark:text-[#a0a0a0] bg-white/60 dark:bg-[#2e2e2e]/80 px-2.5 py-0.5 rounded-full font-medium">
+                        {supplierProducts.length}{' '}
+                        {supplierProducts.length === 1 ? 'product' : 'products'}
+                      </span>
                       {canManage && (
-                        <div className="border-t border-gray-100 dark:border-[#3a3a3a] px-4 py-2.5 bg-gray-50/50 dark:bg-[#2a2a2a] flex items-center gap-4 flex-wrap">
-                          <button
-                            onClick={() => openAddProduct(supplier.id)}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
-                          >
-                            <PlusIcon className="w-3.5 h-3.5" />
-                            Add Single Product
-                          </button>
-                          <button
-                            onClick={() => openAddKit(supplier.id)}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
-                          >
-                            <PlusIcon className="w-3.5 h-3.5" />
-                            Add Kit
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => openEditSupplier(supplier)}
+                          className="p-1.5 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors"
+                          title="Edit supplier"
+                        >
+                          <PencilIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => setDeleteSupplierTarget(supplier)}
+                          className="p-1.5 mr-2 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors"
+                          title="Delete supplier"
+                        >
+                          <Trash2Icon className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
-                  )}
+
+                    {!collapsed && (
+                      <>
+                        {/* Desktop/tablet table header */}
+                        <div className="hidden sm:grid grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-2.5 bg-gray-50 dark:bg-[#2e2e2e] border-t border-b border-gray-200 dark:border-[#3a3a3a] text-[11px] font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide">
+                          <div>Product Name</div>
+                          <div className="text-right">Gallons / Parts</div>
+                          <div className="text-center">Stock Check Request</div>
+                          <div className="text-center">Stock Check Date</div>
+                          <div className="text-right">Actions</div>
+                        </div>
+
+                        {!hasAnyContent ? (
+                          <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-[#6b6b6b]">
+                            No products or kit groups yet
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
+                            {/* Standalone products first */}
+                            {standaloneProducts.map((p) => renderProductRow(p))}
+
+                            {/* Kit group header rows followed by their nested
+                                products. flatMap keeps everything as direct
+                                children of the divide-y container so dividers
+                                render consistently between every row. */}
+                            {supplierKitGroups.flatMap((group) => {
+                              const groupProducts = [
+                                ...(productsByGroup.get(group.id) ?? []),
+                              ].sort((a, b) => {
+                                if (a.sort_order !== b.sort_order)
+                                  return a.sort_order - b.sort_order
+                                return a.name.localeCompare(b.name)
+                              })
+                              return [
+                                renderKitGroupHeaderRow(group),
+                                ...groupProducts.map((p) => renderProductRow(p, true)),
+                              ]
+                            })}
+                          </div>
+                        )}
+
+                        {canManage && (
+                          <div className="border-t border-gray-100 dark:border-[#3a3a3a] px-4 py-2.5 bg-gray-50/50 dark:bg-[#2a2a2a] flex items-center gap-4 flex-wrap">
+                            <button
+                              onClick={() => openAddProduct(supplier.id)}
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
+                            >
+                              <PlusIcon className="w-3.5 h-3.5" />
+                              Add Single Product
+                            </button>
+                            <button
+                              onClick={() => openAddKit(supplier.id)}
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
+                            >
+                              <PlusIcon className="w-3.5 h-3.5" />
+                              Add Kit
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </section>
               )
             })}
