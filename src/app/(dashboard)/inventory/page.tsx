@@ -49,6 +49,7 @@ export default async function InventoryPage() {
     supabase
       .from('material_suppliers')
       .select('*')
+      .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
     supabase
       .from('inventory_products')

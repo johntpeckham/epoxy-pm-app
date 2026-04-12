@@ -3,21 +3,28 @@
 import { useEffect, useRef, useState } from 'react'
 import { XIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { InventoryKitGroup, InventoryProduct, InventoryUnit, UnitType } from '@/types'
+import type { InventoryKitGroup, InventoryProduct, InventoryUnit, MaterialSupplier, UnitType } from '@/types'
 
 export interface ProductFormData {
   name: string
   quantity: number
   unit: InventoryUnit
   kit_group_id: string | null
+  supplier_id: string | null
 }
 
 interface Props {
   product: InventoryProduct | null
   supplierName: string
+  /** All suppliers — used to populate the supplier picker when adding. */
+  suppliers: MaterialSupplier[]
   /** Kit groups belonging to the current supplier — used to populate the dropdown. */
   kitGroups: InventoryKitGroup[]
+  /** All kit groups keyed by supplier — for updating when supplier selection changes. */
+  kitGroupsBySupplier: Map<string, InventoryKitGroup[]>
   unitTypes: UnitType[]
+  /** Pre-selected supplier id (when opened from a specific supplier context). */
+  initialSupplierId: string | null
   onClose: () => void
   onSave: (data: ProductFormData) => Promise<void> | void
 }
@@ -25,12 +32,17 @@ interface Props {
 export default function ProductModal({
   product,
   supplierName,
+  suppliers,
   kitGroups,
+  kitGroupsBySupplier,
   unitTypes,
+  initialSupplierId,
   onClose,
   onSave,
 }: Props) {
   const isEdit = !!product
+  const autoSupplierId = !isEdit && suppliers.length === 1 ? suppliers[0].id : initialSupplierId
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>(autoSupplierId ?? '')
   const [name, setName] = useState(product?.name ?? '')
   const [quantity, setQuantity] = useState<string>(
     product?.quantity !== undefined && product?.quantity !== null
@@ -45,12 +57,21 @@ export default function ProductModal({
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // When the supplier changes in add mode, reset kit group since kits are per-supplier.
+  const currentKitGroups = isEdit
+    ? kitGroups
+    : (kitGroupsBySupplier.get(selectedSupplierId) ?? [])
+
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
   async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault()
+    if (!isEdit && !selectedSupplierId) {
+      setError('Please select a supplier.')
+      return
+    }
     const trimmed = name.trim()
     if (!trimmed) {
       setError('Product name is required.')
@@ -69,6 +90,7 @@ export default function ProductModal({
         quantity: parsedQty,
         unit,
         kit_group_id: kitGroupId || null,
+        supplier_id: isEdit ? null : selectedSupplierId,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save product.')
@@ -92,7 +114,7 @@ export default function ProductModal({
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                 {isEdit ? 'Edit Product' : 'Add Single Product'}
               </h2>
-              {supplierName && (
+              {(isEdit && supplierName) && (
                 <p className="text-xs text-gray-500 dark:text-[#a0a0a0] truncate">
                   {supplierName}
                 </p>
@@ -112,6 +134,36 @@ export default function ProductModal({
               {error && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
                   {error}
+                </div>
+              )}
+
+              {/* Supplier picker — only shown when adding a new product (not editing). */}
+              {!isEdit && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                    Supplier *
+                  </label>
+                  {suppliers.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-[#a0a0a0] italic">
+                      Create a supplier first.
+                    </p>
+                  ) : (
+                    <select
+                      value={selectedSupplierId}
+                      onChange={(e) => {
+                        setSelectedSupplierId(e.target.value)
+                        setKitGroupId('')
+                      }}
+                      className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                    >
+                      <option value="">Select a supplier…</option>
+                      {suppliers.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
 
@@ -181,13 +233,13 @@ export default function ProductModal({
                     className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
                   >
                     <option value="">None (standalone product)</option>
-                    {kitGroups.map((g) => (
+                    {currentKitGroups.map((g) => (
                       <option key={g.id} value={g.id}>
                         {g.name}
                       </option>
                     ))}
                   </select>
-                  {kitGroups.length === 0 && (
+                  {currentKitGroups.length === 0 && (
                     <p className="text-[11px] text-gray-400 dark:text-[#6b6b6b] mt-1">
                       No kit groups yet for this supplier.
                     </p>
@@ -208,7 +260,7 @@ export default function ProductModal({
               </button>
               <button
                 type="submit"
-                disabled={saving || !name.trim()}
+                disabled={saving || !name.trim() || (!isEdit && suppliers.length === 0) || (!isEdit && !selectedSupplierId)}
                 className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-lg transition"
               >
                 {saving ? 'Saving…' : isEdit ? 'Save' : 'Add Single Product'}
