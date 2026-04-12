@@ -1,7 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { EmployeeProfile, Project } from '@/types'
+import type {
+  Crew,
+  EmployeeCrew,
+  EmployeeProfile,
+  EmployeeSkillType,
+  Project,
+  SkillType,
+} from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useTheme } from '@/components/theme/ThemeProvider'
@@ -71,6 +78,10 @@ interface Props {
   nextWeekISO: string
   followingWeekISO: string
   initialAssignments: SchedulerAssignmentRow[]
+  crews: Crew[]
+  skillTypes: SkillType[]
+  employeeCrews: EmployeeCrew[]
+  employeeSkillTypes: EmployeeSkillType[]
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────
@@ -325,6 +336,10 @@ export default function SchedulerClient({
   nextWeekISO,
   followingWeekISO,
   initialAssignments,
+  crews,
+  skillTypes,
+  employeeCrews,
+  employeeSkillTypes,
 }: Props) {
   void _userId
   const supabase = useMemo(() => createClient(), [])
@@ -354,7 +369,47 @@ export default function SchedulerClient({
   // the current week so users land on "today".
   const [activeWeekISO, setActiveWeekISO] = useState<string>(thisWeekISO)
 
-  const employeeGroups = useMemo(() => groupEmployees(employees), [employees])
+  // Pool view mode: group by role (default), crew, or skill type. In the
+  // crew/skill modes an employee appears under EACH group they belong to;
+  // employees with no crew/skill fall into an "UNASSIGNED" group.
+  const [poolViewMode, setPoolViewMode] = useState<'all' | 'crew' | 'skill'>('all')
+
+  const employeeGroups = useMemo(() => {
+    if (poolViewMode === 'all') {
+      return groupEmployees(employees)
+    }
+    const empById = new Map(employees.map((e) => [e.id, e] as const))
+    const groups: Array<{ label: string; members: EmployeeProfile[] }> = []
+    const assignedIds = new Set<string>()
+    if (poolViewMode === 'crew') {
+      for (const crew of crews) {
+        const members = employeeCrews
+          .filter((a) => a.crew_id === crew.id)
+          .map((a) => empById.get(a.employee_id))
+          .filter((e): e is EmployeeProfile => !!e)
+        if (members.length > 0) {
+          groups.push({ label: crew.name.toUpperCase(), members })
+          members.forEach((e) => assignedIds.add(e.id))
+        }
+      }
+    } else {
+      for (const st of skillTypes) {
+        const members = employeeSkillTypes
+          .filter((a) => a.skill_type_id === st.id)
+          .map((a) => empById.get(a.employee_id))
+          .filter((e): e is EmployeeProfile => !!e)
+        if (members.length > 0) {
+          groups.push({ label: st.name.toUpperCase(), members })
+          members.forEach((e) => assignedIds.add(e.id))
+        }
+      }
+    }
+    const unassigned = employees.filter((e) => !assignedIds.has(e.id))
+    if (unassigned.length > 0) {
+      groups.push({ label: 'UNASSIGNED', members: unassigned })
+    }
+    return groups
+  }, [poolViewMode, employees, crews, skillTypes, employeeCrews, employeeSkillTypes])
 
   // Active project IDs set — used to flag "inactive" saved assignments
   const activeProjectIds = useMemo(() => new Set(projects.map((p) => p.id)), [projects])
@@ -921,6 +976,28 @@ export default function SchedulerClient({
             <div className="h-full overflow-y-auto px-6 py-2">
               {/* Multi-select toolbar */}
               <div className="flex items-center gap-3 mb-2">
+                {/* View mode toggle: All / By Crew / By Skill */}
+                <div className="inline-flex items-center rounded-md border border-gray-200 bg-white p-0.5">
+                  {(['all', 'crew', 'skill'] as const).map((mode) => {
+                    const label = mode === 'all' ? 'All' : mode === 'crew' ? 'By Crew' : 'By Skill'
+                    const active = poolViewMode === mode
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setPoolViewMode(mode)}
+                        className={`px-2 py-0.5 text-[11px] font-semibold rounded transition ${
+                          active
+                            ? 'bg-amber-500 text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                        title={`Group employees ${label.toLowerCase()}`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -958,16 +1035,20 @@ export default function SchedulerClient({
               ) : (
                 <div className="flex gap-6">
                   {employeeGroups.map((group) => (
-                    <div key={group.label} className="flex flex-col min-w-0 flex-shrink-0">
+                    <div key={`${poolViewMode}:${group.label}`} className="flex flex-col min-w-0 flex-shrink-0">
                       <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
                         {group.label}
                       </h3>
                       <div className="flex gap-2 overflow-x-auto pt-2 pr-2 pb-1">
                         {group.members.map((emp) => {
                           const stats = employeeStats.get(emp.id)
+                          // Per-instance id so dnd-kit doesn't collide when
+                          // the same employee appears in multiple groups.
+                          const dragId = `employee-${group.label}-${emp.id}`
                           return (
                             <DraggableEmployeeCard
-                              key={emp.id}
+                              key={dragId}
+                              dragId={dragId}
                               employee={emp}
                               isDragging={activeDrag?.id === emp.id}
                               projectCount={stats?.projectCount ?? 0}
@@ -1487,6 +1568,7 @@ function AssignmentRow({
 // ─── Draggable employee card ──────────────────────────────────────────────
 function DraggableEmployeeCard({
   employee,
+  dragId,
   isDragging,
   projectCount,
   hasConflict,
@@ -1495,6 +1577,9 @@ function DraggableEmployeeCard({
   onToggleSelect,
 }: {
   employee: EmployeeProfile
+  // Unique dnd-kit draggable id. Multiple cards can exist for the same
+  // employee (one per crew / skill group) so the id must be per-instance.
+  dragId: string
   isDragging: boolean
   projectCount: number
   hasConflict: boolean
@@ -1503,7 +1588,7 @@ function DraggableEmployeeCard({
   onToggleSelect: () => void
 }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
-    id: `employee-${employee.id}`,
+    id: dragId,
     data: { employee },
   })
   return (
