@@ -143,83 +143,6 @@ function toDateInputValue(value: string | null): string {
 }
 
 /* ================================================================== */
-/*  INLINE KIT COUNT EDITOR                                            */
-/* ================================================================== */
-
-function InlineKitCount({
-  value,
-  onSave,
-  canEdit,
-}: {
-  value: number
-  onSave: (next: number) => void | Promise<void>
-  canEdit: boolean
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState<string>(String(value))
-
-  function commit() {
-    const parsed = parseInt(draft, 10)
-    if (!Number.isNaN(parsed) && parsed >= 0 && parsed !== value) {
-      onSave(parsed)
-    } else {
-      // Reset draft if invalid or unchanged.
-      setDraft(String(value))
-    }
-    setEditing(false)
-  }
-
-  function cancel() {
-    setDraft(String(value))
-    setEditing(false)
-  }
-
-  if (!canEdit) {
-    return (
-      <span className="font-semibold text-gray-700 dark:text-[#d0d0d0]">{value}</span>
-    )
-  }
-
-  if (editing) {
-    return (
-      <input
-        type="number"
-        min="0"
-        step="1"
-        autoFocus
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            ;(e.target as HTMLInputElement).blur()
-          } else if (e.key === 'Escape') {
-            e.preventDefault()
-            cancel()
-          }
-        }}
-        className="w-14 text-sm text-right font-semibold text-gray-900 dark:text-white bg-white dark:bg-[#2e2e2e] border border-amber-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-500"
-      />
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        setDraft(String(value))
-        setEditing(true)
-      }}
-      className="font-semibold text-gray-700 dark:text-[#d0d0d0] hover:text-amber-600 dark:hover:text-amber-400 underline decoration-dotted decoration-gray-300 dark:decoration-[#4a4a4a] underline-offset-2 transition-colors"
-      title="Click to edit"
-    >
-      {value}
-    </button>
-  )
-}
-
-/* ================================================================== */
 /*  MAIN COMPONENT                                                     */
 /* ================================================================== */
 
@@ -537,24 +460,6 @@ export default function InventoryPageClient({
     setKitGroupModalSupplierId(null)
   }
 
-  async function updateKitGroupCount(
-    group: InventoryKitGroup,
-    field: 'full_kits' | 'partial_kits',
-    next: number
-  ) {
-    const previous = group
-    setKitGroups((prev) =>
-      prev.map((g) => (g.id === group.id ? { ...g, [field]: next } : g))
-    )
-    const { error } = await supabase
-      .from('inventory_kit_groups')
-      .update({ [field]: next })
-      .eq('id', group.id)
-    if (error) {
-      setKitGroups((prev) => prev.map((g) => (g.id === group.id ? previous : g)))
-    }
-  }
-
   async function confirmDeleteKitGroup() {
     if (!deleteKitGroupTarget) return
     const target = deleteKitGroupTarget
@@ -713,12 +618,23 @@ export default function InventoryPageClient({
     return (
       <div
         key={product.id}
-        className={`sm:grid sm:grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors ${
-          nested ? 'sm:pl-10' : ''
-        }`}
+        className="sm:grid sm:grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors"
       >
-        {/* Product name + status dot */}
-        <div className="flex items-center gap-2 min-w-0">
+        {/* Product name + status dot. Grouped products get a subtle left
+            indent and a muted bullet prefix so they visually read as
+            sub-items of the kit group header above them, while keeping
+            the grid columns aligned with every other row. */}
+        <div
+          className={`flex items-center gap-2 min-w-0 ${nested ? 'pl-5 sm:pl-6' : ''}`}
+        >
+          {nested && (
+            <span
+              aria-hidden="true"
+              className="text-gray-300 dark:text-[#4a4a4a] text-sm leading-none select-none -ml-1"
+            >
+              •
+            </span>
+          )}
           <span
             className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${stockCheckDotClass(level)}`}
             title={stockCheckDotTitle(level)}
@@ -811,82 +727,63 @@ export default function InventoryPageClient({
     )
   }
 
-  function renderKitGroupBlock(
-    group: InventoryKitGroup,
-    groupProducts: InventoryProduct[]
-  ) {
-    const sortedGroupProducts = [...groupProducts].sort((a, b) => {
-      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
-      return a.name.localeCompare(b.name)
-    })
-
+  /**
+   * Renders a kit group name as a regular-looking product row (same font,
+   * weight, color, and column layout as standalone products). The quantity,
+   * stock check request, and stock check date cells are intentionally dashes
+   * because those are properties of individual products, not of the group
+   * itself. Edit/delete actions for the group live in the Actions column.
+   */
+  function renderKitGroupHeaderRow(group: InventoryKitGroup) {
     return (
       <div
-        key={group.id}
-        className="border-l-2 border-amber-200 dark:border-[#3a3a3a] ml-3 sm:ml-4 my-2"
+        key={`kit-group-${group.id}`}
+        className="sm:grid sm:grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors"
       >
-        {/* Kit group label row — muted, not a header */}
-        <div className="flex items-center gap-2 pl-3 sm:pl-4 pr-4 py-2 group">
-          <span className="text-xs font-medium text-gray-500 dark:text-[#a0a0a0] italic flex-1 truncate">
+        {/* Group name — styled identically to a product name cell, minus the
+            stock-check status dot (which has no meaning at the group level). */}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
             {group.name}
           </span>
+        </div>
+        {/* Quantity */}
+        <div className="mt-1 sm:mt-0 text-sm text-gray-400 dark:text-[#6b6b6b] sm:text-right">
+          <span className="sm:hidden text-xs text-gray-400 dark:text-[#6b6b6b] mr-1">
+            Qty:
+          </span>
+          —
+        </div>
+        {/* Stock check request */}
+        <div className="mt-1 sm:mt-0 text-xs text-gray-400 dark:text-[#6b6b6b] sm:text-center">
+          <span className="sm:hidden mr-1">Stock check request:</span>
+          —
+        </div>
+        {/* Stock check date */}
+        <div className="mt-1 sm:mt-0 text-xs sm:text-sm text-gray-400 dark:text-[#6b6b6b] sm:text-center">
+          <span className="sm:hidden mr-1">Last checked:</span>
+          —
+        </div>
+        {/* Actions */}
+        <div className="mt-2 sm:mt-0 flex sm:justify-end items-center gap-1">
           {canManage && (
             <button
               onClick={() => openEditKitGroup(group)}
-              className="p-1 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+              className="p-1.5 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors"
               title="Edit kit group"
             >
-              <PencilIcon className="w-3 h-3" />
+              <PencilIcon className="w-3.5 h-3.5" />
             </button>
           )}
           {canDelete && (
             <button
               onClick={() => setDeleteKitGroupTarget(group)}
-              className="p-1 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+              className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors"
               title="Delete kit group"
             >
-              <Trash2Icon className="w-3 h-3" />
+              <Trash2Icon className="w-3.5 h-3.5" />
             </button>
           )}
-        </div>
-
-        {/* Products in the group */}
-        {sortedGroupProducts.length === 0 ? (
-          <div className="pl-3 sm:pl-4 pr-4 pb-2 text-xs text-gray-400 dark:text-[#6b6b6b] italic">
-            No products in this group yet
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
-            {sortedGroupProducts.map((p) => renderProductRow(p, true))}
-          </div>
-        )}
-
-        {/* Kit sub-items — indented, muted, with a └ prefix */}
-        <div className="pl-3 sm:pl-4 pr-4 pb-2 pt-1 space-y-0.5">
-          <div className="flex items-center gap-2 pl-6 sm:pl-10 py-1 text-sm text-gray-400 dark:text-[#6b6b6b]">
-            <span className="select-none text-gray-300 dark:text-[#4a4a4a] font-mono">└</span>
-            <span className="flex-1">Full Kits</span>
-            <InlineKitCount
-              value={group.full_kits}
-              canEdit={canManage}
-              onSave={(next) => updateKitGroupCount(group, 'full_kits', next)}
-            />
-            <span className="text-xs text-gray-400 dark:text-[#6b6b6b] min-w-[60px] text-right">
-              {group.full_kit_size || '—'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 pl-6 sm:pl-10 py-1 text-sm text-gray-400 dark:text-[#6b6b6b]">
-            <span className="select-none text-gray-300 dark:text-[#4a4a4a] font-mono">└</span>
-            <span className="flex-1">Partial Kits</span>
-            <InlineKitCount
-              value={group.partial_kits}
-              canEdit={canManage}
-              onSave={(next) => updateKitGroupCount(group, 'partial_kits', next)}
-            />
-            <span className="text-xs text-gray-400 dark:text-[#6b6b6b] min-w-[60px] text-right">
-              {group.partial_kit_size || '—'}
-            </span>
-          </div>
         </div>
       </div>
     )
@@ -1029,29 +926,28 @@ export default function InventoryPageClient({
                           No products or kit groups yet
                         </div>
                       ) : (
-                        <>
+                        <div className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
                           {/* Standalone products first */}
-                          {standaloneProducts.length > 0 && (
-                            <div className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
-                              {standaloneProducts.map((p) => renderProductRow(p))}
-                            </div>
-                          )}
+                          {standaloneProducts.map((p) => renderProductRow(p))}
 
-                          {/* Kit groups with their products + sub-items */}
-                          {supplierKitGroups.length > 0 && (
-                            <div
-                              className={`${
-                                standaloneProducts.length > 0
-                                  ? 'border-t border-gray-100 dark:border-[#3a3a3a]'
-                                  : ''
-                              } py-1`}
-                            >
-                              {supplierKitGroups.map((g) =>
-                                renderKitGroupBlock(g, productsByGroup.get(g.id) ?? [])
-                              )}
-                            </div>
-                          )}
-                        </>
+                          {/* Kit group header rows followed by their nested
+                              products. flatMap keeps everything as direct
+                              children of the divide-y container so dividers
+                              render consistently between every row. */}
+                          {supplierKitGroups.flatMap((group) => {
+                            const groupProducts = [
+                              ...(productsByGroup.get(group.id) ?? []),
+                            ].sort((a, b) => {
+                              if (a.sort_order !== b.sort_order)
+                                return a.sort_order - b.sort_order
+                              return a.name.localeCompare(b.name)
+                            })
+                            return [
+                              renderKitGroupHeaderRow(group),
+                              ...groupProducts.map((p) => renderProductRow(p, true)),
+                            ]
+                          })}
+                        </div>
                       )}
 
                       {canManage && (
