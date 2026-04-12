@@ -5,15 +5,31 @@ import { XIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { MaterialSupplier } from '@/types'
 
+const SUPPLIER_COLORS = [
+  { key: 'amber', label: 'Amber', swatch: '#b45309' },
+  { key: 'blue', label: 'Blue', swatch: '#2563a8' },
+  { key: 'teal', label: 'Teal', swatch: '#1d6b4f' },
+  { key: 'purple', label: 'Purple', swatch: '#7c3aed' },
+  { key: 'coral', label: 'Coral', swatch: '#d85a30' },
+  { key: 'pink', label: 'Pink', swatch: '#d4537e' },
+  { key: 'green', label: 'Green', swatch: '#4a9e22' },
+  { key: 'red', label: 'Red', swatch: '#c53030' },
+  { key: 'gray', label: 'Gray', swatch: '#666666' },
+  { key: 'navy', label: 'Navy', swatch: '#2d3a8c' },
+  { key: 'olive', label: 'Olive', swatch: '#6b7c4a' },
+  { key: 'cyan', label: 'Cyan', swatch: '#0891b2' },
+] as const
+
 interface Props {
   supplier: MaterialSupplier | null
   onClose: () => void
-  onSave: (name: string) => Promise<void> | void
+  onSave: (name: string, color: string) => Promise<void> | void
 }
 
 export default function SupplierModal({ supplier, onClose, onSave }: Props) {
   const isEdit = !!supplier
   const [name, setName] = useState(supplier?.name ?? '')
+  const [color, setColor] = useState(supplier?.color ?? 'amber')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -32,7 +48,7 @@ export default function SupplierModal({ supplier, onClose, onSave }: Props) {
     setError(null)
     setSaving(true)
     try {
-      await onSave(trimmed)
+      await onSave(trimmed, color)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save supplier.')
       setSaving(false)
@@ -83,6 +99,28 @@ export default function SupplierModal({ supplier, onClose, onSave }: Props) {
                   placeholder="e.g. Versaflex"
                   className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-2">
+                  Color
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {SUPPLIER_COLORS.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setColor(c.key)}
+                      title={c.label}
+                      className={`w-8 h-8 rounded-lg transition-all ${
+                        color === c.key
+                          ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-[#242424] ring-white/80 dark:ring-white/60 scale-110'
+                          : 'hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: c.swatch }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
 

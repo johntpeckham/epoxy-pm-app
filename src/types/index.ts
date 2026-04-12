@@ -553,6 +553,7 @@ export type InventoryUnit = 'gallons' | 'parts'
 export interface MaterialSupplier {
   id: string
   name: string
+  color: string | null
   created_at: string
 }
 
