@@ -404,6 +404,32 @@ export interface EmployeeOshaAssignment {
   created_at: string
 }
 
+export interface Crew {
+  id: string
+  name: string
+  created_at: string
+}
+
+export interface SkillType {
+  id: string
+  name: string
+  created_at: string
+}
+
+export interface EmployeeCrew {
+  id: string
+  employee_id: string
+  crew_id: string
+  created_at: string
+}
+
+export interface EmployeeSkillType {
+  id: string
+  employee_id: string
+  skill_type_id: string
+  created_at: string
+}
+
 export interface EmployeeCustomFieldDefinition {
   id: string
   label: string
