@@ -12,6 +12,7 @@ import type {
 import InventoryPageClient, {
   type InventoryProfileOption,
   type PendingStockCheckInfo,
+  type PendingPriceCheckInfo,
 } from '@/components/inventory/InventoryPageClient'
 
 export default async function InventoryPage() {
@@ -105,6 +106,33 @@ export default async function InventoryPage() {
     }
   }
 
+  // Build a similar lookup for pending price check tasks.
+  const pendingPriceTaskIds = Array.from(
+    new Set(
+      products
+        .map((p) => p.price_check_task_id)
+        .filter((v): v is string => !!v)
+    )
+  )
+  const pendingPriceChecks: Record<string, PendingPriceCheckInfo> = {}
+  if (pendingPriceTaskIds.length > 0) {
+    const { data: pendingPriceTasks } = await supabase
+      .from('office_tasks')
+      .select('id, assigned_to')
+      .in('id', pendingPriceTaskIds)
+    const priceTasks = (pendingPriceTasks ?? []) as { id: string; assigned_to: string | null }[]
+    const profilesById2 = new Map(profiles.map((p) => [p.id, p]))
+    for (const t of priceTasks) {
+      pendingPriceChecks[t.id] = {
+        taskId: t.id,
+        assigneeId: t.assigned_to,
+        assigneeName: t.assigned_to
+          ? profilesById2.get(t.assigned_to)?.display_name ?? 'Unknown'
+          : 'Unassigned',
+      }
+    }
+  }
+
   return (
     <InventoryPageClient
       userRole={userRole}
@@ -115,6 +143,7 @@ export default async function InventoryPage() {
       initialUnitTypes={unitTypes}
       profiles={profiles}
       initialPendingStockChecks={pendingStockChecks}
+      initialPendingPriceChecks={pendingPriceChecks}
     />
   )
 }

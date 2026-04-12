@@ -573,6 +573,7 @@ export interface InventoryKitGroup {
   full_kit_size: string | null
   partial_kits: number
   partial_kit_size: string | null
+  kit_price: number | null
   sort_order: number
   created_at: string
 }
@@ -584,9 +585,13 @@ export interface InventoryProduct {
   name: string
   quantity: number
   unit: InventoryUnit
+  price: number | null
   stock_check_date: string | null
   /** FK to the currently pending office_task requesting a stock check. */
   stock_check_task_id: string | null
+  price_check_date: string | null
+  /** FK to the currently pending office_task requesting a price check. */
+  price_check_task_id: string | null
   sort_order: number
   created_at: string
 }
