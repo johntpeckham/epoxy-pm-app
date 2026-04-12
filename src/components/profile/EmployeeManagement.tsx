@@ -478,6 +478,9 @@ export default function EmployeeManagement({
   // Settings modal
   const [settingsOpen, setSettingsOpen] = useState(false)
 
+  // View mode: group employees by role (default), crew, or skill type
+  const [viewMode, setViewMode] = useState<'all' | 'crew' | 'skill'>('all')
+
   // Delete employee
   const [confirmDeleteEmployee, setConfirmDeleteEmployee] = useState<EmployeeProfile | null>(null)
   const [deletingEmployee, setDeletingEmployee] = useState(false)
@@ -1456,27 +1459,70 @@ export default function EmployeeManagement({
     }
   }
 
-  // Group employees by role, following the order from employee_roles table
+  // Group employees for the current view mode.
+  //  - 'all':   group by role, following employee_roles sort_order
+  //  - 'crew':  group by crew assignment (one group per crew, duplicates allowed
+  //             if an employee belongs to multiple crews)
+  //  - 'skill': same as 'crew' but by skill type
   const groupedEmployees = useMemo(() => {
+    if (viewMode === 'all') {
+      const groups: { roleName: string; employees: EmployeeProfile[] }[] = []
+      const assignedIds = new Set<string>()
+
+      for (const role of roles) {
+        const matched = employees.filter(emp => emp.role === role.name)
+        if (matched.length > 0) {
+          groups.push({ roleName: role.name, employees: matched })
+          matched.forEach(emp => assignedIds.add(emp.id))
+        }
+      }
+
+      // Employees with no role or an unrecognized role
+      const unassigned = employees.filter(emp => !assignedIds.has(emp.id))
+      if (unassigned.length > 0) {
+        groups.push({ roleName: 'Unassigned', employees: unassigned })
+      }
+
+      return groups
+    }
+
+    // By Crew / By Skill: build a map of group-name → employees. An
+    // employee appears under EACH group they belong to.
+    const empById = new Map(employees.map(e => [e.id, e] as const))
     const groups: { roleName: string; employees: EmployeeProfile[] }[] = []
     const assignedIds = new Set<string>()
 
-    for (const role of roles) {
-      const matched = employees.filter(emp => emp.role === role.name)
-      if (matched.length > 0) {
-        groups.push({ roleName: role.name, employees: matched })
-        matched.forEach(emp => assignedIds.add(emp.id))
+    if (viewMode === 'crew') {
+      for (const crew of crews) {
+        const members = crewAssignments
+          .filter(a => a.crew_id === crew.id)
+          .map(a => empById.get(a.employee_id))
+          .filter((e): e is EmployeeProfile => !!e)
+        if (members.length > 0) {
+          groups.push({ roleName: crew.name, employees: members })
+          members.forEach(e => assignedIds.add(e.id))
+        }
+      }
+    } else {
+      for (const st of skillTypes) {
+        const members = skillTypeAssignments
+          .filter(a => a.skill_type_id === st.id)
+          .map(a => empById.get(a.employee_id))
+          .filter((e): e is EmployeeProfile => !!e)
+        if (members.length > 0) {
+          groups.push({ roleName: st.name, employees: members })
+          members.forEach(e => assignedIds.add(e.id))
+        }
       }
     }
 
-    // Employees with no role or an unrecognized role
     const unassigned = employees.filter(emp => !assignedIds.has(emp.id))
     if (unassigned.length > 0) {
       groups.push({ roleName: 'Unassigned', employees: unassigned })
     }
 
     return groups
-  }, [employees, roles])
+  }, [employees, roles, viewMode, crews, crewAssignments, skillTypes, skillTypeAssignments])
 
   return (
     <>
@@ -1540,6 +1586,27 @@ export default function EmployeeManagement({
             </div>
             {!settingsOpen && (
               <div className="flex items-center gap-2">
+                {/* View mode toggle: All / By Crew / By Skill */}
+                <div className="inline-flex items-center rounded-lg border border-gray-200 dark:border-[#3a3a3a] bg-white dark:bg-[#242424] p-0.5">
+                  {(['all', 'crew', 'skill'] as const).map((mode) => {
+                    const label = mode === 'all' ? 'All' : mode === 'crew' ? 'By Crew' : 'By Skill'
+                    const active = viewMode === mode
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setViewMode(mode)}
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition ${
+                          active
+                            ? 'bg-amber-500 text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700 dark:text-[#a0a0a0] dark:hover:text-white'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
                 <button
                   onClick={() => setSettingsOpen(true)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 text-xs font-medium rounded-lg transition"
@@ -1587,7 +1654,7 @@ export default function EmployeeManagement({
       ) : (
         <div className="mb-6">
           {groupedEmployees.map((group, idx) => (
-            <div key={group.roleName}>
+            <div key={`${viewMode}:${group.roleName}`}>
               {/* Role divider */}
               <div className={`flex items-center gap-3 ${idx === 0 ? 'mb-4' : 'mt-6 mb-4'}`} aria-label={group.roleName}>
                 <div className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
@@ -1600,7 +1667,7 @@ export default function EmployeeManagement({
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
                 {group.employees.map((emp) => (
                   <div
-                    key={emp.id}
+                    key={`${group.roleName}:${emp.id}`}
                     className="rounded-lg border border-gray-200 dark:border-[#3a3a3a] overflow-hidden hover:border-gray-300 dark:hover:border-[#4a4a4a] hover:shadow-sm transition bg-white dark:bg-[#242424]! flex flex-col"
                   >
                     {/* Photo area — compact fixed height */}

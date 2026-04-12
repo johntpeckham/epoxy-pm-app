@@ -3,7 +3,14 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import SchedulerClient from '@/components/scheduler/SchedulerClient'
-import type { EmployeeProfile, Project } from '@/types'
+import type {
+  Crew,
+  EmployeeCrew,
+  EmployeeProfile,
+  EmployeeSkillType,
+  Project,
+  SkillType,
+} from '@/types'
 
 // ── Week start (Monday) helper — must match the client's calculation ─────
 function startOfWeekMondayISO(d: Date): string {
@@ -65,16 +72,28 @@ export default async function SchedulerPage() {
   const nextWeekISO = addDaysISO(thisWeekISO, 7)
   const followingWeekISO = addDaysISO(thisWeekISO, 14)
 
-  // Parallel fetches — employees, active projects, and all assignments for
-  // the three visible weeks. Assignment fetch is tolerant of the table not
-  // yet existing (e.g. before the 20260414 migration has been run).
-  const [employeesRes, projectsRes, assignmentsRes] = await Promise.all([
+  // Parallel fetches — employees, active projects, assignments for the
+  // three visible weeks, plus crews / skill types master lists and their
+  // junction tables (used by the Scheduler pool's view mode toggle).
+  const [
+    employeesRes,
+    projectsRes,
+    assignmentsRes,
+    crewsRes,
+    skillTypesRes,
+    employeeCrewsRes,
+    employeeSkillTypesRes,
+  ] = await Promise.all([
     supabase.from('employee_profiles').select('*').order('name', { ascending: true }),
     supabase.from('projects').select('*').eq('status', 'Active').order('name', { ascending: true }),
     supabase
       .from('scheduler_assignments')
       .select('*')
       .in('week_start', [thisWeekISO, nextWeekISO, followingWeekISO]),
+    supabase.from('crews').select('*').order('name', { ascending: true }),
+    supabase.from('skill_types').select('*').order('name', { ascending: true }),
+    supabase.from('employee_crews').select('*'),
+    supabase.from('employee_skill_types').select('*'),
   ])
 
   const initialAssignments = (assignmentsRes.data as SchedulerAssignmentRow[] | null) ?? []
@@ -88,6 +107,10 @@ export default async function SchedulerPage() {
       nextWeekISO={nextWeekISO}
       followingWeekISO={followingWeekISO}
       initialAssignments={initialAssignments}
+      crews={(crewsRes.data as Crew[]) ?? []}
+      skillTypes={(skillTypesRes.data as SkillType[]) ?? []}
+      employeeCrews={(employeeCrewsRes.data as EmployeeCrew[]) ?? []}
+      employeeSkillTypes={(employeeSkillTypesRes.data as EmployeeSkillType[]) ?? []}
     />
   )
 }
