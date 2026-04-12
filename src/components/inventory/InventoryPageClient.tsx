@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   ArrowLeftIcon,
   CalendarIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   ClipboardListIcon,
@@ -18,6 +19,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import SupplierModal from './SupplierModal'
 import ProductModal, { type ProductFormData } from './ProductModal'
 import KitGroupModal, { type KitGroupFormData } from './KitGroupModal'
+import AddKitModal, { type AddKitFormData } from './AddKitModal'
 import StockCheckRequestModal from './StockCheckRequestModal'
 import type {
   InventoryKitGroup,
@@ -58,12 +60,6 @@ function formatStockCheckDate(value: string | null): string {
     day: 'numeric',
     year: 'numeric',
   })
-}
-
-function formatQuantity(quantity: number, unit: InventoryUnit): string {
-  const q = quantity.toString()
-  const label = unit === 'parts' ? 'parts' : 'gal'
-  return `${q} ${label}`
 }
 
 type StockCheckLevel = 'pending' | 'never' | 'fresh' | 'stale' | 'overdue'
@@ -143,6 +139,156 @@ function toDateInputValue(value: string | null): string {
 }
 
 /* ================================================================== */
+/*  INLINE QUANTITY EDITOR                                             */
+/* ================================================================== */
+
+interface InlineQuantityEditorProps {
+  quantity: number
+  unit: InventoryUnit
+  disabled: boolean
+  onSave: (newQuantity: number) => Promise<void>
+}
+
+/**
+ * A click-to-edit quantity cell. Clicking the value replaces it with a
+ * number input pre-filled with the current value. Enter / blur commits;
+ * Escape cancels. A brief green flash + checkmark signals a successful
+ * save. When the user has no manage permission, the cell is a plain
+ * read-only span.
+ */
+function InlineQuantityEditor({
+  quantity,
+  unit,
+  disabled,
+  onSave,
+}: InlineQuantityEditorProps) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState<string>(String(quantity))
+  const [saving, setSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const committedRef = useRef(false)
+
+  const unitLabel = unit === 'parts' ? 'parts' : 'gal'
+
+  // Keep the local editor value in sync with external changes when we're
+  // not actively editing (e.g. stock check completion updates the row).
+  useEffect(() => {
+    if (!editing) setValue(String(quantity))
+  }, [quantity, editing])
+
+  // Focus + select when entering edit mode so the user can type immediately.
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [editing])
+
+  function startEdit() {
+    if (disabled) return
+    committedRef.current = false
+    setValue(String(quantity))
+    setEditing(true)
+  }
+
+  async function commit() {
+    if (committedRef.current) return
+    committedRef.current = true
+    const parsed = parseFloat(value)
+    if (Number.isNaN(parsed) || parsed < 0 || parsed === quantity) {
+      // No change or invalid — just exit edit mode without saving.
+      setValue(String(quantity))
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(parsed)
+      setEditing(false)
+      setJustSaved(true)
+      setTimeout(() => setJustSaved(false), 900)
+    } catch {
+      setValue(String(quantity))
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function cancel() {
+    committedRef.current = true
+    setValue(String(quantity))
+    setEditing(false)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commit()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      cancel()
+    }
+  }
+
+  if (disabled) {
+    return (
+      <span className="text-sm text-gray-600 dark:text-[#a0a0a0]">
+        {quantity} {unitLabel}
+      </span>
+    )
+  }
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <input
+          ref={inputRef}
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          value={value}
+          disabled={saving}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          aria-label="Quantity"
+          className="w-16 border border-amber-400 dark:border-amber-500 rounded px-1.5 py-0.5 text-sm text-right bg-white dark:bg-[#2e2e2e] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+        />
+        <span className="text-xs text-gray-500 dark:text-[#a0a0a0]">{unitLabel}</span>
+      </span>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEdit}
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-sm transition-colors cursor-text ${
+        justSaved
+          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+          : 'text-gray-600 dark:text-[#a0a0a0] hover:bg-gray-100 dark:hover:bg-[#2e2e2e]'
+      }`}
+      title="Click to edit quantity"
+    >
+      <span>{quantity}</span>
+      <span
+        className={
+          justSaved
+            ? 'text-xs text-green-600 dark:text-green-400'
+            : 'text-xs text-gray-500 dark:text-[#6b6b6b]'
+        }
+      >
+        {unitLabel}
+      </span>
+      {justSaved && <CheckIcon className="w-3 h-3 text-green-600 dark:text-green-400" />}
+    </button>
+  )
+}
+
+/* ================================================================== */
 /*  MAIN COMPONENT                                                     */
 /* ================================================================== */
 
@@ -178,10 +324,17 @@ export default function InventoryPageClient({
   const [editingProduct, setEditingProduct] = useState<InventoryProduct | null>(null)
   const [productModalSupplierId, setProductModalSupplierId] = useState<string | null>(null)
 
-  // Kit group modal state
+  // Kit group EDIT modal state (reuses the legacy KitGroupModal for edits —
+  // the new Add flow uses AddKitModal, which creates kit + products in one
+  // step).
   const [kitGroupModalOpen, setKitGroupModalOpen] = useState(false)
   const [editingKitGroup, setEditingKitGroup] = useState<InventoryKitGroup | null>(null)
   const [kitGroupModalSupplierId, setKitGroupModalSupplierId] = useState<string | null>(null)
+
+  // Combined Add Kit modal state — captures kit name + sub-item product rows
+  // in a single step.
+  const [addKitModalOpen, setAddKitModalOpen] = useState(false)
+  const [addKitSupplierId, setAddKitSupplierId] = useState<string | null>(null)
 
   // Stock check request modal state
   const [stockCheckProduct, setStockCheckProduct] = useState<InventoryProduct | null>(null)
@@ -393,16 +546,97 @@ export default function InventoryPageClient({
   /*  KIT GROUP CRUD                                                   */
   /* ================================================================ */
 
-  function openAddKitGroup(supplierId: string) {
-    setEditingKitGroup(null)
-    setKitGroupModalSupplierId(supplierId)
-    setKitGroupModalOpen(true)
+  function openAddKit(supplierId: string) {
+    setAddKitSupplierId(supplierId)
+    setAddKitModalOpen(true)
   }
 
   function openEditKitGroup(kitGroup: InventoryKitGroup) {
     setEditingKitGroup(kitGroup)
     setKitGroupModalSupplierId(kitGroup.supplier_id)
     setKitGroupModalOpen(true)
+  }
+
+  /**
+   * Combined save handler for the new Add Kit modal. Inserts the kit_group
+   * row, then inserts an inventory_products row per sub-item linked via
+   * kit_group_id. On sub-item failure the freshly-created kit is rolled
+   * back so the UI isn't left with an empty phantom kit.
+   */
+  async function saveNewKit(data: AddKitFormData) {
+    if (!addKitSupplierId) return
+    const supplierId = addKitSupplierId
+
+    // 1. Insert the kit group. The legacy full_kits/partial_kits columns
+    //    still exist on the table (Phase 4 only hid them) so we pass
+    //    explicit zeros to satisfy any NOT NULL constraints.
+    const { data: insertedKit, error: kitErr } = await supabase
+      .from('inventory_kit_groups')
+      .insert({
+        supplier_id: supplierId,
+        name: data.name,
+        full_kits: 0,
+        full_kit_size: null,
+        partial_kits: 0,
+        partial_kit_size: null,
+      })
+      .select()
+      .single()
+    if (kitErr || !insertedKit) {
+      throw kitErr ?? new Error('Failed to create kit.')
+    }
+    const kit = insertedKit as InventoryKitGroup
+
+    // 2. Insert the sub-item products, all linked to the new kit.
+    if (data.products.length > 0) {
+      const rows = data.products.map((p) => ({
+        supplier_id: supplierId,
+        kit_group_id: kit.id,
+        name: p.name,
+        quantity: p.quantity,
+        unit: p.unit,
+      }))
+      const { data: insertedProducts, error: prodErr } = await supabase
+        .from('inventory_products')
+        .insert(rows)
+        .select()
+      if (prodErr) {
+        // Roll back the kit so we don't leave an orphan.
+        await supabase.from('inventory_kit_groups').delete().eq('id', kit.id)
+        throw prodErr
+      }
+      setProducts((prev) => [
+        ...prev,
+        ...((insertedProducts ?? []) as InventoryProduct[]),
+      ])
+    }
+
+    setKitGroups((prev) => [...prev, kit])
+    setAddKitModalOpen(false)
+    setAddKitSupplierId(null)
+  }
+
+  /**
+   * Persist a new quantity for a product (called from the inline editor).
+   * Optimistic update with rollback on Supabase error. Throws so the editor
+   * can reset its local display when the save fails.
+   */
+  async function saveProductQuantity(productId: string, newQuantity: number) {
+    const previous = products.find((p) => p.id === productId)
+    if (!previous) return
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, quantity: newQuantity } : p))
+    )
+    const { error } = await supabase
+      .from('inventory_products')
+      .update({ quantity: newQuantity })
+      .eq('id', productId)
+    if (error) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? previous : p))
+      )
+      throw error
+    }
   }
 
   async function saveKitGroup(data: KitGroupFormData) {
@@ -636,12 +870,17 @@ export default function InventoryPageClient({
             {product.name}
           </span>
         </div>
-        {/* Quantity */}
+        {/* Quantity — click to edit inline without opening the modal. */}
         <div className="mt-1 sm:mt-0 text-sm text-gray-600 dark:text-[#a0a0a0] sm:text-right">
           <span className="sm:hidden text-xs text-gray-400 dark:text-[#6b6b6b] mr-1">
             Qty:
           </span>
-          {formatQuantity(product.quantity, product.unit as InventoryUnit)}
+          <InlineQuantityEditor
+            quantity={product.quantity}
+            unit={product.unit as InventoryUnit}
+            disabled={!canManage}
+            onSave={(q) => saveProductQuantity(product.id, q)}
+          />
         </div>
         {/* Stock check request */}
         <div className="mt-1 sm:mt-0 text-xs sm:text-center">
@@ -949,14 +1188,14 @@ export default function InventoryPageClient({
                             className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
                           >
                             <PlusIcon className="w-3.5 h-3.5" />
-                            Add Product
+                            Add Single Product
                           </button>
                           <button
-                            onClick={() => openAddKitGroup(supplier.id)}
+                            onClick={() => openAddKit(supplier.id)}
                             className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
                           >
                             <PlusIcon className="w-3.5 h-3.5" />
-                            Add Kit Group
+                            Add Kit
                           </button>
                         </div>
                       )}
@@ -998,7 +1237,7 @@ export default function InventoryPageClient({
         />
       )}
 
-      {/* Kit group modal */}
+      {/* Kit group EDIT modal (legacy KitGroupModal — only used for edits). */}
       {kitGroupModalOpen && kitGroupModalSupplierId && (
         <KitGroupModal
           kitGroup={editingKitGroup}
@@ -1011,6 +1250,20 @@ export default function InventoryPageClient({
             setKitGroupModalSupplierId(null)
           }}
           onSave={saveKitGroup}
+        />
+      )}
+
+      {/* Combined Add Kit modal — creates kit + sub-items in one step. */}
+      {addKitModalOpen && addKitSupplierId && (
+        <AddKitModal
+          supplierName={
+            suppliers.find((s) => s.id === addKitSupplierId)?.name ?? ''
+          }
+          onClose={() => {
+            setAddKitModalOpen(false)
+            setAddKitSupplierId(null)
+          }}
+          onSave={saveNewKit}
         />
       )}
 
