@@ -25,8 +25,6 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  ClipboardListIcon,
-  DollarSignIcon,
   GripVerticalIcon,
   PackageIcon,
   PencilIcon,
@@ -561,10 +559,12 @@ function SortableSupplierSection({
   id,
   reorderMode,
   children,
+  dragHandle,
 }: {
   id: string
   reorderMode: boolean
   children: React.ReactNode
+  dragHandle?: React.ReactNode
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const style = {
@@ -575,13 +575,13 @@ function SortableSupplierSection({
     <section
       ref={setNodeRef}
       style={style}
-      className={isDragging ? 'z-50 relative opacity-80' : ''}
+      className={`relative ${isDragging ? 'z-50 opacity-80' : ''}`}
     >
       {reorderMode && (
         <div
           {...attributes}
           {...listeners}
-          className="absolute -left-2 top-3 p-1 text-gray-300 hover:text-gray-500 dark:text-[#6b6b6b] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none z-10 hidden sm:block"
+          className="absolute -left-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none z-10 hidden sm:flex items-center"
           title="Drag to reorder supplier"
         >
           <GripVerticalIcon className="w-4 h-4" />
@@ -613,19 +613,19 @@ function SortableItemRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative ${isDragging ? 'z-50 opacity-80 bg-amber-50 dark:bg-amber-900/10' : ''}`}
+      className={`flex items-center ${isDragging ? 'z-50 relative opacity-80 bg-amber-50 dark:bg-amber-900/10' : ''}`}
     >
       {reorderMode && (
         <div
           {...attributes}
           {...listeners}
-          className="absolute left-0.5 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-500 dark:text-[#6b6b6b] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none z-10"
+          className="flex-shrink-0 w-6 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none"
           title="Drag to reorder"
         >
           <GripVerticalIcon className="w-3.5 h-3.5" />
         </div>
       )}
-      {children}
+      <div className="flex-1 min-w-0">{children}</div>
     </div>
   )
 }
@@ -1480,7 +1480,7 @@ export default function InventoryPageClient({
     return (
       <div
         key={product.id}
-        className="sm:grid sm:grid-cols-[1fr_100px_90px_120px_120px_120px_120px_60px] gap-2 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors min-w-[900px]"
+        className="sm:grid sm:grid-cols-[1fr_100px_120px_120px_90px_120px_120px_60px] gap-2 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors min-w-[900px]"
       >
         {/* Product name + status dot */}
         <div
@@ -1507,17 +1507,6 @@ export default function InventoryPageClient({
             onSave={(q) => saveProductQuantity(product.id, q)}
           />
         </div>
-        {/* Price */}
-        <div className="mt-1 sm:mt-0 text-sm text-gray-600 dark:text-[#a0a0a0] sm:text-right">
-          <span className="sm:hidden text-xs text-gray-400 dark:text-[#6b6b6b] mr-1">
-            Price:
-          </span>
-          <InlinePriceEditor
-            price={product.price}
-            disabled={!canManage}
-            onSave={(p) => saveProductPrice(product.id, p)}
-          />
-        </div>
         {/* Stock check request */}
         <div className="mt-1 sm:mt-0 text-xs sm:text-center">
           <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">
@@ -1525,7 +1514,7 @@ export default function InventoryPageClient({
           </span>
           {hasPending ? (
             <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40"
               title={`Pending — assigned to ${pendingInfo?.assigneeName ?? 'Unknown'}`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -1540,11 +1529,10 @@ export default function InventoryPageClient({
             <button
               type="button"
               onClick={() => setStockCheckProduct(product)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/40 transition-colors"
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/40 transition-colors"
               title="Request a stock check"
             >
-              <ClipboardListIcon className="w-3 h-3" />
-              Request Check
+              Stock Check
             </button>
           ) : (
             <span className="text-gray-400 dark:text-[#6b6b6b]">—</span>
@@ -1569,6 +1557,17 @@ export default function InventoryPageClient({
             <span className={dateClass}>{dateText}</span>
           )}
         </div>
+        {/* Price */}
+        <div className="mt-1 sm:mt-0 text-sm text-gray-600 dark:text-[#a0a0a0] sm:text-right">
+          <span className="sm:hidden text-xs text-gray-400 dark:text-[#6b6b6b] mr-1">
+            Price:
+          </span>
+          <InlinePriceEditor
+            price={product.price}
+            disabled={!canManage}
+            onSave={(p) => saveProductPrice(product.id, p)}
+          />
+        </div>
         {/* Price check request */}
         <div className="mt-1 sm:mt-0 text-xs sm:text-center">
           <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">
@@ -1576,7 +1575,7 @@ export default function InventoryPageClient({
           </span>
           {hasPricePending ? (
             <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40"
               title={`Pending — assigned to ${pricePendingInfo?.assigneeName ?? 'Unknown'}`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -1591,10 +1590,9 @@ export default function InventoryPageClient({
             <button
               type="button"
               onClick={() => setPriceCheckProduct(product)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/40 transition-colors"
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/40 transition-colors"
               title="Request a price check"
             >
-              <DollarSignIcon className="w-3 h-3" />
               Price Check
             </button>
           ) : (
@@ -1656,7 +1654,7 @@ export default function InventoryPageClient({
     return (
       <div
         key={`kit-group-${group.id}`}
-        className="sm:grid sm:grid-cols-[1fr_100px_90px_120px_120px_120px_120px_60px] gap-2 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors min-w-[900px]"
+        className="sm:grid sm:grid-cols-[1fr_100px_120px_120px_90px_120px_120px_60px] gap-2 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors min-w-[900px]"
       >
         {/* Group name */}
         <div className="flex items-center gap-2 min-w-0">
@@ -1671,6 +1669,16 @@ export default function InventoryPageClient({
           </span>
           —
         </div>
+        {/* Stock check request */}
+        <div className="mt-1 sm:mt-0 text-xs text-gray-400 dark:text-[#6b6b6b] sm:text-center">
+          <span className="sm:hidden mr-1">Stock check:</span>
+          —
+        </div>
+        {/* Stock check date */}
+        <div className="mt-1 sm:mt-0 text-xs sm:text-sm text-gray-400 dark:text-[#6b6b6b] sm:text-center">
+          <span className="sm:hidden mr-1">Stock date:</span>
+          —
+        </div>
         {/* Kit Price — editable on the kit group row */}
         <div className="mt-1 sm:mt-0 text-sm text-gray-600 dark:text-[#a0a0a0] sm:text-right">
           <span className="sm:hidden text-xs text-gray-400 dark:text-[#6b6b6b] mr-1">
@@ -1681,16 +1689,6 @@ export default function InventoryPageClient({
             disabled={!canManage}
             onSave={(p) => saveKitGroupPrice(group.id, p)}
           />
-        </div>
-        {/* Stock check request */}
-        <div className="mt-1 sm:mt-0 text-xs text-gray-400 dark:text-[#6b6b6b] sm:text-center">
-          <span className="sm:hidden mr-1">Stock check:</span>
-          —
-        </div>
-        {/* Stock check date */}
-        <div className="mt-1 sm:mt-0 text-xs sm:text-sm text-gray-400 dark:text-[#6b6b6b] sm:text-center">
-          <span className="sm:hidden mr-1">Stock date:</span>
-          —
         </div>
         {/* Price check request */}
         <div className="mt-1 sm:mt-0 text-xs text-gray-400 dark:text-[#6b6b6b] sm:text-center">
@@ -1907,12 +1905,12 @@ export default function InventoryPageClient({
                     {!collapsed && (
                       <div className="overflow-x-auto">
                         {/* Desktop/tablet table header */}
-                        <div className="hidden sm:grid grid-cols-[1fr_100px_90px_120px_120px_120px_120px_60px] gap-2 px-4 py-2.5 bg-gray-50 dark:bg-[#2e2e2e] border-t border-b border-gray-200 dark:border-[#3a3a3a] text-[11px] font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide min-w-[900px]">
+                        <div className="hidden sm:grid grid-cols-[1fr_100px_120px_120px_90px_120px_120px_60px] gap-2 px-4 py-2.5 bg-gray-50 dark:bg-[#2e2e2e] border-t border-b border-gray-200 dark:border-[#3a3a3a] text-[11px] font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide min-w-[900px]">
                           <div>Product Name</div>
                           <div className="text-right">Quantity</div>
-                          <div className="text-right">Price</div>
                           <div className="text-center">Stock Check</div>
                           <div className="text-center">Stock Date</div>
+                          <div className="text-right">Price</div>
                           <div className="text-center">Price Check</div>
                           <div className="text-center">Price Date</div>
                           <div className="text-right">Actions</div>
