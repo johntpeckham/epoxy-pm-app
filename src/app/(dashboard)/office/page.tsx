@@ -110,6 +110,17 @@ export default async function OfficePage() {
     employeeCount = count ?? 0
   }
 
+  // Fetch supplier + product counts for the Material Inventory dashboard card.
+  // Both counts only paint on cards for non-foreman roles, but we fetch
+  // unconditionally to keep the server function simple — the card itself is
+  // gated client-side.
+  const [{ count: supplierCountRaw }, { count: productCountRaw }] = await Promise.all([
+    supabase.from('material_suppliers').select('id', { count: 'exact', head: true }),
+    supabase.from('inventory_products').select('id', { count: 'exact', head: true }),
+  ])
+  const supplierCount = supplierCountRaw ?? 0
+  const productCount = productCountRaw ?? 0
+
   return (
     <OfficeTasksPageClient
       userId={user.id}
@@ -121,6 +132,8 @@ export default async function OfficePage() {
       initialEquipment={equipmentRows}
       upcomingScheduledServices={upcomingScheduled}
       employeeCount={employeeCount}
+      supplierCount={supplierCount}
+      productCount={productCount}
     />
   )
 }
