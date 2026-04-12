@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon } from 'lucide-react'
+import ReportProblemButton from '@/components/bug-reports/ReportProblemButton'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -333,6 +334,11 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         )}
 
       </nav>
+
+      {/* Report a Problem */}
+      <div className="px-3 pb-2">
+        <ReportProblemButton role={role || 'crew'} userId={userId} />
+      </div>
 
       {/* User / Profile / Sign Out */}
       <div className="px-3 py-4 border-t border-gray-800">
