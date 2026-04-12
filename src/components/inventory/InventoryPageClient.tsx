@@ -1,12 +1,14 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   ArrowLeftIcon,
+  CalendarIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  ClipboardListIcon,
   PackageIcon,
   PencilIcon,
   PlusIcon,
@@ -16,6 +18,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import SupplierModal from './SupplierModal'
 import ProductModal, { type ProductFormData } from './ProductModal'
 import KitGroupModal, { type KitGroupFormData } from './KitGroupModal'
+import StockCheckRequestModal from './StockCheckRequestModal'
 import type {
   InventoryKitGroup,
   InventoryProduct,
@@ -24,17 +27,32 @@ import type {
   UserRole,
 } from '@/types'
 
+export interface InventoryProfileOption {
+  id: string
+  display_name: string | null
+}
+
+export interface PendingStockCheckInfo {
+  taskId: string
+  assigneeId: string | null
+  assigneeName: string
+}
+
 interface Props {
   userRole: UserRole
+  currentUserId: string
   initialSuppliers: MaterialSupplier[]
   initialProducts: InventoryProduct[]
   initialKitGroups: InventoryKitGroup[]
+  profiles: InventoryProfileOption[]
+  /** Keyed by task id — the pending stock check task → assignee info. */
+  initialPendingStockChecks: Record<string, PendingStockCheckInfo>
 }
 
 function formatStockCheckDate(value: string | null): string {
-  if (!value) return '—'
+  if (!value) return 'Never'
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return 'Never'
   return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -46,6 +64,82 @@ function formatQuantity(quantity: number, unit: InventoryUnit): string {
   const q = quantity.toString()
   const label = unit === 'parts' ? 'parts' : 'gal'
   return `${q} ${label}`
+}
+
+type StockCheckLevel = 'pending' | 'never' | 'fresh' | 'stale' | 'overdue'
+
+/**
+ * Derive a stock check status level for color-coding and status dots.
+ * "pending" (an open task exists) always overrides date-based staleness.
+ */
+function getStockCheckLevel(
+  stockCheckDate: string | null,
+  hasPendingTask: boolean
+): StockCheckLevel {
+  if (hasPendingTask) return 'pending'
+  if (!stockCheckDate) return 'never'
+  const d = new Date(stockCheckDate)
+  if (Number.isNaN(d.getTime())) return 'never'
+  const ageDays = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24)
+  if (ageDays >= 60) return 'overdue'
+  if (ageDays >= 30) return 'stale'
+  return 'fresh'
+}
+
+function stockCheckDateClass(level: StockCheckLevel): string {
+  switch (level) {
+    case 'overdue':
+      return 'text-red-600 dark:text-red-400 font-medium'
+    case 'stale':
+      return 'text-amber-600 dark:text-amber-400 font-medium'
+    case 'fresh':
+      return 'text-green-600 dark:text-green-400'
+    case 'pending':
+      return 'text-amber-600 dark:text-amber-400'
+    case 'never':
+    default:
+      return 'text-gray-400 dark:text-[#6b6b6b] italic'
+  }
+}
+
+function stockCheckDotClass(level: StockCheckLevel): string {
+  switch (level) {
+    case 'overdue':
+      return 'bg-red-500'
+    case 'stale':
+      return 'bg-amber-500'
+    case 'fresh':
+      return 'bg-green-500'
+    case 'pending':
+      return 'bg-amber-500 animate-pulse'
+    case 'never':
+    default:
+      return 'bg-gray-300 dark:bg-[#4a4a4a]'
+  }
+}
+
+function stockCheckDotTitle(level: StockCheckLevel): string {
+  switch (level) {
+    case 'overdue':
+      return 'Overdue — last check was 60+ days ago'
+    case 'stale':
+      return 'Due soon — last check was 30+ days ago'
+    case 'fresh':
+      return 'Recently checked'
+    case 'pending':
+      return 'Stock check requested and pending'
+    case 'never':
+    default:
+      return 'Never checked'
+  }
+}
+
+/** Convert a timestamptz to a YYYY-MM-DD string for <input type="date">. */
+function toDateInputValue(value: string | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 /* ================================================================== */
@@ -131,15 +225,24 @@ function InlineKitCount({
 
 export default function InventoryPageClient({
   userRole,
+  currentUserId,
   initialSuppliers,
   initialProducts,
   initialKitGroups,
+  profiles,
+  initialPendingStockChecks,
 }: Props) {
   const supabase = createClient()
 
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>(initialSuppliers)
   const [products, setProducts] = useState<InventoryProduct[]>(initialProducts)
   const [kitGroups, setKitGroups] = useState<InventoryKitGroup[]>(initialKitGroups)
+
+  // Pending stock check lookup keyed by task id. When a new request is made,
+  // we insert the new task info here keyed by the newly created task id.
+  const [pendingStockChecks, setPendingStockChecks] = useState<
+    Record<string, PendingStockCheckInfo>
+  >(initialPendingStockChecks)
 
   const [collapsedSuppliers, setCollapsedSuppliers] = useState<Set<string>>(new Set())
 
@@ -156,6 +259,15 @@ export default function InventoryPageClient({
   const [kitGroupModalOpen, setKitGroupModalOpen] = useState(false)
   const [editingKitGroup, setEditingKitGroup] = useState<InventoryKitGroup | null>(null)
   const [kitGroupModalSupplierId, setKitGroupModalSupplierId] = useState<string | null>(null)
+
+  // Stock check request modal state
+  const [stockCheckProduct, setStockCheckProduct] = useState<InventoryProduct | null>(null)
+
+  // Hidden date input used to open a native date picker for manual override.
+  // We reuse a single input and re-target it per product to avoid one input
+  // per row.
+  const manualDateInputRef = useRef<HTMLInputElement>(null)
+  const [manualDateProductId, setManualDateProductId] = useState<string | null>(null)
 
   // Delete confirm state
   const [deleteSupplierTarget, setDeleteSupplierTarget] = useState<MaterialSupplier | null>(null)
@@ -466,10 +578,138 @@ export default function InventoryPageClient({
   }
 
   /* ================================================================ */
+  /*  STOCK CHECK REQUEST                                              */
+  /* ================================================================ */
+
+  /**
+   * Create an office_task assigned to the selected user and link it back to
+   * the product via inventory_products.stock_check_task_id. When the assignee
+   * marks the task complete from My Work / Office Tasks, the shared
+   * toggleOfficeTaskCompletion utility auto-updates stock_check_date and
+   * clears the link (see src/lib/officeTaskCompletion.ts).
+   */
+  async function submitStockCheckRequest(assignedToId: string) {
+    if (!stockCheckProduct) return
+    const product = stockCheckProduct
+    const supplier = suppliers.find((s) => s.id === product.supplier_id)
+    const supplierName = supplier?.name ?? ''
+    const title = supplierName
+      ? `Stock Check: ${product.name} (${supplierName})`
+      : `Stock Check: ${product.name}`
+
+    // Insert the office task first so we have an id to link back.
+    const { data: inserted, error: taskErr } = await supabase
+      .from('office_tasks')
+      .insert({
+        title,
+        description: `Stock check request for ${product.name}. Please count current inventory and mark this task complete — the Stock Check Date on the product will update automatically.`,
+        assigned_to: assignedToId,
+        priority: 'Normal',
+        created_by: currentUserId,
+      })
+      .select('id')
+      .single()
+    if (taskErr || !inserted) {
+      throw taskErr ?? new Error('Failed to create stock check task.')
+    }
+    const newTaskId = (inserted as { id: string }).id
+
+    // Link the product to the new task.
+    const { error: linkErr } = await supabase
+      .from('inventory_products')
+      .update({ stock_check_task_id: newTaskId })
+      .eq('id', product.id)
+    if (linkErr) {
+      // Best-effort cleanup so we don't leave an orphaned task lying around.
+      await supabase.from('office_tasks').delete().eq('id', newTaskId)
+      throw linkErr
+    }
+
+    // Update local state optimistically so the row flips to "Pending" immediately.
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === product.id ? { ...p, stock_check_task_id: newTaskId } : p
+      )
+    )
+    const assignee = profiles.find((p) => p.id === assignedToId)
+    setPendingStockChecks((prev) => ({
+      ...prev,
+      [newTaskId]: {
+        taskId: newTaskId,
+        assigneeId: assignedToId,
+        assigneeName: assignee?.display_name ?? 'Unknown',
+      },
+    }))
+
+    setStockCheckProduct(null)
+  }
+
+  /* ================================================================ */
+  /*  MANUAL STOCK CHECK DATE OVERRIDE                                 */
+  /* ================================================================ */
+
+  function openManualDatePicker(product: InventoryProduct) {
+    if (!canManage) return
+    setManualDateProductId(product.id)
+    // Defer so the hidden input is in the DOM and targeting the new id.
+    requestAnimationFrame(() => {
+      const input = manualDateInputRef.current
+      if (!input) return
+      input.value = toDateInputValue(product.stock_check_date)
+      // Use showPicker() when available so the native date UI appears right
+      // at the click location. Fall back to focus()+click() on browsers
+      // without showPicker support.
+      if (typeof (input as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+        ;(input as HTMLInputElement & { showPicker: () => void }).showPicker()
+      } else {
+        input.focus()
+        input.click()
+      }
+    })
+  }
+
+  async function handleManualDateChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const productId = manualDateProductId
+    const newValue = e.target.value
+    setManualDateProductId(null)
+    if (!productId || !newValue) return
+
+    const previous = products.find((p) => p.id === productId)
+    if (!previous) return
+
+    // Store at local noon so the rendered date matches what the user picked
+    // regardless of timezone offset.
+    const isoDate = new Date(`${newValue}T12:00:00`).toISOString()
+
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, stock_check_date: isoDate } : p))
+    )
+    const { error } = await supabase
+      .from('inventory_products')
+      .update({ stock_check_date: isoDate })
+      .eq('id', productId)
+    if (error) {
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId ? { ...p, stock_check_date: previous.stock_check_date } : p
+        )
+      )
+    }
+  }
+
+  /* ================================================================ */
   /*  RENDER HELPERS                                                   */
   /* ================================================================ */
 
   function renderProductRow(product: InventoryProduct, nested = false) {
+    const pendingInfo = product.stock_check_task_id
+      ? pendingStockChecks[product.stock_check_task_id]
+      : undefined
+    const hasPending = !!product.stock_check_task_id
+    const level = getStockCheckLevel(product.stock_check_date, hasPending)
+    const dateText = formatStockCheckDate(product.stock_check_date)
+    const dateClass = stockCheckDateClass(level)
+
     return (
       <div
         key={product.id}
@@ -477,9 +717,16 @@ export default function InventoryPageClient({
           nested ? 'sm:pl-10' : ''
         }`}
       >
-        {/* Product name */}
-        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-          {product.name}
+        {/* Product name + status dot */}
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${stockCheckDotClass(level)}`}
+            title={stockCheckDotTitle(level)}
+            aria-label={stockCheckDotTitle(level)}
+          />
+          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+            {product.name}
+          </span>
         </div>
         {/* Quantity */}
         <div className="mt-1 sm:mt-0 text-sm text-gray-600 dark:text-[#a0a0a0] sm:text-right">
@@ -488,26 +735,56 @@ export default function InventoryPageClient({
           </span>
           {formatQuantity(product.quantity, product.unit as InventoryUnit)}
         </div>
-        {/* Stock check request placeholder */}
+        {/* Stock check request */}
         <div className="mt-1 sm:mt-0 text-xs sm:text-center">
           <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">
             Stock check request:
           </span>
-          <button
-            type="button"
-            disabled
-            className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium text-gray-400 dark:text-[#6b6b6b] bg-gray-100 dark:bg-[#2e2e2e] cursor-not-allowed"
-            title="Coming soon"
-          >
-            —
-          </button>
+          {hasPending ? (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40"
+              title={`Pending — assigned to ${pendingInfo?.assigneeName ?? 'Unknown'}`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Pending
+              {pendingInfo?.assigneeName && (
+                <span className="hidden md:inline text-amber-600 dark:text-amber-400 font-normal">
+                  · {pendingInfo.assigneeName}
+                </span>
+              )}
+            </span>
+          ) : canManage ? (
+            <button
+              type="button"
+              onClick={() => setStockCheckProduct(product)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/40 transition-colors"
+              title="Request a stock check"
+            >
+              <ClipboardListIcon className="w-3 h-3" />
+              Request Check
+            </button>
+          ) : (
+            <span className="text-gray-400 dark:text-[#6b6b6b]">—</span>
+          )}
         </div>
         {/* Stock check date */}
-        <div className="mt-1 sm:mt-0 text-xs sm:text-sm text-gray-500 dark:text-[#a0a0a0] sm:text-center">
+        <div className="mt-1 sm:mt-0 text-xs sm:text-sm sm:text-center">
           <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">
             Last checked:
           </span>
-          {formatStockCheckDate(product.stock_check_date)}
+          {canManage ? (
+            <button
+              type="button"
+              onClick={() => openManualDatePicker(product)}
+              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-gray-100 dark:hover:bg-[#2e2e2e] transition-colors ${dateClass}`}
+              title="Click to set the date manually"
+            >
+              <CalendarIcon className="w-3 h-3 opacity-60" />
+              {dateText}
+            </button>
+          ) : (
+            <span className={dateClass}>{dateText}</span>
+          )}
         </div>
         {/* Actions */}
         <div className="mt-2 sm:mt-0 flex sm:justify-end items-center gap-1">
@@ -884,6 +1161,31 @@ export default function InventoryPageClient({
           loading={deleting}
         />
       )}
+
+      {/* Stock check request modal */}
+      {stockCheckProduct && (
+        <StockCheckRequestModal
+          productName={stockCheckProduct.name}
+          supplierName={
+            suppliers.find((s) => s.id === stockCheckProduct.supplier_id)?.name ?? ''
+          }
+          profiles={profiles}
+          onClose={() => setStockCheckProduct(null)}
+          onSubmit={submitStockCheckRequest}
+        />
+      )}
+
+      {/* Hidden date input used by the manual stock check date override. One
+          input is reused across all product rows — openManualDatePicker
+          re-targets it per product before opening the native picker. */}
+      <input
+        ref={manualDateInputRef}
+        type="date"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={handleManualDateChange}
+      />
     </div>
   )
 }

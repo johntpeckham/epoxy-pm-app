@@ -576,6 +576,8 @@ export interface InventoryProduct {
   quantity: number
   unit: InventoryUnit
   stock_check_date: string | null
+  /** FK to the currently pending office_task requesting a stock check. */
+  stock_check_task_id: string | null
   sort_order: number
   created_at: string
 }
