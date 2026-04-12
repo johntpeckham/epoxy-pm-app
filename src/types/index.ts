@@ -547,3 +547,35 @@ export interface ProjectPreLien {
   updated_at: string
   deleted_at: string | null
 }
+
+export type InventoryUnit = 'gallons' | 'parts'
+
+export interface MaterialSupplier {
+  id: string
+  name: string
+  created_at: string
+}
+
+export interface InventoryKitGroup {
+  id: string
+  supplier_id: string
+  name: string
+  full_kits: number
+  full_kit_size: string | null
+  partial_kits: number
+  partial_kit_size: string | null
+  sort_order: number
+  created_at: string
+}
+
+export interface InventoryProduct {
+  id: string
+  supplier_id: string
+  kit_group_id: string | null
+  name: string
+  quantity: number
+  unit: InventoryUnit
+  stock_check_date: string | null
+  sort_order: number
+  created_at: string
+}
