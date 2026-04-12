@@ -621,20 +621,12 @@ export default function InventoryPageClient({
         className="sm:grid sm:grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors"
       >
         {/* Product name + status dot. Grouped products get a subtle left
-            indent and a muted bullet prefix so they visually read as
-            sub-items of the kit group header above them, while keeping
-            the grid columns aligned with every other row. */}
+            indent so they visually read as sub-items of the kit group
+            header above them, while keeping the grid columns aligned
+            with every other row. */}
         <div
           className={`flex items-center gap-2 min-w-0 ${nested ? 'pl-5 sm:pl-6' : ''}`}
         >
-          {nested && (
-            <span
-              aria-hidden="true"
-              className="text-gray-300 dark:text-[#4a4a4a] text-sm leading-none select-none -ml-1"
-            >
-              •
-            </span>
-          )}
           <span
             className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${stockCheckDotClass(level)}`}
             title={stockCheckDotTitle(level)}
