@@ -2,7 +2,12 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import type { UserRole, MaterialSupplier, InventoryProduct } from '@/types'
+import type {
+  UserRole,
+  MaterialSupplier,
+  InventoryProduct,
+  InventoryKitGroup,
+} from '@/types'
 import InventoryPageClient from '@/components/inventory/InventoryPageClient'
 
 export default async function InventoryPage() {
@@ -29,7 +34,11 @@ export default async function InventoryPage() {
     return redirect('/my-work')
   }
 
-  const [{ data: suppliersRaw }, { data: productsRaw }] = await Promise.all([
+  const [
+    { data: suppliersRaw },
+    { data: productsRaw },
+    { data: kitGroupsRaw },
+  ] = await Promise.all([
     supabase
       .from('material_suppliers')
       .select('*')
@@ -39,16 +48,23 @@ export default async function InventoryPage() {
       .select('*')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
+    supabase
+      .from('inventory_kit_groups')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
   ])
 
   const suppliers = (suppliersRaw ?? []) as MaterialSupplier[]
   const products = (productsRaw ?? []) as InventoryProduct[]
+  const kitGroups = (kitGroupsRaw ?? []) as InventoryKitGroup[]
 
   return (
     <InventoryPageClient
       userRole={userRole}
       initialSuppliers={suppliers}
       initialProducts={products}
+      initialKitGroups={kitGroups}
     />
   )
 }

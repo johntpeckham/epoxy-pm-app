@@ -3,42 +3,34 @@
 import { useEffect, useRef, useState } from 'react'
 import { XIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { InventoryKitGroup, InventoryProduct, InventoryUnit } from '@/types'
+import type { InventoryKitGroup } from '@/types'
 
-export interface ProductFormData {
+export interface KitGroupFormData {
   name: string
-  quantity: number
-  unit: InventoryUnit
-  kit_group_id: string | null
+  full_kits: number
+  full_kit_size: string | null
+  partial_kits: number
+  partial_kit_size: string | null
 }
 
 interface Props {
-  product: InventoryProduct | null
+  kitGroup: InventoryKitGroup | null
   supplierName: string
-  /** Kit groups belonging to the current supplier — used to populate the dropdown. */
-  kitGroups: InventoryKitGroup[]
   onClose: () => void
-  onSave: (data: ProductFormData) => Promise<void> | void
+  onSave: (data: KitGroupFormData) => Promise<void> | void
 }
 
-export default function ProductModal({
-  product,
-  supplierName,
-  kitGroups,
-  onClose,
-  onSave,
-}: Props) {
-  const isEdit = !!product
-  const [name, setName] = useState(product?.name ?? '')
-  const [quantity, setQuantity] = useState<string>(
-    product?.quantity !== undefined && product?.quantity !== null
-      ? String(product.quantity)
-      : '0'
+export default function KitGroupModal({ kitGroup, supplierName, onClose, onSave }: Props) {
+  const isEdit = !!kitGroup
+  const [name, setName] = useState(kitGroup?.name ?? '')
+  const [fullKits, setFullKits] = useState<string>(
+    kitGroup?.full_kits != null ? String(kitGroup.full_kits) : '0'
   )
-  const [unit, setUnit] = useState<InventoryUnit>(
-    (product?.unit as InventoryUnit) ?? 'gallons'
+  const [fullKitSize, setFullKitSize] = useState(kitGroup?.full_kit_size ?? '')
+  const [partialKits, setPartialKits] = useState<string>(
+    kitGroup?.partial_kits != null ? String(kitGroup.partial_kits) : '0'
   )
-  const [kitGroupId, setKitGroupId] = useState<string>(product?.kit_group_id ?? '')
+  const [partialKitSize, setPartialKitSize] = useState(kitGroup?.partial_kit_size ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -51,12 +43,17 @@ export default function ProductModal({
     e?.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) {
-      setError('Product name is required.')
+      setError('Group name is required.')
       return
     }
-    const parsedQty = parseFloat(quantity)
-    if (Number.isNaN(parsedQty) || parsedQty < 0) {
-      setError('Quantity must be a non-negative number.')
+    const parsedFull = parseInt(fullKits, 10)
+    const parsedPartial = parseInt(partialKits, 10)
+    if (Number.isNaN(parsedFull) || parsedFull < 0) {
+      setError('Full kits must be a non-negative whole number.')
+      return
+    }
+    if (Number.isNaN(parsedPartial) || parsedPartial < 0) {
+      setError('Partial kits must be a non-negative whole number.')
       return
     }
     setError(null)
@@ -64,12 +61,13 @@ export default function ProductModal({
     try {
       await onSave({
         name: trimmed,
-        quantity: parsedQty,
-        unit,
-        kit_group_id: kitGroupId || null,
+        full_kits: parsedFull,
+        full_kit_size: fullKitSize.trim() || null,
+        partial_kits: parsedPartial,
+        partial_kit_size: partialKitSize.trim() || null,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save product.')
+      setError(err instanceof Error ? err.message : 'Failed to save kit group.')
       setSaving(false)
     }
   }
@@ -88,7 +86,7 @@ export default function ProductModal({
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-[#3a3a3a] flex-shrink-0">
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                {isEdit ? 'Edit Product' : 'Add Product'}
+                {isEdit ? 'Edit Kit Group' : 'Add Kit Group'}
               </h2>
               {supplierName && (
                 <p className="text-xs text-gray-500 dark:text-[#a0a0a0] truncate">
@@ -115,14 +113,14 @@ export default function ProductModal({
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
-                  Product Name *
+                  Group Name *
                 </label>
                 <input
                   ref={inputRef}
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Polyurea Base A"
+                  placeholder="e.g. Polyurea Base Coat Kit"
                   className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
                 />
               </div>
@@ -130,54 +128,59 @@ export default function ProductModal({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
-                    Quantity *
+                    Full Kits
                   </label>
                   <input
                     type="number"
-                    inputMode="decimal"
-                    step="0.01"
+                    inputMode="numeric"
+                    step="1"
                     min="0"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
+                    value={fullKits}
+                    onChange={(e) => setFullKits(e.target.value)}
                     className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
-                    Unit *
+                    Full Kit Size
                   </label>
-                  <select
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value as InventoryUnit)}
-                    className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
-                  >
-                    <option value="gallons">Gallons</option>
-                    <option value="parts">Parts</option>
-                  </select>
+                  <input
+                    type="text"
+                    value={fullKitSize}
+                    onChange={(e) => setFullKitSize(e.target.value)}
+                    placeholder="e.g. 5 gal"
+                    className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
-                  Kit Group
-                </label>
-                <select
-                  value={kitGroupId}
-                  onChange={(e) => setKitGroupId(e.target.value)}
-                  className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
-                >
-                  <option value="">None (standalone product)</option>
-                  {kitGroups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-                {kitGroups.length === 0 && (
-                  <p className="text-[11px] text-gray-400 dark:text-[#6b6b6b] mt-1">
-                    No kit groups yet for this supplier. Create one from the supplier section.
-                  </p>
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                    Partial Kits
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    step="1"
+                    min="0"
+                    value={partialKits}
+                    onChange={(e) => setPartialKits(e.target.value)}
+                    className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                    Partial Kit Size
+                  </label>
+                  <input
+                    type="text"
+                    value={partialKitSize}
+                    onChange={(e) => setPartialKitSize(e.target.value)}
+                    placeholder="e.g. 5 gal"
+                    className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                  />
+                </div>
               </div>
             </div>
 
@@ -196,7 +199,7 @@ export default function ProductModal({
                 disabled={saving || !name.trim()}
                 className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-lg transition"
               >
-                {saving ? 'Saving…' : isEdit ? 'Save' : 'Add Product'}
+                {saving ? 'Saving…' : isEdit ? 'Save' : 'Add Kit Group'}
               </button>
             </div>
           </form>
