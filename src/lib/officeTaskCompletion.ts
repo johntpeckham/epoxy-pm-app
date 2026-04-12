@@ -17,6 +17,9 @@
  *     inventory_products.stock_check_task_id. On completion we auto-update
  *     stock_check_date = now and clear the link so a new request can be
  *     made. Un-completion is a no-op for stock checks (the date stays).
+ *  3. Inventory price check requests — same pattern as stock checks but
+ *     linked via inventory_products.price_check_task_id. On completion we
+ *     auto-update price_check_date = now and clear the link.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -113,6 +116,31 @@ export async function toggleOfficeTaskCompletion(
         console.error(
           '[toggleOfficeTaskCompletion] Failed to update inventory product:',
           productUpdateErr
+        )
+      }
+    }
+
+    // 2a-ii. Same cascade for price check requests. Linked via
+    //        inventory_products.price_check_task_id.
+    const { data: priceLinkedProduct, error: priceLookupErr } = await supabase
+      .from('inventory_products')
+      .select('id')
+      .eq('price_check_task_id', taskId)
+      .maybeSingle()
+    if (priceLookupErr) {
+      console.error(
+        '[toggleOfficeTaskCompletion] Price-check linked-product lookup failed:',
+        priceLookupErr
+      )
+    } else if (priceLinkedProduct) {
+      const { error: priceUpdateErr } = await supabase
+        .from('inventory_products')
+        .update({ price_check_date: nowIso, price_check_task_id: null })
+        .eq('id', (priceLinkedProduct as { id: string }).id)
+      if (priceUpdateErr) {
+        console.error(
+          '[toggleOfficeTaskCompletion] Failed to update inventory product price check:',
+          priceUpdateErr
         )
       }
     }

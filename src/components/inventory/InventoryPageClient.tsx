@@ -10,6 +10,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ClipboardListIcon,
+  DollarSignIcon,
   PackageIcon,
   PencilIcon,
   PlusIcon,
@@ -23,6 +24,7 @@ import KitGroupModal, { type KitGroupFormData } from './KitGroupModal'
 import AddKitModal, { type AddKitFormData } from './AddKitModal'
 import InventorySettingsModal from './InventorySettingsModal'
 import StockCheckRequestModal from './StockCheckRequestModal'
+import PriceCheckRequestModal from './PriceCheckRequestModal'
 import type {
   InventoryKitGroup,
   InventoryProduct,
@@ -43,6 +45,12 @@ export interface PendingStockCheckInfo {
   assigneeName: string
 }
 
+export interface PendingPriceCheckInfo {
+  taskId: string
+  assigneeId: string | null
+  assigneeName: string
+}
+
 interface Props {
   userRole: UserRole
   currentUserId: string
@@ -53,6 +61,8 @@ interface Props {
   profiles: InventoryProfileOption[]
   /** Keyed by task id — the pending stock check task → assignee info. */
   initialPendingStockChecks: Record<string, PendingStockCheckInfo>
+  /** Keyed by task id — the pending price check task → assignee info. */
+  initialPendingPriceChecks: Record<string, PendingPriceCheckInfo>
 }
 
 function formatStockCheckDate(value: string | null): string {
@@ -131,6 +141,38 @@ function stockCheckDotTitle(level: StockCheckLevel): string {
     case 'never':
     default:
       return 'Never checked'
+  }
+}
+
+type PriceCheckLevel = 'pending' | 'never' | 'fresh' | 'stale' | 'overdue'
+
+function getPriceCheckLevel(
+  priceCheckDate: string | null,
+  hasPendingTask: boolean
+): PriceCheckLevel {
+  if (hasPendingTask) return 'pending'
+  if (!priceCheckDate) return 'never'
+  const d = new Date(priceCheckDate)
+  if (Number.isNaN(d.getTime())) return 'never'
+  const ageDays = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24)
+  if (ageDays >= 60) return 'overdue'
+  if (ageDays >= 30) return 'stale'
+  return 'fresh'
+}
+
+function priceCheckDateClass(level: PriceCheckLevel): string {
+  switch (level) {
+    case 'overdue':
+      return 'text-red-600 dark:text-red-400 font-medium'
+    case 'stale':
+      return 'text-amber-600 dark:text-amber-400 font-medium'
+    case 'fresh':
+      return 'text-green-600 dark:text-green-400'
+    case 'pending':
+      return 'text-amber-600 dark:text-amber-400'
+    case 'never':
+    default:
+      return 'text-gray-400 dark:text-[#6b6b6b] italic'
   }
 }
 
@@ -334,6 +376,163 @@ function InlineQuantityEditor({
 }
 
 /* ================================================================== */
+/*  INLINE PRICE EDITOR                                                */
+/* ================================================================== */
+
+interface InlinePriceEditorProps {
+  price: number | null
+  disabled: boolean
+  onSave: (newPrice: number) => Promise<void>
+}
+
+function InlinePriceEditor({
+  price,
+  disabled,
+  onSave,
+}: InlinePriceEditorProps) {
+  const displayPrice = price ?? 0
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState<string>(displayPrice.toFixed(2))
+  const [saving, setSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const committedRef = useRef(false)
+
+  useEffect(() => {
+    if (!editing) setValue((price ?? 0).toFixed(2))
+  }, [price, editing])
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [editing])
+
+  function startEdit() {
+    if (disabled) return
+    committedRef.current = false
+    setValue(displayPrice.toFixed(2))
+    setEditing(true)
+  }
+
+  async function commit() {
+    if (committedRef.current) return
+    committedRef.current = true
+    const parsed = parseFloat(value)
+    if (Number.isNaN(parsed) || parsed < 0) {
+      setValue(displayPrice.toFixed(2))
+      setEditing(false)
+      return
+    }
+    const rounded = Math.round(parsed * 100) / 100
+    if (rounded === displayPrice) {
+      setValue(displayPrice.toFixed(2))
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(rounded)
+      setEditing(false)
+      setJustSaved(true)
+      setTimeout(() => setJustSaved(false), 900)
+    } catch {
+      setValue(displayPrice.toFixed(2))
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function cancel() {
+    committedRef.current = true
+    setValue(displayPrice.toFixed(2))
+    setEditing(false)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commit()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      cancel()
+    }
+  }
+
+  if (disabled) {
+    return (
+      <span className="inline-flex items-center">
+        <span className="text-xs text-gray-500 dark:text-[#6b6b6b] mr-0.5">$</span>
+        <span className="w-[72px] text-sm text-right text-gray-600 dark:text-[#a0a0a0]">
+          {displayPrice.toFixed(2)}
+        </span>
+      </span>
+    )
+  }
+
+  const isActive = editing
+  const borderColor = justSaved
+    ? undefined
+    : isActive
+      ? 'rgba(180, 83, 9, 0.5)'
+      : 'rgba(255, 255, 255, 0.12)'
+
+  return (
+    <span className="inline-flex items-center">
+      <span
+        className={`text-xs mr-0.5 ${
+          justSaved
+            ? 'text-green-600 dark:text-green-400'
+            : 'text-gray-500 dark:text-[#6b6b6b]'
+        }`}
+      >
+        $
+      </span>
+      <input
+        ref={inputRef}
+        type="number"
+        inputMode="decimal"
+        step="0.01"
+        min="0"
+        value={editing ? value : displayPrice.toFixed(2)}
+        readOnly={!editing}
+        disabled={saving}
+        onChange={(e) => setValue(e.target.value)}
+        onClick={() => { if (!editing) startEdit() }}
+        onBlur={() => { if (editing) commit() }}
+        onKeyDown={editing ? handleKeyDown : undefined}
+        aria-label="Price"
+        className={`w-[72px] rounded px-1.5 py-0.5 text-sm text-right bg-transparent focus:outline-none inventory-qty-input ${
+          justSaved
+            ? 'border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+            : isActive
+              ? 'border text-gray-900 dark:text-white'
+              : 'border text-gray-600 dark:text-[#a0a0a0] cursor-text'
+        }`}
+        style={
+          justSaved
+            ? undefined
+            : { borderColor: borderColor }
+        }
+        onMouseEnter={(e) => {
+          if (!editing && !justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.22)'
+        }}
+        onMouseLeave={(e) => {
+          if (!editing && !justSaved) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'
+        }}
+        onFocus={(e) => {
+          if (!justSaved) e.currentTarget.style.borderColor = 'rgba(180, 83, 9, 0.5)'
+        }}
+        title="Click to edit price"
+      />
+      {justSaved && <CheckIcon className="w-3 h-3 ml-0.5 text-green-600 dark:text-green-400" />}
+    </span>
+  )
+}
+
+/* ================================================================== */
 /*  MAIN COMPONENT                                                     */
 /* ================================================================== */
 
@@ -346,6 +545,7 @@ export default function InventoryPageClient({
   initialUnitTypes,
   profiles,
   initialPendingStockChecks,
+  initialPendingPriceChecks,
 }: Props) {
   const supabase = createClient()
 
@@ -389,11 +589,21 @@ export default function InventoryPageClient({
   // Stock check request modal state
   const [stockCheckProduct, setStockCheckProduct] = useState<InventoryProduct | null>(null)
 
+  // Price check request modal state + pending lookup (mirrors stock check)
+  const [priceCheckProduct, setPriceCheckProduct] = useState<InventoryProduct | null>(null)
+  const [pendingPriceChecks, setPendingPriceChecks] = useState<
+    Record<string, PendingPriceCheckInfo>
+  >(initialPendingPriceChecks)
+
   // Hidden date input used to open a native date picker for manual override.
   // We reuse a single input and re-target it per product to avoid one input
   // per row.
   const manualDateInputRef = useRef<HTMLInputElement>(null)
   const [manualDateProductId, setManualDateProductId] = useState<string | null>(null)
+
+  // Hidden date input for manual price check date override.
+  const manualPriceDateInputRef = useRef<HTMLInputElement>(null)
+  const [manualPriceDateProductId, setManualPriceDateProductId] = useState<string | null>(null)
 
   // Delete confirm state
   const [deleteSupplierTarget, setDeleteSupplierTarget] = useState<MaterialSupplier | null>(null)
@@ -689,6 +899,49 @@ export default function InventoryPageClient({
     }
   }
 
+  /**
+   * Persist a new price for a product (called from the inline price editor).
+   */
+  async function saveProductPrice(productId: string, newPrice: number) {
+    const previous = products.find((p) => p.id === productId)
+    if (!previous) return
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, price: newPrice } : p))
+    )
+    const { error } = await supabase
+      .from('inventory_products')
+      .update({ price: newPrice })
+      .eq('id', productId)
+    if (error) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? previous : p))
+      )
+      throw error
+    }
+  }
+
+  /**
+   * Persist a new kit_price for a kit group (called from the inline price
+   * editor on kit group header rows).
+   */
+  async function saveKitGroupPrice(kitGroupId: string, newPrice: number) {
+    const previous = kitGroups.find((g) => g.id === kitGroupId)
+    if (!previous) return
+    setKitGroups((prev) =>
+      prev.map((g) => (g.id === kitGroupId ? { ...g, kit_price: newPrice } : g))
+    )
+    const { error } = await supabase
+      .from('inventory_kit_groups')
+      .update({ kit_price: newPrice })
+      .eq('id', kitGroupId)
+    if (error) {
+      setKitGroups((prev) =>
+        prev.map((g) => (g.id === kitGroupId ? previous : g))
+      )
+      throw error
+    }
+  }
+
   async function saveKitGroup(data: KitGroupFormData) {
     if (!kitGroupModalSupplierId) return
 
@@ -887,6 +1140,109 @@ export default function InventoryPageClient({
   }
 
   /* ================================================================ */
+  /*  PRICE CHECK REQUEST                                              */
+  /* ================================================================ */
+
+  async function submitPriceCheckRequest(assignedToId: string) {
+    if (!priceCheckProduct) return
+    const product = priceCheckProduct
+    const supplier = suppliers.find((s) => s.id === product.supplier_id)
+    const supplierName = supplier?.name ?? ''
+    const title = supplierName
+      ? `Price Check: ${product.name} (${supplierName})`
+      : `Price Check: ${product.name}`
+
+    const { data: inserted, error: taskErr } = await supabase
+      .from('office_tasks')
+      .insert({
+        title,
+        description: `Price check request for ${product.name}. Please verify the current price with the supplier and mark this task complete — the Price Check Date on the product will update automatically.`,
+        assigned_to: assignedToId,
+        priority: 'Normal',
+        created_by: currentUserId,
+      })
+      .select('id')
+      .single()
+    if (taskErr || !inserted) {
+      throw taskErr ?? new Error('Failed to create price check task.')
+    }
+    const newTaskId = (inserted as { id: string }).id
+
+    const { error: linkErr } = await supabase
+      .from('inventory_products')
+      .update({ price_check_task_id: newTaskId })
+      .eq('id', product.id)
+    if (linkErr) {
+      await supabase.from('office_tasks').delete().eq('id', newTaskId)
+      throw linkErr
+    }
+
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === product.id ? { ...p, price_check_task_id: newTaskId } : p
+      )
+    )
+    const assignee = profiles.find((p) => p.id === assignedToId)
+    setPendingPriceChecks((prev) => ({
+      ...prev,
+      [newTaskId]: {
+        taskId: newTaskId,
+        assigneeId: assignedToId,
+        assigneeName: assignee?.display_name ?? 'Unknown',
+      },
+    }))
+
+    setPriceCheckProduct(null)
+  }
+
+  /* ================================================================ */
+  /*  MANUAL PRICE CHECK DATE OVERRIDE                                 */
+  /* ================================================================ */
+
+  function openManualPriceDatePicker(product: InventoryProduct) {
+    if (!canManage) return
+    setManualPriceDateProductId(product.id)
+    requestAnimationFrame(() => {
+      const input = manualPriceDateInputRef.current
+      if (!input) return
+      input.value = toDateInputValue(product.price_check_date)
+      if (typeof (input as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+        ;(input as HTMLInputElement & { showPicker: () => void }).showPicker()
+      } else {
+        input.focus()
+        input.click()
+      }
+    })
+  }
+
+  async function handleManualPriceDateChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const productId = manualPriceDateProductId
+    const newValue = e.target.value
+    setManualPriceDateProductId(null)
+    if (!productId || !newValue) return
+
+    const previous = products.find((p) => p.id === productId)
+    if (!previous) return
+
+    const isoDate = new Date(`${newValue}T12:00:00`).toISOString()
+
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, price_check_date: isoDate } : p))
+    )
+    const { error } = await supabase
+      .from('inventory_products')
+      .update({ price_check_date: isoDate })
+      .eq('id', productId)
+    if (error) {
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId ? { ...p, price_check_date: previous.price_check_date } : p
+        )
+      )
+    }
+  }
+
+  /* ================================================================ */
   /*  RENDER HELPERS                                                   */
   /* ================================================================ */
 
@@ -899,15 +1255,20 @@ export default function InventoryPageClient({
     const dateText = formatStockCheckDate(product.stock_check_date)
     const dateClass = stockCheckDateClass(level)
 
+    const pricePendingInfo = product.price_check_task_id
+      ? pendingPriceChecks[product.price_check_task_id]
+      : undefined
+    const hasPricePending = !!product.price_check_task_id
+    const priceLevel = getPriceCheckLevel(product.price_check_date, hasPricePending)
+    const priceDateText = formatStockCheckDate(product.price_check_date)
+    const priceDateClass = priceCheckDateClass(priceLevel)
+
     return (
       <div
         key={product.id}
-        className="sm:grid sm:grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors"
+        className="sm:grid sm:grid-cols-[1fr_100px_90px_120px_120px_120px_120px_60px] gap-2 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors min-w-[900px]"
       >
-        {/* Product name + status dot. Grouped products get a subtle left
-            indent so they visually read as sub-items of the kit group
-            header above them, while keeping the grid columns aligned
-            with every other row. */}
+        {/* Product name + status dot */}
         <div
           className={`flex items-center gap-2 min-w-0 ${nested ? 'pl-5 sm:pl-6' : ''}`}
         >
@@ -920,7 +1281,7 @@ export default function InventoryPageClient({
             {product.name}
           </span>
         </div>
-        {/* Quantity — click to edit inline without opening the modal. */}
+        {/* Quantity */}
         <div className="mt-1 sm:mt-0 text-sm text-gray-600 dark:text-[#a0a0a0] sm:text-right">
           <span className="sm:hidden text-xs text-gray-400 dark:text-[#6b6b6b] mr-1">
             Qty:
@@ -932,10 +1293,21 @@ export default function InventoryPageClient({
             onSave={(q) => saveProductQuantity(product.id, q)}
           />
         </div>
+        {/* Price */}
+        <div className="mt-1 sm:mt-0 text-sm text-gray-600 dark:text-[#a0a0a0] sm:text-right">
+          <span className="sm:hidden text-xs text-gray-400 dark:text-[#6b6b6b] mr-1">
+            Price:
+          </span>
+          <InlinePriceEditor
+            price={product.price}
+            disabled={!canManage}
+            onSave={(p) => saveProductPrice(product.id, p)}
+          />
+        </div>
         {/* Stock check request */}
         <div className="mt-1 sm:mt-0 text-xs sm:text-center">
           <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">
-            Stock check request:
+            Stock check:
           </span>
           {hasPending ? (
             <span
@@ -945,7 +1317,7 @@ export default function InventoryPageClient({
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
               Pending
               {pendingInfo?.assigneeName && (
-                <span className="hidden md:inline text-amber-600 dark:text-amber-400 font-normal">
+                <span className="hidden lg:inline text-amber-600 dark:text-amber-400 font-normal">
                   · {pendingInfo.assigneeName}
                 </span>
               )}
@@ -967,7 +1339,7 @@ export default function InventoryPageClient({
         {/* Stock check date */}
         <div className="mt-1 sm:mt-0 text-xs sm:text-sm sm:text-center">
           <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">
-            Last checked:
+            Stock date:
           </span>
           {canManage ? (
             <button
@@ -981,6 +1353,57 @@ export default function InventoryPageClient({
             </button>
           ) : (
             <span className={dateClass}>{dateText}</span>
+          )}
+        </div>
+        {/* Price check request */}
+        <div className="mt-1 sm:mt-0 text-xs sm:text-center">
+          <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">
+            Price check:
+          </span>
+          {hasPricePending ? (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40"
+              title={`Pending — assigned to ${pricePendingInfo?.assigneeName ?? 'Unknown'}`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Pending
+              {pricePendingInfo?.assigneeName && (
+                <span className="hidden lg:inline text-amber-600 dark:text-amber-400 font-normal">
+                  · {pricePendingInfo.assigneeName}
+                </span>
+              )}
+            </span>
+          ) : canManage ? (
+            <button
+              type="button"
+              onClick={() => setPriceCheckProduct(product)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/40 transition-colors"
+              title="Request a price check"
+            >
+              <DollarSignIcon className="w-3 h-3" />
+              Price Check
+            </button>
+          ) : (
+            <span className="text-gray-400 dark:text-[#6b6b6b]">—</span>
+          )}
+        </div>
+        {/* Price check date */}
+        <div className="mt-1 sm:mt-0 text-xs sm:text-sm sm:text-center">
+          <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">
+            Price date:
+          </span>
+          {canManage ? (
+            <button
+              type="button"
+              onClick={() => openManualPriceDatePicker(product)}
+              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-gray-100 dark:hover:bg-[#2e2e2e] transition-colors ${priceDateClass}`}
+              title="Click to set the price check date manually"
+            >
+              <CalendarIcon className="w-3 h-3 opacity-60" />
+              {priceDateText}
+            </button>
+          ) : (
+            <span className={priceDateClass}>{priceDateText}</span>
           )}
         </div>
         {/* Actions */}
@@ -1019,10 +1442,9 @@ export default function InventoryPageClient({
     return (
       <div
         key={`kit-group-${group.id}`}
-        className="sm:grid sm:grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors"
+        className="sm:grid sm:grid-cols-[1fr_100px_90px_120px_120px_120px_120px_60px] gap-2 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors min-w-[900px]"
       >
-        {/* Group name — styled identically to a product name cell, minus the
-            stock-check status dot (which has no meaning at the group level). */}
+        {/* Group name */}
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
             {group.name}
@@ -1035,14 +1457,35 @@ export default function InventoryPageClient({
           </span>
           —
         </div>
+        {/* Kit Price — editable on the kit group row */}
+        <div className="mt-1 sm:mt-0 text-sm text-gray-600 dark:text-[#a0a0a0] sm:text-right">
+          <span className="sm:hidden text-xs text-gray-400 dark:text-[#6b6b6b] mr-1">
+            Price:
+          </span>
+          <InlinePriceEditor
+            price={group.kit_price}
+            disabled={!canManage}
+            onSave={(p) => saveKitGroupPrice(group.id, p)}
+          />
+        </div>
         {/* Stock check request */}
         <div className="mt-1 sm:mt-0 text-xs text-gray-400 dark:text-[#6b6b6b] sm:text-center">
-          <span className="sm:hidden mr-1">Stock check request:</span>
+          <span className="sm:hidden mr-1">Stock check:</span>
           —
         </div>
         {/* Stock check date */}
         <div className="mt-1 sm:mt-0 text-xs sm:text-sm text-gray-400 dark:text-[#6b6b6b] sm:text-center">
-          <span className="sm:hidden mr-1">Last checked:</span>
+          <span className="sm:hidden mr-1">Stock date:</span>
+          —
+        </div>
+        {/* Price check request */}
+        <div className="mt-1 sm:mt-0 text-xs text-gray-400 dark:text-[#6b6b6b] sm:text-center">
+          <span className="sm:hidden mr-1">Price check:</span>
+          —
+        </div>
+        {/* Price check date */}
+        <div className="mt-1 sm:mt-0 text-xs sm:text-sm text-gray-400 dark:text-[#6b6b6b] sm:text-center">
+          <span className="sm:hidden mr-1">Price date:</span>
           —
         </div>
         {/* Actions */}
@@ -1113,7 +1556,7 @@ export default function InventoryPageClient({
       </div>
 
       {/* Body */}
-      <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">
         {suppliers.length === 0 ? (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-[#2e2e2e] mb-4">
@@ -1210,13 +1653,16 @@ export default function InventoryPageClient({
                     </div>
 
                     {!collapsed && (
-                      <>
+                      <div className="overflow-x-auto">
                         {/* Desktop/tablet table header */}
-                        <div className="hidden sm:grid grid-cols-[1fr_120px_160px_140px_80px] gap-3 px-4 py-2.5 bg-gray-50 dark:bg-[#2e2e2e] border-t border-b border-gray-200 dark:border-[#3a3a3a] text-[11px] font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide">
+                        <div className="hidden sm:grid grid-cols-[1fr_100px_90px_120px_120px_120px_120px_60px] gap-2 px-4 py-2.5 bg-gray-50 dark:bg-[#2e2e2e] border-t border-b border-gray-200 dark:border-[#3a3a3a] text-[11px] font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide min-w-[900px]">
                           <div>Product Name</div>
                           <div className="text-right">Quantity</div>
-                          <div className="text-center">Stock Check Request</div>
-                          <div className="text-center">Stock Check Date</div>
+                          <div className="text-right">Price</div>
+                          <div className="text-center">Stock Check</div>
+                          <div className="text-center">Stock Date</div>
+                          <div className="text-center">Price Check</div>
+                          <div className="text-center">Price Date</div>
                           <div className="text-right">Actions</div>
                         </div>
 
@@ -1267,7 +1713,7 @@ export default function InventoryPageClient({
                             </button>
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
                   </div>
                 </section>
@@ -1396,6 +1842,19 @@ export default function InventoryPageClient({
         />
       )}
 
+      {/* Price check request modal */}
+      {priceCheckProduct && (
+        <PriceCheckRequestModal
+          productName={priceCheckProduct.name}
+          supplierName={
+            suppliers.find((s) => s.id === priceCheckProduct.supplier_id)?.name ?? ''
+          }
+          profiles={profiles}
+          onClose={() => setPriceCheckProduct(null)}
+          onSubmit={submitPriceCheckRequest}
+        />
+      )}
+
       {/* Hidden date input used by the manual stock check date override. One
           input is reused across all product rows — openManualDatePicker
           re-targets it per product before opening the native picker. */}
@@ -1406,6 +1865,16 @@ export default function InventoryPageClient({
         tabIndex={-1}
         aria-hidden="true"
         onChange={handleManualDateChange}
+      />
+
+      {/* Hidden date input for manual price check date override. */}
+      <input
+        ref={manualPriceDateInputRef}
+        type="date"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={handleManualPriceDateChange}
       />
     </div>
   )
