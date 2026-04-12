@@ -7,6 +7,7 @@ import type {
   MaterialSupplier,
   InventoryProduct,
   InventoryKitGroup,
+  UnitType,
 } from '@/types'
 import InventoryPageClient, {
   type InventoryProfileOption,
@@ -42,6 +43,7 @@ export default async function InventoryPage() {
     { data: productsRaw },
     { data: kitGroupsRaw },
     { data: profilesRaw },
+    { data: unitTypesRaw },
   ] = await Promise.all([
     supabase
       .from('material_suppliers')
@@ -61,12 +63,18 @@ export default async function InventoryPage() {
       .from('profiles')
       .select('id, display_name')
       .order('display_name', { ascending: true }),
+    supabase
+      .from('unit_types')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
   ])
 
   const suppliers = (suppliersRaw ?? []) as MaterialSupplier[]
   const products = (productsRaw ?? []) as InventoryProduct[]
   const kitGroups = (kitGroupsRaw ?? []) as InventoryKitGroup[]
   const profiles = (profilesRaw ?? []) as InventoryProfileOption[]
+  const unitTypes = (unitTypesRaw ?? []) as UnitType[]
 
   // Build a lookup of pending stock check task → assignee display name, so the
   // UI can render "Pending — Alice" without another round trip. We only need
@@ -104,6 +112,7 @@ export default async function InventoryPage() {
       initialSuppliers={suppliers}
       initialProducts={products}
       initialKitGroups={kitGroups}
+      initialUnitTypes={unitTypes}
       profiles={profiles}
       initialPendingStockChecks={pendingStockChecks}
     />

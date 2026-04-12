@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { XIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { InventoryKitGroup, InventoryProduct, InventoryUnit } from '@/types'
+import type { InventoryKitGroup, InventoryProduct, InventoryUnit, UnitType } from '@/types'
 
 export interface ProductFormData {
   name: string
@@ -17,6 +17,7 @@ interface Props {
   supplierName: string
   /** Kit groups belonging to the current supplier — used to populate the dropdown. */
   kitGroups: InventoryKitGroup[]
+  unitTypes: UnitType[]
   onClose: () => void
   onSave: (data: ProductFormData) => Promise<void> | void
 }
@@ -25,6 +26,7 @@ export default function ProductModal({
   product,
   supplierName,
   kitGroups,
+  unitTypes,
   onClose,
   onSave,
 }: Props) {
@@ -36,7 +38,7 @@ export default function ProductModal({
       : '0'
   )
   const [unit, setUnit] = useState<InventoryUnit>(
-    (product?.unit as InventoryUnit) ?? 'gallons'
+    product?.unit ?? (unitTypes.length > 0 ? unitTypes[0].abbreviation : 'gal')
   )
   const [kitGroupId, setKitGroupId] = useState<string>(product?.kit_group_id ?? '')
   const [saving, setSaving] = useState(false)
@@ -148,11 +150,18 @@ export default function ProductModal({
                   </label>
                   <select
                     value={unit}
-                    onChange={(e) => setUnit(e.target.value as InventoryUnit)}
+                    onChange={(e) => setUnit(e.target.value)}
                     className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
                   >
-                    <option value="gallons">Gallons</option>
-                    <option value="parts">Parts</option>
+                    {unitTypes.length === 0 ? (
+                      <option value="" disabled>No unit types — add them in Settings</option>
+                    ) : (
+                      unitTypes.map((ut) => (
+                        <option key={ut.id} value={ut.abbreviation}>
+                          {ut.name} ({ut.abbreviation})
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>

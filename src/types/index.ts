@@ -548,7 +548,15 @@ export interface ProjectPreLien {
   deleted_at: string | null
 }
 
-export type InventoryUnit = 'gallons' | 'parts'
+export type InventoryUnit = string
+
+export interface UnitType {
+  id: string
+  name: string
+  abbreviation: string
+  sort_order: number
+  created_at: string
+}
 
 export interface MaterialSupplier {
   id: string
