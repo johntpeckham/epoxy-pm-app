@@ -88,7 +88,7 @@ export default function ProductModal({
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-[#3a3a3a] flex-shrink-0">
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                {isEdit ? 'Edit Product' : 'Add Product'}
+                {isEdit ? 'Edit Product' : 'Add Single Product'}
               </h2>
               {supplierName && (
                 <p className="text-xs text-gray-500 dark:text-[#a0a0a0] truncate">
@@ -157,28 +157,34 @@ export default function ProductModal({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
-                  Kit Group
-                </label>
-                <select
-                  value={kitGroupId}
-                  onChange={(e) => setKitGroupId(e.target.value)}
-                  className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
-                >
-                  <option value="">None (standalone product)</option>
-                  {kitGroups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-                {kitGroups.length === 0 && (
-                  <p className="text-[11px] text-gray-400 dark:text-[#6b6b6b] mt-1">
-                    No kit groups yet for this supplier. Create one from the supplier section.
-                  </p>
-                )}
-              </div>
+              {/* Kit Group dropdown is only available when editing an
+                  existing product. The add flow creates standalone products
+                  only — kit creation has its own dedicated "Add Kit" modal
+                  that handles kit + sub-items in one step. */}
+              {isEdit && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                    Kit Group
+                  </label>
+                  <select
+                    value={kitGroupId}
+                    onChange={(e) => setKitGroupId(e.target.value)}
+                    className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                  >
+                    <option value="">None (standalone product)</option>
+                    {kitGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                  {kitGroups.length === 0 && (
+                    <p className="text-[11px] text-gray-400 dark:text-[#6b6b6b] mt-1">
+                      No kit groups yet for this supplier.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Footer */}
@@ -196,7 +202,7 @@ export default function ProductModal({
                 disabled={saving || !name.trim()}
                 className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-lg transition"
               >
-                {saving ? 'Saving…' : isEdit ? 'Save' : 'Add Product'}
+                {saving ? 'Saving…' : isEdit ? 'Save' : 'Add Single Product'}
               </button>
             </div>
           </form>
