@@ -1729,6 +1729,42 @@ export default function EmployeeManagement({
                         </div>
                       )
                     })()}
+                    {/* Crew badges */}
+                    {(() => {
+                      const empCrewIds = crewAssignments.filter(a => a.employee_id === emp.id).map(a => a.crew_id)
+                      const empCrews = crews.filter(c => empCrewIds.includes(c.id))
+                      if (empCrews.length === 0) return null
+                      return (
+                        <div className="flex flex-wrap gap-0.5 px-1.5 pt-0.5">
+                          {empCrews.map(c => (
+                            <span
+                              key={c.id}
+                              className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-semibold leading-tight bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
+                            >
+                              {c.name}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                    {/* Skill type badges */}
+                    {(() => {
+                      const empSkillIds = skillTypeAssignments.filter(a => a.employee_id === emp.id).map(a => a.skill_type_id)
+                      const empSkills = skillTypes.filter(s => empSkillIds.includes(s.id))
+                      if (empSkills.length === 0) return null
+                      return (
+                        <div className="flex flex-wrap gap-0.5 px-1.5 pt-0.5">
+                          {empSkills.map(s => (
+                            <span
+                              key={s.id}
+                              className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-semibold leading-tight bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                            >
+                              {s.name}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
                     {/* Actions */}
                     <div className="flex items-center gap-0.5 px-1.5 pb-1.5 mt-auto">
                       <button
