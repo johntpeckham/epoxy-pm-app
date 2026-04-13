@@ -134,27 +134,25 @@ function FieldControls({
   setDeleteConfirm: (id: string | null) => void
 }) {
   return (
-    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
-      <div className="flex items-center gap-0.5 bg-gray-50 border border-gray-200 rounded-lg px-1 py-0.5">
-        <button
-          onClick={() => onMove(fieldId, 'up')}
-          disabled={idx === 0}
-          title="Move up"
-          className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 disabled:text-gray-300 disabled:hover:bg-transparent rounded transition"
-        >
-          <ChevronUpIcon className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => onMove(fieldId, 'down')}
-          disabled={idx === total - 1}
-          title="Move down"
-          className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 disabled:text-gray-300 disabled:hover:bg-transparent rounded transition"
-        >
-          <ChevronDownIcon className="w-4 h-4" />
-        </button>
-      </div>
+    <div className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 z-10 transition-opacity ${deleteConfirm === fieldId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+      <button
+        onClick={() => onMove(fieldId, 'up')}
+        disabled={idx === 0}
+        title="Move up"
+        className="p-1 text-gray-300 hover:text-amber-600 disabled:text-gray-200 disabled:hover:text-gray-200 rounded transition"
+      >
+        <ChevronUpIcon className="w-3.5 h-3.5" />
+      </button>
+      <button
+        onClick={() => onMove(fieldId, 'down')}
+        disabled={idx === total - 1}
+        title="Move down"
+        className="p-1 text-gray-300 hover:text-amber-600 disabled:text-gray-200 disabled:hover:text-gray-200 rounded transition"
+      >
+        <ChevronDownIcon className="w-3.5 h-3.5" />
+      </button>
       {deleteConfirm === fieldId ? (
-        <div className="flex items-center gap-1 ml-1">
+        <div className="flex items-center gap-1 ml-0.5">
           <button
             onClick={() => onDelete(fieldId)}
             className="px-2 py-0.5 rounded bg-red-500 text-white text-[11px] font-medium hover:bg-red-600 transition"
@@ -172,9 +170,9 @@ function FieldControls({
         <button
           onClick={() => setDeleteConfirm(fieldId)}
           title="Delete field"
-          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition"
+          className="p-1 text-gray-300 hover:text-red-500 rounded transition"
         >
-          <Trash2Icon className="w-3.5 h-3.5" />
+          <Trash2Icon className="w-3 h-3" />
         </button>
       )}
     </div>
@@ -219,15 +217,15 @@ function SortableFieldRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative pl-8 pr-24 ${isDragging ? 'z-50 opacity-80 shadow-lg rounded-lg bg-white ring-2 ring-amber-400' : ''}`}
+      className={`group relative pl-7 pr-20 ${isDragging ? 'z-50 opacity-80 shadow-lg rounded-lg bg-white ring-2 ring-amber-400' : ''}`}
     >
       {/* Drag handle */}
       <div
         {...attributes}
         {...listeners}
-        className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
+        className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-gray-200 hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none"
       >
-        <GripVerticalIcon className="w-4 h-4" />
+        <GripVerticalIcon className="w-3.5 h-3.5" />
       </div>
       {renderField(field)}
       <FieldControls
@@ -247,31 +245,30 @@ function SortableFieldRow({
 
 function SectionHeaderField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
   return (
-    <div className="pt-2 pb-1">
+    <div className="pt-3 pb-1.5 border-b border-amber-100">
       <InlineEdit
         value={field.label}
         onChange={(v) => onUpdate({ label: v })}
-        className="text-xs font-bold text-gray-400 uppercase tracking-widest"
+        className="text-xs font-semibold uppercase tracking-wide text-amber-700"
         placeholder="Section Title"
       />
-      <div className="border-b border-gray-200 mt-2" />
     </div>
   )
 }
 
 function ShortTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-2 flex flex-col items-end gap-0.5">
         <InlineEdit
           value={field.label}
           onChange={(v) => onUpdate({ label: v })}
-          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          className="text-xs font-medium text-gray-600"
           placeholder="Label"
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
-      <div className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white">
+      <div className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white">
         <InlineEdit
           value={field.placeholder || ''}
           onChange={(v) => onUpdate({ placeholder: v })}
@@ -285,17 +282,17 @@ function ShortTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: P
 
 function LongTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-2 flex flex-col items-end gap-0.5">
         <InlineEdit
           value={field.label}
           onChange={(v) => onUpdate({ label: v })}
-          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          className="text-xs font-medium text-gray-600"
           placeholder="Label"
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
-      <div className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white min-h-[5rem]">
+      <div className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white min-h-[5rem]">
         <InlineEdit
           value={field.placeholder || ''}
           onChange={(v) => onUpdate({ placeholder: v })}
@@ -309,15 +306,20 @@ function LongTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Pa
 
 function CheckboxField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-5 h-5 border-2 border-gray-300 rounded flex-shrink-0" />
-      <InlineEdit
-        value={field.label}
-        onChange={(v) => onUpdate({ label: v })}
-        className="text-sm text-gray-700"
-        placeholder="Checkbox label"
-      />
-      <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-0.5 flex flex-col items-end gap-0.5">
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-medium text-gray-600"
+          placeholder="Checkbox label"
+        />
+        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+      </div>
+      <div className="flex items-center gap-2 pt-0.5">
+        <div className="w-5 h-5 border-2 border-gray-300 rounded flex-shrink-0" />
+        <span className="text-sm text-gray-400">Checkbox</span>
+      </div>
     </div>
   )
 }
@@ -336,17 +338,17 @@ function CheckboxGroupField({
   onRemoveOption: (idx: number) => void
 }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-2">
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-1 flex flex-col items-end gap-0.5">
         <InlineEdit
           value={field.label}
           onChange={(v) => onUpdate({ label: v })}
-          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          className="text-xs font-medium text-gray-600"
           placeholder="Label"
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
-      <div className="space-y-2 ml-1">
+      <div className="space-y-2">
         {field.options.map((opt, i) => (
           <div key={i} className="flex items-center gap-3 group/opt">
             <div className="w-5 h-5 border-2 border-gray-300 rounded flex-shrink-0" />
@@ -390,48 +392,50 @@ function DropdownField({
   onRemoveOption: (idx: number) => void
 }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-2 flex flex-col items-end gap-0.5">
         <InlineEdit
           value={field.label}
           onChange={(v) => onUpdate({ label: v })}
-          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          className="text-xs font-medium text-gray-600"
           placeholder="Label"
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
-      <div className="border border-gray-300 rounded-lg overflow-hidden">
-        <div className="px-3 py-2.5 bg-white text-sm text-gray-400 flex items-center justify-between">
-          <span>{field.options[0] || 'Select...'}</span>
-          <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-        </div>
-      </div>
-      <div className="mt-2 ml-1 space-y-1.5">
-        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Options</p>
-        {field.options.map((opt, i) => (
-          <div key={i} className="flex items-center gap-2 group/opt">
-            <span className="text-xs text-gray-300 w-4 text-right">{i + 1}.</span>
-            <InlineEdit
-              value={opt}
-              onChange={(v) => onUpdateOption(i, v)}
-              className="text-sm text-gray-700"
-              placeholder="Option"
-            />
-            <button
-              onClick={() => onRemoveOption(i)}
-              className="opacity-0 group-hover/opt:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition"
-            >
-              <XIcon className="w-3.5 h-3.5" />
-            </button>
+      <div>
+        <div className="border border-gray-300 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-white text-sm text-gray-400 flex items-center justify-between">
+            <span>{field.options[0] || 'Select...'}</span>
+            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
           </div>
-        ))}
-        <button
-          onClick={onAddOption}
-          className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium ml-6 transition"
-        >
-          <PlusIcon className="w-3 h-3" />
-          Add option
-        </button>
+        </div>
+        <div className="mt-2 space-y-1.5">
+          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Options</p>
+          {field.options.map((opt, i) => (
+            <div key={i} className="flex items-center gap-2 group/opt">
+              <span className="text-xs text-gray-300 w-4 text-right">{i + 1}.</span>
+              <InlineEdit
+                value={opt}
+                onChange={(v) => onUpdateOption(i, v)}
+                className="text-sm text-gray-700"
+                placeholder="Option"
+              />
+              <button
+                onClick={() => onRemoveOption(i)}
+                className="opacity-0 group-hover/opt:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition"
+              >
+                <XIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={onAddOption}
+            className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium ml-6 transition"
+          >
+            <PlusIcon className="w-3 h-3" />
+            Add option
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -439,12 +443,12 @@ function DropdownField({
 
 function DateField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-2 flex flex-col items-end gap-0.5">
         <InlineEdit
           value={field.label}
           onChange={(v) => onUpdate({ label: v })}
-          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          className="text-xs font-medium text-gray-600"
           placeholder="Label"
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
@@ -452,7 +456,7 @@ function DateField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partia
       <input
         type="date"
         readOnly
-        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-400 cursor-default focus:outline-none"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-400 cursor-default focus:outline-none"
       />
     </div>
   )
@@ -460,17 +464,17 @@ function DateField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partia
 
 function NumberField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-2 flex flex-col items-end gap-0.5">
         <InlineEdit
           value={field.label}
           onChange={(v) => onUpdate({ label: v })}
-          className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          className="text-xs font-medium text-gray-600"
           placeholder="Label"
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
-      <div className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white">
+      <div className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white">
         <InlineEdit
           value={field.placeholder || ''}
           onChange={(v) => onUpdate({ placeholder: v })}
@@ -797,7 +801,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                       <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                        <div className="p-4 md:p-6 space-y-5">
+                        <div className="p-4 md:p-6 space-y-3">
                           {fields.map((field, idx) => (
                             <SortableFieldRow
                               key={field.id}
