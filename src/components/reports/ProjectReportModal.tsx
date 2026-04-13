@@ -240,6 +240,24 @@ export default function ProjectReportModal({
     loadSelections()
   }, [projectId])
 
+  async function handleChecklistChange(itemId: string, checked: boolean) {
+    setChecklistResponses((prev) => {
+      const next = new Map(prev)
+      next.set(itemId, checked)
+      return next
+    })
+
+    const supabase = createClient()
+    await supabase.from('job_report_checklist_responses').upsert(
+      {
+        project_id: projectId,
+        checklist_item_id: itemId,
+        checked,
+      },
+      { onConflict: 'project_id,checklist_item_id' }
+    )
+  }
+
   function handlePrint() {
     window.print()
   }
@@ -569,35 +587,34 @@ export default function ProjectReportModal({
                     )
                   }
 
-                  // Checklist section (legacy) — render read-only checklist items as standalone section
+                  // Checklist section (legacy) — render interactive checklist in card
                   if (section.checklistId) {
                     const data = checklistData.get(section.checklistId)
                     if (!data || data.items.length === 0) return null
                     return (
                       <div key={`section-${sIdx}`}>
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
-                          {data.name}
-                        </h3>
-                        <div className="space-y-2">
-                          {data.items.map((item) => {
-                            const isChecked = checklistResponses.get(item.id) ?? false
-                            return (
-                              <div key={item.id} className="flex items-center gap-3 py-1">
-                                <div
-                                  className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
-                                    isChecked
-                                      ? 'bg-amber-500 border-amber-500'
-                                      : 'border-gray-300'
-                                  }`}
-                                >
-                                  {isChecked && <CheckIcon className="w-3 h-3 text-white" />}
-                                </div>
-                                <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                                  {item.text}
-                                </span>
-                              </div>
-                            )
-                          })}
+                        <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
+                          <div className="px-3 py-2 bg-gray-100/60 border-b border-gray-200">
+                            <span className="text-sm font-semibold text-gray-900">{data.name}</span>
+                          </div>
+                          <div className="px-3 py-2 space-y-1">
+                            {data.items.map((item) => {
+                              const isChecked = checklistResponses.get(item.id) ?? false
+                              return (
+                                <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
+                                    className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                                  />
+                                  <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                                    {item.text}
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </div>
                         </div>
                       </div>
                     )
@@ -627,7 +644,7 @@ export default function ProjectReportModal({
                             )
                           }
 
-                          // Inline checklist — full width
+                          // Inline checklist — full width, interactive, card style
                           if (f.inlineType === 'checklist' && f.checklistId) {
                             const template = allChecklistTemplates.find((t) => t.id === f.checklistId)
                             if (!template || template.items.length === 0) return null
@@ -636,26 +653,28 @@ export default function ProjectReportModal({
                                 <span className="text-xs font-medium text-gray-500">
                                   {f.label}
                                 </span>
-                                <div className="space-y-2">
-                                  {template.items.map((item) => {
-                                    const isChecked = checklistResponses.get(item.id) ?? false
-                                    return (
-                                      <div key={item.id} className="flex items-center gap-3 py-1">
-                                        <div
-                                          className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
-                                            isChecked
-                                              ? 'bg-amber-500 border-amber-500'
-                                              : 'border-gray-300'
-                                          }`}
-                                        >
-                                          {isChecked && <CheckIcon className="w-3 h-3 text-white" />}
-                                        </div>
-                                        <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                                          {item.text}
-                                        </span>
-                                      </div>
-                                    )
-                                  })}
+                                <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
+                                  <div className="px-3 py-2 bg-gray-100/60 border-b border-gray-200">
+                                    <span className="text-sm font-semibold text-gray-900">{template.name}</span>
+                                  </div>
+                                  <div className="px-3 py-2 space-y-1">
+                                    {template.items.map((item) => {
+                                      const isChecked = checklistResponses.get(item.id) ?? false
+                                      return (
+                                        <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
+                                            className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                                          />
+                                          <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                                            {item.text}
+                                          </span>
+                                        </label>
+                                      )
+                                    })}
+                                  </div>
                                 </div>
                               </div>
                             )
