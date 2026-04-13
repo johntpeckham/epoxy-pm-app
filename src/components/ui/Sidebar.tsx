@@ -120,7 +120,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           <Link
             href="/office"
             onClick={() => setMobileOpen(false)}
-            className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isOfficeActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                 : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -277,7 +277,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         )}
 
         {/* Divider */}
-        <div className="my-2 border-t border-gray-800 hidden md:block" />
+        <div className="my-2 border-t border-gray-800" />
 
         <Link
           href="/estimates"
@@ -308,7 +308,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         <Link
           href="/job-takeoff"
           onClick={() => setMobileOpen(false)}
-          className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             isJobTakeoffActive
               ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
               : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -322,7 +322,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           <Link
             href="/scheduler"
             onClick={() => setMobileOpen(false)}
-            className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isSchedulerActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                 : 'text-gray-400 hover:text-white hover:bg-gray-800'
