@@ -36,6 +36,8 @@ import {
   HashIcon,
   MinusIcon,
   XIcon,
+  PencilIcon,
+  ArrowUpDownIcon,
 } from 'lucide-react'
 import type { FormTemplate, FormField, FormFieldType } from '@/types'
 
@@ -72,11 +74,15 @@ function InlineEdit({
   onChange,
   className = '',
   placeholder = '',
+  autoEdit = false,
+  onEditDone,
 }: {
   value: string
   onChange: (v: string) => void
   className?: string
   placeholder?: string
+  autoEdit?: boolean
+  onEditDone?: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -85,8 +91,22 @@ function InlineEdit({
   useEffect(() => { setDraft(value) }, [value])
 
   useEffect(() => {
-    if (editing) inputRef.current?.focus()
+    if (autoEdit && !editing) setEditing(true)
+  }, [autoEdit]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
   }, [editing])
+
+  function finishEdit(save: boolean) {
+    if (save) onChange(draft)
+    else setDraft(value)
+    setEditing(false)
+    onEditDone?.()
+  }
 
   if (!editing) {
     return (
@@ -105,10 +125,10 @@ function InlineEdit({
       type="text"
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => { onChange(draft); setEditing(false) }}
+      onBlur={() => finishEdit(true)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') { onChange(draft); setEditing(false) }
-        if (e.key === 'Escape') { setDraft(value); setEditing(false) }
+        if (e.key === 'Enter') finishEdit(true)
+        if (e.key === 'Escape') finishEdit(false)
       }}
       className={`bg-white border border-amber-400 rounded px-1 -mx-1 outline-none focus:ring-2 focus:ring-amber-500 ${className}`}
     />
@@ -179,6 +199,169 @@ function FieldControls({
   )
 }
 
+/* ── Section grouping helper ── */
+interface FieldSection {
+  headerId: string | null
+  contentFields: FormField[]
+  allFields: FormField[]
+}
+
+function groupFieldsIntoSections(fields: FormField[]): FieldSection[] {
+  const sections: FieldSection[] = []
+  let current: FieldSection | null = null
+  for (const field of fields) {
+    if (field.type === 'section_header') {
+      current = { headerId: field.id, contentFields: [], allFields: [field] }
+      sections.push(current)
+    } else {
+      if (!current) {
+        current = { headerId: null, contentFields: [], allFields: [] }
+        sections.push(current)
+      }
+      current.contentFields.push(field)
+      current.allFields.push(field)
+    }
+  }
+  return sections
+}
+
+/* ── Add field type options for inline form ── */
+const ADD_FIELD_TYPE_OPTIONS: { value: FormFieldType; label: string }[] = [
+  { value: 'short_text', label: 'Text' },
+  { value: 'long_text', label: 'Textarea' },
+  { value: 'date', label: 'Date' },
+  { value: 'number', label: 'Number' },
+  { value: 'dropdown', label: 'Select/Dropdown' },
+  { value: 'checkbox', label: 'Checkbox' },
+  { value: 'checkbox_group', label: 'Checkbox Group' },
+]
+
+/* ── Inline add-field form ── */
+function AddFieldForm({
+  onAdd,
+  onCancel,
+}: {
+  onAdd: (name: string, type: FormFieldType, required: boolean) => void
+  onCancel: () => void
+}) {
+  const [name, setName] = useState('')
+  const [type, setType] = useState<FormFieldType>('short_text')
+  const [required, setRequired] = useState(false)
+  const nameRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { nameRef.current?.focus() }, [])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (name.trim()) onAdd(name.trim(), type, required)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-lg border border-gray-200">
+      <input
+        ref={nameRef}
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Field name"
+        className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-md border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-400"
+      />
+      <select
+        value={type}
+        onChange={(e) => setType(e.target.value as FormFieldType)}
+        className="px-2 py-1.5 text-xs rounded-md border border-gray-300 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+      >
+        {ADD_FIELD_TYPE_OPTIONS.map((t) => (
+          <option key={t.value} value={t.value}>{t.label}</option>
+        ))}
+      </select>
+      <label className="flex items-center gap-1.5 text-[11px] text-gray-500 whitespace-nowrap cursor-pointer">
+        <input
+          type="checkbox"
+          checked={required}
+          onChange={(e) => setRequired(e.target.checked)}
+          className="rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+        />
+        Required
+      </label>
+      <button
+        type="submit"
+        disabled={!name.trim()}
+        className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-white text-xs font-medium rounded-md transition"
+      >
+        Add
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600 transition"
+      >
+        Cancel
+      </button>
+    </form>
+  )
+}
+
+/* ── Hover controls (edit + delete, shown when NOT in reorder mode) ── */
+function HoverControls({
+  fieldId,
+  onEdit,
+  onDelete,
+  deleteConfirm,
+  setDeleteConfirm,
+  isSectionHeader,
+  sectionFieldCount,
+}: {
+  fieldId: string
+  onEdit: () => void
+  onDelete: (id: string) => void
+  deleteConfirm: string | null
+  setDeleteConfirm: (id: string | null) => void
+  isSectionHeader: boolean
+  sectionFieldCount: number
+}) {
+  return (
+    <div className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 z-10 transition-opacity ${deleteConfirm === fieldId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+      {deleteConfirm === fieldId ? (
+        <div className="flex items-center gap-1 ml-0.5">
+          <span className="text-[11px] text-gray-500 mr-1 whitespace-nowrap">
+            {isSectionHeader ? `Delete section & ${sectionFieldCount} field${sectionFieldCount !== 1 ? 's' : ''}?` : 'Delete?'}
+          </span>
+          <button
+            onClick={() => onDelete(fieldId)}
+            className="px-2 py-0.5 rounded bg-red-500 text-white text-[11px] font-medium hover:bg-red-600 transition"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => setDeleteConfirm(null)}
+            className="px-2 py-0.5 rounded border border-gray-200 text-gray-500 text-[11px] font-medium hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <>
+          <button
+            onClick={onEdit}
+            title="Edit name"
+            className="p-1 text-gray-300 hover:text-amber-600 rounded transition"
+          >
+            <PencilIcon className="w-3 h-3" />
+          </button>
+          <button
+            onClick={() => setDeleteConfirm(fieldId)}
+            title={isSectionHeader ? 'Delete section' : 'Delete field'}
+            className="p-1 text-gray-300 hover:text-red-500 rounded transition"
+          >
+            <Trash2Icon className="w-3 h-3" />
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 /* ── Sortable field row ── */
 function SortableFieldRow({
   field,
@@ -189,6 +372,9 @@ function SortableFieldRow({
   deleteConfirm,
   setDeleteConfirm,
   renderField,
+  reorderMode,
+  onEditField,
+  sectionFieldCount,
 }: {
   field: FormField
   idx: number
@@ -198,6 +384,9 @@ function SortableFieldRow({
   deleteConfirm: string | null
   setDeleteConfirm: (id: string | null) => void
   renderField: (field: FormField) => React.ReactNode
+  reorderMode: boolean
+  onEditField: (id: string) => void
+  sectionFieldCount: number
 }) {
   const {
     attributes,
@@ -206,7 +395,7 @@ function SortableFieldRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: field.id })
+  } = useSortable({ id: field.id, disabled: !reorderMode })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -217,33 +406,47 @@ function SortableFieldRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative pl-7 pr-20 ${isDragging ? 'z-50 opacity-80 shadow-lg rounded-lg bg-white ring-2 ring-amber-400' : ''}`}
+      className={`group relative ${reorderMode ? 'pl-7 pr-20' : 'pl-2 pr-16'} ${isDragging ? 'z-50 opacity-80 shadow-lg rounded-lg bg-white ring-2 ring-amber-400' : ''}`}
     >
-      {/* Drag handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-gray-200 hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none"
-      >
-        <GripVerticalIcon className="w-3.5 h-3.5" />
-      </div>
+      {/* Drag handle — only in reorder mode */}
+      {reorderMode && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-gray-200 hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none"
+        >
+          <GripVerticalIcon className="w-3.5 h-3.5" />
+        </div>
+      )}
       {renderField(field)}
-      <FieldControls
-        fieldId={field.id}
-        idx={idx}
-        total={total}
-        onMove={onMove}
-        onDelete={onDelete}
-        deleteConfirm={deleteConfirm}
-        setDeleteConfirm={setDeleteConfirm}
-      />
+      {reorderMode ? (
+        <FieldControls
+          fieldId={field.id}
+          idx={idx}
+          total={total}
+          onMove={onMove}
+          onDelete={onDelete}
+          deleteConfirm={deleteConfirm}
+          setDeleteConfirm={setDeleteConfirm}
+        />
+      ) : (
+        <HoverControls
+          fieldId={field.id}
+          onEdit={() => onEditField(field.id)}
+          onDelete={onDelete}
+          deleteConfirm={deleteConfirm}
+          setDeleteConfirm={setDeleteConfirm}
+          isSectionHeader={field.type === 'section_header'}
+          sectionFieldCount={sectionFieldCount}
+        />
+      )}
     </div>
   )
 }
 
 /* ── Individual WYSIWYG field renderers ── */
 
-function SectionHeaderField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+function SectionHeaderField({ field, onUpdate, autoEdit, onEditDone }: { field: FormField; onUpdate: (u: Partial<FormField>) => void; autoEdit?: boolean; onEditDone?: () => void }) {
   return (
     <div className="pt-3 pb-1.5 border-b border-amber-100">
       <InlineEdit
@@ -251,12 +454,14 @@ function SectionHeaderField({ field, onUpdate }: { field: FormField; onUpdate: (
         onChange={(v) => onUpdate({ label: v })}
         className="text-xs font-semibold uppercase tracking-wide text-amber-700"
         placeholder="Section Title"
+        autoEdit={autoEdit}
+        onEditDone={onEditDone}
       />
     </div>
   )
 }
 
-function ShortTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+function ShortTextField({ field, onUpdate, autoEdit, onEditDone }: { field: FormField; onUpdate: (u: Partial<FormField>) => void; autoEdit?: boolean; onEditDone?: () => void }) {
   return (
     <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
       <div className="pt-2 flex flex-col items-end gap-0.5">
@@ -265,6 +470,8 @@ function ShortTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: P
           onChange={(v) => onUpdate({ label: v })}
           className="text-xs font-medium text-gray-600"
           placeholder="Label"
+          autoEdit={autoEdit}
+          onEditDone={onEditDone}
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
@@ -280,7 +487,7 @@ function ShortTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: P
   )
 }
 
-function LongTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+function LongTextField({ field, onUpdate, autoEdit, onEditDone }: { field: FormField; onUpdate: (u: Partial<FormField>) => void; autoEdit?: boolean; onEditDone?: () => void }) {
   return (
     <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
       <div className="pt-2 flex flex-col items-end gap-0.5">
@@ -289,6 +496,8 @@ function LongTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Pa
           onChange={(v) => onUpdate({ label: v })}
           className="text-xs font-medium text-gray-600"
           placeholder="Label"
+          autoEdit={autoEdit}
+          onEditDone={onEditDone}
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
@@ -304,7 +513,7 @@ function LongTextField({ field, onUpdate }: { field: FormField; onUpdate: (u: Pa
   )
 }
 
-function CheckboxField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+function CheckboxField({ field, onUpdate, autoEdit, onEditDone }: { field: FormField; onUpdate: (u: Partial<FormField>) => void; autoEdit?: boolean; onEditDone?: () => void }) {
   return (
     <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
       <div className="pt-0.5 flex flex-col items-end gap-0.5">
@@ -313,6 +522,8 @@ function CheckboxField({ field, onUpdate }: { field: FormField; onUpdate: (u: Pa
           onChange={(v) => onUpdate({ label: v })}
           className="text-xs font-medium text-gray-600"
           placeholder="Checkbox label"
+          autoEdit={autoEdit}
+          onEditDone={onEditDone}
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
@@ -330,12 +541,16 @@ function CheckboxGroupField({
   onAddOption,
   onUpdateOption,
   onRemoveOption,
+  autoEdit,
+  onEditDone,
 }: {
   field: FormField
   onUpdate: (u: Partial<FormField>) => void
   onAddOption: () => void
   onUpdateOption: (idx: number, val: string) => void
   onRemoveOption: (idx: number) => void
+  autoEdit?: boolean
+  onEditDone?: () => void
 }) {
   return (
     <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
@@ -345,6 +560,8 @@ function CheckboxGroupField({
           onChange={(v) => onUpdate({ label: v })}
           className="text-xs font-medium text-gray-600"
           placeholder="Label"
+          autoEdit={autoEdit}
+          onEditDone={onEditDone}
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
@@ -384,12 +601,16 @@ function DropdownField({
   onAddOption,
   onUpdateOption,
   onRemoveOption,
+  autoEdit,
+  onEditDone,
 }: {
   field: FormField
   onUpdate: (u: Partial<FormField>) => void
   onAddOption: () => void
   onUpdateOption: (idx: number, val: string) => void
   onRemoveOption: (idx: number) => void
+  autoEdit?: boolean
+  onEditDone?: () => void
 }) {
   return (
     <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
@@ -399,6 +620,8 @@ function DropdownField({
           onChange={(v) => onUpdate({ label: v })}
           className="text-xs font-medium text-gray-600"
           placeholder="Label"
+          autoEdit={autoEdit}
+          onEditDone={onEditDone}
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
@@ -441,7 +664,7 @@ function DropdownField({
   )
 }
 
-function DateField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+function DateField({ field, onUpdate, autoEdit, onEditDone }: { field: FormField; onUpdate: (u: Partial<FormField>) => void; autoEdit?: boolean; onEditDone?: () => void }) {
   return (
     <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
       <div className="pt-2 flex flex-col items-end gap-0.5">
@@ -450,6 +673,8 @@ function DateField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partia
           onChange={(v) => onUpdate({ label: v })}
           className="text-xs font-medium text-gray-600"
           placeholder="Label"
+          autoEdit={autoEdit}
+          onEditDone={onEditDone}
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
@@ -462,7 +687,7 @@ function DateField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partia
   )
 }
 
-function NumberField({ field, onUpdate }: { field: FormField; onUpdate: (u: Partial<FormField>) => void }) {
+function NumberField({ field, onUpdate, autoEdit, onEditDone }: { field: FormField; onUpdate: (u: Partial<FormField>) => void; autoEdit?: boolean; onEditDone?: () => void }) {
   return (
     <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
       <div className="pt-2 flex flex-col items-end gap-0.5">
@@ -471,6 +696,8 @@ function NumberField({ field, onUpdate }: { field: FormField; onUpdate: (u: Part
           onChange={(v) => onUpdate({ label: v })}
           className="text-xs font-medium text-gray-600"
           placeholder="Label"
+          autoEdit={autoEdit}
+          onEditDone={onEditDone}
         />
         <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
       </div>
@@ -519,6 +746,9 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   const [saved, setSaved] = useState(false)
   const [addingFieldType, setAddingFieldType] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [reorderMode, setReorderMode] = useState(false)
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null)
+  const [addingFieldInSection, setAddingFieldInSection] = useState<string | null>(null)
 
   const selectedTemplate = templates.find((t) => t.form_key === selectedKey)
 
@@ -587,6 +817,43 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setSaved(false)
   }
 
+  function removeSectionWithFields(sectionHeaderId: string) {
+    setFields((prev) => {
+      const headerIdx = prev.findIndex((f) => f.id === sectionHeaderId)
+      if (headerIdx === -1) return prev
+      let endIdx = prev.length
+      for (let i = headerIdx + 1; i < prev.length; i++) {
+        if (prev[i].type === 'section_header') { endIdx = i; break }
+      }
+      const next = [...prev]
+      next.splice(headerIdx, endIdx - headerIdx)
+      return next.map((f, i) => ({ ...f, order: i + 1 }))
+    })
+    setDeleteConfirm(null)
+    setSaved(false)
+  }
+
+  function handleDelete(id: string) {
+    const field = fields.find((f) => f.id === id)
+    if (field?.type === 'section_header') {
+      removeSectionWithFields(id)
+    } else {
+      removeField(id)
+    }
+  }
+
+  /** Count content fields belonging to a section header */
+  function getSectionFieldCount(sectionHeaderId: string): number {
+    const headerIdx = fields.findIndex((f) => f.id === sectionHeaderId)
+    if (headerIdx === -1) return 0
+    let count = 0
+    for (let i = headerIdx + 1; i < fields.length; i++) {
+      if (fields[i].type === 'section_header') break
+      count++
+    }
+    return count
+  }
+
   function addField(type: FormFieldType) {
     const newField: FormField = {
       id: generateId(),
@@ -599,6 +866,54 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     }
     setFields((prev) => [...prev, newField])
     setAddingFieldType(false)
+    setSaved(false)
+  }
+
+  function addFieldToSection(name: string, type: FormFieldType, required: boolean, sectionHeaderId: string | null) {
+    const newField: FormField = {
+      id: generateId(),
+      type,
+      label: name,
+      placeholder: '',
+      required,
+      options: type === 'dropdown' || type === 'checkbox_group' ? ['Option 1'] : [],
+      order: 0,
+    }
+    setFields((prev) => {
+      if (sectionHeaderId === null) {
+        const firstHeaderIdx = prev.findIndex((f) => f.type === 'section_header')
+        if (firstHeaderIdx === -1) return [...prev, newField].map((f, i) => ({ ...f, order: i + 1 }))
+        const next = [...prev]
+        next.splice(firstHeaderIdx, 0, newField)
+        return next.map((f, i) => ({ ...f, order: i + 1 }))
+      }
+      const headerIdx = prev.findIndex((f) => f.id === sectionHeaderId)
+      if (headerIdx === -1) return prev
+      let insertIdx = prev.length
+      for (let i = headerIdx + 1; i < prev.length; i++) {
+        if (prev[i].type === 'section_header') { insertIdx = i; break }
+      }
+      const next = [...prev]
+      next.splice(insertIdx, 0, newField)
+      return next.map((f, i) => ({ ...f, order: i + 1 }))
+    })
+    setAddingFieldInSection(null)
+    setSaved(false)
+  }
+
+  function addSection() {
+    const id = generateId()
+    const newSection: FormField = {
+      id,
+      type: 'section_header',
+      label: 'New Section',
+      placeholder: '',
+      required: false,
+      options: [],
+      order: fields.length + 1,
+    }
+    setFields((prev) => [...prev, newSection].map((f, i) => ({ ...f, order: i + 1 })))
+    setEditingFieldId(id)
     setSaved(false)
   }
 
@@ -683,16 +998,18 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
 
   function renderField(field: FormField) {
     const onUpdate = (u: Partial<FormField>) => updateField(field.id, u)
+    const autoEdit = editingFieldId === field.id
+    const onEditDone = () => setEditingFieldId(null)
 
     switch (field.type) {
       case 'section_header':
-        return <SectionHeaderField field={field} onUpdate={onUpdate} />
+        return <SectionHeaderField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
       case 'short_text':
-        return <ShortTextField field={field} onUpdate={onUpdate} />
+        return <ShortTextField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
       case 'long_text':
-        return <LongTextField field={field} onUpdate={onUpdate} />
+        return <LongTextField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
       case 'checkbox':
-        return <CheckboxField field={field} onUpdate={onUpdate} />
+        return <CheckboxField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
       case 'checkbox_group':
         return (
           <CheckboxGroupField
@@ -701,6 +1018,8 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
             onAddOption={() => addOption(field.id)}
             onUpdateOption={(idx, val) => updateOption(field.id, idx, val)}
             onRemoveOption={(idx) => removeOption(field.id, idx)}
+            autoEdit={autoEdit}
+            onEditDone={onEditDone}
           />
         )
       case 'dropdown':
@@ -711,14 +1030,16 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
             onAddOption={() => addOption(field.id)}
             onUpdateOption={(idx, val) => updateOption(field.id, idx, val)}
             onRemoveOption={(idx) => removeOption(field.id, idx)}
+            autoEdit={autoEdit}
+            onEditDone={onEditDone}
           />
         )
       case 'date':
-        return <DateField field={field} onUpdate={onUpdate} />
+        return <DateField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
       case 'number':
-        return <NumberField field={field} onUpdate={onUpdate} />
+        return <NumberField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
       default:
-        return <ShortTextField field={field} onUpdate={onUpdate} />
+        return <ShortTextField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
     }
   }
 
@@ -779,22 +1100,36 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                         {new Date(selectedTemplate.updated_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving || saved}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition"
-                    >
-                      {saved ? (
-                        <>
-                          <CheckIcon className="w-4 h-4" />
-                          Saved
-                        </>
-                      ) : saving ? (
-                        'Saving...'
-                      ) : (
-                        'Save Changes'
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setReorderMode((v) => !v)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          reorderMode
+                            ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-300 dark:ring-amber-700'
+                            : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        }`}
+                        title={reorderMode ? 'Exit reorder mode' : 'Reorder fields'}
+                      >
+                        <ArrowUpDownIcon className="w-4 h-4" />
+                        Reorder
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        disabled={saving || saved}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition"
+                      >
+                        {saved ? (
+                          <>
+                            <CheckIcon className="w-4 h-4" />
+                            Saved
+                          </>
+                        ) : saving ? (
+                          'Saving...'
+                        ) : (
+                          'Save Changes'
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* WYSIWYG Form Card */}
@@ -802,57 +1137,68 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                       <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
                         <div className="p-4 md:p-6 space-y-3">
-                          {fields.map((field, idx) => (
-                            <SortableFieldRow
-                              key={field.id}
-                              field={field}
-                              idx={idx}
-                              total={fields.length}
-                              onMove={moveField}
-                              onDelete={removeField}
-                              deleteConfirm={deleteConfirm}
-                              setDeleteConfirm={setDeleteConfirm}
-                              renderField={renderField}
-                            />
-                          ))}
+                          {(() => {
+                            const sections = groupFieldsIntoSections(fields)
+                            return sections.map((section, sIdx) => (
+                              <div key={section.headerId ?? `__orphan_${sIdx}`}>
+                                {section.allFields.map((field) => {
+                                  const globalIdx = fields.findIndex((f) => f.id === field.id)
+                                  return (
+                                    <div key={field.id} className="mb-3 last:mb-0">
+                                      <SortableFieldRow
+                                        field={field}
+                                        idx={globalIdx}
+                                        total={fields.length}
+                                        onMove={moveField}
+                                        onDelete={handleDelete}
+                                        deleteConfirm={deleteConfirm}
+                                        setDeleteConfirm={setDeleteConfirm}
+                                        renderField={renderField}
+                                        reorderMode={reorderMode}
+                                        onEditField={(id) => setEditingFieldId(id)}
+                                        sectionFieldCount={field.type === 'section_header' ? getSectionFieldCount(field.id) : 0}
+                                      />
+                                    </div>
+                                  )
+                                })}
+                                {/* Per-section Add Field */}
+                                {!reorderMode && (
+                                  <div className="pl-2 pt-1">
+                                    {addingFieldInSection === (section.headerId ?? '__orphan__') ? (
+                                      <AddFieldForm
+                                        onAdd={(name, type, required) => addFieldToSection(name, type, required, section.headerId)}
+                                        onCancel={() => setAddingFieldInSection(null)}
+                                      />
+                                    ) : (
+                                      <button
+                                        onClick={() => setAddingFieldInSection(section.headerId ?? '__orphan__')}
+                                        className="inline-flex items-center gap-1 text-xs text-gray-300 hover:text-amber-500 font-medium transition py-1"
+                                      >
+                                        <PlusIcon className="w-3 h-3" />
+                                        Add Field
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          })()}
                         </div>
                       </SortableContext>
                     </DndContext>
 
-                    {/* Add Field Button */}
-                    <div className="px-4 md:px-6 py-4 border-t border-gray-200">
-                      {addingFieldType ? (
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Select field type</p>
-                          <div className="flex flex-wrap gap-2">
-                            {FIELD_TYPE_OPTIONS.map((opt) => (
-                              <button
-                                key={opt.value}
-                                onClick={() => addField(opt.value)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition hover:opacity-80 ${FIELD_TYPE_COLORS[opt.value]}`}
-                              >
-                                {opt.icon}
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
-                          <button
-                            onClick={() => setAddingFieldType(false)}
-                            className="text-xs text-gray-400 hover:text-gray-600 transition"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
+                    {/* Add Section Button */}
+                    {!reorderMode && (
+                      <div className="px-4 md:px-6 py-4 border-t border-gray-200">
                         <button
-                          onClick={() => setAddingFieldType(true)}
+                          onClick={addSection}
                           className="inline-flex items-center gap-1.5 px-4 py-2 border border-dashed border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-600 rounded-lg text-sm font-medium transition"
                         >
                           <PlusIcon className="w-4 h-4" />
-                          Add Field
+                          Add Section
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
