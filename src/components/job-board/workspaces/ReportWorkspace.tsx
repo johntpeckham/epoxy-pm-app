@@ -102,6 +102,8 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
   const [materialRows, setMaterialRows] = useState<MaterialSystemRow[]>([])
   const [checklistData, setChecklistData] = useState<Map<string, ChecklistSectionData>>(new Map())
   const [checklistResponses, setChecklistResponses] = useState<Map<string, boolean>>(new Map())
+  const [allChecklistTemplates, setAllChecklistTemplates] = useState<{ id: string; name: string; items: { id: string; text: string; sort_order: number }[] }[]>([])
+  const [checklistSelections, setChecklistSelections] = useState<Map<string, string>>(new Map())
 
   const projectDefaults: Partial<ProjectReportData> = {
     project_name: project.name,
@@ -194,6 +196,67 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
     }
     loadResponses()
   }, [projectId])
+
+  // Load all checklist templates for checklist_placeholder dropdowns
+  useEffect(() => {
+    async function loadAllTemplates() {
+      const supabase = createClient()
+      const { data: cls } = await supabase
+        .from('job_report_checklists')
+        .select('*')
+        .order('sort_order')
+      const { data: items } = await supabase
+        .from('job_report_checklist_items')
+        .select('*')
+        .order('sort_order')
+
+      const templates = ((cls ?? []) as { id: string; name: string }[]).map((cl) => ({
+        id: cl.id,
+        name: cl.name,
+        items: ((items ?? []) as { id: string; checklist_id: string; text: string; sort_order: number }[])
+          .filter((i) => i.checklist_id === cl.id)
+          .map((i) => ({ id: i.id, text: i.text, sort_order: i.sort_order })),
+      }))
+      setAllChecklistTemplates(templates)
+    }
+    loadAllTemplates()
+  }, [])
+
+  // Load checklist selections for this project (which template was selected for each placeholder)
+  useEffect(() => {
+    async function loadSelections() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('job_report_checklist_selections')
+        .select('*')
+        .eq('project_id', projectId)
+
+      const map = new Map<string, string>()
+      for (const row of (data ?? []) as { field_id: string; checklist_id: string }[]) {
+        map.set(row.field_id, row.checklist_id)
+      }
+      setChecklistSelections(map)
+    }
+    loadSelections()
+  }, [projectId])
+
+  async function handleChecklistSelectionChange(fieldId: string, checklistId: string) {
+    setChecklistSelections((prev) => {
+      const next = new Map(prev)
+      next.set(fieldId, checklistId)
+      return next
+    })
+
+    const supabase = createClient()
+    await supabase.from('job_report_checklist_selections').upsert(
+      {
+        project_id: projectId,
+        field_id: fieldId,
+        checklist_id: checklistId,
+      },
+      { onConflict: 'project_id,field_id' }
+    )
+  }
 
   async function handleChecklistChange(itemId: string, checked: boolean) {
     setChecklistResponses((prev) => {
@@ -357,7 +420,75 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
     if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) return null
     if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) return null
 
-    // Checklist section
+    // Material System placeholder — render full MaterialSystemPicker module
+    if (field.type === 'material_system_placeholder') {
+      return (
+        <div key={field.id}>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
+            Material Quantities
+          </h3>
+          <MaterialSystemPicker
+            rows={materialRows}
+            onChange={setMaterialRows}
+            systems={materialSystems}
+            onAddNew={addMaterialSystem}
+            onUpdateSystem={updateMaterialSystem}
+            readOnly={readOnly}
+            showQuantity
+          />
+        </div>
+      )
+    }
+
+    // Checklist placeholder — render template picker + checklist items
+    if (field.type === 'checklist_placeholder') {
+      const selectedChecklistId = checklistSelections.get(field.id)
+      const selectedTemplate = selectedChecklistId
+        ? allChecklistTemplates.find((t) => t.id === selectedChecklistId)
+        : null
+
+      return (
+        <div key={field.id}>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
+            {field.label || 'Checklist'}
+          </h3>
+          <div className="space-y-3">
+            {!readOnly && (
+              <select
+                value={selectedChecklistId ?? ''}
+                onChange={(e) => handleChecklistSelectionChange(field.id, e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 bg-white"
+              >
+                <option value="">Select a checklist template...</option>
+                {allChecklistTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            )}
+            {selectedTemplate && (
+              <div className="space-y-2">
+                {selectedTemplate.items.map((item) => (
+                  <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={checklistResponses.get(item.id) ?? false}
+                      onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
+                      disabled={readOnly}
+                      className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                    />
+                    <span className={`text-sm ${(checklistResponses.get(item.id) ?? false) ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                      {item.text}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    // Checklist section (legacy format)
     if (field.id.startsWith('checklist-')) {
       const checklistId = field.id.replace('checklist-', '')
       const data = checklistData.get(checklistId)

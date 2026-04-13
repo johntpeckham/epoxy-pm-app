@@ -102,6 +102,8 @@ export default function ProjectReportModal({
   const [materialRows, setMaterialRows] = useState<MaterialSystemRow[]>([])
   const [checklistData, setChecklistData] = useState<Map<string, ChecklistSectionData>>(new Map())
   const [checklistResponses, setChecklistResponses] = useState<Map<string, boolean>>(new Map())
+  const [allChecklistTemplates, setAllChecklistTemplates] = useState<{ id: string; name: string; items: { id: string; text: string; sort_order: number }[] }[]>([])
+  const [checklistSelections, setChecklistSelections] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const [reportExists, setReportExists] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
@@ -195,6 +197,49 @@ export default function ProjectReportModal({
     loadResponses()
   }, [projectId])
 
+  // Load all checklist templates for checklist_placeholder display
+  useEffect(() => {
+    async function loadAllTemplates() {
+      const supabase = createClient()
+      const { data: cls } = await supabase
+        .from('job_report_checklists')
+        .select('*')
+        .order('sort_order')
+      const { data: items } = await supabase
+        .from('job_report_checklist_items')
+        .select('*')
+        .order('sort_order')
+
+      const templates = ((cls ?? []) as { id: string; name: string }[]).map((cl) => ({
+        id: cl.id,
+        name: cl.name,
+        items: ((items ?? []) as { id: string; checklist_id: string; text: string; sort_order: number }[])
+          .filter((i) => i.checklist_id === cl.id)
+          .map((i) => ({ id: i.id, text: i.text, sort_order: i.sort_order })),
+      }))
+      setAllChecklistTemplates(templates)
+    }
+    loadAllTemplates()
+  }, [])
+
+  // Load checklist selections for this project
+  useEffect(() => {
+    async function loadSelections() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('job_report_checklist_selections')
+        .select('*')
+        .eq('project_id', projectId)
+
+      const map = new Map<string, string>()
+      for (const row of (data ?? []) as { field_id: string; checklist_id: string }[]) {
+        map.set(row.field_id, row.checklist_id)
+      }
+      setChecklistSelections(map)
+    }
+    loadSelections()
+  }, [projectId])
+
   function handlePrint() {
     window.print()
   }
@@ -262,13 +307,40 @@ export default function ProjectReportModal({
    * a list of data fields. We filter out empty fields and skip sections that
    * have no populated fields so the read-only view stays clean.
    */
-  function buildSections(): { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string }[] {
-    const sections: { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string }[] = []
-    let currentSection: { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string } | null = null
+  function buildSections(): { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string; isMaterialSystem?: boolean; checklistPlaceholderFieldId?: string }[] {
+    const sections: { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string; isMaterialSystem?: boolean; checklistPlaceholderFieldId?: string }[] = []
+    let currentSection: { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string; isMaterialSystem?: boolean; checklistPlaceholderFieldId?: string } | null = null
 
     for (const field of templateFields) {
       if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) continue
       if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) continue
+
+      // Material System placeholder — insert as material section at this position
+      if (field.type === 'material_system_placeholder') {
+        currentSection = { header: 'Material Quantities', fields: [], isMaterialSystem: true }
+        sections.push(currentSection)
+        currentSection = null
+        continue
+      }
+
+      // Checklist placeholder — insert as checklist section at this position
+      if (field.type === 'checklist_placeholder') {
+        const selectedChecklistId = checklistSelections.get(field.id)
+        const selectedTemplate = selectedChecklistId
+          ? allChecklistTemplates.find((t) => t.id === selectedChecklistId)
+          : null
+        if (selectedTemplate) {
+          currentSection = {
+            header: selectedTemplate.name,
+            fields: [],
+            checklistId: selectedTemplate.id,
+            checklistPlaceholderFieldId: field.id,
+          }
+          sections.push(currentSection)
+        }
+        currentSection = null
+        continue
+      }
 
       if (field.type === 'section_header') {
         // Skip Material Quantities section header (replaced by Material System picker)
@@ -276,13 +348,13 @@ export default function ProjectReportModal({
 
         // The Material System section header — we handle material rows separately
         if (field.id === 'pr-48' || field.label === 'Material System') {
-          currentSection = { header: 'Material Quantities', fields: [] }
+          currentSection = { header: 'Material Quantities', fields: [], isMaterialSystem: true }
           sections.push(currentSection)
           currentSection = null
           continue
         }
 
-        // Checklist section — handled separately
+        // Checklist section (legacy format) — handled separately
         if (field.id.startsWith('checklist-')) {
           const checklistId = field.id.replace('checklist-', '')
           const data = checklistData.get(checklistId)
@@ -400,7 +472,7 @@ export default function ProjectReportModal({
   const sections = !loading && reportExists ? buildSections() : []
 
   // Check if we have the special Material Quantities section
-  const materialSectionIdx = sections.findIndex((s) => s.header === 'Material Quantities')
+  const materialSectionIdx = sections.findIndex((s) => s.isMaterialSystem)
   const hasMaterialContent = materialRows.length > 0
 
   return (
@@ -467,7 +539,7 @@ export default function ProjectReportModal({
               <div className="space-y-6">
                 {sections.map((section, sIdx) => {
                   // Material Quantities section — render material rows instead of fields
-                  if (section.header === 'Material Quantities' && !section.checklistId) {
+                  if (section.isMaterialSystem) {
                     if (!hasMaterialContent) return null
                     return (
                       <div key={`section-${sIdx}`}>
@@ -479,8 +551,42 @@ export default function ProjectReportModal({
                     )
                   }
 
-                  // Checklist section — render read-only checklist items
-                  if (section.checklistId) {
+                  // Checklist placeholder section — use selected template items
+                  if (section.checklistPlaceholderFieldId && section.checklistId) {
+                    const template = allChecklistTemplates.find((t) => t.id === section.checklistId)
+                    if (!template || template.items.length === 0) return null
+                    return (
+                      <div key={`section-${sIdx}`}>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
+                          {template.name}
+                        </h3>
+                        <div className="space-y-2">
+                          {template.items.map((item) => {
+                            const isChecked = checklistResponses.get(item.id) ?? false
+                            return (
+                              <div key={item.id} className="flex items-center gap-3 py-1">
+                                <div
+                                  className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
+                                    isChecked
+                                      ? 'bg-amber-500 border-amber-500'
+                                      : 'border-gray-300'
+                                  }`}
+                                >
+                                  {isChecked && <CheckIcon className="w-3 h-3 text-white" />}
+                                </div>
+                                <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                                  {item.text}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // Checklist section (legacy) — render read-only checklist items
+                  if (section.checklistId && !section.checklistPlaceholderFieldId) {
                     const data = checklistData.get(section.checklistId)
                     if (!data || data.items.length === 0) return null
                     return (
