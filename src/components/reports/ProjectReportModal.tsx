@@ -614,32 +614,26 @@ export default function ProjectReportModal({
                       </h3>
                       <div className="space-y-3">
                         {section.fields.map((f, fIdx) => {
-                          // Inline material system
+                          // Inline material system — full width
                           if (f.inlineType === 'material_system') {
                             if (!hasMaterialContent) return null
                             return (
-                              <div
-                                key={`field-${sIdx}-${fIdx}`}
-                                className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[160px_1fr] sm:gap-3 sm:items-start"
-                              >
-                                <span className="text-xs font-medium text-gray-500 sm:pt-0.5 sm:text-right">
+                              <div key={`field-${sIdx}-${fIdx}`} className="flex flex-col gap-1">
+                                <span className="text-xs font-medium text-gray-500">
                                   {f.label}
                                 </span>
-                                <div>{renderMaterialRows()}</div>
+                                {renderMaterialRows()}
                               </div>
                             )
                           }
 
-                          // Inline checklist
+                          // Inline checklist — full width
                           if (f.inlineType === 'checklist' && f.checklistId) {
                             const template = allChecklistTemplates.find((t) => t.id === f.checklistId)
                             if (!template || template.items.length === 0) return null
                             return (
-                              <div
-                                key={`field-${sIdx}-${fIdx}`}
-                                className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[160px_1fr] sm:gap-3 sm:items-start"
-                              >
-                                <span className="text-xs font-medium text-gray-500 sm:pt-0.5 sm:text-right">
+                              <div key={`field-${sIdx}-${fIdx}`} className="flex flex-col gap-1">
+                                <span className="text-xs font-medium text-gray-500">
                                   {f.label}
                                 </span>
                                 <div className="space-y-2">
