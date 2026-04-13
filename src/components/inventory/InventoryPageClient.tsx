@@ -1745,7 +1745,7 @@ export default function InventoryPageClient({
           </Link>
           <PackageIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
           <h1 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">
-            Inventory Management
+            Material Inventory
           </h1>
         </div>
         {canManage && (

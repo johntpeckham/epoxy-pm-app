@@ -648,74 +648,32 @@ export default function OfficeTasksPageClient({
 
         {/* ── Employees Card (spans 2 columns) ── */}
         {canManageEmployees && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
-            {/* Card header */}
-            <div className="flex items-center gap-2 mb-3">
+          <div
+            onClick={() => setView({ kind: 'employees' })}
+            className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
               <span className="text-amber-500">
                 <UsersIcon className="w-5 h-5" />
               </span>
-              <h3 className="text-sm font-semibold text-gray-900 flex-1">Employees</h3>
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
-                {employeeCount} total
-              </span>
+              <h3 className="text-sm font-semibold text-gray-900">Employees</h3>
             </div>
-
-            {/* Summary */}
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Active employees</span>
-                <span className="font-medium text-gray-900">{employeeCount}</span>
-              </div>
-            </div>
-
-            {/* Opens the Employee Management workspace in the full work area */}
-            <button
-              onClick={() => setView({ kind: 'employees' })}
-              className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
-            >
-              Manage Employees →
-            </button>
           </div>
         )}
 
         {/* ── Material Inventory Card (spans 2 columns) ── hidden for foreman */}
         {!isForeman && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
-          {/* Card header */}
-          <div className="flex items-center gap-2 mb-3">
+        <Link
+          href="/inventory"
+          className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer block"
+        >
+          <div className="flex items-center gap-2">
             <span className="text-amber-500">
               <PackageIcon className="w-5 h-5" />
             </span>
-            <h3 className="text-sm font-semibold text-gray-900 flex-1">Material Inventory</h3>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
-              {supplierCount} suppliers
-            </span>
+            <h3 className="text-sm font-semibold text-gray-900">Material Inventory</h3>
           </div>
-
-          {supplierCount === 0 && productCount === 0 ? (
-            <div className="mb-4">
-              <p className="text-sm text-gray-400">No inventory items</p>
-            </div>
-          ) : (
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Suppliers</span>
-                <span className="font-medium text-gray-900">{supplierCount}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Products tracked</span>
-                <span className="font-medium text-gray-900">{productCount}</span>
-              </div>
-            </div>
-          )}
-
-          <Link
-            href="/inventory"
-            className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
-          >
-            Manage Inventory →
-          </Link>
-        </div>
+        </Link>
         )}
 
         {/* ── Scheduling Card (spans 2 columns) ── hidden for foreman */}
