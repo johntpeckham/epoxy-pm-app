@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon } from 'lucide-react'
 import { Profile, CslbLicense } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
@@ -778,6 +778,24 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
           </div>
         )}
 
+        {/* Job Report Management — Admin and Office Manager */}
+        {(isAdmin || isOfficeManager) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <FileTextIcon className="w-5 h-5 text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Job Report Management</h2>
+              <button
+                onClick={() => router.push('/job-report-management')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
+              >
+                <FileTextIcon className="w-3.5 h-3.5" />
+                Manage Job Reports
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">Report form editor, material systems, and checklists for job reports.</p>
+          </div>
+        )}
+
         {/* Checklist Templates — Admin and Office Manager */}
         {(isAdmin || isOfficeManager) && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -793,24 +811,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
               </button>
             </div>
             <p className="text-xs text-gray-400">Create reusable checklists that can be applied to projects from the Job Board.</p>
-          </div>
-        )}
-
-        {/* Material System Management — Admin and Office Manager */}
-        {(isAdmin || isOfficeManager) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <LayersIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Material System Management</h2>
-              <button
-                onClick={() => router.push('/material-systems')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <LayersIcon className="w-3.5 h-3.5" />
-                Manage Material Systems
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">Master list of material systems available across Project Reports and Estimates.</p>
           </div>
         )}
 
