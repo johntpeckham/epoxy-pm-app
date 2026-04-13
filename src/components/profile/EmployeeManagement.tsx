@@ -2261,7 +2261,7 @@ export default function EmployeeManagement({
                         }}
                         className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
                       >
-                        <option value="">Add crew...</option>
+                        <option value="">Select crew...</option>
                         {crews
                           .filter((c) => !formCrewIds.has(c.id))
                           .map((c) => (
@@ -2311,7 +2311,7 @@ export default function EmployeeManagement({
                         }}
                         className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
                       >
-                        <option value="">Add skill type...</option>
+                        <option value="">Select skill type...</option>
                         {skillTypes
                           .filter((s) => !formSkillTypeIds.has(s.id))
                           .map((s) => (
@@ -2647,7 +2647,7 @@ export default function EmployeeManagement({
                           }}
                           className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
                         >
-                          <option value="">Add crew...</option>
+                          <option value="">Select crew...</option>
                           {crews
                             .filter((c) => !formCrewIds.has(c.id))
                             .map((c) => (
@@ -2697,7 +2697,7 @@ export default function EmployeeManagement({
                           }}
                           className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
                         >
-                          <option value="">Add skill type...</option>
+                          <option value="">Select skill type...</option>
                           {skillTypes
                             .filter((s) => !formSkillTypeIds.has(s.id))
                             .map((s) => (
