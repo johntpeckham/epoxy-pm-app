@@ -196,18 +196,18 @@ function priceCheckDateClass(level: PriceCheckLevel): string {
 /* ================================================================== */
 
 const SUPPLIER_COLOR_MAP: Record<string, { bar: string; tint: string }> = {
-  amber:  { bar: '#92600a', tint: 'rgba(146, 96, 10, 0.22)' },
-  blue:   { bar: '#2563a8', tint: 'rgba(37, 99, 168, 0.22)' },
-  teal:   { bar: '#1d6b4f', tint: 'rgba(29, 107, 79, 0.22)' },
-  purple: { bar: '#7c3aed', tint: 'rgba(124, 58, 237, 0.22)' },
-  coral:  { bar: '#d85a30', tint: 'rgba(216, 90, 48, 0.22)' },
-  pink:   { bar: '#d4537e', tint: 'rgba(212, 83, 126, 0.22)' },
-  green:  { bar: '#4a9e22', tint: 'rgba(74, 158, 34, 0.22)' },
-  red:    { bar: '#c53030', tint: 'rgba(197, 48, 48, 0.22)' },
-  gray:   { bar: '#666666', tint: 'rgba(102, 102, 102, 0.22)' },
-  navy:   { bar: '#2d3a8c', tint: 'rgba(45, 58, 140, 0.22)' },
-  olive:  { bar: '#6b7c4a', tint: 'rgba(107, 124, 74, 0.22)' },
-  cyan:   { bar: '#0891b2', tint: 'rgba(8, 145, 178, 0.22)' },
+  amber:  { bar: '#92600a', tint: 'rgba(146, 96, 10, 0.32)' },
+  blue:   { bar: '#2563a8', tint: 'rgba(37, 99, 168, 0.32)' },
+  teal:   { bar: '#1d6b4f', tint: 'rgba(29, 107, 79, 0.32)' },
+  purple: { bar: '#7c3aed', tint: 'rgba(124, 58, 237, 0.32)' },
+  coral:  { bar: '#d85a30', tint: 'rgba(216, 90, 48, 0.32)' },
+  pink:   { bar: '#d4537e', tint: 'rgba(212, 83, 126, 0.32)' },
+  green:  { bar: '#4a9e22', tint: 'rgba(74, 158, 34, 0.32)' },
+  red:    { bar: '#c53030', tint: 'rgba(197, 48, 48, 0.32)' },
+  gray:   { bar: '#666666', tint: 'rgba(102, 102, 102, 0.32)' },
+  navy:   { bar: '#2d3a8c', tint: 'rgba(45, 58, 140, 0.32)' },
+  olive:  { bar: '#6b7c4a', tint: 'rgba(107, 124, 74, 0.32)' },
+  cyan:   { bar: '#0891b2', tint: 'rgba(8, 145, 178, 0.32)' },
 }
 
 function getSupplierColors(colorKey: string | null) {
@@ -1860,7 +1860,7 @@ export default function InventoryPageClient({
                     <div
                       className="flex items-center gap-3"
                       style={{
-                        borderLeft: `3px solid ${supplierColors.bar}`,
+                        borderLeft: `4px solid ${supplierColors.bar}`,
                         backgroundColor: supplierColors.tint,
                       }}
                     >
