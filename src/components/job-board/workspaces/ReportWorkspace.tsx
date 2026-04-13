@@ -420,27 +420,32 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
     if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) return null
     if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) return null
 
-    // Material System placeholder — render full MaterialSystemPicker module
+    // Material System placeholder — render inline within parent section
     if (field.type === 'material_system_placeholder') {
       return (
-        <div key={field.id}>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
-            Material Quantities
-          </h3>
-          <MaterialSystemPicker
-            rows={materialRows}
-            onChange={setMaterialRows}
-            systems={materialSystems}
-            onAddNew={addMaterialSystem}
-            onUpdateSystem={updateMaterialSystem}
-            readOnly={readOnly}
-            showQuantity
-          />
+        <div
+          key={field.id}
+          className="flex flex-col gap-1 lg:grid lg:grid-cols-[200px_1fr] lg:gap-4 lg:items-start"
+        >
+          <label className="text-xs font-medium text-gray-600 lg:pt-2 lg:text-right">
+            {field.label || 'Material System'}
+          </label>
+          <div>
+            <MaterialSystemPicker
+              rows={materialRows}
+              onChange={setMaterialRows}
+              systems={materialSystems}
+              onAddNew={addMaterialSystem}
+              onUpdateSystem={updateMaterialSystem}
+              readOnly={readOnly}
+              showQuantity
+            />
+          </div>
         </div>
       )
     }
 
-    // Checklist placeholder — render template picker + checklist items
+    // Checklist placeholder — render inline within parent section
     if (field.type === 'checklist_placeholder') {
       const selectedChecklistId = checklistSelections.get(field.id)
       const selectedTemplate = selectedChecklistId
@@ -448,10 +453,13 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
         : null
 
       return (
-        <div key={field.id}>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
+        <div
+          key={field.id}
+          className="flex flex-col gap-1 lg:grid lg:grid-cols-[200px_1fr] lg:gap-4 lg:items-start"
+        >
+          <label className="text-xs font-medium text-gray-600 lg:pt-2 lg:text-right">
             {field.label || 'Checklist'}
-          </h3>
+          </label>
           <div className="space-y-3">
             {!readOnly && (
               <select
