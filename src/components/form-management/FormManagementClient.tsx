@@ -43,6 +43,7 @@ import {
   PackageIcon,
   Undo2Icon,
   Redo2Icon,
+  ImageIcon,
 } from 'lucide-react'
 import type { FormTemplate, FormField, FormFieldType } from '@/types'
 
@@ -69,6 +70,7 @@ const FIELD_TYPE_COLORS: Record<FormFieldType, string> = {
   signature: 'bg-pink-50 text-pink-700 border-pink-200',
   checklist_placeholder: 'bg-teal-50 text-teal-700 border-teal-200',
   material_system_placeholder: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  picture_upload: 'bg-violet-50 text-violet-700 border-violet-200',
 }
 
 /* ── Material system & checklist constants ── */
@@ -91,7 +93,7 @@ function getChecklistIdFromField(field: FormField): string {
 }
 
 function isSectionLikeField(field: FormField): boolean {
-  return field.type === 'section_header' || field.type === 'checklist_placeholder' || field.type === 'material_system_placeholder'
+  return field.type === 'section_header'
 }
 
 function generateId(): string {
@@ -259,80 +261,134 @@ function groupFieldsIntoSections(fields: FormField[]): FieldSection[] {
   return sections
 }
 
-/* ── Add field type options for inline form ── */
-const ADD_FIELD_TYPE_OPTIONS: { value: FormFieldType; label: string }[] = [
-  { value: 'short_text', label: 'Text' },
-  { value: 'long_text', label: 'Textarea' },
-  { value: 'date', label: 'Date' },
-  { value: 'number', label: 'Number' },
-  { value: 'dropdown', label: 'Select/Dropdown' },
-  { value: 'checkbox', label: 'Checkbox' },
-  { value: 'checkbox_group', label: 'Checkbox Group' },
+/* ── Add Item dropdown options ── */
+const ADD_ITEM_TYPE_OPTIONS: { value: FormFieldType; label: string; icon: React.ReactNode }[] = [
+  { value: 'section_header', label: 'Header', icon: <MinusIcon className="w-3.5 h-3.5" /> },
+  { value: 'short_text', label: 'Text', icon: <TypeIcon className="w-3.5 h-3.5" /> },
+  { value: 'long_text', label: 'Paragraph Text', icon: <AlignLeftIcon className="w-3.5 h-3.5" /> },
+  { value: 'picture_upload', label: 'Picture Upload', icon: <ImageIcon className="w-3.5 h-3.5" /> },
+  { value: 'date', label: 'Date', icon: <CalendarIcon className="w-3.5 h-3.5" /> },
+  { value: 'number', label: 'Number', icon: <HashIcon className="w-3.5 h-3.5" /> },
+  { value: 'checkbox', label: 'Checkbox', icon: <CheckSquareIcon className="w-3.5 h-3.5" /> },
+  { value: 'dropdown', label: 'Select / Dropdown', icon: <ListIcon className="w-3.5 h-3.5" /> },
+  { value: 'checklist_placeholder', label: 'Checklist', icon: <ClipboardCheckIcon className="w-3.5 h-3.5" /> },
+  { value: 'material_system_placeholder', label: 'Material System', icon: <PackageIcon className="w-3.5 h-3.5" /> },
 ]
 
-/* ── Inline add-field form ── */
-function AddFieldForm({
+/* ── Add Item dropdown component ── */
+function AddItemDropdown({
   onAdd,
-  onCancel,
+  sections,
+  excludeHeader,
+  buttonStyle,
+  isProjectReport,
 }: {
-  onAdd: (name: string, type: FormFieldType, required: boolean) => void
-  onCancel: () => void
+  onAdd: (type: FormFieldType, sectionId?: string) => void
+  sections?: { id: string; label: string }[]
+  excludeHeader?: boolean
+  buttonStyle: 'primary' | 'subtle'
+  isProjectReport?: boolean
 }) {
-  const [name, setName] = useState('')
-  const [type, setType] = useState<FormFieldType>('short_text')
-  const [required, setRequired] = useState(false)
-  const nameRef = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  const [pendingType, setPendingType] = useState<FormFieldType | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { nameRef.current?.focus() }, [])
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setPendingType(null)
+      }
+    }
+    if (open) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (name.trim()) onAdd(name.trim(), type, required)
+  const options = ADD_ITEM_TYPE_OPTIONS.filter((opt) => {
+    if (excludeHeader && opt.value === 'section_header') return false
+    if (!isProjectReport && (opt.value === 'checklist_placeholder' || opt.value === 'material_system_placeholder')) return false
+    return true
+  })
+
+  function handleTypeSelect(type: FormFieldType) {
+    if (type === 'section_header' || excludeHeader) {
+      onAdd(type)
+      setOpen(false)
+      setPendingType(null)
+      return
+    }
+    if (!sections || sections.length === 0) {
+      onAdd(type)
+      setOpen(false)
+      setPendingType(null)
+      return
+    }
+    setPendingType(type)
+  }
+
+  function handleSectionSelect(sectionId: string) {
+    if (pendingType) onAdd(pendingType, sectionId)
+    setOpen(false)
+    setPendingType(null)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-lg border border-gray-200">
-      <input
-        ref={nameRef}
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Field name"
-        className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-md border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-400"
-      />
-      <select
-        value={type}
-        onChange={(e) => setType(e.target.value as FormFieldType)}
-        className="px-2 py-1.5 text-xs rounded-md border border-gray-300 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
-      >
-        {ADD_FIELD_TYPE_OPTIONS.map((t) => (
-          <option key={t.value} value={t.value}>{t.label}</option>
-        ))}
-      </select>
-      <label className="flex items-center gap-1.5 text-[11px] text-gray-500 whitespace-nowrap cursor-pointer">
-        <input
-          type="checkbox"
-          checked={required}
-          onChange={(e) => setRequired(e.target.checked)}
-          className="rounded border-gray-300 text-amber-500 focus:ring-amber-500"
-        />
-        Required
-      </label>
-      <button
-        type="submit"
-        disabled={!name.trim()}
-        className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-white text-xs font-medium rounded-md transition"
-      >
-        Add
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600 transition"
-      >
-        Cancel
-      </button>
-    </form>
+    <div className="relative" ref={dropdownRef}>
+      {buttonStyle === 'primary' ? (
+        <button
+          onClick={() => { setOpen(!open); setPendingType(null) }}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-orange-400 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 dark:border-orange-500/60 dark:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/20"
+        >
+          <PlusIcon className="w-4 h-4" />
+          Add Item
+        </button>
+      ) : (
+        <button
+          onClick={() => { setOpen(!open); setPendingType(null) }}
+          className="inline-flex items-center gap-1 text-xs text-gray-300 hover:text-amber-500 dark:text-gray-500 dark:hover:text-amber-400 font-medium transition py-1"
+        >
+          <PlusIcon className="w-3 h-3" />
+          Add Item
+        </button>
+      )}
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[200px]">
+          {pendingType === null ? (
+            options.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => handleTypeSelect(opt.value)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-400 transition"
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))
+          ) : (
+            <>
+              <div className="px-3 py-1.5 text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
+                Add to section
+              </div>
+              {(sections ?? []).map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => handleSectionSelect(s.id)}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-400 transition"
+                >
+                  {s.label}
+                </button>
+              ))}
+              <button
+                onClick={() => setPendingType(null)}
+                className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 border-t border-gray-100 dark:border-gray-700 transition"
+              >
+                ← Back
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -770,6 +826,54 @@ function NumberField({ field, onUpdate, autoEdit, onEditDone }: { field: FormFie
   )
 }
 
+function PictureUploadField({ field, onUpdate, autoEdit, onEditDone }: { field: FormField; onUpdate: (u: Partial<FormField>) => void; autoEdit?: boolean; onEditDone?: () => void }) {
+  return (
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-2 flex flex-col items-end gap-0.5">
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-medium text-gray-600"
+          placeholder="Label"
+          autoEdit={autoEdit}
+          onEditDone={onEditDone}
+        />
+        <RequiredBadge required={field.required} onToggle={() => onUpdate({ required: !field.required })} />
+      </div>
+      <div className="w-full rounded-lg border border-dashed border-gray-300 dark:border-gray-600 px-3 py-4 bg-gray-50 dark:bg-gray-800/50 text-center">
+        <ImageIcon className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+        <span className="text-sm text-gray-400">Upload image</span>
+      </div>
+    </div>
+  )
+}
+
+function ChecklistPlaceholderFieldRow({ field }: { field: FormField }) {
+  return (
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-2 flex flex-col items-end">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{field.label || 'Checklist'}</span>
+      </div>
+      <div className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm bg-white dark:bg-gray-800">
+        <span className="text-gray-400 dark:text-gray-500 italic">Selected when filling out the job report</span>
+      </div>
+    </div>
+  )
+}
+
+function MaterialSystemPlaceholderFieldRow({ field }: { field: FormField }) {
+  return (
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-2 flex flex-col items-end">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{field.label || 'Material System'}</span>
+      </div>
+      <div className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm bg-white dark:bg-gray-800">
+        <span className="text-gray-400 dark:text-gray-500 italic">Selected when filling out the job report</span>
+      </div>
+    </div>
+  )
+}
+
 function RequiredBadge({ required, onToggle }: { required: boolean; onToggle: () => void }) {
   return (
     <button
@@ -850,56 +954,6 @@ function ChecklistEditorSection({ name, items, collapsed, onToggleCollapse }: { 
   )
 }
 
-function ChecklistPlaceholderSection({ collapsed, onToggleCollapse }: { collapsed?: boolean; onToggleCollapse?: () => void }) {
-  return (
-    <div>
-      <div className="pt-3 pb-1.5 border-b border-amber-100">
-        <div className="flex items-center gap-1">
-          {onToggleCollapse && (
-            <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
-              {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
-            </button>
-          )}
-          <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-            Checklist
-          </span>
-        </div>
-      </div>
-      {!collapsed && (
-        <div className="mt-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50/50 flex items-center justify-center gap-2">
-          <ClipboardCheckIcon className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-400">A checklist will be selected when filling out the job report</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MaterialSystemPlaceholderSection({ collapsed, onToggleCollapse }: { collapsed?: boolean; onToggleCollapse?: () => void }) {
-  return (
-    <div>
-      <div className="pt-3 pb-1.5 border-b border-amber-100">
-        <div className="flex items-center gap-1">
-          {onToggleCollapse && (
-            <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
-              {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
-            </button>
-          )}
-          <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-            Material System
-          </span>
-        </div>
-      </div>
-      {!collapsed && (
-        <div className="mt-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50/50 flex items-center justify-center gap-2">
-          <PackageIcon className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-400">A material system will be selected when filling out the job report</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
 /* ── Main component ── */
 
 interface FormManagementClientProps {
@@ -916,11 +970,9 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   const [fields, setFields] = useState<FormField[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [addingFieldType, setAddingFieldType] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [reorderMode, setReorderMode] = useState(false)
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null)
-  const [addingFieldInSection, setAddingFieldInSection] = useState<string | null>(null)
   const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([])
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
 
@@ -1002,7 +1054,6 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setSelectedKey(key)
     setSaved(false)
     setDeleteConfirm(null)
-    setAddingFieldType(false)
     undoStackRef.current = []
     redoStackRef.current = []
     setHistoryCounter((c) => c + 1)
@@ -1065,7 +1116,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
       const field = prev.find((f) => f.id === id)
       if (!field) return prev
 
-      // Section-like field: move entire section group
+      // Section header: move entire section group
       if (isSectionLikeField(field)) {
         const sections = groupFieldsIntoSections(prev)
         const sIdx = sections.findIndex((s) => s.headerId === id)
@@ -1077,11 +1128,20 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
         return next.flatMap((s) => s.allFields).map((f, i) => ({ ...f, order: i + 1 }))
       }
 
-      // Regular field: swap with adjacent
+      // Regular field: move within parent section only
       const idx = prev.findIndex((f) => f.id === id)
       if (idx < 0) return prev
+      // Find parent section boundaries
+      let sectionStart = 0
+      for (let i = idx - 1; i >= 0; i--) {
+        if (prev[i].type === 'section_header') { sectionStart = i + 1; break }
+      }
+      let sectionEnd = prev.length
+      for (let i = idx + 1; i < prev.length; i++) {
+        if (prev[i].type === 'section_header') { sectionEnd = i; break }
+      }
       const newIdx = direction === 'up' ? idx - 1 : idx + 1
-      if (newIdx < 0 || newIdx >= prev.length) return prev
+      if (newIdx < sectionStart || newIdx >= sectionEnd) return prev
       const next = [...prev]
       ;[next[idx], next[newIdx]] = [next[newIdx], next[idx]]
       return next.map((f, i) => ({ ...f, order: i + 1 }))
@@ -1140,100 +1200,71 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     return count
   }
 
-  function addField(type: FormFieldType) {
-    recordHistory()
-    const newField: FormField = {
-      id: generateId(),
-      type,
-      label: type === 'section_header' ? 'New Section' : 'New Field',
-      placeholder: '',
-      required: false,
-      options: type === 'dropdown' || type === 'checkbox_group' ? ['Option 1'] : [],
-      order: fields.length + 1,
-    }
-    setFields((prev) => [...prev, newField])
-    setAddingFieldType(false)
-    setSaved(false)
-  }
+  /** Section headers list for the AddItemDropdown section picker */
+  const sectionHeaders = useMemo(() => {
+    return fields
+      .filter((f) => f.type === 'section_header')
+      .map((f) => ({ id: f.id, label: f.label }))
+  }, [fields])
 
-  function addFieldToSection(name: string, type: FormFieldType, required: boolean, sectionHeaderId: string | null) {
-    recordHistory()
-    const newField: FormField = {
-      id: generateId(),
-      type,
-      label: name,
-      placeholder: '',
-      required,
-      options: type === 'dropdown' || type === 'checkbox_group' ? ['Option 1'] : [],
-      order: 0,
-    }
+  function addFieldAtEndOfSection(newField: FormField, sectionId: string | null) {
     setFields((prev) => {
-      if (sectionHeaderId === null) {
-        const firstHeaderIdx = prev.findIndex((f) => f.type === 'section_header')
-        if (firstHeaderIdx === -1) return [...prev, newField].map((f, i) => ({ ...f, order: i + 1 }))
-        const next = [...prev]
-        next.splice(firstHeaderIdx, 0, newField)
-        return next.map((f, i) => ({ ...f, order: i + 1 }))
+      if (sectionId === null) {
+        return [...prev, newField].map((f, i) => ({ ...f, order: i + 1 }))
       }
-      const headerIdx = prev.findIndex((f) => f.id === sectionHeaderId)
-      if (headerIdx === -1) return prev
+      const headerIdx = prev.findIndex((f) => f.id === sectionId)
+      if (headerIdx === -1) return [...prev, newField].map((f, i) => ({ ...f, order: i + 1 }))
       let insertIdx = prev.length
       for (let i = headerIdx + 1; i < prev.length; i++) {
-        if (isSectionLikeField(prev[i])) { insertIdx = i; break }
+        if (prev[i].type === 'section_header') { insertIdx = i; break }
       }
       const next = [...prev]
       next.splice(insertIdx, 0, newField)
       return next.map((f, i) => ({ ...f, order: i + 1 }))
     })
-    setAddingFieldInSection(null)
     setSaved(false)
   }
 
-  function addSection() {
+  function handleAddItem(type: FormFieldType, sectionId?: string) {
     recordHistory()
-    const id = generateId()
-    const newSection: FormField = {
+
+    if (type === 'section_header') {
+      const id = generateId()
+      const newSection: FormField = {
+        id,
+        type: 'section_header',
+        label: 'New Section',
+        placeholder: '',
+        required: false,
+        options: [],
+        order: 0,
+      }
+      setFields((prev) => [newSection, ...prev].map((f, i) => ({ ...f, order: i + 1 })))
+      setEditingFieldId(id)
+      setSaved(false)
+      return
+    }
+
+    const isPlaceholder = type === 'checklist_placeholder' || type === 'material_system_placeholder'
+    const id = isPlaceholder ? `${type}-${generateId()}` : generateId()
+    const label = type === 'checklist_placeholder' ? 'Checklist'
+      : type === 'material_system_placeholder' ? 'Material System'
+      : 'New Field'
+
+    const newField: FormField = {
       id,
-      type: 'section_header',
-      label: 'New Section',
+      type,
+      label,
       placeholder: '',
       required: false,
-      options: [],
-      order: fields.length + 1,
+      options: type === 'dropdown' || type === 'checkbox_group' ? ['Option 1'] : [],
+      order: 0,
     }
-    setFields((prev) => [...prev, newSection].map((f, i) => ({ ...f, order: i + 1 })))
-    setEditingFieldId(id)
-    setSaved(false)
-  }
 
-  function addChecklist() {
-    recordHistory()
-    const marker: FormField = {
-      id: `checklist_placeholder-${generateId()}`,
-      type: 'checklist_placeholder' as FormFieldType,
-      label: 'Checklist',
-      placeholder: '',
-      required: false,
-      options: [],
-      order: fields.length + 1,
+    addFieldAtEndOfSection(newField, sectionId ?? null)
+    if (!isPlaceholder) {
+      setEditingFieldId(id)
     }
-    setFields((prev) => [...prev, marker].map((f, i) => ({ ...f, order: i + 1 })))
-    setSaved(false)
-  }
-
-  function addMaterialSystem() {
-    recordHistory()
-    const marker: FormField = {
-      id: `material_system_placeholder-${generateId()}`,
-      type: 'material_system_placeholder' as FormFieldType,
-      label: 'Material System',
-      placeholder: '',
-      required: false,
-      options: [],
-      order: fields.length + 1,
-    }
-    setFields((prev) => [...prev, marker].map((f, i) => ({ ...f, order: i + 1 })))
-    setSaved(false)
   }
 
   function addOption(fieldId: string) {
@@ -1306,10 +1337,6 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
 
   const visibleFieldIds = useMemo(() => {
     const sections = groupFieldsIntoSections(fields)
-    if (reorderMode) {
-      // In reorder mode, only section headers are sortable items (sections move as units)
-      return sections.map((s) => s.headerId).filter((id): id is string => id !== null)
-    }
     const ids: string[] = []
     for (const section of sections) {
       const isCollapsed = collapsedSections.has(section.headerId ?? '')
@@ -1319,7 +1346,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
       }
     }
     return ids
-  }, [fields, collapsedSections, reorderMode])
+  }, [fields, collapsedSections])
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -1329,7 +1356,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
       const draggedField = prev.find((f) => f.id === active.id)
       if (!draggedField) return prev
 
-      // Section-like field: move entire section group
+      // Section header: move entire section group
       if (isSectionLikeField(draggedField)) {
         const sections = groupFieldsIntoSections(prev)
         const draggedIdx = sections.findIndex((s) => s.headerId === active.id)
@@ -1343,7 +1370,17 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
         return next.flatMap((s) => s.allFields).map((f, i) => ({ ...f, order: i + 1 }))
       }
 
-      // Regular field reorder
+      // Regular field: only allow reorder within same section
+      const sections = groupFieldsIntoSections(prev)
+      const fromSection = sections.find((s) => s.contentFields.some((f) => f.id === (active.id as string)))
+      const overField = prev.find((f) => f.id === (over.id as string))
+      if (!fromSection || !overField) return prev
+      // Don't allow dropping on a section header
+      if (overField.type === 'section_header') return prev
+      // Don't allow cross-section moves
+      const toSection = sections.find((s) => s.contentFields.some((f) => f.id === (over.id as string)))
+      if (!toSection || fromSection.headerId !== toSection.headerId) return prev
+
       const oldIdx = prev.findIndex((f) => f.id === active.id)
       const newIdx = prev.findIndex((f) => f.id === over.id)
       if (oldIdx < 0 || newIdx < 0) return prev
@@ -1368,12 +1405,12 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
       const template = checklistTemplates.find((c) => c.id === checklistId)
       return <ChecklistEditorSection name={template?.name ?? field.label} items={template?.items ?? []} collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
     }
-    // Placeholder types
+    // Placeholder types — now rendered as regular field rows inside sections
     if (field.type === 'checklist_placeholder') {
-      return <ChecklistPlaceholderSection collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
+      return <ChecklistPlaceholderFieldRow field={field} />
     }
     if (field.type === 'material_system_placeholder') {
-      return <MaterialSystemPlaceholderSection collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
+      return <MaterialSystemPlaceholderFieldRow field={field} />
     }
 
     const onUpdate = (u: Partial<FormField>) => updateField(field.id, u)
@@ -1417,6 +1454,8 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
         return <DateField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
       case 'number':
         return <NumberField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
+      case 'picture_upload':
+        return <PictureUploadField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
       default:
         return <ShortTextField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
     }
@@ -1481,33 +1520,12 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {!reorderMode && (
-                        <>
-                          <button
-                            onClick={addSection}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
-                          >
-                            <PlusIcon className="w-4 h-4" />
-                            Add Section
-                          </button>
-                          {isProjectReport && (
-                            <button
-                              onClick={addChecklist}
-                              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
-                            >
-                              <ClipboardCheckIcon className="w-4 h-4" />
-                              Add Checklist
-                            </button>
-                          )}
-                          {isProjectReport && (
-                            <button
-                              onClick={addMaterialSystem}
-                              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
-                            >
-                              <PackageIcon className="w-4 h-4" />
-                              Add Material System
-                            </button>
-                          )}
-                        </>
+                        <AddItemDropdown
+                          onAdd={(type, sectionId) => handleAddItem(type, sectionId)}
+                          sections={sectionHeaders}
+                          buttonStyle="primary"
+                          isProjectReport={isProjectReport}
+                        />
                       )}
                       <button
                         onClick={() => setReorderMode((v) => !v)}
@@ -1565,16 +1583,28 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                             const sections = groupFieldsIntoSections(fields)
 
                             if (reorderMode) {
-                              // Reorder mode: each section is one draggable unit
+                              // Reorder mode: section headers AND fields are individually draggable
                               return sections.map((section, sIdx) => {
                                 const headerField = section.allFields[0]
                                 if (!headerField || section.headerId === null) {
-                                  // Orphan fields (no section header) — render non-sortable in reorder mode
+                                  // Orphan fields — render individually sortable
                                   return (
                                     <div key={`__orphan_${sIdx}`}>
-                                      {section.contentFields.map((field) => (
-                                        <div key={field.id} className="mb-3 pl-2 pr-16">
-                                          {renderField(field)}
+                                      {section.contentFields.map((field, fIdx) => (
+                                        <div key={field.id} className="mb-3">
+                                          <SortableFieldRow
+                                            field={field}
+                                            idx={fIdx}
+                                            total={section.contentFields.length}
+                                            onMove={moveField}
+                                            onDelete={handleDelete}
+                                            deleteConfirm={deleteConfirm}
+                                            setDeleteConfirm={setDeleteConfirm}
+                                            renderField={renderField}
+                                            reorderMode={true}
+                                            onEditField={(id) => setEditingFieldId(id)}
+                                            sectionFieldCount={0}
+                                          />
                                         </div>
                                       ))}
                                     </div>
@@ -1583,32 +1613,43 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                                 const isSectionCollapsed = collapsedSections.has(section.headerId)
                                 const isMaterialSection = section.headerId === MATERIAL_SYSTEM_SECTION_ID
                                 const isChecklistSection = section.headerId.startsWith('checklist-')
-                                const isPlaceholderSection = headerField.type === 'checklist_placeholder' || headerField.type === 'material_system_placeholder'
+                                const sectionsWithHeaders = sections.filter((s) => s.headerId !== null)
+                                const sectionIdx = sectionsWithHeaders.findIndex((s) => s.headerId === section.headerId)
                                 return (
                                   <div key={section.headerId} className="mb-3">
+                                    {/* Section header — draggable, moves whole group */}
                                     <SortableFieldRow
                                       field={headerField}
-                                      idx={sIdx}
-                                      total={sections.length}
+                                      idx={sectionIdx}
+                                      total={sectionsWithHeaders.length}
                                       onMove={moveField}
                                       onDelete={handleDelete}
                                       deleteConfirm={deleteConfirm}
                                       setDeleteConfirm={setDeleteConfirm}
-                                      renderField={(field) => (
-                                        <div>
-                                          {renderField(field)}
-                                          {!isSectionCollapsed && section.contentFields.map((cf) => (
-                                            <div key={cf.id} className="mb-3 mt-3">
-                                              {renderField(cf)}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
+                                      renderField={renderField}
                                       reorderMode={true}
                                       onEditField={(id) => setEditingFieldId(id)}
                                       sectionFieldCount={section.contentFields.length}
-                                      noEdit={isMaterialSection || isChecklistSection || isPlaceholderSection}
+                                      noEdit={isMaterialSection || isChecklistSection}
                                     />
+                                    {/* Content fields — individually draggable within section */}
+                                    {!isSectionCollapsed && section.contentFields.map((cf, fIdx) => (
+                                      <div key={cf.id} className="mb-3 mt-1">
+                                        <SortableFieldRow
+                                          field={cf}
+                                          idx={fIdx}
+                                          total={section.contentFields.length}
+                                          onMove={moveField}
+                                          onDelete={handleDelete}
+                                          deleteConfirm={deleteConfirm}
+                                          setDeleteConfirm={setDeleteConfirm}
+                                          renderField={renderField}
+                                          reorderMode={true}
+                                          onEditField={(id) => setEditingFieldId(id)}
+                                          sectionFieldCount={0}
+                                        />
+                                      </div>
+                                    ))}
                                   </div>
                                 )
                               })
@@ -1618,9 +1659,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                             return sections.map((section, sIdx) => {
                               const isMaterialSection = section.headerId === MATERIAL_SYSTEM_SECTION_ID
                               const isChecklistSection = section.headerId != null && section.headerId.startsWith('checklist-')
-                              const headerField = section.allFields[0]
-                              const isPlaceholderSection = headerField?.type === 'checklist_placeholder' || headerField?.type === 'material_system_placeholder'
-                              const isSpecialSection = isMaterialSection || isChecklistSection || isPlaceholderSection
+                              const isSpecialSection = isMaterialSection || isChecklistSection
                               const isSectionCollapsed = section.headerId ? collapsedSections.has(section.headerId) : false
                               return (
                               <div key={section.headerId ?? `__orphan_${sIdx}`}>
@@ -1649,23 +1688,15 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                                     </div>
                                   )
                                 })}
-                                {/* Per-section Add Field — hide for special sections and collapsed sections */}
+                                {/* Per-section Add Item — hide for special sections and collapsed sections */}
                                 {!reorderMode && !isSpecialSection && !isSectionCollapsed && (
                                   <div className="pl-2 pt-1">
-                                    {addingFieldInSection === (section.headerId ?? '__orphan__') ? (
-                                      <AddFieldForm
-                                        onAdd={(name, type, required) => addFieldToSection(name, type, required, section.headerId)}
-                                        onCancel={() => setAddingFieldInSection(null)}
-                                      />
-                                    ) : (
-                                      <button
-                                        onClick={() => setAddingFieldInSection(section.headerId ?? '__orphan__')}
-                                        className="inline-flex items-center gap-1 text-xs text-gray-300 hover:text-amber-500 font-medium transition py-1"
-                                      >
-                                        <PlusIcon className="w-3 h-3" />
-                                        Add Field
-                                      </button>
-                                    )}
+                                    <AddItemDropdown
+                                      onAdd={(type) => handleAddItem(type, section.headerId ?? undefined)}
+                                      excludeHeader
+                                      buttonStyle="subtle"
+                                      isProjectReport={isProjectReport}
+                                    />
                                   </div>
                                 )}
                               </div>
