@@ -41,6 +41,8 @@ import {
   ArrowUpDownIcon,
   ClipboardCheckIcon,
   PackageIcon,
+  Undo2Icon,
+  Redo2Icon,
 } from 'lucide-react'
 import type { FormTemplate, FormField, FormFieldType } from '@/types'
 
@@ -65,6 +67,8 @@ const FIELD_TYPE_COLORS: Record<FormFieldType, string> = {
   number: 'bg-orange-50 text-orange-700 border-orange-200',
   section_header: 'bg-gray-100 text-gray-600 border-gray-300',
   signature: 'bg-pink-50 text-pink-700 border-pink-200',
+  checklist_placeholder: 'bg-teal-50 text-teal-700 border-teal-200',
+  material_system_placeholder: 'bg-cyan-50 text-cyan-700 border-cyan-200',
 }
 
 /* ── Material system & checklist constants ── */
@@ -84,6 +88,10 @@ function isChecklistField(field: FormField): boolean {
 
 function getChecklistIdFromField(field: FormField): string {
   return field.id.replace('checklist-', '')
+}
+
+function isSectionLikeField(field: FormField): boolean {
+  return field.type === 'section_header' || field.type === 'checklist_placeholder' || field.type === 'material_system_placeholder'
 }
 
 function generateId(): string {
@@ -236,7 +244,7 @@ function groupFieldsIntoSections(fields: FormField[]): FieldSection[] {
   const sections: FieldSection[] = []
   let current: FieldSection | null = null
   for (const field of fields) {
-    if (field.type === 'section_header') {
+    if (isSectionLikeField(field)) {
       current = { headerId: field.id, contentFields: [], allFields: [field] }
       sections.push(current)
     } else {
@@ -476,7 +484,7 @@ function SortableFieldRow({
           onDelete={onDelete}
           deleteConfirm={deleteConfirm}
           setDeleteConfirm={setDeleteConfirm}
-          isSectionHeader={field.type === 'section_header'}
+          isSectionHeader={isSectionLikeField(field)}
           sectionFieldCount={sectionFieldCount}
           noDelete={noDelete}
           noEdit={noEdit}
@@ -842,58 +850,52 @@ function ChecklistEditorSection({ name, items, collapsed, onToggleCollapse }: { 
   )
 }
 
-function ChecklistPickerDropdown({
-  checklists,
-  existingIds,
-  onSelect,
-  onClose,
-}: {
-  checklists: { id: string; name: string; itemCount: number }[]
-  existingIds: Set<string>
-  onSelect: (id: string) => void
-  onClose: () => void
-}) {
+function ChecklistPlaceholderSection({ collapsed, onToggleCollapse }: { collapsed?: boolean; onToggleCollapse?: () => void }) {
   return (
-    <div className="absolute top-full mt-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden w-72 z-50">
-      <div className="px-3 py-2 border-b border-gray-100">
-        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Add Checklist</h4>
-      </div>
-      {checklists.length === 0 ? (
-        <div className="px-3 py-4 text-center">
-          <ClipboardCheckIcon className="w-5 h-5 text-gray-300 mx-auto mb-1" />
-          <p className="text-xs text-gray-400">No checklists available.</p>
-          <p className="text-xs text-gray-400">Create one in Checklist Management.</p>
+    <div>
+      <div className="pt-3 pb-1.5 border-b border-amber-100">
+        <div className="flex items-center gap-1">
+          {onToggleCollapse && (
+            <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
+              {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+            </button>
+          )}
+          <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+            Checklist
+          </span>
         </div>
-      ) : (
-        <div className="max-h-48 overflow-y-auto divide-y divide-gray-50">
-          {checklists.map((cl) => {
-            const alreadyAdded = existingIds.has(cl.id)
-            return (
-              <button
-                key={cl.id}
-                onClick={() => !alreadyAdded && onSelect(cl.id)}
-                disabled={alreadyAdded}
-                className={`w-full text-left px-3 py-2.5 text-sm transition flex items-center justify-between ${
-                  alreadyAdded
-                    ? 'text-gray-300 cursor-not-allowed bg-gray-50/50'
-                    : 'text-gray-700 hover:bg-amber-50 hover:text-amber-700'
-                }`}
-              >
-                <span className="font-medium">{cl.name}</span>
-                <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
-                  {cl.itemCount} item{cl.itemCount !== 1 ? 's' : ''}
-                  {alreadyAdded && ' · added'}
-                </span>
-              </button>
-            )
-          })}
+      </div>
+      {!collapsed && (
+        <div className="mt-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50/50 flex items-center justify-center gap-2">
+          <ClipboardCheckIcon className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-400">A checklist will be selected when filling out the job report</span>
         </div>
       )}
-      <div className="px-3 py-2 border-t border-gray-100">
-        <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-600 transition">
-          Cancel
-        </button>
+    </div>
+  )
+}
+
+function MaterialSystemPlaceholderSection({ collapsed, onToggleCollapse }: { collapsed?: boolean; onToggleCollapse?: () => void }) {
+  return (
+    <div>
+      <div className="pt-3 pb-1.5 border-b border-amber-100">
+        <div className="flex items-center gap-1">
+          {onToggleCollapse && (
+            <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
+              {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+            </button>
+          )}
+          <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+            Material System
+          </span>
+        </div>
       </div>
+      {!collapsed && (
+        <div className="mt-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50/50 flex items-center justify-center gap-2">
+          <PackageIcon className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-400">A material system will be selected when filling out the job report</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -920,8 +922,13 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null)
   const [addingFieldInSection, setAddingFieldInSection] = useState<string | null>(null)
   const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([])
-  const [showChecklistPicker, setShowChecklistPicker] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+
+  // Undo/Redo history
+  const undoStackRef = useRef<FormField[][]>([])
+  const redoStackRef = useRef<FormField[][]>([])
+  const [historyCounter, setHistoryCounter] = useState(0)
+  const fieldsRef = useRef<FormField[]>(fields)
 
   const selectedTemplate = templates.find((t) => t.form_key === selectedKey)
   const isProjectReport = selectedTemplate?.form_key === 'project_report'
@@ -996,6 +1003,9 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setSaved(false)
     setDeleteConfirm(null)
     setAddingFieldType(false)
+    undoStackRef.current = []
+    redoStackRef.current = []
+    setHistoryCounter((c) => c + 1)
   }
 
   const hasMaterialSystem = fields.some((f) => f.id === MATERIAL_SYSTEM_SECTION_ID)
@@ -1009,20 +1019,54 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     })
   }
 
+  // --- Undo/Redo ---
+  useEffect(() => { fieldsRef.current = fields }, [fields])
+
+  function recordHistory() {
+    undoStackRef.current = [...undoStackRef.current, fieldsRef.current.map((f) => ({ ...f }))]
+    redoStackRef.current = []
+    setHistoryCounter((c) => c + 1)
+  }
+
+  function undo() {
+    if (undoStackRef.current.length === 0) return
+    const snapshot = undoStackRef.current.pop()!
+    redoStackRef.current.push(fieldsRef.current.map((f) => ({ ...f })))
+    setFields(snapshot)
+    setHistoryCounter((c) => c + 1)
+    setSaved(false)
+  }
+
+  function redo() {
+    if (redoStackRef.current.length === 0) return
+    const snapshot = redoStackRef.current.pop()!
+    undoStackRef.current.push(fieldsRef.current.map((f) => ({ ...f })))
+    setFields(snapshot)
+    setHistoryCounter((c) => c + 1)
+    setSaved(false)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _hv = historyCounter
+  const canUndo = undoStackRef.current.length > 0
+  const canRedo = redoStackRef.current.length > 0
+
   // --- Field operations ---
 
   function updateField(id: string, updates: Partial<FormField>) {
+    recordHistory()
     setFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)))
     setSaved(false)
   }
 
   function moveField(id: string, direction: 'up' | 'down') {
+    recordHistory()
     setFields((prev) => {
       const field = prev.find((f) => f.id === id)
       if (!field) return prev
 
-      // Section header: move entire section group
-      if (field.type === 'section_header') {
+      // Section-like field: move entire section group
+      if (isSectionLikeField(field)) {
         const sections = groupFieldsIntoSections(prev)
         const sIdx = sections.findIndex((s) => s.headerId === id)
         if (sIdx < 0) return prev
@@ -1057,7 +1101,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
       if (headerIdx === -1) return prev
       let endIdx = prev.length
       for (let i = headerIdx + 1; i < prev.length; i++) {
-        if (prev[i].type === 'section_header') { endIdx = i; break }
+        if (isSectionLikeField(prev[i])) { endIdx = i; break }
       }
       const next = [...prev]
       next.splice(headerIdx, endIdx - headerIdx)
@@ -1068,9 +1112,12 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   }
 
   function handleDelete(id: string) {
+    recordHistory()
     const field = fields.find((f) => f.id === id)
-    if (field?.type === 'section_header') {
-      // For checklist markers, just remove the single marker (no content fields)
+    if (!field) return
+    if (field.type === 'checklist_placeholder' || field.type === 'material_system_placeholder') {
+      removeField(id)
+    } else if (field.type === 'section_header') {
       if (isChecklistField(field)) {
         removeField(id)
       } else {
@@ -1087,13 +1134,14 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     if (headerIdx === -1) return 0
     let count = 0
     for (let i = headerIdx + 1; i < fields.length; i++) {
-      if (fields[i].type === 'section_header') break
+      if (isSectionLikeField(fields[i])) break
       count++
     }
     return count
   }
 
   function addField(type: FormFieldType) {
+    recordHistory()
     const newField: FormField = {
       id: generateId(),
       type,
@@ -1109,6 +1157,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   }
 
   function addFieldToSection(name: string, type: FormFieldType, required: boolean, sectionHeaderId: string | null) {
+    recordHistory()
     const newField: FormField = {
       id: generateId(),
       type,
@@ -1130,7 +1179,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
       if (headerIdx === -1) return prev
       let insertIdx = prev.length
       for (let i = headerIdx + 1; i < prev.length; i++) {
-        if (prev[i].type === 'section_header') { insertIdx = i; break }
+        if (isSectionLikeField(prev[i])) { insertIdx = i; break }
       }
       const next = [...prev]
       next.splice(insertIdx, 0, newField)
@@ -1141,6 +1190,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   }
 
   function addSection() {
+    recordHistory()
     const id = generateId()
     const newSection: FormField = {
       id,
@@ -1156,28 +1206,26 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setSaved(false)
   }
 
-  function addChecklist(checklistId: string) {
-    const template = checklistTemplates.find((c) => c.id === checklistId)
-    if (!template) return
+  function addChecklist() {
+    recordHistory()
     const marker: FormField = {
-      id: `checklist-${checklistId}`,
-      type: 'section_header',
-      label: template.name,
+      id: `checklist_placeholder-${generateId()}`,
+      type: 'checklist_placeholder' as FormFieldType,
+      label: 'Checklist',
       placeholder: '',
       required: false,
       options: [],
       order: fields.length + 1,
     }
     setFields((prev) => [...prev, marker].map((f, i) => ({ ...f, order: i + 1 })))
-    setShowChecklistPicker(false)
     setSaved(false)
   }
 
   function addMaterialSystem() {
-    if (fields.some((f) => f.id === MATERIAL_SYSTEM_SECTION_ID)) return
+    recordHistory()
     const marker: FormField = {
-      id: MATERIAL_SYSTEM_SECTION_ID,
-      type: 'section_header',
+      id: `material_system_placeholder-${generateId()}`,
+      type: 'material_system_placeholder' as FormFieldType,
       label: 'Material System',
       placeholder: '',
       required: false,
@@ -1189,6 +1237,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   }
 
   function addOption(fieldId: string) {
+    recordHistory()
     setFields((prev) =>
       prev.map((f) =>
         f.id === fieldId
@@ -1200,6 +1249,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   }
 
   function updateOption(fieldId: string, optIdx: number, value: string) {
+    recordHistory()
     setFields((prev) =>
       prev.map((f) =>
         f.id === fieldId
@@ -1211,6 +1261,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   }
 
   function removeOption(fieldId: string, optIdx: number) {
+    recordHistory()
     setFields((prev) =>
       prev.map((f) =>
         f.id === fieldId
@@ -1240,6 +1291,9 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     )
     setSaving(false)
     setSaved(true)
+    undoStackRef.current = []
+    redoStackRef.current = []
+    setHistoryCounter((c) => c + 1)
     setTimeout(() => setSaved(false), 2000)
   }
 
@@ -1252,26 +1306,31 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
 
   const visibleFieldIds = useMemo(() => {
     const sections = groupFieldsIntoSections(fields)
+    if (reorderMode) {
+      // In reorder mode, only section headers are sortable items (sections move as units)
+      return sections.map((s) => s.headerId).filter((id): id is string => id !== null)
+    }
     const ids: string[] = []
     for (const section of sections) {
       const isCollapsed = collapsedSections.has(section.headerId ?? '')
       for (const field of section.allFields) {
-        if (isCollapsed && field.type !== 'section_header') continue
+        if (isCollapsed && !isSectionLikeField(field)) continue
         ids.push(field.id)
       }
     }
     return ids
-  }, [fields, collapsedSections])
+  }, [fields, collapsedSections, reorderMode])
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
+    recordHistory()
     setFields((prev) => {
       const draggedField = prev.find((f) => f.id === active.id)
       if (!draggedField) return prev
 
-      // Section header: move entire section group
-      if (draggedField.type === 'section_header') {
+      // Section-like field: move entire section group
+      if (isSectionLikeField(draggedField)) {
         const sections = groupFieldsIntoSections(prev)
         const draggedIdx = sections.findIndex((s) => s.headerId === active.id)
         const targetIdx = sections.findIndex((s) =>
@@ -1299,15 +1358,22 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   // --- Render a field in WYSIWYG style ---
 
   function renderField(field: FormField) {
-    // Special: Material System section (project_report)
+    // Special: Material System section (project_report) — legacy format
     if (field.id === MATERIAL_SYSTEM_SECTION_ID) {
       return <MaterialSystemEditorSection collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
     }
-    // Special: Checklist section
+    // Special: Checklist section — legacy format
     if (isChecklistField(field)) {
       const checklistId = getChecklistIdFromField(field)
       const template = checklistTemplates.find((c) => c.id === checklistId)
       return <ChecklistEditorSection name={template?.name ?? field.label} items={template?.items ?? []} collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
+    }
+    // Placeholder types
+    if (field.type === 'checklist_placeholder') {
+      return <ChecklistPlaceholderSection collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
+    }
+    if (field.type === 'material_system_placeholder') {
+      return <MaterialSystemPlaceholderSection collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
     }
 
     const onUpdate = (u: Partial<FormField>) => updateField(field.id, u)
@@ -1424,34 +1490,18 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                             Add Section
                           </button>
                           {isProjectReport && (
-                            <div className="relative">
-                              <button
-                                onClick={() => setShowChecklistPicker((v) => !v)}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
-                              >
-                                <ClipboardCheckIcon className="w-4 h-4" />
-                                Add Checklist
-                              </button>
-                              {showChecklistPicker && (
-                                <ChecklistPickerDropdown
-                                  checklists={checklistTemplates.map((c) => ({ id: c.id, name: c.name, itemCount: c.items.length }))}
-                                  existingIds={new Set(fields.filter((f) => isChecklistField(f)).map((f) => getChecklistIdFromField(f)))}
-                                  onSelect={addChecklist}
-                                  onClose={() => setShowChecklistPicker(false)}
-                                />
-                              )}
-                            </div>
+                            <button
+                              onClick={addChecklist}
+                              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
+                            >
+                              <ClipboardCheckIcon className="w-4 h-4" />
+                              Add Checklist
+                            </button>
                           )}
                           {isProjectReport && (
                             <button
                               onClick={addMaterialSystem}
-                              disabled={hasMaterialSystem}
-                              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                hasMaterialSystem
-                                  ? 'bg-gray-300 text-gray-500 border border-gray-300 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400 dark:border-gray-500'
-                                  : 'bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600'
-                              }`}
-                              title={hasMaterialSystem ? 'Material system already added' : 'Add Material System section'}
+                              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
                             >
                               <PackageIcon className="w-4 h-4" />
                               Add Material System
@@ -1470,6 +1520,22 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                       >
                         <ArrowUpDownIcon className="w-4 h-4" />
                         Reorder
+                      </button>
+                      <button
+                        onClick={undo}
+                        disabled={!canUndo}
+                        className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
+                        title="Undo"
+                      >
+                        <Undo2Icon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={redo}
+                        disabled={!canRedo}
+                        className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
+                        title="Redo"
+                      >
+                        <Redo2Icon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={handleSave}
@@ -1497,18 +1563,73 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                         <div className="p-4 md:p-6 space-y-3">
                           {(() => {
                             const sections = groupFieldsIntoSections(fields)
+
+                            if (reorderMode) {
+                              // Reorder mode: each section is one draggable unit
+                              return sections.map((section, sIdx) => {
+                                const headerField = section.allFields[0]
+                                if (!headerField || section.headerId === null) {
+                                  // Orphan fields (no section header) — render non-sortable in reorder mode
+                                  return (
+                                    <div key={`__orphan_${sIdx}`}>
+                                      {section.contentFields.map((field) => (
+                                        <div key={field.id} className="mb-3 pl-2 pr-16">
+                                          {renderField(field)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )
+                                }
+                                const isSectionCollapsed = collapsedSections.has(section.headerId)
+                                const isMaterialSection = section.headerId === MATERIAL_SYSTEM_SECTION_ID
+                                const isChecklistSection = section.headerId.startsWith('checklist-')
+                                const isPlaceholderSection = headerField.type === 'checklist_placeholder' || headerField.type === 'material_system_placeholder'
+                                return (
+                                  <div key={section.headerId} className="mb-3">
+                                    <SortableFieldRow
+                                      field={headerField}
+                                      idx={sIdx}
+                                      total={sections.length}
+                                      onMove={moveField}
+                                      onDelete={handleDelete}
+                                      deleteConfirm={deleteConfirm}
+                                      setDeleteConfirm={setDeleteConfirm}
+                                      renderField={(field) => (
+                                        <div>
+                                          {renderField(field)}
+                                          {!isSectionCollapsed && section.contentFields.map((cf) => (
+                                            <div key={cf.id} className="mb-3 mt-3">
+                                              {renderField(cf)}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      reorderMode={true}
+                                      onEditField={(id) => setEditingFieldId(id)}
+                                      sectionFieldCount={section.contentFields.length}
+                                      noEdit={isMaterialSection || isChecklistSection || isPlaceholderSection}
+                                    />
+                                  </div>
+                                )
+                              })
+                            }
+
+                            // Normal mode: individual fields are sortable
                             return sections.map((section, sIdx) => {
                               const isMaterialSection = section.headerId === MATERIAL_SYSTEM_SECTION_ID
                               const isChecklistSection = section.headerId != null && section.headerId.startsWith('checklist-')
-                              const isSpecialSection = isMaterialSection || isChecklistSection
+                              const headerField = section.allFields[0]
+                              const isPlaceholderSection = headerField?.type === 'checklist_placeholder' || headerField?.type === 'material_system_placeholder'
+                              const isSpecialSection = isMaterialSection || isChecklistSection || isPlaceholderSection
                               const isSectionCollapsed = section.headerId ? collapsedSections.has(section.headerId) : false
                               return (
                               <div key={section.headerId ?? `__orphan_${sIdx}`}>
                                 {section.allFields.map((field) => {
                                   // Hide content fields when section is collapsed
-                                  if (isSectionCollapsed && field.type !== 'section_header') return null
+                                  if (isSectionCollapsed && !isSectionLikeField(field)) return null
                                   const globalIdx = fields.findIndex((f) => f.id === field.id)
                                   const fieldIsChecklist = isChecklistField(field)
+                                  const fieldIsPlaceholder = field.type === 'checklist_placeholder' || field.type === 'material_system_placeholder'
                                   return (
                                     <div key={field.id} className="mb-3 last:mb-0">
                                       <SortableFieldRow
@@ -1522,8 +1643,8 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                                         renderField={renderField}
                                         reorderMode={reorderMode}
                                         onEditField={(id) => setEditingFieldId(id)}
-                                        sectionFieldCount={field.type === 'section_header' ? getSectionFieldCount(field.id) : 0}
-                                        noEdit={isMaterialSection || fieldIsChecklist}
+                                        sectionFieldCount={isSectionLikeField(field) ? getSectionFieldCount(field.id) : 0}
+                                        noEdit={isMaterialSection || fieldIsChecklist || fieldIsPlaceholder}
                                       />
                                     </div>
                                   )
