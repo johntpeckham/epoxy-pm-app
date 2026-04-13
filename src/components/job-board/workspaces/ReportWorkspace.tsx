@@ -420,32 +420,27 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
     if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) return null
     if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) return null
 
-    // Material System placeholder — render inline within parent section
+    // Material System placeholder — render full-width within parent section
     if (field.type === 'material_system_placeholder') {
       return (
-        <div
-          key={field.id}
-          className="flex flex-col gap-1 lg:grid lg:grid-cols-[200px_1fr] lg:gap-4 lg:items-start"
-        >
-          <label className="text-xs font-medium text-gray-600 lg:pt-2 lg:text-right">
+        <div key={field.id} className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-gray-600">
             {field.label || 'Material System'}
           </label>
-          <div>
-            <MaterialSystemPicker
-              rows={materialRows}
-              onChange={setMaterialRows}
-              systems={materialSystems}
-              onAddNew={addMaterialSystem}
-              onUpdateSystem={updateMaterialSystem}
-              readOnly={readOnly}
-              showQuantity
-            />
-          </div>
+          <MaterialSystemPicker
+            rows={materialRows}
+            onChange={setMaterialRows}
+            systems={materialSystems}
+            onAddNew={addMaterialSystem}
+            onUpdateSystem={updateMaterialSystem}
+            readOnly={readOnly}
+            showQuantity
+          />
         </div>
       )
     }
 
-    // Checklist placeholder — render inline within parent section
+    // Checklist placeholder — render full-width within parent section
     if (field.type === 'checklist_placeholder') {
       const selectedChecklistId = checklistSelections.get(field.id)
       const selectedTemplate = selectedChecklistId
@@ -453,11 +448,8 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
         : null
 
       return (
-        <div
-          key={field.id}
-          className="flex flex-col gap-1 lg:grid lg:grid-cols-[200px_1fr] lg:gap-4 lg:items-start"
-        >
-          <label className="text-xs font-medium text-gray-600 lg:pt-2 lg:text-right">
+        <div key={field.id} className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-gray-600">
             {field.label || 'Checklist'}
           </label>
           <div className="space-y-3">
