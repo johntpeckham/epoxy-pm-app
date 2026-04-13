@@ -104,6 +104,9 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
   const [checklistResponses, setChecklistResponses] = useState<Map<string, boolean>>(new Map())
   const [allChecklistTemplates, setAllChecklistTemplates] = useState<{ id: string; name: string; items: { id: string; text: string; sort_order: number }[] }[]>([])
   const [checklistSelections, setChecklistSelections] = useState<Map<string, string>>(new Map())
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const initialLoadDoneRef = useRef(false)
 
   const projectDefaults: Partial<ProjectReportData> = {
     project_name: project.name,
@@ -329,6 +332,74 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
     setSaving(false)
   }
 
+  async function handleAutosave() {
+    if (readOnly) return
+    setAutosaveStatus('saving')
+
+    const supabase = createClient()
+    const mergedData: Record<string, unknown> = { ...formData }
+    for (const [key, val] of Object.entries(customValues)) {
+      if (typeof val === 'string' && val.trim()) {
+        mergedData[key] = val.trim()
+      }
+    }
+    mergedData.material_system_rows = materialRows
+
+    const allValues: Record<string, string> = {}
+    for (const [key, val] of Object.entries(mergedData)) {
+      if (typeof val === 'string') allValues[key] = val
+    }
+    for (const [key, val] of Object.entries(customValues)) {
+      allValues[key] = val
+    }
+    const dynamicFields = buildDynamicFields(FORM_KEY, allValues, templateFields)
+
+    const { error: upsertError } = await supabase
+      .from('project_reports')
+      .upsert(
+        {
+          project_id: projectId,
+          user_id: userId,
+          data: mergedData,
+          dynamic_fields: dynamicFields,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'project_id' }
+      )
+
+    if (upsertError) {
+      setAutosaveStatus('error')
+    } else {
+      setAutosaveStatus('saved')
+      setTimeout(() => setAutosaveStatus('idle'), 2000)
+    }
+  }
+
+  // Autosave: debounced save after form data changes
+  useEffect(() => {
+    if (!initialLoadDoneRef.current) return
+    if (readOnly || loading) return
+
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = setTimeout(() => {
+      handleAutosave()
+    }, 1500)
+
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, customValues, materialRows])
+
+  // Mark initial load as done after data is loaded
+  useEffect(() => {
+    if (!loading) {
+      // Small delay to let the initial state settle
+      const timer = setTimeout(() => { initialLoadDoneRef.current = true }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [loading])
+
   function handlePrint() {
     window.print()
   }
@@ -466,21 +537,26 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
               </select>
             )}
             {selectedTemplate && (
-              <div className="space-y-2">
-                {selectedTemplate.items.map((item) => (
-                  <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={checklistResponses.get(item.id) ?? false}
-                      onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
-                      disabled={readOnly}
-                      className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
-                    />
-                    <span className={`text-sm ${(checklistResponses.get(item.id) ?? false) ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                      {item.text}
-                    </span>
-                  </label>
-                ))}
+              <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
+                <div className="px-3 py-2 bg-gray-100/60 border-b border-gray-200">
+                  <span className="text-sm font-semibold text-gray-900">{selectedTemplate.name}</span>
+                </div>
+                <div className="px-3 py-2 space-y-1">
+                  {selectedTemplate.items.map((item) => (
+                    <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checklistResponses.get(item.id) ?? false}
+                        onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
+                        disabled={readOnly}
+                        className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                      />
+                      <span className={`text-sm ${(checklistResponses.get(item.id) ?? false) ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                        {item.text}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -495,24 +571,26 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
       if (!data) return null
       return (
         <div key={field.id}>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
-            {data.name}
-          </h3>
-          <div className="space-y-2">
-            {data.items.map((item) => (
-              <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={checklistResponses.get(item.id) ?? false}
-                  onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
-                  disabled={readOnly}
-                  className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
-                />
-                <span className={`text-sm ${(checklistResponses.get(item.id) ?? false) ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                  {item.text}
-                </span>
-              </label>
-            ))}
+          <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
+            <div className="px-3 py-2 bg-gray-100/60 border-b border-gray-200">
+              <span className="text-sm font-semibold text-gray-900">{data.name}</span>
+            </div>
+            <div className="px-3 py-2 space-y-1">
+              {data.items.map((item) => (
+                <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={checklistResponses.get(item.id) ?? false}
+                    onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
+                    disabled={readOnly}
+                    className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                  />
+                  <span className={`text-sm ${(checklistResponses.get(item.id) ?? false) ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                    {item.text}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       )
@@ -611,6 +689,17 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
         <FileDownIcon className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">{generatingPdf ? 'Generating...' : 'PDF'}</span>
       </button>
+      {!readOnly && autosaveStatus !== 'idle' && (
+        <span className={`text-xs font-medium hidden sm:inline ${
+          autosaveStatus === 'saving' ? 'text-gray-400' :
+          autosaveStatus === 'saved' ? 'text-green-500' :
+          'text-red-500'
+        }`}>
+          {autosaveStatus === 'saving' ? 'Saving...' :
+           autosaveStatus === 'saved' ? 'All changes saved' :
+           'Save failed'}
+        </span>
+      )}
       {!readOnly && (
         <button
           onClick={handleSave}
