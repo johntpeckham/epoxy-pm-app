@@ -2,16 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
-import { XIcon, Loader2Icon, PrinterIcon, FileDownIcon } from 'lucide-react'
+import { XIcon, Loader2Icon, PrinterIcon, FileDownIcon, ClipboardListIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ProjectReportData, FormField } from '@/types'
 import type { UserRole } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useFormTemplate } from '@/lib/useFormTemplate'
-import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
+import { getContentKey, getKnownContentKeys } from '@/lib/formFieldMaps'
 import Portal from '@/components/ui/Portal'
-import { useMaterialSystems } from '@/lib/useMaterialSystems'
-import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
 import type { MaterialSystemRow } from '@/components/ui/MaterialSystemPicker'
 
 interface ProjectReportModalProps {
@@ -83,36 +81,25 @@ const emptyReport: ProjectReportData = {
 const FORM_KEY = 'project_report'
 const KNOWN_KEYS = getKnownContentKeys(FORM_KEY)
 
+// Skip all old static Material System 1/2/3 and Material Quantities 1/2/3 fields
+const MATERIAL_SYSTEM_SKIP_IDS = new Set(['pr-49', 'pr-50', 'pr-51', 'pr-52', 'pr-53', 'pr-54', 'pr-55'])
+const MATERIAL_SYSTEM_SKIP_LABELS = /^Material (System|Quantities) \d$/
+
 export default function ProjectReportModal({
   projectId,
   projectName,
-  clientName,
-  address,
-  estimateNumber,
-  userId,
-  userRole = 'crew',
   onClose,
 }: ProjectReportModalProps) {
-  const readOnly = userRole === 'foreman'
   const { settings: companySettings } = useCompanySettings()
   const { fields: templateFields, loading: templateLoading } = useFormTemplate(FORM_KEY)
   const [formData, setFormData] = useState<ProjectReportData>(emptyReport)
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
+  const [materialRows, setMaterialRows] = useState<MaterialSystemRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [reportExists, setReportExists] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [savedMsg, setSavedMsg] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
-  const { systems: materialSystems, addSystem: addMaterialSystem, updateSystem: updateMaterialSystem } = useMaterialSystems()
-  const [materialRows, setMaterialRows] = useState<MaterialSystemRow[]>([])
-
-  const projectDefaults: Partial<ProjectReportData> = {
-    project_name: projectName,
-    client_name: clientName,
-    address: address,
-    estimate_number: estimateNumber,
-  }
 
   const loadReport = useCallback(async () => {
     const supabase = createClient()
@@ -127,6 +114,7 @@ export default function ProjectReportModal({
     } else if (data) {
       const savedData = data.data as Record<string, unknown>
       setFormData({ ...emptyReport, ...(savedData as unknown as ProjectReportData) })
+      setReportExists(true)
       // Load custom field values (keys not in the known set)
       const custom: Record<string, string> = {}
       for (const [key, val] of Object.entries(savedData)) {
@@ -140,71 +128,14 @@ export default function ProjectReportModal({
         setMaterialRows(savedData.material_system_rows as MaterialSystemRow[])
       }
     } else {
-      setFormData({ ...emptyReport, ...projectDefaults })
+      setReportExists(false)
     }
     setLoading(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
   useEffect(() => {
     loadReport()
   }, [loadReport])
-
-  function handleChange(key: string, value: string) {
-    if (key in emptyReport) {
-      setFormData((prev) => ({ ...prev, [key]: value }))
-    } else {
-      setCustomValues((prev) => ({ ...prev, [key]: value }))
-    }
-  }
-
-  async function handleSave() {
-    setSaving(true)
-    setError(null)
-    setSavedMsg(false)
-
-    const supabase = createClient()
-    // Merge known fields with custom field values
-    const mergedData: Record<string, unknown> = { ...formData }
-    for (const [key, val] of Object.entries(customValues)) {
-      if (typeof val === 'string' && val.trim()) {
-        mergedData[key] = val.trim()
-      }
-    }
-    // Save material system rows
-    mergedData.material_system_rows = materialRows
-
-    // Build dynamic fields for custom fields added via Form Management
-    const allValues: Record<string, string> = {}
-    for (const [key, val] of Object.entries(mergedData)) {
-      if (typeof val === 'string') allValues[key] = val
-    }
-    for (const [key, val] of Object.entries(customValues)) {
-      allValues[key] = val
-    }
-    const dynamicFields = buildDynamicFields(FORM_KEY, allValues, templateFields)
-
-    const { error: upsertError } = await supabase
-      .from('project_reports')
-      .upsert(
-        {
-          project_id: projectId,
-          user_id: userId,
-          data: mergedData,
-          dynamic_fields: dynamicFields,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'project_id' }
-      )
-
-    if (upsertError) {
-      setError(upsertError.message)
-    } else {
-      setSavedMsg(true)
-      setTimeout(() => setSavedMsg(false), 2000)
-    }
-    setSaving(false)
-  }
 
   function handlePrint() {
     window.print()
@@ -217,34 +148,10 @@ export default function ProjectReportModal({
       const html2canvas = (await import('html2canvas-pro')).default
       const { jsPDF } = await import('jspdf')
 
-      // Temporarily swap inputs for plain-text print values and show title
-      const titleEl = formRef.current.querySelector('[data-report-title]') as HTMLElement | null
-      if (titleEl) titleEl.style.display = 'flex'
-
-      const inputs = formRef.current.querySelectorAll<HTMLElement>('input, textarea')
-      const printValues = formRef.current.querySelectorAll<HTMLElement>('[data-print-value]')
-      inputs.forEach((el) => { el.style.display = 'none' })
-      printValues.forEach((el) => {
-        el.style.display = 'block'
-        el.style.borderBottom = '1px solid #e5e7eb'
-        el.style.padding = '4px 0'
-        el.style.fontSize = '9pt'
-      })
-
       const canvas = await html2canvas(formRef.current, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
-      })
-
-      // Restore original visibility
-      if (titleEl) titleEl.style.display = ''
-      inputs.forEach((el) => { el.style.display = '' })
-      printValues.forEach((el) => {
-        el.style.display = ''
-        el.style.borderBottom = ''
-        el.style.padding = ''
-        el.style.fontSize = ''
       })
 
       const imgData = canvas.toDataURL('image/png')
@@ -292,90 +199,142 @@ export default function ProjectReportModal({
     return customValues[contentKey] ?? ''
   }
 
-  // Skip all old static Material System 1/2/3 and Material Quantities 1/2/3 fields
-  const MATERIAL_SYSTEM_SKIP_IDS = new Set(['pr-49', 'pr-50', 'pr-51', 'pr-52', 'pr-53', 'pr-54', 'pr-55'])
-  const MATERIAL_SYSTEM_SKIP_LABELS = /^Material (System|Quantities) \d$/
+  /**
+   * Group template fields into sections. Each section has a header label and
+   * a list of data fields. We filter out empty fields and skip sections that
+   * have no populated fields so the read-only view stays clean.
+   */
+  function buildSections(): { header: string; fields: { label: string; value: string; isLongText: boolean }[] }[] {
+    const sections: { header: string; fields: { label: string; value: string; isLongText: boolean }[] }[] = []
+    let currentSection: { header: string; fields: { label: string; value: string; isLongText: boolean }[] } | null = null
 
-  function renderField(field: FormField) {
-    if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) return null
-    if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) return null
+    for (const field of templateFields) {
+      if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) continue
+      if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) continue
 
-    if (field.type === 'section_header') {
-      // Replace the Material System section header with the dynamic picker
-      // Skip the Material Quantities section header (replaced by dynamic picker)
-      if (field.id === 'pr-52' || field.label === 'Material Quantities') return null
+      if (field.type === 'section_header') {
+        // Skip Material Quantities section header (replaced by Material System picker)
+        if (field.id === 'pr-52' || field.label === 'Material Quantities') continue
 
-      if (field.id === 'pr-48' || field.label === 'Material System') {
-        return (
-          <div key={field.id}>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
-              Material Quantities
-            </h3>
-            <MaterialSystemPicker
-              rows={materialRows}
-              onChange={setMaterialRows}
-              systems={materialSystems}
-              onAddNew={addMaterialSystem}
-              onUpdateSystem={updateMaterialSystem}
-              readOnly={readOnly}
-              showQuantity
-            />
-          </div>
-        )
+        // The Material System section header — we handle material rows separately
+        if (field.id === 'pr-48' || field.label === 'Material System') {
+          currentSection = { header: 'Material Quantities', fields: [] }
+          sections.push(currentSection)
+          // Mark this section as the material system section (handled separately)
+          currentSection = null
+          continue
+        }
+
+        currentSection = { header: field.label, fields: [] }
+        sections.push(currentSection)
+        continue
       }
 
-      return (
-        <div key={field.id}>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
-            {field.label}
-          </h3>
-        </div>
-      )
+      if (!currentSection) continue
+
+      const contentKey = getContentKey(FORM_KEY, field)
+      const value = getFieldValue(contentKey)
+      if (value.trim()) {
+        currentSection.fields.push({
+          label: field.label,
+          value: value.trim(),
+          isLongText: field.type === 'long_text',
+        })
+      }
     }
 
-    const contentKey = getContentKey(FORM_KEY, field)
-    const value = getFieldValue(contentKey)
-    const isTextarea = field.type === 'long_text'
+    return sections
+  }
+
+  function renderMaterialRows() {
+    if (materialRows.length === 0) return null
 
     return (
-      <div
-        key={field.id}
-        className="flex flex-col gap-1 lg:grid lg:grid-cols-[180px_1fr] lg:gap-3 lg:items-start"
-      >
-        <label className="text-xs font-medium text-gray-600 lg:pt-2 lg:text-right">
-          {field.label}
-          {field.required && <span className="text-red-400"> *</span>}
-        </label>
-        <div className="relative">
-          {isTextarea ? (
-            <textarea
-              value={value}
-              onChange={(e) => handleChange(contentKey, e.target.value)}
-              rows={3}
-              readOnly={readOnly}
-              placeholder={field.placeholder || ''}
-              className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none resize-vertical ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
-            />
-          ) : (
-            <input
-              type="text"
-              value={value}
-              onChange={(e) => handleChange(contentKey, e.target.value)}
-              readOnly={readOnly}
-              placeholder={field.placeholder || ''}
-              className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none ${readOnly ? 'bg-gray-50 cursor-default' : 'focus:border-amber-400 focus:ring-1 focus:ring-amber-400'}`}
-            />
-          )}
+      <div className="space-y-3">
+        {materialRows.map((row) => (
           <div
-            data-print-value
-            className="hidden text-sm text-gray-900 py-2 whitespace-pre-wrap"
+            key={row.id}
+            className="border border-gray-200 rounded-lg overflow-hidden"
           >
-            {value || '\u00A0'}
+            {/* System name header */}
+            <div className="px-3 sm:px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+              <span className="text-sm font-semibold text-gray-900">{row.systemName}</span>
+            </div>
+
+            {/* Material items */}
+            {row.items.length > 0 && (
+              <div className="divide-y divide-gray-100">
+                {row.items.map((item, idx) => (
+                  <div key={idx} className="px-3 sm:px-4 py-2.5">
+                    {/* Mobile: stacked layout */}
+                    <div className="sm:hidden space-y-1.5">
+                      <p className="text-sm font-medium text-gray-900">{item.material_name}</p>
+                      {item.thickness && (
+                        <div className="flex justify-between">
+                          <span className="text-xs text-gray-500">Thickness</span>
+                          <span className="text-sm text-gray-700">{item.thickness}</span>
+                        </div>
+                      )}
+                      {item.coverage_rate && (
+                        <div className="flex justify-between">
+                          <span className="text-xs text-gray-500">Coverage Rate</span>
+                          <span className="text-sm text-gray-700">{item.coverage_rate}</span>
+                        </div>
+                      )}
+                      {item.quantity && (
+                        <div className="flex justify-between">
+                          <span className="text-xs text-gray-500">Quantity</span>
+                          <span className="text-sm font-medium text-gray-900">{item.quantity}</span>
+                        </div>
+                      )}
+                      {item.item_notes && (
+                        <p className="text-xs text-gray-400 italic">{item.item_notes}</p>
+                      )}
+                    </div>
+
+                    {/* Desktop: grid layout */}
+                    <div className="hidden sm:block">
+                      {idx === 0 && (
+                        <div className="grid grid-cols-4 gap-3 mb-1">
+                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Material</span>
+                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Thickness</span>
+                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Coverage Rate</span>
+                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Quantity</span>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-4 gap-3">
+                        <span className="text-sm text-gray-900">{item.material_name}</span>
+                        <span className="text-sm text-gray-600">{item.thickness || '\u2014'}</span>
+                        <span className="text-sm text-gray-600">{item.coverage_rate || '\u2014'}</span>
+                        <span className="text-sm text-gray-600">{item.quantity || '\u2014'}</span>
+                      </div>
+                      {item.item_notes && (
+                        <p className="text-xs text-gray-400 italic mt-1">{item.item_notes}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* System notes */}
+            {row.notes && (
+              <div className="px-3 sm:px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
+                <p className="text-xs text-gray-500 mb-0.5 font-medium">Notes</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{row.notes}</p>
+              </div>
+            )}
           </div>
-        </div>
+        ))}
       </div>
     )
   }
+
+  const sections = !loading && reportExists ? buildSections() : []
+
+  // Check if we have the special Material Quantities section
+  const materialSectionIdx = sections.findIndex((s) => s.header === 'Material Quantities')
+  const hasMaterialContent = materialRows.length > 0
 
   return (
     <Portal>
@@ -397,13 +356,24 @@ export default function ProjectReportModal({
         </div>
 
         {/* Scrollable body */}
-        <div data-report-body className="flex-1 overflow-y-auto p-4 md:p-6 print:overflow-visible min-h-0">
+        <div data-report-body className="flex-1 overflow-y-auto print:overflow-visible min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
             </div>
+          ) : !reportExists ? (
+            /* No report exists — show empty state */
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <ClipboardListIcon className="w-7 h-7 text-gray-300" />
+              </div>
+              <p className="text-gray-500 text-sm font-medium">No job report yet</p>
+              <p className="text-gray-400 text-xs mt-1">Reports are created from the Job Board.</p>
+            </div>
           ) : (
-            <div ref={formRef} data-report-form className="space-y-6 print:space-y-4">
+            /* Report exists — read-only view */
+            <div ref={formRef} data-report-form className="px-4 py-5 sm:px-6 sm:py-6">
+              {/* PDF title (shown in print/PDF only) */}
               <div data-report-title className="hidden print:flex items-center justify-between pb-2 border-b border-gray-300 mb-4">
                 <h1 className="text-xl font-bold text-gray-900">
                   Project Report: {projectName}
@@ -419,54 +389,100 @@ export default function ProjectReportModal({
                   />
                 )}
               </div>
+
               {templateLoading && (
                 <div className="flex items-center gap-2 text-xs text-gray-400">
                   <Loader2Icon className="w-4 h-4 animate-spin" />
-                  Loading form template...
+                  Loading...
                 </div>
               )}
 
-              {templateFields.map((field) => renderField(field))}
+              <div className="space-y-6">
+                {sections.map((section, sIdx) => {
+                  // Material Quantities section — render material rows instead of fields
+                  if (section.header === 'Material Quantities') {
+                    if (!hasMaterialContent) return null
+                    return (
+                      <div key={`section-${sIdx}`}>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
+                          Material Quantities
+                        </h3>
+                        {renderMaterialRows()}
+                      </div>
+                    )
+                  }
+
+                  // Regular section — only render if it has populated fields
+                  if (section.fields.length === 0) return null
+
+                  return (
+                    <div key={`section-${sIdx}`}>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
+                        {section.header}
+                      </h3>
+                      <div className="space-y-3">
+                        {section.fields.map((f, fIdx) => (
+                          <div
+                            key={`field-${sIdx}-${fIdx}`}
+                            className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[160px_1fr] sm:gap-3 sm:items-start"
+                          >
+                            <span className="text-xs font-medium text-gray-500 sm:pt-0.5 sm:text-right">
+                              {f.label}
+                            </span>
+                            <p className={`text-sm text-gray-900 ${f.isLongText ? 'whitespace-pre-wrap' : ''} break-words`}>
+                              {f.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Render material section if it wasn't in the template order for some reason */}
+                {materialSectionIdx === -1 && hasMaterialContent && (
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
+                      Material Quantities
+                    </h3>
+                    {renderMaterialRows()}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div data-report-footer className="flex-none flex flex-wrap items-center gap-2 lg:gap-3 p-4 border-t border-gray-200 print:hidden" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
-          {error && <p className="text-xs text-red-600 w-full lg:w-auto lg:flex-1">{error}</p>}
-          {savedMsg && <p className="text-xs text-green-600 w-full lg:w-auto lg:flex-1">Saved successfully</p>}
-          {!error && !savedMsg && <div className="hidden lg:block flex-1" />}
-          <button
-            onClick={handlePrint}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
-          >
-            <PrinterIcon className="w-4 h-4" />
-            Print
-          </button>
-          <button
-            onClick={handleSavePdf}
-            disabled={loading || generatingPdf}
-            className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
-          >
-            <FileDownIcon className="w-4 h-4" />
-            {generatingPdf ? 'Generating...' : 'PDF'}
-          </button>
+        <div data-report-footer className="flex-none flex flex-wrap items-center gap-2 sm:gap-3 p-4 border-t border-gray-200 print:hidden" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
+          {error && <p className="text-xs text-red-600 w-full sm:w-auto sm:flex-1">{error}</p>}
+          {!error && <div className="hidden sm:block flex-1" />}
+          {reportExists && (
+            <>
+              <button
+                onClick={handlePrint}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
+              >
+                <PrinterIcon className="w-4 h-4" />
+                Print
+              </button>
+              <button
+                onClick={handleSavePdf}
+                disabled={loading || generatingPdf}
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
+              >
+                <FileDownIcon className="w-4 h-4" />
+                {generatingPdf ? 'Generating...' : 'PDF'}
+              </button>
+            </>
+          )}
           <button
             onClick={onClose}
-            className="px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+            className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition ml-auto"
           >
-            {readOnly ? 'Close' : 'Cancel'}
+            Close
           </button>
-          {!readOnly && (
-            <button
-              onClick={handleSave}
-              disabled={saving || loading}
-              className="px-4 lg:px-6 py-2 lg:py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold transition ml-auto"
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-          )}
         </div>
       </div>
     </div>
