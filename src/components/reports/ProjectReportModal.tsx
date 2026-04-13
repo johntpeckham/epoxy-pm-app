@@ -307,38 +307,56 @@ export default function ProjectReportModal({
    * a list of data fields. We filter out empty fields and skip sections that
    * have no populated fields so the read-only view stays clean.
    */
-  function buildSections(): { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string; isMaterialSystem?: boolean; checklistPlaceholderFieldId?: string }[] {
-    const sections: { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string; isMaterialSystem?: boolean; checklistPlaceholderFieldId?: string }[] = []
-    let currentSection: { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string; isMaterialSystem?: boolean; checklistPlaceholderFieldId?: string } | null = null
+  type SectionField = {
+    label: string
+    value: string
+    isLongText: boolean
+    inlineType?: 'material_system' | 'checklist'
+    checklistId?: string
+    checklistPlaceholderFieldId?: string
+  }
+
+  type Section = {
+    header: string
+    fields: SectionField[]
+    checklistId?: string
+    isMaterialSystem?: boolean
+  }
+
+  function buildSections(): Section[] {
+    const sections: Section[] = []
+    let currentSection: Section | null = null
 
     for (const field of templateFields) {
       if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) continue
       if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) continue
 
-      // Material System placeholder — insert as material section at this position
+      // Material System placeholder — add as inline field within current section
       if (field.type === 'material_system_placeholder') {
-        currentSection = { header: 'Material Quantities', fields: [], isMaterialSystem: true }
-        sections.push(currentSection)
-        currentSection = null
+        if (currentSection) {
+          currentSection.fields.push({
+            label: field.label || 'Material System',
+            value: '',
+            isLongText: false,
+            inlineType: 'material_system',
+          })
+        }
         continue
       }
 
-      // Checklist placeholder — insert as checklist section at this position
+      // Checklist placeholder — add as inline field within current section
       if (field.type === 'checklist_placeholder') {
-        const selectedChecklistId = checklistSelections.get(field.id)
-        const selectedTemplate = selectedChecklistId
-          ? allChecklistTemplates.find((t) => t.id === selectedChecklistId)
-          : null
-        if (selectedTemplate) {
-          currentSection = {
-            header: selectedTemplate.name,
-            fields: [],
-            checklistId: selectedTemplate.id,
+        if (currentSection) {
+          const selectedChecklistId = checklistSelections.get(field.id)
+          currentSection.fields.push({
+            label: field.label || 'Checklist',
+            value: '',
+            isLongText: false,
+            inlineType: 'checklist',
+            checklistId: selectedChecklistId,
             checklistPlaceholderFieldId: field.id,
-          }
-          sections.push(currentSection)
+          })
         }
-        currentSection = null
         continue
       }
 
@@ -346,7 +364,7 @@ export default function ProjectReportModal({
         // Skip Material Quantities section header (replaced by Material System picker)
         if (field.id === 'pr-52' || field.label === 'Material Quantities') continue
 
-        // The Material System section header — we handle material rows separately
+        // The Material System section header (legacy) — render as standalone section
         if (field.id === 'pr-48' || field.label === 'Material System') {
           currentSection = { header: 'Material Quantities', fields: [], isMaterialSystem: true }
           sections.push(currentSection)
@@ -538,7 +556,7 @@ export default function ProjectReportModal({
 
               <div className="space-y-6">
                 {sections.map((section, sIdx) => {
-                  // Material Quantities section — render material rows instead of fields
+                  // Material Quantities section (legacy) — render material rows as standalone section
                   if (section.isMaterialSystem) {
                     if (!hasMaterialContent) return null
                     return (
@@ -551,42 +569,8 @@ export default function ProjectReportModal({
                     )
                   }
 
-                  // Checklist placeholder section — use selected template items
-                  if (section.checklistPlaceholderFieldId && section.checklistId) {
-                    const template = allChecklistTemplates.find((t) => t.id === section.checklistId)
-                    if (!template || template.items.length === 0) return null
-                    return (
-                      <div key={`section-${sIdx}`}>
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
-                          {template.name}
-                        </h3>
-                        <div className="space-y-2">
-                          {template.items.map((item) => {
-                            const isChecked = checklistResponses.get(item.id) ?? false
-                            return (
-                              <div key={item.id} className="flex items-center gap-3 py-1">
-                                <div
-                                  className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
-                                    isChecked
-                                      ? 'bg-amber-500 border-amber-500'
-                                      : 'border-gray-300'
-                                  }`}
-                                >
-                                  {isChecked && <CheckIcon className="w-3 h-3 text-white" />}
-                                </div>
-                                <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                                  {item.text}
-                                </span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // Checklist section (legacy) — render read-only checklist items
-                  if (section.checklistId && !section.checklistPlaceholderFieldId) {
+                  // Checklist section (legacy) — render read-only checklist items as standalone section
+                  if (section.checklistId) {
                     const data = checklistData.get(section.checklistId)
                     if (!data || data.items.length === 0) return null
                     return (
@@ -619,8 +603,9 @@ export default function ProjectReportModal({
                     )
                   }
 
-                  // Regular section — only render if it has populated fields
-                  if (section.fields.length === 0) return null
+                  // Regular section — only render if it has populated fields (including inline types)
+                  const hasContent = section.fields.some((f) => f.value.trim() || f.inlineType)
+                  if (!hasContent) return null
 
                   return (
                     <div key={`section-${sIdx}`}>
@@ -628,19 +613,78 @@ export default function ProjectReportModal({
                         {section.header}
                       </h3>
                       <div className="space-y-3">
-                        {section.fields.map((f, fIdx) => (
-                          <div
-                            key={`field-${sIdx}-${fIdx}`}
-                            className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[160px_1fr] sm:gap-3 sm:items-start"
-                          >
-                            <span className="text-xs font-medium text-gray-500 sm:pt-0.5 sm:text-right">
-                              {f.label}
-                            </span>
-                            <p className={`text-sm text-gray-900 ${f.isLongText ? 'whitespace-pre-wrap' : ''} break-words`}>
-                              {f.value}
-                            </p>
-                          </div>
-                        ))}
+                        {section.fields.map((f, fIdx) => {
+                          // Inline material system
+                          if (f.inlineType === 'material_system') {
+                            if (!hasMaterialContent) return null
+                            return (
+                              <div
+                                key={`field-${sIdx}-${fIdx}`}
+                                className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[160px_1fr] sm:gap-3 sm:items-start"
+                              >
+                                <span className="text-xs font-medium text-gray-500 sm:pt-0.5 sm:text-right">
+                                  {f.label}
+                                </span>
+                                <div>{renderMaterialRows()}</div>
+                              </div>
+                            )
+                          }
+
+                          // Inline checklist
+                          if (f.inlineType === 'checklist' && f.checklistId) {
+                            const template = allChecklistTemplates.find((t) => t.id === f.checklistId)
+                            if (!template || template.items.length === 0) return null
+                            return (
+                              <div
+                                key={`field-${sIdx}-${fIdx}`}
+                                className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[160px_1fr] sm:gap-3 sm:items-start"
+                              >
+                                <span className="text-xs font-medium text-gray-500 sm:pt-0.5 sm:text-right">
+                                  {f.label}
+                                </span>
+                                <div className="space-y-2">
+                                  {template.items.map((item) => {
+                                    const isChecked = checklistResponses.get(item.id) ?? false
+                                    return (
+                                      <div key={item.id} className="flex items-center gap-3 py-1">
+                                        <div
+                                          className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
+                                            isChecked
+                                              ? 'bg-amber-500 border-amber-500'
+                                              : 'border-gray-300'
+                                          }`}
+                                        >
+                                          {isChecked && <CheckIcon className="w-3 h-3 text-white" />}
+                                        </div>
+                                        <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                                          {item.text}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+                          }
+
+                          // Skip inline checklist with no selection
+                          if (f.inlineType === 'checklist') return null
+
+                          // Regular text field
+                          return (
+                            <div
+                              key={`field-${sIdx}-${fIdx}`}
+                              className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[160px_1fr] sm:gap-3 sm:items-start"
+                            >
+                              <span className="text-xs font-medium text-gray-500 sm:pt-0.5 sm:text-right">
+                                {f.label}
+                              </span>
+                              <p className={`text-sm text-gray-900 ${f.isLongText ? 'whitespace-pre-wrap' : ''} break-words`}>
+                                {f.value}
+                              </p>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )
