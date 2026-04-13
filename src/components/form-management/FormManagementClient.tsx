@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -38,6 +38,8 @@ import {
   XIcon,
   PencilIcon,
   ArrowUpDownIcon,
+  ClipboardCheckIcon,
+  PackageIcon,
 } from 'lucide-react'
 import type { FormTemplate, FormField, FormFieldType } from '@/types'
 
@@ -62,6 +64,25 @@ const FIELD_TYPE_COLORS: Record<FormFieldType, string> = {
   number: 'bg-orange-50 text-orange-700 border-orange-200',
   section_header: 'bg-gray-100 text-gray-600 border-gray-300',
   signature: 'bg-pink-50 text-pink-700 border-pink-200',
+}
+
+/* ── Material system & checklist constants ── */
+const MATERIAL_SYSTEM_SECTION_ID = 'pr-48'
+const MATERIAL_SYSTEM_SKIP_IDS = new Set(['pr-49', 'pr-50', 'pr-51', 'pr-52', 'pr-53', 'pr-54', 'pr-55'])
+const MATERIAL_SYSTEM_SKIP_LABELS = /^Material (System|Quantities) \d$/
+
+interface ChecklistTemplate {
+  id: string
+  name: string
+  items: { id: string; text: string; sort_order: number }[]
+}
+
+function isChecklistField(field: FormField): boolean {
+  return field.id.startsWith('checklist-')
+}
+
+function getChecklistIdFromField(field: FormField): string {
+  return field.id.replace('checklist-', '')
 }
 
 function generateId(): string {
@@ -144,6 +165,7 @@ function FieldControls({
   onDelete,
   deleteConfirm,
   setDeleteConfirm,
+  noDelete,
 }: {
   fieldId: string
   idx: number
@@ -152,6 +174,7 @@ function FieldControls({
   onDelete: (id: string) => void
   deleteConfirm: string | null
   setDeleteConfirm: (id: string | null) => void
+  noDelete?: boolean
 }) {
   return (
     <div className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 z-10 transition-opacity ${deleteConfirm === fieldId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
@@ -171,29 +194,31 @@ function FieldControls({
       >
         <ChevronDownIcon className="w-3.5 h-3.5" />
       </button>
-      {deleteConfirm === fieldId ? (
-        <div className="flex items-center gap-1 ml-0.5">
+      {!noDelete && (
+        deleteConfirm === fieldId ? (
+          <div className="flex items-center gap-1 ml-0.5">
+            <button
+              onClick={() => onDelete(fieldId)}
+              className="px-2 py-0.5 rounded bg-red-500 text-white text-[11px] font-medium hover:bg-red-600 transition"
+            >
+              Delete
+            </button>
+            <button
+              onClick={() => setDeleteConfirm(null)}
+              className="px-2 py-0.5 rounded border border-gray-200 text-gray-500 text-[11px] font-medium hover:bg-gray-50 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
           <button
-            onClick={() => onDelete(fieldId)}
-            className="px-2 py-0.5 rounded bg-red-500 text-white text-[11px] font-medium hover:bg-red-600 transition"
+            onClick={() => setDeleteConfirm(fieldId)}
+            title="Delete field"
+            className="p-1 text-gray-300 hover:text-red-500 rounded transition"
           >
-            Delete
+            <Trash2Icon className="w-3 h-3" />
           </button>
-          <button
-            onClick={() => setDeleteConfirm(null)}
-            className="px-2 py-0.5 rounded border border-gray-200 text-gray-500 text-[11px] font-medium hover:bg-gray-50 transition"
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => setDeleteConfirm(fieldId)}
-          title="Delete field"
-          className="p-1 text-gray-300 hover:text-red-500 rounded transition"
-        >
-          <Trash2Icon className="w-3 h-3" />
-        </button>
+        )
       )}
     </div>
   )
@@ -311,6 +336,8 @@ function HoverControls({
   setDeleteConfirm,
   isSectionHeader,
   sectionFieldCount,
+  noEdit,
+  noDelete,
 }: {
   fieldId: string
   onEdit: () => void
@@ -319,7 +346,10 @@ function HoverControls({
   setDeleteConfirm: (id: string | null) => void
   isSectionHeader: boolean
   sectionFieldCount: number
+  noEdit?: boolean
+  noDelete?: boolean
 }) {
+  if (noEdit && noDelete) return null
   return (
     <div className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 z-10 transition-opacity ${deleteConfirm === fieldId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
       {deleteConfirm === fieldId ? (
@@ -342,20 +372,24 @@ function HoverControls({
         </div>
       ) : (
         <>
-          <button
-            onClick={onEdit}
-            title="Edit name"
-            className="p-1 text-gray-300 hover:text-amber-600 rounded transition"
-          >
-            <PencilIcon className="w-3 h-3" />
-          </button>
-          <button
-            onClick={() => setDeleteConfirm(fieldId)}
-            title={isSectionHeader ? 'Delete section' : 'Delete field'}
-            className="p-1 text-gray-300 hover:text-red-500 rounded transition"
-          >
-            <Trash2Icon className="w-3 h-3" />
-          </button>
+          {!noEdit && (
+            <button
+              onClick={onEdit}
+              title="Edit name"
+              className="p-1 text-gray-300 hover:text-amber-600 rounded transition"
+            >
+              <PencilIcon className="w-3 h-3" />
+            </button>
+          )}
+          {!noDelete && (
+            <button
+              onClick={() => setDeleteConfirm(fieldId)}
+              title={isSectionHeader ? 'Delete section' : 'Delete field'}
+              className="p-1 text-gray-300 hover:text-red-500 rounded transition"
+            >
+              <Trash2Icon className="w-3 h-3" />
+            </button>
+          )}
         </>
       )}
     </div>
@@ -375,6 +409,8 @@ function SortableFieldRow({
   reorderMode,
   onEditField,
   sectionFieldCount,
+  noDelete,
+  noEdit,
 }: {
   field: FormField
   idx: number
@@ -387,6 +423,8 @@ function SortableFieldRow({
   reorderMode: boolean
   onEditField: (id: string) => void
   sectionFieldCount: number
+  noDelete?: boolean
+  noEdit?: boolean
 }) {
   const {
     attributes,
@@ -428,6 +466,7 @@ function SortableFieldRow({
           onDelete={onDelete}
           deleteConfirm={deleteConfirm}
           setDeleteConfirm={setDeleteConfirm}
+          noDelete={noDelete}
         />
       ) : (
         <HoverControls
@@ -438,6 +477,8 @@ function SortableFieldRow({
           setDeleteConfirm={setDeleteConfirm}
           isSectionHeader={field.type === 'section_header'}
           sectionFieldCount={sectionFieldCount}
+          noDelete={noDelete}
+          noEdit={noEdit}
         />
       )}
     </div>
@@ -728,6 +769,105 @@ function RequiredBadge({ required, onToggle }: { required: boolean; onToggle: ()
   )
 }
 
+/* ── Special section renderers for the form editor ── */
+
+function MaterialSystemEditorSection() {
+  return (
+    <div>
+      <div className="pt-3 pb-1.5 border-b border-amber-100">
+        <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+          Material Quantities
+        </span>
+      </div>
+      <div className="mt-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50/50 flex items-center justify-center gap-2">
+        <PackageIcon className="w-4 h-4 text-gray-400" />
+        <span className="text-sm text-gray-400">+ Add Material System</span>
+      </div>
+      <p className="text-[10px] text-gray-400 mt-1.5 italic">Configured in Material System tab. Position can be reordered.</p>
+    </div>
+  )
+}
+
+function ChecklistEditorSection({ name, items }: { name: string; items: { id: string; text: string }[] }) {
+  return (
+    <div>
+      <div className="pt-3 pb-1.5 border-b border-amber-100">
+        <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+          {name}
+        </span>
+      </div>
+      <div className="mt-2 space-y-1">
+        {items.map((item) => (
+          <div key={item.id} className="flex items-center gap-3 py-1.5 px-2">
+            <div className="w-4 h-4 border-2 border-gray-300 rounded flex-shrink-0" />
+            <span className="text-sm text-gray-600">{item.text}</span>
+          </div>
+        ))}
+        {items.length === 0 && (
+          <p className="text-xs text-gray-400 italic py-2 px-2">No items in this checklist</p>
+        )}
+      </div>
+      <p className="text-[10px] text-gray-400 mt-1 italic px-2">Items managed in Checklist Management tab.</p>
+    </div>
+  )
+}
+
+function ChecklistPickerDropdown({
+  checklists,
+  existingIds,
+  onSelect,
+  onClose,
+}: {
+  checklists: { id: string; name: string; itemCount: number }[]
+  existingIds: Set<string>
+  onSelect: (id: string) => void
+  onClose: () => void
+}) {
+  return (
+    <div className="absolute bottom-full mb-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden w-72 z-50">
+      <div className="px-3 py-2 border-b border-gray-100">
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Add Checklist</h4>
+      </div>
+      {checklists.length === 0 ? (
+        <div className="px-3 py-4 text-center">
+          <ClipboardCheckIcon className="w-5 h-5 text-gray-300 mx-auto mb-1" />
+          <p className="text-xs text-gray-400">No checklists available.</p>
+          <p className="text-xs text-gray-400">Create one in Checklist Management.</p>
+        </div>
+      ) : (
+        <div className="max-h-48 overflow-y-auto divide-y divide-gray-50">
+          {checklists.map((cl) => {
+            const alreadyAdded = existingIds.has(cl.id)
+            return (
+              <button
+                key={cl.id}
+                onClick={() => !alreadyAdded && onSelect(cl.id)}
+                disabled={alreadyAdded}
+                className={`w-full text-left px-3 py-2.5 text-sm transition flex items-center justify-between ${
+                  alreadyAdded
+                    ? 'text-gray-300 cursor-not-allowed bg-gray-50/50'
+                    : 'text-gray-700 hover:bg-amber-50 hover:text-amber-700'
+                }`}
+              >
+                <span className="font-medium">{cl.name}</span>
+                <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
+                  {cl.itemCount} item{cl.itemCount !== 1 ? 's' : ''}
+                  {alreadyAdded && ' · added'}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+      <div className="px-3 py-2 border-t border-gray-100">
+        <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-600 transition">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ── Main component ── */
 
 interface FormManagementClientProps {
@@ -749,8 +889,11 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   const [reorderMode, setReorderMode] = useState(false)
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null)
   const [addingFieldInSection, setAddingFieldInSection] = useState<string | null>(null)
+  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([])
+  const [showChecklistPicker, setShowChecklistPicker] = useState(false)
 
   const selectedTemplate = templates.find((t) => t.form_key === selectedKey)
+  const isProjectReport = selectedTemplate?.form_key === 'project_report'
 
   const fetchTemplates = useCallback(async () => {
     const supabase = createClient()
@@ -779,10 +922,58 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
 
   useEffect(() => {
     if (selectedTemplate) {
-      const sorted = [...selectedTemplate.fields].sort((a, b) => a.order - b.order)
+      let sorted = [...selectedTemplate.fields].sort((a, b) => a.order - b.order)
+      // For project_report: filter out legacy material system placeholder fields
+      if (selectedTemplate.form_key === 'project_report') {
+        sorted = sorted.filter(
+          (f) =>
+            !MATERIAL_SYSTEM_SKIP_IDS.has(f.id) &&
+            !MATERIAL_SYSTEM_SKIP_LABELS.test(f.label) &&
+            !(f.id === 'pr-52' || (f.type === 'section_header' && f.label === 'Material Quantities' && f.id !== MATERIAL_SYSTEM_SECTION_ID))
+        )
+        // Ensure material system marker exists
+        if (!sorted.some((f) => f.id === MATERIAL_SYSTEM_SECTION_ID)) {
+          const prepIdx = sorted.findIndex((f) => f.label === 'Prep')
+          const marker: FormField = {
+            id: MATERIAL_SYSTEM_SECTION_ID,
+            type: 'section_header',
+            label: 'Material System',
+            placeholder: '',
+            required: false,
+            options: [],
+            order: 0,
+          }
+          if (prepIdx >= 0) sorted.splice(prepIdx, 0, marker)
+          else sorted.push(marker)
+        }
+        sorted = sorted.map((f, i) => ({ ...f, order: i + 1 }))
+      }
       setFields(sorted)
     }
   }, [selectedTemplate])
+
+  // Load checklist templates from DB when editing project_report
+  useEffect(() => {
+    if (filterFormKey === 'project_report' || selectedKey === 'project_report') {
+      async function loadChecklists() {
+        const supabase = createClient()
+        const { data: cls } = await supabase.from('job_report_checklists').select('*').order('sort_order')
+        const { data: items } = await supabase.from('job_report_checklist_items').select('*').order('sort_order')
+        if (cls) {
+          setChecklistTemplates(
+            (cls as { id: string; name: string; sort_order: number }[]).map((cl) => ({
+              id: cl.id,
+              name: cl.name,
+              items: ((items as { id: string; checklist_id: string; text: string; sort_order: number }[]) ?? [])
+                .filter((i) => i.checklist_id === cl.id)
+                .map((i) => ({ id: i.id, text: i.text, sort_order: i.sort_order })),
+            }))
+          )
+        }
+      }
+      loadChecklists()
+    }
+  }, [filterFormKey, selectedKey])
 
   function selectForm(key: string) {
     setSelectedKey(key)
@@ -834,9 +1025,16 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   }
 
   function handleDelete(id: string) {
+    // Prevent deleting material system section
+    if (id === MATERIAL_SYSTEM_SECTION_ID) return
     const field = fields.find((f) => f.id === id)
     if (field?.type === 'section_header') {
-      removeSectionWithFields(id)
+      // For checklist markers, just remove the single marker (no content fields)
+      if (isChecklistField(field)) {
+        removeField(id)
+      } else {
+        removeSectionWithFields(id)
+      }
     } else {
       removeField(id)
     }
@@ -914,6 +1112,23 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     }
     setFields((prev) => [...prev, newSection].map((f, i) => ({ ...f, order: i + 1 })))
     setEditingFieldId(id)
+    setSaved(false)
+  }
+
+  function addChecklist(checklistId: string) {
+    const template = checklistTemplates.find((c) => c.id === checklistId)
+    if (!template) return
+    const marker: FormField = {
+      id: `checklist-${checklistId}`,
+      type: 'section_header',
+      label: template.name,
+      placeholder: '',
+      required: false,
+      options: [],
+      order: fields.length + 1,
+    }
+    setFields((prev) => [...prev, marker].map((f, i) => ({ ...f, order: i + 1 })))
+    setShowChecklistPicker(false)
     setSaved(false)
   }
 
@@ -997,6 +1212,17 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   // --- Render a field in WYSIWYG style ---
 
   function renderField(field: FormField) {
+    // Special: Material System section (project_report)
+    if (field.id === MATERIAL_SYSTEM_SECTION_ID) {
+      return <MaterialSystemEditorSection />
+    }
+    // Special: Checklist section
+    if (isChecklistField(field)) {
+      const checklistId = getChecklistIdFromField(field)
+      const template = checklistTemplates.find((c) => c.id === checklistId)
+      return <ChecklistEditorSection name={template?.name ?? field.label} items={template?.items ?? []} />
+    }
+
     const onUpdate = (u: Partial<FormField>) => updateField(field.id, u)
     const autoEdit = editingFieldId === field.id
     const onEditDone = () => setEditingFieldId(null)
@@ -1139,10 +1365,16 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                         <div className="p-4 md:p-6 space-y-3">
                           {(() => {
                             const sections = groupFieldsIntoSections(fields)
-                            return sections.map((section, sIdx) => (
+                            return sections.map((section, sIdx) => {
+                              const isMaterialSection = section.headerId === MATERIAL_SYSTEM_SECTION_ID
+                              const isChecklistSection = section.headerId != null && section.headerId.startsWith('checklist-')
+                              const isSpecialSection = isMaterialSection || isChecklistSection
+                              return (
                               <div key={section.headerId ?? `__orphan_${sIdx}`}>
                                 {section.allFields.map((field) => {
                                   const globalIdx = fields.findIndex((f) => f.id === field.id)
+                                  const fieldIsMaterial = field.id === MATERIAL_SYSTEM_SECTION_ID
+                                  const fieldIsChecklist = isChecklistField(field)
                                   return (
                                     <div key={field.id} className="mb-3 last:mb-0">
                                       <SortableFieldRow
@@ -1157,12 +1389,14 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                                         reorderMode={reorderMode}
                                         onEditField={(id) => setEditingFieldId(id)}
                                         sectionFieldCount={field.type === 'section_header' ? getSectionFieldCount(field.id) : 0}
+                                        noDelete={fieldIsMaterial}
+                                        noEdit={fieldIsMaterial || fieldIsChecklist}
                                       />
                                     </div>
                                   )
                                 })}
-                                {/* Per-section Add Field */}
-                                {!reorderMode && (
+                                {/* Per-section Add Field — hide for special sections */}
+                                {!reorderMode && !isSpecialSection && (
                                   <div className="pl-2 pt-1">
                                     {addingFieldInSection === (section.headerId ?? '__orphan__') ? (
                                       <AddFieldForm
@@ -1181,22 +1415,43 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                                   </div>
                                 )}
                               </div>
-                            ))
+                            )})
                           })()}
                         </div>
                       </SortableContext>
                     </DndContext>
 
-                    {/* Add Section Button */}
+                    {/* Add Section / Add Checklist Buttons */}
                     {!reorderMode && (
                       <div className="px-4 md:px-6 py-4 border-t border-gray-200">
-                        <button
-                          onClick={addSection}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 border border-dashed border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-600 rounded-lg text-sm font-medium transition"
-                        >
-                          <PlusIcon className="w-4 h-4" />
-                          Add Section
-                        </button>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <button
+                            onClick={addSection}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 border border-dashed border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-600 rounded-lg text-sm font-medium transition"
+                          >
+                            <PlusIcon className="w-4 h-4" />
+                            Add Section
+                          </button>
+                          {isProjectReport && (
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowChecklistPicker((v) => !v)}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 border border-dashed border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-600 rounded-lg text-sm font-medium transition"
+                              >
+                                <ClipboardCheckIcon className="w-4 h-4" />
+                                Add Checklist
+                              </button>
+                              {showChecklistPicker && (
+                                <ChecklistPickerDropdown
+                                  checklists={checklistTemplates.map((c) => ({ id: c.id, name: c.name, itemCount: c.items.length }))}
+                                  existingIds={new Set(fields.filter((f) => isChecklistField(f)).map((f) => getChecklistIdFromField(f)))}
+                                  onSelect={addChecklist}
+                                  onClose={() => setShowChecklistPicker(false)}
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

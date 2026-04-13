@@ -14,6 +14,11 @@ import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
 import type { MaterialSystemRow } from '@/components/ui/MaterialSystemPicker'
 import WorkspaceShell from '../WorkspaceShell'
 
+interface ChecklistSectionData {
+  name: string
+  items: { id: string; text: string; sort_order: number }[]
+}
+
 interface ReportWorkspaceProps {
   project: Project
   userId: string
@@ -95,6 +100,8 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
   const formRef = useRef<HTMLDivElement>(null)
   const { systems: materialSystems, addSystem: addMaterialSystem, updateSystem: updateMaterialSystem } = useMaterialSystems()
   const [materialRows, setMaterialRows] = useState<MaterialSystemRow[]>([])
+  const [checklistData, setChecklistData] = useState<Map<string, ChecklistSectionData>>(new Map())
+  const [checklistResponses, setChecklistResponses] = useState<Map<string, boolean>>(new Map())
 
   const projectDefaults: Partial<ProjectReportData> = {
     project_name: project.name,
@@ -136,6 +143,75 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
   useEffect(() => {
     loadReport()
   }, [loadReport])
+
+  // Load checklist data for any checklist markers in the template
+  useEffect(() => {
+    const checklistIds = templateFields
+      .filter((f) => f.id.startsWith('checklist-'))
+      .map((f) => f.id.replace('checklist-', ''))
+    if (checklistIds.length === 0) return
+
+    async function loadChecklists() {
+      const supabase = createClient()
+      const { data: cls } = await supabase
+        .from('job_report_checklists')
+        .select('*')
+        .in('id', checklistIds)
+      const { data: items } = await supabase
+        .from('job_report_checklist_items')
+        .select('*')
+        .in('checklist_id', checklistIds)
+        .order('sort_order')
+
+      const map = new Map<string, ChecklistSectionData>()
+      for (const cl of (cls ?? []) as { id: string; name: string }[]) {
+        map.set(cl.id, {
+          name: cl.name,
+          items: ((items ?? []) as { id: string; checklist_id: string; text: string; sort_order: number }[])
+            .filter((i) => i.checklist_id === cl.id)
+            .map((i) => ({ id: i.id, text: i.text, sort_order: i.sort_order })),
+        })
+      }
+      setChecklistData(map)
+    }
+    loadChecklists()
+  }, [templateFields])
+
+  // Load checklist responses for this project
+  useEffect(() => {
+    async function loadResponses() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('job_report_checklist_responses')
+        .select('*')
+        .eq('project_id', projectId)
+
+      const map = new Map<string, boolean>()
+      for (const row of (data ?? []) as { checklist_item_id: string; checked: boolean }[]) {
+        map.set(row.checklist_item_id, row.checked)
+      }
+      setChecklistResponses(map)
+    }
+    loadResponses()
+  }, [projectId])
+
+  async function handleChecklistChange(itemId: string, checked: boolean) {
+    setChecklistResponses((prev) => {
+      const next = new Map(prev)
+      next.set(itemId, checked)
+      return next
+    })
+
+    const supabase = createClient()
+    await supabase.from('job_report_checklist_responses').upsert(
+      {
+        project_id: projectId,
+        checklist_item_id: itemId,
+        checked,
+      },
+      { onConflict: 'project_id,checklist_item_id' }
+    )
+  }
 
   function handleChange(key: string, value: string) {
     if (key in emptyReport) {
@@ -280,6 +356,36 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
   function renderField(field: FormField) {
     if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) return null
     if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) return null
+
+    // Checklist section
+    if (field.id.startsWith('checklist-')) {
+      const checklistId = field.id.replace('checklist-', '')
+      const data = checklistData.get(checklistId)
+      if (!data) return null
+      return (
+        <div key={field.id}>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
+            {data.name}
+          </h3>
+          <div className="space-y-2">
+            {data.items.map((item) => (
+              <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={checklistResponses.get(item.id) ?? false}
+                  onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
+                  disabled={readOnly}
+                  className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                />
+                <span className={`text-sm ${(checklistResponses.get(item.id) ?? false) ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                  {item.text}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )
+    }
 
     if (field.type === 'section_header') {
       if (field.id === 'pr-52' || field.label === 'Material Quantities') return null

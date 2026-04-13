@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
-import { XIcon, Loader2Icon, PrinterIcon, FileDownIcon, ClipboardListIcon } from 'lucide-react'
+import { XIcon, Loader2Icon, PrinterIcon, FileDownIcon, ClipboardListIcon, CheckIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ProjectReportData, FormField } from '@/types'
 import type { UserRole } from '@/types'
@@ -11,6 +11,11 @@ import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys } from '@/lib/formFieldMaps'
 import Portal from '@/components/ui/Portal'
 import type { MaterialSystemRow } from '@/components/ui/MaterialSystemPicker'
+
+interface ChecklistSectionData {
+  name: string
+  items: { id: string; text: string; sort_order: number }[]
+}
 
 interface ProjectReportModalProps {
   projectId: string
@@ -95,6 +100,8 @@ export default function ProjectReportModal({
   const [formData, setFormData] = useState<ProjectReportData>(emptyReport)
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
   const [materialRows, setMaterialRows] = useState<MaterialSystemRow[]>([])
+  const [checklistData, setChecklistData] = useState<Map<string, ChecklistSectionData>>(new Map())
+  const [checklistResponses, setChecklistResponses] = useState<Map<string, boolean>>(new Map())
   const [loading, setLoading] = useState(true)
   const [reportExists, setReportExists] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
@@ -136,6 +143,57 @@ export default function ProjectReportModal({
   useEffect(() => {
     loadReport()
   }, [loadReport])
+
+  // Load checklist data for any checklist markers in the template
+  useEffect(() => {
+    const checklistIds = templateFields
+      .filter((f) => f.id.startsWith('checklist-'))
+      .map((f) => f.id.replace('checklist-', ''))
+    if (checklistIds.length === 0) return
+
+    async function loadChecklists() {
+      const supabase = createClient()
+      const { data: cls } = await supabase
+        .from('job_report_checklists')
+        .select('*')
+        .in('id', checklistIds)
+      const { data: items } = await supabase
+        .from('job_report_checklist_items')
+        .select('*')
+        .in('checklist_id', checklistIds)
+        .order('sort_order')
+
+      const map = new Map<string, ChecklistSectionData>()
+      for (const cl of (cls ?? []) as { id: string; name: string }[]) {
+        map.set(cl.id, {
+          name: cl.name,
+          items: ((items ?? []) as { id: string; checklist_id: string; text: string; sort_order: number }[])
+            .filter((i) => i.checklist_id === cl.id)
+            .map((i) => ({ id: i.id, text: i.text, sort_order: i.sort_order })),
+        })
+      }
+      setChecklistData(map)
+    }
+    loadChecklists()
+  }, [templateFields])
+
+  // Load checklist responses for this project
+  useEffect(() => {
+    async function loadResponses() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('job_report_checklist_responses')
+        .select('*')
+        .eq('project_id', projectId)
+
+      const map = new Map<string, boolean>()
+      for (const row of (data ?? []) as { checklist_item_id: string; checked: boolean }[]) {
+        map.set(row.checklist_item_id, row.checked)
+      }
+      setChecklistResponses(map)
+    }
+    loadResponses()
+  }, [projectId])
 
   function handlePrint() {
     window.print()
@@ -204,9 +262,9 @@ export default function ProjectReportModal({
    * a list of data fields. We filter out empty fields and skip sections that
    * have no populated fields so the read-only view stays clean.
    */
-  function buildSections(): { header: string; fields: { label: string; value: string; isLongText: boolean }[] }[] {
-    const sections: { header: string; fields: { label: string; value: string; isLongText: boolean }[] }[] = []
-    let currentSection: { header: string; fields: { label: string; value: string; isLongText: boolean }[] } | null = null
+  function buildSections(): { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string }[] {
+    const sections: { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string }[] = []
+    let currentSection: { header: string; fields: { label: string; value: string; isLongText: boolean }[]; checklistId?: string } | null = null
 
     for (const field of templateFields) {
       if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) continue
@@ -220,7 +278,16 @@ export default function ProjectReportModal({
         if (field.id === 'pr-48' || field.label === 'Material System') {
           currentSection = { header: 'Material Quantities', fields: [] }
           sections.push(currentSection)
-          // Mark this section as the material system section (handled separately)
+          currentSection = null
+          continue
+        }
+
+        // Checklist section — handled separately
+        if (field.id.startsWith('checklist-')) {
+          const checklistId = field.id.replace('checklist-', '')
+          const data = checklistData.get(checklistId)
+          currentSection = { header: data?.name ?? field.label, fields: [], checklistId }
+          sections.push(currentSection)
           currentSection = null
           continue
         }
@@ -400,7 +467,7 @@ export default function ProjectReportModal({
               <div className="space-y-6">
                 {sections.map((section, sIdx) => {
                   // Material Quantities section — render material rows instead of fields
-                  if (section.header === 'Material Quantities') {
+                  if (section.header === 'Material Quantities' && !section.checklistId) {
                     if (!hasMaterialContent) return null
                     return (
                       <div key={`section-${sIdx}`}>
@@ -408,6 +475,40 @@ export default function ProjectReportModal({
                           Material Quantities
                         </h3>
                         {renderMaterialRows()}
+                      </div>
+                    )
+                  }
+
+                  // Checklist section — render read-only checklist items
+                  if (section.checklistId) {
+                    const data = checklistData.get(section.checklistId)
+                    if (!data || data.items.length === 0) return null
+                    return (
+                      <div key={`section-${sIdx}`}>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
+                          {data.name}
+                        </h3>
+                        <div className="space-y-2">
+                          {data.items.map((item) => {
+                            const isChecked = checklistResponses.get(item.id) ?? false
+                            return (
+                              <div key={item.id} className="flex items-center gap-3 py-1">
+                                <div
+                                  className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
+                                    isChecked
+                                      ? 'bg-amber-500 border-amber-500'
+                                      : 'border-gray-300'
+                                  }`}
+                                >
+                                  {isChecked && <CheckIcon className="w-3 h-3 text-white" />}
+                                </div>
+                                <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                                  {item.text}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
                     )
                   }
