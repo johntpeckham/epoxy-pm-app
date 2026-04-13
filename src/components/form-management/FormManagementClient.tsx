@@ -982,6 +982,11 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   const [historyCounter, setHistoryCounter] = useState(0)
   const fieldsRef = useRef<FormField[]>(fields)
 
+  // Autosave
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const initialLoadRef = useRef(true)
+
   const selectedTemplate = templates.find((t) => t.form_key === selectedKey)
   const isProjectReport = selectedTemplate?.form_key === 'project_report'
 
@@ -1305,15 +1310,24 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
 
   // --- Save ---
 
-  async function handleSave() {
+  async function handleSave(isAutosave = false) {
     if (!selectedTemplate) return
     setSaving(true)
+    if (isAutosave) setAutosaveStatus('saving')
     const supabase = createClient()
     const { error } = await supabase
       .from('form_templates')
       .update({ fields: fields as unknown as Record<string, unknown>[], updated_at: new Date().toISOString() })
       .eq('id', selectedTemplate.id)
-    if (error) console.error('[FormManagement] Save template failed:', error)
+    if (error) {
+      console.error('[FormManagement] Save template failed:', error)
+      if (isAutosave) setAutosaveStatus('error')
+    } else {
+      if (isAutosave) {
+        setAutosaveStatus('saved')
+        setTimeout(() => setAutosaveStatus('idle'), 2000)
+      }
+    }
 
     setTemplates((prev) =>
       prev.map((t) =>
@@ -1327,6 +1341,32 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setHistoryCounter((c) => c + 1)
     setTimeout(() => setSaved(false), 2000)
   }
+
+  // --- Autosave: debounced save after field changes ---
+  useEffect(() => {
+    // Skip the initial load when fields are set from the template
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false
+      return
+    }
+    // Don't autosave if no template is selected or fields are empty
+    if (!selectedTemplate || fields.length === 0) return
+
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = setTimeout(() => {
+      handleSave(true)
+    }, 1500)
+
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fields])
+
+  // Reset initial load flag when template changes
+  useEffect(() => {
+    initialLoadRef.current = true
+  }, [selectedKey])
 
   // --- Drag and drop ---
 
@@ -1556,7 +1596,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                         <Redo2Icon className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={handleSave}
+                        onClick={() => handleSave()}
                         disabled={saving || saved}
                         className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition"
                       >
@@ -1571,6 +1611,17 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                           'Save Changes'
                         )}
                       </button>
+                      {autosaveStatus !== 'idle' && (
+                        <span className={`text-xs font-medium ${
+                          autosaveStatus === 'saving' ? 'text-gray-400' :
+                          autosaveStatus === 'saved' ? 'text-green-500' :
+                          'text-red-500'
+                        }`}>
+                          {autosaveStatus === 'saving' ? 'Saving...' :
+                           autosaveStatus === 'saved' ? 'All changes saved' :
+                           'Save failed'}
+                        </span>
+                      )}
                     </div>
                   </div>
 
