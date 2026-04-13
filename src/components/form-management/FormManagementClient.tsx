@@ -25,6 +25,7 @@ import {
   PlusIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   Trash2Icon,
   CheckIcon,
   GripVerticalIcon,
@@ -487,17 +488,24 @@ function SortableFieldRow({
 
 /* ── Individual WYSIWYG field renderers ── */
 
-function SectionHeaderField({ field, onUpdate, autoEdit, onEditDone }: { field: FormField; onUpdate: (u: Partial<FormField>) => void; autoEdit?: boolean; onEditDone?: () => void }) {
+function SectionHeaderField({ field, onUpdate, autoEdit, onEditDone, collapsed, onToggleCollapse }: { field: FormField; onUpdate: (u: Partial<FormField>) => void; autoEdit?: boolean; onEditDone?: () => void; collapsed?: boolean; onToggleCollapse?: () => void }) {
   return (
     <div className="pt-3 pb-1.5 border-b border-amber-100">
-      <InlineEdit
-        value={field.label}
-        onChange={(v) => onUpdate({ label: v })}
-        className="text-xs font-semibold uppercase tracking-wide text-amber-700"
-        placeholder="Section Title"
-        autoEdit={autoEdit}
-        onEditDone={onEditDone}
-      />
+      <div className="flex items-center gap-1">
+        {onToggleCollapse && (
+          <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
+            {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+          </button>
+        )}
+        <InlineEdit
+          value={field.label}
+          onChange={(v) => onUpdate({ label: v })}
+          className="text-xs font-semibold uppercase tracking-wide text-amber-700"
+          placeholder="Section Title"
+          autoEdit={autoEdit}
+          onEditDone={onEditDone}
+        />
+      </div>
     </div>
   )
 }
@@ -771,43 +779,65 @@ function RequiredBadge({ required, onToggle }: { required: boolean; onToggle: ()
 
 /* ── Special section renderers for the form editor ── */
 
-function MaterialSystemEditorSection() {
+function MaterialSystemEditorSection({ collapsed, onToggleCollapse }: { collapsed?: boolean; onToggleCollapse?: () => void }) {
   return (
     <div>
       <div className="pt-3 pb-1.5 border-b border-amber-100">
-        <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-          Material Quantities
-        </span>
+        <div className="flex items-center gap-1">
+          {onToggleCollapse && (
+            <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
+              {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+            </button>
+          )}
+          <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+            Material Quantities
+          </span>
+        </div>
       </div>
-      <div className="mt-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50/50 flex items-center justify-center gap-2">
-        <PackageIcon className="w-4 h-4 text-gray-400" />
-        <span className="text-sm text-gray-400">+ Add Material System</span>
-      </div>
-      <p className="text-[10px] text-gray-400 mt-1.5 italic">Configured in Material System tab. Position can be reordered.</p>
+      {!collapsed && (
+        <>
+          <div className="mt-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50/50 flex items-center justify-center gap-2">
+            <PackageIcon className="w-4 h-4 text-gray-400" />
+            <span className="text-sm text-gray-400">+ Add Material System</span>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1.5 italic">Configured in Material System tab. Position can be reordered.</p>
+        </>
+      )}
     </div>
   )
 }
 
-function ChecklistEditorSection({ name, items }: { name: string; items: { id: string; text: string }[] }) {
+function ChecklistEditorSection({ name, items, collapsed, onToggleCollapse }: { name: string; items: { id: string; text: string }[]; collapsed?: boolean; onToggleCollapse?: () => void }) {
   return (
     <div>
       <div className="pt-3 pb-1.5 border-b border-amber-100">
-        <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-          {name}
-        </span>
+        <div className="flex items-center gap-1">
+          {onToggleCollapse && (
+            <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
+              {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+            </button>
+          )}
+          <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+            {name}
+          </span>
+        </div>
       </div>
-      <div className="mt-2 space-y-1">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 py-1.5 px-2">
-            <div className="w-4 h-4 border-2 border-gray-300 rounded flex-shrink-0" />
-            <span className="text-sm text-gray-600">{item.text}</span>
+      {!collapsed && (
+        <>
+          <div className="mt-2 space-y-1">
+            {items.map((item) => (
+              <div key={item.id} className="flex items-center gap-3 py-1.5 px-2">
+                <div className="w-4 h-4 border-2 border-gray-300 rounded flex-shrink-0" />
+                <span className="text-sm text-gray-600">{item.text}</span>
+              </div>
+            ))}
+            {items.length === 0 && (
+              <p className="text-xs text-gray-400 italic py-2 px-2">No items in this checklist</p>
+            )}
           </div>
-        ))}
-        {items.length === 0 && (
-          <p className="text-xs text-gray-400 italic py-2 px-2">No items in this checklist</p>
-        )}
-      </div>
-      <p className="text-[10px] text-gray-400 mt-1 italic px-2">Items managed in Checklist Management tab.</p>
+          <p className="text-[10px] text-gray-400 mt-1 italic px-2">Items managed in Checklist Management tab.</p>
+        </>
+      )}
     </div>
   )
 }
@@ -824,7 +854,7 @@ function ChecklistPickerDropdown({
   onClose: () => void
 }) {
   return (
-    <div className="absolute bottom-full mb-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden w-72 z-50">
+    <div className="absolute top-full mt-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden w-72 z-50">
       <div className="px-3 py-2 border-b border-gray-100">
         <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Add Checklist</h4>
       </div>
@@ -891,6 +921,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   const [addingFieldInSection, setAddingFieldInSection] = useState<string | null>(null)
   const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([])
   const [showChecklistPicker, setShowChecklistPicker] = useState(false)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
 
   const selectedTemplate = templates.find((t) => t.form_key === selectedKey)
   const isProjectReport = selectedTemplate?.form_key === 'project_report'
@@ -931,21 +962,6 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
             !MATERIAL_SYSTEM_SKIP_LABELS.test(f.label) &&
             !(f.id === 'pr-52' || (f.type === 'section_header' && f.label === 'Material Quantities' && f.id !== MATERIAL_SYSTEM_SECTION_ID))
         )
-        // Ensure material system marker exists
-        if (!sorted.some((f) => f.id === MATERIAL_SYSTEM_SECTION_ID)) {
-          const prepIdx = sorted.findIndex((f) => f.label === 'Prep')
-          const marker: FormField = {
-            id: MATERIAL_SYSTEM_SECTION_ID,
-            type: 'section_header',
-            label: 'Material System',
-            placeholder: '',
-            required: false,
-            options: [],
-            order: 0,
-          }
-          if (prepIdx >= 0) sorted.splice(prepIdx, 0, marker)
-          else sorted.push(marker)
-        }
         sorted = sorted.map((f, i) => ({ ...f, order: i + 1 }))
       }
       setFields(sorted)
@@ -982,6 +998,17 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setAddingFieldType(false)
   }
 
+  const hasMaterialSystem = fields.some((f) => f.id === MATERIAL_SYSTEM_SECTION_ID)
+
+  function toggleCollapse(sectionId: string) {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(sectionId)) next.delete(sectionId)
+      else next.add(sectionId)
+      return next
+    })
+  }
+
   // --- Field operations ---
 
   function updateField(id: string, updates: Partial<FormField>) {
@@ -991,6 +1018,22 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
 
   function moveField(id: string, direction: 'up' | 'down') {
     setFields((prev) => {
+      const field = prev.find((f) => f.id === id)
+      if (!field) return prev
+
+      // Section header: move entire section group
+      if (field.type === 'section_header') {
+        const sections = groupFieldsIntoSections(prev)
+        const sIdx = sections.findIndex((s) => s.headerId === id)
+        if (sIdx < 0) return prev
+        const targetIdx = direction === 'up' ? sIdx - 1 : sIdx + 1
+        if (targetIdx < 0 || targetIdx >= sections.length) return prev
+        const next = [...sections]
+        ;[next[sIdx], next[targetIdx]] = [next[targetIdx], next[sIdx]]
+        return next.flatMap((s) => s.allFields).map((f, i) => ({ ...f, order: i + 1 }))
+      }
+
+      // Regular field: swap with adjacent
       const idx = prev.findIndex((f) => f.id === id)
       if (idx < 0) return prev
       const newIdx = direction === 'up' ? idx - 1 : idx + 1
@@ -1025,8 +1068,6 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   }
 
   function handleDelete(id: string) {
-    // Prevent deleting material system section
-    if (id === MATERIAL_SYSTEM_SECTION_ID) return
     const field = fields.find((f) => f.id === id)
     if (field?.type === 'section_header') {
       // For checklist markers, just remove the single marker (no content fields)
@@ -1132,6 +1173,21 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setSaved(false)
   }
 
+  function addMaterialSystem() {
+    if (fields.some((f) => f.id === MATERIAL_SYSTEM_SECTION_ID)) return
+    const marker: FormField = {
+      id: MATERIAL_SYSTEM_SECTION_ID,
+      type: 'section_header',
+      label: 'Material System',
+      placeholder: '',
+      required: false,
+      options: [],
+      order: fields.length + 1,
+    }
+    setFields((prev) => [...prev, marker].map((f, i) => ({ ...f, order: i + 1 })))
+    setSaved(false)
+  }
+
   function addOption(fieldId: string) {
     setFields((prev) =>
       prev.map((f) =>
@@ -1194,10 +1250,41 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     useSensor(KeyboardSensor)
   )
 
+  const visibleFieldIds = useMemo(() => {
+    const sections = groupFieldsIntoSections(fields)
+    const ids: string[] = []
+    for (const section of sections) {
+      const isCollapsed = collapsedSections.has(section.headerId ?? '')
+      for (const field of section.allFields) {
+        if (isCollapsed && field.type !== 'section_header') continue
+        ids.push(field.id)
+      }
+    }
+    return ids
+  }, [fields, collapsedSections])
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
     setFields((prev) => {
+      const draggedField = prev.find((f) => f.id === active.id)
+      if (!draggedField) return prev
+
+      // Section header: move entire section group
+      if (draggedField.type === 'section_header') {
+        const sections = groupFieldsIntoSections(prev)
+        const draggedIdx = sections.findIndex((s) => s.headerId === active.id)
+        const targetIdx = sections.findIndex((s) =>
+          s.allFields.some((f) => f.id === (over.id as string))
+        )
+        if (draggedIdx < 0 || targetIdx < 0 || draggedIdx === targetIdx) return prev
+        const next = [...sections]
+        const [moved] = next.splice(draggedIdx, 1)
+        next.splice(targetIdx, 0, moved)
+        return next.flatMap((s) => s.allFields).map((f, i) => ({ ...f, order: i + 1 }))
+      }
+
+      // Regular field reorder
       const oldIdx = prev.findIndex((f) => f.id === active.id)
       const newIdx = prev.findIndex((f) => f.id === over.id)
       if (oldIdx < 0 || newIdx < 0) return prev
@@ -1214,13 +1301,13 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   function renderField(field: FormField) {
     // Special: Material System section (project_report)
     if (field.id === MATERIAL_SYSTEM_SECTION_ID) {
-      return <MaterialSystemEditorSection />
+      return <MaterialSystemEditorSection collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
     }
     // Special: Checklist section
     if (isChecklistField(field)) {
       const checklistId = getChecklistIdFromField(field)
       const template = checklistTemplates.find((c) => c.id === checklistId)
-      return <ChecklistEditorSection name={template?.name ?? field.label} items={template?.items ?? []} />
+      return <ChecklistEditorSection name={template?.name ?? field.label} items={template?.items ?? []} collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
     }
 
     const onUpdate = (u: Partial<FormField>) => updateField(field.id, u)
@@ -1229,7 +1316,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
 
     switch (field.type) {
       case 'section_header':
-        return <SectionHeaderField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
+        return <SectionHeaderField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} collapsed={collapsedSections.has(field.id)} onToggleCollapse={() => toggleCollapse(field.id)} />
       case 'short_text':
         return <ShortTextField field={field} onUpdate={onUpdate} autoEdit={autoEdit} onEditDone={onEditDone} />
       case 'long_text':
@@ -1326,7 +1413,52 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                         {new Date(selectedTemplate.updated_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {!reorderMode && (
+                        <>
+                          <button
+                            onClick={addSection}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
+                          >
+                            <PlusIcon className="w-4 h-4" />
+                            Add Section
+                          </button>
+                          {isProjectReport && (
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowChecklistPicker((v) => !v)}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600"
+                              >
+                                <ClipboardCheckIcon className="w-4 h-4" />
+                                Add Checklist
+                              </button>
+                              {showChecklistPicker && (
+                                <ChecklistPickerDropdown
+                                  checklists={checklistTemplates.map((c) => ({ id: c.id, name: c.name, itemCount: c.items.length }))}
+                                  existingIds={new Set(fields.filter((f) => isChecklistField(f)).map((f) => getChecklistIdFromField(f)))}
+                                  onSelect={addChecklist}
+                                  onClose={() => setShowChecklistPicker(false)}
+                                />
+                              )}
+                            </div>
+                          )}
+                          {isProjectReport && (
+                            <button
+                              onClick={addMaterialSystem}
+                              disabled={hasMaterialSystem}
+                              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                hasMaterialSystem
+                                  ? 'bg-gray-300 text-gray-500 border border-gray-300 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400 dark:border-gray-500'
+                                  : 'bg-gray-800 text-gray-200 border border-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-600'
+                              }`}
+                              title={hasMaterialSystem ? 'Material system already added' : 'Add Material System section'}
+                            >
+                              <PackageIcon className="w-4 h-4" />
+                              Add Material System
+                            </button>
+                          )}
+                        </>
+                      )}
                       <button
                         onClick={() => setReorderMode((v) => !v)}
                         className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -1361,7 +1493,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                   {/* WYSIWYG Form Card */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                      <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                      <SortableContext items={visibleFieldIds} strategy={verticalListSortingStrategy}>
                         <div className="p-4 md:p-6 space-y-3">
                           {(() => {
                             const sections = groupFieldsIntoSections(fields)
@@ -1369,11 +1501,13 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                               const isMaterialSection = section.headerId === MATERIAL_SYSTEM_SECTION_ID
                               const isChecklistSection = section.headerId != null && section.headerId.startsWith('checklist-')
                               const isSpecialSection = isMaterialSection || isChecklistSection
+                              const isSectionCollapsed = section.headerId ? collapsedSections.has(section.headerId) : false
                               return (
                               <div key={section.headerId ?? `__orphan_${sIdx}`}>
                                 {section.allFields.map((field) => {
+                                  // Hide content fields when section is collapsed
+                                  if (isSectionCollapsed && field.type !== 'section_header') return null
                                   const globalIdx = fields.findIndex((f) => f.id === field.id)
-                                  const fieldIsMaterial = field.id === MATERIAL_SYSTEM_SECTION_ID
                                   const fieldIsChecklist = isChecklistField(field)
                                   return (
                                     <div key={field.id} className="mb-3 last:mb-0">
@@ -1389,14 +1523,13 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                                         reorderMode={reorderMode}
                                         onEditField={(id) => setEditingFieldId(id)}
                                         sectionFieldCount={field.type === 'section_header' ? getSectionFieldCount(field.id) : 0}
-                                        noDelete={fieldIsMaterial}
-                                        noEdit={fieldIsMaterial || fieldIsChecklist}
+                                        noEdit={isMaterialSection || fieldIsChecklist}
                                       />
                                     </div>
                                   )
                                 })}
-                                {/* Per-section Add Field — hide for special sections */}
-                                {!reorderMode && !isSpecialSection && (
+                                {/* Per-section Add Field — hide for special sections and collapsed sections */}
+                                {!reorderMode && !isSpecialSection && !isSectionCollapsed && (
                                   <div className="pl-2 pt-1">
                                     {addingFieldInSection === (section.headerId ?? '__orphan__') ? (
                                       <AddFieldForm
@@ -1421,39 +1554,6 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                       </SortableContext>
                     </DndContext>
 
-                    {/* Add Section / Add Checklist Buttons */}
-                    {!reorderMode && (
-                      <div className="px-4 md:px-6 py-4 border-t border-gray-200">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <button
-                            onClick={addSection}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 border border-dashed border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-600 rounded-lg text-sm font-medium transition"
-                          >
-                            <PlusIcon className="w-4 h-4" />
-                            Add Section
-                          </button>
-                          {isProjectReport && (
-                            <div className="relative">
-                              <button
-                                onClick={() => setShowChecklistPicker((v) => !v)}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 border border-dashed border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-600 rounded-lg text-sm font-medium transition"
-                              >
-                                <ClipboardCheckIcon className="w-4 h-4" />
-                                Add Checklist
-                              </button>
-                              {showChecklistPicker && (
-                                <ChecklistPickerDropdown
-                                  checklists={checklistTemplates.map((c) => ({ id: c.id, name: c.name, itemCount: c.items.length }))}
-                                  existingIds={new Set(fields.filter((f) => isChecklistField(f)).map((f) => getChecklistIdFromField(f)))}
-                                  onSelect={addChecklist}
-                                  onClose={() => setShowChecklistPicker(false)}
-                                />
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
