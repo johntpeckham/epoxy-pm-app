@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import FormManagementClient from '@/components/form-management/FormManagementClient'
+import JobReportManagementClient from '@/components/job-report-management/JobReportManagementClient'
 
-export default async function FormManagementPage() {
+export default async function JobReportManagementPage() {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
@@ -22,5 +22,5 @@ export default async function FormManagementPage() {
     redirect('/my-work')
   }
 
-  return <FormManagementClient excludeFormKey="project_report" />
+  return <JobReportManagementClient userId={user.id} />
 }

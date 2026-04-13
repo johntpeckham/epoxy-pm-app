@@ -499,11 +499,17 @@ function RequiredBadge({ required, onToggle }: { required: boolean; onToggle: ()
 
 /* ── Main component ── */
 
-export default function FormManagementClient() {
+interface FormManagementClientProps {
+  filterFormKey?: string   // Only show this specific form key (auto-selects it)
+  excludeFormKey?: string  // Exclude this form key from the list
+  embedded?: boolean       // Skip page wrapper and header
+}
+
+export default function FormManagementClient({ filterFormKey, excludeFormKey, embedded }: FormManagementClientProps = {}) {
   const router = useRouter()
   const [templates, setTemplates] = useState<FormTemplate[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(filterFormKey ?? null)
   const [fields, setFields] = useState<FormField[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -519,13 +525,23 @@ export default function FormManagementClient() {
       .select('*')
       .order('form_name')
     if (error) console.error('[FormManagement] Fetch templates failed:', error)
-    setTemplates((data as FormTemplate[]) ?? [])
+    let result = (data as FormTemplate[]) ?? []
+    if (filterFormKey) result = result.filter((t) => t.form_key === filterFormKey)
+    if (excludeFormKey) result = result.filter((t) => t.form_key !== excludeFormKey)
+    setTemplates(result)
     setLoading(false)
-  }, [])
+  }, [filterFormKey, excludeFormKey])
 
   useEffect(() => {
     fetchTemplates()
   }, [fetchTemplates])
+
+  // Auto-select filtered form once templates are loaded
+  useEffect(() => {
+    if (filterFormKey && templates.length > 0 && !selectedKey) {
+      setSelectedKey(filterFormKey)
+    }
+  }, [filterFormKey, templates, selectedKey])
 
   useEffect(() => {
     if (selectedTemplate) {
@@ -702,31 +718,17 @@ export default function FormManagementClient() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <button
-            onClick={() => router.push('/profile')}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-          >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </button>
-          <SlidersHorizontalIcon className="w-6 h-6 text-amber-500" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Form Management</h1>
-            <p className="text-sm text-gray-500">Customize form fields and layout for each app form.</p>
-          </div>
-        </div>
-
+  const showLeftPanel = !filterFormKey
+  const content = (
+    <>
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <LoaderIcon className="w-6 h-6 text-amber-500 animate-spin" />
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row gap-6">
-            {/* Left Panel — Form List */}
+          <div className={`flex flex-col ${showLeftPanel ? 'md:flex-row' : ''} gap-6`}>
+            {/* Left Panel — Form List (hidden when filtering to single form) */}
+            {showLeftPanel && (
             <div className="w-full md:w-64 flex-shrink-0">
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
@@ -752,6 +754,7 @@ export default function FormManagementClient() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Right Panel — WYSIWYG Form Editor */}
             <div className="flex-1 min-w-0">
@@ -852,6 +855,29 @@ export default function FormManagementClient() {
             </div>
           </div>
         )}
+    </>
+  )
+
+  if (embedded) return content
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-8">
+          <button
+            onClick={() => router.push('/profile')}
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+          </button>
+          <SlidersHorizontalIcon className="w-6 h-6 text-amber-500" />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Form Management</h1>
+            <p className="text-sm text-gray-500">Customize form fields and layout for each app form.</p>
+          </div>
+        </div>
+        {content}
       </div>
     </div>
   )
