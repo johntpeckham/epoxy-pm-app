@@ -660,8 +660,9 @@ export default function InventoryPageClient({
 
   const [collapsedSuppliers, setCollapsedSuppliers] = useState<Set<string>>(new Set())
 
-  // Reorder mode
-  const [reorderMode, setReorderMode] = useState(false)
+  // Reorder mode (admin only)
+  const [reorderModeRaw, setReorderMode] = useState(false)
+  const reorderMode = reorderModeRaw && (userRole === 'admin')
 
   // Settings modal state
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
@@ -715,6 +716,7 @@ export default function InventoryPageClient({
   const canManage =
     userRole === 'admin' || userRole === 'office_manager' || userRole === 'salesman'
   const canDelete = userRole === 'admin' || userRole === 'office_manager'
+  const canReorder = userRole === 'admin'
 
   // dnd-kit sensors: 5px distance before drag starts to avoid accidental drags.
   const sensors = useSensors(
@@ -1748,17 +1750,19 @@ export default function InventoryPageClient({
         </div>
         {canManage && (
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            <button
-              onClick={() => setReorderMode((v) => !v)}
-              className={`p-2 rounded-lg transition-colors ${
-                reorderMode
-                  ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-300 dark:ring-amber-700'
-                  : 'text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#2e2e2e]'
-              }`}
-              title={reorderMode ? 'Exit reorder mode' : 'Reorder items'}
-            >
-              <ArrowUpDownIcon className="w-4.5 h-4.5" />
-            </button>
+            {canReorder && (
+              <button
+                onClick={() => setReorderMode((v) => !v)}
+                className={`p-2 rounded-lg transition-colors ${
+                  reorderMode
+                    ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-300 dark:ring-amber-700'
+                    : 'text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#2e2e2e]'
+                }`}
+                title={reorderMode ? 'Exit reorder mode' : 'Reorder items'}
+              >
+                <ArrowUpDownIcon className="w-4.5 h-4.5" />
+              </button>
+            )}
             <button
               onClick={() => setSettingsModalOpen(true)}
               className="p-2 text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#2e2e2e] rounded-lg transition-colors"
