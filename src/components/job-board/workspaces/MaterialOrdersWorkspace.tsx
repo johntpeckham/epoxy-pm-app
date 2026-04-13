@@ -3,12 +3,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PackageIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
-import { Project, Profile } from '@/types'
+import { Project, Profile, MaterialSupplier, InventoryProduct, InventoryKitGroup } from '@/types'
 import { moveToTrash } from '@/lib/trashBin'
 import WorkspaceShell from '../WorkspaceShell'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import SearchableDropdown from '@/components/ui/SearchableDropdown'
-import type { Manufacturer } from '@/lib/useManufacturers'
 
 interface MaterialOrdersWorkspaceProps {
   project: Project
@@ -243,7 +242,7 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-gray-400 uppercase tracking-wide">
-                            <th className="text-left py-1 font-semibold">Manufacturer</th>
+                            <th className="text-left py-1 font-semibold">Supplier</th>
                             <th className="text-left py-1 font-semibold">Product</th>
                             <th className="text-left py-1 font-semibold">Qty</th>
                           </tr>
@@ -338,69 +337,39 @@ function MaterialOrderModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // Manufacturer/product master data
-  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
+  // Supplier/product master data from Material Inventory
+  const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
+  const [inventoryProducts, setInventoryProducts] = useState<InventoryProduct[]>([])
+  const [kitGroups, setKitGroups] = useState<InventoryKitGroup[]>([])
+
   useEffect(() => {
     const supabase = createClient()
-    supabase
-      .from('manufacturers')
-      .select('*, manufacturer_products(*)')
-      .order('name')
-      .then(({ data }) => {
-        const result = ((data ?? []) as (Omit<Manufacturer, 'products'> & { manufacturer_products: { id: string; manufacturer_id: string; name: string; created_at: string; updated_at: string }[] })[]).map((m) => ({
-          ...m,
-          products: (m.manufacturer_products ?? []).sort((a, b) => a.name.localeCompare(b.name)),
-        }))
-        setManufacturers(result)
-      })
+    Promise.all([
+      supabase.from('material_suppliers').select('*').order('name'),
+      supabase.from('inventory_products').select('*').order('name'),
+      supabase.from('inventory_kit_groups').select('*').order('name'),
+    ]).then(([suppRes, prodRes, kitRes]) => {
+      setSuppliers((suppRes.data as MaterialSupplier[]) ?? [])
+      setInventoryProducts((prodRes.data as InventoryProduct[]) ?? [])
+      setKitGroups((kitRes.data as InventoryKitGroup[]) ?? [])
+    })
   }, [])
 
-  const manufacturerNames = manufacturers.map((m) => m.name)
+  const supplierNames = suppliers.map((s) => s.name)
 
-  function getProductsForManufacturer(mfrName: string): string[] {
-    const mfr = manufacturers.find((m) => m.name === mfrName)
-    return mfr ? mfr.products.map((p) => p.name) : []
+  function getProductsForSupplier(supplierName: string): string[] {
+    const supplier = suppliers.find((s) => s.name === supplierName)
+    if (!supplier) return []
+    // Standalone products (not part of a kit)
+    const standalone = inventoryProducts
+      .filter((p) => p.supplier_id === supplier.id && !p.kit_group_id)
+      .map((p) => p.name)
+    // Kit groups (show kit name, not individual sub-items)
+    const kits = kitGroups
+      .filter((k) => k.supplier_id === supplier.id)
+      .map((k) => k.name)
+    return [...kits, ...standalone].sort((a, b) => a.localeCompare(b))
   }
-
-  const handleAddNewManufacturer = useCallback(async (name: string): Promise<string | null> => {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('manufacturers')
-      .insert({ name: name.trim() })
-      .select('*, manufacturer_products(*)')
-      .single()
-    if (error) {
-      if (error.code === '23505') return 'A manufacturer with this name already exists'
-      return error.message
-    }
-    const newMfr: Manufacturer = { ...(data as Omit<Manufacturer, 'products'>), products: [] }
-    setManufacturers((prev) => [...prev, newMfr].sort((a, b) => a.name.localeCompare(b.name)))
-    return null
-  }, [])
-
-  const handleAddNewProduct = useCallback(async (name: string, manufacturerName: string): Promise<string | null> => {
-    const mfr = manufacturers.find((m) => m.name === manufacturerName)
-    if (!mfr) return 'Select a manufacturer first'
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('manufacturer_products')
-      .insert({ manufacturer_id: mfr.id, name: name.trim() })
-      .select()
-      .single()
-    if (error) {
-      if (error.code === '23505') return 'A product with this name already exists for this manufacturer'
-      return error.message
-    }
-    const product = data as { id: string; manufacturer_id: string; name: string; created_at: string; updated_at: string }
-    setManufacturers((prev) =>
-      prev.map((m) =>
-        m.id === mfr.id
-          ? { ...m, products: [...m.products, product].sort((a, b) => a.name.localeCompare(b.name)) }
-          : m
-      )
-    )
-    return null
-  }, [manufacturers])
 
   const [lineItems, setLineItems] = useState<LineItemRow[]>(() => {
     if (existing && existing.line_items.length > 0) {
@@ -544,13 +513,12 @@ function MaterialOrderModal({
                 {lineItems.map((li, idx) => (
                   <div key={li.key} className="flex flex-col sm:flex-row sm:items-end gap-2 bg-gray-50 rounded-lg p-2.5">
                     <div className="w-full sm:w-[180px]">
-                      {idx === 0 && <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Manufacturer</label>}
+                      {idx === 0 && <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Supplier</label>}
                       <SearchableDropdown
                         value={li.manufacturer}
                         onChange={(val) => updateLineItem(li.key, 'manufacturer', val)}
-                        options={manufacturerNames}
-                        placeholder="Manufacturer"
-                        onAddNew={handleAddNewManufacturer}
+                        options={supplierNames}
+                        placeholder="Supplier"
                       />
                     </div>
                     <div className="flex-1">
@@ -558,10 +526,9 @@ function MaterialOrderModal({
                       <SearchableDropdown
                         value={li.product}
                         onChange={(val) => updateLineItem(li.key, 'product', val)}
-                        options={getProductsForManufacturer(li.manufacturer)}
-                        placeholder={li.manufacturer ? 'Product *' : 'Select manufacturer first'}
+                        options={getProductsForSupplier(li.manufacturer)}
+                        placeholder={li.manufacturer ? 'Product *' : 'Select supplier first'}
                         disabled={!li.manufacturer}
-                        onAddNew={li.manufacturer ? (name) => handleAddNewProduct(name, li.manufacturer) : undefined}
                       />
                     </div>
                     <div className="w-full sm:w-[35%]">
