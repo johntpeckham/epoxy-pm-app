@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PackageIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
-import { Project, Profile, MaterialSupplier, InventoryProduct, InventoryKitGroup } from '@/types'
+import { Project, Profile, MasterSupplier, MasterProduct, MasterKitGroup } from '@/types'
 import { moveToTrash } from '@/lib/trashBin'
 import WorkspaceShell from '../WorkspaceShell'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -21,6 +21,8 @@ interface LineItem {
   manufacturer: string | null
   product: string
   quantity: string
+  master_supplier_id: string | null
+  master_product_id: string | null
   created_at: string
 }
 
@@ -57,6 +59,9 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
   const [deletingOrder, setDeletingOrder] = useState<MaterialOrder | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [masterSuppliers, setMasterSuppliers] = useState<MasterSupplier[]>([])
+  const [masterProducts, setMasterProducts] = useState<MasterProduct[]>([])
+  const [masterKitGroups, setMasterKitGroups] = useState<MasterKitGroup[]>([])
 
   const showError = (msg: string) => {
     setErrorMessage(msg)
@@ -94,11 +99,24 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
     setProfiles((data as Profile[]) ?? [])
   }, [])
 
+  const fetchMasterData = useCallback(async () => {
+    const supabase = createClient()
+    const [suppRes, prodRes, kitRes] = await Promise.all([
+      supabase.from('master_suppliers').select('*').order('sort_order').order('name'),
+      supabase.from('master_products').select('*').order('sort_order').order('name'),
+      supabase.from('master_kit_groups').select('*').order('sort_order').order('name'),
+    ])
+    setMasterSuppliers((suppRes.data as MasterSupplier[]) ?? [])
+    setMasterProducts((prodRes.data as MasterProduct[]) ?? [])
+    setMasterKitGroups((kitRes.data as MasterKitGroup[]) ?? [])
+  }, [])
+
   useEffect(() => {
     setLoading(true)
     fetchOrders()
     fetchProfiles()
-  }, [fetchOrders, fetchProfiles])
+    fetchMasterData()
+  }, [fetchOrders, fetchProfiles, fetchMasterData])
 
   const profileMap = new Map(profiles.map((p) => [p.id, p]))
 
@@ -107,6 +125,25 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
     return profileMap.get(id)?.display_name ?? 'Unknown'
   }
 
+  // Master data lookup maps for resolving display names from master FKs
+  const masterSupplierById = new Map(masterSuppliers.map((s) => [s.id, s]))
+  const masterProductById = new Map(masterProducts.map((p) => [p.id, p]))
+
+  function getLineItemSupplierName(li: LineItem): string {
+    if (li.master_supplier_id) {
+      const ms = masterSupplierById.get(li.master_supplier_id)
+      if (ms) return ms.name
+    }
+    return li.manufacturer || ''
+  }
+
+  function getLineItemProductName(li: LineItem): string {
+    if (li.master_product_id) {
+      const mp = masterProductById.get(li.master_product_id)
+      if (mp) return mp.name
+    }
+    return li.product
+  }
 
   const handleDelete = async () => {
     if (!deletingOrder) return
@@ -140,7 +177,7 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
   function lineItemSummary(order: MaterialOrder) {
     const items = order.line_items
     if (items.length === 0) return order.name || 'No items'
-    const names = items.slice(0, 3).map((li) => li.product)
+    const names = items.slice(0, 3).map((li) => getLineItemProductName(li))
     const suffix = items.length > 3 ? ` +${items.length - 3} more` : ''
     return names.join(', ') + suffix
   }
@@ -250,8 +287,8 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
                         <tbody className="text-gray-700">
                           {order.line_items.map((li) => (
                             <tr key={li.id} className="border-t border-gray-50">
-                              <td className="py-1.5 text-gray-500">{li.manufacturer || '—'}</td>
-                              <td className="py-1.5">{li.product}</td>
+                              <td className="py-1.5 text-gray-500">{getLineItemSupplierName(li) || '—'}</td>
+                              <td className="py-1.5">{getLineItemProductName(li)}</td>
                               <td className="py-1.5">{li.quantity}</td>
                             </tr>
                           ))}
@@ -271,6 +308,9 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
           project={project}
           userId={userId}
           profiles={profiles}
+          masterSuppliers={masterSuppliers}
+          masterProducts={masterProducts}
+          masterKitGroups={masterKitGroups}
           onClose={() => setShowCreate(false)}
           onSaved={() => { setShowCreate(false); fetchOrders() }}
         />
@@ -281,6 +321,9 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
           project={project}
           userId={userId}
           profiles={profiles}
+          masterSuppliers={masterSuppliers}
+          masterProducts={masterProducts}
+          masterKitGroups={masterKitGroups}
           existing={editingOrder}
           onClose={() => setEditingOrder(null)}
           onSaved={() => { setEditingOrder(null); fetchOrders() }}
@@ -319,6 +362,9 @@ function MaterialOrderModal({
   project,
   userId,
   profiles,
+  masterSuppliers,
+  masterProducts,
+  masterKitGroups,
   existing,
   onClose,
   onSaved,
@@ -326,6 +372,9 @@ function MaterialOrderModal({
   project: Project
   userId: string
   profiles: Profile[]
+  masterSuppliers: MasterSupplier[]
+  masterProducts: MasterProduct[]
+  masterKitGroups: MasterKitGroup[]
   existing?: MaterialOrder
   onClose: () => void
   onSaved: () => void
@@ -337,35 +386,17 @@ function MaterialOrderModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // Supplier/product master data from Material Inventory
-  const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
-  const [inventoryProducts, setInventoryProducts] = useState<InventoryProduct[]>([])
-  const [kitGroups, setKitGroups] = useState<InventoryKitGroup[]>([])
-
-  useEffect(() => {
-    const supabase = createClient()
-    Promise.all([
-      supabase.from('material_suppliers').select('*').order('name'),
-      supabase.from('inventory_products').select('*').order('name'),
-      supabase.from('inventory_kit_groups').select('*').order('name'),
-    ]).then(([suppRes, prodRes, kitRes]) => {
-      setSuppliers((suppRes.data as MaterialSupplier[]) ?? [])
-      setInventoryProducts((prodRes.data as InventoryProduct[]) ?? [])
-      setKitGroups((kitRes.data as InventoryKitGroup[]) ?? [])
-    })
-  }, [])
-
-  const supplierNames = suppliers.map((s) => s.name)
+  const supplierNames = masterSuppliers.map((s) => s.name)
 
   function getProductsForSupplier(supplierName: string): string[] {
-    const supplier = suppliers.find((s) => s.name === supplierName)
+    const supplier = masterSuppliers.find((s) => s.name === supplierName)
     if (!supplier) return []
     // Standalone products (not part of a kit)
-    const standalone = inventoryProducts
+    const standalone = masterProducts
       .filter((p) => p.supplier_id === supplier.id && !p.kit_group_id)
       .map((p) => p.name)
     // Kit groups (show kit name, not individual sub-items)
-    const kits = kitGroups
+    const kits = masterKitGroups
       .filter((k) => k.supplier_id === supplier.id)
       .map((k) => k.name)
     return [...kits, ...standalone].sort((a, b) => a.localeCompare(b))
@@ -373,12 +404,26 @@ function MaterialOrderModal({
 
   const [lineItems, setLineItems] = useState<LineItemRow[]>(() => {
     if (existing && existing.line_items.length > 0) {
-      return existing.line_items.map((li) => ({
-        key: li.id,
-        manufacturer: li.manufacturer ?? '',
-        product: li.product,
-        quantity: String(li.quantity),
-      }))
+      return existing.line_items.map((li) => {
+        // Resolve supplier name from master FK, fall back to saved text
+        let supplierName = li.manufacturer ?? ''
+        if (li.master_supplier_id) {
+          const ms = masterSuppliers.find((s) => s.id === li.master_supplier_id)
+          if (ms) supplierName = ms.name
+        }
+        // Resolve product name from master FK, fall back to saved text
+        let productName = li.product
+        if (li.master_product_id) {
+          const mp = masterProducts.find((p) => p.id === li.master_product_id)
+          if (mp) productName = mp.name
+        }
+        return {
+          key: li.id,
+          manufacturer: supplierName,
+          product: productName,
+          quantity: String(li.quantity),
+        }
+      })
     }
     return [emptyRow()]
   })
@@ -405,6 +450,20 @@ function MaterialOrderModal({
     setLineItems((prev) => prev.filter((li) => li.key !== key))
   }
 
+  /** Look up master supplier/product IDs from the display names chosen in dropdowns */
+  function resolveLineItemMasterIds(li: LineItemRow) {
+    const supplier = masterSuppliers.find((s) => s.name === li.manufacturer.trim())
+    const master_supplier_id = supplier?.id ?? null
+    let master_product_id: string | null = null
+    if (supplier) {
+      const product = masterProducts.find(
+        (p) => p.supplier_id === supplier.id && p.name === li.product.trim()
+      )
+      if (product) master_product_id = product.id
+    }
+    return { master_supplier_id, master_product_id }
+  }
+
   const handleSubmit = async () => {
     // Validate: at least one line item with a product
     const validItems = lineItems.filter((li) => li.product.trim())
@@ -420,6 +479,18 @@ function MaterialOrderModal({
     // Build a summary name from line items for the order's name field
     const summaryName = validItems.slice(0, 3).map((li) => li.product.trim()).join(', ')
       + (validItems.length > 3 ? ` +${validItems.length - 3} more` : '')
+
+    // Resolve master IDs for each line item
+    const lineItemRows = validItems.map((li) => {
+      const { master_supplier_id, master_product_id } = resolveLineItemMasterIds(li)
+      return {
+        manufacturer: li.manufacturer.trim() || null,
+        product: li.product.trim(),
+        quantity: li.quantity.trim(),
+        master_supplier_id,
+        master_product_id,
+      }
+    })
 
     if (isEdit) {
       // Update order fields
@@ -438,12 +509,7 @@ function MaterialOrderModal({
       // Replace line items: delete old, insert new
       await supabase.from('material_order_line_items').delete().eq('order_id', existing.id)
       const { error: liErr } = await supabase.from('material_order_line_items').insert(
-        validItems.map((li) => ({
-          order_id: existing.id,
-          manufacturer: li.manufacturer.trim() || null,
-          product: li.product.trim(),
-          quantity: li.quantity.trim(),
-        }))
+        lineItemRows.map((row) => ({ order_id: existing.id, ...row }))
       )
       if (liErr) { setError('Failed to update line items: ' + liErr.message); setSaving(false); return }
     } else {
@@ -464,12 +530,7 @@ function MaterialOrderModal({
 
       // Insert line items
       const { error: liErr } = await supabase.from('material_order_line_items').insert(
-        validItems.map((li) => ({
-          order_id: newOrder.id,
-          manufacturer: li.manufacturer.trim() || null,
-          product: li.product.trim(),
-          quantity: li.quantity.trim(),
-        }))
+        lineItemRows.map((row) => ({ order_id: newOrder.id, ...row }))
       )
       if (liErr) { setError('Failed to create line items: ' + liErr.message); setSaving(false); return }
 

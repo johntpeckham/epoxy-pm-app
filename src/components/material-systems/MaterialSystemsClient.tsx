@@ -1,20 +1,24 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon, LayersIcon, PlusIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { useMaterialSystems } from '@/lib/useMaterialSystems'
 import type { MaterialSystemInput } from '@/lib/useMaterialSystems'
+import type { MasterProduct } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import SearchableDropdown from '@/components/ui/SearchableDropdown'
 
 interface ItemRow {
   material_name: string
+  master_product_id: string | null
   thickness: string
   coverage_rate: string
   item_notes: string
 }
 
-const emptyItem: ItemRow = { material_name: '', thickness: '', coverage_rate: '', item_notes: '' }
+const emptyItem: ItemRow = { material_name: '', master_product_id: null, thickness: '', coverage_rate: '', item_notes: '' }
 
 interface FormState {
   name: string
@@ -34,6 +38,7 @@ function formToInput(form: FormState): MaterialSystemInput {
     notes: form.notes,
     items: form.items.map((i, idx) => ({
       material_name: i.material_name,
+      master_product_id: i.master_product_id,
       thickness: i.thickness,
       coverage_rate: i.coverage_rate,
       item_notes: i.item_notes,
@@ -49,6 +54,18 @@ interface MaterialSystemsClientProps {
 export default function MaterialSystemsClient({ embedded }: MaterialSystemsClientProps = {}) {
   const router = useRouter()
   const { systems, loading, addSystem, updateSystem, deleteSystem } = useMaterialSystems()
+
+  // Fetch master products for searchable dropdown
+  const [masterProducts, setMasterProducts] = useState<MasterProduct[]>([])
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('master_products').select('*').order('sort_order').order('name')
+      .then(({ data }) => setMasterProducts((data as MasterProduct[]) ?? []))
+  }, [])
+
+  const productNames = useMemo(() => {
+    return [...new Set(masterProducts.map((p) => p.name))].sort((a, b) => a.localeCompare(b))
+  }, [masterProducts])
 
   const [adding, setAdding] = useState(false)
   const [addForm, setAddForm] = useState<FormState>(emptyForm)
@@ -141,13 +158,25 @@ export default function MaterialSystemsClient({ embedded }: MaterialSystemsClien
               <div key={idx}>
                 <div className="flex items-start gap-2">
                   <div className="grid grid-cols-3 gap-2 flex-1">
-                    <input
-                      type="text"
-                      value={item.material_name}
-                      onChange={(e) => updateItem(idx, { material_name: e.target.value })}
-                      placeholder="Material Name"
-                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                    />
+                    {productNames.length > 0 ? (
+                      <SearchableDropdown
+                        value={item.material_name}
+                        onChange={(val) => {
+                          const match = masterProducts.find((p) => p.name === val)
+                          updateItem(idx, { material_name: val, master_product_id: match?.id ?? null })
+                        }}
+                        options={productNames}
+                        placeholder="Material Name"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={item.material_name}
+                        onChange={(e) => updateItem(idx, { material_name: e.target.value })}
+                        placeholder="Material Name"
+                        className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      />
+                    )}
                     <input
                       type="text"
                       value={item.thickness}
@@ -310,12 +339,21 @@ export default function MaterialSystemsClient({ embedded }: MaterialSystemsClien
                               name: ms.name,
                               notes: ms.notes ?? '',
                               items: ms.items.length > 0
-                                ? ms.items.map((i) => ({
-                                    material_name: i.material_name,
-                                    thickness: i.thickness ?? '',
-                                    coverage_rate: i.coverage_rate ?? '',
-                                    item_notes: i.item_notes ?? '',
-                                  }))
+                                ? ms.items.map((i) => {
+                                    // Resolve material name from master FK, fall back to saved text
+                                    let materialName = i.material_name
+                                    if (i.master_product_id) {
+                                      const mp = masterProducts.find((p) => p.id === i.master_product_id)
+                                      if (mp) materialName = mp.name
+                                    }
+                                    return {
+                                      material_name: materialName,
+                                      master_product_id: i.master_product_id ?? null,
+                                      thickness: i.thickness ?? '',
+                                      coverage_rate: i.coverage_rate ?? '',
+                                      item_notes: i.item_notes ?? '',
+                                    }
+                                  })
                                 : [{ ...emptyItem }],
                             })
                           }}
