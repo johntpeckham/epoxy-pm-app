@@ -1,0 +1,686 @@
+'use client'
+
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import {
+  ClockIcon,
+  UserPlusIcon,
+  SearchIcon,
+  XIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  FileTextIcon,
+  PencilIcon,
+  Trash2Icon,
+  PlusIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import CallTemplateModal, {
+  type CallTemplateRow,
+  TEMPLATE_TYPE_LABELS,
+} from '../CallTemplateModal'
+import type { QueuedContact } from './dialerTypes'
+
+type StatusFilter = 'prospect_contacted' | 'hot_lead' | 'all'
+type PriorityFilter = 'all' | 'high' | 'high_medium'
+
+interface DialerSetupProps {
+  userId: string
+  onStart: (queue: QueuedContact[]) => void
+}
+
+interface CompanyRow {
+  id: string
+  name: string
+  industry: string | null
+  zone: string | null
+  region: string | null
+  county: string | null
+  city: string | null
+  state: string | null
+  status: string
+  priority: 'high' | 'medium' | 'low' | null
+}
+
+interface ContactRow {
+  id: string
+  company_id: string
+  first_name: string
+  last_name: string
+  job_title: string | null
+  email: string | null
+  phone: string | null
+  is_primary: boolean
+}
+
+export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
+  const supabase = useMemo(() => createClient(), [])
+
+  const [loading, setLoading] = useState(true)
+  const [companies, setCompanies] = useState<CompanyRow[]>([])
+  const [contacts, setContacts] = useState<ContactRow[]>([])
+  // Map of company_id → most recent call_date (ISO)
+  const [lastCallMap, setLastCallMap] = useState<Map<string, string>>(new Map())
+
+  // Auto-select filter state
+  const [howMany, setHowMany] = useState<number>(25)
+  const [zone, setZone] = useState<string>('')
+  const [regionCounty, setRegionCounty] = useState<string>('')
+  const [industry, setIndustry] = useState<string>('')
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>('prospect_contacted')
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
+
+  // Manual pick state
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [manualQueue, setManualQueue] = useState<string[]>([]) // array of contact ids
+
+  // Templates state
+  const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [templates, setTemplates] = useState<CallTemplateRow[]>([])
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null)
+  const [editingTemplate, setEditingTemplate] = useState<CallTemplateRow | null>(
+    null
+  )
+  const [showNewTemplate, setShowNewTemplate] = useState(false)
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 200)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true)
+    const [
+      { data: compData },
+      { data: contactData },
+      { data: callData },
+      { data: templateData },
+    ] = await Promise.all([
+      supabase
+        .from('crm_companies')
+        .select('id, name, industry, zone, region, county, city, state, status, priority')
+        .order('name', { ascending: true }),
+      supabase
+        .from('crm_contacts')
+        .select('id, company_id, first_name, last_name, job_title, email, phone, is_primary')
+        .order('last_name', { ascending: true }),
+      supabase
+        .from('crm_call_log')
+        .select('company_id, call_date')
+        .order('call_date', { ascending: false }),
+      supabase
+        .from('crm_call_templates')
+        .select('id, name, type, content')
+        .order('created_at', { ascending: false }),
+    ])
+    setCompanies((compData ?? []) as CompanyRow[])
+    setContacts((contactData ?? []) as ContactRow[])
+    const calls = (callData ?? []) as { company_id: string; call_date: string }[]
+    const m = new Map<string, string>()
+    for (const c of calls) {
+      // Since sorted desc by call_date, the first entry per company is the most recent
+      if (!m.has(c.company_id)) m.set(c.company_id, c.call_date)
+    }
+    setLastCallMap(m)
+    setTemplates((templateData ?? []) as CallTemplateRow[])
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => {
+    fetchAll()
+  }, [fetchAll])
+
+  // Distinct filter options from loaded companies
+  const zones = useMemo(() => {
+    const s = new Set<string>()
+    for (const c of companies) if (c.zone) s.add(c.zone)
+    return [...s].sort()
+  }, [companies])
+
+  const regionsOrCounties = useMemo(() => {
+    const s = new Set<string>()
+    for (const c of companies) {
+      if (c.region) s.add(c.region)
+      if (c.county) s.add(c.county)
+    }
+    return [...s].sort()
+  }, [companies])
+
+  const industries = useMemo(() => {
+    const s = new Set<string>()
+    for (const c of companies) if (c.industry) s.add(c.industry)
+    return [...s].sort()
+  }, [companies])
+
+  const companyMap = useMemo(() => {
+    const m = new Map<string, CompanyRow>()
+    for (const c of companies) m.set(c.id, c)
+    return m
+  }, [companies])
+
+  // Build auto queue based on filters
+  const autoQueue = useMemo<QueuedContact[]>(() => {
+    // Eligible companies
+    const eligibleCompanies = companies.filter((c) => {
+      if (c.status === 'blacklisted') return false
+      if (statusFilter === 'prospect_contacted' &&
+          c.status !== 'prospect' && c.status !== 'contacted') return false
+      if (statusFilter === 'hot_lead' && c.status !== 'hot_lead') return false
+      if (zone && c.zone !== zone) return false
+      if (regionCounty && c.region !== regionCounty && c.county !== regionCounty)
+        return false
+      if (industry && c.industry !== industry) return false
+      if (priorityFilter === 'high' && c.priority !== 'high') return false
+      if (
+        priorityFilter === 'high_medium' &&
+        c.priority !== 'high' &&
+        c.priority !== 'medium'
+      )
+        return false
+      return true
+    })
+    const eligibleIds = new Set(eligibleCompanies.map((c) => c.id))
+
+    const eligibleContacts = contacts.filter((c) => eligibleIds.has(c.company_id))
+
+    // Pick one contact per company — prefer primary, then first alphabetical
+    const picked = new Map<string, ContactRow>()
+    for (const c of eligibleContacts) {
+      const existing = picked.get(c.company_id)
+      if (!existing) {
+        picked.set(c.company_id, c)
+      } else if (!existing.is_primary && c.is_primary) {
+        picked.set(c.company_id, c)
+      }
+    }
+
+    const out: QueuedContact[] = []
+    for (const c of picked.values()) {
+      const comp = companyMap.get(c.company_id)
+      if (!comp) continue
+      const lastCall = lastCallMap.get(c.company_id) ?? null
+      out.push({
+        contact_id: c.id,
+        contact_first_name: c.first_name,
+        contact_last_name: c.last_name,
+        contact_job_title: c.job_title,
+        contact_email: c.email,
+        contact_phone: c.phone,
+        company_id: comp.id,
+        company_name: comp.name,
+        company_industry: comp.industry,
+        company_zone: comp.zone,
+        company_region: comp.region,
+        company_county: comp.county,
+        company_city: comp.city,
+        company_state: comp.state,
+        company_priority: comp.priority,
+        last_call_date: lastCall,
+      })
+    }
+    // Sort: no last_call first, then oldest last_call
+    out.sort((a, b) => {
+      if (!a.last_call_date && !b.last_call_date) return 0
+      if (!a.last_call_date) return -1
+      if (!b.last_call_date) return 1
+      return (
+        new Date(a.last_call_date).getTime() -
+        new Date(b.last_call_date).getTime()
+      )
+    })
+    return out.slice(0, Math.max(1, howMany))
+  }, [
+    companies,
+    contacts,
+    companyMap,
+    lastCallMap,
+    zone,
+    regionCounty,
+    industry,
+    statusFilter,
+    priorityFilter,
+    howMany,
+  ])
+
+  // Manual queue resolved to full records
+  const manualQueueResolved = useMemo<QueuedContact[]>(() => {
+    const out: QueuedContact[] = []
+    for (const cid of manualQueue) {
+      const c = contacts.find((x) => x.id === cid)
+      if (!c) continue
+      const comp = companyMap.get(c.company_id)
+      if (!comp) continue
+      out.push({
+        contact_id: c.id,
+        contact_first_name: c.first_name,
+        contact_last_name: c.last_name,
+        contact_job_title: c.job_title,
+        contact_email: c.email,
+        contact_phone: c.phone,
+        company_id: comp.id,
+        company_name: comp.name,
+        company_industry: comp.industry,
+        company_zone: comp.zone,
+        company_region: comp.region,
+        company_county: comp.county,
+        company_city: comp.city,
+        company_state: comp.state,
+        company_priority: comp.priority,
+        last_call_date: lastCallMap.get(c.company_id) ?? null,
+      })
+    }
+    return out
+  }, [manualQueue, contacts, companyMap, lastCallMap])
+
+  // Manual pick search results
+  const searchResults = useMemo(() => {
+    if (!debouncedSearch) return []
+    const queued = new Set(manualQueue)
+    const matches: { contact: ContactRow; company: CompanyRow }[] = []
+    for (const c of contacts) {
+      if (queued.has(c.id)) continue
+      const comp = companyMap.get(c.company_id)
+      if (!comp) continue
+      if (comp.status === 'blacklisted') continue
+      const hay = `${c.first_name} ${c.last_name} ${comp.name}`.toLowerCase()
+      if (hay.includes(debouncedSearch)) {
+        matches.push({ contact: c, company: comp })
+      }
+      if (matches.length >= 12) break
+    }
+    return matches
+  }, [debouncedSearch, contacts, companyMap, manualQueue])
+
+  // ─── Templates ─────────────────────────────────────────────────────────
+  async function handleDeleteTemplate(id: string) {
+    const { error } = await supabase
+      .from('crm_call_templates')
+      .delete()
+      .eq('id', id)
+    if (error) return
+    setTemplates((prev) => prev.filter((t) => t.id !== id))
+    setDeleteTemplateId(null)
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto bg-white">
+      <div className="max-w-[760px] mx-auto px-6 pt-14 pb-16">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h1 className="text-[26px] font-medium text-gray-900 leading-tight">
+            Start a call session
+          </h1>
+          <p className="text-sm text-gray-400 mt-2">
+            Build your queue, settle in, and start dialing.
+          </p>
+        </div>
+
+        {/* Two cards */}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-5 items-stretch">
+          {/* Auto-select */}
+          <div className="border border-gray-200 rounded-xl p-6 md:p-7 flex flex-col">
+            <div className="flex items-center gap-2 mb-1">
+              <ClockIcon className="w-4 h-4 text-teal-600" />
+              <h2 className="text-[15px] font-medium text-gray-900">
+                Auto-select
+              </h2>
+            </div>
+            <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+              Set parameters and we&rsquo;ll build a prioritized queue. Contacts
+              who haven&rsquo;t been reached recently come first.
+            </p>
+            <div className="space-y-3 flex-1">
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">
+                  How many calls?
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={howMany}
+                  onChange={(e) => setHowMany(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">Zone</label>
+                <select
+                  value={zone}
+                  onChange={(e) => setZone(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                >
+                  <option value="">All zones</option>
+                  {zones.map((z) => (
+                    <option key={z} value={z}>
+                      {z}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">
+                  Region / County
+                </label>
+                <select
+                  value={regionCounty}
+                  onChange={(e) => setRegionCounty(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                >
+                  <option value="">All regions</option>
+                  {regionsOrCounties.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">
+                  Industry
+                </label>
+                <select
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                >
+                  <option value="">All industries</option>
+                  {industries.map((i) => (
+                    <option key={i} value={i}>
+                      {i}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                >
+                  <option value="prospect_contacted">Prospect + Contacted</option>
+                  <option value="hot_lead">Hot leads only</option>
+                  <option value="all">All statuses</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">
+                  Priority
+                </label>
+                <select
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                >
+                  <option value="all">All priorities</option>
+                  <option value="high">High only</option>
+                  <option value="high_medium">High + Medium</option>
+                </select>
+              </div>
+            </div>
+            <button
+              onClick={() => onStart(autoQueue)}
+              disabled={loading || autoQueue.length === 0}
+              className="mt-5 w-full py-3 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-40 transition-colors"
+            >
+              Start session — {autoQueue.length} call
+              {autoQueue.length === 1 ? '' : 's'}
+            </button>
+          </div>
+
+          {/* or divider */}
+          <div className="hidden md:flex flex-col items-center justify-center">
+            <div className="h-full w-px bg-gray-100" />
+            <div className="absolute my-auto bg-white px-2 text-xs text-gray-400">
+              or
+            </div>
+          </div>
+          <div className="md:hidden flex items-center justify-center py-1">
+            <span className="text-xs text-gray-400">or</span>
+          </div>
+
+          {/* Manual pick */}
+          <div className="border border-gray-200 rounded-xl p-6 md:p-7 flex flex-col">
+            <div className="flex items-center gap-2 mb-1">
+              <UserPlusIcon className="w-4 h-4 text-teal-600" />
+              <h2 className="text-[15px] font-medium text-gray-900">
+                Manual pick
+              </h2>
+            </div>
+            <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+              Hand-pick contacts and build your own queue.
+            </p>
+            <div className="relative">
+              <SearchIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search contacts…"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              />
+              {searchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg max-h-[240px] overflow-y-auto">
+                  {searchResults.map((r) => (
+                    <button
+                      key={r.contact.id}
+                      onClick={() => {
+                        setManualQueue((prev) => [...prev, r.contact.id])
+                        setSearch('')
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm text-gray-900 truncate">
+                          {r.contact.first_name} {r.contact.last_name}
+                        </div>
+                        <div className="text-xs text-gray-400 truncate">
+                          {r.company.name}
+                        </div>
+                      </div>
+                      <PlusIcon className="w-4 h-4 text-gray-400" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 flex-1 min-h-[120px]">
+              {manualQueueResolved.length === 0 ? (
+                <p className="text-xs text-gray-400 italic mt-4">
+                  No contacts yet — search and add them above.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {manualQueueResolved.map((q, idx) => (
+                    <div
+                      key={q.contact_id}
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50"
+                    >
+                      <div className="flex flex-col">
+                        <button
+                          disabled={idx === 0}
+                          onClick={() =>
+                            setManualQueue((prev) => {
+                              if (idx === 0) return prev
+                              const next = [...prev]
+                              ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
+                              return next
+                            })
+                          }
+                          className="text-gray-300 hover:text-gray-600 disabled:opacity-30"
+                          title="Move up"
+                        >
+                          <ArrowUpIcon className="w-3 h-3" />
+                        </button>
+                        <button
+                          disabled={idx === manualQueueResolved.length - 1}
+                          onClick={() =>
+                            setManualQueue((prev) => {
+                              if (idx === prev.length - 1) return prev
+                              const next = [...prev]
+                              ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
+                              return next
+                            })
+                          }
+                          className="text-gray-300 hover:text-gray-600 disabled:opacity-30"
+                          title="Move down"
+                        >
+                          <ArrowDownIcon className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-gray-900 truncate">
+                          {q.contact_first_name} {q.contact_last_name}
+                        </div>
+                        <div className="text-xs text-gray-400 truncate">
+                          {q.company_name}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() =>
+                          setManualQueue((prev) =>
+                            prev.filter((id) => id !== q.contact_id)
+                          )
+                        }
+                        className="text-xs text-gray-400 hover:text-red-600"
+                      >
+                        remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => onStart(manualQueueResolved)}
+              disabled={manualQueueResolved.length === 0}
+              className="mt-5 w-full py-3 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-40 transition-colors"
+            >
+              Start session — {manualQueueResolved.length} call
+              {manualQueueResolved.length === 1 ? '' : 's'}
+            </button>
+          </div>
+        </div>
+
+        {/* Templates section */}
+        <div className="mt-10 border border-gray-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setTemplatesOpen((v) => !v)}
+            className="w-full flex items-center gap-2 px-5 py-3 hover:bg-gray-50 transition-colors"
+          >
+            {templatesOpen ? (
+              <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+            ) : (
+              <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+            )}
+            <FileTextIcon className="w-4 h-4 text-gray-400" />
+            <span className="text-sm text-gray-900 flex-1 text-left">
+              Templates
+            </span>
+            <span className="text-xs text-gray-400">{templates.length}</span>
+          </button>
+          {templatesOpen && (
+            <div className="border-t border-gray-200 px-5 py-4 space-y-2">
+              {templates.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">
+                  No templates yet.
+                </p>
+              ) : (
+                templates.map((t) => {
+                  const isExpanded = expandedTemplate === t.id
+                  return (
+                    <div
+                      key={t.id}
+                      className="border border-gray-100 rounded-lg overflow-hidden"
+                    >
+                      <div className="flex items-center gap-3 px-3 py-2">
+                        <button
+                          onClick={() =>
+                            setExpandedTemplate(isExpanded ? null : t.id)
+                          }
+                          className="min-w-0 flex-1 flex items-center gap-2 text-left"
+                        >
+                          {isExpanded ? (
+                            <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          ) : (
+                            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          )}
+                          <span className="text-sm font-medium text-gray-900 truncate">
+                            {t.name}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-wide text-gray-400 px-2 py-0.5 bg-gray-50 rounded-full">
+                            {TEMPLATE_TYPE_LABELS[t.type]}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => setEditingTemplate(t)}
+                          className="p-1.5 text-gray-400 hover:text-gray-700 rounded"
+                          title="Edit"
+                        >
+                          <PencilIcon className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTemplateId(t.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                          title="Delete"
+                        >
+                          <Trash2Icon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <div className="px-5 pb-3 text-xs text-gray-600 whitespace-pre-wrap leading-relaxed border-t border-gray-100 pt-3">
+                          {t.content}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+              <button
+                onClick={() => setShowNewTemplate(true)}
+                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 mt-2"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                New template
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {(showNewTemplate || editingTemplate) && (
+        <CallTemplateModal
+          userId={userId}
+          existing={editingTemplate ?? undefined}
+          onClose={() => {
+            setShowNewTemplate(false)
+            setEditingTemplate(null)
+          }}
+          onSaved={() => {
+            setShowNewTemplate(false)
+            setEditingTemplate(null)
+            fetchAll()
+          }}
+        />
+      )}
+
+      {deleteTemplateId && (
+        <ConfirmDialog
+          title="Delete template?"
+          message="This will permanently delete this template."
+          onConfirm={() => handleDeleteTemplate(deleteTemplateId)}
+          onCancel={() => setDeleteTemplateId(null)}
+          variant="destructive"
+        />
+      )}
+    </div>
+  )
+}

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import DialerClient from '@/components/sales/dialer/DialerClient'
 import type { UserRole } from '@/types'
 
 export default async function SalesDialerPage() {
@@ -26,12 +27,5 @@ export default async function SalesDialerPage() {
     return redirect('/my-work')
   }
 
-  return (
-    <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-      <h1 className="text-2xl font-bold text-gray-900 mb-4">Dialer</h1>
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <p className="text-sm text-gray-500">Coming soon — power dialer for call sessions.</p>
-      </div>
-    </div>
-  )
+  return <DialerClient userId={user.id} />
 }
