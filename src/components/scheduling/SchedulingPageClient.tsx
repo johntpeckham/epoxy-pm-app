@@ -283,25 +283,25 @@ export default function SchedulingPageClient({
                         No employees assigned
                       </p>
                     ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6" style={{ gap: 4 }}>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6" style={{ gap: 6 }}>
                         {job.employees.map((emp) => (
                           <div
                             key={emp.employee_id}
-                            style={{ background: '#1e1e1e', borderRadius: 5, padding: '6px 8px' }}
+                            style={{ background: '#1e1e1e', borderRadius: 6, padding: '10px 12px', width: '100%' }}
                           >
-                            <div className="text-gray-200 truncate" style={{ fontSize: 12, marginBottom: 4 }}>
+                            <div className="text-gray-200 truncate" style={{ fontSize: 14, marginBottom: 6 }}>
                               {emp.employee_name}
                             </div>
-                            <div className="flex" style={{ gap: 3 }}>
+                            <div className="flex" style={{ gap: 4 }}>
                               {DAY_LABELS.map((label, i) => (
                                 <span
                                   key={i}
                                   className="flex items-center justify-center font-semibold"
                                   style={{
-                                    width: 16,
-                                    height: 16,
+                                    width: 22,
+                                    height: 22,
                                     borderRadius: '50%',
-                                    fontSize: 8,
+                                    fontSize: 10,
                                     backgroundColor: emp.days[i] ? '#d97706' : '#333',
                                     color: emp.days[i] ? '#fff' : '#666',
                                   }}
