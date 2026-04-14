@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   ArrowLeftIcon,
   CalendarIcon,
@@ -91,6 +92,18 @@ function formatPublishedAt(isoStr: string): string {
   })
 }
 
+function snapToMondayISO(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const day = date.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  date.setDate(date.getDate() + diff)
+  const yy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
 // ─── Component ────────────────────────────────────────────────────────────
 
 export default function SchedulingPageClient({
@@ -103,6 +116,13 @@ export default function SchedulingPageClient({
 }: Props) {
   const router = useRouter()
   const [activeWeekISO, setActiveWeekISO] = useState(thisWeekISO)
+
+  // Custom week picker state
+  const [customWeekISO, setCustomWeekISO] = useState<string | null>(null)
+  const [customSchedule, setCustomSchedule] = useState<PublishedSchedule | null>(null)
+  const [customPublisherName, setCustomPublisherName] = useState<string>('Unknown')
+  const [isLoadingCustom, setIsLoadingCustom] = useState(false)
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   // Toast state
   const [toast, setToast] = useState<string | null>(null)
@@ -128,9 +148,20 @@ export default function SchedulingPageClient({
     { iso: followingWeekISO, label: 'Following Week' },
   ], [thisWeekISO, nextWeekISO, followingWeekISO])
 
+  const quickWeekISOs = useMemo(() => new Set([thisWeekISO, nextWeekISO, followingWeekISO]), [thisWeekISO, nextWeekISO, followingWeekISO])
+  const isQuickWeek = quickWeekISOs.has(activeWeekISO)
+
   const currentSchedule = useMemo(() => {
+    if (!isQuickWeek) return customSchedule
     return publishedSchedules.find((ps) => ps.week_start === activeWeekISO) ?? null
-  }, [publishedSchedules, activeWeekISO])
+  }, [publishedSchedules, activeWeekISO, isQuickWeek, customSchedule])
+
+  const currentPublisherNames = useMemo(() => {
+    if (!isQuickWeek && customSchedule) {
+      return { ...publisherNames, [customSchedule.published_by]: customPublisherName }
+    }
+    return publisherNames
+  }, [isQuickWeek, customSchedule, customPublisherName, publisherNames])
 
   // For the individual schedule modal — filter the schedule to just one employee
   const individualSchedule = useMemo(() => {
@@ -151,7 +182,56 @@ export default function SchedulingPageClient({
     return employees.filter((e) => e.name.toLowerCase().includes(q))
   }, [employees, individualSearch])
 
+  // Fetch custom week schedule from Supabase
+  const fetchCustomSchedule = useCallback(async (weekISO: string) => {
+    setIsLoadingCustom(true)
+    setCustomSchedule(null)
+    setCustomPublisherName('Unknown')
+    try {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('published_schedules')
+        .select('*')
+        .eq('week_start', weekISO)
+        .maybeSingle()
+      if (data) {
+        setCustomSchedule(data as PublishedSchedule)
+        const { data: pub } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', data.published_by)
+          .single()
+        setCustomPublisherName(pub?.display_name ?? 'Unknown')
+      }
+    } finally {
+      setIsLoadingCustom(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (customWeekISO && !quickWeekISOs.has(customWeekISO)) {
+      fetchCustomSchedule(customWeekISO)
+    }
+  }, [customWeekISO, quickWeekISOs, fetchCustomSchedule])
+
   // ─── Handlers ─────────────────────────────────────────────────────────
+
+  function selectQuickWeek(iso: string) {
+    setActiveWeekISO(iso)
+    setCustomWeekISO(null)
+  }
+
+  function handleDatePick(dateStr: string) {
+    if (!dateStr) return
+    const mondayISO = snapToMondayISO(dateStr)
+    if (quickWeekISOs.has(mondayISO)) {
+      setActiveWeekISO(mondayISO)
+      setCustomWeekISO(null)
+    } else {
+      setCustomWeekISO(mondayISO)
+      setActiveWeekISO(mondayISO)
+    }
+  }
 
   function toggleEmployee(id: string) {
     setSelectedEmployeeIds((prev) => {
@@ -224,9 +304,9 @@ export default function SchedulingPageClient({
           {weeks.map((w) => (
             <button
               key={w.iso}
-              onClick={() => setActiveWeekISO(w.iso)}
+              onClick={() => selectQuickWeek(w.iso)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                activeWeekISO === w.iso
+                activeWeekISO === w.iso && isQuickWeek
                   ? 'bg-amber-500 text-white shadow-sm'
                   : 'bg-gray-100 dark:bg-[#2a2a2a] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#333]'
               }`}
@@ -234,6 +314,27 @@ export default function SchedulingPageClient({
               {w.label}
             </button>
           ))}
+          {/* Divider */}
+          <div className="w-px h-5 bg-gray-300 dark:bg-[#444] mx-1" />
+          {/* Date picker */}
+          <button
+            onClick={() => dateInputRef.current?.showPicker()}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition ${
+              !isQuickWeek
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'bg-gray-100 dark:bg-[#2a2a2a] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#333]'
+            }`}
+          >
+            <CalendarIcon className="w-4 h-4" />
+            Pick a week
+          </button>
+          <input
+            ref={dateInputRef}
+            type="date"
+            className="sr-only"
+            tabIndex={-1}
+            onChange={(e) => handleDatePick(e.target.value)}
+          />
           <span className="ml-3 text-sm text-gray-500 dark:text-gray-400">
             {formatDateRange(activeWeekISO)}
           </span>
@@ -242,11 +343,18 @@ export default function SchedulingPageClient({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {currentSchedule ? (
+        {isLoadingCustom ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <CalendarIcon className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3 animate-pulse" />
+            <h2 className="text-lg font-semibold text-gray-500 dark:text-gray-400 mb-1">
+              Loading schedule...
+            </h2>
+          </div>
+        ) : currentSchedule ? (
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
               Published on {formatPublishedAt(currentSchedule.published_at)} by{' '}
-              {publisherNames[currentSchedule.published_by] ?? 'Unknown'}
+              {currentPublisherNames[currentSchedule.published_by] ?? 'Unknown'}
             </p>
 
             {/* Schedule cards */}
