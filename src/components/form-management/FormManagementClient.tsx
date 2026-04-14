@@ -41,6 +41,7 @@ import {
   ArrowUpDownIcon,
   ClipboardCheckIcon,
   PackageIcon,
+  BookOpenIcon,
   Undo2Icon,
   Redo2Icon,
   ImageIcon,
@@ -70,6 +71,7 @@ const FIELD_TYPE_COLORS: Record<FormFieldType, string> = {
   signature: 'bg-pink-50 text-pink-700 border-pink-200',
   checklist_placeholder: 'bg-teal-50 text-teal-700 border-teal-200',
   material_system_placeholder: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  field_guide_placeholder: 'bg-amber-50 text-amber-700 border-amber-200',
   picture_upload: 'bg-violet-50 text-violet-700 border-violet-200',
 }
 
@@ -273,6 +275,7 @@ const ADD_ITEM_TYPE_OPTIONS: { value: FormFieldType; label: string; icon: React.
   { value: 'dropdown', label: 'Select / Dropdown', icon: <ListIcon className="w-3.5 h-3.5" /> },
   { value: 'checklist_placeholder', label: 'Checklist', icon: <ClipboardCheckIcon className="w-3.5 h-3.5" /> },
   { value: 'material_system_placeholder', label: 'Material System', icon: <PackageIcon className="w-3.5 h-3.5" /> },
+  { value: 'field_guide_placeholder', label: 'Field Guide', icon: <BookOpenIcon className="w-3.5 h-3.5" /> },
 ]
 
 /* ── Add Item dropdown component ── */
@@ -306,7 +309,7 @@ function AddItemDropdown({
 
   const options = ADD_ITEM_TYPE_OPTIONS.filter((opt) => {
     if (excludeHeader && opt.value === 'section_header') return false
-    if (!isProjectReport && (opt.value === 'checklist_placeholder' || opt.value === 'material_system_placeholder')) return false
+    if (!isProjectReport && (opt.value === 'checklist_placeholder' || opt.value === 'material_system_placeholder' || opt.value === 'field_guide_placeholder')) return false
     return true
   })
 
@@ -874,6 +877,19 @@ function MaterialSystemPlaceholderFieldRow({ field }: { field: FormField }) {
   )
 }
 
+function FieldGuidePlaceholderFieldRow({ field }: { field: FormField }) {
+  return (
+    <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="pt-2 flex flex-col items-end">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{field.label || 'Field Guide'}</span>
+      </div>
+      <div className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm bg-white dark:bg-gray-800">
+        <span className="text-gray-400 dark:text-gray-500 italic">Attached when filling out the job report</span>
+      </div>
+    </div>
+  )
+}
+
 function RequiredBadge({ required, onToggle }: { required: boolean; onToggle: () => void }) {
   return (
     <button
@@ -1191,7 +1207,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     recordHistory()
     const field = fields.find((f) => f.id === id)
     if (!field) return
-    if (field.type === 'checklist_placeholder' || field.type === 'material_system_placeholder') {
+    if (field.type === 'checklist_placeholder' || field.type === 'material_system_placeholder' || field.type === 'field_guide_placeholder') {
       removeField(id)
     } else if (field.type === 'section_header') {
       if (isChecklistField(field)) {
@@ -1262,10 +1278,11 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
       return
     }
 
-    const isPlaceholder = type === 'checklist_placeholder' || type === 'material_system_placeholder'
+    const isPlaceholder = type === 'checklist_placeholder' || type === 'material_system_placeholder' || type === 'field_guide_placeholder'
     const id = isPlaceholder ? `${type}-${generateId()}` : generateId()
     const label = type === 'checklist_placeholder' ? 'Checklist'
       : type === 'material_system_placeholder' ? 'Material System'
+      : type === 'field_guide_placeholder' ? 'Field Guide'
       : 'New Field'
 
     const newField: FormField = {
@@ -1476,6 +1493,9 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     }
     if (field.type === 'material_system_placeholder') {
       return <MaterialSystemPlaceholderFieldRow field={field} />
+    }
+    if (field.type === 'field_guide_placeholder') {
+      return <FieldGuidePlaceholderFieldRow field={field} />
     }
 
     const onUpdate = (u: Partial<FormField>) => updateField(field.id, u)
@@ -1744,7 +1764,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                                   if (isSectionCollapsed && !isSectionLikeField(field)) return null
                                   const globalIdx = fields.findIndex((f) => f.id === field.id)
                                   const fieldIsChecklist = isChecklistField(field)
-                                  const fieldIsPlaceholder = field.type === 'checklist_placeholder' || field.type === 'material_system_placeholder'
+                                  const fieldIsPlaceholder = field.type === 'checklist_placeholder' || field.type === 'material_system_placeholder' || field.type === 'field_guide_placeholder'
                                   return (
                                     <div key={field.id} className="mb-3 last:mb-0">
                                       <SortableFieldRow
