@@ -337,7 +337,7 @@ export default function SchedulingPageClient({
     setIsDownloading(true)
     try {
       for (const empId of downloadEmployeeIds) {
-        const emp = employees.find((e) => e.id === empId)
+        const emp = scheduleEmployees.find((e) => e.id === empId)
         if (!emp) continue
         const empJobs: ScheduleJob[] = []
         for (const job of currentSchedule.schedule_data.jobs) {
@@ -361,11 +361,33 @@ export default function SchedulingPageClient({
     }
   }
 
+  // Build employee list for download modal from the published schedule snapshot
+  const scheduleEmployees = useMemo(() => {
+    if (!currentSchedule) return employees
+    const seen = new Map<string, string>()
+    for (const job of currentSchedule.schedule_data.jobs) {
+      for (const emp of job.employees) {
+        if (!seen.has(emp.employee_id)) {
+          seen.set(emp.employee_id, emp.employee_name)
+        }
+      }
+    }
+    // Also include employees from props that aren't in the snapshot
+    for (const emp of employees) {
+      if (!seen.has(emp.id)) {
+        seen.set(emp.id, emp.name)
+      }
+    }
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [currentSchedule, employees])
+
   const filteredDownloadEmployees = useMemo(() => {
-    if (!downloadSearch.trim()) return employees
+    if (!downloadSearch.trim()) return scheduleEmployees
     const q = downloadSearch.toLowerCase()
-    return employees.filter((e) => e.name.toLowerCase().includes(q))
-  }, [employees, downloadSearch])
+    return scheduleEmployees.filter((e) => e.name.toLowerCase().includes(q))
+  }, [scheduleEmployees, downloadSearch])
 
   function toggleEmployee(id: string) {
     setSelectedEmployeeIds((prev) => {
@@ -652,7 +674,7 @@ export default function SchedulingPageClient({
             <div className="flex-1 overflow-y-auto px-5 py-3">
               <div className="flex items-center gap-2 mb-3">
                 <button
-                  onClick={() => setDownloadEmployeeIds(new Set(employees.map((e) => e.id)))}
+                  onClick={() => setDownloadEmployeeIds(new Set(scheduleEmployees.map((e) => e.id)))}
                   className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition"
                 >
                   Select All
@@ -668,24 +690,30 @@ export default function SchedulingPageClient({
                   {downloadEmployeeIds.size} selected
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {filteredDownloadEmployees.map((emp) => {
-                  const selected = downloadEmployeeIds.has(emp.id)
-                  return (
-                    <button
-                      key={emp.id}
-                      onClick={() => toggleDownloadEmployee(emp.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                        selected
-                          ? 'border-amber-500 bg-amber-500/15 text-amber-500 dark:text-amber-400'
-                          : 'border-[#444] bg-[#333] text-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      {emp.name}
-                    </button>
-                  )
-                })}
-              </div>
+              {filteredDownloadEmployees.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-gray-500 py-4">
+                  {downloadSearch.trim() ? 'No matching employees' : 'No employees in this schedule'}
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {filteredDownloadEmployees.map((emp) => {
+                    const selected = downloadEmployeeIds.has(emp.id)
+                    return (
+                      <button
+                        key={emp.id}
+                        onClick={() => toggleDownloadEmployee(emp.id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                          selected
+                            ? 'border-amber-500 bg-amber-500/15 text-amber-500 dark:text-amber-400'
+                            : 'border-[#444] bg-[#333] text-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        {emp.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Modal footer */}
