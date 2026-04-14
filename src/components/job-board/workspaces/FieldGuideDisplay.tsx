@@ -81,18 +81,20 @@ export default function FieldGuideDisplay({ guide, readOnly, onRemove }: FieldGu
                 </p>
               )}
               {section.images.length > 0 && (
-                <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-3">
+                <div data-fg-thumb-grid className="mt-3 flex flex-wrap gap-2">
                   {section.images.map((img) => (
                     <button
                       key={img.id}
+                      type="button"
                       onClick={() => openLightbox(img.image_url)}
-                      className="block overflow-hidden rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition w-full sm:w-auto"
+                      data-fg-thumb
+                      className="fg-thumb block overflow-hidden rounded-md border border-gray-200 bg-white hover:border-gray-400 transition w-[88px] h-[88px] flex-shrink-0"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.image_url}
                         alt=""
-                        className="block w-full sm:w-auto sm:h-[200px] max-h-[280px] object-cover"
+                        className="fg-thumb-img block w-full h-full object-cover"
                       />
                     </button>
                   ))}

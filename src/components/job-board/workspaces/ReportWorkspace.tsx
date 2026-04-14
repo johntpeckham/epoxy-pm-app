@@ -652,11 +652,19 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
         el.style.fontSize = '9pt'
       })
 
-      const canvas = await html2canvas(formRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-      })
+      // Mark form for full-size field guide image rendering during capture
+      formRef.current.setAttribute('data-pdf-rendering', 'true')
+
+      let canvas
+      try {
+        canvas = await html2canvas(formRef.current, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+        })
+      } finally {
+        formRef.current.removeAttribute('data-pdf-rendering')
+      }
 
       if (titleEl) titleEl.style.display = ''
       inputs.forEach((el) => { el.style.display = '' })

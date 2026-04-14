@@ -195,7 +195,7 @@ export default function ProjectFeedClient({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
             >
               <ClipboardListIcon className="w-3.5 h-3.5" />
-              Project Report
+              Job Report
             </button>
             <button
               onClick={() => setShowPhotosModal(true)}

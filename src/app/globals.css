@@ -598,4 +598,65 @@ html.dark .calendar-wrapper .fc .fc-button-primary:not(:disabled):active {
     white-space: pre-wrap !important;
     word-break: break-word !important;
   }
+
+  /* Field guide images: render at full size for print, not as thumbnails */
+  [data-fg-thumb-grid] {
+    display: block !important;
+    margin-top: 8pt !important;
+  }
+
+  [data-fg-thumb] {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 0 8pt 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  [data-fg-thumb] img,
+  [data-fg-thumb] .fg-thumb-img {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    object-fit: contain !important;
+  }
+}
+
+/* PDF rendering: html2canvas captures the DOM, so we toggle this attribute
+   on the report form before capture to render field guide images full-size. */
+[data-pdf-rendering] [data-fg-thumb-grid] {
+  display: block !important;
+  margin-top: 12px !important;
+}
+
+[data-pdf-rendering] [data-fg-thumb] {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  border: none !important;
+  border-radius: 0 !important;
+  margin: 0 0 12px 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+[data-pdf-rendering] [data-fg-thumb] img,
+[data-pdf-rendering] [data-fg-thumb] .fg-thumb-img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  object-fit: contain !important;
 }
