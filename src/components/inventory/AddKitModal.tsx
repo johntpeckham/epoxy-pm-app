@@ -1,9 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { XIcon, PlusIcon } from 'lucide-react'
+import { PlusIcon, SearchIcon, XIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { InventoryUnit, MaterialSupplier, UnitType } from '@/types'
+import type {
+  InventoryUnit,
+  MaterialSupplier,
+  MasterKitGroup,
+  MasterProduct,
+  UnitType,
+} from '@/types'
 
 export interface AddKitSubItemFormData {
   name: string
@@ -15,13 +21,15 @@ export interface AddKitFormData {
   name: string
   products: AddKitSubItemFormData[]
   supplier_id: string | null
+  masterKitGroupId: string | null
 }
 
 interface Props {
   supplierName: string
   suppliers: MaterialSupplier[]
   unitTypes: UnitType[]
-  /** Pre-selected supplier id (when opened from a specific supplier context). */
+  masterKitGroups: MasterKitGroup[]
+  masterProducts: MasterProduct[]
   initialSupplierId: string | null
   onClose: () => void
   onSave: (data: AddKitFormData) => Promise<void> | void
@@ -45,14 +53,16 @@ function createEmptyRow(defaultUnit: InventoryUnit = 'gal'): RowState {
   }
 }
 
-/**
- * Single-step "Add Kit" modal. Captures a kit name at the top and a dynamic
- * list of sub-item product rows below. On save, the parent handler creates an
- * inventory_kit_groups row and one inventory_products row per non-empty sub
- * item, all linked via kit_group_id. Starts with 2 empty rows because most
- * kits have at least two parts (base + activator).
- */
-export default function AddKitModal({ supplierName, suppliers, unitTypes, initialSupplierId, onClose, onSave }: Props) {
+export default function AddKitModal({
+  supplierName,
+  suppliers,
+  unitTypes,
+  masterKitGroups,
+  masterProducts,
+  initialSupplierId,
+  onClose,
+  onSave,
+}: Props) {
   const defaultUnit = unitTypes.length > 0 ? unitTypes[0].abbreviation : 'gal'
   const autoSupplierId = suppliers.length === 1 ? suppliers[0].id : initialSupplierId
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(autoSupplierId ?? '')
@@ -62,9 +72,85 @@ export default function AddKitModal({ supplierName, suppliers, unitTypes, initia
   const [error, setError] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
+  // Master kit group selection
+  const [selectedMasterKitId, setSelectedMasterKitId] = useState<string | null>(null)
+  const [addNewMode, setAddNewMode] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Find the master_supplier_id for the currently selected inventory supplier
+  const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId)
+  const masterSupplierId = selectedSupplier?.master_supplier_id ?? null
+
+  // Filter master kit groups to those belonging to the selected supplier's master supplier
+  const availableMasterKitGroups = masterSupplierId
+    ? masterKitGroups.filter((mkg) => mkg.supplier_id === masterSupplierId)
+    : []
+
+  const filteredMasterKitGroups = availableMasterKitGroups.filter((mkg) =>
+    mkg.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   useEffect(() => {
     nameInputRef.current?.focus()
   }, [])
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Reset kit selection when supplier changes
+  useEffect(() => {
+    setSelectedMasterKitId(null)
+    setAddNewMode(false)
+    setSearchQuery('')
+    setKitName('')
+    setRows([createEmptyRow(defaultUnit), createEmptyRow(defaultUnit)])
+  }, [selectedSupplierId, defaultUnit])
+
+  function selectMasterKit(mkg: MasterKitGroup) {
+    setSelectedMasterKitId(mkg.id)
+    setKitName(mkg.name)
+    setSearchQuery(mkg.name)
+    setDropdownOpen(false)
+    setAddNewMode(false)
+
+    // Pre-populate sub-items from master products belonging to this kit group
+    const kitProducts = masterProducts.filter((mp) => mp.kit_group_id === mkg.id)
+    if (kitProducts.length > 0) {
+      setRows(
+        kitProducts.map((mp) => {
+          rowCounter += 1
+          return {
+            localId: `row-${rowCounter}`,
+            name: mp.name,
+            quantity: '0',
+            unit: mp.unit || defaultUnit,
+          }
+        })
+      )
+    } else {
+      setRows([createEmptyRow(defaultUnit), createEmptyRow(defaultUnit)])
+    }
+  }
+
+  function handleAddNew() {
+    setSelectedMasterKitId(null)
+    setAddNewMode(true)
+    setKitName(searchQuery)
+    setDropdownOpen(false)
+    setRows([createEmptyRow(defaultUnit), createEmptyRow(defaultUnit)])
+    setTimeout(() => nameInputRef.current?.focus(), 0)
+  }
 
   function updateRow(localId: string, patch: Partial<RowState>) {
     setRows((prev) => prev.map((r) => (r.localId === localId ? { ...r, ...patch } : r)))
@@ -92,7 +178,10 @@ export default function AddKitModal({ supplierName, suppliers, unitTypes, initia
       setError('Kit name is required.')
       return
     }
-    // Drop rows without a name so users can leave trailing blanks harmlessly.
+    if (!selectedMasterKitId && !addNewMode) {
+      setError('Please select a master kit group or choose "Add New".')
+      return
+    }
     const nonEmptyRows = rows.filter((r) => r.name.trim() !== '')
     if (nonEmptyRows.length === 0) {
       setError('Add at least one product to the kit.')
@@ -114,12 +203,14 @@ export default function AddKitModal({ supplierName, suppliers, unitTypes, initia
     setError(null)
     setSaving(true)
     try {
-      await onSave({ name: trimmedKitName, products, supplier_id: selectedSupplierId })
+      await onSave({ name: trimmedKitName, products, supplier_id: selectedSupplierId, masterKitGroupId: selectedMasterKitId })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save kit.')
       setSaving(false)
     }
   }
+
+  const showMasterSearch = !!selectedSupplierId && !addNewMode
 
   return (
     <Portal>
@@ -177,88 +268,179 @@ export default function AddKitModal({ supplierName, suppliers, unitTypes, initia
                 )}
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
-                  Kit Name *
-                </label>
-                <input
-                  ref={nameInputRef}
-                  type="text"
-                  value={kitName}
-                  onChange={(e) => setKitName(e.target.value)}
-                  placeholder="e.g. Epoxy Kit"
-                  className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-2">
-                  Products *
-                </label>
-                <div className="space-y-2">
-                  {rows.map((row, idx) => (
-                    <div key={row.localId} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={row.name}
-                        onChange={(e) => updateRow(row.localId, { name: e.target.value })}
-                        placeholder={`Product ${idx + 1} name`}
-                        className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
-                      />
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        value={row.quantity}
-                        onChange={(e) => updateRow(row.localId, { quantity: e.target.value })}
-                        aria-label="Quantity"
-                        className="w-16 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
-                      />
-                      <select
-                        value={row.unit}
-                        onChange={(e) =>
-                          updateRow(row.localId, { unit: e.target.value })
-                        }
-                        aria-label="Unit"
-                        className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
-                      >
-                        {unitTypes.length === 0 ? (
-                          <option value="" disabled>No units</option>
-                        ) : (
-                          unitTypes.map((ut) => (
-                            <option key={ut.id} value={ut.abbreviation}>
-                              {ut.abbreviation}
-                            </option>
-                          ))
-                        )}
-                      </select>
+              {/* Master kit group searchable dropdown */}
+              {showMasterSearch && masterSupplierId && (
+                <div ref={dropdownRef} className="relative">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                    Select from Master Catalog
+                  </label>
+                  <div className="relative">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-[#6b6b6b]" />
+                    <input
+                      ref={searchRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value)
+                        setDropdownOpen(true)
+                        setSelectedMasterKitId(null)
+                      }}
+                      onFocus={() => setDropdownOpen(true)}
+                      placeholder="Search master kit groups…"
+                      className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                    />
+                  </div>
+                  {dropdownOpen && (
+                    <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-white dark:bg-[#2e2e2e] border border-gray-200 dark:border-[#3a3a3a] rounded-lg shadow-lg">
+                      {filteredMasterKitGroups.map((mkg) => (
+                        <button
+                          key={mkg.id}
+                          type="button"
+                          onClick={() => selectMasterKit(mkg)}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors ${
+                            selectedMasterKitId === mkg.id
+                              ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 font-medium'
+                              : 'text-gray-900 dark:text-white'
+                          }`}
+                        >
+                          {mkg.name}
+                        </button>
+                      ))}
                       <button
                         type="button"
-                        onClick={() => removeRow(row.localId)}
-                        disabled={rows.length <= 1}
-                        className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                        title={
-                          rows.length <= 1
-                            ? 'At least one product is required'
-                            : 'Remove product'
-                        }
-                        aria-label="Remove product"
+                        onClick={handleAddNew}
+                        className="w-full text-left px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors font-medium border-t border-gray-100 dark:border-[#3a3a3a] flex items-center gap-1.5"
                       >
-                        <XIcon className="w-4 h-4" />
+                        <PlusIcon className="w-3.5 h-3.5" />
+                        Add New Kit{searchQuery.trim() ? `: "${searchQuery.trim()}"` : ''}
                       </button>
                     </div>
-                  ))}
+                  )}
+                  {selectedMasterKitId && !dropdownOpen && (
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      Linked to master kit group: {masterKitGroups.find((m) => m.id === selectedMasterKitId)?.name}
+                    </p>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={addRow}
-                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
-                >
-                  <PlusIcon className="w-3.5 h-3.5" />
-                  Add Product
-                </button>
-              </div>
+              )}
+
+              {/* Auto-switch to addNewMode if no master supplier link */}
+              {showMasterSearch && !masterSupplierId && (() => { if (!addNewMode) setTimeout(() => setAddNewMode(true), 0); return null })()}
+
+              {/* Add new mode header */}
+              {addNewMode && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                    Creating New Kit
+                  </span>
+                  {masterSupplierId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddNewMode(false)
+                        setKitName('')
+                        setSearchQuery('')
+                        setRows([createEmptyRow(defaultUnit), createEmptyRow(defaultUnit)])
+                      }}
+                      className="text-xs text-gray-500 dark:text-[#6b6b6b] hover:text-gray-700 dark:hover:text-white transition-colors"
+                    >
+                      Back to search
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Kit name — shown when master kit is selected, addNewMode, or no master supplier link */}
+              {(selectedMasterKitId || addNewMode) && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                    Kit Name *
+                  </label>
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    value={kitName}
+                    onChange={(e) => setKitName(e.target.value)}
+                    placeholder="e.g. Epoxy Kit"
+                    readOnly={!!selectedMasterKitId}
+                    className={`w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
+                      selectedMasterKitId ? 'bg-gray-50 dark:bg-[#1a1a1a]' : 'bg-white dark:bg-[#2e2e2e]'
+                    }`}
+                  />
+                </div>
+              )}
+
+              {/* Product rows — shown when master kit is selected or in addNew mode */}
+              {(selectedMasterKitId || addNewMode) && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-2">
+                    Products *
+                  </label>
+                  <div className="space-y-2">
+                    {rows.map((row, idx) => (
+                      <div key={row.localId} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={row.name}
+                          onChange={(e) => updateRow(row.localId, { name: e.target.value })}
+                          placeholder={`Product ${idx + 1} name`}
+                          className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                        />
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          value={row.quantity}
+                          onChange={(e) => updateRow(row.localId, { quantity: e.target.value })}
+                          aria-label="Quantity"
+                          className="w-16 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                        />
+                        <select
+                          value={row.unit}
+                          onChange={(e) =>
+                            updateRow(row.localId, { unit: e.target.value })
+                          }
+                          aria-label="Unit"
+                          className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                        >
+                          {unitTypes.length === 0 ? (
+                            <option value="" disabled>No units</option>
+                          ) : (
+                            unitTypes.map((ut) => (
+                              <option key={ut.id} value={ut.abbreviation}>
+                                {ut.abbreviation}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeRow(row.localId)}
+                          disabled={rows.length <= 1}
+                          className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                          title={
+                            rows.length <= 1
+                              ? 'At least one product is required'
+                              : 'Remove product'
+                          }
+                          aria-label="Remove product"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
+                  >
+                    <PlusIcon className="w-3.5 h-3.5" />
+                    Add Product
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Footer */}

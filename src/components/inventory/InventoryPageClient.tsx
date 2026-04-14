@@ -33,7 +33,7 @@ import {
   Trash2Icon,
 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-import SupplierModal from './SupplierModal'
+import SupplierModal, { type SupplierSaveData } from './SupplierModal'
 import ProductModal, { type ProductFormData } from './ProductModal'
 import KitGroupModal, { type KitGroupFormData } from './KitGroupModal'
 import AddKitModal, { type AddKitFormData } from './AddKitModal'
@@ -45,6 +45,9 @@ import type {
   InventoryProduct,
   InventoryUnit,
   MaterialSupplier,
+  MasterKitGroup,
+  MasterProduct,
+  MasterSupplier,
   UnitType,
   UserRole,
 } from '@/types'
@@ -78,6 +81,9 @@ interface Props {
   initialPendingStockChecks: Record<string, PendingStockCheckInfo>
   /** Keyed by task id — the pending price check task → assignee info. */
   initialPendingPriceChecks: Record<string, PendingPriceCheckInfo>
+  masterSuppliers: MasterSupplier[]
+  masterProducts: MasterProduct[]
+  masterKitGroups: MasterKitGroup[]
 }
 
 function formatStockCheckDate(value: string | null): string {
@@ -644,6 +650,9 @@ export default function InventoryPageClient({
   profiles,
   initialPendingStockChecks,
   initialPendingPriceChecks,
+  masterSuppliers: initialMasterSuppliers,
+  masterProducts: initialMasterProducts,
+  masterKitGroups: initialMasterKitGroups,
 }: Props) {
   const supabase = createClient()
 
@@ -651,6 +660,28 @@ export default function InventoryPageClient({
   const [products, setProducts] = useState<InventoryProduct[]>(initialProducts)
   const [kitGroups, setKitGroups] = useState<InventoryKitGroup[]>(initialKitGroups)
   const [unitTypes, setUnitTypes] = useState<UnitType[]>(initialUnitTypes)
+  const [masterSuppliers, setMasterSuppliers] = useState<MasterSupplier[]>(initialMasterSuppliers)
+  const [masterProducts, setMasterProducts] = useState<MasterProduct[]>(initialMasterProducts)
+  const [masterKitGroups, setMasterKitGroups] = useState<MasterKitGroup[]>(initialMasterKitGroups)
+
+  // Build lookups from master data for display name resolution
+  const masterSupplierById = useMemo(() => {
+    const map = new Map<string, MasterSupplier>()
+    for (const ms of masterSuppliers) map.set(ms.id, ms)
+    return map
+  }, [masterSuppliers])
+
+  const masterProductById = useMemo(() => {
+    const map = new Map<string, MasterProduct>()
+    for (const mp of masterProducts) map.set(mp.id, mp)
+    return map
+  }, [masterProducts])
+
+  const masterKitGroupById = useMemo(() => {
+    const map = new Map<string, MasterKitGroup>()
+    for (const mkg of masterKitGroups) map.set(mkg.id, mkg)
+    return map
+  }, [masterKitGroups])
 
   // Pending stock check lookup keyed by task id. When a new request is made,
   // we insert the new task info here keyed by the newly created task id.
@@ -724,6 +755,42 @@ export default function InventoryPageClient({
     useSensor(KeyboardSensor)
   )
 
+  /** Resolve display name for a supplier: use master record name if linked, else local name. */
+  function getSupplierDisplayName(supplier: MaterialSupplier): string {
+    if (supplier.master_supplier_id) {
+      const ms = masterSupplierById.get(supplier.master_supplier_id)
+      if (ms) return ms.name
+    }
+    return supplier.name
+  }
+
+  /** Resolve display name for a product: use master record name if linked, else local name. */
+  function getProductDisplayName(product: InventoryProduct): string {
+    if (product.master_product_id) {
+      const mp = masterProductById.get(product.master_product_id)
+      if (mp) return mp.name
+    }
+    return product.name
+  }
+
+  /** Get price for a product: read from master if linked, else local. */
+  function getProductPrice(product: InventoryProduct): number | null {
+    if (product.master_product_id) {
+      const mp = masterProductById.get(product.master_product_id)
+      if (mp) return mp.price
+    }
+    return product.price
+  }
+
+  /** Resolve display name for a kit group: use master if linked, else local. */
+  function getKitGroupDisplayName(group: InventoryKitGroup): string {
+    if (group.master_kit_group_id) {
+      const mkg = masterKitGroupById.get(group.master_kit_group_id)
+      if (mkg) return mkg.name
+    }
+    return group.name
+  }
+
   // Group products by supplier id for quick render.
   const productsBySupplier = useMemo(() => {
     const map = new Map<string, InventoryProduct[]>()
@@ -773,33 +840,66 @@ export default function InventoryPageClient({
     setSupplierModalOpen(true)
   }
 
-  async function saveSupplier(name: string, color: string) {
-    const trimmed = name.trim()
+  async function saveSupplier(data: SupplierSaveData) {
+    const trimmed = data.name.trim()
     if (!trimmed) return
 
     if (editingSupplier) {
       const previous = editingSupplier
       setSuppliers((prev) =>
-        prev.map((s) => (s.id === previous.id ? { ...s, name: trimmed, color } : s))
+        prev.map((s) => (s.id === previous.id ? { ...s, name: trimmed, color: data.color } : s))
       )
       const { error } = await supabase
         .from('material_suppliers')
-        .update({ name: trimmed, color })
+        .update({ name: trimmed, color: data.color })
         .eq('id', previous.id)
       if (error) {
         setSuppliers((prev) =>
           prev.map((s) => (s.id === previous.id ? previous : s))
         )
       }
+      // If editing and there's a linked master supplier, update its name/color too
+      if (previous.master_supplier_id) {
+        await supabase
+          .from('master_suppliers')
+          .update({ name: trimmed, color: data.color })
+          .eq('id', previous.master_supplier_id)
+        setMasterSuppliers((prev) =>
+          prev.map((ms) =>
+            ms.id === previous.master_supplier_id
+              ? { ...ms, name: trimmed, color: data.color }
+              : ms
+          )
+        )
+      }
     } else {
-      const { data, error } = await supabase
+      let masterSupplierId = data.masterSupplierId
+
+      // If "Add New" mode (no masterSupplierId), create in master_suppliers first
+      if (!masterSupplierId) {
+        const { data: newMaster, error: masterErr } = await supabase
+          .from('master_suppliers')
+          .insert({ name: trimmed, color: data.color })
+          .select()
+          .single()
+        if (!masterErr && newMaster) {
+          masterSupplierId = (newMaster as MasterSupplier).id
+          setMasterSuppliers((prev) => [...prev, newMaster as MasterSupplier])
+        }
+      }
+
+      const { data: inserted, error } = await supabase
         .from('material_suppliers')
-        .insert({ name: trimmed, color })
+        .insert({
+          name: trimmed,
+          color: data.color,
+          master_supplier_id: masterSupplierId,
+        })
         .select()
         .single()
-      if (!error && data) {
+      if (!error && inserted) {
         setSuppliers((prev) =>
-          [...prev, data as MaterialSupplier].sort((a, b) =>
+          [...prev, inserted as MaterialSupplier].sort((a, b) =>
             a.name.localeCompare(b.name)
           )
         )
@@ -879,6 +979,30 @@ export default function InventoryPageClient({
         setProducts((prev) => prev.map((p) => (p.id === previous.id ? previous : p)))
       }
     } else {
+      let masterProductId = data.masterProductId
+
+      // If "Add New" mode (no masterProductId), create in master_products first
+      if (!masterProductId) {
+        const supplier = suppliers.find((s) => s.id === supplierId)
+        const masterSupplierId = supplier?.master_supplier_id
+        if (masterSupplierId) {
+          const { data: newMaster, error: masterErr } = await supabase
+            .from('master_products')
+            .insert({
+              supplier_id: masterSupplierId,
+              name: trimmedName,
+              unit: data.unit,
+              price: data.price ?? null,
+            })
+            .select()
+            .single()
+          if (!masterErr && newMaster) {
+            masterProductId = (newMaster as MasterProduct).id
+            setMasterProducts((prev) => [...prev, newMaster as MasterProduct])
+          }
+        }
+      }
+
       const { data: inserted, error } = await supabase
         .from('inventory_products')
         .insert({
@@ -886,7 +1010,9 @@ export default function InventoryPageClient({
           name: trimmedName,
           quantity: data.quantity,
           unit: data.unit,
+          price: data.price ?? null,
           kit_group_id: data.kit_group_id,
+          master_product_id: masterProductId ?? null,
         })
         .select()
         .single()
@@ -940,6 +1066,26 @@ export default function InventoryPageClient({
     const supplierId = data.supplier_id ?? addKitSupplierId
     if (!supplierId) return
 
+    let masterKitGroupId = data.masterKitGroupId
+
+    // If "Add New" mode (no masterKitGroupId), create in master_kit_groups first
+    const supplier = suppliers.find((s) => s.id === supplierId)
+    const masterSupplierId = supplier?.master_supplier_id
+    if (!masterKitGroupId && masterSupplierId) {
+      const { data: newMasterKit, error: masterKitErr } = await supabase
+        .from('master_kit_groups')
+        .insert({
+          supplier_id: masterSupplierId,
+          name: data.name,
+        })
+        .select()
+        .single()
+      if (!masterKitErr && newMasterKit) {
+        masterKitGroupId = (newMasterKit as MasterKitGroup).id
+        setMasterKitGroups((prev) => [...prev, newMasterKit as MasterKitGroup])
+      }
+    }
+
     // 1. Insert the kit group. The legacy full_kits/partial_kits columns
     //    still exist on the table (Phase 4 only hid them) so we pass
     //    explicit zeros to satisfy any NOT NULL constraints.
@@ -952,6 +1098,7 @@ export default function InventoryPageClient({
         full_kit_size: null,
         partial_kits: 0,
         partial_kit_size: null,
+        master_kit_group_id: masterKitGroupId ?? null,
       })
       .select()
       .single()
@@ -961,14 +1108,56 @@ export default function InventoryPageClient({
     const kit = insertedKit as InventoryKitGroup
 
     // 2. Insert the sub-item products, all linked to the new kit.
+    // Also create master_products for each sub-item if we have a master link.
     if (data.products.length > 0) {
-      const rows = data.products.map((p) => ({
-        supplier_id: supplierId,
-        kit_group_id: kit.id,
-        name: p.name,
-        quantity: p.quantity,
-        unit: p.unit,
-      }))
+      const rows: Array<{
+        supplier_id: string
+        kit_group_id: string
+        name: string
+        quantity: number
+        unit: string
+        master_product_id?: string | null
+      }> = []
+
+      for (const p of data.products) {
+        let masterProductId: string | null = null
+        // Try to find an existing master product with the same name
+        if (masterSupplierId) {
+          const existingMp = masterProducts.find(
+            (mp) =>
+              mp.supplier_id === masterSupplierId &&
+              mp.name.toLowerCase() === p.name.trim().toLowerCase()
+          )
+          if (existingMp) {
+            masterProductId = existingMp.id
+          } else {
+            // Create a new master product
+            const { data: newMp, error: mpErr } = await supabase
+              .from('master_products')
+              .insert({
+                supplier_id: masterSupplierId,
+                name: p.name.trim(),
+                unit: p.unit,
+                kit_group_id: masterKitGroupId ?? null,
+              })
+              .select()
+              .single()
+            if (!mpErr && newMp) {
+              masterProductId = (newMp as MasterProduct).id
+              setMasterProducts((prev) => [...prev, newMp as MasterProduct])
+            }
+          }
+        }
+        rows.push({
+          supplier_id: supplierId,
+          kit_group_id: kit.id,
+          name: p.name,
+          quantity: p.quantity,
+          unit: p.unit,
+          master_product_id: masterProductId,
+        })
+      }
+
       const { data: insertedProducts, error: prodErr } = await supabase
         .from('inventory_products')
         .insert(rows)
@@ -1014,13 +1203,35 @@ export default function InventoryPageClient({
 
   /**
    * Persist a new price for a product (called from the inline price editor).
+   * When the product is linked to a master record, also update master_products.price
+   * so both pages stay in sync.
    */
   async function saveProductPrice(productId: string, newPrice: number) {
     const previous = products.find((p) => p.id === productId)
     if (!previous) return
+
+    // Optimistic update — local inventory price
     setProducts((prev) =>
       prev.map((p) => (p.id === productId ? { ...p, price: newPrice } : p))
     )
+
+    // If linked to a master product, update the master price too
+    if (previous.master_product_id) {
+      const prevMaster = masterProducts.find((mp) => mp.id === previous.master_product_id)
+      setMasterProducts((prev) =>
+        prev.map((mp) => (mp.id === previous.master_product_id ? { ...mp, price: newPrice } : mp))
+      )
+      const { error: masterErr } = await supabase
+        .from('master_products')
+        .update({ price: newPrice })
+        .eq('id', previous.master_product_id)
+      if (masterErr && prevMaster) {
+        setMasterProducts((prev) =>
+          prev.map((mp) => (mp.id === previous.master_product_id ? prevMaster : mp))
+        )
+      }
+    }
+
     const { error } = await supabase
       .from('inventory_products')
       .update({ price: newPrice })
@@ -1147,7 +1358,7 @@ export default function InventoryPageClient({
     if (!stockCheckProduct) return
     const product = stockCheckProduct
     const supplier = suppliers.find((s) => s.id === product.supplier_id)
-    const supplierName = supplier?.name ?? ''
+    const supplierName = supplier ? getSupplierDisplayName(supplier) : ''
     const title = supplierName
       ? `Stock Check: ${product.name} (${supplierName})`
       : `Stock Check: ${product.name}`
@@ -1260,7 +1471,7 @@ export default function InventoryPageClient({
     if (!priceCheckProduct) return
     const product = priceCheckProduct
     const supplier = suppliers.find((s) => s.id === product.supplier_id)
-    const supplierName = supplier?.name ?? ''
+    const supplierName = supplier ? getSupplierDisplayName(supplier) : ''
     const title = supplierName
       ? `Price Check: ${product.name} (${supplierName})`
       : `Price Check: ${product.name}`
@@ -1494,7 +1705,7 @@ export default function InventoryPageClient({
             aria-label={stockCheckDotTitle(level)}
           />
           <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-            {product.name}
+            {getProductDisplayName(product)}
           </span>
         </div>
         {/* Quantity */}
@@ -1565,7 +1776,7 @@ export default function InventoryPageClient({
             Price:
           </span>
           <InlinePriceEditor
-            price={product.price}
+            price={getProductPrice(product)}
             disabled={!canManage}
             onSave={(p) => saveProductPrice(product.id, p)}
           />
@@ -1661,7 +1872,7 @@ export default function InventoryPageClient({
         {/* Group name */}
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-            {group.name}
+            {getKitGroupDisplayName(group)}
           </span>
         </div>
         {/* Quantity */}
@@ -1880,7 +2091,7 @@ export default function InventoryPageClient({
                         className="text-[18px] font-medium uppercase tracking-wider text-gray-900 dark:text-[#f0f0f0] flex-1 truncate cursor-pointer py-3"
                         onClick={() => toggleSupplierCollapsed(supplier.id)}
                       >
-                        {supplier.name}
+                        {getSupplierDisplayName(supplier)}
                       </h2>
                       <span className="text-[11px] text-gray-500 dark:text-[#a0a0a0] bg-white/60 dark:bg-[#2e2e2e]/80 px-2.5 py-0.5 rounded-full font-medium">
                         {supplierProducts.length}{' '}
@@ -1990,6 +2201,7 @@ export default function InventoryPageClient({
       {supplierModalOpen && (
         <SupplierModal
           supplier={editingSupplier}
+          masterSuppliers={masterSuppliers}
           onClose={() => {
             setSupplierModalOpen(false)
             setEditingSupplier(null)
@@ -2013,13 +2225,18 @@ export default function InventoryPageClient({
           product={editingProduct}
           supplierName={
             productModalSupplierId
-              ? suppliers.find((s) => s.id === productModalSupplierId)?.name ?? ''
+              ? (() => {
+                  const s = suppliers.find((s) => s.id === productModalSupplierId)
+                  return s ? getSupplierDisplayName(s) : ''
+                })()
               : ''
           }
           suppliers={suppliers}
           kitGroups={productModalSupplierId ? (kitGroupsBySupplier.get(productModalSupplierId) ?? []) : []}
           kitGroupsBySupplier={kitGroupsBySupplier}
           unitTypes={unitTypes}
+          masterProducts={masterProducts}
+          masterSuppliers={masterSuppliers}
           initialSupplierId={productModalSupplierId}
           onClose={() => {
             setProductModalOpen(false)
@@ -2051,11 +2268,16 @@ export default function InventoryPageClient({
         <AddKitModal
           supplierName={
             addKitSupplierId
-              ? suppliers.find((s) => s.id === addKitSupplierId)?.name ?? ''
+              ? (() => {
+                  const s = suppliers.find((s) => s.id === addKitSupplierId)
+                  return s ? getSupplierDisplayName(s) : ''
+                })()
               : ''
           }
           suppliers={suppliers}
           unitTypes={unitTypes}
+          masterKitGroups={masterKitGroups}
+          masterProducts={masterProducts}
           initialSupplierId={addKitSupplierId}
           onClose={() => {
             setAddKitModalOpen(false)
@@ -2069,7 +2291,7 @@ export default function InventoryPageClient({
       {deleteSupplierTarget && (
         <ConfirmDialog
           title="Delete Supplier"
-          message={`Delete "${deleteSupplierTarget.name}"? All products and kit groups under this supplier will also be deleted. This cannot be undone.`}
+          message={`Delete "${getSupplierDisplayName(deleteSupplierTarget)}"? All products and kit groups under this supplier will also be deleted. This cannot be undone.`}
           confirmLabel="Delete Supplier"
           onConfirm={confirmDeleteSupplier}
           onCancel={() => setDeleteSupplierTarget(null)}
@@ -2081,7 +2303,7 @@ export default function InventoryPageClient({
       {deleteProductTarget && (
         <ConfirmDialog
           title="Delete Product"
-          message={`Delete "${deleteProductTarget.name}"? This cannot be undone.`}
+          message={`Delete "${getProductDisplayName(deleteProductTarget)}"? This cannot be undone.`}
           confirmLabel="Delete Product"
           onConfirm={confirmDeleteProduct}
           onCancel={() => setDeleteProductTarget(null)}
@@ -2093,7 +2315,7 @@ export default function InventoryPageClient({
       {deleteKitGroupTarget && (
         <ConfirmDialog
           title="Delete Kit Group"
-          message={`Delete kit group "${deleteKitGroupTarget.name}"? Products in this group will be unlinked (not deleted) and shown as standalone products.`}
+          message={`Delete kit group "${getKitGroupDisplayName(deleteKitGroupTarget)}"? Products in this group will be unlinked (not deleted) and shown as standalone products.`}
           confirmLabel="Delete Kit Group"
           onConfirm={confirmDeleteKitGroup}
           onCancel={() => setDeleteKitGroupTarget(null)}
@@ -2104,9 +2326,12 @@ export default function InventoryPageClient({
       {/* Stock check request modal */}
       {stockCheckProduct && (
         <StockCheckRequestModal
-          productName={stockCheckProduct.name}
+          productName={getProductDisplayName(stockCheckProduct)}
           supplierName={
-            suppliers.find((s) => s.id === stockCheckProduct.supplier_id)?.name ?? ''
+            (() => {
+              const s = suppliers.find((s) => s.id === stockCheckProduct.supplier_id)
+              return s ? getSupplierDisplayName(s) : ''
+            })()
           }
           profiles={profiles}
           onClose={() => setStockCheckProduct(null)}
@@ -2117,9 +2342,12 @@ export default function InventoryPageClient({
       {/* Price check request modal */}
       {priceCheckProduct && (
         <PriceCheckRequestModal
-          productName={priceCheckProduct.name}
+          productName={getProductDisplayName(priceCheckProduct)}
           supplierName={
-            suppliers.find((s) => s.id === priceCheckProduct.supplier_id)?.name ?? ''
+            (() => {
+              const s = suppliers.find((s) => s.id === priceCheckProduct.supplier_id)
+              return s ? getSupplierDisplayName(s) : ''
+            })()
           }
           profiles={profiles}
           onClose={() => setPriceCheckProduct(null)}
