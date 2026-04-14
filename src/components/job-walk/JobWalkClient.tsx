@@ -8,11 +8,14 @@ import {
   SearchIcon,
   FootprintsIcon,
   ChevronRightIcon,
+  Trash2Icon,
 } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import JobWalkInfoCard from './JobWalkInfoCard'
 import JobWalkNotesCard from './JobWalkNotesCard'
 import JobWalkPhotosCard from './JobWalkPhotosCard'
+import JobWalkMeasurementsCard from './JobWalkMeasurementsCard'
 import JobWalkCamToPlanCard from './JobWalkCamToPlanCard'
 
 export type JobWalkStatus = 'in_progress' | 'completed' | 'sent_to_estimating'
@@ -28,6 +31,7 @@ export interface JobWalk {
   date: string | null
   status: JobWalkStatus
   notes: string | null
+  measurements: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -38,10 +42,10 @@ interface JobWalkClientProps {
   userId: string
 }
 
-const STATUS_STYLES: Record<JobWalkStatus, { label: string; className: string }> = {
-  in_progress: { label: 'In Progress', className: 'bg-amber-100 text-amber-700' },
-  completed: { label: 'Completed', className: 'bg-green-100 text-green-700' },
-  sent_to_estimating: { label: 'Sent to Estimating', className: 'bg-blue-100 text-blue-700' },
+export const STATUS_STYLES: Record<JobWalkStatus, { label: string; className: string }> = {
+  in_progress: { label: 'In Progress', className: 'bg-green-100 text-green-700' },
+  completed: { label: 'Completed', className: 'bg-blue-100 text-blue-700' },
+  sent_to_estimating: { label: 'Sent to Estimating', className: 'bg-gray-100 text-gray-600' },
 }
 
 export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClientProps) {
@@ -53,6 +57,8 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [creating, setCreating] = useState(false)
+  const [confirmDeleteWalk, setConfirmDeleteWalk] = useState<JobWalk | null>(null)
+  const [deletingWalk, setDeletingWalk] = useState(false)
 
   const selected = useMemo(
     () => jobWalks.find((w) => w.id === selectedId) ?? null,
@@ -125,6 +131,63 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     )
   }, [])
 
+  const toggleStatus = useCallback(async (walk: JobWalk) => {
+    const next: JobWalkStatus =
+      walk.status === 'completed' ? 'in_progress' : 'completed'
+    // Optimistic update
+    setJobWalks((prev) =>
+      prev.map((w) => (w.id === walk.id ? { ...w, status: next } : w))
+    )
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('job_walks')
+      .update({ status: next })
+      .eq('id', walk.id)
+    if (error) {
+      console.error('[JobWalk] Status toggle failed:', error)
+      // Revert on error
+      setJobWalks((prev) =>
+        prev.map((w) => (w.id === walk.id ? { ...w, status: walk.status } : w))
+      )
+    }
+  }, [])
+
+  const handleDeleteWalk = useCallback(async () => {
+    if (!confirmDeleteWalk) return
+    setDeletingWalk(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('job_walks')
+      .delete()
+      .eq('id', confirmDeleteWalk.id)
+    if (error) {
+      console.error('[JobWalk] Delete failed:', error)
+      setDeletingWalk(false)
+      return
+    }
+    const deletedId = confirmDeleteWalk.id
+    setJobWalks((prev) => {
+      const next = prev.filter((w) => w.id !== deletedId)
+      // Pick the next available walk (first in list) or clear selection
+      const nextSelected = next[0]?.id ?? null
+      setSelectedId(nextSelected)
+      if (!nextSelected) {
+        setMobileView('list')
+      }
+      const params = new URLSearchParams(searchParams.toString())
+      if (nextSelected) {
+        params.set('walk', nextSelected)
+      } else {
+        params.delete('walk')
+      }
+      const qs = params.toString()
+      router.replace(qs ? `/job-walk?${qs}` : '/job-walk', { scroll: false })
+      return next
+    })
+    setDeletingWalk(false)
+    setConfirmDeleteWalk(null)
+  }, [confirmDeleteWalk, router, searchParams])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return jobWalks
@@ -135,6 +198,15 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
       )
     })
   }, [jobWalks, search])
+
+  const inProgressWalks = useMemo(
+    () => filtered.filter((w) => w.status !== 'completed'),
+    [filtered]
+  )
+  const completedWalks = useMemo(
+    () => filtered.filter((w) => w.status === 'completed'),
+    [filtered]
+  )
 
   return (
     <div className="flex h-full overflow-hidden w-full max-w-full">
@@ -180,49 +252,35 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
               </p>
             </div>
           ) : (
-            filtered.map((walk) => {
-              const isSelected = selectedId === walk.id
-              const statusStyle = STATUS_STYLES[walk.status]
-              return (
-                <button
+            <>
+              {inProgressWalks.map((walk) => (
+                <JobWalkListItem
                   key={walk.id}
-                  onClick={() => selectWalk(walk.id)}
-                  className={`w-full text-left relative rounded-lg border p-3 transition ${
-                    isSelected
-                      ? 'border-amber-300 bg-amber-50/60'
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {isSelected && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-amber-500" />
-                  )}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900 truncate">
-                        {walk.project_name || 'Untitled Job Walk'}
-                      </p>
-                      {walk.customer_name && (
-                        <p className="text-xs text-gray-600 truncate mt-0.5">
-                          {walk.customer_name}
-                        </p>
-                      )}
-                      {walk.address && (
-                        <p className="text-xs text-gray-400 truncate mt-0.5">
-                          {walk.address}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusStyle.className}`}
-                    >
-                      {statusStyle.label}
-                    </span>
-                  </div>
-                </button>
-              )
-            })
+                  walk={walk}
+                  isSelected={selectedId === walk.id}
+                  onSelect={() => selectWalk(walk.id)}
+                />
+              ))}
+
+              {inProgressWalks.length > 0 && completedWalks.length > 0 && (
+                <div className="flex items-center gap-3 px-1 pt-3 pb-1">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-widest">
+                    Completed
+                  </span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+              )}
+
+              {completedWalks.map((walk) => (
+                <JobWalkListItem
+                  key={walk.id}
+                  walk={walk}
+                  isSelected={selectedId === walk.id}
+                  onSelect={() => selectWalk(walk.id)}
+                />
+              ))}
+            </>
           )}
         </div>
       </div>
@@ -254,11 +312,23 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
                     {selected.address ? ` · ${selected.address}` : ''}
                   </p>
                 </div>
-                <span
-                  className={`inline-flex flex-shrink-0 items-center px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_STYLES[selected.status].className}`}
+                <button
+                  type="button"
+                  onClick={() => toggleStatus(selected)}
+                  title="Tap to toggle status"
+                  className={`inline-flex flex-shrink-0 items-center px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-transparent hover:border-current/40 cursor-pointer transition ${STATUS_STYLES[selected.status].className}`}
                 >
                   {STATUS_STYLES[selected.status].label}
-                </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteWalk(selected)}
+                  title="Delete job walk"
+                  aria-label="Delete job walk"
+                  className="flex-shrink-0 p-2 rounded-md text-red-500 hover:text-red-600 hover:bg-red-50 transition"
+                >
+                  <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
+                </button>
               </div>
             </div>
 
@@ -270,15 +340,21 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
                 customers={customers}
                 onPatch={(patch) => handleUpdate(selected.id, patch)}
               />
+              <JobWalkPhotosCard
+                key={`photos-${selected.id}`}
+                walkId={selected.id}
+                userId={userId}
+              />
               <JobWalkNotesCard
                 key={`notes-${selected.id}`}
                 walk={selected}
                 onPatch={(patch) => handleUpdate(selected.id, patch)}
               />
-              <JobWalkPhotosCard
-                key={`photos-${selected.id}`}
-                walkId={selected.id}
+              <JobWalkMeasurementsCard
+                key={`measurements-${selected.id}`}
+                walk={selected}
                 userId={userId}
+                onPatch={(patch) => handleUpdate(selected.id, patch)}
               />
               <JobWalkCamToPlanCard />
             </div>
@@ -294,6 +370,66 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
           </div>
         )}
       </div>
+
+      {confirmDeleteWalk && (
+        <ConfirmDialog
+          title="Delete Job Walk"
+          message="Are you sure you want to delete this job walk? This action cannot be undone."
+          confirmLabel="Delete"
+          variant="destructive"
+          loading={deletingWalk}
+          onConfirm={handleDeleteWalk}
+          onCancel={() => (deletingWalk ? null : setConfirmDeleteWalk(null))}
+        />
+      )}
     </div>
+  )
+}
+
+interface JobWalkListItemProps {
+  walk: JobWalk
+  isSelected: boolean
+  onSelect: () => void
+}
+
+function JobWalkListItem({ walk, isSelected, onSelect }: JobWalkListItemProps) {
+  const statusStyle = STATUS_STYLES[walk.status]
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full text-left relative rounded-lg border p-3 transition ${
+        isSelected
+          ? 'border-amber-300 bg-amber-50/60'
+          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+      }`}
+    >
+      {isSelected && (
+        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-amber-500" />
+      )}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900 truncate">
+            {walk.project_name || 'Untitled Job Walk'}
+          </p>
+          {walk.customer_name && (
+            <p className="text-xs text-gray-600 truncate mt-0.5">
+              {walk.customer_name}
+            </p>
+          )}
+          {walk.address && (
+            <p className="text-xs text-gray-400 truncate mt-0.5">
+              {walk.address}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="mt-2">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusStyle.className}`}
+        >
+          {statusStyle.label}
+        </span>
+      </div>
+    </button>
   )
 }
