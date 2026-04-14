@@ -193,8 +193,7 @@ export default function MaterialSystemPicker({
     onChange(rows.filter((r) => r.id !== rowId))
   }
 
-  const addedNames = new Set(rows.map((r) => r.systemName))
-  const availableSystems = systems.filter((s) => !addedNames.has(s.name))
+  const availableSystems = systems
 
   const gridCols = 3 + (showQuantity ? 1 : 0)
 
