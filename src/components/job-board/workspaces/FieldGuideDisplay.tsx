@@ -47,11 +47,11 @@ export default function FieldGuideDisplay({ guide, readOnly, onRemove }: FieldGu
 
   return (
     <>
-      <article className="rounded-lg border border-amber-100 bg-amber-50/30 px-4 py-4 md:px-6 md:py-5">
+      <article className="rounded-lg border border-gray-200 overflow-hidden">
         {/* Title + remove button */}
-        <header className="flex items-start gap-2 pb-3 mb-4 border-b border-amber-100">
-          <BookOpenIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <h2 className="flex-1 text-lg md:text-xl font-bold text-gray-900 leading-tight">
+        <header className="flex items-start gap-2 px-3 sm:px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+          <BookOpenIcon className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5" />
+          <h2 className="flex-1 text-sm font-semibold text-gray-900 leading-tight">
             {guide.title}
           </h2>
           {!readOnly && (
@@ -66,17 +66,17 @@ export default function FieldGuideDisplay({ guide, readOnly, onRemove }: FieldGu
         </header>
 
         {/* Sections */}
-        <div className="space-y-6">
+        <div className="px-3 sm:px-4 py-3 space-y-4">
           {guide.sections.map((section, idx) => (
             <section
               key={section.id}
-              className={idx > 0 ? 'pt-6 border-t border-amber-100/70' : ''}
+              className={idx > 0 ? 'pt-4 border-t border-gray-100' : ''}
             >
-              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
                 {section.heading}
               </h3>
               {section.body && (
-                <p className="text-sm md:text-base text-gray-700 whitespace-pre-wrap leading-relaxed">
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                   {section.body}
                 </p>
               )}
@@ -86,7 +86,7 @@ export default function FieldGuideDisplay({ guide, readOnly, onRemove }: FieldGu
                     <button
                       key={img.id}
                       onClick={() => openLightbox(img.image_url)}
-                      className="block overflow-hidden rounded-lg border border-gray-200 bg-white hover:border-amber-300 transition w-full sm:w-auto"
+                      className="block overflow-hidden rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition w-full sm:w-auto"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
