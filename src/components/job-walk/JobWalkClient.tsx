@@ -12,6 +12,8 @@ import {
 import type { Customer } from '@/components/estimates/types'
 import JobWalkInfoCard from './JobWalkInfoCard'
 import JobWalkNotesCard from './JobWalkNotesCard'
+import JobWalkPhotosCard from './JobWalkPhotosCard'
+import JobWalkCamToPlanCard from './JobWalkCamToPlanCard'
 
 export type JobWalkStatus = 'in_progress' | 'completed' | 'sent_to_estimating'
 
@@ -273,6 +275,12 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
                 walk={selected}
                 onPatch={(patch) => handleUpdate(selected.id, patch)}
               />
+              <JobWalkPhotosCard
+                key={`photos-${selected.id}`}
+                walkId={selected.id}
+                userId={userId}
+              />
+              <JobWalkCamToPlanCard />
             </div>
           </>
         ) : (
