@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { XIcon, PlusIcon } from 'lucide-react'
 import Portal from './Portal'
+import SearchableDropdown from './SearchableDropdown'
+import type { MasterProduct } from '@/types'
 
 export interface FormItemRow {
   material_name: string
+  master_product_id: string | null
   thickness: string
   coverage_rate: string
   item_notes: string
@@ -17,11 +20,12 @@ export interface MaterialSystemFormState {
   items: FormItemRow[]
 }
 
-const emptyItem: FormItemRow = { material_name: '', thickness: '', coverage_rate: '', item_notes: '' }
+const emptyItem: FormItemRow = { material_name: '', master_product_id: null, thickness: '', coverage_rate: '', item_notes: '' }
 
 interface MaterialSystemFormModalProps {
   title: string
   initial?: MaterialSystemFormState
+  masterProducts?: MasterProduct[]
   onSave: (form: MaterialSystemFormState) => Promise<void>
   onClose: () => void
 }
@@ -35,11 +39,18 @@ const defaultInitial: MaterialSystemFormState = {
 export default function MaterialSystemFormModal({
   title,
   initial,
+  masterProducts,
   onSave,
   onClose,
 }: MaterialSystemFormModalProps) {
   const [form, setForm] = useState<MaterialSystemFormState>(initial ?? { ...defaultInitial })
   const [saving, setSaving] = useState(false)
+
+  // Build unique product name options from master data
+  const productNames = useMemo(() => {
+    if (!masterProducts || masterProducts.length === 0) return []
+    return [...new Set(masterProducts.map((p) => p.name))].sort((a, b) => a.localeCompare(b))
+  }, [masterProducts])
 
   function updateItem(idx: number, updates: Partial<FormItemRow>) {
     const updated = [...form.items]
@@ -111,13 +122,25 @@ export default function MaterialSystemFormModal({
                   <div key={idx}>
                     <div className="flex items-start gap-2">
                       <div className="grid grid-cols-3 gap-2 flex-1">
-                        <input
-                          type="text"
-                          value={item.material_name}
-                          onChange={(e) => updateItem(idx, { material_name: e.target.value })}
-                          placeholder="Material Name"
-                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                        />
+                        {productNames.length > 0 ? (
+                          <SearchableDropdown
+                            value={item.material_name}
+                            onChange={(val) => {
+                              const match = masterProducts?.find((p) => p.name === val)
+                              updateItem(idx, { material_name: val, master_product_id: match?.id ?? null })
+                            }}
+                            options={productNames}
+                            placeholder="Material Name"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={item.material_name}
+                            onChange={(e) => updateItem(idx, { material_name: e.target.value })}
+                            placeholder="Material Name"
+                            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          />
+                        )}
                         <input
                           type="text"
                           value={item.thickness}

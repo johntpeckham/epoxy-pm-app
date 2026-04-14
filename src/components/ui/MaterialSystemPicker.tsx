@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { PlusIcon, XIcon, SettingsIcon } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import type { MasterProduct } from '@/types'
 import type { MaterialSystem, MaterialSystemInput } from '@/lib/useMaterialSystems'
 import MaterialSystemFormModal from './MaterialSystemFormModal'
 import type { MaterialSystemFormState } from './MaterialSystemFormModal'
@@ -66,6 +68,14 @@ export default function MaterialSystemPicker({
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
 
+  // Fetch master products for the form modal's searchable dropdown
+  const [masterProducts, setMasterProducts] = useState<MasterProduct[]>([])
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('master_products').select('*').order('sort_order').order('name')
+      .then(({ data }) => setMasterProducts((data as MasterProduct[]) ?? []))
+  }, [])
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -89,6 +99,7 @@ export default function MaterialSystemPicker({
       notes: form.notes,
       items: form.items.map((i, idx) => ({
         material_name: i.material_name,
+        master_product_id: i.master_product_id,
         thickness: i.thickness,
         coverage_rate: i.coverage_rate,
         item_notes: i.item_notes,
@@ -139,13 +150,22 @@ export default function MaterialSystemPicker({
       name: system.name,
       notes: system.notes ?? '',
       items: system.items.length > 0
-        ? system.items.map((i) => ({
-            material_name: i.material_name,
-            thickness: i.thickness ?? '',
-            coverage_rate: i.coverage_rate ?? '',
-            item_notes: i.item_notes ?? '',
-          }))
-        : [{ material_name: '', thickness: '', coverage_rate: '', item_notes: '' }],
+        ? system.items.map((i) => {
+            // Resolve material name from master FK, fall back to saved text
+            let materialName = i.material_name
+            if (i.master_product_id) {
+              const mp = masterProducts.find((p) => p.id === i.master_product_id)
+              if (mp) materialName = mp.name
+            }
+            return {
+              material_name: materialName,
+              master_product_id: i.master_product_id ?? null,
+              thickness: i.thickness ?? '',
+              coverage_rate: i.coverage_rate ?? '',
+              item_notes: i.item_notes ?? '',
+            }
+          })
+        : [{ material_name: '', master_product_id: null, thickness: '', coverage_rate: '', item_notes: '' }],
     }
   }
 
@@ -323,6 +343,7 @@ export default function MaterialSystemPicker({
       {showAddModal && (
         <MaterialSystemFormModal
           title="Add Material System"
+          masterProducts={masterProducts}
           onSave={handleAddNewSave}
           onClose={() => setShowAddModal(false)}
         />
@@ -333,6 +354,7 @@ export default function MaterialSystemPicker({
         <MaterialSystemFormModal
           title="Edit Material System"
           initial={systemToFormState(editingSystem)}
+          masterProducts={masterProducts}
           onSave={handleEditSave}
           onClose={() => { setEditingSystem(null); setEditingRowId(null) }}
         />
