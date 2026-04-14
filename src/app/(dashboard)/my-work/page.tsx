@@ -85,6 +85,42 @@ export default async function MyWorkPage() {
     }))
   }
 
+  // Fetch upcoming follow-up reminders assigned to the user (overdue or due within 7 days)
+  const sevenDaysFromNow = new Date()
+  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7)
+  const { data: reminderRows } = await supabase
+    .from('crm_follow_up_reminders')
+    .select(
+      'id, reminder_date, note, company_id, contact_id, is_completed, ' +
+        'crm_companies!inner(id, name), crm_contacts(first_name, last_name)'
+    )
+    .eq('assigned_to', user.id)
+    .eq('is_completed', false)
+    .lte('reminder_date', sevenDaysFromNow.toISOString())
+    .order('reminder_date', { ascending: true })
+
+  type RawReminder = {
+    id: string
+    reminder_date: string
+    note: string | null
+    company_id: string
+    contact_id: string | null
+    is_completed: boolean
+    crm_companies: { id: string; name: string } | null
+    crm_contacts: { first_name: string; last_name: string } | null
+  }
+
+  const reminders = ((reminderRows ?? []) as unknown as RawReminder[]).map((r) => ({
+    id: r.id,
+    reminder_date: r.reminder_date,
+    note: r.note,
+    company_id: r.company_id,
+    company_name: r.crm_companies?.name ?? 'Company',
+    contact_name: r.crm_contacts
+      ? `${r.crm_contacts.first_name} ${r.crm_contacts.last_name}`
+      : null,
+  }))
+
   const tasksWithProject = (assignedTasks ?? []).map((row) => ({
     ...row,
     project_name:
@@ -106,6 +142,7 @@ export default async function MyWorkPage() {
         initialAssignedChecklist={checklistWithProject}
         initialOfficeTasks={officeTasks ?? []}
         initialExpenses={expenses}
+        initialReminders={reminders}
       />
     </Suspense>
   )

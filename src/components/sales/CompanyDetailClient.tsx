@@ -18,6 +18,7 @@ import {
   MessageSquareIcon,
   CalendarIcon,
   CheckIcon,
+  BellIcon,
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -25,6 +26,8 @@ import NewContactModal, { type ContactForModal } from './NewContactModal'
 import AddressModal, { type AddressForModal } from './AddressModal'
 import LogCallModal from './LogCallModal'
 import EditCompanyModal, { type EditableCompany } from './EditCompanyModal'
+import NewAppointmentModal from './NewAppointmentModal'
+import NewReminderModal from './NewReminderModal'
 
 type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
 type CompanyPriority = 'high' | 'medium' | 'low'
@@ -96,6 +99,15 @@ interface FileRow {
   storage_path: string
   file_type: string | null
   created_at: string
+}
+
+interface Reminder {
+  id: string
+  reminder_date: string
+  note: string | null
+  contact_id: string | null
+  is_completed: boolean
+  assigned_to: string | null
 }
 
 interface ProfileMini {
@@ -223,6 +235,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [callLogLimit, setCallLogLimit] = useState(10)
   const [comments, setComments] = useState<Comment[]>([])
   const [files, setFiles] = useState<FileRow[]>([])
+  const [reminders, setReminders] = useState<Reminder[]>([])
   const [profiles, setProfiles] = useState<ProfileMini[]>([])
 
   const profileMap = useMemo(() => {
@@ -240,6 +253,12 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [editAddress, setEditAddress] = useState<AddressForModal | null>(null)
   const [deleteAddressId, setDeleteAddressId] = useState<string | null>(null)
   const [showLogCall, setShowLogCall] = useState(false)
+  const [showNewAppointment, setShowNewAppointment] = useState(false)
+  const [appointmentContactPrefill, setAppointmentContactPrefill] = useState<
+    string | null
+  >(null)
+  const [showNewReminder, setShowNewReminder] = useState(false)
+  const [deleteReminderId, setDeleteReminderId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmBlacklist, setConfirmBlacklist] = useState(false)
   const [confirmConvert, setConfirmConvert] = useState(false)
@@ -288,6 +307,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       { data: commentData },
       { data: fileData },
       { data: profileData },
+      { data: reminderData },
     ] = await Promise.all([
       supabase
         .from('crm_contacts')
@@ -319,6 +339,11 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         .eq('company_id', companyId)
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, display_name'),
+      supabase
+        .from('crm_follow_up_reminders')
+        .select('id, reminder_date, note, contact_id, is_completed, assigned_to')
+        .eq('company_id', companyId)
+        .order('reminder_date', { ascending: true }),
     ])
 
     setContacts((contactData ?? []) as Contact[])
@@ -338,6 +363,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         display_name: p.display_name,
       }))
     )
+    setReminders((reminderData ?? []) as Reminder[])
     setLoading(false)
   }, [supabase, companyId])
 
@@ -547,6 +573,33 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     }
     setFiles((prev) => prev.filter((f) => f.id !== id))
     setDeleteFileId(null)
+  }
+
+  async function handleToggleReminder(id: string, current: boolean) {
+    const { error } = await supabase
+      .from('crm_follow_up_reminders')
+      .update({ is_completed: !current })
+      .eq('id', id)
+    if (error) {
+      showToast(`Update failed: ${error.message}`)
+      return
+    }
+    setReminders((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, is_completed: !current } : r))
+    )
+  }
+
+  async function handleDeleteReminder(id: string) {
+    const { error } = await supabase
+      .from('crm_follow_up_reminders')
+      .delete()
+      .eq('id', id)
+    if (error) {
+      showToast(`Delete failed: ${error.message}`)
+      return
+    }
+    setReminders((prev) => prev.filter((r) => r.id !== id))
+    setDeleteReminderId(null)
   }
 
   // Placeholder; filled in subsequent edits.
@@ -901,6 +954,16 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                           <PhoneIcon className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          onClick={() => {
+                            setAppointmentContactPrefill(c.id)
+                            setShowNewAppointment(true)
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-teal-700 hover:bg-white rounded transition-colors"
+                          title="Schedule appointment"
+                        >
+                          <CalendarIcon className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={() =>
                             setEditContact({
                               id: c.id,
@@ -1143,6 +1206,90 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             )}
           </section>
 
+          {/* Reminders */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-gray-900">Reminders</h2>
+              <button
+                onClick={() => setShowNewReminder(true)}
+                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                Add
+              </button>
+            </div>
+            {reminders.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">No reminders yet</p>
+            ) : (
+              <div className="space-y-2">
+                {reminders.map((r) => {
+                  const contact = contacts.find((c) => c.id === r.contact_id)
+                  const isOverdue =
+                    !r.is_completed && new Date(r.reminder_date) < new Date()
+                  return (
+                    <div
+                      key={r.id}
+                      className={`group flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors ${
+                        r.is_completed ? 'opacity-60' : ''
+                      }`}
+                    >
+                      <button
+                        onClick={() => handleToggleReminder(r.id, r.is_completed)}
+                        className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                          r.is_completed
+                            ? 'border-teal-500 bg-teal-500'
+                            : 'border-gray-300 hover:border-teal-500'
+                        }`}
+                        aria-label={r.is_completed ? 'Mark incomplete' : 'Mark complete'}
+                      >
+                        {r.is_completed && (
+                          <CheckIcon className="w-2.5 h-2.5 text-white" />
+                        )}
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={`text-sm flex items-center gap-1.5 ${
+                            r.is_completed
+                              ? 'text-gray-400 line-through'
+                              : isOverdue
+                              ? 'text-amber-600'
+                              : 'text-gray-900'
+                          }`}
+                        >
+                          <BellIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>
+                            {formatDate(r.reminder_date, { withTime: true })}
+                          </span>
+                        </div>
+                        {contact && (
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {contact.first_name} {contact.last_name}
+                          </div>
+                        )}
+                        {r.note && (
+                          <div
+                            className={`text-xs mt-0.5 whitespace-pre-wrap ${
+                              r.is_completed ? 'text-gray-400 line-through' : 'text-gray-600'
+                            }`}
+                          >
+                            {r.note}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setDeleteReminderId(r.id)}
+                        className="p-1 text-gray-300 hover:text-red-600 rounded opacity-0 group-hover:opacity-100 transition"
+                        title="Delete"
+                      >
+                        <Trash2Icon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+
           {/* Notes */}
           <section>
             <h2 className="text-sm font-medium text-gray-900 mb-3">Notes</h2>
@@ -1353,6 +1500,73 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             setShowLogCall(false)
             fetchAll()
           }}
+        />
+      )}
+
+      {showNewAppointment && (
+        <NewAppointmentModal
+          userId={userId}
+          prefill={{
+            companyId,
+            contactId: appointmentContactPrefill,
+          }}
+          companies={[
+            {
+              id: company.id,
+              name: company.name,
+              city: company.city,
+              state: company.state,
+            },
+          ]}
+          contacts={contacts.map((c) => ({
+            id: c.id,
+            company_id: companyId,
+            first_name: c.first_name,
+            last_name: c.last_name,
+            phone: c.phone,
+            email: c.email,
+            is_primary: c.is_primary,
+          }))}
+          assignees={profiles.map((p) => ({
+            id: p.id,
+            display_name: p.display_name,
+          }))}
+          onClose={() => {
+            setShowNewAppointment(false)
+            setAppointmentContactPrefill(null)
+          }}
+          onSaved={() => {
+            setShowNewAppointment(false)
+            setAppointmentContactPrefill(null)
+            showToast('Appointment scheduled.')
+          }}
+        />
+      )}
+
+      {showNewReminder && (
+        <NewReminderModal
+          companyId={companyId}
+          userId={userId}
+          contacts={contacts.map((c) => ({
+            id: c.id,
+            first_name: c.first_name,
+            last_name: c.last_name,
+          }))}
+          onClose={() => setShowNewReminder(false)}
+          onSaved={() => {
+            setShowNewReminder(false)
+            fetchAll()
+          }}
+        />
+      )}
+
+      {deleteReminderId && (
+        <ConfirmDialog
+          title="Delete reminder?"
+          message="This will permanently delete this reminder."
+          onConfirm={() => handleDeleteReminder(deleteReminderId)}
+          onCancel={() => setDeleteReminderId(null)}
+          variant="destructive"
         />
       )}
 

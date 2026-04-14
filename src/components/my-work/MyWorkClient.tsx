@@ -25,6 +25,7 @@ import {
   Building2Icon,
   WalletIcon,
   Maximize2Icon,
+  BellIcon,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -33,6 +34,15 @@ import {
 
 type AssignedTask = Task & { project_name: string }
 type AssignedChecklist = ProjectChecklistItem & { project_name: string }
+
+export interface MyWorkReminder {
+  id: string
+  reminder_date: string
+  note: string | null
+  company_id: string
+  company_name: string
+  contact_name: string | null
+}
 
 type WorkspaceType = 'assigned_tasks' | 'assigned_checklist' | 'office_tasks' | 'expenses' | null
 
@@ -43,6 +53,7 @@ interface Props {
   initialAssignedChecklist: AssignedChecklist[]
   initialOfficeTasks: OfficeTask[]
   initialExpenses: SalesmanExpenseRow[]
+  initialReminders?: MyWorkReminder[]
 }
 
 /* ------------------------------------------------------------------ */
@@ -53,6 +64,18 @@ function formatDate(d: string | null) {
   if (!d) return ''
   const date = new Date(d + 'T00:00:00')
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function formatReminderDateTime(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${date} · ${time}`
+}
+
+function isReminderOverdue(iso: string) {
+  return new Date(iso).getTime() < Date.now()
 }
 
 function isOverdue(d: string | null) {
@@ -182,6 +205,7 @@ export default function MyWorkClient({
   initialAssignedChecklist,
   initialOfficeTasks,
   initialExpenses,
+  initialReminders,
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -208,6 +232,21 @@ export default function MyWorkClient({
 
   /* ---- Expenses state ---- */
   const [showExpenseCreateModal, setShowExpenseCreateModal] = useState(false)
+
+  /* ---- Reminders state ---- */
+  const [reminders, setReminders] = useState<MyWorkReminder[]>(initialReminders ?? [])
+
+  const toggleReminderComplete = useCallback(
+    async (id: string) => {
+      const { error } = await supabase
+        .from('crm_follow_up_reminders')
+        .update({ is_completed: true })
+        .eq('id', id)
+      if (error) return
+      setReminders((prev) => prev.filter((r) => r.id !== id))
+    },
+    [supabase]
+  )
 
   /* ================================================================ */
   /*  URL STATE MANAGEMENT                                             */
@@ -1030,6 +1069,98 @@ export default function MyWorkClient({
             </>
           )}
         </InteractiveCard>
+
+        {/* ── Follow-up Reminders ── */}
+        {reminders.length > 0 && (
+          <InteractiveCard
+            icon={<BellIcon className="w-5 h-5" />}
+            title="Follow-up reminders"
+            onExpand={() => router.push('/sales/crm')}
+          >
+            {(() => {
+              const sorted = [...reminders].sort((a, b) => {
+                const aOver = isReminderOverdue(a.reminder_date)
+                const bOver = isReminderOverdue(b.reminder_date)
+                if (aOver && !bOver) return -1
+                if (!aOver && bOver) return 1
+                // Both overdue: oldest first. Both upcoming: soonest first.
+                return (
+                  new Date(a.reminder_date).getTime() -
+                  new Date(b.reminder_date).getTime()
+                )
+              })
+              const overdueCount = sorted.filter((r) =>
+                isReminderOverdue(r.reminder_date)
+              ).length
+              return (
+                <>
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-600">
+                      {sorted.length} upcoming
+                    </span>
+                    {overdueCount > 0 && (
+                      <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                        <AlertCircleIcon className="w-3 h-3" />
+                        {overdueCount} overdue
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-0 max-h-[400px] overflow-y-auto -mx-4 px-4">
+                    <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+                      {sorted.map((r) => {
+                        const overdue = isReminderOverdue(r.reminder_date)
+                        return (
+                          <div
+                            key={r.id}
+                            className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                          >
+                            <button
+                              onClick={() => toggleReminderComplete(r.id)}
+                              className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
+                              aria-label="Mark complete"
+                            >
+                              {/* empty checkbox */}
+                            </button>
+                            <Link
+                              href={`/sales/crm/${r.company_id}`}
+                              className="flex-1 min-w-0 block"
+                            >
+                              <p className="text-xs font-medium text-gray-900 truncate">
+                                {r.contact_name
+                                  ? `${r.contact_name} · ${r.company_name}`
+                                  : r.company_name}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                <span
+                                  className={`text-[10px] flex items-center gap-0.5 ${
+                                    overdue ? 'text-amber-600 font-medium' : 'text-gray-400'
+                                  }`}
+                                >
+                                  <CalendarIcon className="w-2.5 h-2.5" />
+                                  {formatReminderDateTime(r.reminder_date)}
+                                </span>
+                                {overdue && (
+                                  <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">
+                                    Overdue
+                                  </span>
+                                )}
+                              </div>
+                              {r.note && (
+                                <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">
+                                  {r.note}
+                                </p>
+                              )}
+                            </Link>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
+          </InteractiveCard>
+        )}
 
       </div>
     </div>
