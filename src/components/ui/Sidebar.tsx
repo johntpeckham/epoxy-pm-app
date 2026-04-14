@@ -5,8 +5,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon, BugIcon } from 'lucide-react'
 import ReportProblemButton from '@/components/bug-reports/ReportProblemButton'
+import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
@@ -24,6 +25,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const router = useRouter()
   const searchParams = useSearchParams()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [showMobileReportModal, setShowMobileReportModal] = useState(false)
   const [jobFeedExpanded, setJobFeedExpanded] = useState(() => {
     if (typeof window === 'undefined') return false
     return localStorage.getItem('sidebar-job-feed-expanded') === 'true'
@@ -418,6 +420,13 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         </div>
         <div className="flex items-center gap-2">
           <NotificationBell userId={userId} />
+          <button
+            onClick={() => setShowMobileReportModal(true)}
+            className="text-amber-400 hover:text-amber-300 p-1.5 rounded-md hover:bg-gray-800 transition-colors"
+            aria-label="Report a Problem"
+          >
+            <BugIcon className="w-5 h-5" />
+          </button>
           <Link href="/profile" className="flex-shrink-0">
             <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
               {avatarUrl ? (
@@ -466,6 +475,13 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
       <aside className="hidden lg:flex flex-col w-56 bg-black border-r border-gray-800 fixed top-0 bottom-0 left-0">
         {navContent}
       </aside>
+
+      {showMobileReportModal && (
+        <ReportProblemModal
+          onClose={() => setShowMobileReportModal(false)}
+          userId={userId}
+        />
+      )}
     </>
   )
 }
