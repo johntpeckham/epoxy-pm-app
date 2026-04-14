@@ -596,3 +596,46 @@ export interface InventoryProduct {
   sort_order: number
   created_at: string
 }
+
+/* ================================================================== */
+/*  Material Management (master catalog) types                         */
+/* ================================================================== */
+
+export interface MasterSupplier {
+  id: string
+  name: string
+  color: string | null
+  sort_order: number
+  created_at: string
+}
+
+export interface MasterKitGroup {
+  id: string
+  supplier_id: string
+  name: string
+  price: number | null
+  sort_order: number
+  created_at: string
+}
+
+export interface MasterProduct {
+  id: string
+  supplier_id: string
+  kit_group_id: string | null
+  name: string
+  unit: string
+  price: number | null
+  price_check_date: string | null
+  price_check_task_id: string | null
+  sort_order: number
+  created_at: string
+}
+
+export interface MasterProductDocument {
+  id: string
+  product_id: string
+  document_type: 'PDS' | 'SDS'
+  file_name: string
+  file_url: string
+  created_at: string
+}
