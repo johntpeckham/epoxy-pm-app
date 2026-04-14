@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic'
 
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import type { UserRole } from '@/types'
+import CompanyDetailClient from '@/components/sales/CompanyDetailClient'
 
 export default async function CompanyDetailPage({
   params,
@@ -32,29 +32,5 @@ export default async function CompanyDetailPage({
     return redirect('/my-work')
   }
 
-  const { data: company } = await supabase
-    .from('crm_companies')
-    .select('id, name')
-    .eq('id', id)
-    .maybeSingle()
-
-  return (
-    <div className="flex-1 overflow-y-auto p-7 bg-white">
-      <Link
-        href="/sales/crm"
-        className="text-xs text-gray-400 hover:text-gray-600"
-      >
-        ← Back to CRM
-      </Link>
-      <h1 className="text-[22px] font-medium text-gray-900 mt-2">
-        {company?.name ?? 'Company'}
-      </h1>
-      <p className="text-sm text-gray-400 mt-1">Company ID: {id}</p>
-      <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-6">
-        <p className="text-sm text-gray-500">
-          Company detail view coming soon (Phase 1C).
-        </p>
-      </div>
-    </div>
-  )
+  return <CompanyDetailClient companyId={id} userId={user.id} />
 }
