@@ -13,7 +13,15 @@ import {
   CheckIcon,
   XIcon,
   UsersIcon,
+  DownloadIcon,
+  ChevronDownIcon,
+  Loader2Icon,
 } from 'lucide-react'
+import {
+  generateFullSchedulePdf,
+  generateIndividualSchedulePdf,
+} from '@/lib/generatePublishedSchedulePdf'
+import type { PdfCompanyInfo } from '@/lib/generatePublishedSchedulePdf'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -124,6 +132,52 @@ export default function SchedulingPageClient({
   const [isLoadingCustom, setIsLoadingCustom] = useState(false)
   const dateInputRef = useRef<HTMLInputElement>(null)
 
+  // Download state
+  const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false)
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false)
+  const [downloadSearch, setDownloadSearch] = useState('')
+  const [downloadEmployeeId, setDownloadEmployeeId] = useState<string | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [companyInfo, setCompanyInfo] = useState<PdfCompanyInfo | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const downloadRef = useRef<HTMLDivElement>(null)
+
+  // Fetch company info once
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('company_settings')
+      .select('logo_url, company_name, legal_name, dba, company_address, phone, email, cslb_licenses')
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setCompanyInfo({
+            dba: data.dba,
+            legal_name: data.legal_name,
+            company_address: data.company_address,
+            phone: data.phone,
+            email: data.email,
+            cslb_licenses: data.cslb_licenses as PdfCompanyInfo['cslb_licenses'],
+          })
+          setLogoUrl(data.logo_url ?? null)
+        }
+      })
+  }, [])
+
+  // Close download dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (downloadRef.current && !downloadRef.current.contains(e.target as Node)) {
+        setDownloadDropdownOpen(false)
+      }
+    }
+    if (downloadDropdownOpen) {
+      document.addEventListener('mousedown', handleClick)
+      return () => document.removeEventListener('mousedown', handleClick)
+    }
+  }, [downloadDropdownOpen])
+
   // Toast state
   const [toast, setToast] = useState<string | null>(null)
   function showToast(msg: string) {
@@ -233,6 +287,75 @@ export default function SchedulingPageClient({
     }
   }
 
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleDownloadFull() {
+    if (!currentSchedule) return
+    setDownloadDropdownOpen(false)
+    setIsDownloading(true)
+    try {
+      const { blob, filename } = await generateFullSchedulePdf(
+        activeWeekISO,
+        currentSchedule.schedule_data.jobs,
+        employees,
+        companyInfo,
+        logoUrl,
+      )
+      triggerDownload(blob, filename)
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
+  function openDownloadIndividualModal() {
+    setDownloadDropdownOpen(false)
+    setDownloadSearch('')
+    setDownloadEmployeeId(null)
+    setDownloadModalOpen(true)
+  }
+
+  async function handleDownloadIndividual() {
+    if (!currentSchedule || !downloadEmployeeId) return
+    const emp = employees.find((e) => e.id === downloadEmployeeId)
+    if (!emp) return
+    setIsDownloading(true)
+    try {
+      const empJobs: ScheduleJob[] = []
+      for (const job of currentSchedule.schedule_data.jobs) {
+        const match = job.employees.find((e) => e.employee_id === downloadEmployeeId)
+        if (match) {
+          empJobs.push({ ...job, employees: [match] })
+        }
+      }
+      const { blob, filename } = await generateIndividualSchedulePdf(
+        activeWeekISO,
+        emp.name,
+        empJobs,
+        companyInfo,
+        logoUrl,
+      )
+      triggerDownload(blob, filename)
+      setDownloadModalOpen(false)
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
+  const filteredDownloadEmployees = useMemo(() => {
+    if (!downloadSearch.trim()) return employees
+    const q = downloadSearch.toLowerCase()
+    return employees.filter((e) => e.name.toLowerCase().includes(q))
+  }, [employees, downloadSearch])
+
   function toggleEmployee(id: string) {
     setSelectedEmployeeIds((prev) => {
       const next = new Set(prev)
@@ -279,6 +402,38 @@ export default function SchedulingPageClient({
           <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Scheduling</h1>
         </div>
         <div className="flex items-center gap-2">
+          {/* Download dropdown */}
+          <div ref={downloadRef} className="relative">
+            <button
+              onClick={() => setDownloadDropdownOpen((v) => !v)}
+              disabled={!currentSchedule || isDownloading}
+              className="flex items-center gap-1.5 border border-gray-300 dark:border-[#444] bg-white dark:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#333] disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm font-medium transition"
+            >
+              {isDownloading ? (
+                <Loader2Icon className="w-4 h-4 animate-spin" />
+              ) : (
+                <DownloadIcon className="w-4 h-4" />
+              )}
+              Download
+              <ChevronDownIcon className="w-3.5 h-3.5 ml-0.5" />
+            </button>
+            {downloadDropdownOpen && (
+              <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-[#444] rounded-lg shadow-lg z-20 py-1">
+                <button
+                  onClick={handleDownloadFull}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#333] transition"
+                >
+                  Full schedule
+                </button>
+                <button
+                  onClick={openDownloadIndividualModal}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#333] transition"
+                >
+                  Individual schedule
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={openFullScheduleModal}
             disabled={!currentSchedule}
@@ -439,6 +594,154 @@ export default function SchedulingPageClient({
           </div>
         )}
       </div>
+
+      {/* ── Download Individual Schedule Modal ── */}
+      {downloadModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70"
+          onClick={() => setDownloadModalOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-[#222] rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-[#333]">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                  Download Individual Schedule
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {formatDateRange(activeWeekISO)}
+                </p>
+              </div>
+              <button
+                onClick={() => setDownloadModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] transition"
+              >
+                <XIcon className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-5 py-3 border-b border-gray-200 dark:border-[#333]">
+              <div className="relative">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search employees..."
+                  value={downloadSearch}
+                  onChange={(e) => setDownloadSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-[#444] bg-white dark:bg-[#2a2a2a] text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition"
+                />
+              </div>
+            </div>
+
+            {/* Employee list / preview */}
+            <div className="flex-1 overflow-y-auto px-5 py-3">
+              {!downloadEmployeeId ? (
+                <div className="space-y-1">
+                  {filteredDownloadEmployees.map((emp) => (
+                    <button
+                      key={emp.id}
+                      onClick={() => setDownloadEmployeeId(emp.id)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-left transition"
+                    >
+                      <UserIcon className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{emp.name}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div>
+                  <button
+                    onClick={() => setDownloadEmployeeId(null)}
+                    className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 mb-3 transition"
+                  >
+                    <ArrowLeftIcon className="w-3.5 h-3.5" />
+                    Back to employee list
+                  </button>
+                  <div className="mb-3">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {employees.find((e) => e.id === downloadEmployeeId)?.name}
+                    </h3>
+                  </div>
+                  {currentSchedule ? (() => {
+                    const empJobs = currentSchedule.schedule_data.jobs
+                      .filter((job) => job.employees.some((e) => e.employee_id === downloadEmployeeId))
+                      .map((job) => ({
+                        ...job,
+                        employees: job.employees.filter((e) => e.employee_id === downloadEmployeeId),
+                      }))
+                    return empJobs.length > 0 ? (
+                      <div className="space-y-3">
+                        {empJobs.map((job) => (
+                          <div
+                            key={job.job_id}
+                            className="bg-gray-50 dark:bg-[#2a2a2a] rounded-lg p-3"
+                          >
+                            <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                              {job.job_name}
+                            </div>
+                            {job.estimate_number && (
+                              <div className="text-xs text-gray-400 dark:text-gray-500">
+                                Est #{job.estimate_number}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5 mt-2">
+                              {DAY_LABELS.map((label, i) => {
+                                const active = job.employees[0]?.days[i]
+                                return (
+                                  <span
+                                    key={i}
+                                    className={`w-7 h-7 flex items-center justify-center rounded text-xs font-medium ${
+                                      active
+                                        ? 'bg-amber-500 text-white'
+                                        : 'bg-gray-200 dark:bg-[#333] text-gray-400 dark:text-gray-500'
+                                    }`}
+                                  >
+                                    {label}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 dark:text-gray-500">
+                        No assignments for this employee this week.
+                      </p>
+                    )
+                  })() : null}
+                </div>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center gap-2 px-5 py-4 border-t border-gray-200 dark:border-[#333]">
+              <button
+                onClick={handleDownloadIndividual}
+                disabled={!downloadEmployeeId || isDownloading}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2.5 rounded-lg text-sm font-semibold transition"
+              >
+                {isDownloading ? (
+                  <Loader2Icon className="w-4 h-4 animate-spin" />
+                ) : (
+                  <DownloadIcon className="w-4 h-4" />
+                )}
+                Download PDF
+              </button>
+              <button
+                onClick={() => setDownloadModalOpen(false)}
+                className="px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#333] transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
