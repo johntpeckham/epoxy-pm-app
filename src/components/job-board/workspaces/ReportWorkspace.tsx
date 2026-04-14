@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
-import { ClipboardListIcon, Loader2Icon, PrinterIcon, FileDownIcon, PlusIcon, XIcon } from 'lucide-react'
+import { ClipboardListIcon, Loader2Icon, PrinterIcon, FileDownIcon, PlusIcon, XIcon, BookOpenIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Project, ProjectReportData, FormField } from '@/types'
 import type { UserRole } from '@/types'
@@ -13,6 +13,8 @@ import { useMaterialSystems } from '@/lib/useMaterialSystems'
 import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
 import type { MaterialSystemRow } from '@/components/ui/MaterialSystemPicker'
 import WorkspaceShell from '../WorkspaceShell'
+import FieldGuideDisplay from './FieldGuideDisplay'
+import type { AttachedFieldGuide } from './FieldGuideDisplay'
 
 interface ChecklistSectionData {
   name: string
@@ -116,6 +118,12 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
   const checklistDropdownRef = useRef<HTMLDivElement>(null)
   const [checklistDropdownFieldId, setChecklistDropdownFieldId] = useState<string | null>(null)
   const [checklistSearchQuery, setChecklistSearchQuery] = useState('')
+  // Field guide attachment state
+  const [attachedFieldGuides, setAttachedFieldGuides] = useState<AttachedFieldGuide[]>([])
+  const [allFieldGuideTemplates, setAllFieldGuideTemplates] = useState<{ id: string; title: string }[]>([])
+  const [fieldGuidePickerOpen, setFieldGuidePickerOpen] = useState(false)
+  const [fieldGuideSearchQuery, setFieldGuideSearchQuery] = useState('')
+  const fieldGuidePickerRef = useRef<HTMLDivElement>(null)
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const initialLoadDoneRef = useRef(false)
@@ -329,6 +337,146 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
     if (checklistDropdownFieldId) document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [checklistDropdownFieldId])
+
+  // Close field guide picker on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (fieldGuidePickerRef.current && !fieldGuidePickerRef.current.contains(e.target as Node)) {
+        setFieldGuidePickerOpen(false)
+        setFieldGuideSearchQuery('')
+      }
+    }
+    if (fieldGuidePickerOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [fieldGuidePickerOpen])
+
+  // Load all field guide templates for the picker (id + title only)
+  useEffect(() => {
+    async function loadTemplates() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('field_guide_templates')
+        .select('id, title')
+        .order('created_at', { ascending: false })
+      setAllFieldGuideTemplates((data as { id: string; title: string }[]) ?? [])
+    }
+    loadTemplates()
+  }, [])
+
+  // Load attached field guides for this project, with full sections + images
+  const loadAttachedFieldGuides = useCallback(async () => {
+    const supabase = createClient()
+    const { data: attachments } = await supabase
+      .from('job_report_field_guides')
+      .select('id, field_guide_template_id, created_at')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true })
+
+    const rows = (attachments as { id: string; field_guide_template_id: string }[]) ?? []
+    if (rows.length === 0) {
+      setAttachedFieldGuides([])
+      return
+    }
+
+    const templateIds = rows.map((r) => r.field_guide_template_id)
+
+    const [{ data: templates }, { data: sections }] = await Promise.all([
+      supabase.from('field_guide_templates').select('id, title').in('id', templateIds),
+      supabase
+        .from('field_guide_sections')
+        .select('id, template_id, heading, body, sort_order')
+        .in('template_id', templateIds)
+        .order('sort_order', { ascending: true }),
+    ])
+
+    const sectionRows = (sections as { id: string; template_id: string; heading: string; body: string | null; sort_order: number }[]) ?? []
+    const sectionIds = sectionRows.map((s) => s.id)
+
+    let imageRows: { id: string; section_id: string; image_url: string; sort_order: number }[] = []
+    if (sectionIds.length > 0) {
+      const { data: images } = await supabase
+        .from('field_guide_section_images')
+        .select('id, section_id, image_url, sort_order')
+        .in('section_id', sectionIds)
+        .order('sort_order', { ascending: true })
+      imageRows = (images as typeof imageRows) ?? []
+    }
+
+    const templateMap = new Map<string, string>()
+    for (const t of (templates as { id: string; title: string }[]) ?? []) {
+      templateMap.set(t.id, t.title)
+    }
+
+    const attached: AttachedFieldGuide[] = rows.map((r) => {
+      const secs = sectionRows
+        .filter((s) => s.template_id === r.field_guide_template_id)
+        .map((s) => ({
+          id: s.id,
+          heading: s.heading,
+          body: s.body,
+          sort_order: s.sort_order,
+          images: imageRows
+            .filter((img) => img.section_id === s.id)
+            .map((img) => ({
+              id: img.id,
+              image_url: img.image_url,
+              sort_order: img.sort_order,
+            })),
+        }))
+      return {
+        attachmentId: r.id,
+        templateId: r.field_guide_template_id,
+        title: templateMap.get(r.field_guide_template_id) ?? 'Untitled Field Guide',
+        sections: secs,
+      }
+    })
+
+    setAttachedFieldGuides(attached)
+  }, [projectId])
+
+  useEffect(() => {
+    loadAttachedFieldGuides()
+  }, [loadAttachedFieldGuides])
+
+  async function attachFieldGuide(templateId: string) {
+    // Prevent duplicate attachment in the UI before the unique constraint fires
+    if (attachedFieldGuides.some((g) => g.templateId === templateId)) {
+      setFieldGuidePickerOpen(false)
+      setFieldGuideSearchQuery('')
+      return
+    }
+
+    const supabase = createClient()
+    const { error: insertErr } = await supabase
+      .from('job_report_field_guides')
+      .insert({ project_id: projectId, field_guide_template_id: templateId })
+
+    setFieldGuidePickerOpen(false)
+    setFieldGuideSearchQuery('')
+
+    if (insertErr) {
+      setError(insertErr.message)
+      return
+    }
+    await loadAttachedFieldGuides()
+  }
+
+  async function removeFieldGuide(attachmentId: string) {
+    // Optimistic UI update
+    setAttachedFieldGuides((prev) => prev.filter((g) => g.attachmentId !== attachmentId))
+
+    const supabase = createClient()
+    const { error: deleteErr } = await supabase
+      .from('job_report_field_guides')
+      .delete()
+      .eq('id', attachmentId)
+
+    if (deleteErr) {
+      setError(deleteErr.message)
+      // Reload to restore correct state on error
+      await loadAttachedFieldGuides()
+    }
+  }
 
   function addChecklistInstance(fieldId: string, template: { id: string; name: string; items: { id: string }[] }) {
     const instance: ChecklistInstanceRow = {
@@ -864,6 +1012,78 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
             )}
 
             {templateFields.map((field) => renderField(field))}
+
+            {/* Field Guides — read-only SOP-style reference material */}
+            {(attachedFieldGuides.length > 0 || !readOnly) && (
+              <div className="space-y-4 pt-4">
+                {attachedFieldGuides.length > 0 && (
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 border-b border-amber-100 pb-1.5">
+                    Field Guides
+                  </h3>
+                )}
+
+                {attachedFieldGuides.map((guide) => (
+                  <FieldGuideDisplay
+                    key={guide.attachmentId}
+                    guide={guide}
+                    readOnly={readOnly}
+                    onRemove={removeFieldGuide}
+                  />
+                ))}
+
+                {!readOnly && (
+                  <div className="relative" ref={fieldGuidePickerRef}>
+                    <button
+                      onClick={() => setFieldGuidePickerOpen((v) => !v)}
+                      className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+                    >
+                      <PlusIcon className="w-3.5 h-3.5" />
+                      Add Field Guide
+                    </button>
+
+                    {fieldGuidePickerOpen && (() => {
+                      const attachedIds = new Set(attachedFieldGuides.map((g) => g.templateId))
+                      const query = fieldGuideSearchQuery.toLowerCase()
+                      const available = allFieldGuideTemplates.filter((t) => !attachedIds.has(t.id))
+                      const filtered = query
+                        ? available.filter((t) => t.title.toLowerCase().includes(query))
+                        : available
+                      return (
+                        <div className="absolute left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-72 flex flex-col overflow-hidden">
+                          <div className="p-2 border-b border-gray-100">
+                            <input
+                              type="text"
+                              value={fieldGuideSearchQuery}
+                              onChange={(e) => setFieldGuideSearchQuery(e.target.value)}
+                              placeholder="Search field guides..."
+                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="flex-1 overflow-y-auto">
+                            {filtered.map((t) => (
+                              <button
+                                key={t.id}
+                                onClick={() => attachFieldGuide(t.id)}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                              >
+                                <BookOpenIcon className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                                <span className="font-medium truncate">{t.title}</span>
+                              </button>
+                            ))}
+                            {filtered.length === 0 && (
+                              <div className="px-3 py-2 text-xs text-gray-400">
+                                {available.length === 0 ? 'All field guides are attached' : 'No field guides found'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
