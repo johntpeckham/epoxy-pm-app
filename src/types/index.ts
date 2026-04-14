@@ -564,6 +564,7 @@ export interface MaterialSupplier {
   color: string | null
   sort_order: number
   created_at: string
+  master_supplier_id: string | null
 }
 
 export interface InventoryKitGroup {
@@ -577,6 +578,7 @@ export interface InventoryKitGroup {
   kit_price: number | null
   sort_order: number
   created_at: string
+  master_kit_group_id: string | null
 }
 
 export interface InventoryProduct {
@@ -595,6 +597,7 @@ export interface InventoryProduct {
   price_check_task_id: string | null
   sort_order: number
   created_at: string
+  master_product_id: string | null
 }
 
 /* ================================================================== */

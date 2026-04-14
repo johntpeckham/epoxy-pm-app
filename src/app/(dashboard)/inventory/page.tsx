@@ -7,6 +7,9 @@ import type {
   MaterialSupplier,
   InventoryProduct,
   InventoryKitGroup,
+  MasterSupplier,
+  MasterProduct,
+  MasterKitGroup,
   UnitType,
 } from '@/types'
 import InventoryPageClient, {
@@ -45,6 +48,9 @@ export default async function InventoryPage() {
     { data: kitGroupsRaw },
     { data: profilesRaw },
     { data: unitTypesRaw },
+    { data: masterSuppliersRaw },
+    { data: masterProductsRaw },
+    { data: masterKitGroupsRaw },
   ] = await Promise.all([
     supabase
       .from('material_suppliers')
@@ -70,6 +76,21 @@ export default async function InventoryPage() {
       .select('*')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
+    supabase
+      .from('master_suppliers')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
+    supabase
+      .from('master_products')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('master_kit_groups')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
   ])
 
   const suppliers = (suppliersRaw ?? []) as MaterialSupplier[]
@@ -77,6 +98,9 @@ export default async function InventoryPage() {
   const kitGroups = (kitGroupsRaw ?? []) as InventoryKitGroup[]
   const profiles = (profilesRaw ?? []) as InventoryProfileOption[]
   const unitTypes = (unitTypesRaw ?? []) as UnitType[]
+  const masterSuppliers = (masterSuppliersRaw ?? []) as MasterSupplier[]
+  const masterProducts = (masterProductsRaw ?? []) as MasterProduct[]
+  const masterKitGroups = (masterKitGroupsRaw ?? []) as MasterKitGroup[]
 
   // Build a lookup of pending stock check task → assignee display name, so the
   // UI can render "Pending — Alice" without another round trip. We only need
@@ -145,6 +169,9 @@ export default async function InventoryPage() {
       profiles={profiles}
       initialPendingStockChecks={pendingStockChecks}
       initialPendingPriceChecks={pendingPriceChecks}
+      masterSuppliers={masterSuppliers}
+      masterProducts={masterProducts}
+      masterKitGroups={masterKitGroups}
     />
   )
 }
