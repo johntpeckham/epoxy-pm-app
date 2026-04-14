@@ -385,11 +385,19 @@ export default function ProjectReportModal({
       const html2canvas = (await import('html2canvas-pro')).default
       const { jsPDF } = await import('jspdf')
 
-      const canvas = await html2canvas(formRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-      })
+      // Mark form for full-size field guide image rendering during capture
+      formRef.current.setAttribute('data-pdf-rendering', 'true')
+
+      let canvas
+      try {
+        canvas = await html2canvas(formRef.current, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+        })
+      } finally {
+        formRef.current.removeAttribute('data-pdf-rendering')
+      }
 
       const imgData = canvas.toDataURL('image/png')
       const imgWidth = canvas.width
@@ -422,7 +430,7 @@ export default function ProjectReportModal({
       }
 
       const safeName = projectName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim()
-      pdf.save(`${safeName} - Project Report.pdf`)
+      pdf.save(`${safeName} - Job Report.pdf`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate PDF')
     }
@@ -637,11 +645,11 @@ export default function ProjectReportModal({
     <Portal>
     <div data-report-print className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
       {/* Modal */}
-      <div data-report-modal className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div data-report-modal className="mt-auto md:my-auto md:mx-auto w-full md:max-w-5xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div data-report-header className="flex-none flex items-center justify-between px-4 border-b border-gray-200 print:hidden" style={{ minHeight: '56px' }}>
           <div>
-            <h2 className="text-base font-bold text-gray-900">Project Report</h2>
+            <h2 className="text-base font-bold text-gray-900">Job Report</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
           </div>
           <button
@@ -673,7 +681,7 @@ export default function ProjectReportModal({
               {/* PDF title (shown in print/PDF only) */}
               <div data-report-title className="hidden print:flex items-center justify-between pb-2 border-b border-gray-300 mb-4">
                 <h1 className="text-xl font-bold text-gray-900">
-                  Project Report: {projectName}
+                  Job Report: {projectName}
                 </h1>
                 {companySettings?.logo_url && (
                   <Image
