@@ -986,6 +986,8 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const initialLoadRef = useRef(true)
+  const isDirtyRef = useRef(false)
+  const isSavingRef = useRef(false)
 
   const selectedTemplate = templates.find((t) => t.form_key === selectedKey)
   const isProjectReport = selectedTemplate?.form_key === 'project_report'
@@ -1015,8 +1017,10 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     }
   }, [filterFormKey, templates, selectedKey])
 
+  const loadedTemplateKeyRef = useRef<string | null>(null)
   useEffect(() => {
-    if (selectedTemplate) {
+    if (selectedTemplate && loadedTemplateKeyRef.current !== selectedTemplate.form_key) {
+      loadedTemplateKeyRef.current = selectedTemplate.form_key
       let sorted = [...selectedTemplate.fields].sort((a, b) => a.order - b.order)
       // For project_report: filter out legacy material system placeholder fields
       if (selectedTemplate.form_key === 'project_report') {
@@ -1056,12 +1060,14 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
   }, [filterFormKey, selectedKey])
 
   function selectForm(key: string) {
+    loadedTemplateKeyRef.current = null
     setSelectedKey(key)
     setSaved(false)
     setDeleteConfirm(null)
     undoStackRef.current = []
     redoStackRef.current = []
     setHistoryCounter((c) => c + 1)
+    isDirtyRef.current = false
   }
 
   const hasMaterialSystem = fields.some((f) => f.id === MATERIAL_SYSTEM_SECTION_ID)
@@ -1082,6 +1088,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     undoStackRef.current = [...undoStackRef.current, fieldsRef.current.map((f) => ({ ...f }))]
     redoStackRef.current = []
     setHistoryCounter((c) => c + 1)
+    isDirtyRef.current = true
   }
 
   function undo() {
@@ -1091,6 +1098,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setFields(snapshot)
     setHistoryCounter((c) => c + 1)
     setSaved(false)
+    isDirtyRef.current = true
   }
 
   function redo() {
@@ -1100,6 +1108,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setFields(snapshot)
     setHistoryCounter((c) => c + 1)
     setSaved(false)
+    isDirtyRef.current = true
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1158,6 +1167,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     setFields((prev) => prev.filter((f) => f.id !== id).map((f, i) => ({ ...f, order: i + 1 })))
     setDeleteConfirm(null)
     setSaved(false)
+    isDirtyRef.current = true
   }
 
   function removeSectionWithFields(sectionHeaderId: string) {
@@ -1174,6 +1184,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
     })
     setDeleteConfirm(null)
     setSaved(false)
+    isDirtyRef.current = true
   }
 
   function handleDelete(id: string) {
@@ -1228,6 +1239,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
       return next.map((f, i) => ({ ...f, order: i + 1 }))
     })
     setSaved(false)
+    isDirtyRef.current = true
   }
 
   function handleAddItem(type: FormFieldType, sectionId?: string) {
@@ -1312,28 +1324,37 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
 
   async function handleSave(isAutosave = false) {
     if (!selectedTemplate) return
+    if (isAutosave && isSavingRef.current) return
+    isSavingRef.current = true
     setSaving(true)
     if (isAutosave) setAutosaveStatus('saving')
+    const savedFields = fieldsRef.current
     const supabase = createClient()
+    const now = new Date().toISOString()
     const { error } = await supabase
       .from('form_templates')
-      .update({ fields: fields as unknown as Record<string, unknown>[], updated_at: new Date().toISOString() })
+      .update({ fields: savedFields as unknown as Record<string, unknown>[], updated_at: now })
       .eq('id', selectedTemplate.id)
     if (error) {
       console.error('[FormManagement] Save template failed:', error)
       if (isAutosave) setAutosaveStatus('error')
     } else {
+      isDirtyRef.current = false
       if (isAutosave) {
         setAutosaveStatus('saved')
-        setTimeout(() => setAutosaveStatus('idle'), 2000)
+        setTimeout(() => setAutosaveStatus('idle'), 2500)
       }
     }
 
+    // Update the template in local state without triggering a field reload.
+    // Use the same fields reference to avoid the selectedTemplate effect
+    // from re-setting fields (which would cause an infinite loop).
     setTemplates((prev) =>
       prev.map((t) =>
-        t.id === selectedTemplate.id ? { ...t, fields, updated_at: new Date().toISOString() } : t
+        t.id === selectedTemplate.id ? { ...t, fields: savedFields, updated_at: now } : t
       )
     )
+    isSavingRef.current = false
     setSaving(false)
     setSaved(true)
     undoStackRef.current = []
@@ -1349,13 +1370,17 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
       initialLoadRef.current = false
       return
     }
+    // Only autosave when the user has made actual changes
+    if (!isDirtyRef.current) return
     // Don't autosave if no template is selected or fields are empty
     if (!selectedTemplate || fields.length === 0) return
 
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
     autosaveTimerRef.current = setTimeout(() => {
-      handleSave(true)
-    }, 1500)
+      if (isDirtyRef.current && !isSavingRef.current) {
+        handleSave(true)
+      }
+    }, 3000)
 
     return () => {
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
