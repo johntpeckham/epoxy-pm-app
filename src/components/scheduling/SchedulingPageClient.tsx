@@ -115,7 +115,7 @@ export default function SchedulingPageClient({
   employees,
 }: Props) {
   const router = useRouter()
-  const [activeWeekISO, setActiveWeekISO] = useState(thisWeekISO)
+  const [activeWeekISO, setActiveWeekISO] = useState(nextWeekISO)
 
   // Custom week picker state
   const [customWeekISO, setCustomWeekISO] = useState<string | null>(null)
