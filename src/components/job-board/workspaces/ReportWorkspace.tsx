@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
-import { ClipboardListIcon, Loader2Icon, PrinterIcon, FileDownIcon } from 'lucide-react'
+import { ClipboardListIcon, Loader2Icon, PrinterIcon, FileDownIcon, PlusIcon, XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Project, ProjectReportData, FormField } from '@/types'
 import type { UserRole } from '@/types'
@@ -17,6 +17,14 @@ import WorkspaceShell from '../WorkspaceShell'
 interface ChecklistSectionData {
   name: string
   items: { id: string; text: string; sort_order: number }[]
+}
+
+export interface ChecklistInstanceRow {
+  id: string
+  fieldId: string
+  checklistId: string
+  checklistName: string
+  responses: Record<string, boolean>
 }
 
 interface ReportWorkspaceProps {
@@ -104,6 +112,10 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
   const [checklistResponses, setChecklistResponses] = useState<Map<string, boolean>>(new Map())
   const [allChecklistTemplates, setAllChecklistTemplates] = useState<{ id: string; name: string; items: { id: string; text: string; sort_order: number }[] }[]>([])
   const [checklistSelections, setChecklistSelections] = useState<Map<string, string>>(new Map())
+  const [checklistInstances, setChecklistInstances] = useState<ChecklistInstanceRow[]>([])
+  const checklistDropdownRef = useRef<HTMLDivElement>(null)
+  const [checklistDropdownFieldId, setChecklistDropdownFieldId] = useState<string | null>(null)
+  const [checklistSearchQuery, setChecklistSearchQuery] = useState('')
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const initialLoadDoneRef = useRef(false)
@@ -130,13 +142,16 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
       setFormData({ ...emptyReport, ...(savedData as unknown as ProjectReportData) })
       const custom: Record<string, string> = {}
       for (const [key, val] of Object.entries(savedData)) {
-        if (!KNOWN_KEYS.has(key) && key !== 'material_system_rows' && typeof val === 'string') {
+        if (!KNOWN_KEYS.has(key) && key !== 'material_system_rows' && key !== 'checklist_instances' && typeof val === 'string') {
           custom[key] = val
         }
       }
       setCustomValues(custom)
       if (Array.isArray(savedData.material_system_rows)) {
         setMaterialRows(savedData.material_system_rows as MaterialSystemRow[])
+      }
+      if (Array.isArray(savedData.checklist_instances)) {
+        setChecklistInstances(savedData.checklist_instances as ChecklistInstanceRow[])
       }
     } else {
       setFormData({ ...emptyReport, ...projectDefaults })
@@ -243,6 +258,30 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
     loadSelections()
   }, [projectId])
 
+  // Migrate old single-selection data to checklist instances
+  useEffect(() => {
+    if (checklistSelections.size === 0 || checklistInstances.length > 0 || allChecklistTemplates.length === 0) return
+    const migrated: ChecklistInstanceRow[] = []
+    checklistSelections.forEach((checklistId, fieldId) => {
+      const tmpl = allChecklistTemplates.find((t) => t.id === checklistId)
+      if (!tmpl) return
+      const responses: Record<string, boolean> = {}
+      for (const item of tmpl.items) {
+        const checked = checklistResponses.get(item.id)
+        if (checked !== undefined) responses[item.id] = checked
+      }
+      migrated.push({
+        id: Math.random().toString(36).slice(2, 10),
+        fieldId,
+        checklistId,
+        checklistName: tmpl.name,
+        responses,
+      })
+    })
+    if (migrated.length > 0) setChecklistInstances(migrated)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checklistSelections, allChecklistTemplates, checklistResponses])
+
   async function handleChecklistSelectionChange(fieldId: string, checklistId: string) {
     setChecklistSelections((prev) => {
       const next = new Map(prev)
@@ -279,6 +318,45 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
     )
   }
 
+  // Close checklist dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (checklistDropdownRef.current && !checklistDropdownRef.current.contains(e.target as Node)) {
+        setChecklistDropdownFieldId(null)
+        setChecklistSearchQuery('')
+      }
+    }
+    if (checklistDropdownFieldId) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [checklistDropdownFieldId])
+
+  function addChecklistInstance(fieldId: string, template: { id: string; name: string; items: { id: string }[] }) {
+    const instance: ChecklistInstanceRow = {
+      id: Math.random().toString(36).slice(2, 10),
+      fieldId,
+      checklistId: template.id,
+      checklistName: template.name,
+      responses: {},
+    }
+    setChecklistInstances((prev) => [...prev, instance])
+    setChecklistDropdownFieldId(null)
+    setChecklistSearchQuery('')
+  }
+
+  function removeChecklistInstance(instanceId: string) {
+    setChecklistInstances((prev) => prev.filter((ci) => ci.id !== instanceId))
+  }
+
+  function handleChecklistInstanceCheck(instanceId: string, itemId: string, checked: boolean) {
+    setChecklistInstances((prev) =>
+      prev.map((ci) =>
+        ci.id === instanceId
+          ? { ...ci, responses: { ...ci.responses, [itemId]: checked } }
+          : ci
+      )
+    )
+  }
+
   function handleChange(key: string, value: string) {
     if (key in emptyReport) {
       setFormData((prev) => ({ ...prev, [key]: value }))
@@ -300,6 +378,7 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
       }
     }
     mergedData.material_system_rows = materialRows
+    mergedData.checklist_instances = checklistInstances
 
     const allValues: Record<string, string> = {}
     for (const [key, val] of Object.entries(mergedData)) {
@@ -344,6 +423,7 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
       }
     }
     mergedData.material_system_rows = materialRows
+    mergedData.checklist_instances = checklistInstances
 
     const allValues: Record<string, string> = {}
     for (const [key, val] of Object.entries(mergedData)) {
@@ -389,7 +469,7 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData, customValues, materialRows])
+  }, [formData, customValues, materialRows, checklistInstances])
 
   // Mark initial load as done after data is loaded
   useEffect(() => {
@@ -511,52 +591,100 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
       )
     }
 
-    // Checklist placeholder — render full-width within parent section
+    // Checklist placeholder — render as stacked cards with "+ Add Checklist" button
     if (field.type === 'checklist_placeholder') {
-      const selectedChecklistId = checklistSelections.get(field.id)
-      const selectedTemplate = selectedChecklistId
-        ? allChecklistTemplates.find((t) => t.id === selectedChecklistId)
-        : null
+      const fieldInstances = checklistInstances.filter((ci) => ci.fieldId === field.id)
 
       return (
         <div key={field.id} className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-gray-600">
-            {field.label || 'Checklist'}
-          </label>
           <div className="space-y-3">
+            {fieldInstances.map((instance) => {
+              const tmpl = allChecklistTemplates.find((t) => t.id === instance.checklistId)
+              const items = tmpl?.items ?? []
+              return (
+                <div key={instance.id} className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
+                  <div className="flex items-center justify-between px-3 py-2 bg-gray-100/60 border-b border-gray-200">
+                    <span className="text-sm font-semibold text-gray-900">{instance.checklistName}</span>
+                    {!readOnly && (
+                      <button
+                        onClick={() => removeChecklistInstance(instance.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        title="Remove"
+                      >
+                        <XIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="px-3 py-2 space-y-1">
+                    {items.map((item) => {
+                      const isChecked = instance.responses[item.id] ?? false
+                      return (
+                        <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => handleChecklistInstanceCheck(instance.id, item.id, e.target.checked)}
+                            disabled={readOnly}
+                            className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                          />
+                          <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                            {item.text}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+
             {!readOnly && (
-              <select
-                value={selectedChecklistId ?? ''}
-                onChange={(e) => handleChecklistSelectionChange(field.id, e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 bg-white"
-              >
-                <option value="">Select a checklist template...</option>
-                {allChecklistTemplates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            )}
-            {selectedTemplate && (
-              <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
-                <div className="px-3 py-2 bg-gray-100/60 border-b border-gray-200">
-                  <span className="text-sm font-semibold text-gray-900">{selectedTemplate.name}</span>
-                </div>
-                <div className="px-3 py-2 space-y-1">
-                  {selectedTemplate.items.map((item) => (
-                    <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={checklistResponses.get(item.id) ?? false}
-                        onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
-                        disabled={readOnly}
-                        className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
-                      />
-                      <span className={`text-sm ${(checklistResponses.get(item.id) ?? false) ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                        {item.text}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+              <div className="relative" ref={checklistDropdownFieldId === field.id ? checklistDropdownRef : undefined}>
+                <button
+                  onClick={() => setChecklistDropdownFieldId(checklistDropdownFieldId === field.id ? null : field.id)}
+                  className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+                >
+                  <PlusIcon className="w-3.5 h-3.5" />
+                  Add Checklist
+                </button>
+
+                {checklistDropdownFieldId === field.id && (() => {
+                  const query = checklistSearchQuery.toLowerCase()
+                  const filtered = query
+                    ? allChecklistTemplates.filter((t) => t.name.toLowerCase().includes(query))
+                    : allChecklistTemplates
+                  return (
+                    <div className="absolute left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-72 flex flex-col overflow-hidden">
+                      <div className="p-2 border-b border-gray-100">
+                        <input
+                          type="text"
+                          value={checklistSearchQuery}
+                          onChange={(e) => setChecklistSearchQuery(e.target.value)}
+                          placeholder="Search checklists..."
+                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="flex-1 overflow-y-auto">
+                        {filtered.map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => addChecklistInstance(field.id, t)}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <span className="font-medium">{t.name}</span>
+                            {t.items.length > 0 && (
+                              <span className="text-xs text-gray-400 ml-1">({t.items.length} items)</span>
+                            )}
+                          </button>
+                        ))}
+                        {filtered.length === 0 && (
+                          <div className="px-3 py-2 text-xs text-gray-400">No checklists found</div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             )}
           </div>
