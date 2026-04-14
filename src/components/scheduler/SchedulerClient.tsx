@@ -929,8 +929,7 @@ export default function SchedulerClient({
               <button
                 onClick={handlePublishSchedule}
                 disabled={publishState === 'publishing'}
-                title="Publish the current week's schedule"
-                className="flex items-center gap-1.5 border border-gray-300 bg-gray-800 text-gray-100 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm font-medium transition"
+                className="flex items-center gap-1.5 border border-amber-500 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm font-medium transition"
               >
                 {publishState === 'publishing' ? (
                   <Loader2Icon className="w-4 h-4 animate-spin" />
