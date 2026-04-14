@@ -60,7 +60,6 @@ interface Props {
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-const DAY_FULL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 function parseISODateLocal(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number)
@@ -250,77 +249,74 @@ export default function SchedulingPageClient({
               {publisherNames[currentSchedule.published_by] ?? 'Unknown'}
             </p>
 
-            {/* Schedule table */}
-            <div className="bg-white dark:bg-[#222] rounded-xl border border-gray-200 dark:border-[#333] overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-[#2a2a2a] border-b border-gray-200 dark:border-[#333]">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Job
-                    </th>
-                    {DAY_FULL.map((d, i) => (
-                      <th
-                        key={i}
-                        className="text-center px-2 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[100px]"
-                      >
-                        {d}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentSchedule.schedule_data.jobs.map((job, jobIdx) => (
-                    <tr
-                      key={job.job_id}
-                      className={`border-b border-gray-100 dark:border-[#333] ${
-                        jobIdx % 2 === 0 ? 'bg-white dark:bg-[#222]' : 'bg-gray-50/50 dark:bg-[#252525]'
-                      }`}
-                    >
-                      <td className="px-4 py-3 align-top">
-                        <div className="font-medium text-gray-900 dark:text-gray-100">
-                          {job.job_name}
-                        </div>
-                        {job.estimate_number && (
-                          <div className="text-xs text-gray-400 dark:text-gray-500">
-                            Est #{job.estimate_number}
-                          </div>
-                        )}
-                        {job.address && (
-                          <div className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-[200px]">
-                            {job.address}
-                          </div>
-                        )}
-                      </td>
-                      {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
-                        const assignedNames = job.employees
-                          .filter((e) => e.days[dayIdx])
-                          .map((e) => e.employee_name.split(' ')[0])
-                        return (
-                          <td
-                            key={dayIdx}
-                            className="px-2 py-3 text-center align-top text-xs"
+            {/* Schedule cards */}
+            <div className="space-y-3">
+              {currentSchedule.schedule_data.jobs.map((job) => (
+                <div
+                  key={job.job_id}
+                  style={{ background: '#252525', border: '0.5px solid #333', borderRadius: 8 }}
+                  className="overflow-hidden"
+                >
+                  {/* Card header */}
+                  <div className="px-4 pt-3 pb-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white" style={{ fontSize: 15 }}>
+                        {job.job_name}
+                      </span>
+                      <span className="text-gray-500" style={{ fontSize: 12 }}>
+                        {job.employees.length} {job.employees.length === 1 ? 'employee' : 'employees'}
+                      </span>
+                    </div>
+                    {(job.estimate_number || job.address) && (
+                      <div className="text-gray-500 mt-0.5" style={{ fontSize: 11 }}>
+                        {job.estimate_number && <>Est #{job.estimate_number}</>}
+                        {job.estimate_number && job.address && <> · </>}
+                        {job.address && <>{job.address}</>}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Employee chips */}
+                  <div className="px-4 pb-3">
+                    {job.employees.length === 0 ? (
+                      <p className="text-gray-500 py-2" style={{ fontSize: 12 }}>
+                        No employees assigned
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-2" style={{ gap: 6 }}>
+                        {job.employees.map((emp) => (
+                          <div
+                            key={emp.employee_id}
+                            style={{ background: '#1e1e1e', borderRadius: 6, padding: '8px 10px' }}
                           >
-                            {assignedNames.length > 0 ? (
-                              <div className="space-y-0.5">
-                                {assignedNames.map((name, i) => (
-                                  <div
-                                    key={i}
-                                    className="text-gray-700 dark:text-gray-300 bg-amber-50 dark:bg-amber-900/20 rounded px-1 py-0.5"
-                                  >
-                                    {name}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-gray-200 dark:text-gray-600">—</span>
-                            )}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            <div className="text-gray-200 mb-1" style={{ fontSize: 13 }}>
+                              {emp.employee_name}
+                            </div>
+                            <div className="flex" style={{ gap: 3 }}>
+                              {DAY_LABELS.map((label, i) => (
+                                <span
+                                  key={i}
+                                  className="flex items-center justify-center font-semibold"
+                                  style={{
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: '50%',
+                                    fontSize: 9,
+                                    backgroundColor: emp.days[i] ? '#d97706' : '#333',
+                                    color: emp.days[i] ? '#fff' : '#666',
+                                  }}
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ) : (
