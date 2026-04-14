@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { XIcon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { XIcon, AlertTriangleIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import { US_STATES } from '@/lib/usStates'
+import { findSimilarNames } from '@/lib/csv'
 
 interface NewCompanyModalProps {
   userId: string
@@ -48,6 +50,31 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
   const [dealValue, setDealValue] = useState('0')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dupes, setDupes] = useState<Array<{ id: string; name: string; score: number }>>([])
+
+  // Debounced duplicate check when the user types a name.
+  useEffect(() => {
+    const trimmed = name.trim()
+    if (trimmed.length < 3) {
+      setDupes([])
+      return
+    }
+    let cancelled = false
+    const handle = setTimeout(async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('crm_companies')
+        .select('id, name')
+      if (cancelled) return
+      const candidates = (data ?? []) as { id: string; name: string }[]
+      const matches = findSimilarNames(trimmed, candidates, 0.82).slice(0, 3)
+      setDupes(matches)
+    }, 400)
+    return () => {
+      cancelled = true
+      clearTimeout(handle)
+    }
+  }, [name])
 
   async function handleSave() {
     if (!name.trim()) return
@@ -110,6 +137,26 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
                 placeholder="Acme Industrial Flooring"
                 autoFocus
               />
+              {dupes.length > 0 && (
+                <div className="mt-1.5 flex items-start gap-1.5 text-xs text-amber-700">
+                  <AlertTriangleIcon className="w-3.5 h-3.5 mt-0.5 flex-none" />
+                  <span>
+                    Similar company exists:{' '}
+                    {dupes.map((d, i) => (
+                      <span key={d.id}>
+                        <Link
+                          href={`/sales/crm/${d.id}`}
+                          className="underline hover:text-amber-900"
+                          target="_blank"
+                        >
+                          {d.name}
+                        </Link>
+                        {i < dupes.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Industry</label>
