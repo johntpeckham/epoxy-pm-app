@@ -599,25 +599,6 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
     if (field.type === 'section_header') {
       if (field.id === 'pr-52' || field.label === 'Material Quantities') return null
 
-      if (field.id === 'pr-48' || field.label === 'Material System') {
-        return (
-          <div key={field.id}>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">
-              Material Quantities
-            </h3>
-            <MaterialSystemPicker
-              rows={materialRows}
-              onChange={setMaterialRows}
-              systems={materialSystems}
-              onAddNew={addMaterialSystem}
-              onUpdateSystem={updateMaterialSystem}
-              readOnly={readOnly}
-              showQuantity
-            />
-          </div>
-        )
-      }
-
       return (
         <div key={field.id}>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 lg:mb-3 border-b border-amber-100 pb-1.5 mt-2 first:mt-0">

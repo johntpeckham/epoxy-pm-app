@@ -338,7 +338,6 @@ export default function ProjectReportModal({
     header: string
     fields: SectionField[]
     checklistId?: string
-    isMaterialSystem?: boolean
   }
 
   function buildSections(): Section[] {
@@ -381,14 +380,6 @@ export default function ProjectReportModal({
       if (field.type === 'section_header') {
         // Skip Material Quantities section header (replaced by Material System picker)
         if (field.id === 'pr-52' || field.label === 'Material Quantities') continue
-
-        // The Material System section header (legacy) — render as standalone section
-        if (field.id === 'pr-48' || field.label === 'Material System') {
-          currentSection = { header: 'Material Quantities', fields: [], isMaterialSystem: true }
-          sections.push(currentSection)
-          currentSection = null
-          continue
-        }
 
         // Checklist section (legacy format) — handled separately
         if (field.id.startsWith('checklist-')) {
@@ -507,8 +498,6 @@ export default function ProjectReportModal({
 
   const sections = !loading && reportExists ? buildSections() : []
 
-  // Check if we have the special Material Quantities section
-  const materialSectionIdx = sections.findIndex((s) => s.isMaterialSystem)
   const hasMaterialContent = materialRows.length > 0
 
   return (
@@ -574,19 +563,6 @@ export default function ProjectReportModal({
 
               <div className="space-y-6">
                 {sections.map((section, sIdx) => {
-                  // Material Quantities section (legacy) — render material rows as standalone section
-                  if (section.isMaterialSystem) {
-                    if (!hasMaterialContent) return null
-                    return (
-                      <div key={`section-${sIdx}`}>
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
-                          Material Quantities
-                        </h3>
-                        {renderMaterialRows()}
-                      </div>
-                    )
-                  }
-
                   // Checklist section (legacy) — render interactive checklist in card
                   if (section.checklistId) {
                     const data = checklistData.get(section.checklistId)
@@ -703,15 +679,8 @@ export default function ProjectReportModal({
                   )
                 })}
 
-                {/* Render material section if it wasn't in the template order for some reason */}
-                {materialSectionIdx === -1 && hasMaterialContent && (
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 border-b border-amber-100 pb-1.5">
-                      Material Quantities
-                    </h3>
-                    {renderMaterialRows()}
-                  </div>
-                )}
+
+
               </div>
             </div>
           )}
