@@ -715,6 +715,87 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
   const MATERIAL_SYSTEM_SKIP_IDS = new Set(['pr-49', 'pr-50', 'pr-51', 'pr-52', 'pr-53', 'pr-54', 'pr-55'])
   const MATERIAL_SYSTEM_SKIP_LABELS = /^Material (System|Quantities) \d$/
 
+  // Renders the full field guides block (attached guides + "+ Add Field Guide" picker).
+  // Used both inline for field_guide_placeholder fields and as a bottom fallback.
+  function renderFieldGuidesBlock(key: string, showHeading: boolean, label?: string) {
+    if (attachedFieldGuides.length === 0 && readOnly) return null
+
+    return (
+      <div key={key} className="space-y-4">
+        {showHeading && (
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 border-b border-amber-100 pb-1.5">
+            {label || 'Field Guides'}
+          </h3>
+        )}
+
+        {attachedFieldGuides.map((guide) => (
+          <FieldGuideDisplay
+            key={guide.attachmentId}
+            guide={guide}
+            readOnly={readOnly}
+            onRemove={removeFieldGuide}
+          />
+        ))}
+
+        {!readOnly && (
+          <div className="relative" ref={fieldGuidePickerRef}>
+            <button
+              onClick={() => setFieldGuidePickerOpen((v) => !v)}
+              className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              Add Field Guide
+            </button>
+
+            {fieldGuidePickerOpen && (() => {
+              const attachedIds = new Set(attachedFieldGuides.map((g) => g.templateId))
+              const query = fieldGuideSearchQuery.toLowerCase()
+              const available = allFieldGuideTemplates.filter((t) => !attachedIds.has(t.id))
+              const filtered = query
+                ? available.filter((t) => t.title.toLowerCase().includes(query))
+                : available
+              return (
+                <div className="absolute left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-72 flex flex-col overflow-hidden">
+                  <div className="p-2 border-b border-gray-100">
+                    <input
+                      type="text"
+                      value={fieldGuideSearchQuery}
+                      onChange={(e) => setFieldGuideSearchQuery(e.target.value)}
+                      placeholder="Search field guides..."
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {filtered.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => attachFieldGuide(t.id)}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                      >
+                        <BookOpenIcon className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                        <span className="font-medium truncate">{t.title}</span>
+                      </button>
+                    ))}
+                    {filtered.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-gray-400">
+                        {available.length === 0 ? 'All field guides are attached' : 'No field guides found'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const hasFieldGuidePlaceholder = templateFields.some((f) => f.type === 'field_guide_placeholder')
+  // Track the first placeholder id so only one renders the block when multiple exist.
+  const firstFieldGuidePlaceholderId = templateFields.find((f) => f.type === 'field_guide_placeholder')?.id
+
   function renderField(field: FormField) {
     if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) return null
     if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) return null
@@ -735,6 +816,23 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
             readOnly={readOnly}
             showQuantity
           />
+        </div>
+      )
+    }
+
+    // Field Guide placeholder — render the shared field guides block at this position.
+    // Attachments are project-scoped, so if multiple placeholders exist, only the first
+    // renders the block to avoid duplicate UI.
+    if (field.type === 'field_guide_placeholder') {
+      if (field.id !== firstFieldGuidePlaceholderId) return null
+      return (
+        <div key={field.id} className="flex flex-col gap-1.5">
+          {field.label && field.label !== 'Field Guide' && (
+            <label className="text-xs font-medium text-gray-600">
+              {field.label}
+            </label>
+          )}
+          {renderFieldGuidesBlock(`fg-block-${field.id}`, false)}
         </div>
       )
     }
@@ -1013,75 +1111,11 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
 
             {templateFields.map((field) => renderField(field))}
 
-            {/* Field Guides — read-only SOP-style reference material */}
-            {(attachedFieldGuides.length > 0 || !readOnly) && (
-              <div className="space-y-4 pt-4">
-                {attachedFieldGuides.length > 0 && (
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 border-b border-amber-100 pb-1.5">
-                    Field Guides
-                  </h3>
-                )}
-
-                {attachedFieldGuides.map((guide) => (
-                  <FieldGuideDisplay
-                    key={guide.attachmentId}
-                    guide={guide}
-                    readOnly={readOnly}
-                    onRemove={removeFieldGuide}
-                  />
-                ))}
-
-                {!readOnly && (
-                  <div className="relative" ref={fieldGuidePickerRef}>
-                    <button
-                      onClick={() => setFieldGuidePickerOpen((v) => !v)}
-                      className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
-                    >
-                      <PlusIcon className="w-3.5 h-3.5" />
-                      Add Field Guide
-                    </button>
-
-                    {fieldGuidePickerOpen && (() => {
-                      const attachedIds = new Set(attachedFieldGuides.map((g) => g.templateId))
-                      const query = fieldGuideSearchQuery.toLowerCase()
-                      const available = allFieldGuideTemplates.filter((t) => !attachedIds.has(t.id))
-                      const filtered = query
-                        ? available.filter((t) => t.title.toLowerCase().includes(query))
-                        : available
-                      return (
-                        <div className="absolute left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-72 flex flex-col overflow-hidden">
-                          <div className="p-2 border-b border-gray-100">
-                            <input
-                              type="text"
-                              value={fieldGuideSearchQuery}
-                              onChange={(e) => setFieldGuideSearchQuery(e.target.value)}
-                              placeholder="Search field guides..."
-                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
-                              autoFocus
-                            />
-                          </div>
-                          <div className="flex-1 overflow-y-auto">
-                            {filtered.map((t) => (
-                              <button
-                                key={t.id}
-                                onClick={() => attachFieldGuide(t.id)}
-                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
-                              >
-                                <BookOpenIcon className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                                <span className="font-medium truncate">{t.title}</span>
-                              </button>
-                            ))}
-                            {filtered.length === 0 && (
-                              <div className="px-3 py-2 text-xs text-gray-400">
-                                {available.length === 0 ? 'All field guides are attached' : 'No field guides found'}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )}
+            {/* Field Guides fallback — only when no field_guide_placeholder exists in the template.
+                If the admin placed a placeholder, the block renders inline at that position. */}
+            {!hasFieldGuidePlaceholder && (attachedFieldGuides.length > 0 || !readOnly) && (
+              <div className="pt-4">
+                {renderFieldGuidesBlock('fg-block-fallback', attachedFieldGuides.length > 0)}
               </div>
             )}
           </div>
