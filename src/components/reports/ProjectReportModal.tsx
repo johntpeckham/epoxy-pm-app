@@ -11,6 +11,7 @@ import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys } from '@/lib/formFieldMaps'
 import Portal from '@/components/ui/Portal'
 import type { MaterialSystemRow } from '@/components/ui/MaterialSystemPicker'
+import type { ChecklistInstanceRow } from '@/components/job-board/workspaces/ReportWorkspace'
 
 interface ChecklistSectionData {
   name: string
@@ -104,6 +105,7 @@ export default function ProjectReportModal({
   const [checklistResponses, setChecklistResponses] = useState<Map<string, boolean>>(new Map())
   const [allChecklistTemplates, setAllChecklistTemplates] = useState<{ id: string; name: string; items: { id: string; text: string; sort_order: number }[] }[]>([])
   const [checklistSelections, setChecklistSelections] = useState<Map<string, string>>(new Map())
+  const [checklistInstances, setChecklistInstances] = useState<ChecklistInstanceRow[]>([])
   const [loading, setLoading] = useState(true)
   const [reportExists, setReportExists] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
@@ -127,7 +129,7 @@ export default function ProjectReportModal({
       // Load custom field values (keys not in the known set)
       const custom: Record<string, string> = {}
       for (const [key, val] of Object.entries(savedData)) {
-        if (!KNOWN_KEYS.has(key) && key !== 'material_system_rows' && typeof val === 'string') {
+        if (!KNOWN_KEYS.has(key) && key !== 'material_system_rows' && key !== 'checklist_instances' && typeof val === 'string') {
           custom[key] = val
         }
       }
@@ -135,6 +137,9 @@ export default function ProjectReportModal({
       // Load material system rows
       if (Array.isArray(savedData.material_system_rows)) {
         setMaterialRows(savedData.material_system_rows as MaterialSystemRow[])
+      }
+      if (Array.isArray(savedData.checklist_instances)) {
+        setChecklistInstances(savedData.checklist_instances as ChecklistInstanceRow[])
       }
     } else {
       setReportExists(false)
@@ -240,6 +245,40 @@ export default function ProjectReportModal({
     loadSelections()
   }, [projectId])
 
+  // Migrate old single-selection data to checklist instances
+  useEffect(() => {
+    if (checklistSelections.size === 0 || checklistInstances.length > 0 || allChecklistTemplates.length === 0) return
+    const migrated: ChecklistInstanceRow[] = []
+    checklistSelections.forEach((checklistId, fieldId) => {
+      const tmpl = allChecklistTemplates.find((t) => t.id === checklistId)
+      if (!tmpl) return
+      const responses: Record<string, boolean> = {}
+      for (const item of tmpl.items) {
+        const checked = checklistResponses.get(item.id)
+        if (checked !== undefined) responses[item.id] = checked
+      }
+      migrated.push({
+        id: Math.random().toString(36).slice(2, 10),
+        fieldId,
+        checklistId,
+        checklistName: tmpl.name,
+        responses,
+      })
+    })
+    if (migrated.length > 0) setChecklistInstances(migrated)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checklistSelections, allChecklistTemplates, checklistResponses])
+
+  function handleChecklistInstanceCheck(instanceId: string, itemId: string, checked: boolean) {
+    setChecklistInstances((prev) =>
+      prev.map((ci) =>
+        ci.id === instanceId
+          ? { ...ci, responses: { ...ci.responses, [itemId]: checked } }
+          : ci
+      )
+    )
+  }
+
   async function handleChecklistChange(itemId: string, checked: boolean) {
     setChecklistResponses((prev) => {
       const next = new Map(prev)
@@ -332,6 +371,7 @@ export default function ProjectReportModal({
     inlineType?: 'material_system' | 'checklist'
     checklistId?: string
     checklistPlaceholderFieldId?: string
+    checklistFieldId?: string
   }
 
   type Section = {
@@ -364,14 +404,12 @@ export default function ProjectReportModal({
       // Checklist placeholder — add as inline field within current section
       if (field.type === 'checklist_placeholder') {
         if (currentSection) {
-          const selectedChecklistId = checklistSelections.get(field.id)
           currentSection.fields.push({
             label: field.label || 'Checklist',
             value: '',
             isLongText: false,
             inlineType: 'checklist',
-            checklistId: selectedChecklistId,
-            checklistPlaceholderFieldId: field.id,
+            checklistFieldId: field.id,
           })
         }
         continue
@@ -620,43 +658,46 @@ export default function ProjectReportModal({
                             )
                           }
 
-                          // Inline checklist — full width, interactive, card style
-                          if (f.inlineType === 'checklist' && f.checklistId) {
-                            const template = allChecklistTemplates.find((t) => t.id === f.checklistId)
-                            if (!template || template.items.length === 0) return null
+                          // Inline checklist — render all instances as stacked cards
+                          if (f.inlineType === 'checklist' && f.checklistFieldId) {
+                            const fieldInstances = checklistInstances.filter((ci) => ci.fieldId === f.checklistFieldId)
+                            if (fieldInstances.length === 0) return null
                             return (
-                              <div key={`field-${sIdx}-${fIdx}`} className="flex flex-col gap-1">
-                                <span className="text-xs font-medium text-gray-500">
-                                  {f.label}
-                                </span>
-                                <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
-                                  <div className="px-3 py-2 bg-gray-100/60 border-b border-gray-200">
-                                    <span className="text-sm font-semibold text-gray-900">{template.name}</span>
-                                  </div>
-                                  <div className="px-3 py-2 space-y-1">
-                                    {template.items.map((item) => {
-                                      const isChecked = checklistResponses.get(item.id) ?? false
-                                      return (
-                                        <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
-                                            className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
-                                          />
-                                          <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                                            {item.text}
-                                          </span>
-                                        </label>
-                                      )
-                                    })}
-                                  </div>
-                                </div>
+                              <div key={`field-${sIdx}-${fIdx}`} className="flex flex-col gap-3">
+                                {fieldInstances.map((instance) => {
+                                  const tmpl = allChecklistTemplates.find((t) => t.id === instance.checklistId)
+                                  const items = tmpl?.items ?? []
+                                  return (
+                                    <div key={instance.id} className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
+                                      <div className="px-3 py-2 bg-gray-100/60 border-b border-gray-200">
+                                        <span className="text-sm font-semibold text-gray-900">{instance.checklistName}</span>
+                                      </div>
+                                      <div className="px-3 py-2 space-y-1">
+                                        {items.map((item) => {
+                                          const isChecked = instance.responses[item.id] ?? false
+                                          return (
+                                            <label key={item.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={(e) => handleChecklistInstanceCheck(instance.id, item.id, e.target.checked)}
+                                                className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                                              />
+                                              <span className={`text-sm ${isChecked ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                                                {item.text}
+                                              </span>
+                                            </label>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
                               </div>
                             )
                           }
 
-                          // Skip inline checklist with no selection
+                          // Skip inline checklist with no instances
                           if (f.inlineType === 'checklist') return null
 
                           // Regular text field
