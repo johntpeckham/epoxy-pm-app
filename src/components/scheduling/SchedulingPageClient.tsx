@@ -287,21 +287,21 @@ export default function SchedulingPageClient({
                         {job.employees.map((emp) => (
                           <div
                             key={emp.employee_id}
-                            style={{ background: '#1e1e1e', borderRadius: 4, padding: '4px 6px' }}
+                            style={{ background: '#1e1e1e', borderRadius: 5, padding: '6px 8px' }}
                           >
-                            <div className="text-gray-200 truncate" style={{ fontSize: 11, marginBottom: 2 }}>
+                            <div className="text-gray-200 truncate" style={{ fontSize: 12, marginBottom: 4 }}>
                               {emp.employee_name}
                             </div>
-                            <div className="flex" style={{ gap: 2 }}>
+                            <div className="flex" style={{ gap: 3 }}>
                               {DAY_LABELS.map((label, i) => (
                                 <span
                                   key={i}
                                   className="flex items-center justify-center font-semibold"
                                   style={{
-                                    width: 13,
-                                    height: 13,
+                                    width: 16,
+                                    height: 16,
                                     borderRadius: '50%',
-                                    fontSize: 7,
+                                    fontSize: 8,
                                     backgroundColor: emp.days[i] ? '#d97706' : '#333',
                                     color: emp.days[i] ? '#fff' : '#666',
                                   }}
