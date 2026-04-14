@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon, BugIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon, BugIcon, FootprintsIcon } from 'lucide-react'
 import ReportProblemButton from '@/components/bug-reports/ReportProblemButton'
 import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -63,6 +63,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isProfileActive = pathname === '/profile'
   const isJobTakeoffActive = pathname === '/job-takeoff'
   const isSchedulerActive = pathname === '/scheduler' || pathname.startsWith('/scheduler/')
+  const isJobWalkActive = pathname === '/job-walk' || pathname.startsWith('/job-walk/')
   const isEstimatesActive = pathname === '/estimates'
   const isBillingActive = pathname === '/billing'
   const isMyWorkActive = pathname === '/my-work'
@@ -332,6 +333,21 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           >
             <CalendarRangeIcon className="w-5 h-5 flex-shrink-0" />
             Scheduler
+          </Link>
+        )}
+
+        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
+          <Link
+            href="/job-walk"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isJobWalkActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <FootprintsIcon className="w-5 h-5 flex-shrink-0" />
+            Job Walk
           </Link>
         )}
 
