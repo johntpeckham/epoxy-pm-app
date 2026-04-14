@@ -12,6 +12,7 @@ import { getContentKey, getKnownContentKeys } from '@/lib/formFieldMaps'
 import Portal from '@/components/ui/Portal'
 import type { MaterialSystemRow } from '@/components/ui/MaterialSystemPicker'
 import type { ChecklistInstanceRow } from '@/components/job-board/workspaces/ReportWorkspace'
+import FieldGuideDisplay, { type AttachedFieldGuide } from '@/components/job-board/workspaces/FieldGuideDisplay'
 
 interface ChecklistSectionData {
   name: string
@@ -106,6 +107,7 @@ export default function ProjectReportModal({
   const [allChecklistTemplates, setAllChecklistTemplates] = useState<{ id: string; name: string; items: { id: string; text: string; sort_order: number }[] }[]>([])
   const [checklistSelections, setChecklistSelections] = useState<Map<string, string>>(new Map())
   const [checklistInstances, setChecklistInstances] = useState<ChecklistInstanceRow[]>([])
+  const [attachedFieldGuides, setAttachedFieldGuides] = useState<AttachedFieldGuide[]>([])
   const [loading, setLoading] = useState(true)
   const [reportExists, setReportExists] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
@@ -245,6 +247,81 @@ export default function ProjectReportModal({
     loadSelections()
   }, [projectId])
 
+  // Load attached field guides (with sections + images) for this project
+  const loadAttachedFieldGuides = useCallback(async () => {
+    const supabase = createClient()
+    const { data: attachments } = await supabase
+      .from('job_report_field_guides')
+      .select('id, field_guide_template_id, created_at')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true })
+
+    const rows = (attachments as { id: string; field_guide_template_id: string }[]) ?? []
+    if (rows.length === 0) {
+      setAttachedFieldGuides([])
+      return
+    }
+
+    const templateIds = rows.map((r) => r.field_guide_template_id)
+
+    const [{ data: templates }, { data: sections }] = await Promise.all([
+      supabase.from('field_guide_templates').select('id, title').in('id', templateIds),
+      supabase
+        .from('field_guide_sections')
+        .select('id, template_id, heading, body, sort_order')
+        .in('template_id', templateIds)
+        .order('sort_order', { ascending: true }),
+    ])
+
+    const sectionRows = (sections as { id: string; template_id: string; heading: string; body: string | null; sort_order: number }[]) ?? []
+    const sectionIds = sectionRows.map((s) => s.id)
+
+    let imageRows: { id: string; section_id: string; image_url: string; sort_order: number }[] = []
+    if (sectionIds.length > 0) {
+      const { data: images } = await supabase
+        .from('field_guide_section_images')
+        .select('id, section_id, image_url, sort_order')
+        .in('section_id', sectionIds)
+        .order('sort_order', { ascending: true })
+      imageRows = (images as typeof imageRows) ?? []
+    }
+
+    const templateMap = new Map<string, string>()
+    for (const t of (templates as { id: string; title: string }[]) ?? []) {
+      templateMap.set(t.id, t.title)
+    }
+
+    const attached: AttachedFieldGuide[] = rows.map((r) => {
+      const secs = sectionRows
+        .filter((s) => s.template_id === r.field_guide_template_id)
+        .map((s) => ({
+          id: s.id,
+          heading: s.heading,
+          body: s.body,
+          sort_order: s.sort_order,
+          images: imageRows
+            .filter((img) => img.section_id === s.id)
+            .map((img) => ({
+              id: img.id,
+              image_url: img.image_url,
+              sort_order: img.sort_order,
+            })),
+        }))
+      return {
+        attachmentId: r.id,
+        templateId: r.field_guide_template_id,
+        title: templateMap.get(r.field_guide_template_id) ?? 'Untitled Field Guide',
+        sections: secs,
+      }
+    })
+
+    setAttachedFieldGuides(attached)
+  }, [projectId])
+
+  useEffect(() => {
+    loadAttachedFieldGuides()
+  }, [loadAttachedFieldGuides])
+
   // Migrate old single-selection data to checklist instances
   useEffect(() => {
     if (checklistSelections.size === 0 || checklistInstances.length > 0 || allChecklistTemplates.length === 0) return
@@ -368,7 +445,7 @@ export default function ProjectReportModal({
     label: string
     value: string
     isLongText: boolean
-    inlineType?: 'material_system' | 'checklist'
+    inlineType?: 'material_system' | 'checklist' | 'field_guide'
     checklistId?: string
     checklistPlaceholderFieldId?: string
     checklistFieldId?: string
@@ -383,10 +460,27 @@ export default function ProjectReportModal({
   function buildSections(): Section[] {
     const sections: Section[] = []
     let currentSection: Section | null = null
+    // Field guides attach at the project scope, so only render the block at the
+    // first field_guide_placeholder encountered (mirrors ReportWorkspace).
+    let fieldGuideBlockEmitted = false
 
     for (const field of templateFields) {
       if (MATERIAL_SYSTEM_SKIP_IDS.has(field.id)) continue
       if (MATERIAL_SYSTEM_SKIP_LABELS.test(field.label)) continue
+
+      // Field guide placeholder — add as inline field within current section
+      if (field.type === 'field_guide_placeholder') {
+        if (currentSection && !fieldGuideBlockEmitted) {
+          currentSection.fields.push({
+            label: field.label || 'Field Guides',
+            value: '',
+            isLongText: false,
+            inlineType: 'field_guide',
+          })
+          fieldGuideBlockEmitted = true
+        }
+        continue
+      }
 
       // Material System placeholder — add as inline field within current section
       if (field.type === 'material_system_placeholder') {
@@ -537,6 +631,7 @@ export default function ProjectReportModal({
   const sections = !loading && reportExists ? buildSections() : []
 
   const hasMaterialContent = materialRows.length > 0
+  const hasFieldGuidePlaceholder = templateFields.some((f) => f.type === 'field_guide_placeholder')
 
   return (
     <Portal>
@@ -700,6 +795,23 @@ export default function ProjectReportModal({
                           // Skip inline checklist with no instances
                           if (f.inlineType === 'checklist') return null
 
+                          // Inline field guides — full width SOP-style layout
+                          if (f.inlineType === 'field_guide') {
+                            if (attachedFieldGuides.length === 0) return null
+                            return (
+                              <div key={`field-${sIdx}-${fIdx}`} className="flex flex-col gap-3">
+                                {attachedFieldGuides.map((guide) => (
+                                  <FieldGuideDisplay
+                                    key={guide.attachmentId}
+                                    guide={guide}
+                                    readOnly={true}
+                                    onRemove={() => { /* read-only view */ }}
+                                  />
+                                ))}
+                              </div>
+                            )
+                          }
+
                           // Regular text field
                           return (
                             <div
@@ -720,7 +832,19 @@ export default function ProjectReportModal({
                   )
                 })}
 
-
+                {/* Fallback: render attached field guides below if template has no placeholder */}
+                {!hasFieldGuidePlaceholder && attachedFieldGuides.length > 0 && (
+                  <div className="space-y-3">
+                    {attachedFieldGuides.map((guide) => (
+                      <FieldGuideDisplay
+                        key={guide.attachmentId}
+                        guide={guide}
+                        readOnly={true}
+                        onRemove={() => { /* read-only view */ }}
+                      />
+                    ))}
+                  </div>
+                )}
 
               </div>
             </div>
