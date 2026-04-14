@@ -8,17 +8,20 @@ import {
   SlidersHorizontalIcon,
   LayersIcon,
   ClipboardCheckIcon,
+  BookOpenIcon,
 } from 'lucide-react'
 import FormManagementClient from '@/components/form-management/FormManagementClient'
 import MaterialSystemsClient from '@/components/material-systems/MaterialSystemsClient'
 import JobReportChecklistManagement from './JobReportChecklistManagement'
+import FieldGuideManagement from './FieldGuideManagement'
 
-type Tab = 'form-editor' | 'material-system' | 'checklist'
+type Tab = 'form-editor' | 'material-system' | 'checklist' | 'field-guides'
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'form-editor', label: 'Report Form', icon: <SlidersHorizontalIcon className="w-4 h-4" /> },
   { key: 'material-system', label: 'Material System', icon: <LayersIcon className="w-4 h-4" /> },
   { key: 'checklist', label: 'Checklist Management', icon: <ClipboardCheckIcon className="w-4 h-4" /> },
+  { key: 'field-guides', label: 'Field Guides', icon: <BookOpenIcon className="w-4 h-4" /> },
 ]
 
 interface JobReportManagementClientProps {
@@ -74,6 +77,9 @@ export default function JobReportManagementClient({ userId }: JobReportManagemen
         )}
         {activeTab === 'checklist' && (
           <JobReportChecklistManagement userId={userId} />
+        )}
+        {activeTab === 'field-guides' && (
+          <FieldGuideManagement userId={userId} />
         )}
       </div>
     </div>
