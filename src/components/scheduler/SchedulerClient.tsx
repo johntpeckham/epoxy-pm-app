@@ -23,6 +23,7 @@ import {
   DownloadIcon,
   Maximize2Icon,
   Minimize2Icon,
+  SendIcon,
 } from 'lucide-react'
 import {
   DndContext,
@@ -329,7 +330,7 @@ function findConflictsForProposed(
 
 // ─── Main component ───────────────────────────────────────────────────────
 export default function SchedulerClient({
-  userId: _userId,
+  userId,
   employees,
   projects,
   thisWeekISO,
@@ -341,7 +342,6 @@ export default function SchedulerClient({
   employeeCrews,
   employeeSkillTypes,
 }: Props) {
-  void _userId
   const supabase = useMemo(() => createClient(), [])
   const { settings: companySettings } = useCompanySettings()
   const { theme } = useTheme()
@@ -662,6 +662,93 @@ export default function SchedulerClient({
     )
   }, [assignments, projects, employees, activeWeekISO, companySettings])
 
+  // ── Publish schedule ───────────────────────────────────────────────────
+  const [publishState, setPublishState] = useState<'idle' | 'publishing' | 'success' | 'warning'>('idle')
+  const [publishMessage, setPublishMessage] = useState('')
+  const publishTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (publishTimeoutRef.current) clearTimeout(publishTimeoutRef.current)
+    }
+  }, [])
+
+  const handlePublishSchedule = useCallback(async () => {
+    const weekAssignments = assignments.filter(
+      (a) => a.week_start === activeWeekISO && a.days.some(Boolean)
+    )
+
+    if (weekAssignments.length === 0) {
+      setPublishState('warning')
+      setPublishMessage('No assignments to publish for this week')
+      if (publishTimeoutRef.current) clearTimeout(publishTimeoutRef.current)
+      publishTimeoutRef.current = setTimeout(() => setPublishState('idle'), 3000)
+      return
+    }
+
+    setPublishState('publishing')
+
+    // Build the JSON snapshot
+    const jobMap = new Map<string, {
+      job_id: string
+      job_name: string
+      estimate_number: string | null
+      address: string | null
+      employees: { employee_id: string; employee_name: string; days: boolean[] }[]
+    }>()
+
+    for (const a of weekAssignments) {
+      const proj = projects.find((p) => p.id === a.project_id)
+      if (!jobMap.has(a.project_id)) {
+        jobMap.set(a.project_id, {
+          job_id: a.project_id,
+          job_name: a.project_name,
+          estimate_number: proj?.estimate_number ?? null,
+          address: proj?.address ?? null,
+          employees: [],
+        })
+      }
+      jobMap.get(a.project_id)!.employees.push({
+        employee_id: a.employee_id,
+        employee_name: a.employee_name,
+        days: [...a.days],
+      })
+    }
+
+    const scheduleData = {
+      week_start: activeWeekISO,
+      jobs: Array.from(jobMap.values()),
+    }
+
+    const { error } = await supabase.from('published_schedules').upsert(
+      {
+        week_start: activeWeekISO,
+        published_by: userId,
+        published_at: new Date().toISOString(),
+        schedule_data: scheduleData,
+      },
+      { onConflict: 'week_start' }
+    )
+
+    if (error) {
+      console.error('Failed to publish schedule:', error)
+      setPublishState('warning')
+      setPublishMessage('Failed to publish schedule')
+      if (publishTimeoutRef.current) clearTimeout(publishTimeoutRef.current)
+      publishTimeoutRef.current = setTimeout(() => setPublishState('idle'), 3000)
+      return
+    }
+
+    // Compute the week range for the success message
+    const weekStart = parseISODateLocal(activeWeekISO)
+    const weekEnd = addDays(weekStart, 6)
+    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    setPublishState('success')
+    setPublishMessage(`Schedule published for ${fmt(weekStart)} – ${fmt(weekEnd)}`)
+    if (publishTimeoutRef.current) clearTimeout(publishTimeoutRef.current)
+    publishTimeoutRef.current = setTimeout(() => setPublishState('idle'), 3000)
+  }, [assignments, activeWeekISO, projects, supabase, userId])
+
   // ── Assignment mutations (local state) ──────────────────────────────────
   const updateLocalAssignmentDays = useCallback(
     (id: string, days: DayFlags) => {
@@ -840,6 +927,19 @@ export default function SchedulerClient({
                 )}
               </button>
               <button
+                onClick={handlePublishSchedule}
+                disabled={publishState === 'publishing'}
+                title="Publish the current week's schedule"
+                className="flex items-center gap-1.5 border border-gray-300 bg-gray-800 text-gray-100 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm font-medium transition"
+              >
+                {publishState === 'publishing' ? (
+                  <Loader2Icon className="w-4 h-4 animate-spin" />
+                ) : (
+                  <SendIcon className="w-4 h-4" />
+                )}
+                Publish Schedule
+              </button>
+              <button
                 onClick={() => setPreviewOpen(true)}
                 disabled={
                   assignments.filter(
@@ -860,6 +960,19 @@ export default function SchedulerClient({
               </button>
             </div>
           </div>
+
+          {/* Publish toast */}
+          {publishState !== 'idle' && publishState !== 'publishing' && (
+            <div className={`flex-none px-6 py-2 text-sm font-medium ${
+              publishState === 'success'
+                ? 'bg-green-50 text-green-700 border-b border-green-200'
+                : 'bg-amber-50 text-amber-700 border-b border-amber-200'
+            }`}>
+              {publishState === 'success' && <CheckIcon className="w-4 h-4 inline mr-1.5 -mt-0.5" />}
+              {publishState === 'warning' && <AlertTriangleIcon className="w-4 h-4 inline mr-1.5 -mt-0.5" />}
+              {publishMessage}
+            </div>
+          )}
 
           {/* TOP: Three-week calendar strip */}
           <div className="flex-none px-4 py-2 bg-white border-b border-gray-200">
