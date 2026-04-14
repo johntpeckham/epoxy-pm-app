@@ -283,25 +283,25 @@ export default function SchedulingPageClient({
                         No employees assigned
                       </p>
                     ) : (
-                      <div className="grid grid-cols-2" style={{ gap: 6 }}>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6" style={{ gap: 4 }}>
                         {job.employees.map((emp) => (
                           <div
                             key={emp.employee_id}
-                            style={{ background: '#1e1e1e', borderRadius: 6, padding: '8px 10px' }}
+                            style={{ background: '#1e1e1e', borderRadius: 4, padding: '4px 6px' }}
                           >
-                            <div className="text-gray-200 mb-1" style={{ fontSize: 13 }}>
+                            <div className="text-gray-200 truncate" style={{ fontSize: 11, marginBottom: 2 }}>
                               {emp.employee_name}
                             </div>
-                            <div className="flex" style={{ gap: 3 }}>
+                            <div className="flex" style={{ gap: 2 }}>
                               {DAY_LABELS.map((label, i) => (
                                 <span
                                   key={i}
                                   className="flex items-center justify-center font-semibold"
                                   style={{
-                                    width: 18,
-                                    height: 18,
+                                    width: 13,
+                                    height: 13,
                                     borderRadius: '50%',
-                                    fontSize: 9,
+                                    fontSize: 7,
                                     backgroundColor: emp.days[i] ? '#d97706' : '#333',
                                     color: emp.days[i] ? '#fff' : '#666',
                                   }}
