@@ -19,6 +19,7 @@ import {
   WrenchIcon,
   PackageIcon,
   UsersIcon,
+  FileTextIcon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
@@ -688,6 +689,21 @@ export default function OfficeTasksPageClient({
           </div>
 
           <p className="text-sm text-gray-400">Coming soon — scheduling and shift management.</p>
+        </div>
+        )}
+
+        {/* ── SOPs & Forms Card (spans 2 columns) ── hidden for foreman */}
+        {!isForeman && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+          {/* Card header */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-amber-500">
+              <FileTextIcon className="w-5 h-5" />
+            </span>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">SOPs &amp; Forms</h3>
+          </div>
+
+          <p className="text-sm text-gray-400">Coming soon — standard operating procedures and forms.</p>
         </div>
         )}
 
