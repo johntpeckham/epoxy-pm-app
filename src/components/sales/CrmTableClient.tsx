@@ -9,11 +9,16 @@ import {
   ChevronDownIcon,
   PlusIcon,
   UploadIcon,
+  DownloadIcon,
+  MergeIcon,
   ArrowUpIcon,
   ArrowDownIcon,
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import NewCompanyModal from './NewCompanyModal'
+import ImportCsvModal from './ImportCsvModal'
+import MergeCompaniesModal from './MergeCompaniesModal'
+import { toCsv, downloadCsv } from '@/lib/csv'
 
 type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
 type CompanyPriority = 'high' | 'medium' | 'low'
@@ -169,7 +174,146 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   }
 
   const [showNewModal, setShowNewModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [showMergeModal, setShowMergeModal] = useState(false)
   const [openFilter, setOpenFilter] = useState<FilterField | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  function toggleRowSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function handleExport() {
+    const rowsToExport = filteredSorted
+    if (rowsToExport.length === 0) return
+    const ids = rowsToExport.map((r) => r.id)
+
+    // Pull primary contact + address for each company in one round-trip.
+    const [{ data: contactRows }, { data: addressRows }, { data: companyExtras }] =
+      await Promise.all([
+        supabase
+          .from('crm_contacts')
+          .select('company_id, first_name, last_name, email, phone, is_primary')
+          .in('company_id', ids),
+        supabase
+          .from('crm_company_addresses')
+          .select('company_id, address, city, state, is_primary')
+          .in('company_id', ids),
+        supabase
+          .from('crm_companies')
+          .select('id, lead_source, deal_value')
+          .in('id', ids),
+      ])
+
+    const primaryContactByCompany = new Map<
+      string,
+      { name: string; email: string | null; phone: string | null }
+    >()
+    for (const row of (contactRows ?? []) as Array<{
+      company_id: string
+      first_name: string
+      last_name: string
+      email: string | null
+      phone: string | null
+      is_primary: boolean
+    }>) {
+      const existing = primaryContactByCompany.get(row.company_id)
+      if (!existing || (row.is_primary && !existing)) {
+        // If no existing, assign. If one exists but this one is primary and it isn't, prefer.
+      }
+      if (!existing || row.is_primary) {
+        primaryContactByCompany.set(row.company_id, {
+          name: `${row.first_name} ${row.last_name}`.trim(),
+          email: row.email,
+          phone: row.phone,
+        })
+      }
+    }
+
+    const primaryAddressByCompany = new Map<string, string>()
+    for (const row of (addressRows ?? []) as Array<{
+      company_id: string
+      address: string
+      city: string | null
+      state: string | null
+      is_primary: boolean
+    }>) {
+      const current = primaryAddressByCompany.get(row.company_id)
+      if (!current || row.is_primary) {
+        primaryAddressByCompany.set(
+          row.company_id,
+          [row.address, row.city, row.state].filter(Boolean).join(', ')
+        )
+      }
+    }
+
+    const extrasMap = new Map<
+      string,
+      { lead_source: string | null; deal_value: number | null }
+    >()
+    for (const row of (companyExtras ?? []) as Array<{
+      id: string
+      lead_source: string | null
+      deal_value: number | null
+    }>) {
+      extrasMap.set(row.id, { lead_source: row.lead_source, deal_value: row.deal_value })
+    }
+
+    const header = [
+      'Company name',
+      'Industry',
+      'Zone',
+      'Region',
+      'State',
+      'County',
+      'City',
+      'Status',
+      'Priority',
+      'Lead source',
+      'Deal value',
+      'Assigned to',
+      'Contact count',
+      'Last activity',
+      'Primary contact name',
+      'Primary contact email',
+      'Primary contact phone',
+      'Primary address',
+    ]
+    const csvRows: (string | number | null)[][] = [header]
+    for (const r of rowsToExport) {
+      const c = primaryContactByCompany.get(r.id)
+      const addr = primaryAddressByCompany.get(r.id) ?? ''
+      const extras = extrasMap.get(r.id)
+      csvRows.push([
+        r.name,
+        r.industry,
+        r.zone,
+        r.region,
+        r.state,
+        r.county,
+        r.city,
+        r.status,
+        r.priority,
+        extras?.lead_source ?? '',
+        extras?.deal_value ?? '',
+        r.assigned_name ?? '',
+        r.contact_count,
+        r.last_activity ?? '',
+        c?.name ?? '',
+        c?.email ?? '',
+        c?.phone ?? '',
+        addr,
+      ])
+    }
+    const today = new Date().toISOString().slice(0, 10)
+    downloadCsv(`crm-export-${today}.csv`, toCsv(csvRows))
+    showToast(`Exported ${rowsToExport.length} companies`)
+  }
 
   // ─── Data fetching ──────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
@@ -599,8 +743,25 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
               </button>
             )}
           </div>
+          {selectedIds.size === 2 && (
+            <button
+              onClick={() => setShowMergeModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-700 border border-amber-200 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <MergeIcon className="w-4 h-4" />
+              Merge selected
+            </button>
+          )}
           <button
-            onClick={() => showToast('CSV import — coming soon')}
+            onClick={handleExport}
+            disabled={filteredSorted.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <DownloadIcon className="w-4 h-4" />
+            Export
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <UploadIcon className="w-4 h-4" />
@@ -731,20 +892,22 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
         <div className="w-full">
           <table className="w-full table-fixed">
             <colgroup>
-              <col style={{ width: '20%' }} />
+              <col style={{ width: '3%' }} />
+              <col style={{ width: '19%' }} />
               <col style={{ width: '9%' }} />
               <col style={{ width: '7%' }} />
-              <col style={{ width: '11%' }} />
+              <col style={{ width: '10%' }} />
               <col style={{ width: '8%' }} />
               <col style={{ width: '7%' }} />
               <col style={{ width: '7%' }} />
               <col style={{ width: '9%' }} />
-              <col style={{ width: '9%' }} />
+              <col style={{ width: '8%' }} />
               <col style={{ width: '13%' }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200" style={{ borderBottomWidth: '0.5px' }}>
-                {headerCell('Company', 'name', 'pl-7 pr-2')}
+                <th className="pl-7 pr-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
+                {headerCell('Company', 'name', 'pl-2 pr-2')}
                 {headerCell('Industry', 'industry', 'px-2')}
                 {headerCell('Zone', 'zone', 'px-2')}
                 {headerCell('Location', 'location', 'px-2')}
@@ -771,7 +934,20 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                     style={{ borderBottomWidth: '0.5px' }}
                   >
                     <td
-                      className="pl-7 pr-2 text-sm font-medium text-gray-900 truncate"
+                      className="pl-7 pr-0 align-middle"
+                      style={{ paddingTop: 14, paddingBottom: 14 }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(c.id)}
+                        onChange={() => toggleRowSelected(c.id)}
+                        className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
+                        aria-label={`Select ${c.name}`}
+                      />
+                    </td>
+                    <td
+                      className="pl-2 pr-2 text-sm font-medium text-gray-900 truncate"
                       style={{ paddingTop: 14, paddingBottom: 14 }}
                     >
                       {c.name}
@@ -893,6 +1069,33 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           onClose={() => setShowNewModal(false)}
           onSaved={() => {
             setShowNewModal(false)
+            fetchAll()
+          }}
+        />
+      )}
+
+      {/* ── Import CSV modal ── */}
+      {showImportModal && (
+        <ImportCsvModal
+          userId={userId}
+          onClose={() => setShowImportModal(false)}
+          onImported={() => {
+            setShowImportModal(false)
+            fetchAll()
+          }}
+        />
+      )}
+
+      {/* ── Merge companies modal ── */}
+      {showMergeModal && selectedIds.size === 2 && (
+        <MergeCompaniesModal
+          companyIdA={[...selectedIds][0]}
+          companyIdB={[...selectedIds][1]}
+          onClose={() => setShowMergeModal(false)}
+          onMerged={() => {
+            setShowMergeModal(false)
+            setSelectedIds(new Set())
+            showToast('Companies merged')
             fetchAll()
           }}
         />

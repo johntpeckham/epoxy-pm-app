@@ -19,6 +19,8 @@ import {
   CalendarIcon,
   CheckIcon,
   BellIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -28,6 +30,7 @@ import LogCallModal from './LogCallModal'
 import EditCompanyModal, { type EditableCompany } from './EditCompanyModal'
 import NewAppointmentModal from './NewAppointmentModal'
 import NewReminderModal from './NewReminderModal'
+import MergeContactsModal from './MergeContactsModal'
 
 type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
 type CompanyPriority = 'high' | 'medium' | 'low'
@@ -47,6 +50,7 @@ interface Company {
   deal_value: number | null
   assigned_to: string | null
   notes: string | null
+  import_metadata: Record<string, string> | null
   created_at: string
   updated_at: string
 }
@@ -259,6 +263,11 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   >(null)
   const [showNewReminder, setShowNewReminder] = useState(false)
   const [deleteReminderId, setDeleteReminderId] = useState<string | null>(null)
+  const [mergeContactsMode, setMergeContactsMode] = useState(false)
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(
+    new Set()
+  )
+  const [showMergeContactsModal, setShowMergeContactsModal] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmBlacklist, setConfirmBlacklist] = useState(false)
   const [confirmConvert, setConfirmConvert] = useState(false)
@@ -886,13 +895,50 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-gray-900">Contacts</h2>
-              <button
-                onClick={() => setShowNewContact(true)}
-                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
-              >
-                <PlusIcon className="w-3.5 h-3.5" />
-                Add contact
-              </button>
+              <div className="flex items-center gap-3">
+                {mergeContactsMode ? (
+                  <>
+                    {selectedContactIds.size === 2 && (
+                      <button
+                        onClick={() => setShowMergeContactsModal(true)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800"
+                      >
+                        Merge selected
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setMergeContactsMode(false)
+                        setSelectedContactIds(new Set())
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-800"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {contacts.length >= 2 && (
+                      <button
+                        onClick={() => {
+                          setMergeContactsMode(true)
+                          setSelectedContactIds(new Set())
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-800"
+                      >
+                        Merge contacts
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowNewContact(true)}
+                      className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
+                    >
+                      <PlusIcon className="w-3.5 h-3.5" />
+                      Add contact
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             {contacts.length === 0 ? (
               <p className="text-xs text-gray-400 italic">No contacts yet</p>
@@ -900,11 +946,31 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               <div className="space-y-2">
                 {contacts.map((c, idx) => {
                   const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                  const checked = selectedContactIds.has(c.id)
                   return (
                     <div
                       key={c.id}
-                      className="group flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                      className={`group flex items-start gap-3 p-3 rounded-lg transition-colors ${
+                        mergeContactsMode && checked
+                          ? 'bg-emerald-50/60'
+                          : 'hover:bg-gray-50'
+                      }`}
                     >
+                      {mergeContactsMode && (
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setSelectedContactIds((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(c.id)) next.delete(c.id)
+                              else if (next.size < 2) next.add(c.id)
+                              return next
+                            })
+                          }}
+                          className="mt-3 w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500/20"
+                        />
+                      )}
                       <div
                         className={`flex-shrink-0 w-9 h-9 rounded-full ${avatarColor} text-white text-xs font-semibold flex items-center justify-center`}
                       >
@@ -1423,6 +1489,11 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               )}
             </div>
           </section>
+
+          {/* Imported data */}
+          {company.import_metadata && Object.keys(company.import_metadata).length > 0 && (
+            <ImportedDataSection metadata={company.import_metadata} />
+          )}
         </div>
       </div>
 
@@ -1570,6 +1641,21 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         />
       )}
 
+      {showMergeContactsModal && selectedContactIds.size === 2 && (
+        <MergeContactsModal
+          contactIdA={[...selectedContactIds][0]}
+          contactIdB={[...selectedContactIds][1]}
+          onClose={() => setShowMergeContactsModal(false)}
+          onMerged={() => {
+            setShowMergeContactsModal(false)
+            setMergeContactsMode(false)
+            setSelectedContactIds(new Set())
+            fetchAll()
+            showToast('Contacts merged.')
+          }}
+        />
+      )}
+
       {showAddLink && (
         <Portal>
           <div
@@ -1712,5 +1798,38 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         </Portal>
       )}
     </div>
+  )
+}
+
+function ImportedDataSection({ metadata }: { metadata: Record<string, string> }) {
+  const [open, setOpen] = useState(false)
+  const entries = Object.entries(metadata)
+  return (
+    <section>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-gray-600"
+      >
+        {open ? (
+          <ChevronDownIcon className="w-3 h-3" />
+        ) : (
+          <ChevronRightIcon className="w-3 h-3" />
+        )}
+        Additional imported fields
+        <span className="text-gray-300">({entries.length})</span>
+      </button>
+      {open && (
+        <dl className="mt-2 border-t border-gray-100 pt-2 space-y-1.5">
+          {entries.map(([k, v]) => (
+            <div key={k} className="grid grid-cols-[minmax(0,120px)_1fr] gap-2 text-xs">
+              <dt className="text-gray-400 truncate" title={k}>
+                {k}
+              </dt>
+              <dd className="text-gray-700 break-words">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
   )
 }
