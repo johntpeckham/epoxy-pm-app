@@ -8,6 +8,7 @@ import { Task, TaskStatus, OfficeTask, OfficePriority, UserRole } from '@/types'
 import OfficeTasksWorkspace from '@/components/my-work/OfficeTasksWorkspace'
 import ExpensesWorkspace from '@/components/my-work/ExpensesWorkspace'
 import OfficeDailyReportsWorkspace from '@/components/my-work/OfficeDailyReportsWorkspace'
+import MyTasksCard from '@/components/my-work/MyTasksCard'
 import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
 import type { SalesmanExpenseRow } from '@/components/salesman-expenses/SalesmanExpenseCard'
 import { ProjectChecklistItem } from '@/components/job-board/workspaces/ChecklistShared'
@@ -716,6 +717,9 @@ export default function MyWorkClient({
     <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
       <h1 className="text-2xl font-bold text-gray-900 mb-4">My Work</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+        {/* ── My Tasks (first card — daily/weekly/one-time assignments) ── */}
+        <MyTasksCard userId={userId} userRole={userRole} />
 
         {/* ── Assigned Field Tasks (foreman only) ── */}
         {isForeman && (

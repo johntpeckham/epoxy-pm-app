@@ -349,6 +349,34 @@ export interface Notification {
   created_at: string
 }
 
+export type AssignedTaskType = 'daily' | 'weekly' | 'one_time'
+
+export interface AssignedTask {
+  id: string
+  title: string
+  description: string | null
+  task_type: AssignedTaskType
+  day_of_week: number | null
+  specific_date: string | null
+  assigned_to: string
+  created_by: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AssignedTaskCompletion {
+  id: string
+  task_id: string
+  user_id: string
+  completion_date: string
+  is_completed: boolean
+  note: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface EmployeeProfile {
   id: string
   name: string
