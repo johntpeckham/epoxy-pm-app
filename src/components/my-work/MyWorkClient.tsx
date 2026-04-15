@@ -26,6 +26,7 @@ import {
   WalletIcon,
   Maximize2Icon,
   BellIcon,
+  PhoneIcon,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -44,6 +45,18 @@ export interface MyWorkReminder {
   contact_name: string | null
 }
 
+export interface MyWorkSalesActivity {
+  callsToday: number
+  callsWeek: number
+  nextAppointment: {
+    id: string
+    company_id: string
+    company_name: string
+    date: string
+  } | null
+  overdueReminderCount: number
+}
+
 type WorkspaceType = 'assigned_tasks' | 'assigned_checklist' | 'office_tasks' | 'expenses' | null
 
 interface Props {
@@ -54,6 +67,7 @@ interface Props {
   initialOfficeTasks: OfficeTask[]
   initialExpenses: SalesmanExpenseRow[]
   initialReminders?: MyWorkReminder[]
+  initialSalesActivity?: MyWorkSalesActivity | null
 }
 
 /* ------------------------------------------------------------------ */
@@ -206,6 +220,7 @@ export default function MyWorkClient({
   initialOfficeTasks,
   initialExpenses,
   initialReminders,
+  initialSalesActivity,
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -1159,6 +1174,77 @@ export default function MyWorkClient({
                 </>
               )
             })()}
+          </InteractiveCard>
+        )}
+
+        {/* ── Sales activity (sales-eligible roles only) ── */}
+        {initialSalesActivity && (
+          <InteractiveCard
+            icon={<PhoneIcon className="w-5 h-5" />}
+            title="Sales activity"
+            onExpand={() => router.push('/sales')}
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-gray-400">
+                  Calls today
+                </p>
+                <p className="text-xl font-medium text-gray-900 mt-0.5 tabular-nums">
+                  {initialSalesActivity.callsToday}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-gray-400">
+                  Calls this week
+                </p>
+                <p className="text-xl font-medium text-gray-900 mt-0.5 tabular-nums">
+                  {initialSalesActivity.callsWeek}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-[11px] uppercase tracking-wider text-gray-400">
+                  Next appointment
+                </p>
+                {initialSalesActivity.nextAppointment ? (
+                  <Link
+                    href={`/sales/crm/${initialSalesActivity.nextAppointment.company_id}`}
+                    className="block mt-0.5 hover:text-amber-600 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {initialSalesActivity.nextAppointment.company_name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(
+                        initialSalesActivity.nextAppointment.date
+                      ).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </Link>
+                ) : (
+                  <p className="text-sm text-gray-400 italic mt-0.5">
+                    No upcoming appointments
+                  </p>
+                )}
+              </div>
+              <div className="col-span-2 pt-2 border-t border-gray-100">
+                <Link
+                  href="/sales"
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+                    initialSalesActivity.overdueReminderCount > 0
+                      ? 'text-amber-600 hover:text-amber-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <AlertCircleIcon className="w-3.5 h-3.5" />
+                  {initialSalesActivity.overdueReminderCount} overdue follow-up
+                  {initialSalesActivity.overdueReminderCount === 1 ? '' : 's'}
+                </Link>
+              </div>
+            </div>
           </InteractiveCard>
         )}
 

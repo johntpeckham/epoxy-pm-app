@@ -121,6 +121,91 @@ export default async function MyWorkPage() {
       : null,
   }))
 
+  // Sales activity stats (only meaningful for sales-eligible roles)
+  const isSalesRole =
+    userRole === 'admin' || userRole === 'office_manager' || userRole === 'salesman'
+  let salesActivity: {
+    callsToday: number
+    callsWeek: number
+    nextAppointment: {
+      id: string
+      company_id: string
+      company_name: string
+      date: string
+    } | null
+    overdueReminderCount: number
+  } | null = null
+
+  if (isSalesRole) {
+    const now = new Date()
+    const startOfDay = new Date(now)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(startOfDay)
+    endOfDay.setDate(endOfDay.getDate() + 1)
+    const weekStart = new Date(now)
+    const day = weekStart.getDay()
+    const diffToMonday = day === 0 ? -6 : 1 - day
+    weekStart.setDate(weekStart.getDate() + diffToMonday)
+    weekStart.setHours(0, 0, 0, 0)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekEnd.getDate() + 7)
+
+    const [
+      { count: todayCountRaw },
+      { count: weekCountRaw },
+      { data: nextApptData },
+      { count: overdueCountRaw },
+    ] = await Promise.all([
+      supabase
+        .from('crm_call_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', user.id)
+        .gte('call_date', startOfDay.toISOString())
+        .lt('call_date', endOfDay.toISOString()),
+      supabase
+        .from('crm_call_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', user.id)
+        .gte('call_date', weekStart.toISOString())
+        .lt('call_date', weekEnd.toISOString()),
+      supabase
+        .from('crm_appointments')
+        .select('id, date, company_id, crm_companies!inner(id, name)')
+        .eq('status', 'scheduled')
+        .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+        .gte('date', now.toISOString())
+        .order('date', { ascending: true })
+        .limit(1),
+      supabase
+        .from('crm_follow_up_reminders')
+        .select('id', { count: 'exact', head: true })
+        .eq('assigned_to', user.id)
+        .eq('is_completed', false)
+        .lt('reminder_date', now.toISOString()),
+    ])
+
+    type ApptRow = {
+      id: string
+      date: string
+      company_id: string
+      crm_companies: { id: string; name: string } | null
+    }
+    const first = ((nextApptData ?? []) as unknown as ApptRow[])[0]
+    salesActivity = {
+      callsToday: todayCountRaw ?? 0,
+      callsWeek: weekCountRaw ?? 0,
+      nextAppointment: first
+        ? {
+            id: first.id,
+            company_id: first.company_id,
+            company_name: first.crm_companies?.name ?? 'Company',
+            date: first.date,
+          }
+        : null,
+      overdueReminderCount: overdueCountRaw ?? 0,
+    }
+  }
+
   const tasksWithProject = (assignedTasks ?? []).map((row) => ({
     ...row,
     project_name:
@@ -143,6 +228,7 @@ export default async function MyWorkPage() {
         initialOfficeTasks={officeTasks ?? []}
         initialExpenses={expenses}
         initialReminders={reminders}
+        initialSalesActivity={salesActivity}
       />
     </Suspense>
   )
