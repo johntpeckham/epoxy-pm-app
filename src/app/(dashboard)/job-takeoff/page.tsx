@@ -350,7 +350,7 @@ export default function JobTakeoffPage() {
           </div>
           <h2 className="text-lg font-bold text-gray-900 mb-2">Desktop Only Feature</h2>
           <p className="text-sm text-gray-500 leading-relaxed">
-            Job Takeoff is designed for desktop use. Please open this page on a desktop or laptop for the best experience.
+            Measurements is designed for desktop use. Please open this page on a desktop or laptop for the best experience.
           </p>
         </div>
       </div>
