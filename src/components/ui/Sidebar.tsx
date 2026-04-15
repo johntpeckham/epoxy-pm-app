@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon, BugIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, TargetIcon, CalculatorIcon, CompassIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon, BugIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, TargetIcon, CalculatorIcon, CompassIcon, MonitorIcon } from 'lucide-react'
 import ReportProblemButton from '@/components/bug-reports/ReportProblemButton'
 import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -60,6 +60,13 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  function openCommandCenter() {
+    const w = Math.min(1920, typeof window !== 'undefined' ? window.screen?.availWidth || 1920 : 1920)
+    const h = Math.min(1080, typeof window !== 'undefined' ? window.screen?.availHeight || 1080 : 1080)
+    const features = `width=${w},height=${h},resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no`
+    window.open('/admin/command-center', 'peckham_command_center', features)
   }
 
   const isJobBoardActive = pathname === '/job-board'
@@ -135,7 +142,19 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
               <div className="text-white font-semibold text-sm leading-tight">Peckham Coatings</div>
             </div>
           </div>
-          <div className="hidden lg:block">
+          <div className="hidden lg:flex items-center gap-1">
+            {role === 'admin' && (
+              <button
+                onClick={openCommandCenter}
+                className="relative p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors group"
+                aria-label="Command center"
+              >
+                <MonitorIcon className="w-[18px] h-[18px]" />
+                <span className="pointer-events-none absolute top-full right-0 mt-1 px-2 py-1 rounded-md bg-gray-900 border border-gray-700 text-[10px] font-medium text-gray-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                  Command center
+                </span>
+              </button>
+            )}
             <NotificationBell userId={userId} />
           </div>
         </div>
@@ -602,6 +621,16 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {role === 'admin' && (
+            <button
+              onClick={openCommandCenter}
+              className="text-gray-400 hover:text-white p-1.5 rounded-md hover:bg-gray-800 transition-colors"
+              aria-label="Command center"
+              title="Command center"
+            >
+              <MonitorIcon className="w-5 h-5" />
+            </button>
+          )}
           <NotificationBell userId={userId} />
           <button
             onClick={() => setShowMobileReportModal(true)}
