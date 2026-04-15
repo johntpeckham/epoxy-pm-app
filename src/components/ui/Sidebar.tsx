@@ -507,7 +507,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           <Link
             href="/scheduler"
             onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`hidden lg:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isSchedulerActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                 : 'text-gray-400 hover:text-white hover:bg-gray-800'
