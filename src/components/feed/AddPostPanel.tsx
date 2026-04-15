@@ -1364,8 +1364,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
           {/* Dynamic Task Sections */}
           {jsaTemplates.filter((t) => jsaSelectedTasks[t.id]).map((t) => (
-            <div key={t.id} className="border border-amber-200 rounded-xl p-4 bg-amber-50/30 space-y-3">
-              <p className="text-sm font-bold text-amber-800">{t.name}</p>
+            <div key={t.id} className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+              <p className="text-sm font-bold text-gray-900">{t.name}</p>
               <div>
                 <label className={labelCls}>Hazards</label>
                 <textarea
@@ -1539,8 +1539,8 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
 
             {/* Master time entry (when synced) */}
             {tcSyncTimes && (
-              <div className="border-2 border-amber-300 bg-amber-50 rounded-lg p-3 space-y-2 mb-3">
-                <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wide">Set Times for All</p>
+              <div className="border border-gray-200 rounded-lg p-3 space-y-2 mb-3">
+                <p className="text-[11px] font-bold text-gray-700 uppercase tracking-wide">Set Times for All</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
                   <div>
                     <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>

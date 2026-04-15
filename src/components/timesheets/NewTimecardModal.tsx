@@ -506,8 +506,8 @@ export default function NewTimecardModal({
 
           {/* Master time entry (when synced) */}
           {syncTimes && (
-            <div className="border-2 border-amber-300 bg-amber-50 rounded-lg p-3 space-y-2 mb-3">
-              <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wide">Set Times for All</p>
+            <div className="border border-gray-200 rounded-lg p-3 space-y-2 mb-3">
+              <p className="text-[11px] font-bold text-gray-700 uppercase tracking-wide">Set Times for All</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
                 <div>
                   <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>
@@ -792,8 +792,8 @@ export default function NewTimecardModal({
                           {dup.existing.lunch_minutes} min lunch · <span className="font-semibold text-gray-700">{dup.existing.total_hours.toFixed(2)} hrs</span>
                         </p>
                       </div>
-                      <div className="bg-amber-50 rounded-md px-3 py-2">
-                        <p className="font-semibold text-amber-600 uppercase text-[10px] mb-1">New</p>
+                      <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+                        <p className="font-semibold text-gray-600 uppercase text-[10px] mb-1">New</p>
                         <p className="text-gray-700">
                           {formatTime12hr(dup.incoming.time_in)} – {formatTime12hr(dup.incoming.time_out)}
                         </p>

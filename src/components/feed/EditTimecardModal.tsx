@@ -272,8 +272,8 @@ export default function EditTimecardModal({
 
           {/* Master time entry (when synced) */}
           {syncTimes && (
-            <div className="border-2 border-amber-300 bg-amber-50 rounded-lg p-3 space-y-2 mb-3">
-              <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wide">Set Times for All</p>
+            <div className="border border-gray-200 rounded-lg p-3 space-y-2 mb-3">
+              <p className="text-[11px] font-bold text-gray-700 uppercase tracking-wide">Set Times for All</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
                 <div>
                   <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Time In</label>

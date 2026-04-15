@@ -166,7 +166,7 @@ export default function PushPlansModal({
                     onClick={() => setSelectedJobId(job.id)}
                     className={`w-full text-left px-4 py-2.5 flex flex-col border-b border-gray-100 last:border-b-0 transition ${
                       selectedJobId === job.id
-                        ? 'bg-amber-50 border-l-2 border-l-amber-500'
+                        ? 'bg-gray-50 border-l-2 border-l-gray-400'
                         : 'hover:bg-gray-50'
                     }`}
                   >

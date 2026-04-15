@@ -104,7 +104,7 @@ export default function TakeoffProjectList({
                 onClick={() => onSelect(project.id)}
                 className={`relative group rounded-xl border transition-all duration-150 cursor-pointer ${
                   isSelected
-                    ? 'bg-amber-50 border-amber-400 shadow-sm'
+                    ? 'bg-gray-50 border-gray-300 shadow-sm'
                     : 'bg-white border-gray-200 hover:border-amber-300 hover:shadow-sm'
                 }`}
               >

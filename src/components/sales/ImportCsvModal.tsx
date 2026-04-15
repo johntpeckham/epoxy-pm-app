@@ -494,7 +494,7 @@ export default function ImportCsvModal({
                   onDrop={onDrop}
                   className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl py-12 cursor-pointer transition-colors ${
                     dragging
-                      ? 'border-amber-400 bg-amber-50/50'
+                      ? 'border-gray-400 bg-gray-50'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -641,7 +641,7 @@ export default function ImportCsvModal({
                         .map((r) => (
                           <div
                             key={r.index}
-                            className="border border-amber-100 bg-amber-50/30 rounded-lg p-3"
+                            className="border border-gray-200 rounded-lg p-3"
                           >
                             <div className="flex items-center gap-2 mb-2">
                               <AlertTriangleIcon className="w-4 h-4 text-amber-600 flex-none" />

@@ -480,9 +480,9 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
                 </div>
                 <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
                   {jobActive && (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200">
                       <div className="w-2 h-2 rounded-full bg-amber-500" />
-                      <span className="text-sm font-medium text-amber-800">{project.name} (Job)</span>
+                      <span className="text-sm font-medium text-gray-900">{project.name} (Job)</span>
                     </div>
                   )}
                   {activeEvents.map((evt) => (

@@ -205,8 +205,8 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
 
           {/* Add/Edit Form */}
           {isFormVisible && (
-            <div className="border border-amber-200 rounded-xl p-4 bg-amber-50/30 space-y-3">
-              <p className="text-sm font-bold text-amber-800">
+            <div className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+              <p className="text-sm font-bold text-gray-900">
                 {editingId ? 'Edit Task Template' : 'New Task Template'}
               </p>
               <div>

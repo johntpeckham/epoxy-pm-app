@@ -383,9 +383,9 @@ export default function FeedPostListWorkspace({
           <div className="space-y-2">
             {/* Expense total banner */}
             {(primaryType === 'receipt' || primaryType === 'expense') && expenseTotal > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 mb-2">
-                <p className="text-sm font-semibold text-amber-800">Total: ${expenseTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                <p className="text-xs text-amber-600">{posts.length} expense{posts.length === 1 ? '' : 's'}</p>
+              <div className="bg-white border border-gray-200 rounded-lg px-4 py-2.5 mb-2">
+                <p className="text-sm font-semibold text-gray-900">Total: ${expenseTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-xs text-gray-500">{posts.length} expense{posts.length === 1 ? '' : 's'}</p>
               </div>
             )}
             {primaryType !== 'receipt' && primaryType !== 'expense' && (
