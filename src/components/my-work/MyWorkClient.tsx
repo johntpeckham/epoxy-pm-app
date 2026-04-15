@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Task, TaskStatus, OfficeTask, OfficePriority, UserRole } from '@/types'
 import OfficeTasksWorkspace from '@/components/my-work/OfficeTasksWorkspace'
 import ExpensesWorkspace from '@/components/my-work/ExpensesWorkspace'
+import OfficeDailyReportsWorkspace from '@/components/my-work/OfficeDailyReportsWorkspace'
 import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
 import type { SalesmanExpenseRow } from '@/components/salesman-expenses/SalesmanExpenseCard'
 import { ProjectChecklistItem } from '@/components/job-board/workspaces/ChecklistShared'
@@ -27,6 +28,7 @@ import {
   Maximize2Icon,
   BellIcon,
   PhoneIcon,
+  FileTextIcon,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -57,7 +59,13 @@ export interface MyWorkSalesActivity {
   overdueReminderCount: number
 }
 
-type WorkspaceType = 'assigned_tasks' | 'assigned_checklist' | 'office_tasks' | 'expenses' | null
+type WorkspaceType =
+  | 'assigned_tasks'
+  | 'assigned_checklist'
+  | 'office_tasks'
+  | 'expenses'
+  | 'office_daily_reports'
+  | null
 
 interface Props {
   userId: string
@@ -68,6 +76,12 @@ interface Props {
   initialExpenses: SalesmanExpenseRow[]
   initialReminders?: MyWorkReminder[]
   initialSalesActivity?: MyWorkSalesActivity | null
+  initialMyTodayReport?: {
+    id: string
+    clock_in: string | null
+    clock_out: string | null
+  } | null
+  initialTodayReportsCount?: number
 }
 
 /* ------------------------------------------------------------------ */
@@ -221,6 +235,8 @@ export default function MyWorkClient({
   initialExpenses,
   initialReminders,
   initialSalesActivity,
+  initialMyTodayReport,
+  initialTodayReportsCount,
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -278,7 +294,16 @@ export default function MyWorkClient({
     if (initializedFromUrl.current) return
     initializedFromUrl.current = true
     const workspace = searchParams.get('workspace') as WorkspaceType
-    if (workspace && ['assigned_tasks', 'assigned_checklist', 'office_tasks', 'expenses'].includes(workspace)) {
+    if (
+      workspace &&
+      [
+        'assigned_tasks',
+        'assigned_checklist',
+        'office_tasks',
+        'expenses',
+        'office_daily_reports',
+      ].includes(workspace)
+    ) {
       setActiveWorkspace(workspace)
     }
   }, [searchParams])
@@ -671,6 +696,18 @@ export default function MyWorkClient({
     )
   }
 
+  if (activeWorkspace === 'office_daily_reports') {
+    return (
+      <MyWorkspaceShell
+        title="Office Daily Reports"
+        icon={<FileTextIcon className="w-5 h-5" />}
+        onBack={backToDashboard}
+      >
+        <OfficeDailyReportsWorkspace userId={userId} userRole={userRole} />
+      </MyWorkspaceShell>
+    )
+  }
+
   /* ================================================================ */
   /*  RENDER — DASHBOARD CARDS (interactive)                           */
   /* ================================================================ */
@@ -1003,6 +1040,60 @@ export default function MyWorkClient({
                 )}
               </div>
             </>
+          )}
+        </InteractiveCard>
+
+        {/* ── Office Daily Reports ── */}
+        <InteractiveCard
+          icon={<FileTextIcon className="w-5 h-5" />}
+          title="Office Daily Reports"
+          onExpand={() => openWorkspace('office_daily_reports')}
+        >
+          {isAdmin ? (
+            <div>
+              <div className="text-center py-2">
+                <p className="text-3xl font-medium text-gray-900 tabular-nums">
+                  {initialTodayReportsCount ?? 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  report{(initialTodayReportsCount ?? 0) === 1 ? '' : 's'} today
+                </p>
+              </div>
+              <button
+                onClick={() => openWorkspace('office_daily_reports')}
+                className="w-full mt-2 py-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+              >
+                View all
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-3">
+              {(() => {
+                const r = initialMyTodayReport
+                let label = "Today's report: Not started"
+                let pillClass = 'bg-gray-100 text-gray-600'
+                if (r && r.clock_out) {
+                  label = "Today's report: Completed"
+                  pillClass = 'bg-amber-100 text-amber-700'
+                } else if (r) {
+                  label = "Today's report: In progress"
+                  pillClass = 'bg-amber-50 text-amber-600'
+                }
+                return (
+                  <span
+                    className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${pillClass}`}
+                  >
+                    {label}
+                  </span>
+                )
+              })()}
+              <button
+                onClick={() => openWorkspace('office_daily_reports')}
+                className="block w-full mt-3 py-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+              >
+                Open report
+              </button>
+            </div>
           )}
         </InteractiveCard>
 
