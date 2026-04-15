@@ -7,6 +7,7 @@ import {
   PhoneIcon,
   CalendarIcon,
   MapIcon,
+  TargetIcon,
   BarChart3Icon,
   BellIcon,
   XIcon,
@@ -31,6 +32,7 @@ interface Props {
   companyCount: number
   contactCount: number
   upcomingApptCount: number
+  activeLeadsCount: number
   weekActivity: ActivityWithComparison
   monthActivity: ActivityWithComparison
   overdueContacts: OverdueContact[]
@@ -43,6 +45,7 @@ export default function SalesDashboardClient({
   companyCount,
   contactCount,
   upcomingApptCount,
+  activeLeadsCount,
   weekActivity,
   monthActivity,
   overdueContacts,
@@ -119,7 +122,7 @@ export default function SalesDashboardClient({
       <p className="text-sm text-gray-500 mb-4">CRM, dialer, and appointments.</p>
 
       {/* ── Quick actions ── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <QuickActionCard
           href="/sales/crm"
           icon={<UsersIcon className="w-5 h-5" />}
@@ -139,6 +142,14 @@ export default function SalesDashboardClient({
           icon={<CalendarIcon className="w-5 h-5" />}
           title="Appointments"
           subtitle={`${upcomingApptCount} upcoming`}
+        />
+        <QuickActionCard
+          href="/sales/leads"
+          icon={<TargetIcon className="w-5 h-5" />}
+          title="Leads"
+          subtitle={`${activeLeadsCount} active ${
+            activeLeadsCount === 1 ? 'lead' : 'leads'
+          }`}
         />
         <QuickActionCard
           href="/sales/zone-map"
