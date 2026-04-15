@@ -71,7 +71,9 @@ export default function VendorsManager({ userId }: Props) {
   const [vendorTypes, setVendorTypes] = useState<VendorType[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  // Vendor rows default to expanded. Track which ids are *collapsed* —
+  // absence from the set means expanded.
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
 
   // Add vendor modal
   const [addModalOpen, setAddModalOpen] = useState(false)
@@ -166,7 +168,14 @@ export default function VendorsManager({ userId }: Props) {
     }
     setAddModalOpen(false)
     await fetchVendors()
-    if (data) setExpandedId((data as Vendor).id)
+    if (data) {
+      // New vendors should appear expanded; ensure they aren't in the collapsed set.
+      setCollapsedIds((prev) => {
+        const next = new Set(prev)
+        next.delete((data as Vendor).id)
+        return next
+      })
+    }
   }
 
   async function handleDeleteVendor() {
@@ -181,7 +190,12 @@ export default function VendorsManager({ userId }: Props) {
       alert(error.message)
       return
     }
-    if (expandedId === confirmDeleteVendor.id) setExpandedId(null)
+    setCollapsedIds((prev) => {
+      if (!prev.has(confirmDeleteVendor.id)) return prev
+      const next = new Set(prev)
+      next.delete(confirmDeleteVendor.id)
+      return next
+    })
     setConfirmDeleteVendor(null)
     await fetchVendors()
   }
@@ -322,7 +336,7 @@ export default function VendorsManager({ userId }: Props) {
         ) : (
           <div className="space-y-2">
             {filtered.map((vendor) => {
-              const isExpanded = expandedId === vendor.id
+              const isExpanded = !collapsedIds.has(vendor.id)
               const cityState = [vendor.city, vendor.state].filter(Boolean).join(', ')
               return (
                 <div
@@ -338,7 +352,14 @@ export default function VendorsManager({ userId }: Props) {
                     }
                   >
                     <button
-                      onClick={() => setExpandedId(isExpanded ? null : vendor.id)}
+                      onClick={() =>
+                        setCollapsedIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(vendor.id)) next.delete(vendor.id)
+                          else next.add(vendor.id)
+                          return next
+                        })
+                      }
                       className="flex-1 flex items-start gap-3 p-4 text-left hover:bg-gray-50 transition min-w-0"
                     >
                       <div className="mt-0.5 flex-shrink-0 text-gray-400">
