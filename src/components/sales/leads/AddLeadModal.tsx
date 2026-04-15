@@ -266,8 +266,24 @@ export default function AddLeadModal({
               </div>
 
               {creatingNewCustomer && (
-                <div className="border border-amber-200 bg-amber-50/40 rounded-lg p-3 space-y-3">
-                  <p className="text-xs font-medium text-amber-700">New customer details</p>
+                <div className="relative border border-gray-200 rounded-lg p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-gray-700">New customer details</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreatingNewCustomer(false)
+                        setNewCustomerName('')
+                        setNewCustomerEmail('')
+                        setNewCustomerPhone('')
+                        setNewCustomerAddress('')
+                      }}
+                      aria-label="Close new customer details"
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </button>
+                  </div>
                   <div>
                     <label className={labelCls}>
                       Customer Name <span className="text-red-500">*</span>
@@ -315,7 +331,7 @@ export default function AddLeadModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls}>Category</label>
+                  <label className={labelCls}>Lead source</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}

@@ -13,11 +13,13 @@ import {
   MergeIcon,
   ArrowUpIcon,
   ArrowDownIcon,
+  Trash2Icon,
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import NewCompanyModal from './NewCompanyModal'
 import ImportCsvModal from './ImportCsvModal'
 import MergeCompaniesModal from './MergeCompaniesModal'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { toCsv, downloadCsv } from '@/lib/csv'
 
 type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
@@ -98,15 +100,20 @@ const PAGE_SIZE = 50
 
 const FILTER_CONFIG: { field: FilterField; label: string }[] = [
   { field: 'status', label: 'Status' },
-  { field: 'zone', label: 'Zone' },
   { field: 'region', label: 'Region' },
-  { field: 'state', label: 'State' },
-  { field: 'county', label: 'County' },
-  { field: 'city', label: 'City' },
   { field: 'industry', label: 'Industry' },
   { field: 'priority', label: 'Priority' },
   { field: 'assigned_to', label: 'Assigned to' },
   { field: 'tags', label: 'Tags' },
+]
+
+// Sub-fields grouped under the Region filter chip
+const REGION_GROUP_FIELDS: { field: FilterField; label: string }[] = [
+  { field: 'region', label: 'Region' },
+  { field: 'zone', label: 'Zone' },
+  { field: 'state', label: 'State' },
+  { field: 'county', label: 'County' },
+  { field: 'city', label: 'City' },
 ]
 
 type SortField =
@@ -135,7 +142,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [companies, setCompanies] = useState<CompanyRow[]>([])
   const [profiles, setProfiles] = useState<ProfileMini[]>([])
   const [allTags, setAllTags] = useState<TagRow[]>([])
-  const [totalContactCount, setTotalContactCount] = useState(0)
 
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -178,6 +184,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [showMergeModal, setShowMergeModal] = useState(false)
   const [openFilter, setOpenFilter] = useState<FilterField | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   function toggleRowSelected(id: string) {
     setSelectedIds((prev) => {
@@ -186,6 +194,54 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       else next.add(id)
       return next
     })
+  }
+
+  async function updateCompanyField<K extends keyof CompanyRow>(
+    id: string,
+    field: K,
+    value: CompanyRow[K]
+  ) {
+    const prev = companies.find((c) => c.id === id)
+    if (!prev || prev[field] === value) return
+    // Optimistic update
+    setCompanies((cs) =>
+      cs.map((c) => {
+        if (c.id !== id) return c
+        const next = { ...c, [field]: value } as CompanyRow
+        if (field === 'assigned_to') {
+          const newAssigned = value as string | null
+          next.assigned_name = newAssigned
+            ? profiles.find((p) => p.id === newAssigned)?.display_name ?? null
+            : null
+        }
+        return next
+      })
+    )
+    const updates: Record<string, unknown> = { [field]: value }
+    const { error } = await supabase.from('crm_companies').update(updates).eq('id', id)
+    if (error) {
+      showToast(`Save failed: ${error.message}`)
+      // revert
+      setCompanies((cs) =>
+        cs.map((c) => (c.id === id ? { ...c, [field]: prev[field] } : c))
+      )
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return
+    setDeleting(true)
+    const ids = Array.from(selectedIds)
+    const { error } = await supabase.from('crm_companies').delete().in('id', ids)
+    setDeleting(false)
+    if (error) {
+      showToast(`Delete failed: ${error.message}`)
+      return
+    }
+    setShowDeleteConfirm(false)
+    setSelectedIds(new Set())
+    showToast(`Deleted ${ids.length} ${ids.length === 1 ? 'company' : 'companies'}`)
+    fetchAll()
   }
 
   async function handleExport() {
@@ -336,12 +392,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       .select('id, name')
       .order('name', { ascending: true })
     setAllTags((tagData ?? []) as TagRow[])
-
-    // Total contact count (for header subtitle)
-    const { count: contactCountRaw } = await supabase
-      .from('crm_contacts')
-      .select('id', { count: 'exact', head: true })
-    setTotalContactCount(contactCountRaw ?? 0)
 
     // Companies — fetch all (client-side filter/sort/paginate keeps aggregate
     // sorting correct across pages; dataset is expected to stay in the low
@@ -654,6 +704,15 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
 
   const activeFilterCount = Object.values(filters).reduce((n, s) => n + s.size, 0)
 
+  // List of existing industry values for the inline-edit datalist
+  const industryOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const c of companies) {
+      if (c.industry && c.industry.trim() !== '') set.add(c.industry.trim())
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [companies])
+
   // ─── Helpers for render ──────────────────────────────────────────────────
   function formatDate(iso: string | null): { text: string; stale: boolean } {
     if (!iso) return { text: '—', stale: false }
@@ -718,10 +777,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       <div className="px-7 pt-8 pb-4 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <h1 className="text-[22px] font-medium text-gray-900 leading-tight">CRM</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            {companies.length} {companies.length === 1 ? 'company' : 'companies'} ·{' '}
-            {totalContactCount} {totalContactCount === 1 ? 'contact' : 'contacts'}
-          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative" style={{ width: 280 }}>
@@ -743,6 +798,15 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
               </button>
             )}
           </div>
+          {selectedIds.size >= 1 && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <Trash2Icon className="w-4 h-4" />
+              Delete selected
+            </button>
+          )}
           {selectedIds.size === 2 && (
             <button
               onClick={() => setShowMergeModal(true)}
@@ -781,9 +845,12 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       <div className="px-7 pb-4 flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-400 mr-1">Filter:</span>
         {FILTER_CONFIG.map(({ field, label }) => {
+          const isRegionGroup = field === 'region'
+          const groupFields = isRegionGroup ? REGION_GROUP_FIELDS : [{ field, label }]
+          const activeCount = groupFields.reduce((n, g) => n + filters[g.field].size, 0)
           const selected = filters[field]
           const options = filterOptions[field]
-          const active = selected.size > 0
+          const active = activeCount > 0
           return (
             <div key={field} className="relative">
               <button
@@ -796,13 +863,17 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 style={{ borderRadius: 20 }}
               >
                 {label}
-                {active && <span className="text-[10px] text-blue-500">({selected.size})</span>}
+                {active && <span className="text-[10px] text-blue-500">({activeCount})</span>}
                 {active ? (
                   <XIcon
                     className="w-3 h-3 ml-0.5 hover:text-blue-900"
                     onClick={(e) => {
                       e.stopPropagation()
-                      clearFilter(field)
+                      if (isRegionGroup) {
+                        for (const g of groupFields) clearFilter(g.field)
+                      } else {
+                        clearFilter(field)
+                      }
                     }}
                   />
                 ) : (
@@ -816,9 +887,42 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                     onClick={() => setOpenFilter(null)}
                   />
                   <div
-                    className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[200px] max-h-[300px] overflow-y-auto"
+                    className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[220px] max-h-[380px] overflow-y-auto"
                   >
-                    {options.length === 0 ? (
+                    {isRegionGroup ? (
+                      groupFields.map((g, gi) => {
+                        const gOptions = filterOptions[g.field]
+                        const gSelected = filters[g.field]
+                        return (
+                          <div key={g.field} className={gi > 0 ? 'mt-2 pt-2 border-t border-gray-100' : ''}>
+                            <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                              {g.label}
+                            </div>
+                            {gOptions.length === 0 ? (
+                              <div className="px-3 py-1.5 text-xs text-gray-300">No values</div>
+                            ) : (
+                              gOptions.map((opt) => {
+                                const checked = gSelected.has(opt.value)
+                                return (
+                                  <label
+                                    key={opt.value}
+                                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => toggleFilterValue(g.field, opt.value)}
+                                      className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
+                                    />
+                                    <span className="truncate">{opt.label}</span>
+                                  </label>
+                                )
+                              })
+                            )}
+                          </div>
+                        )
+                      })
+                    ) : options.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-gray-400">No values</div>
                     ) : (
                       options.map((opt) => {
@@ -947,42 +1051,94 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                       />
                     </td>
                     <td
-                      className="pl-2 pr-2 text-sm font-medium text-gray-900 truncate"
+                      className="pl-2 pr-2 text-sm font-medium text-gray-900"
                       style={{ paddingTop: 14, paddingBottom: 14 }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {c.name}
+                      <EditableTextCell
+                        value={c.name}
+                        className="text-sm font-medium text-gray-900"
+                        onSave={(v) => updateCompanyField(c.id, 'name', v ?? c.name)}
+                      />
                     </td>
                     <td
-                      className="px-2 text-sm text-gray-600 truncate"
+                      className="px-2 text-sm text-gray-600"
                       style={{ paddingTop: 14, paddingBottom: 14 }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {c.industry || '—'}
+                      <EditableTextCell
+                        value={c.industry}
+                        className="text-sm text-gray-600"
+                        datalistId="crm-industry-list"
+                        datalistOptions={industryOptions}
+                        onSave={(v) => updateCompanyField(c.id, 'industry', v)}
+                      />
                     </td>
                     <td
-                      className="px-2 text-sm text-gray-600 truncate"
+                      className="px-2 text-sm text-gray-600"
                       style={{ paddingTop: 14, paddingBottom: 14 }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {c.zone || '—'}
+                      <EditableTextCell
+                        value={c.zone}
+                        className="text-sm text-gray-600"
+                        onSave={(v) => updateCompanyField(c.id, 'zone', v)}
+                      />
                     </td>
                     <td
-                      className="px-2 text-sm text-gray-600 truncate"
+                      className="px-2 text-sm text-gray-600"
                       style={{ paddingTop: 14, paddingBottom: 14 }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {cityState || '—'}
+                      <EditableTextCell
+                        value={c.city}
+                        placeholder={cityState || '—'}
+                        className="text-sm text-gray-600"
+                        onSave={(v) => updateCompanyField(c.id, 'city', v)}
+                      />
                     </td>
                     <td
                       className={`px-2 text-sm ${STATUS_TEXT_COLOR[c.status]}`}
                       style={{ paddingTop: 14, paddingBottom: 14 }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {STATUS_LABELS[c.status]}
+                      <EditableSelectCell
+                        value={c.status}
+                        options={(
+                          ['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'] as CompanyStatus[]
+                        ).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+                        displayClassName={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
+                        className={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
+                        onSave={(v) =>
+                          updateCompanyField(c.id, 'status', (v ?? 'prospect') as CompanyStatus)
+                        }
+                      />
                     </td>
                     <td
                       className={`px-2 text-sm ${
                         c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
                       }`}
                       style={{ paddingTop: 14, paddingBottom: 14 }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {c.priority ? PRIORITY_LABELS[c.priority] : '—'}
+                      <EditableSelectCell
+                        value={c.priority}
+                        allowEmpty
+                        emptyLabel="—"
+                        options={(['high', 'medium', 'low'] as CompanyPriority[]).map((p) => ({
+                          value: p,
+                          label: PRIORITY_LABELS[p],
+                        }))}
+                        displayClassName={`text-sm ${
+                          c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
+                        }`}
+                        className={`text-sm ${
+                          c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
+                        }`}
+                        onSave={(v) =>
+                          updateCompanyField(c.id, 'priority', (v as CompanyPriority | null) ?? null)
+                        }
+                      />
                     </td>
                     <td
                       className="px-2 text-sm text-gray-600 text-center"
@@ -997,10 +1153,23 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                       {last.text}
                     </td>
                     <td
-                      className="px-2 text-sm text-gray-600 truncate"
+                      className="px-2 text-sm text-gray-600"
                       style={{ paddingTop: 14, paddingBottom: 14 }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {formatAssigned(c.assigned_name)}
+                      <EditableSelectCell
+                        value={c.assigned_to}
+                        allowEmpty
+                        emptyLabel="—"
+                        options={profiles
+                          .filter((p) => p.display_name)
+                          .map((p) => ({ value: p.id, label: p.display_name ?? '' }))
+                          .sort((a, b) => a.label.localeCompare(b.label))}
+                        displayLabel={formatAssigned(c.assigned_name)}
+                        displayClassName="text-sm text-gray-600"
+                        className="text-sm text-gray-600"
+                        onSave={(v) => updateCompanyField(c.id, 'assigned_to', v)}
+                      />
                     </td>
                     <td
                       className="pl-2 pr-7 text-sm text-gray-500 truncate"
@@ -1086,6 +1255,21 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
         />
       )}
 
+      {/* ── Delete confirmation ── */}
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete selected companies"
+          message={`Delete ${selectedIds.size} selected ${
+            selectedIds.size === 1 ? 'company' : 'companies'
+          }? This will also delete all their contacts, call logs, comments, and files. This cannot be undone.`}
+          confirmLabel="Delete"
+          variant="destructive"
+          loading={deleting}
+          onConfirm={handleBulkDelete}
+          onCancel={() => (deleting ? null : setShowDeleteConfirm(false))}
+        />
+      )}
+
       {/* ── Merge companies modal ── */}
       {showMergeModal && selectedIds.size === 2 && (
         <MergeCompaniesModal
@@ -1101,5 +1285,176 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
         />
       )}
     </div>
+  )
+}
+
+// ── Inline-edit helpers ─────────────────────────────────────────────────────
+// Shared input chrome: same font-size as cell text, no border, subtle underline
+// on focus. Uses `inherit` color so it blends into the cell.
+const INLINE_INPUT_CLS =
+  'w-full bg-transparent outline-none border-0 border-b border-transparent focus:border-amber-400 px-0 py-0 m-0 text-inherit text-sm font-[inherit]'
+
+interface EditableTextCellProps {
+  value: string | null
+  placeholder?: string
+  className?: string
+  title?: string
+  datalistId?: string
+  datalistOptions?: string[]
+  onSave: (next: string | null) => void
+}
+
+function EditableTextCell({
+  value,
+  placeholder = '—',
+  className = '',
+  title,
+  datalistId,
+  datalistOptions,
+  onSave,
+}: EditableTextCellProps) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  function commit() {
+    const trimmed = draft.trim()
+    const next = trimmed === '' ? null : trimmed
+    setEditing(false)
+    if (next !== (value ?? null)) onSave(next)
+  }
+  function cancel() {
+    setDraft(value ?? '')
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <>
+        <input
+          ref={inputRef}
+          type="text"
+          value={draft}
+          list={datalistId}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commit()
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              cancel()
+            }
+          }}
+          className={`${INLINE_INPUT_CLS} ${className}`}
+        />
+        {datalistId && datalistOptions && (
+          <datalist id={datalistId}>
+            {datalistOptions.map((opt) => (
+              <option key={opt} value={opt} />
+            ))}
+          </datalist>
+        )}
+      </>
+    )
+  }
+  return (
+    <span
+      onClick={(e) => {
+        e.stopPropagation()
+        setEditing(true)
+      }}
+      title={title}
+      className={`block w-full cursor-text truncate ${className}`}
+    >
+      {value && value.trim() !== '' ? value : placeholder}
+    </span>
+  )
+}
+
+interface EditableSelectCellProps {
+  value: string | null
+  options: { value: string; label: string }[]
+  allowEmpty?: boolean
+  emptyLabel?: string
+  placeholder?: string
+  className?: string
+  displayClassName?: string
+  displayLabel?: string
+  onSave: (next: string | null) => void
+}
+
+function EditableSelectCell({
+  value,
+  options,
+  allowEmpty = false,
+  emptyLabel = '—',
+  placeholder = '—',
+  className = '',
+  displayClassName = '',
+  displayLabel,
+  onSave,
+}: EditableSelectCellProps) {
+  const [editing, setEditing] = useState(false)
+  const selectRef = useRef<HTMLSelectElement>(null)
+
+  useEffect(() => {
+    if (editing && selectRef.current) {
+      selectRef.current.focus()
+    }
+  }, [editing])
+
+  function commit(next: string) {
+    setEditing(false)
+    const nextVal = next === '' ? null : next
+    if (nextVal !== (value ?? null)) onSave(nextVal)
+  }
+
+  if (editing) {
+    return (
+      <select
+        ref={selectRef}
+        defaultValue={value ?? ''}
+        onChange={(e) => commit(e.target.value)}
+        onBlur={() => setEditing(false)}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            setEditing(false)
+          }
+        }}
+        className={`${INLINE_INPUT_CLS} ${className}`}
+      >
+        {allowEmpty && <option value="">{emptyLabel}</option>}
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    )
+  }
+  const current = options.find((o) => o.value === value)
+  const text = displayLabel ?? (current ? current.label : placeholder)
+  return (
+    <span
+      onClick={(e) => {
+        e.stopPropagation()
+        setEditing(true)
+      }}
+      className={`block w-full cursor-pointer truncate ${displayClassName}`}
+    >
+      {text}
+    </span>
   )
 }
