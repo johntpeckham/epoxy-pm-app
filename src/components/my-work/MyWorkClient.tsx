@@ -9,6 +9,7 @@ import OfficeTasksWorkspace from '@/components/my-work/OfficeTasksWorkspace'
 import ExpensesWorkspace from '@/components/my-work/ExpensesWorkspace'
 import OfficeDailyReportsWorkspace from '@/components/my-work/OfficeDailyReportsWorkspace'
 import MyTasksCard from '@/components/my-work/MyTasksCard'
+import TeamTasksCard from '@/components/my-work/TeamTasksCard'
 import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
 import type { SalesmanExpenseRow } from '@/components/salesman-expenses/SalesmanExpenseCard'
 import { ProjectChecklistItem } from '@/components/job-board/workspaces/ChecklistShared'
@@ -719,7 +720,10 @@ export default function MyWorkClient({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
         {/* ── My Tasks (first card — daily/weekly/one-time assignments) ── */}
-        <MyTasksCard userId={userId} userRole={userRole} />
+        <MyTasksCard userId={userId} />
+
+        {/* ── Team Tasks (admin only — sits next to My Tasks) ── */}
+        {isAdmin && <TeamTasksCard currentUserId={userId} />}
 
         {/* ── Assigned Field Tasks (foreman only) ── */}
         {isForeman && (

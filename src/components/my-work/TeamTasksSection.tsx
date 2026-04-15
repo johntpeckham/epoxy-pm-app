@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronDownIcon, ChevronRightIcon, UsersIcon } from 'lucide-react'
+import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import type {
   AssignedTask,
   AssignedTaskCompletion,
@@ -103,11 +103,7 @@ export default function TeamTasksSection({ currentUserId }: Props) {
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-amber-500">
-          <UsersIcon className="w-4 h-4" />
-        </span>
-        <h4 className="text-sm font-semibold text-gray-900 flex-1">Team tasks</h4>
+      <div className="flex items-center justify-end mb-3">
         <input
           type="date"
           value={selectedDate}
