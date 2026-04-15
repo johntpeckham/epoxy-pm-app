@@ -143,6 +143,7 @@ interface Props {
   productCount: number
   contactCount: number
   customerCount: number
+  vendorCount: number
 }
 
 type OfficeView =
@@ -169,6 +170,7 @@ export default function OfficeTasksPageClient({
   productCount,
   contactCount,
   customerCount,
+  vendorCount,
 }: Props) {
   const supabase = createClient()
 
@@ -698,6 +700,24 @@ export default function OfficeTasksPageClient({
             <h3 className="text-sm font-semibold text-gray-900 flex-1">Customers</h3>
             <span className="text-xs text-gray-500">
               {customerCount} {customerCount === 1 ? 'customer' : 'customers'}
+            </span>
+          </div>
+        </Link>
+        )}
+
+        {/* ── Vendors Card (spans 2 columns) ── hidden for foreman */}
+        {!isForeman && (
+        <Link
+          href="/office/vendors"
+          className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer block"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-amber-500">
+              <Building2Icon className="w-5 h-5" />
+            </span>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">Vendors</h3>
+            <span className="text-xs text-gray-500">
+              {vendorCount} {vendorCount === 1 ? 'vendor' : 'vendors'}
             </span>
           </div>
         </Link>
