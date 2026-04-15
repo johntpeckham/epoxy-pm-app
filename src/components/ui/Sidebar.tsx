@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon, BugIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon, BugIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, MapIcon } from 'lucide-react'
 import ReportProblemButton from '@/components/bug-reports/ReportProblemButton'
 import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -80,14 +80,15 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isSalesCrmActive = pathname === '/sales/crm' || pathname.startsWith('/sales/crm/')
   const isSalesDialerActive = pathname === '/sales/dialer' || pathname.startsWith('/sales/dialer/')
   const isSalesAppointmentsActive = pathname === '/sales/appointments' || pathname.startsWith('/sales/appointments/')
-  const isSalesSectionActive = isSalesActive || isSalesCrmActive || isSalesDialerActive || isSalesAppointmentsActive
+  const isSalesZoneMapActive = pathname === '/sales/zone-map' || pathname.startsWith('/sales/zone-map/')
+  const isSalesSectionActive = isSalesActive || isSalesCrmActive || isSalesDialerActive || isSalesAppointmentsActive || isSalesZoneMapActive
 
   // Keep Sales section expanded when any sub-item is active
   useEffect(() => {
-    if (isSalesCrmActive || isSalesDialerActive || isSalesAppointmentsActive) {
+    if (isSalesCrmActive || isSalesDialerActive || isSalesAppointmentsActive || isSalesZoneMapActive) {
       setSalesExpanded(true)
     }
-  }, [isSalesCrmActive, isSalesDialerActive, isSalesAppointmentsActive])
+  }, [isSalesCrmActive, isSalesDialerActive, isSalesAppointmentsActive, isSalesZoneMapActive])
 
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
   const userName = displayName || userEmail?.split('@')[0] || 'User'
@@ -421,6 +422,18 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
               >
                 <CalendarIcon className="w-4 h-4 flex-shrink-0" />
                 Appointments
+              </Link>
+              <Link
+                href="/sales/zone-map"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isSalesZoneMapActive
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                <MapIcon className="w-4 h-4 flex-shrink-0" />
+                Zone Map
               </Link>
             </div>
           </div>

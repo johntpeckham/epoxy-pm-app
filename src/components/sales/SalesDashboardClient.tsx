@@ -6,6 +6,7 @@ import {
   UsersIcon,
   PhoneIcon,
   CalendarIcon,
+  MapIcon,
   BarChart3Icon,
   BellIcon,
   XIcon,
@@ -118,7 +119,7 @@ export default function SalesDashboardClient({
       <p className="text-sm text-gray-500 mb-4">CRM, dialer, and appointments.</p>
 
       {/* ── Quick actions ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <QuickActionCard
           href="/sales/crm"
           icon={<UsersIcon className="w-5 h-5" />}
@@ -138,6 +139,14 @@ export default function SalesDashboardClient({
           icon={<CalendarIcon className="w-5 h-5" />}
           title="Appointments"
           subtitle={`${upcomingApptCount} upcoming`}
+        />
+        <QuickActionCard
+          href="/sales/zone-map"
+          icon={<MapIcon className="w-5 h-5" />}
+          title="Zone Map"
+          subtitle={`${companyCount} ${
+            companyCount === 1 ? 'company' : 'companies'
+          } mapped`}
         />
         <button
           onClick={() => {

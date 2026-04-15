@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   ClockIcon,
   UserPlusIcon,
@@ -22,6 +23,10 @@ import CallTemplateModal, {
   TEMPLATE_TYPE_LABELS,
 } from '../CallTemplateModal'
 import type { QueuedContact } from './dialerTypes'
+import {
+  type SmartListFilters,
+  EMPTY_SMART_FILTERS,
+} from '../zone-map/zoneMapTypes'
 
 type StatusFilter = 'prospect_contacted' | 'hot_lead' | 'all'
 type PriorityFilter = 'all' | 'high' | 'high_medium'
@@ -134,6 +139,55 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
   useEffect(() => {
     fetchAll()
   }, [fetchAll])
+
+  // ─── Auto-start from smart list (?list=<id>) ────────────────────────
+  const searchParams = useSearchParams()
+  const incomingListId = searchParams.get('list')
+  const autoStartedRef = useRef(false)
+
+  useEffect(() => {
+    if (!incomingListId) return
+    if (loading) return // wait for companies/contacts to load
+    if (autoStartedRef.current) return
+    autoStartedRef.current = true
+    ;(async () => {
+      const [{ data }, { data: tagJunctions }] = await Promise.all([
+        supabase
+          .from('crm_smart_lists')
+          .select('filters, contact_count')
+          .eq('id', incomingListId)
+          .single(),
+        supabase.from('crm_company_tags').select('company_id, tag_id'),
+      ])
+      if (!data) return
+      const filters: SmartListFilters = {
+        ...EMPTY_SMART_FILTERS,
+        ...((data.filters ?? {}) as Partial<SmartListFilters>),
+      }
+      const contactCount = (data.contact_count as number | null) ?? 25
+      const tagsByCompany = new Map<string, string[]>()
+      for (const r of (tagJunctions ?? []) as {
+        company_id: string
+        tag_id: string
+      }[]) {
+        const arr = tagsByCompany.get(r.company_id) ?? []
+        arr.push(r.tag_id)
+        tagsByCompany.set(r.company_id, arr)
+      }
+      const queue = buildSmartListQueue({
+        filters,
+        contactCount,
+        companies,
+        contacts,
+        companyMap,
+        lastCallMap,
+        tagsByCompany,
+      })
+      if (queue.length > 0) onStart(queue)
+    })()
+    // We only want this to fire once data is ready and `list` is present.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingListId, loading])
 
   // Distinct filter options from loaded companies
   const zones = useMemo(() => {
@@ -683,4 +737,113 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
       )}
     </div>
   )
+}
+
+// ─── Smart list → QueuedContact[] helper ──────────────────────────────
+// Builds a call queue for the dialer using the same rules as DialerSetup's
+// auto-select logic, but driven by a saved smart list's filter parameters.
+function buildSmartListQueue(input: {
+  filters: SmartListFilters
+  contactCount: number
+  companies: CompanyRow[]
+  contacts: ContactRow[]
+  companyMap: Map<string, CompanyRow>
+  lastCallMap: Map<string, string>
+  tagsByCompany: Map<string, string[]>
+}): QueuedContact[] {
+  const {
+    filters,
+    contactCount,
+    companies,
+    contacts,
+    companyMap,
+    lastCallMap,
+    tagsByCompany,
+  } = input
+
+  const statusSet =
+    filters.status.length > 0 ? new Set(filters.status) : null
+
+  const eligibleCompanies = companies.filter((c) => {
+    if (c.status === 'blacklisted') return false
+    if (statusSet && !statusSet.has(c.status)) return false
+    if (filters.zone.length > 0 && (!c.zone || !filters.zone.includes(c.zone)))
+      return false
+    if (
+      filters.region.length > 0 &&
+      (!c.region || !filters.region.includes(c.region))
+    )
+      return false
+    if (
+      filters.state.length > 0 &&
+      (!c.state || !filters.state.includes(c.state))
+    )
+      return false
+    if (
+      filters.county.length > 0 &&
+      (!c.county || !filters.county.includes(c.county))
+    )
+      return false
+    if (filters.city.length > 0 && (!c.city || !filters.city.includes(c.city)))
+      return false
+    if (
+      filters.industry.length > 0 &&
+      (!c.industry || !filters.industry.includes(c.industry))
+    )
+      return false
+    if (
+      filters.priority.length > 0 &&
+      (!c.priority || !filters.priority.includes(c.priority))
+    )
+      return false
+    if (filters.tags.length > 0) {
+      const t = tagsByCompany.get(c.id) ?? []
+      if (!t.some((x) => filters.tags.includes(x))) return false
+    }
+    return true
+  })
+  const eligibleIds = new Set(eligibleCompanies.map((c) => c.id))
+
+  const picked = new Map<string, ContactRow>()
+  for (const c of contacts) {
+    if (!eligibleIds.has(c.company_id)) continue
+    const existing = picked.get(c.company_id)
+    if (!existing) picked.set(c.company_id, c)
+    else if (!existing.is_primary && c.is_primary)
+      picked.set(c.company_id, c)
+  }
+
+  const out: QueuedContact[] = []
+  for (const c of picked.values()) {
+    const comp = companyMap.get(c.company_id)
+    if (!comp) continue
+    out.push({
+      contact_id: c.id,
+      contact_first_name: c.first_name,
+      contact_last_name: c.last_name,
+      contact_job_title: c.job_title,
+      contact_email: c.email,
+      contact_phone: c.phone,
+      company_id: comp.id,
+      company_name: comp.name,
+      company_industry: comp.industry,
+      company_zone: comp.zone,
+      company_region: comp.region,
+      company_county: comp.county,
+      company_city: comp.city,
+      company_state: comp.state,
+      company_priority: comp.priority,
+      last_call_date: lastCallMap.get(c.company_id) ?? null,
+    })
+  }
+  out.sort((a, b) => {
+    if (!a.last_call_date && !b.last_call_date) return 0
+    if (!a.last_call_date) return -1
+    if (!b.last_call_date) return 1
+    return (
+      new Date(a.last_call_date).getTime() -
+      new Date(b.last_call_date).getTime()
+    )
+  })
+  return out.slice(0, Math.max(1, contactCount))
 }
