@@ -20,6 +20,7 @@ import {
   PackageIcon,
   UsersIcon,
   FileTextIcon,
+  ContactIcon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
@@ -140,6 +141,7 @@ interface Props {
   employeeCount: number
   supplierCount: number
   productCount: number
+  contactCount: number
 }
 
 type OfficeView =
@@ -164,6 +166,7 @@ export default function OfficeTasksPageClient({
   employeeCount,
   supplierCount,
   productCount,
+  contactCount,
 }: Props) {
   const supabase = createClient()
 
@@ -660,6 +663,24 @@ export default function OfficeTasksPageClient({
               <h3 className="text-sm font-semibold text-gray-900">Employees</h3>
             </div>
           </div>
+        )}
+
+        {/* ── Contacts Card (spans 2 columns) ── hidden for foreman */}
+        {!isForeman && (
+        <Link
+          href="/office/contacts"
+          className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer block"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-amber-500">
+              <ContactIcon className="w-5 h-5" />
+            </span>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">Contacts</h3>
+            <span className="text-xs text-gray-500">
+              {contactCount} {contactCount === 1 ? 'contact' : 'contacts'}
+            </span>
+          </div>
+        </Link>
         )}
 
         {/* ── Material Inventory Card (spans 2 columns) ── hidden for foreman */}
