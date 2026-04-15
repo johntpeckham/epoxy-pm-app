@@ -7,8 +7,11 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ListChecksIcon,
+  Settings2Icon,
 } from 'lucide-react'
-import type { AssignedTask, AssignedTaskCompletion } from '@/types'
+import type { AssignedTask, AssignedTaskCompletion, UserRole } from '@/types'
+import TeamTasksSection from './TeamTasksSection'
+import ManageAssignedTasksModal from './ManageAssignedTasksModal'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -64,14 +67,16 @@ function tasksForDate(tasks: AssignedTask[], date: Date): AssignedTask[] {
 
 interface Props {
   userId: string
+  userRole: UserRole
 }
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function MyTasksCard({ userId }: Props) {
+export default function MyTasksCard({ userId, userRole }: Props) {
   const supabase = useMemo(() => createClient(), [])
+  const isAdmin = userRole === 'admin'
 
   const [viewDate, setViewDate] = useState<Date>(() => startOfToday())
   const [tasks, setTasks] = useState<AssignedTask[]>([])
@@ -79,6 +84,8 @@ export default function MyTasksCard({ userId }: Props) {
   const [loading, setLoading] = useState(true)
   const [noteTaskId, setNoteTaskId] = useState<string | null>(null)
   const [noteValue, setNoteValue] = useState('')
+  const [showManage, setShowManage] = useState(false)
+  const [teamReloadKey, setTeamReloadKey] = useState(0)
 
   const today = startOfToday()
   const isToday = isSameDay(viewDate, today)
@@ -347,7 +354,7 @@ export default function MyTasksCard({ userId }: Props) {
         <span className="text-amber-500">
           <ListChecksIcon className="w-5 h-5" />
         </span>
-        <h3 className="text-sm font-semibold text-gray-900 flex-1">My Tasks</h3>
+        <h3 className="text-sm font-semibold text-gray-900 flex-1">Daily Playbook</h3>
         <div className="flex items-center gap-1">
           <button
             onClick={goPrev}
@@ -433,6 +440,34 @@ export default function MyTasksCard({ userId }: Props) {
         </div>
       )}
 
+      {/* Admin: Team Playbook section + Manage tasks */}
+      {isAdmin && (
+        <>
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <p className="text-[12px] text-gray-400 mb-2">Team Playbook</p>
+            <TeamTasksSection key={teamReloadKey} currentUserId={userId} />
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => setShowManage(true)}
+              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
+            >
+              <Settings2Icon className="w-3.5 h-3.5" />
+              Manage tasks
+            </button>
+          </div>
+        </>
+      )}
+
+      {showManage && (
+        <ManageAssignedTasksModal
+          onClose={() => setShowManage(false)}
+          onChanged={() => {
+            loadData()
+            setTeamReloadKey((k) => k + 1)
+          }}
+        />
+      )}
     </div>
   )
 }
