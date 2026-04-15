@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import SchedulePreviewModal from './SchedulePreviewModal'
+import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
 import {
   CalendarRangeIcon,
   MonitorIcon,
@@ -908,7 +909,7 @@ export default function SchedulerClient({
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <SaveIndicator state={saveState} />
+              <AutoSaveIndicator isSaving={saveState === 'saving'} />
               <button
                 onClick={toggleFullscreen}
                 title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
@@ -1345,30 +1346,6 @@ export default function SchedulerClient({
 }
 
 // ─── Save indicator ───────────────────────────────────────────────────────
-function SaveIndicator({ state }: { state: 'idle' | 'saving' | 'saved' | 'error' }) {
-  if (state === 'idle') return <div className="h-5 w-20" />
-  if (state === 'saving')
-    return (
-      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-        <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-        Saving…
-      </div>
-    )
-  if (state === 'saved')
-    return (
-      <div className="flex items-center gap-1.5 text-xs text-green-600">
-        <CheckIcon className="w-3.5 h-3.5" />
-        Saved
-      </div>
-    )
-  return (
-    <div className="flex items-center gap-1.5 text-xs text-red-500">
-      <AlertTriangleIcon className="w-3.5 h-3.5" />
-      Save failed
-    </div>
-  )
-}
-
 // ─── Week row ─────────────────────────────────────────────────────────────
 const WEEK_GRID_COLUMNS = '144px repeat(7, minmax(0, 1fr))'
 
