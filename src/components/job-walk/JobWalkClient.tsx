@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -8,6 +8,8 @@ import {
   SearchIcon,
   FootprintsIcon,
   ChevronRightIcon,
+  ChevronDownIcon,
+  CheckIcon,
   Trash2Icon,
 } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
@@ -131,9 +133,8 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     )
   }, [])
 
-  const toggleStatus = useCallback(async (walk: JobWalk) => {
-    const next: JobWalkStatus =
-      walk.status === 'completed' ? 'in_progress' : 'completed'
+  const setWalkStatus = useCallback(async (walk: JobWalk, next: JobWalkStatus) => {
+    if (next === walk.status) return
     // Optimistic update
     setJobWalks((prev) =>
       prev.map((w) => (w.id === walk.id ? { ...w, status: next } : w))
@@ -144,7 +145,7 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
       .update({ status: next })
       .eq('id', walk.id)
     if (error) {
-      console.error('[JobWalk] Status toggle failed:', error)
+      console.error('[JobWalk] Status update failed:', error)
       // Revert on error
       setJobWalks((prev) =>
         prev.map((w) => (w.id === walk.id ? { ...w, status: walk.status } : w))
@@ -312,14 +313,10 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
                     {selected.address ? ` · ${selected.address}` : ''}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toggleStatus(selected)}
-                  title="Tap to toggle status"
-                  className={`inline-flex flex-shrink-0 items-center px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-transparent hover:border-current/40 cursor-pointer transition ${STATUS_STYLES[selected.status].className}`}
-                >
-                  {STATUS_STYLES[selected.status].label}
-                </button>
+                <StatusDropdown
+                  walk={selected}
+                  onChange={(next) => setWalkStatus(selected, next)}
+                />
                 <button
                   type="button"
                   onClick={() => setConfirmDeleteWalk(selected)}
@@ -431,5 +428,83 @@ function JobWalkListItem({ walk, isSelected, onSelect }: JobWalkListItemProps) {
         </span>
       </div>
     </button>
+  )
+}
+
+interface StatusDropdownProps {
+  walk: JobWalk
+  onChange: (next: JobWalkStatus) => void
+}
+
+function StatusDropdown({ walk, onChange }: StatusDropdownProps) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const current = STATUS_STYLES[walk.status]
+
+  useEffect(() => {
+    if (!open) return
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [open])
+
+  const options: JobWalkStatus[] = ['in_progress', 'completed']
+
+  return (
+    <div ref={containerRef} className="relative flex-shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition ${current.className} hover:opacity-80`}
+      >
+        {current.label}
+        <ChevronDownIcon className="w-3 h-3" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-1.5 z-20 min-w-[160px] rounded-lg border border-gray-200 bg-white shadow-lg py-1"
+        >
+          {options.map((opt) => {
+            const style = STATUS_STYLES[opt]
+            const isActive = walk.status === opt
+            return (
+              <button
+                key={opt}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onChange(opt)
+                  setOpen(false)
+                }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-50 transition"
+              >
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${style.className}`}
+                >
+                  {style.label}
+                </span>
+                {isActive && (
+                  <CheckIcon className="w-4 h-4 text-amber-500 ml-auto flex-shrink-0" />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
