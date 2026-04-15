@@ -8,6 +8,8 @@ export interface Vendor {
   state: string | null
   zip: string | null
   notes: string | null
+  color: string | null
+  vendor_type: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -24,4 +26,10 @@ export interface VendorContact {
   is_primary: boolean
   created_at: string
   updated_at: string
+}
+
+export interface VendorType {
+  id: string
+  name: string
+  created_at: string
 }

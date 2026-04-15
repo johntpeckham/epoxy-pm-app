@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import {
   PlusIcon,
   PencilIcon,
-  Trash2Icon,
   XIcon,
   Loader2Icon,
   SearchIcon,
@@ -17,7 +16,18 @@ import {
   MailIcon,
 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-import type { Vendor, VendorContact } from '@/types/vendor'
+import Portal from '@/components/ui/Portal'
+import { useUserRole } from '@/lib/useUserRole'
+import type { Vendor, VendorContact, VendorType } from '@/types/vendor'
+
+const PRESET_COLORS = [
+  { value: '#f59e0b', label: 'Amber' },
+  { value: '#3b82f6', label: 'Blue' },
+  { value: '#10b981', label: 'Green' },
+  { value: '#ef4444', label: 'Red' },
+  { value: '#8b5cf6', label: 'Purple' },
+  { value: '#ec4899', label: 'Pink' },
+]
 
 type VendorFormState = {
   name: string
@@ -28,6 +38,8 @@ type VendorFormState = {
   state: string
   zip: string
   notes: string
+  color: string | null
+  vendor_type: string | null
 }
 
 function emptyVendorForm(): VendorFormState {
@@ -40,6 +52,8 @@ function emptyVendorForm(): VendorFormState {
     state: '',
     zip: '',
     notes: '',
+    color: null,
+    vendor_type: null,
   }
 }
 
@@ -49,9 +63,12 @@ interface Props {
 
 export default function VendorsManager({ userId }: Props) {
   const supabase = createClient()
+  const { role } = useUserRole()
+  const isAdmin = role === 'admin'
 
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [contactCounts, setContactCounts] = useState<Record<string, number>>({})
+  const [vendorTypes, setVendorTypes] = useState<VendorType[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -61,6 +78,12 @@ export default function VendorsManager({ userId }: Props) {
   const [addForm, setAddForm] = useState<VendorFormState>(emptyVendorForm())
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+
+  // Edit vendor modal (launched from header pencil)
+  const [editVendor, setEditVendor] = useState<Vendor | null>(null)
+  const [editForm, setEditForm] = useState<VendorFormState>(emptyVendorForm())
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
 
   // Delete vendor
   const [confirmDeleteVendor, setConfirmDeleteVendor] = useState<Vendor | null>(null)
@@ -91,9 +114,18 @@ export default function VendorsManager({ userId }: Props) {
     setLoading(false)
   }, [supabase])
 
+  const fetchVendorTypes = useCallback(async () => {
+    const { data } = await supabase
+      .from('vendor_types')
+      .select('*')
+      .order('name', { ascending: true })
+    setVendorTypes((data ?? []) as VendorType[])
+  }, [supabase])
+
   useEffect(() => {
     fetchVendors()
-  }, [fetchVendors])
+    fetchVendorTypes()
+  }, [fetchVendors, fetchVendorTypes])
 
   function openAddModal() {
     setAddForm(emptyVendorForm())
@@ -118,6 +150,8 @@ export default function VendorsManager({ userId }: Props) {
       state: addForm.state.trim() || null,
       zip: addForm.zip.trim() || null,
       notes: addForm.notes.trim() || null,
+      color: addForm.color,
+      vendor_type: addForm.vendor_type,
       created_by: userId,
     }
     const { data, error } = await supabase
@@ -165,6 +199,73 @@ export default function VendorsManager({ userId }: Props) {
       prev.map((v) => (v.id === vendorId ? { ...v, ...patch } : v))
     )
     return true
+  }
+
+  function openEditModal(vendor: Vendor) {
+    setEditVendor(vendor)
+    setEditForm({
+      name: vendor.name,
+      email: vendor.email ?? '',
+      phone: vendor.phone ?? '',
+      address: vendor.address ?? '',
+      city: vendor.city ?? '',
+      state: vendor.state ?? '',
+      zip: vendor.zip ?? '',
+      notes: vendor.notes ?? '',
+      color: vendor.color ?? null,
+      vendor_type: vendor.vendor_type ?? null,
+    })
+    setEditError(null)
+  }
+
+  async function handleEditSave() {
+    if (!editVendor) return
+    const name = editForm.name.trim()
+    if (!name) {
+      setEditError('Name is required.')
+      return
+    }
+    setEditSaving(true)
+    setEditError(null)
+    const ok = await handleUpdateVendor(editVendor.id, {
+      name,
+      email: editForm.email.trim() || null,
+      phone: editForm.phone.trim() || null,
+      address: editForm.address.trim() || null,
+      city: editForm.city.trim() || null,
+      state: editForm.state.trim() || null,
+      zip: editForm.zip.trim() || null,
+      notes: editForm.notes.trim() || null,
+      color: editForm.color,
+      vendor_type: editForm.vendor_type,
+    })
+    setEditSaving(false)
+    if (ok) setEditVendor(null)
+  }
+
+  async function handleAddVendorType(name: string) {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const { error } = await supabase
+      .from('vendor_types')
+      .insert({ name: trimmed })
+    if (error) {
+      alert(error.message)
+      return
+    }
+    await fetchVendorTypes()
+  }
+
+  async function handleDeleteVendorType(id: string) {
+    const { error } = await supabase
+      .from('vendor_types')
+      .delete()
+      .eq('id', id)
+    if (error) {
+      alert(error.message)
+      return
+    }
+    await fetchVendorTypes()
   }
 
   const filtered = useMemo(() => {
@@ -222,59 +323,75 @@ export default function VendorsManager({ userId }: Props) {
           <div className="space-y-2">
             {filtered.map((vendor) => {
               const isExpanded = expandedId === vendor.id
-              const count = contactCounts[vendor.id] ?? 0
               const cityState = [vendor.city, vendor.state].filter(Boolean).join(', ')
               return (
                 <div
                   key={vendor.id}
-                  className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+                  className="bg-white border border-gray-200 rounded-lg overflow-hidden border-l-4"
+                  style={{ borderLeftColor: vendor.color ?? '#e5e7eb' }}
                 >
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : vendor.id)}
-                    className="w-full flex items-start gap-3 p-4 text-left hover:bg-gray-50 transition"
-                  >
-                    <div className="mt-0.5 flex-shrink-0 text-gray-400">
-                      {isExpanded ? (
-                        <ChevronDownIcon className="w-4 h-4" />
-                      ) : (
-                        <ChevronRightIcon className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{vendor.name}</p>
-                      <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                        {vendor.email && (
-                          <a
-                            href={`mailto:${vendor.email}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 hover:text-amber-600 truncate max-w-full"
-                          >
-                            <MailIcon className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">{vendor.email}</span>
-                          </a>
+                  <div className="flex items-stretch">
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : vendor.id)}
+                      className="flex-1 flex items-start gap-3 p-4 text-left hover:bg-gray-50 transition min-w-0"
+                    >
+                      <div className="mt-0.5 flex-shrink-0 text-gray-400">
+                        {isExpanded ? (
+                          <ChevronDownIcon className="w-4 h-4" />
+                        ) : (
+                          <ChevronRightIcon className="w-4 h-4" />
                         )}
-                        {vendor.phone && (
-                          <a
-                            href={`tel:${vendor.phone}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 hover:text-amber-600"
-                          >
-                            <PhoneIcon className="w-3 h-3 flex-shrink-0" />
-                            {vendor.phone}
-                          </a>
-                        )}
-                        {cityState && <span className="truncate">{cityState}</span>}
                       </div>
-                    </div>
-                    <span className="flex-shrink-0 text-[11px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
-                      {count} {count === 1 ? 'contact' : 'contacts'}
-                    </span>
-                  </button>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{vendor.name}</p>
+                          {vendor.vendor_type && (
+                            <span className="inline-flex items-center text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                              {vendor.vendor_type}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                          {vendor.email && (
+                            <a
+                              href={`mailto:${vendor.email}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 hover:text-amber-600 truncate max-w-full"
+                            >
+                              <MailIcon className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{vendor.email}</span>
+                            </a>
+                          )}
+                          {vendor.phone && (
+                            <a
+                              href={`tel:${vendor.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 hover:text-amber-600"
+                            >
+                              <PhoneIcon className="w-3 h-3 flex-shrink-0" />
+                              {vendor.phone}
+                            </a>
+                          )}
+                          {cityState && <span className="truncate">{cityState}</span>}
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => openEditModal(vendor)}
+                      className="flex-shrink-0 px-3 flex items-center justify-center text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
+                      title="Edit vendor"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                  </div>
                   {isExpanded && (
                     <VendorDetail
                       vendor={vendor}
+                      vendorTypes={vendorTypes}
+                      isAdmin={isAdmin}
                       onUpdate={(patch) => handleUpdateVendor(vendor.id, patch)}
-                      onDelete={() => setConfirmDeleteVendor(vendor)}
+                      onAddType={handleAddVendorType}
+                      onDeleteType={handleDeleteVendorType}
                       onContactsChanged={() =>
                         setContactCounts((prev) => ({ ...prev }))
                       }
@@ -300,8 +417,29 @@ export default function VendorsManager({ userId }: Props) {
           setForm={setAddForm}
           saving={addSaving}
           error={addError}
+          vendorTypes={vendorTypes}
+          onAddType={handleAddVendorType}
           onClose={() => setAddModalOpen(false)}
           onSave={handleAddVendor}
+        />
+      )}
+
+      {editVendor && (
+        <VendorFormModal
+          title="Edit Vendor"
+          form={editForm}
+          setForm={setEditForm}
+          saving={editSaving}
+          error={editError}
+          vendorTypes={vendorTypes}
+          onAddType={handleAddVendorType}
+          onClose={() => setEditVendor(null)}
+          onSave={handleEditSave}
+          onDelete={() => {
+            const v = editVendor
+            setEditVendor(null)
+            setConfirmDeleteVendor(v)
+          }}
         />
       )}
 
@@ -310,6 +448,7 @@ export default function VendorsManager({ userId }: Props) {
           title="Delete Vendor"
           message={`Delete "${confirmDeleteVendor.name}"? This will also delete all contacts for this vendor. This cannot be undone.`}
           confirmLabel={deletingVendor ? 'Deleting...' : 'Delete'}
+          variant="destructive"
           onConfirm={handleDeleteVendor}
           onCancel={() => setConfirmDeleteVendor(null)}
         />
@@ -324,214 +463,60 @@ export default function VendorsManager({ userId }: Props) {
 
 function VendorDetail({
   vendor,
+  vendorTypes,
+  isAdmin,
   onUpdate,
-  onDelete,
+  onAddType,
+  onDeleteType,
   onContactsChanged,
   onContactCountChange,
 }: {
   vendor: Vendor
+  vendorTypes: VendorType[]
+  isAdmin: boolean
   onUpdate: (patch: Partial<Vendor>) => Promise<boolean>
-  onDelete: () => void
+  onAddType: (name: string) => Promise<void>
+  onDeleteType: (id: string) => Promise<void>
   onContactsChanged: () => void
   onContactCountChange: (delta: number) => void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<VendorFormState>({
-    name: vendor.name,
-    email: vendor.email ?? '',
-    phone: vendor.phone ?? '',
-    address: vendor.address ?? '',
-    city: vendor.city ?? '',
-    state: vendor.state ?? '',
-    zip: vendor.zip ?? '',
-    notes: vendor.notes ?? '',
-  })
-  const [error, setError] = useState<string | null>(null)
-
-  function startEdit() {
-    setForm({
-      name: vendor.name,
-      email: vendor.email ?? '',
-      phone: vendor.phone ?? '',
-      address: vendor.address ?? '',
-      city: vendor.city ?? '',
-      state: vendor.state ?? '',
-      zip: vendor.zip ?? '',
-      notes: vendor.notes ?? '',
-    })
-    setError(null)
-    setEditing(true)
-  }
-
-  async function saveEdit() {
-    const name = form.name.trim()
-    if (!name) {
-      setError('Name is required.')
-      return
-    }
-    setSaving(true)
-    const ok = await onUpdate({
-      name,
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      address: form.address.trim() || null,
-      city: form.city.trim() || null,
-      state: form.state.trim() || null,
-      zip: form.zip.trim() || null,
-      notes: form.notes.trim() || null,
-    })
-    setSaving(false)
-    if (ok) setEditing(false)
-  }
-
   return (
     <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-4 space-y-4">
-      {/* Vendor info */}
+      {/* Vendor info (read-only; editing happens via header pencil) */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Vendor Info
-          </h4>
-          {!editing ? (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={startEdit}
-                className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded-md hover:bg-amber-50 transition"
-              >
-                <PencilIcon className="w-3.5 h-3.5" />
-                Edit
-              </button>
-              <button
-                onClick={onDelete}
-                className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1 rounded-md hover:bg-red-50 transition"
-              >
-                <Trash2Icon className="w-3.5 h-3.5" />
-                Delete
-              </button>
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          Vendor Info
+        </h4>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+            <DetailField label="Email" value={vendor.email} as="email" />
+            <DetailField label="Phone" value={vendor.phone} as="phone" />
+            <DetailField label="Address" value={vendor.address} />
+            <DetailField
+              label="City / State / Zip"
+              value={[vendor.city, vendor.state, vendor.zip].filter(Boolean).join(', ') || null}
+            />
+          </div>
+          {vendor.notes && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-1">Notes</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{vendor.notes}</p>
             </div>
-          ) : null}
+          )}
         </div>
-
-        {editing ? (
-          <div className="space-y-3 bg-white border border-gray-200 rounded-lg p-3">
-            {error && (
-              <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-            )}
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Vendor name *</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Address</label>
-              <input
-                type="text"
-                value={form.address}
-                onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">City</label>
-                <input
-                  type="text"
-                  value={form.city}
-                  onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">State</label>
-                <input
-                  type="text"
-                  value={form.state}
-                  onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Zip</label>
-                <input
-                  type="text"
-                  value={form.zip}
-                  onChange={(e) => setForm((p) => ({ ...p, zip: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
-              <textarea
-                value={form.notes}
-                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                rows={3}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-y"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                onClick={() => setEditing(false)}
-                className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveEdit}
-                disabled={!form.name.trim() || saving}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white border border-gray-200 rounded-lg p-3 text-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
-              <DetailField label="Email" value={vendor.email} as="email" />
-              <DetailField label="Phone" value={vendor.phone} as="phone" />
-              <DetailField label="Address" value={vendor.address} />
-              <DetailField
-                label="City / State / Zip"
-                value={[vendor.city, vendor.state, vendor.zip].filter(Boolean).join(', ') || null}
-              />
-            </div>
-            {vendor.notes && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-400 mb-1">Notes</p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{vendor.notes}</p>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Contacts — wired in the next step */}
+      {/* Vendor type */}
+      <VendorTypeSection
+        vendor={vendor}
+        vendorTypes={vendorTypes}
+        isAdmin={isAdmin}
+        onUpdate={onUpdate}
+        onAddType={onAddType}
+        onDeleteType={onDeleteType}
+      />
+
+      {/* Contacts */}
       <VendorContactsPanel
         vendorId={vendor.id}
         onContactsChanged={onContactsChanged}
@@ -573,7 +558,209 @@ function DetailField({
 }
 
 /* ================================================================== */
-/*  VENDOR CONTACTS (placeholder; wired in next step)                  */
+/*  VENDOR TYPE SECTION                                                */
+/* ================================================================== */
+
+function VendorTypeSection({
+  vendor,
+  vendorTypes,
+  isAdmin,
+  onUpdate,
+  onAddType,
+  onDeleteType,
+}: {
+  vendor: Vendor
+  vendorTypes: VendorType[]
+  isAdmin: boolean
+  onUpdate: (patch: Partial<Vendor>) => Promise<boolean>
+  onAddType: (name: string) => Promise<void>
+  onDeleteType: (id: string) => Promise<void>
+}) {
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [manageOpen, setManageOpen] = useState(false)
+  const [confirmDeleteType, setConfirmDeleteType] = useState<VendorType | null>(null)
+  const [deletingType, setDeletingType] = useState(false)
+
+  async function handleSelect(value: string) {
+    if (value === '__add__') {
+      setAdding(true)
+      return
+    }
+    if (value === '__manage__') {
+      setManageOpen(true)
+      return
+    }
+    await onUpdate({ vendor_type: value || null })
+  }
+
+  async function handleAdd() {
+    const trimmed = newName.trim()
+    if (!trimmed) return
+    await onAddType(trimmed)
+    await onUpdate({ vendor_type: trimmed })
+    setNewName('')
+    setAdding(false)
+  }
+
+  async function handleDeleteType() {
+    if (!confirmDeleteType) return
+    setDeletingType(true)
+    await onDeleteType(confirmDeleteType.id)
+    setDeletingType(false)
+    setConfirmDeleteType(null)
+  }
+
+  return (
+    <div>
+      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+        Vendor Type
+      </h4>
+      <div className="bg-white border border-gray-200 rounded-lg p-3">
+        {adding ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="New vendor type"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAdd()
+                if (e.key === 'Escape') {
+                  setAdding(false)
+                  setNewName('')
+                }
+              }}
+              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+            />
+            <button
+              onClick={handleAdd}
+              disabled={!newName.trim()}
+              className="px-3 py-2 text-xs font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition"
+            >
+              Add
+            </button>
+            <button
+              onClick={() => {
+                setAdding(false)
+                setNewName('')
+              }}
+              className="px-2 py-2 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <select
+              value={vendor.vendor_type ?? ''}
+              onChange={(e) => handleSelect(e.target.value)}
+              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
+            >
+              <option value="">— None —</option>
+              {vendorTypes.map((t) => (
+                <option key={t.id} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+              <option disabled>──────────</option>
+              <option value="__add__">+ Add new</option>
+              {isAdmin && <option value="__manage__">Manage types…</option>}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {manageOpen && (
+        <ManageVendorTypesModal
+          vendorTypes={vendorTypes}
+          onClose={() => setManageOpen(false)}
+          onRequestDelete={(t) => setConfirmDeleteType(t)}
+        />
+      )}
+
+      {confirmDeleteType && (
+        <ConfirmDialog
+          title="Delete Vendor Type"
+          message={`Delete "${confirmDeleteType.name}"? Vendors using this type will keep their current value but the option will be removed from the list.`}
+          confirmLabel={deletingType ? 'Deleting...' : 'Delete'}
+          variant="destructive"
+          onConfirm={handleDeleteType}
+          onCancel={() => setConfirmDeleteType(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function ManageVendorTypesModal({
+  vendorTypes,
+  onClose,
+  onRequestDelete,
+}: {
+  vendorTypes: VendorType[]
+  onClose: () => void
+  onRequestDelete: (t: VendorType) => void
+}) {
+  return (
+    <Portal>
+      <div
+        className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+        onClick={onClose}
+      >
+        <div
+          className="bg-white w-full sm:max-w-md sm:rounded-xl shadow-xl max-h-[90vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
+            <h3 className="text-base font-bold text-gray-900">Manage Vendor Types</h3>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="px-5 py-4 overflow-y-auto">
+            {vendorTypes.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">No vendor types yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {vendorTypes.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg"
+                  >
+                    <span className="text-sm text-gray-900">{t.name}</span>
+                    <button
+                      onClick={() => onRequestDelete(t)}
+                      className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                      title="Delete type"
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end px-5 py-4 border-t border-gray-200 flex-shrink-0">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  )
+}
+
+/* ================================================================== */
+/*  VENDOR CONTACTS                                                    */
 /* ================================================================== */
 
 type ContactFormState = {
@@ -805,13 +992,6 @@ function VendorContactsPanel({
                 >
                   <PencilIcon className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={() => setConfirmDelete(c)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
-                  title="Delete contact"
-                >
-                  <Trash2Icon className="w-3.5 h-3.5" />
-                </button>
               </div>
             </div>
           ))}
@@ -827,6 +1007,15 @@ function VendorContactsPanel({
           error={error}
           onClose={() => setModalOpen(false)}
           onSave={save}
+          onDelete={
+            editingContact
+              ? () => {
+                  const c = editingContact
+                  setModalOpen(false)
+                  setConfirmDelete(c)
+                }
+              : undefined
+          }
         />
       )}
 
@@ -835,6 +1024,7 @@ function VendorContactsPanel({
           title="Delete Contact"
           message={`Delete "${confirmDelete.first_name} ${confirmDelete.last_name}"? This cannot be undone.`}
           confirmLabel={deleting ? 'Deleting...' : 'Delete'}
+          variant="destructive"
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(null)}
         />
@@ -855,6 +1045,7 @@ function ContactFormModal({
   error,
   onClose,
   onSave,
+  onDelete,
 }: {
   title: string
   form: ContactFormState
@@ -863,6 +1054,7 @@ function ContactFormModal({
   error: string | null
   onClose: () => void
   onSave: () => void
+  onDelete?: () => void
 }) {
   function update<K extends keyof ContactFormState>(
     key: K,
@@ -951,6 +1143,17 @@ function ContactFormModal({
             />
             Primary contact
           </label>
+          {onDelete && (
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={onDelete}
+                className="w-full text-center px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+              >
+                Delete contact
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-200 flex-shrink-0">
           <button
@@ -982,19 +1185,41 @@ function VendorFormModal({
   setForm,
   saving,
   error,
+  vendorTypes,
+  onAddType,
   onClose,
   onSave,
+  onDelete,
 }: {
   title: string
   form: VendorFormState
   setForm: (updater: (prev: VendorFormState) => VendorFormState) => void
   saving: boolean
   error: string | null
+  vendorTypes: VendorType[]
+  onAddType: (name: string) => Promise<void>
   onClose: () => void
   onSave: () => void
+  onDelete?: () => void
 }) {
+  const [addingType, setAddingType] = useState(false)
+  const [newTypeName, setNewTypeName] = useState('')
   function update<K extends keyof VendorFormState>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+  function setColor(value: string | null) {
+    setForm((prev) => ({ ...prev, color: value }))
+  }
+  function setVendorType(value: string | null) {
+    setForm((prev) => ({ ...prev, vendor_type: value }))
+  }
+  async function handleAddType() {
+    const trimmed = newTypeName.trim()
+    if (!trimmed) return
+    await onAddType(trimmed)
+    setVendorType(trimmed)
+    setNewTypeName('')
+    setAddingType(false)
   }
   return (
     <div
@@ -1096,6 +1321,115 @@ function VendorFormModal({
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-y"
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Color</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setColor(null)}
+                className={`w-8 h-8 rounded-full border-2 transition flex items-center justify-center ${
+                  form.color === null
+                    ? 'border-gray-500 scale-110'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                style={{ backgroundColor: '#f3f4f6' }}
+                title="No color"
+              >
+                <XIcon className="w-3.5 h-3.5 text-gray-400" />
+              </button>
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setColor(c.value)}
+                  className={`w-8 h-8 rounded-full border-2 transition ${
+                    form.color === c.value
+                      ? 'border-gray-700 scale-110'
+                      : 'border-transparent hover:border-gray-300'
+                  }`}
+                  style={{ backgroundColor: c.value }}
+                  title={c.label}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Vendor type</label>
+            {addingType ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddType()
+                    if (e.key === 'Escape') {
+                      setAddingType(false)
+                      setNewTypeName('')
+                    }
+                  }}
+                  placeholder="New type name"
+                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddType}
+                  disabled={!newTypeName.trim()}
+                  className="px-3 py-2 text-xs font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddingType(false)
+                    setNewTypeName('')
+                  }}
+                  className="px-2 py-2 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <select
+                value={form.vendor_type ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === '__add__') {
+                    setAddingType(true)
+                    return
+                  }
+                  setVendorType(v || null)
+                }}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
+              >
+                <option value="">— None —</option>
+                {vendorTypes.map((t) => (
+                  <option key={t.id} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+                {form.vendor_type &&
+                  !vendorTypes.some((t) => t.name === form.vendor_type) && (
+                    <option value={form.vendor_type}>{form.vendor_type}</option>
+                  )}
+                <option disabled>──────────</option>
+                <option value="__add__">+ Add new</option>
+              </select>
+            )}
+          </div>
+          {onDelete && (
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={onDelete}
+                className="w-full text-center px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+              >
+                Delete vendor
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-200 flex-shrink-0">
           <button
