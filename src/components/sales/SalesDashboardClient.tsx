@@ -6,7 +6,6 @@ import {
   UsersIcon,
   PhoneIcon,
   CalendarIcon,
-  MapIcon,
   TargetIcon,
   BarChart3Icon,
   BellIcon,
@@ -150,14 +149,6 @@ export default function SalesDashboardClient({
           subtitle={`${activeLeadsCount} active ${
             activeLeadsCount === 1 ? 'lead' : 'leads'
           }`}
-        />
-        <QuickActionCard
-          href="/sales/zone-map"
-          icon={<MapIcon className="w-5 h-5" />}
-          title="Zone Map"
-          subtitle={`${companyCount} ${
-            companyCount === 1 ? 'company' : 'companies'
-          } mapped`}
         />
         <button
           onClick={() => {
