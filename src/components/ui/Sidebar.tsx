@@ -169,6 +169,177 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             Office
           </Link>
         )}
+        {/* Soft divider */}
+        <div className="mx-3 my-2 border-t border-gray-800/60" />
+
+        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
+          <div>
+            <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+              isSalesActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}>
+              <Link
+                href="/sales"
+                onClick={() => setMobileOpen(false)}
+                className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
+              >
+                <TrendingUpIcon className="w-5 h-5 flex-shrink-0" />
+                Sales
+              </Link>
+              <button
+                onClick={() => setSalesExpanded(!salesExpanded)}
+                className="px-2 py-2.5 flex-shrink-0 text-gray-500 hover:text-white transition-colors"
+                aria-label={salesExpanded ? 'Collapse sub-items' : 'Expand sub-items'}
+              >
+                <ChevronRightIcon className={`w-4 h-4 transition-transform duration-200 ${salesExpanded ? 'rotate-90' : ''}`} />
+              </button>
+            </div>
+            <div
+              className="overflow-hidden transition-all duration-200 ease-in-out"
+              style={{
+                maxHeight: salesExpanded ? '400px' : '0px',
+                opacity: salesExpanded ? 1 : 0,
+              }}
+            >
+              <Link
+                href="/sales/crm"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isSalesCrmActive
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                <UsersIcon className="w-4 h-4 flex-shrink-0" />
+                CRM
+              </Link>
+              <Link
+                href="/sales/dialer"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isSalesDialerActive
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                <PhoneIcon className="w-4 h-4 flex-shrink-0" />
+                Dialer
+              </Link>
+              <Link
+                href="/sales/appointments"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isSalesAppointmentsActive
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                <CalendarIcon className="w-4 h-4 flex-shrink-0" />
+                Appointments
+              </Link>
+              <Link
+                href="/sales/leads"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isSalesLeadsActive
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                <TargetIcon className="w-4 h-4 flex-shrink-0" />
+                Leads
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
+          <Link
+            href="/job-walk"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isJobWalkActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <FootprintsIcon className="w-5 h-5 flex-shrink-0" />
+            Job Walk
+          </Link>
+        )}
+
+        <div className="hidden md:block">
+          <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+            isEstimatingActive
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}>
+            <Link
+              href="/estimating"
+              onClick={() => setMobileOpen(false)}
+              className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
+            >
+              <CalculatorIcon className="w-5 h-5 flex-shrink-0" />
+              Estimating
+            </Link>
+            <button
+              onClick={() => setEstimatingExpanded(!estimatingExpanded)}
+              className="px-2 py-2.5 flex-shrink-0 text-gray-500 hover:text-white transition-colors"
+              aria-label={estimatingExpanded ? 'Collapse sub-items' : 'Expand sub-items'}
+            >
+              <ChevronRightIcon className={`w-4 h-4 transition-transform duration-200 ${estimatingExpanded ? 'rotate-90' : ''}`} />
+            </button>
+          </div>
+          <div
+            className="overflow-hidden transition-all duration-200 ease-in-out"
+            style={{
+              maxHeight: estimatingExpanded ? '400px' : '0px',
+              opacity: estimatingExpanded ? 1 : 0,
+            }}
+          >
+            <Link
+              href="/estimates"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isEstimatingEstimatesActive
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <FileTextIcon className="w-4 h-4 flex-shrink-0" />
+              Estimates
+            </Link>
+            <Link
+              href="/job-takeoff"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isEstimatingMeasurementsActive
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <RulerIcon className="w-4 h-4 flex-shrink-0" />
+              Measurements
+            </Link>
+            <Link
+              href="/estimating/project-takeoff"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isEstimatingProjectTakeoffActive
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <CompassIcon className="w-4 h-4 flex-shrink-0" />
+              Project Takeoff
+            </Link>
+          </div>
+        </div>
+
+        {/* Soft divider */}
+        <div className="mx-3 my-2 border-t border-gray-800/60" />
+
         {canView('job_board') && (
           <Link
             href={jobBoardHref}
@@ -300,6 +471,23 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             </div>
           </div>
         )}
+
+        <Link
+          href="/billing"
+          onClick={() => setMobileOpen(false)}
+          className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isBillingActive
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}
+        >
+          <DollarSignIcon className="w-5 h-5 flex-shrink-0" />
+          Billing
+        </Link>
+
+        {/* Soft divider */}
+        <div className="mx-3 my-2 border-t border-gray-800/60" />
+
         {canView('calendar') && (
           <Link
             href="/calendar"
@@ -315,90 +503,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           </Link>
         )}
 
-        {/* Divider */}
-        <div className="my-2 border-t border-gray-800" />
-
-        <div className="hidden md:block">
-          <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
-            isEstimatingActive
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}>
-            <Link
-              href="/estimating"
-              onClick={() => setMobileOpen(false)}
-              className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
-            >
-              <CalculatorIcon className="w-5 h-5 flex-shrink-0" />
-              Estimating
-            </Link>
-            <button
-              onClick={() => setEstimatingExpanded(!estimatingExpanded)}
-              className="px-2 py-2.5 flex-shrink-0 text-gray-500 hover:text-white transition-colors"
-              aria-label={estimatingExpanded ? 'Collapse sub-items' : 'Expand sub-items'}
-            >
-              <ChevronRightIcon className={`w-4 h-4 transition-transform duration-200 ${estimatingExpanded ? 'rotate-90' : ''}`} />
-            </button>
-          </div>
-          <div
-            className="overflow-hidden transition-all duration-200 ease-in-out"
-            style={{
-              maxHeight: estimatingExpanded ? '400px' : '0px',
-              opacity: estimatingExpanded ? 1 : 0,
-            }}
-          >
-            <Link
-              href="/estimates"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isEstimatingEstimatesActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <FileTextIcon className="w-4 h-4 flex-shrink-0" />
-              Estimates
-            </Link>
-            <Link
-              href="/job-takeoff"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isEstimatingMeasurementsActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <RulerIcon className="w-4 h-4 flex-shrink-0" />
-              Measurements
-            </Link>
-            <Link
-              href="/estimating/project-takeoff"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isEstimatingProjectTakeoffActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <CompassIcon className="w-4 h-4 flex-shrink-0" />
-              Project Takeoff
-            </Link>
-          </div>
-        </div>
-
-        <Link
-          href="/billing"
-          onClick={() => setMobileOpen(false)}
-          className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isBillingActive
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
-        >
-          <DollarSignIcon className="w-5 h-5 flex-shrink-0" />
-          Billing
-        </Link>
-
         {canSeeScheduler && (
           <Link
             href="/scheduler"
@@ -411,103 +515,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           >
             <CalendarRangeIcon className="w-5 h-5 flex-shrink-0" />
             Scheduler
-          </Link>
-        )}
-
-        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
-          <div>
-            <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
-              isSalesActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}>
-              <Link
-                href="/sales"
-                onClick={() => setMobileOpen(false)}
-                className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
-              >
-                <TrendingUpIcon className="w-5 h-5 flex-shrink-0" />
-                Sales
-              </Link>
-              <button
-                onClick={() => setSalesExpanded(!salesExpanded)}
-                className="px-2 py-2.5 flex-shrink-0 text-gray-500 hover:text-white transition-colors"
-                aria-label={salesExpanded ? 'Collapse sub-items' : 'Expand sub-items'}
-              >
-                <ChevronRightIcon className={`w-4 h-4 transition-transform duration-200 ${salesExpanded ? 'rotate-90' : ''}`} />
-              </button>
-            </div>
-            <div
-              className="overflow-hidden transition-all duration-200 ease-in-out"
-              style={{
-                maxHeight: salesExpanded ? '400px' : '0px',
-                opacity: salesExpanded ? 1 : 0,
-              }}
-            >
-              <Link
-                href="/sales/crm"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesCrmActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <UsersIcon className="w-4 h-4 flex-shrink-0" />
-                CRM
-              </Link>
-              <Link
-                href="/sales/dialer"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesDialerActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <PhoneIcon className="w-4 h-4 flex-shrink-0" />
-                Dialer
-              </Link>
-              <Link
-                href="/sales/appointments"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesAppointmentsActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <CalendarIcon className="w-4 h-4 flex-shrink-0" />
-                Appointments
-              </Link>
-              <Link
-                href="/sales/leads"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesLeadsActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <TargetIcon className="w-4 h-4 flex-shrink-0" />
-                Leads
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
-          <Link
-            href="/job-walk"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isJobWalkActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <FootprintsIcon className="w-5 h-5 flex-shrink-0" />
-            Job Walk
           </Link>
         )}
 
