@@ -362,7 +362,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
       className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 transition-all"
       style={{
         boxShadow:
-          '0 0 25px 8px rgba(99, 153, 34, 0.25), 0 0 50px 15px rgba(99, 153, 34, 0.12)',
+          '0 0 20px 6px rgba(99, 153, 34, 0.18), 0 0 40px 12px rgba(99, 153, 34, 0.09)',
       }}
     >
       {/* Header */}
