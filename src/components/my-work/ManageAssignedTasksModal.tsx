@@ -99,7 +99,7 @@ export default function ManageAssignedTasksModal({ onClose, onChanged }: Props) 
       <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
         <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100">
           <h2 className="text-base font-bold text-gray-900 flex-1">
-            Manage assigned tasks
+            Manage Daily Playbook
           </h2>
           <button
             onClick={startCreate}
