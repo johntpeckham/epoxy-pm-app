@@ -38,6 +38,14 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="apple-touch-startup-image" href="/icon-512.png" />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {/* Leaflet CSS for the Zone Map page */}
+        <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+          integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw=="
+          crossOrigin=""
+          referrerPolicy="no-referrer"
+        />
       </head>
       <body className="antialiased h-full overflow-hidden">
         <ThemeProvider>{children}</ThemeProvider>
