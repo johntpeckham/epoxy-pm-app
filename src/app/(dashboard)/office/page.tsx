@@ -114,18 +114,24 @@ export default async function OfficePage() {
   // Both counts only paint on cards for non-foreman roles, but we fetch
   // unconditionally to keep the server function simple — the card itself is
   // gated client-side.
-  const [{ count: supplierCountRaw }, { count: productCountRaw }, { count: contactCountRaw }] =
-    await Promise.all([
-      supabase.from('material_suppliers').select('id', { count: 'exact', head: true }),
-      supabase.from('inventory_products').select('id', { count: 'exact', head: true }),
-      supabase
-        .from('customers')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id),
-    ])
+  const [
+    { count: supplierCountRaw },
+    { count: productCountRaw },
+    { count: customerCountRaw },
+  ] = await Promise.all([
+    supabase.from('material_suppliers').select('id', { count: 'exact', head: true }),
+    supabase.from('inventory_products').select('id', { count: 'exact', head: true }),
+    supabase
+      .from('customers')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id),
+  ])
   const supplierCount = supplierCountRaw ?? 0
   const productCount = productCountRaw ?? 0
-  const contactCount = contactCountRaw ?? 0
+  // The same customers table backs both the Contacts directory and the
+  // Customers card, so the two counts are identical.
+  const contactCount = customerCountRaw ?? 0
+  const customerCount = customerCountRaw ?? 0
 
   return (
     <OfficeTasksPageClient
@@ -141,6 +147,7 @@ export default async function OfficePage() {
       supplierCount={supplierCount}
       productCount={productCount}
       contactCount={contactCount}
+      customerCount={customerCount}
     />
   )
 }
