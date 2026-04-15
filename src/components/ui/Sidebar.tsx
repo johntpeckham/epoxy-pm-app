@@ -520,8 +520,8 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
       </nav>
 
-      {/* Report a Problem */}
-      <div className="px-3 pb-2">
+      {/* Report a Problem — desktop only; mobile shows it in the top header */}
+      <div className="hidden lg:block px-3 pb-2">
         <ReportProblemButton role={role || 'crew'} userId={userId} />
       </div>
 
