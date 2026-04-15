@@ -1,0 +1,578 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ListChecksIcon,
+  Settings2Icon,
+} from 'lucide-react'
+import type {
+  AssignedTask,
+  AssignedTaskCompletion,
+  UserRole,
+} from '@/types'
+import ManageAssignedTasksModal from './ManageAssignedTasksModal'
+import TeamTasksSection from './TeamTasksSection'
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+function toDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function startOfToday(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function addDays(d: Date, days: number): Date {
+  const next = new Date(d)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function formatLongDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+function tasksForDate(tasks: AssignedTask[], date: Date): AssignedTask[] {
+  const dayOfWeek = date.getDay()
+  const dateKey = toDateKey(date)
+  return tasks
+    .filter((t) => t.is_active)
+    .filter((t) => {
+      if (t.task_type === 'daily') return true
+      if (t.task_type === 'weekly') return t.day_of_week === dayOfWeek
+      if (t.task_type === 'one_time') return t.specific_date === dateKey
+      return false
+    })
+}
+
+/* ------------------------------------------------------------------ */
+/*  Props                                                              */
+/* ------------------------------------------------------------------ */
+
+interface Props {
+  userId: string
+  userRole: UserRole
+  onOpenDate?: (dateKey: string) => void
+}
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
+
+export default function MyTasksCard({ userId, userRole }: Props) {
+  const supabase = useMemo(() => createClient(), [])
+  const isAdmin = userRole === 'admin'
+
+  const [viewDate, setViewDate] = useState<Date>(() => startOfToday())
+  const [tasks, setTasks] = useState<AssignedTask[]>([])
+  const [completions, setCompletions] = useState<AssignedTaskCompletion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [noteTaskId, setNoteTaskId] = useState<string | null>(null)
+  const [noteValue, setNoteValue] = useState('')
+  const [showManage, setShowManage] = useState(false)
+
+  const today = startOfToday()
+  const isToday = isSameDay(viewDate, today)
+  const dateKey = toDateKey(viewDate)
+
+  /* ---- Load my tasks + completions for viewDate ---- */
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    const [tasksRes, completionsRes] = await Promise.all([
+      supabase
+        .from('assigned_tasks')
+        .select('*')
+        .eq('assigned_to', userId)
+        .eq('is_active', true),
+      supabase
+        .from('assigned_task_completions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('completion_date', dateKey),
+    ])
+    if (tasksRes.data) setTasks(tasksRes.data as AssignedTask[])
+    if (completionsRes.data)
+      setCompletions(completionsRes.data as AssignedTaskCompletion[])
+    setLoading(false)
+  }, [supabase, userId, dateKey])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  /* ---- Check yesterday's uncompleted tasks on mount (once per day) ---- */
+  useEffect(() => {
+    const todayKey = toDateKey(today)
+    const storageKey = `assigned_tasks_notified_${userId}`
+    if (typeof window === 'undefined') return
+    const lastNotified = window.localStorage.getItem(storageKey)
+    if (lastNotified === todayKey) return
+
+    let cancelled = false
+    const checkYesterday = async () => {
+      const yesterday = addDays(today, -1)
+      const yesterdayKey = toDateKey(yesterday)
+      const { data: myTasks } = await supabase
+        .from('assigned_tasks')
+        .select('*')
+        .eq('assigned_to', userId)
+        .eq('is_active', true)
+      if (cancelled) return
+      const applicableYesterday = tasksForDate(
+        (myTasks ?? []) as AssignedTask[],
+        yesterday
+      )
+      if (applicableYesterday.length === 0) {
+        window.localStorage.setItem(storageKey, todayKey)
+        return
+      }
+      const taskIds = applicableYesterday.map((t) => t.id)
+      const { data: yComps } = await supabase
+        .from('assigned_task_completions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('completion_date', yesterdayKey)
+        .in('task_id', taskIds)
+      if (cancelled) return
+      const completedIds = new Set(
+        (yComps ?? [])
+          .filter((c) => (c as AssignedTaskCompletion).is_completed)
+          .map((c) => (c as AssignedTaskCompletion).task_id)
+      )
+      const uncompleted = applicableYesterday.filter((t) => !completedIds.has(t.id))
+      if (uncompleted.length > 0) {
+        // Check if we already created one for this user for this notification day
+        const { data: existingNotif } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('type', 'assigned_tasks_uncompleted')
+          .gte('created_at', `${todayKey}T00:00:00.000Z`)
+          .limit(1)
+        if (!cancelled && (!existingNotif || existingNotif.length === 0)) {
+          await supabase.from('notifications').insert({
+            user_id: userId,
+            type: 'assigned_tasks_uncompleted',
+            title: 'Uncompleted tasks',
+            message: `You have ${uncompleted.length} uncompleted task${
+              uncompleted.length === 1 ? '' : 's'
+            } from ${formatLongDate(yesterday)}`,
+            link: `/my-work?tasks_date=${yesterdayKey}`,
+            read: false,
+          })
+        }
+      }
+      window.localStorage.setItem(storageKey, todayKey)
+    }
+    checkYesterday()
+    return () => {
+      cancelled = true
+    }
+    // Only run once per mount (today is computed at render; userId is stable)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
+
+  /* ---- Read tasks_date query param to jump to a past date ---- */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const target = params.get('tasks_date')
+    if (target) {
+      const parsed = new Date(target + 'T00:00:00')
+      if (!Number.isNaN(parsed.getTime())) {
+        setViewDate(parsed)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /* ---- Derived: tasks applicable on viewDate, split by type ---- */
+  const applicable = useMemo(() => tasksForDate(tasks, viewDate), [tasks, viewDate])
+  const dailyTasks = applicable.filter((t) => t.task_type === 'daily')
+  const weeklyTasks = applicable.filter((t) => t.task_type === 'weekly')
+  const oneTimeTasks = applicable.filter((t) => t.task_type === 'one_time')
+
+  const completionByTaskId = useMemo(() => {
+    const m = new Map<string, AssignedTaskCompletion>()
+    completions.forEach((c) => m.set(c.task_id, c))
+    return m
+  }, [completions])
+
+  const totalCount = applicable.length
+  const completedCount = applicable.filter(
+    (t) => completionByTaskId.get(t.id)?.is_completed
+  ).length
+
+  /* ---- Navigation ---- */
+  const goPrev = () => setViewDate((d) => addDays(d, -1))
+  const goNext = () => {
+    setViewDate((d) => {
+      const next = addDays(d, 1)
+      return next.getTime() > today.getTime() ? d : next
+    })
+  }
+  const canGoNext = viewDate.getTime() < today.getTime()
+
+  /* ---- Toggle completion ---- */
+  async function markCompleted(task: AssignedTask) {
+    const existing = completionByTaskId.get(task.id)
+    const now = new Date().toISOString()
+    if (existing) {
+      // Optimistic update
+      setCompletions((prev) =>
+        prev.map((c) =>
+          c.id === existing.id
+            ? { ...c, is_completed: true, note: null, completed_at: now }
+            : c
+        )
+      )
+      await supabase
+        .from('assigned_task_completions')
+        .update({ is_completed: true, note: null, completed_at: now })
+        .eq('id', existing.id)
+    } else {
+      const tempId = `temp-${task.id}`
+      const optimistic: AssignedTaskCompletion = {
+        id: tempId,
+        task_id: task.id,
+        user_id: userId,
+        completion_date: dateKey,
+        is_completed: true,
+        note: null,
+        completed_at: now,
+        created_at: now,
+        updated_at: now,
+      }
+      setCompletions((prev) => [...prev, optimistic])
+      const { data } = await supabase
+        .from('assigned_task_completions')
+        .insert({
+          task_id: task.id,
+          user_id: userId,
+          completion_date: dateKey,
+          is_completed: true,
+          completed_at: now,
+        })
+        .select()
+        .single()
+      if (data) {
+        setCompletions((prev) =>
+          prev.map((c) => (c.id === tempId ? (data as AssignedTaskCompletion) : c))
+        )
+      }
+    }
+  }
+
+  function openUncheck(task: AssignedTask) {
+    setNoteTaskId(task.id)
+    const existing = completionByTaskId.get(task.id)
+    setNoteValue(existing?.note ?? '')
+  }
+
+  async function saveUncheck() {
+    if (!noteTaskId) return
+    const existing = completionByTaskId.get(noteTaskId)
+    const now = new Date().toISOString()
+    if (existing) {
+      setCompletions((prev) =>
+        prev.map((c) =>
+          c.id === existing.id
+            ? { ...c, is_completed: false, note: noteValue || null, completed_at: null }
+            : c
+        )
+      )
+      await supabase
+        .from('assigned_task_completions')
+        .update({
+          is_completed: false,
+          note: noteValue || null,
+          completed_at: null,
+        })
+        .eq('id', existing.id)
+    } else {
+      const tempId = `temp-${noteTaskId}`
+      const optimistic: AssignedTaskCompletion = {
+        id: tempId,
+        task_id: noteTaskId,
+        user_id: userId,
+        completion_date: dateKey,
+        is_completed: false,
+        note: noteValue || null,
+        completed_at: null,
+        created_at: now,
+        updated_at: now,
+      }
+      setCompletions((prev) => [...prev, optimistic])
+      const { data } = await supabase
+        .from('assigned_task_completions')
+        .insert({
+          task_id: noteTaskId,
+          user_id: userId,
+          completion_date: dateKey,
+          is_completed: false,
+          note: noteValue || null,
+        })
+        .select()
+        .single()
+      if (data) {
+        setCompletions((prev) =>
+          prev.map((c) => (c.id === tempId ? (data as AssignedTaskCompletion) : c))
+        )
+      }
+    }
+    setNoteTaskId(null)
+    setNoteValue('')
+  }
+
+  /* ---- Render ---- */
+  return (
+    <div
+      className="col-span-2 md:col-span-4 rounded-xl border border-gray-200 bg-white p-4 transition-all"
+      style={{
+        boxShadow:
+          '0 0 20px 5px rgba(99, 153, 34, 0.15), 0 0 40px 10px rgba(99, 153, 34, 0.08)',
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-amber-500">
+          <ListChecksIcon className="w-5 h-5" />
+        </span>
+        <h3 className="text-sm font-semibold text-gray-900 flex-1">My Tasks</h3>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={goPrev}
+            className="p-1 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded transition"
+            title="Previous day"
+          >
+            <ChevronLeftIcon className="w-4 h-4" />
+          </button>
+          <span className="text-xs text-gray-600 font-medium min-w-[90px] text-center">
+            {isToday ? 'Today' : formatLongDate(viewDate)}
+          </span>
+          <button
+            onClick={goNext}
+            disabled={!canGoNext}
+            className="p-1 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 disabled:cursor-not-allowed"
+            title="Next day"
+          >
+            <ChevronRightIcon className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-gray-400 mb-3">
+        {completedCount} of {totalCount} completed
+      </p>
+
+      {/* Body */}
+      {loading ? (
+        <p className="text-xs text-gray-400 py-4 text-center">Loading…</p>
+      ) : totalCount === 0 ? (
+        <p className="text-xs text-gray-400 py-4 text-center">
+          No tasks for this day
+        </p>
+      ) : (
+        <div className="space-y-4">
+          <TaskSection
+            label="Daily tasks"
+            tasks={dailyTasks}
+            completionByTaskId={completionByTaskId}
+            noteTaskId={noteTaskId}
+            noteValue={noteValue}
+            onCheck={markCompleted}
+            onUncheck={openUncheck}
+            onNoteChange={setNoteValue}
+            onSaveNote={saveUncheck}
+            onCancelNote={() => {
+              setNoteTaskId(null)
+              setNoteValue('')
+            }}
+          />
+          <TaskSection
+            label="Weekly tasks"
+            tasks={weeklyTasks}
+            completionByTaskId={completionByTaskId}
+            noteTaskId={noteTaskId}
+            noteValue={noteValue}
+            onCheck={markCompleted}
+            onUncheck={openUncheck}
+            onNoteChange={setNoteValue}
+            onSaveNote={saveUncheck}
+            onCancelNote={() => {
+              setNoteTaskId(null)
+              setNoteValue('')
+            }}
+          />
+          {oneTimeTasks.length > 0 && (
+            <TaskSection
+              label="One-time tasks"
+              tasks={oneTimeTasks}
+              completionByTaskId={completionByTaskId}
+              noteTaskId={noteTaskId}
+              noteValue={noteValue}
+              onCheck={markCompleted}
+              onUncheck={openUncheck}
+              onNoteChange={setNoteValue}
+              onSaveNote={saveUncheck}
+              onCancelNote={() => {
+                setNoteTaskId(null)
+                setNoteValue('')
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Admin team section */}
+      {isAdmin && (
+        <>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <TeamTasksSection currentUserId={userId} />
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => setShowManage(true)}
+              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
+            >
+              <Settings2Icon className="w-3.5 h-3.5" />
+              Manage tasks
+            </button>
+          </div>
+        </>
+      )}
+
+      {showManage && (
+        <ManageAssignedTasksModal
+          onClose={() => setShowManage(false)}
+          onChanged={loadData}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Task section (list with divider)                                   */
+/* ------------------------------------------------------------------ */
+
+function TaskSection({
+  label,
+  tasks,
+  completionByTaskId,
+  noteTaskId,
+  noteValue,
+  onCheck,
+  onUncheck,
+  onNoteChange,
+  onSaveNote,
+  onCancelNote,
+}: {
+  label: string
+  tasks: AssignedTask[]
+  completionByTaskId: Map<string, AssignedTaskCompletion>
+  noteTaskId: string | null
+  noteValue: string
+  onCheck: (t: AssignedTask) => void
+  onUncheck: (t: AssignedTask) => void
+  onNoteChange: (v: string) => void
+  onSaveNote: () => void
+  onCancelNote: () => void
+}) {
+  if (tasks.length === 0) return null
+  return (
+    <div>
+      <p className="text-[12px] text-gray-400 mb-1.5">{label}</p>
+      <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+        {tasks.map((task) => {
+          const c = completionByTaskId.get(task.id)
+          const isDone = !!c?.is_completed
+          const editingNote = noteTaskId === task.id
+          return (
+            <div key={task.id} className="px-3 py-2">
+              <div className="flex items-start gap-2.5">
+                <button
+                  onClick={() => (isDone ? onUncheck(task) : onCheck(task))}
+                  className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                    isDone
+                      ? 'border-amber-400 bg-amber-50 hover:border-amber-500'
+                      : 'border-gray-300 hover:border-amber-500'
+                  }`}
+                >
+                  {isDone && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`text-xs font-medium truncate ${
+                      isDone ? 'text-gray-400 line-through' : 'text-gray-900'
+                    }`}
+                  >
+                    {task.title}
+                  </p>
+                  {task.description && (
+                    <p className="text-[11px] text-gray-500 truncate">
+                      {task.description}
+                    </p>
+                  )}
+                  {c?.note && !c.is_completed && !editingNote && (
+                    <p className="text-[11px] text-gray-500 italic mt-0.5">
+                      Not completed: {c.note}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {editingNote && (
+                <div className="mt-2 pl-6.5 ml-6 flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={noteValue}
+                    onChange={(e) => onNoteChange(e.target.value)}
+                    placeholder="Why wasn't this completed?"
+                    className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:border-amber-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') onSaveNote()
+                      if (e.key === 'Escape') onCancelNote()
+                    }}
+                  />
+                  <button
+                    onClick={onSaveNote}
+                    className="text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={onCancelNote}
+                    className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
