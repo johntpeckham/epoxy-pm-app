@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
+import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
 import type { JobWalk } from './JobWalkClient'
 
 interface JobWalkMeasurementsCardProps {
@@ -175,11 +176,7 @@ export default function JobWalkMeasurementsCard({
             <RulerIcon className="w-5 h-5" />
           </span>
           <h3 className="text-sm font-semibold text-gray-900 flex-1">Measurements</h3>
-          <span className="text-xs text-gray-400 min-w-[54px] text-right">
-            {saveState === 'saving' && 'Saving…'}
-            {saveState === 'saved' && 'Saved'}
-            {saveState === 'error' && <span className="text-red-500">Error</span>}
-          </span>
+          <AutoSaveIndicator isSaving={saveState === 'saving'} />
         </div>
 
         <textarea
