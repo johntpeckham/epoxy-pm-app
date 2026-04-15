@@ -206,6 +206,33 @@ export default async function MyWorkPage() {
     }
   }
 
+  // Office Daily Reports — today's snapshot for the card
+  const todayDateStr = new Date().toISOString().slice(0, 10)
+  let myTodayReport: {
+    id: string
+    clock_in: string | null
+    clock_out: string | null
+  } | null = null
+  let todayReportsCount = 0
+
+  {
+    const { data: myReport } = await supabase
+      .from('office_daily_reports')
+      .select('id, clock_in, clock_out')
+      .eq('user_id', user.id)
+      .eq('report_date', todayDateStr)
+      .maybeSingle()
+    myTodayReport = myReport ?? null
+  }
+
+  if (userRole === 'admin') {
+    const { count } = await supabase
+      .from('office_daily_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('report_date', todayDateStr)
+    todayReportsCount = count ?? 0
+  }
+
   const tasksWithProject = (assignedTasks ?? []).map((row) => ({
     ...row,
     project_name:
@@ -229,6 +256,8 @@ export default async function MyWorkPage() {
         initialExpenses={expenses}
         initialReminders={reminders}
         initialSalesActivity={salesActivity}
+        initialMyTodayReport={myTodayReport}
+        initialTodayReportsCount={todayReportsCount}
       />
     </Suspense>
   )
