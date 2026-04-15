@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 import {
+  BarChart3Icon,
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -11,7 +13,6 @@ import {
 } from 'lucide-react'
 import type { AssignedTask, AssignedTaskCompletion, UserRole } from '@/types'
 import TeamTasksSection from './TeamTasksSection'
-import ManageAssignedTasksModal from './ManageAssignedTasksModal'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -84,8 +85,6 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const [loading, setLoading] = useState(true)
   const [noteTaskId, setNoteTaskId] = useState<string | null>(null)
   const [noteValue, setNoteValue] = useState('')
-  const [showManage, setShowManage] = useState(false)
-  const [teamReloadKey, setTeamReloadKey] = useState(0)
 
   const today = startOfToday()
   const isToday = isSameDay(viewDate, today)
@@ -279,6 +278,23 @@ export default function MyTasksCard({ userId, userRole }: Props) {
     }
   }
 
+  async function markIncomplete(task: AssignedTask) {
+    const existing = completionByTaskId.get(task.id)
+    if (!existing) return
+    // Optimistic: clear completion flag + note, fully reset
+    setCompletions((prev) =>
+      prev.map((c) =>
+        c.id === existing.id
+          ? { ...c, is_completed: false, note: null, completed_at: null }
+          : c
+      )
+    )
+    await supabase
+      .from('assigned_task_completions')
+      .update({ is_completed: false, note: null, completed_at: null })
+      .eq('id', existing.id)
+  }
+
   function openUncheck(task: AssignedTask) {
     setNoteTaskId(task.id)
     const existing = completionByTaskId.get(task.id)
@@ -346,7 +362,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
       className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 transition-all"
       style={{
         boxShadow:
-          '0 0 20px 5px rgba(99, 153, 34, 0.15), 0 0 40px 10px rgba(99, 153, 34, 0.08)',
+          '0 0 25px 8px rgba(99, 153, 34, 0.25), 0 0 50px 15px rgba(99, 153, 34, 0.12)',
       }}
     >
       {/* Header */}
@@ -396,8 +412,9 @@ export default function MyTasksCard({ userId, userRole }: Props) {
             completionByTaskId={completionByTaskId}
             noteTaskId={noteTaskId}
             noteValue={noteValue}
-            onCheck={markCompleted}
-            onUncheck={openUncheck}
+            onCheckBox={markCompleted}
+            onUncheckBox={markIncomplete}
+            onOpenNote={openUncheck}
             onNoteChange={setNoteValue}
             onSaveNote={saveUncheck}
             onCancelNote={() => {
@@ -411,8 +428,9 @@ export default function MyTasksCard({ userId, userRole }: Props) {
             completionByTaskId={completionByTaskId}
             noteTaskId={noteTaskId}
             noteValue={noteValue}
-            onCheck={markCompleted}
-            onUncheck={openUncheck}
+            onCheckBox={markCompleted}
+            onUncheckBox={markIncomplete}
+            onOpenNote={openUncheck}
             onNoteChange={setNoteValue}
             onSaveNote={saveUncheck}
             onCancelNote={() => {
@@ -427,8 +445,9 @@ export default function MyTasksCard({ userId, userRole }: Props) {
               completionByTaskId={completionByTaskId}
               noteTaskId={noteTaskId}
               noteValue={noteValue}
-              onCheck={markCompleted}
-              onUncheck={openUncheck}
+              onCheckBox={markCompleted}
+              onUncheckBox={markIncomplete}
+              onOpenNote={openUncheck}
               onNoteChange={setNoteValue}
               onSaveNote={saveUncheck}
               onCancelNote={() => {
@@ -440,33 +459,30 @@ export default function MyTasksCard({ userId, userRole }: Props) {
         </div>
       )}
 
-      {/* Admin: Team Playbook section + Manage tasks */}
+      {/* Admin: Team Playbook section + management links */}
       {isAdmin && (
         <>
           <div className="mt-5 pt-4 border-t border-gray-100">
             <p className="text-[12px] text-gray-400 mb-2">Team Playbook</p>
-            <TeamTasksSection key={teamReloadKey} currentUserId={userId} />
+            <TeamTasksSection currentUserId={userId} />
           </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              onClick={() => setShowManage(true)}
+          <div className="mt-3 flex justify-end items-center gap-1">
+            <Link
+              href="/my-work/employee-summary"
+              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
+            >
+              <BarChart3Icon className="w-3.5 h-3.5" />
+              Employee summary
+            </Link>
+            <Link
+              href="/my-work/manage-playbook"
               className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
             >
               <Settings2Icon className="w-3.5 h-3.5" />
               Manage tasks
-            </button>
+            </Link>
           </div>
         </>
-      )}
-
-      {showManage && (
-        <ManageAssignedTasksModal
-          onClose={() => setShowManage(false)}
-          onChanged={() => {
-            loadData()
-            setTeamReloadKey((k) => k + 1)
-          }}
-        />
       )}
     </div>
   )
@@ -482,8 +498,9 @@ function TaskSection({
   completionByTaskId,
   noteTaskId,
   noteValue,
-  onCheck,
-  onUncheck,
+  onCheckBox,
+  onUncheckBox,
+  onOpenNote,
   onNoteChange,
   onSaveNote,
   onCancelNote,
@@ -493,8 +510,9 @@ function TaskSection({
   completionByTaskId: Map<string, AssignedTaskCompletion>
   noteTaskId: string | null
   noteValue: string
-  onCheck: (t: AssignedTask) => void
-  onUncheck: (t: AssignedTask) => void
+  onCheckBox: (t: AssignedTask) => void
+  onUncheckBox: (t: AssignedTask) => void
+  onOpenNote: (t: AssignedTask) => void
   onNoteChange: (v: string) => void
   onSaveNote: () => void
   onCancelNote: () => void
@@ -512,7 +530,7 @@ function TaskSection({
             <div key={task.id} className="px-3 py-2">
               <div className="flex items-start gap-2.5">
                 <button
-                  onClick={() => (isDone ? onUncheck(task) : onCheck(task))}
+                  onClick={() => (isDone ? onUncheckBox(task) : onCheckBox(task))}
                   className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                     isDone
                       ? 'border-amber-400 bg-amber-50 hover:border-amber-500'
@@ -534,13 +552,31 @@ function TaskSection({
                       {task.description}
                     </p>
                   )}
-                  {c?.note && !c.is_completed && !editingNote && (
-                    <p className="text-[11px] text-gray-500 italic mt-0.5">
-                      Not completed: {c.note}
-                    </p>
-                  )}
                 </div>
+                {!isDone && !editingNote && (
+                  c?.note ? (
+                    <button
+                      onClick={() => onOpenNote(task)}
+                      className="text-[11px] text-gray-500 italic hover:text-gray-700 flex-shrink-0 mt-0.5"
+                      title={`Not completed: ${c.note}`}
+                    >
+                      Not completed
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onOpenNote(task)}
+                      className="text-[11px] text-gray-400 hover:text-gray-600 flex-shrink-0 mt-0.5"
+                    >
+                      Did not complete
+                    </button>
+                  )
+                )}
               </div>
+              {!isDone && c?.note && !editingNote && (
+                <p className="text-[11px] text-gray-500 italic mt-1 ml-6">
+                  “{c.note}”
+                </p>
+              )}
               {editingNote && (
                 <div className="mt-2 pl-6.5 ml-6 flex items-center gap-2">
                   <input
