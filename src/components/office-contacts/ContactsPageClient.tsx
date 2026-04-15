@@ -70,7 +70,7 @@ export default function ContactsPageClient({ userId, initialContacts }: Props) {
           <h1 className="text-[22px] font-medium text-gray-900">Contacts</h1>
           <button
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
+            className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
           >
             <PlusIcon className="w-4 h-4" />
             Add contact
@@ -88,7 +88,7 @@ export default function ContactsPageClient({ userId, initialContacts }: Props) {
               setPage(0)
             }}
             placeholder="Search by name, email, or phone"
-            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 bg-white text-gray-900 placeholder-gray-400"
+            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 bg-white text-gray-900 placeholder-gray-400"
           />
         </div>
 
@@ -119,7 +119,7 @@ export default function ContactsPageClient({ userId, initialContacts }: Props) {
                       {c.phone && (
                         <a
                           href={`tel:${c.phone}`}
-                          className="inline-flex items-center gap-1.5 text-sm text-teal-700 hover:text-teal-800"
+                          className="inline-flex items-center gap-1.5 text-sm text-amber-700 hover:text-amber-800"
                         >
                           <PhoneIcon className="w-3.5 h-3.5" />
                           {c.phone}
@@ -128,7 +128,7 @@ export default function ContactsPageClient({ userId, initialContacts }: Props) {
                       {c.email && (
                         <a
                           href={`mailto:${c.email}`}
-                          className="inline-flex items-center gap-1.5 text-sm text-teal-700 hover:text-teal-800 break-all"
+                          className="inline-flex items-center gap-1.5 text-sm text-amber-700 hover:text-amber-800 break-all"
                         >
                           <MailIcon className="w-3.5 h-3.5" />
                           {c.email}

@@ -77,7 +77,7 @@ export default function AddContactModal({ userId, onClose, onAdded }: AddContact
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 placeholder="Contact name"
                 autoFocus
               />
@@ -88,7 +88,7 @@ export default function AddContactModal({ userId, onClose, onAdded }: AddContact
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 placeholder="name@example.com"
               />
             </div>
@@ -98,7 +98,7 @@ export default function AddContactModal({ userId, onClose, onAdded }: AddContact
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 placeholder="(555) 555-5555"
               />
             </div>
@@ -108,7 +108,7 @@ export default function AddContactModal({ userId, onClose, onAdded }: AddContact
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 placeholder="Street address"
               />
             </div>
@@ -128,7 +128,7 @@ export default function AddContactModal({ userId, onClose, onAdded }: AddContact
             <button
               onClick={handleSave}
               disabled={!name.trim() || saving}
-              className="px-4 py-2.5 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors"
+              className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
