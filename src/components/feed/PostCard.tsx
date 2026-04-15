@@ -273,7 +273,7 @@ function DailyReportPost({
             <div className="grid grid-cols-4 gap-2 w-full">
               {photoUrls.map((url, i) => (
                 <button key={i} onClick={() => onImageClick(photoUrls, i)} className="block min-w-[44px] min-h-[44px]">
-                  <div className="relative aspect-square rounded-lg overflow-hidden bg-amber-50">
+                  <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
                     <Image
                       src={url}
                       alt={`Report photo ${i + 1}`}
@@ -517,8 +517,8 @@ function CollapsibleDailyReport({
       <div
         onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
         role={isPinned ? undefined : 'button'}
-        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left transition-colors min-w-0 overflow-hidden ${
-          isPinned ? '' : 'hover:bg-amber-100/60 cursor-pointer'
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 text-left transition-colors min-w-0 overflow-hidden ${
+          isPinned ? '' : 'hover:bg-gray-50 cursor-pointer'
         }`}
       >
         <ClipboardListIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
@@ -679,8 +679,8 @@ function CollapsibleJsaReport({
       <div
         onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
         role={isPinned ? undefined : 'button'}
-        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left transition-colors min-w-0 overflow-hidden ${
-          isPinned ? '' : 'hover:bg-amber-100/60 cursor-pointer'
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 text-left transition-colors min-w-0 overflow-hidden ${
+          isPinned ? '' : 'hover:bg-gray-50 cursor-pointer'
         }`}
       >
         <ShieldIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
@@ -865,7 +865,7 @@ function ExpensePost({
       <div className="flex gap-3">
         {attachmentUrl && isImage && (
           <button onClick={() => onImageClick([attachmentUrl], 0)} className="block flex-shrink-0">
-            <div className="relative w-[72px] h-[72px] rounded-lg overflow-hidden bg-amber-50">
+            <div className="relative w-[72px] h-[72px] rounded-lg overflow-hidden bg-gray-100">
               <Image
                 src={attachmentUrl}
                 alt="Expense attachment"
@@ -936,8 +936,8 @@ function CollapsibleExpense({
       <div
         onClick={isPinned ? undefined : () => setExpanded((v) => !v)}
         role={isPinned ? undefined : 'button'}
-        className={`w-full flex items-center gap-2.5 px-3.5 py-3 bg-amber-50 text-left transition-colors min-w-0 overflow-hidden ${
-          isPinned ? '' : 'hover:bg-amber-100/60 cursor-pointer'
+        className={`w-full flex items-center gap-2.5 px-3.5 py-3 text-left transition-colors min-w-0 overflow-hidden ${
+          isPinned ? '' : 'hover:bg-gray-50 cursor-pointer'
         }`}
       >
         <DollarSignIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />

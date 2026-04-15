@@ -469,7 +469,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
             openDetail()
           }
         }}
-        className="relative bg-white dark:bg-[#242424]! border border-gray-200 dark:border-[#3a3a3a] rounded-xl p-5 cursor-pointer hover:border-amber-300 dark:hover:border-[#4a4a4a] hover:bg-amber-50/30 dark:hover:bg-[#2a2a2a]! hover:shadow-md transition"
+        className="relative bg-white dark:bg-[#242424]! border border-gray-200 dark:border-[#3a3a3a] rounded-xl p-5 cursor-pointer hover:border-gray-300 dark:hover:border-[#4a4a4a] hover:bg-gray-50 dark:hover:bg-[#2a2a2a]! hover:shadow-md transition"
       >
         {/* Top-right action buttons — stopPropagation so clicks don't navigate */}
         {canManage && (

@@ -120,7 +120,7 @@ export default memo(function JsaReportCard({ report, expandedId, onToggleExpand 
           </div>
 
           {/* Date block */}
-          <div className="flex-shrink-0 w-12 text-center bg-amber-50 rounded-lg py-2">
+          <div className="flex-shrink-0 w-12 text-center bg-gray-50 border border-gray-200 rounded-lg py-2">
             <div className="text-xl font-bold text-gray-900 leading-none">
               {content.date ? content.date.split('-')[2] : '—'}
             </div>
@@ -171,7 +171,7 @@ export default memo(function JsaReportCard({ report, expandedId, onToggleExpand 
           className="overflow-hidden transition-[max-height] duration-200 ease-in-out"
           style={{ maxHeight: expanded ? `${animHeight}px` : '0px' }}
         >
-          <div className="border-t border-amber-100 bg-amber-50 px-5 py-4 space-y-4">
+          <div className="border-t border-gray-200 px-5 py-4 space-y-4">
             {/* Base fields */}
             {content.address && (
               <p className="text-xs text-amber-700">{content.address}</p>

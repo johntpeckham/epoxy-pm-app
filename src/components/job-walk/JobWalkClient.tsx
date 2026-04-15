@@ -396,7 +396,7 @@ function JobWalkListItem({ walk, isSelected, onSelect }: JobWalkListItemProps) {
       onClick={onSelect}
       className={`w-full text-left relative rounded-lg border p-3 transition ${
         isSelected
-          ? 'border-amber-300 bg-amber-50/60'
+          ? 'border-gray-300 bg-gray-50 dark:bg-gray-100'
           : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
       }`}
     >

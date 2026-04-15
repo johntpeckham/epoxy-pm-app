@@ -27,7 +27,7 @@ export default memo(function ProjectCard({
     <div
       className={`relative group rounded-xl border transition-all duration-150 cursor-pointer ${
         isSelected
-          ? 'bg-amber-50 dark:bg-[#2a2a2a]! border-amber-400 dark:border-[#3a3a3a]! shadow-sm'
+          ? 'bg-gray-50 dark:bg-[#2a2a2a]! border-gray-300 dark:border-[#3a3a3a]! shadow-sm'
           : 'bg-white dark:bg-[#1e1e1e]! border-gray-200 dark:border-[#2a2a2a] hover:border-amber-300 dark:hover:border-[#3a3a3a] hover:shadow-sm dark:hover:bg-[#2a2a2a]!'
       }`}
     >

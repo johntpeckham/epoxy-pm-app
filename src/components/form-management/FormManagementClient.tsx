@@ -1569,7 +1569,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
                       onClick={() => selectForm(t.form_key)}
                       className={`w-full text-left px-4 py-3 text-sm font-medium transition ${
                         selectedKey === t.form_key
-                          ? 'bg-amber-50 text-amber-700 border-l-2 border-amber-500'
+                          ? 'bg-gray-50 text-gray-900 border-l-2 border-gray-400'
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >

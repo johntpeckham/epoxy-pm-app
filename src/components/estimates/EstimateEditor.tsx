@@ -578,10 +578,10 @@ export default function EstimateEditor({
           </div>
 
           {/* Project info row */}
-          <div className="px-4 md:px-8 py-3 bg-amber-50 border-y border-amber-100">
+          <div className="px-4 md:px-8 py-3 bg-gray-50 border-y border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Project Name</label>
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1">Project Name</label>
                 <input
                   type="text"
                   value={projectName}

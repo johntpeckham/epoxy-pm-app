@@ -188,7 +188,7 @@ export default function MergeContactsModal({
               <p className="text-sm text-red-600">Could not load contacts.</p>
             ) : (
               <>
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-100 mb-4 text-xs text-amber-900">
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-white border border-gray-200 mb-4 text-xs text-gray-700">
                   <AlertTriangleIcon className="w-4 h-4 flex-none mt-0.5" />
                   <p>
                     Call log entries, appointments, and reminders from the other

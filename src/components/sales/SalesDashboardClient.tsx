@@ -173,10 +173,10 @@ export default function SalesDashboardClient({
 
       {/* ── Overdue banner ── */}
       {!overdueDismissed && overdueContacts.length > 0 && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3">
             <BellIcon className="w-4 h-4 text-amber-600 flex-none" />
-            <p className="text-sm font-medium text-amber-900 flex-1">
+            <p className="text-sm font-medium text-gray-900 flex-1">
               {overdueContacts.length}{' '}
               {overdueContacts.length === 1 ? 'contact' : 'contacts'} haven&apos;t
               been called in 30+ days

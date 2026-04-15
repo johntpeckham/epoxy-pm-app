@@ -248,8 +248,8 @@ export default function NewJsaReportModal({
 
         {/* Dynamic Task Sections */}
         {templates.filter((t) => selectedTasks[t.id]).map((t) => (
-          <div key={t.id} className="border border-amber-200 rounded-xl p-4 bg-amber-50/30 space-y-3 mt-3">
-            <p className="text-sm font-bold text-amber-800">{t.name}</p>
+          <div key={t.id} className="border border-gray-200 rounded-xl p-4 bg-white space-y-3 mt-3">
+            <p className="text-sm font-bold text-gray-900">{t.name}</p>
             <div>
               <label className={labelCls}>Hazards</label>
               <textarea

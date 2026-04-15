@@ -121,7 +121,7 @@ export default function BillingClientsPanel({
               onClick={() => onSelectView('dashboard')}
               className={`w-full text-left px-4 py-3 transition-colors border-l-2 flex items-center gap-3 ${
                 selectedView === 'dashboard'
-                  ? 'border-l-amber-500 bg-amber-50'
+                  ? 'border-l-gray-400 bg-gray-50'
                   : 'border-l-transparent hover:bg-gray-50'
               }`}
             >
@@ -149,7 +149,7 @@ export default function BillingClientsPanel({
                   onClick={() => onSelectView(customer.id)}
                   className={`w-full text-left px-4 py-3 transition-colors border-l-2 ${
                     selectedView === customer.id
-                      ? 'border-l-amber-500 bg-amber-50'
+                      ? 'border-l-gray-400 bg-gray-50'
                       : 'border-l-transparent hover:bg-gray-50'
                   }`}
                 >
