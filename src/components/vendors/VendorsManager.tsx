@@ -327,10 +327,16 @@ export default function VendorsManager({ userId }: Props) {
               return (
                 <div
                   key={vendor.id}
-                  className="bg-white border border-gray-200 rounded-lg overflow-hidden border-l-4"
-                  style={{ borderLeftColor: vendor.color ?? '#e5e7eb' }}
+                  className="bg-white border border-gray-200 rounded-lg overflow-hidden"
                 >
-                  <div className="flex items-stretch">
+                  <div
+                    className="flex items-stretch"
+                    style={
+                      vendor.color
+                        ? { backgroundColor: `${vendor.color}22` }
+                        : undefined
+                    }
+                  >
                     <button
                       onClick={() => setExpandedId(isExpanded ? null : vendor.id)}
                       className="flex-1 flex items-start gap-3 p-4 text-left hover:bg-gray-50 transition min-w-0"
