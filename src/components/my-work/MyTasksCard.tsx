@@ -7,15 +7,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ListChecksIcon,
-  Settings2Icon,
 } from 'lucide-react'
-import type {
-  AssignedTask,
-  AssignedTaskCompletion,
-  UserRole,
-} from '@/types'
-import ManageAssignedTasksModal from './ManageAssignedTasksModal'
-import TeamTasksSection from './TeamTasksSection'
+import type { AssignedTask, AssignedTaskCompletion } from '@/types'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -71,17 +64,14 @@ function tasksForDate(tasks: AssignedTask[], date: Date): AssignedTask[] {
 
 interface Props {
   userId: string
-  userRole: UserRole
-  onOpenDate?: (dateKey: string) => void
 }
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function MyTasksCard({ userId, userRole }: Props) {
+export default function MyTasksCard({ userId }: Props) {
   const supabase = useMemo(() => createClient(), [])
-  const isAdmin = userRole === 'admin'
 
   const [viewDate, setViewDate] = useState<Date>(() => startOfToday())
   const [tasks, setTasks] = useState<AssignedTask[]>([])
@@ -89,7 +79,6 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const [loading, setLoading] = useState(true)
   const [noteTaskId, setNoteTaskId] = useState<string | null>(null)
   const [noteValue, setNoteValue] = useState('')
-  const [showManage, setShowManage] = useState(false)
 
   const today = startOfToday()
   const isToday = isSameDay(viewDate, today)
@@ -347,7 +336,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   /* ---- Render ---- */
   return (
     <div
-      className="col-span-2 md:col-span-4 rounded-xl border border-gray-200 bg-white p-4 transition-all"
+      className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 transition-all"
       style={{
         boxShadow:
           '0 0 20px 5px rgba(99, 153, 34, 0.15), 0 0 40px 10px rgba(99, 153, 34, 0.08)',
@@ -444,30 +433,6 @@ export default function MyTasksCard({ userId, userRole }: Props) {
         </div>
       )}
 
-      {/* Admin team section */}
-      {isAdmin && (
-        <>
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <TeamTasksSection currentUserId={userId} />
-          </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              onClick={() => setShowManage(true)}
-              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
-            >
-              <Settings2Icon className="w-3.5 h-3.5" />
-              Manage tasks
-            </button>
-          </div>
-        </>
-      )}
-
-      {showManage && (
-        <ManageAssignedTasksModal
-          onClose={() => setShowManage(false)}
-          onChanged={loadData}
-        />
-      )}
     </div>
   )
 }
