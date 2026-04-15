@@ -31,6 +31,7 @@ import EditCompanyModal, { type EditableCompany } from './EditCompanyModal'
 import NewAppointmentModal from './NewAppointmentModal'
 import NewReminderModal from './NewReminderModal'
 import MergeContactsModal from './MergeContactsModal'
+import ConvertCompanyToLeadModal from './leads/ConvertCompanyToLeadModal'
 
 type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
 type CompanyPriority = 'high' | 'medium' | 'low'
@@ -272,6 +273,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [confirmBlacklist, setConfirmBlacklist] = useState(false)
   const [confirmConvert, setConfirmConvert] = useState(false)
   const [converting, setConverting] = useState(false)
+  const [showConvertToLead, setShowConvertToLead] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteFileId, setDeleteFileId] = useState<string | null>(null)
   const [showAddLink, setShowAddLink] = useState(false)
@@ -673,6 +675,12 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               Blacklist
             </button>
           )}
+          <button
+            onClick={() => setShowConvertToLead(true)}
+            className="px-3 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors"
+          >
+            Convert to lead
+          </button>
           <button
             onClick={() => setConfirmConvert(true)}
             className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
@@ -1786,6 +1794,43 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           onConfirm={() => handleDeleteFile(deleteFileId)}
           onCancel={() => setDeleteFileId(null)}
           variant="destructive"
+        />
+      )}
+
+      {showConvertToLead && (
+        <ConvertCompanyToLeadModal
+          userId={userId}
+          companyId={companyId}
+          companyName={company.name}
+          companyCity={company.city}
+          companyState={company.state}
+          primaryContact={(() => {
+            const p = contacts.find((c) => c.is_primary) ?? contacts[0] ?? null
+            if (!p) return null
+            return {
+              id: p.id,
+              first_name: p.first_name,
+              last_name: p.last_name,
+              email: p.email,
+              phone: p.phone,
+            }
+          })()}
+          primaryAddress={(() => {
+            const a = addresses.find((x) => x.is_primary) ?? addresses[0] ?? null
+            if (!a) return null
+            return {
+              address: a.address,
+              city: a.city,
+              state: a.state,
+              zip: a.zip,
+            }
+          })()}
+          onClose={() => setShowConvertToLead(false)}
+          onConverted={(leadId) => {
+            setShowConvertToLead(false)
+            showToast('Lead created.')
+            router.push(`/sales/leads?lead=${leadId}`)
+          }}
         />
       )}
 

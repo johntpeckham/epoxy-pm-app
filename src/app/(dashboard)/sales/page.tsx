@@ -40,6 +40,7 @@ export default async function SalesPage() {
     { count: companyCountRaw },
     { count: contactCountRaw },
     { count: upcomingApptCountRaw },
+    { count: activeLeadsCountRaw },
     weekActivity,
     monthActivity,
     overdueContacts,
@@ -53,6 +54,10 @@ export default async function SalesPage() {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'scheduled')
       .gte('date', nowIso),
+    supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'in_progress'),
     fetchWeekActivity(supabase, user.id),
     fetchMonthActivity(supabase, user.id),
     fetchOverdueContacts(supabase, 30, 200),
@@ -66,6 +71,7 @@ export default async function SalesPage() {
       companyCount={companyCountRaw ?? 0}
       contactCount={contactCountRaw ?? 0}
       upcomingApptCount={upcomingApptCountRaw ?? 0}
+      activeLeadsCount={activeLeadsCountRaw ?? 0}
       weekActivity={weekActivity}
       monthActivity={monthActivity}
       overdueContacts={overdueContacts}
