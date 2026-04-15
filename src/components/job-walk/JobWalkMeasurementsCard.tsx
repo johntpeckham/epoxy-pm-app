@@ -6,10 +6,10 @@ import {
   UploadIcon,
   XIcon,
   Loader2Icon,
-  FileTextIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import type { JobWalk } from './JobWalkClient'
 
 interface JobWalkMeasurementsCardProps {
@@ -189,50 +189,57 @@ export default function JobWalkMeasurementsCard({
           className="w-full min-h-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white resize-y"
         />
 
-        {/* PDF list */}
-        <div className="mt-3 space-y-2">
+        {/* PDF thumbnails */}
+        <div className="mt-3">
           {loadingPdfs ? (
             <div className="py-4 flex items-center justify-center text-gray-400">
               <Loader2Icon className="w-4 h-4 animate-spin" />
             </div>
           ) : pdfs.length === 0 && pending.length === 0 ? null : (
-            <ul className="space-y-1.5">
+            <div className="flex flex-wrap gap-3">
               {pdfs.map((pdf) => (
-                <li
-                  key={pdf.id}
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-gray-200 bg-gray-50/60 hover:border-gray-300 transition"
-                >
-                  <FileTextIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                  <a
-                    href={pdf.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-0 text-sm text-amber-600 hover:underline truncate"
+                <div key={pdf.id} className="flex flex-col gap-1.5 w-[120px]">
+                  <div className="relative group">
+                    <PdfThumbnail
+                      url={pdf.file_url}
+                      width={120}
+                      onClick={() => window.open(pdf.file_url, '_blank', 'noopener,noreferrer')}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setConfirmDelete(pdf)
+                      }}
+                      aria-label="Delete PDF"
+                      className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-red-500 transition opacity-80 group-hover:opacity-100"
+                    >
+                      <XIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p
+                    className="text-xs text-gray-600 truncate"
+                    title={pdf.file_name}
                   >
                     {pdf.file_name}
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(pdf)}
-                    aria-label="Delete PDF"
-                    className="flex-shrink-0 p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
-                  >
-                    <XIcon className="w-4 h-4" />
-                  </button>
-                </li>
+                  </p>
+                </div>
               ))}
               {pending.map((p) => (
-                <li
-                  key={p.tempId}
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-gray-200 bg-gray-50/60"
-                >
-                  <Loader2Icon className="w-4 h-4 text-gray-400 animate-spin flex-shrink-0" />
-                  <span className="flex-1 min-w-0 text-sm text-gray-500 truncate">
-                    Uploading {p.fileName}…
-                  </span>
-                </li>
+                <div key={p.tempId} className="flex flex-col gap-1.5 w-[120px]">
+                  <div
+                    style={{ width: 120, height: 160 }}
+                    className="rounded-lg border border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-2"
+                  >
+                    <Loader2Icon className="w-5 h-5 text-gray-400 animate-spin" />
+                    <span className="text-[10px] text-gray-400">Uploading…</span>
+                  </div>
+                  <p className="text-xs text-gray-500 truncate" title={p.fileName}>
+                    {p.fileName}
+                  </p>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
 

@@ -204,7 +204,7 @@ export default function JobWalkPhotosCard({ walkId, userId }: JobWalkPhotosCardP
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
             {photos.map((photo, idx) => (
               <div key={photo.id} className="space-y-1">
                 <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 group">
@@ -219,7 +219,7 @@ export default function JobWalkPhotosCard({ walkId, userId }: JobWalkPhotosCardP
                       alt={photo.caption ?? `Job walk photo ${idx + 1}`}
                       fill
                       className="object-cover transition group-hover:opacity-90"
-                      sizes="(max-width: 640px) 33vw, 200px"
+                      sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 180px"
                       unoptimized
                     />
                   </button>
