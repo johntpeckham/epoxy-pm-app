@@ -29,16 +29,16 @@ export default function EstimatingWorkspace({ project, onBack }: EstimatingWorks
             </div>
           </div>
           <p className="text-sm text-gray-600 mb-4">
-            Use the Job Takeoff tool to measure plans, calculate quantities, and create project estimates for <strong>{project.name}</strong>.
+            Use the Measurements tool to measure plans, calculate quantities, and create project estimates for <strong>{project.name}</strong>.
           </p>
           <Link
             href="/job-takeoff"
             className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
           >
-            Open Job Takeoff
+            Open Measurements
             <ExternalLinkIcon className="w-3.5 h-3.5" />
           </Link>
-          <p className="text-xs text-gray-400 mt-3">Note: Job Takeoff is a desktop-only feature.</p>
+          <p className="text-xs text-gray-400 mt-3">Note: Measurements is a desktop-only feature.</p>
         </div>
       </div>
     </WorkspaceShell>
