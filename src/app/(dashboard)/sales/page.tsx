@@ -41,6 +41,10 @@ export default async function SalesPage() {
     { count: contactCountRaw },
     { count: upcomingApptCountRaw },
     { count: activeLeadsCountRaw },
+    { count: activeJobWalksCountRaw },
+    { count: activeProjectsCountRaw },
+    { count: estimateCountRaw },
+    { count: jobsCountRaw },
     weekActivity,
     monthActivity,
     overdueContacts,
@@ -58,6 +62,19 @@ export default async function SalesPage() {
       .from('leads')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'in_progress'),
+    supabase
+      .from('job_walks')
+      .select('id', { count: 'exact', head: true })
+      .neq('status', 'completed'),
+    supabase
+      .from('estimating_projects')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active'),
+    supabase
+      .from('estimates')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id),
+    supabase.from('projects').select('id', { count: 'exact', head: true }),
     fetchWeekActivity(supabase, user.id),
     fetchMonthActivity(supabase, user.id),
     fetchOverdueContacts(supabase, 30, 200),
@@ -72,6 +89,10 @@ export default async function SalesPage() {
       contactCount={contactCountRaw ?? 0}
       upcomingApptCount={upcomingApptCountRaw ?? 0}
       activeLeadsCount={activeLeadsCountRaw ?? 0}
+      activeJobWalksCount={activeJobWalksCountRaw ?? 0}
+      activeProjectsCount={activeProjectsCountRaw ?? 0}
+      estimateCount={estimateCountRaw ?? 0}
+      jobsCount={jobsCountRaw ?? 0}
       weekActivity={weekActivity}
       monthActivity={monthActivity}
       overdueContacts={overdueContacts}

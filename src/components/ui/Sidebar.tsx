@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, RulerIcon, FileTextIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, Building2Icon, BugIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, TargetIcon, CalculatorIcon, CompassIcon, MonitorIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, LogOutIcon, MenuIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, DollarSignIcon, SettingsIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, BugIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, TargetIcon, CalculatorIcon, MonitorIcon } from 'lucide-react'
 import ReportProblemButton from '@/components/bug-reports/ReportProblemButton'
 import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -34,10 +34,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     if (typeof window === 'undefined') return false
     return localStorage.getItem('sidebar-sales-expanded') === 'true'
   })
-  const [estimatingExpanded, setEstimatingExpanded] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem('sidebar-estimating-expanded') === 'true'
-  })
 
   useEffect(() => {
     localStorage.setItem('sidebar-job-feed-expanded', String(jobFeedExpanded))
@@ -46,10 +42,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   useEffect(() => {
     localStorage.setItem('sidebar-sales-expanded', String(salesExpanded))
   }, [salesExpanded])
-
-  useEffect(() => {
-    localStorage.setItem('sidebar-estimating-expanded', String(estimatingExpanded))
-  }, [estimatingExpanded])
 
   const { settings: companySettings } = useCompanySettings()
   const { role, schedulerAccess } = useUserRole()
@@ -84,18 +76,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isTimesheetsActive = pathname === '/timesheets'
   const isCalendarActive = pathname === '/calendar'
   const isProfileActive = pathname === '/profile'
-  const isEstimatingActive = pathname === '/estimating'
-  const isEstimatingEstimatesActive = pathname === '/estimates' || pathname.startsWith('/estimates/')
-  const isEstimatingMeasurementsActive = pathname === '/job-takeoff' || pathname.startsWith('/job-takeoff/')
-  const isEstimatingProjectTakeoffActive = pathname === '/estimating/project-takeoff' || pathname.startsWith('/estimating/project-takeoff/')
   const isSchedulerActive = pathname === '/scheduler' || pathname.startsWith('/scheduler/')
-  // Keep Estimating section expanded when any sub-item is active
-  useEffect(() => {
-    if (isEstimatingEstimatesActive || isEstimatingMeasurementsActive || isEstimatingProjectTakeoffActive) {
-      setEstimatingExpanded(true)
-    }
-  }, [isEstimatingEstimatesActive, isEstimatingMeasurementsActive, isEstimatingProjectTakeoffActive])
-  const isJobWalkActive = pathname === '/job-walk' || pathname.startsWith('/job-walk/')
   const isBillingActive = pathname === '/billing'
   const isMyWorkActive = pathname === '/my-work'
   const isOfficeActive = pathname === '/office' || pathname.startsWith('/office/')
@@ -104,13 +85,37 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isSalesDialerActive = pathname === '/sales/dialer' || pathname.startsWith('/sales/dialer/')
   const isSalesAppointmentsActive = pathname === '/sales/appointments' || pathname.startsWith('/sales/appointments/')
   const isSalesLeadsActive = pathname === '/sales/leads' || pathname.startsWith('/sales/leads/')
+  const isJobWalkActive = pathname === '/job-walk' || pathname.startsWith('/job-walk/')
+  const isSalesEstimatingActive =
+    pathname === '/sales/estimating' ||
+    pathname.startsWith('/sales/estimating/') ||
+    pathname === '/estimating' ||
+    pathname.startsWith('/estimating/') ||
+    pathname === '/estimates' ||
+    pathname.startsWith('/estimates/') ||
+    pathname === '/job-takeoff' ||
+    pathname.startsWith('/job-takeoff/')
 
   // Keep Sales section expanded when any sub-item is active
   useEffect(() => {
-    if (isSalesCrmActive || isSalesDialerActive || isSalesAppointmentsActive || isSalesLeadsActive) {
+    if (
+      isSalesCrmActive ||
+      isSalesDialerActive ||
+      isSalesAppointmentsActive ||
+      isSalesLeadsActive ||
+      isJobWalkActive ||
+      isSalesEstimatingActive
+    ) {
       setSalesExpanded(true)
     }
-  }, [isSalesCrmActive, isSalesDialerActive, isSalesAppointmentsActive, isSalesLeadsActive])
+  }, [
+    isSalesCrmActive,
+    isSalesDialerActive,
+    isSalesAppointmentsActive,
+    isSalesLeadsActive,
+    isJobWalkActive,
+    isSalesEstimatingActive,
+  ])
 
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
   const userName = displayName || userEmail?.split('@')[0] || 'User'
@@ -217,7 +222,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             <div
               className="overflow-hidden transition-all duration-200 ease-in-out"
               style={{
-                maxHeight: salesExpanded ? '400px' : '0px',
+                maxHeight: salesExpanded ? '600px' : '0px',
                 opacity: salesExpanded ? 1 : 0,
               }}
             >
@@ -269,92 +274,33 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 <TargetIcon className="w-4 h-4 flex-shrink-0" />
                 Leads
               </Link>
+              <Link
+                href="/job-walk"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isJobWalkActive
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                <FootprintsIcon className="w-4 h-4 flex-shrink-0" />
+                Job Walk
+              </Link>
+              <Link
+                href="/sales/estimating"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isSalesEstimatingActive
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                <CalculatorIcon className="w-4 h-4 flex-shrink-0" />
+                Estimating
+              </Link>
             </div>
           </div>
         )}
-
-        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
-          <Link
-            href="/job-walk"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isJobWalkActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <FootprintsIcon className="w-5 h-5 flex-shrink-0" />
-            Job Walk
-          </Link>
-        )}
-
-        <div className="hidden md:block">
-          <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
-            isEstimatingActive
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}>
-            <Link
-              href="/estimating"
-              onClick={() => setMobileOpen(false)}
-              className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
-            >
-              <CalculatorIcon className="w-5 h-5 flex-shrink-0" />
-              Estimating
-            </Link>
-            <button
-              onClick={() => setEstimatingExpanded(!estimatingExpanded)}
-              className="px-2 py-2.5 flex-shrink-0 text-gray-500 hover:text-white transition-colors"
-              aria-label={estimatingExpanded ? 'Collapse sub-items' : 'Expand sub-items'}
-            >
-              <ChevronRightIcon className={`w-4 h-4 transition-transform duration-200 ${estimatingExpanded ? 'rotate-90' : ''}`} />
-            </button>
-          </div>
-          <div
-            className="overflow-hidden transition-all duration-200 ease-in-out"
-            style={{
-              maxHeight: estimatingExpanded ? '400px' : '0px',
-              opacity: estimatingExpanded ? 1 : 0,
-            }}
-          >
-            <Link
-              href="/estimates"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isEstimatingEstimatesActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <FileTextIcon className="w-4 h-4 flex-shrink-0" />
-              Estimates
-            </Link>
-            <Link
-              href="/job-takeoff"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isEstimatingMeasurementsActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <RulerIcon className="w-4 h-4 flex-shrink-0" />
-              Measurements
-            </Link>
-            <Link
-              href="/estimating/project-takeoff"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isEstimatingProjectTakeoffActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <CompassIcon className="w-4 h-4 flex-shrink-0" />
-              Project Takeoff
-            </Link>
-          </div>
-        </div>
 
         {/* Soft divider */}
         <div className="mx-3 my-2 border-t border-gray-800/60" />

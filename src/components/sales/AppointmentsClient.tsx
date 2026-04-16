@@ -135,6 +135,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
   const [editDraft, setEditDraft] = useState<AppointmentDraft | null>(null)
   const [openPushMenuFor, setOpenPushMenuFor] = useState<string | null>(null)
   const [pushTargetAppt, setPushTargetAppt] = useState<AppointmentRow | null>(null)
+  const [pushEstimatingAppt, setPushEstimatingAppt] = useState<AppointmentRow | null>(null)
   const [pushing, setPushing] = useState(false)
   const [toast, setToast] = useState<{
     message: string
@@ -364,6 +365,124 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
     showToast('Job walk created.', `/job-walk?walk=${walkId}`)
   }
 
+  // ─── Push-to-estimating ────────────────────────────────────────────────
+  async function handlePushToEstimating(appt: AppointmentRow) {
+    setPushing(true)
+    const company = companyMap.get(appt.company_id)
+    if (!company) {
+      setPushing(false)
+      showToast('Company not found.')
+      return
+    }
+    const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
+
+    // Step 1: find-or-create customer for this company
+    let customerId: string | null = null
+    const { data: existingCustomer } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('company', company.name)
+      .limit(1)
+      .maybeSingle()
+    if (existingCustomer) {
+      customerId = (existingCustomer as { id: string }).id
+    } else {
+      const contactName = contact
+        ? `${contact.first_name} ${contact.last_name}`.trim()
+        : company.name
+      const { data: addrRows } = await supabase
+        .from('crm_company_addresses')
+        .select('address, city, state, zip, is_primary')
+        .eq('company_id', company.id)
+        .order('is_primary', { ascending: false })
+        .limit(1)
+      const addr = (addrRows ?? [])[0] as
+        | {
+            address: string
+            city: string | null
+            state: string | null
+            zip: string | null
+          }
+        | undefined
+      const { data: newCustomer, error: custErr } = await supabase
+        .from('customers')
+        .insert({
+          name: contactName || company.name,
+          company: company.name,
+          email: contact?.email ?? null,
+          phone: contact?.phone ?? null,
+          address: addr?.address ?? null,
+          city: addr?.city ?? company.city ?? null,
+          state: addr?.state ?? company.state ?? null,
+          zip: addr?.zip ?? null,
+          user_id: userId,
+        })
+        .select('id')
+        .single()
+      if (custErr || !newCustomer) {
+        setPushing(false)
+        setPushEstimatingAppt(null)
+        showToast(`Customer create failed: ${custErr?.message ?? 'unknown error'}`)
+        return
+      }
+      customerId = (newCustomer as { id: string }).id
+    }
+
+    // Step 2: create an estimating project
+    const { data: newProject, error: projErr } = await supabase
+      .from('estimating_projects')
+      .insert({
+        customer_id: customerId,
+        name: appt.title || company.name,
+        description: appt.notes,
+        status: 'active',
+        source: 'appointment',
+        source_ref_id: appt.id,
+        created_by: userId,
+      })
+      .select('id')
+      .single()
+    if (projErr || !newProject) {
+      setPushing(false)
+      setPushEstimatingAppt(null)
+      showToast(`Project create failed: ${projErr?.message ?? 'unknown error'}`)
+      return
+    }
+    const projectId = (newProject as { id: string }).id
+
+    // Step 3: update the appointment
+    const { error: updErr } = await supabase
+      .from('crm_appointments')
+      .update({
+        status: 'completed',
+        pushed_to: 'estimating',
+        pushed_ref_id: projectId,
+      })
+      .eq('id', appt.id)
+    setPushing(false)
+    setPushEstimatingAppt(null)
+    if (updErr) {
+      showToast(`Appointment update failed: ${updErr.message}`)
+      return
+    }
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id === appt.id
+          ? {
+              ...a,
+              status: 'completed',
+              pushed_to: 'estimating',
+              pushed_ref_id: projectId,
+            }
+          : a
+      )
+    )
+    showToast(
+      'Estimating project created.',
+      `/sales/estimating?customer=${customerId}&project=${projectId}`
+    )
+  }
+
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -537,9 +656,9 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                                 <button
                                   onClick={() => {
                                     setOpenPushMenuFor(null)
-                                    showToast('Coming soon')
+                                    setPushEstimatingAppt(appt)
                                   }}
-                                  className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
+                                  className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                 >
                                   Push to estimating
                                 </button>
@@ -569,6 +688,13 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                         appt.pushed_to === 'job_walk' && appt.pushed_ref_id ? (
                           <Link
                             href={`/job-walk?walk=${appt.pushed_ref_id}`}
+                            className="text-xs text-gray-400 hover:text-amber-600"
+                          >
+                            {PUSHED_TO_LABELS[appt.pushed_to]} →
+                          </Link>
+                        ) : appt.pushed_to === 'estimating' && appt.pushed_ref_id ? (
+                          <Link
+                            href={`/sales/estimating?project=${appt.pushed_ref_id}`}
                             className="text-xs text-gray-400 hover:text-amber-600"
                           >
                             {PUSHED_TO_LABELS[appt.pushed_to]} →
@@ -672,6 +798,19 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
           confirmLabel="Create job walk"
           onConfirm={() => handlePushToJobWalk(pushTargetAppt)}
           onCancel={() => setPushTargetAppt(null)}
+          loading={pushing}
+          variant="default"
+        />
+      )}
+
+      {/* Push-to-estimating confirmation */}
+      {pushEstimatingAppt && (
+        <ConfirmDialog
+          title="Push to estimating?"
+          message="This will create a new estimating project for this customer. Continue?"
+          confirmLabel="Create project"
+          onConfirm={() => handlePushToEstimating(pushEstimatingAppt)}
+          onCancel={() => setPushEstimatingAppt(null)}
           loading={pushing}
           variant="default"
         />

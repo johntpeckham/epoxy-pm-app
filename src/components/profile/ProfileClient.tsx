@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon, TargetIcon, GitBranchIcon, BellIcon, TableIcon, CalculatorIcon } from 'lucide-react'
+import Portal from '@/components/ui/Portal'
 import { Profile, CslbLicense } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
@@ -41,6 +42,8 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const [showWarrantyManagement, setShowWarrantyManagement] = useState(false)
   // Pre-Lien management modal
   const [showPreLienManagement, setShowPreLienManagement] = useState(false)
+  // Sales management modal
+  const [showSalesManagement, setShowSalesManagement] = useState(false)
   const isSalesman = role === 'salesman'
 
   // Display name state
@@ -941,6 +944,29 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
           />
         )}
 
+        {/* Sales Management — Admin, Office Manager, Salesman */}
+        {(isAdmin || isOfficeManager || isSalesman) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <TargetIcon className="w-5 h-5 text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">
+                Sales Management
+              </h2>
+              <button
+                onClick={() => setShowSalesManagement(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
+              >
+                <SlidersHorizontalIcon className="w-3.5 h-3.5" />
+                Manage Sales
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">Configure the estimate form, pipeline, notifications, and takeoff tool.</p>
+          </div>
+        )}
+        {showSalesManagement && (
+          <SalesManagementModal onClose={() => setShowSalesManagement(false)} />
+        )}
+
         {/* Vendor Management — Admin and Office Manager */}
         {(isAdmin || isOfficeManager) && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -975,5 +1001,98 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         )}
       </div>
     </div>
+  )
+}
+
+function SalesManagementModal({ onClose }: { onClose: () => void }) {
+  const cards: { icon: React.ReactNode; title: string; description: string }[] = [
+    {
+      icon: <FileTextIcon className="w-5 h-5" />,
+      title: 'Edit Estimate Form',
+      description: 'Customize the fields and layout shown on the estimate.',
+    },
+    {
+      icon: <GitBranchIcon className="w-5 h-5" />,
+      title: 'Edit Pipeline Visual',
+      description: 'Rename or reorder stages shown on the sales pipeline.',
+    },
+    {
+      icon: <BellIcon className="w-5 h-5" />,
+      title: 'Edit Notifications and Follow-ups',
+      description: 'Configure reminders and follow-up cadences for leads.',
+    },
+    {
+      icon: <TableIcon className="w-5 h-5" />,
+      title: 'Edit Takeoff Tool',
+      description: 'Adjust how measurement takeoffs are captured.',
+    },
+  ]
+
+  return (
+    <Portal>
+      <div
+        className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header"
+        onClick={onClose}
+      >
+        <div
+          className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-auto bg-white md:rounded-xl flex flex-col overflow-hidden max-h-[90vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
+            style={{ minHeight: '56px' }}
+          >
+            <div className="flex items-center gap-2">
+              <CalculatorIcon className="w-5 h-5 text-amber-500" />
+              <h3 className="text-base font-bold text-gray-900">Sales Management</h3>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 md:p-6">
+            <p className="text-sm text-gray-500 mb-4">
+              Configure sales workflows and tools. These settings are placeholders for Phase 2.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {cards.map((c) => (
+                <div
+                  key={c.title}
+                  className="bg-white rounded-xl border border-gray-200 p-4"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-amber-500">{c.icon}</span>
+                    <h4 className="text-sm font-semibold text-gray-900 flex-1">
+                      {c.title}
+                    </h4>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">{c.description}</p>
+                  <p className="text-[11px] text-gray-400 text-center py-4 bg-gray-50 rounded-lg">
+                    Coming soon
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="flex-none flex justify-end p-4 border-t border-gray-200"
+            style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </Portal>
   )
 }
