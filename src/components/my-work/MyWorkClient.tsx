@@ -9,6 +9,7 @@ import OfficeTasksWorkspace from '@/components/my-work/OfficeTasksWorkspace'
 import ExpensesWorkspace from '@/components/my-work/ExpensesWorkspace'
 import OfficeDailyReportsWorkspace from '@/components/my-work/OfficeDailyReportsWorkspace'
 import MyTasksCard from '@/components/my-work/MyTasksCard'
+import NotificationsCard from '@/components/my-work/NotificationsCard'
 import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
 import type { SalesmanExpenseRow } from '@/components/salesman-expenses/SalesmanExpenseCard'
 import { ProjectChecklistItem } from '@/components/job-board/workspaces/ChecklistShared'
@@ -720,6 +721,9 @@ export default function MyWorkClient({
 
         {/* ── Daily Playbook (first card — daily/weekly/one-time assignments; admins also see Team Playbook inside) ── */}
         <MyTasksCard userId={userId} userRole={userRole} />
+
+        {/* ── Notifications (second card — top-right, syncs with bell notification system) ── */}
+        <NotificationsCard userId={userId} />
 
         {/* ── Assigned Field Tasks (foreman only) ── */}
         {isForeman && (
