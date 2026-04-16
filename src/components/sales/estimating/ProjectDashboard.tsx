@@ -49,8 +49,10 @@ export default function ProjectDashboard({
 
         <ProjectEstimatesCard
           key={`estimates-${project.id}`}
-          customerId={customer.id}
+          project={project}
+          customer={customer}
           userId={userId}
+          onPatch={onPatch}
         />
 
         <ProjectPipelineCard
