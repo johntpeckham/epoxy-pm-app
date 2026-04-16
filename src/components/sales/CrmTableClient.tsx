@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   SearchIcon,
   XIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   PlusIcon,
   UploadIcon,
   DownloadIcon,
@@ -28,6 +29,16 @@ type CrmViewMode = 'new' | 'existing'
 type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
+interface ContactRow {
+  id: string
+  first_name: string
+  last_name: string
+  job_title: string | null
+  email: string | null
+  phone: string | null
+  is_primary: boolean
+}
+
 interface CompanyRow {
   id: string
   name: string
@@ -42,6 +53,7 @@ interface CompanyRow {
   assigned_to: string | null
   assigned_name: string | null
   contact_count: number
+  contacts: ContactRow[]
   last_activity: string | null
   last_note: string | null
   tag_ids: string[]
@@ -194,6 +206,16 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
 
   function toggleRowSelected(id: string) {
     setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -423,15 +445,38 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     }>
     const companyIds = companyRows.map((c) => c.id)
 
-    // Contact counts per company
+    // Contacts per company (full details for expandable sub-rows)
+    const contactsByCompany = new Map<string, ContactRow[]>()
     const contactCounts = new Map<string, number>()
     if (companyIds.length > 0) {
       const { data: contactsForCount } = await supabase
         .from('crm_contacts')
-        .select('company_id')
+        .select('id, company_id, first_name, last_name, job_title, email, phone, is_primary')
         .in('company_id', companyIds)
-      for (const row of (contactsForCount ?? []) as { company_id: string }[]) {
+        .order('is_primary', { ascending: false })
+        .order('last_name', { ascending: true })
+      for (const row of (contactsForCount ?? []) as Array<{
+        id: string
+        company_id: string
+        first_name: string
+        last_name: string
+        job_title: string | null
+        email: string | null
+        phone: string | null
+        is_primary: boolean
+      }>) {
         contactCounts.set(row.company_id, (contactCounts.get(row.company_id) ?? 0) + 1)
+        const list = contactsByCompany.get(row.company_id) ?? []
+        list.push({
+          id: row.id,
+          first_name: row.first_name,
+          last_name: row.last_name,
+          job_title: row.job_title,
+          email: row.email,
+          phone: row.phone,
+          is_primary: row.is_primary,
+        })
+        contactsByCompany.set(row.company_id, list)
       }
     }
 
@@ -485,28 +530,21 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
 
     // Contact names used for search (map company_id → joined names)
     const contactNameBlob = new Map<string, string>()
-    if (companyIds.length > 0) {
-      const { data: contactNameRows } = await supabase
-        .from('crm_contacts')
-        .select('company_id, first_name, last_name')
-        .in('company_id', companyIds)
-      for (const row of (contactNameRows ?? []) as {
-        company_id: string
-        first_name: string
-        last_name: string
-      }[]) {
-        const existing = contactNameBlob.get(row.company_id) ?? ''
-        contactNameBlob.set(
-          row.company_id,
-          `${existing} ${row.first_name} ${row.last_name}`.toLowerCase()
-        )
-      }
+    for (const [cid, list] of contactsByCompany) {
+      contactNameBlob.set(
+        cid,
+        list
+          .map((k) => `${k.first_name} ${k.last_name}`)
+          .join(' ')
+          .toLowerCase()
+      )
     }
 
     const merged: CompanyRow[] = companyRows.map((c) => ({
       ...c,
       assigned_name: c.assigned_to ? profileMap.get(c.assigned_to) ?? null : null,
       contact_count: contactCounts.get(c.id) ?? 0,
+      contacts: contactsByCompany.get(c.id) ?? [],
       last_activity: lastActivity.get(c.id) ?? null,
       last_note: lastNote.get(c.id) ?? null,
       tag_ids: tagsByCompany.get(c.id) ?? [],
@@ -708,15 +746,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   }
 
   const activeFilterCount = Object.values(filters).reduce((n, s) => n + s.size, 0)
-
-  // List of existing industry values for the inline-edit datalist
-  const industryOptions = useMemo(() => {
-    const set = new Set<string>()
-    for (const c of companies) {
-      if (c.industry && c.industry.trim() !== '') set.add(c.industry.trim())
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [companies])
 
   // ─── Helpers for render ──────────────────────────────────────────────────
   function formatDate(iso: string | null): { text: string; stale: boolean } {
@@ -1026,27 +1055,29 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           <table className="w-full table-fixed">
             <colgroup>
               <col style={{ width: '3%' }} />
-              <col style={{ width: '19%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '7%' }} />
-              <col style={{ width: '10%' }} />
+              <col style={{ width: '3%' }} />
+              <col style={{ width: '17%' }} />
               <col style={{ width: '8%' }} />
-              <col style={{ width: '7%' }} />
               <col style={{ width: '7%' }} />
               <col style={{ width: '9%' }} />
               <col style={{ width: '8%' }} />
-              <col style={{ width: '13%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '12%' }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200" style={{ borderBottomWidth: '0.5px' }}>
-                <th className="pl-7 pr-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
+                <th className="pl-5 pr-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
+                <th className="px-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
                 {headerCell('Company', 'name', 'pl-2 pr-2')}
                 {headerCell('Industry', 'industry', 'px-2')}
                 {headerCell('Zone', 'zone', 'px-2')}
                 {headerCell('Location', 'location', 'px-2')}
                 {headerCell('Status', 'status', 'px-2')}
                 {headerCell('Priority', 'priority', 'px-2')}
-                {headerCell('Contacts', 'contact_count', 'px-2 text-center')}
+                {headerCell('Contacts', 'contact_count', 'px-2')}
                 {headerCell('Last activity', 'last_activity', 'px-2')}
                 {headerCell('Assigned', 'assigned_name', 'px-2')}
                 {headerCell('Last note', 'last_note', 'pl-2 pr-7')}
@@ -1057,157 +1088,250 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 const blacklisted = c.status === 'blacklisted'
                 const last = formatDate(c.last_activity)
                 const cityState = [c.city, c.state].filter(Boolean).join(', ')
+                const hasContacts = c.contacts.length > 0
+                const expanded = expandedIds.has(c.id)
                 return (
-                  <tr
-                    key={c.id}
-                    onClick={() => router.push(`/sales/crm/${c.id}`)}
-                    className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                      blacklisted ? 'opacity-40' : ''
-                    }`}
-                    style={{ borderBottomWidth: '0.5px' }}
-                  >
-                    <td
-                      className="pl-7 pr-0 align-middle"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(c.id)}
-                        onChange={() => toggleRowSelected(c.id)}
-                        className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
-                        aria-label={`Select ${c.name}`}
-                      />
-                    </td>
-                    <td
-                      className="pl-2 pr-2 text-sm font-medium text-gray-900"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <EditableTextCell
-                        value={c.name}
-                        className="text-sm font-medium text-gray-900"
-                        onSave={(v) => updateCompanyField(c.id, 'name', v ?? c.name)}
-                      />
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <EditableTextCell
-                        value={c.industry}
-                        className="text-sm text-gray-600"
-                        datalistId="crm-industry-list"
-                        datalistOptions={industryOptions}
-                        onSave={(v) => updateCompanyField(c.id, 'industry', v)}
-                      />
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <EditableTextCell
-                        value={c.zone}
-                        className="text-sm text-gray-600"
-                        onSave={(v) => updateCompanyField(c.id, 'zone', v)}
-                      />
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <EditableTextCell
-                        value={c.city}
-                        placeholder={cityState || '—'}
-                        className="text-sm text-gray-600"
-                        onSave={(v) => updateCompanyField(c.id, 'city', v)}
-                      />
-                    </td>
-                    <td
-                      className={`px-2 text-sm ${STATUS_TEXT_COLOR[c.status]}`}
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <EditableSelectCell
-                        value={c.status}
-                        options={(
-                          ['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'] as CompanyStatus[]
-                        ).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
-                        displayClassName={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
-                        className={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
-                        onSave={(v) =>
-                          updateCompanyField(c.id, 'status', (v ?? 'prospect') as CompanyStatus)
-                        }
-                      />
-                    </td>
-                    <td
-                      className={`px-2 text-sm ${
-                        c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
+                  <Fragment key={c.id}>
+                    <tr
+                      onClick={() => router.push(`/sales/crm/${c.id}`)}
+                      className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                        blacklisted ? 'opacity-40' : ''
                       }`}
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                      onClick={(e) => e.stopPropagation()}
+                      style={{ borderBottomWidth: '0.5px' }}
                     >
-                      <EditableSelectCell
-                        value={c.priority}
-                        allowEmpty
-                        emptyLabel="—"
-                        options={(['high', 'medium', 'low'] as CompanyPriority[]).map((p) => ({
-                          value: p,
-                          label: PRIORITY_LABELS[p],
-                        }))}
-                        displayClassName={`text-sm ${
+                      <td
+                        className="pl-5 pr-0 align-middle"
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {hasContacts ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(c.id)}
+                            className="inline-flex items-center justify-center w-5 h-5 text-gray-400 hover:text-amber-600 rounded hover:bg-amber-50"
+                            aria-label={expanded ? 'Collapse contacts' : 'Expand contacts'}
+                          >
+                            {expanded ? (
+                              <ChevronDownIcon className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronRightIcon className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        ) : null}
+                      </td>
+                      <td
+                        className="px-0 align-middle"
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(c.id)}
+                          onChange={() => toggleRowSelected(c.id)}
+                          className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
+                          aria-label={`Select ${c.name}`}
+                        />
+                      </td>
+                      <td
+                        className="pl-2 pr-2 text-sm font-medium text-gray-900"
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                      >
+                        <span className="block truncate" title={c.name}>
+                          {c.name}
+                        </span>
+                      </td>
+                      <td
+                        className="px-2 text-sm text-gray-600"
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                      >
+                        <span className="block truncate">{c.industry || '—'}</span>
+                      </td>
+                      <td
+                        className="px-2 text-sm text-gray-600"
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                      >
+                        <span className="block truncate">{c.zone || '—'}</span>
+                      </td>
+                      <td
+                        className="px-2 text-sm text-gray-600"
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                      >
+                        <span className="block truncate">{cityState || '—'}</span>
+                      </td>
+                      <td
+                        className={`px-2 text-sm ${STATUS_TEXT_COLOR[c.status]}`}
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <EditableSelectCell
+                          value={c.status}
+                          showHoverChevron
+                          options={(
+                            ['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'] as CompanyStatus[]
+                          ).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+                          displayClassName={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
+                          className={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
+                          onSave={(v) =>
+                            updateCompanyField(c.id, 'status', (v ?? 'prospect') as CompanyStatus)
+                          }
+                        />
+                      </td>
+                      <td
+                        className={`px-2 text-sm ${
                           c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
                         }`}
-                        className={`text-sm ${
-                          c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
-                        }`}
-                        onSave={(v) =>
-                          updateCompanyField(c.id, 'priority', (v as CompanyPriority | null) ?? null)
-                        }
-                      />
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600 text-center"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      {c.contact_count}
-                    </td>
-                    <td
-                      className={`px-2 text-sm ${last.stale ? 'text-amber-600' : 'text-gray-600'}`}
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      {last.text}
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <EditableSelectCell
-                        value={c.assigned_to}
-                        allowEmpty
-                        emptyLabel="—"
-                        options={profiles
-                          .filter((p) => p.display_name)
-                          .map((p) => ({ value: p.id, label: p.display_name ?? '' }))
-                          .sort((a, b) => a.label.localeCompare(b.label))}
-                        displayLabel={formatAssigned(c.assigned_name)}
-                        displayClassName="text-sm text-gray-600"
-                        className="text-sm text-gray-600"
-                        onSave={(v) => updateCompanyField(c.id, 'assigned_to', v)}
-                      />
-                    </td>
-                    <td
-                      className="pl-2 pr-7 text-sm text-gray-500 truncate"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                      title={c.last_note ?? ''}
-                    >
-                      {c.last_note || '—'}
-                    </td>
-                  </tr>
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <EditableSelectCell
+                          value={c.priority}
+                          allowEmpty
+                          showHoverChevron
+                          emptyLabel="—"
+                          options={(['high', 'medium', 'low'] as CompanyPriority[]).map((p) => ({
+                            value: p,
+                            label: PRIORITY_LABELS[p],
+                          }))}
+                          displayClassName={`text-sm ${
+                            c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
+                          }`}
+                          className={`text-sm ${
+                            c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
+                          }`}
+                          onSave={(v) =>
+                            updateCompanyField(c.id, 'priority', (v as CompanyPriority | null) ?? null)
+                          }
+                        />
+                      </td>
+                      <td
+                        className="px-2 text-sm text-gray-600"
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {hasContacts ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(c.id)}
+                            className="text-sm text-gray-600 hover:text-amber-700 hover:underline cursor-pointer"
+                          >
+                            {c.contact_count} {c.contact_count === 1 ? 'contact' : 'contacts'}
+                          </button>
+                        ) : (
+                          <span className="text-gray-400">0 contacts</span>
+                        )}
+                      </td>
+                      <td
+                        className={`px-2 text-sm ${last.stale ? 'text-amber-600' : 'text-gray-600'}`}
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                      >
+                        {last.text}
+                      </td>
+                      <td
+                        className="px-2 text-sm text-gray-600"
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <EditableSelectCell
+                          value={c.assigned_to}
+                          allowEmpty
+                          showHoverChevron
+                          emptyLabel="—"
+                          options={profiles
+                            .filter((p) => p.display_name)
+                            .map((p) => ({ value: p.id, label: p.display_name ?? '' }))
+                            .sort((a, b) => a.label.localeCompare(b.label))}
+                          displayLabel={formatAssigned(c.assigned_name)}
+                          displayClassName="text-sm text-gray-600"
+                          className="text-sm text-gray-600"
+                          onSave={(v) => updateCompanyField(c.id, 'assigned_to', v)}
+                        />
+                      </td>
+                      <td
+                        className="pl-2 pr-7 text-sm text-gray-500 truncate"
+                        style={{ paddingTop: 14, paddingBottom: 14 }}
+                        title={c.last_note ?? ''}
+                      >
+                        {c.last_note || '—'}
+                      </td>
+                    </tr>
+                    {expanded &&
+                      c.contacts.map((k) => {
+                        const fullName = `${k.first_name} ${k.last_name}`.trim()
+                        return (
+                          <tr
+                            key={`${c.id}-${k.id}`}
+                            onClick={() => router.push(`/sales/crm/${c.id}`)}
+                            className={`border-b border-gray-100 bg-amber-50/30 hover:bg-amber-50 cursor-pointer ${
+                              blacklisted ? 'opacity-40' : ''
+                            }`}
+                            style={{ borderBottomWidth: '0.5px' }}
+                          >
+                            <td className="pl-5 pr-0" style={{ paddingTop: 10, paddingBottom: 10 }} />
+                            <td className="px-0" style={{ paddingTop: 10, paddingBottom: 10 }} />
+                            <td
+                              className="pl-2 pr-2 text-sm text-gray-700"
+                              style={{ paddingTop: 10, paddingBottom: 10, paddingLeft: 40 }}
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-sm text-gray-800 truncate" title={fullName}>
+                                  {fullName || '—'}
+                                  {k.is_primary && (
+                                    <span className="ml-1.5 inline-flex items-center px-1.5 py-0 text-[10px] font-medium text-amber-700 bg-amber-100 rounded">
+                                      Primary
+                                    </span>
+                                  )}
+                                </span>
+                                {k.job_title && (
+                                  <span className="text-xs text-gray-400 truncate" title={k.job_title}>
+                                    {k.job_title}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td
+                              colSpan={3}
+                              className="px-2 text-sm text-gray-600"
+                              style={{ paddingTop: 10, paddingBottom: 10 }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {k.phone ? (
+                                <a
+                                  href={`tel:${k.phone}`}
+                                  className="text-sm text-gray-700 hover:text-amber-700 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {k.phone}
+                                </a>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+                            <td
+                              colSpan={5}
+                              className="px-2 text-sm text-gray-600 truncate"
+                              style={{ paddingTop: 10, paddingBottom: 10 }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {k.email ? (
+                                <a
+                                  href={`mailto:${k.email}`}
+                                  className="text-sm text-gray-700 hover:text-amber-700 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {k.email}
+                                </a>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+                            <td
+                              className="pl-2 pr-7"
+                              style={{ paddingTop: 10, paddingBottom: 10 }}
+                            />
+                          </tr>
+                        )
+                      })}
+                  </Fragment>
                 )
               })}
             </tbody>
@@ -1323,93 +1447,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
 const INLINE_INPUT_CLS =
   'w-full bg-transparent outline-none border-0 border-b border-transparent focus:border-amber-400 px-0 py-0 m-0 text-inherit text-sm font-[inherit]'
 
-interface EditableTextCellProps {
-  value: string | null
-  placeholder?: string
-  className?: string
-  title?: string
-  datalistId?: string
-  datalistOptions?: string[]
-  onSave: (next: string | null) => void
-}
-
-function EditableTextCell({
-  value,
-  placeholder = '—',
-  className = '',
-  title,
-  datalistId,
-  datalistOptions,
-  onSave,
-}: EditableTextCellProps) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value ?? '')
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
-    }
-  }, [editing])
-
-  function commit() {
-    const trimmed = draft.trim()
-    const next = trimmed === '' ? null : trimmed
-    setEditing(false)
-    if (next !== (value ?? null)) onSave(next)
-  }
-  function cancel() {
-    setDraft(value ?? '')
-    setEditing(false)
-  }
-
-  if (editing) {
-    return (
-      <>
-        <input
-          ref={inputRef}
-          type="text"
-          value={draft}
-          list={datalistId}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              commit()
-            } else if (e.key === 'Escape') {
-              e.preventDefault()
-              cancel()
-            }
-          }}
-          className={`${INLINE_INPUT_CLS} ${className}`}
-        />
-        {datalistId && datalistOptions && (
-          <datalist id={datalistId}>
-            {datalistOptions.map((opt) => (
-              <option key={opt} value={opt} />
-            ))}
-          </datalist>
-        )}
-      </>
-    )
-  }
-  return (
-    <span
-      onClick={(e) => {
-        e.stopPropagation()
-        setEditing(true)
-      }}
-      title={title}
-      className={`block w-full cursor-text truncate ${className}`}
-    >
-      {value && value.trim() !== '' ? value : placeholder}
-    </span>
-  )
-}
-
 interface EditableSelectCellProps {
   value: string | null
   options: { value: string; label: string }[]
@@ -1419,6 +1456,7 @@ interface EditableSelectCellProps {
   className?: string
   displayClassName?: string
   displayLabel?: string
+  showHoverChevron?: boolean
   onSave: (next: string | null) => void
 }
 
@@ -1431,6 +1469,7 @@ function EditableSelectCell({
   className = '',
   displayClassName = '',
   displayLabel,
+  showHoverChevron = false,
   onSave,
 }: EditableSelectCellProps) {
   const [editing, setEditing] = useState(false)
@@ -1475,6 +1514,20 @@ function EditableSelectCell({
   }
   const current = options.find((o) => o.value === value)
   const text = displayLabel ?? (current ? current.label : placeholder)
+  if (showHoverChevron) {
+    return (
+      <span
+        onClick={(e) => {
+          e.stopPropagation()
+          setEditing(true)
+        }}
+        className={`group inline-flex items-center gap-1 w-full cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-amber-50 ${displayClassName}`}
+      >
+        <span className="truncate">{text}</span>
+        <ChevronDownIcon className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity shrink-0" />
+      </span>
+    )
+  }
   return (
     <span
       onClick={(e) => {
