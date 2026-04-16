@@ -730,7 +730,7 @@ export default function ImportCsvModal({
                 </p>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-500 transition-all duration-300"
+                    className="h-full bg-amber-500 transition-all duration-300"
                     style={{
                       width: `${
                         importTotal === 0
@@ -747,7 +747,7 @@ export default function ImportCsvModal({
             )}
             {step === 'done' && (
               <div className="py-8 text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mb-4">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-50 text-amber-500 mb-4">
                   ✓
                 </div>
                 <h4 className="text-base font-medium text-gray-900 mb-1">
@@ -792,7 +792,7 @@ export default function ImportCsvModal({
                 <button
                   onClick={() => setStep('mapping')}
                   disabled={headers.length === 0 || rows.length === 0}
-                  className="px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+                  className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-40 transition-colors"
                 >
                   Next
                 </button>
@@ -804,7 +804,7 @@ export default function ImportCsvModal({
                     await runDuplicateDetection()
                   }}
                   disabled={!companyNameMapped}
-                  className="px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+                  className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-40 transition-colors"
                 >
                   Next
                 </button>
@@ -821,7 +821,7 @@ export default function ImportCsvModal({
                 <button
                   onClick={runImport}
                   disabled={reviewLoading || reviewedRows.length === 0}
-                  className="px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+                  className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-40 transition-colors"
                 >
                   Import
                 </button>
@@ -832,7 +832,7 @@ export default function ImportCsvModal({
                     onImported()
                     onClose()
                   }}
-                  className="px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+                  className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 transition-colors"
                 >
                   Done
                 </button>
@@ -1029,12 +1029,12 @@ function Stat({
   return (
     <div
       className={`inline-flex items-baseline gap-1.5 px-3 py-1.5 rounded-lg border ${
-        accent ? 'bg-emerald-50 border-emerald-100' : 'bg-gray-50 border-gray-100'
+        accent ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100'
       }`}
     >
       <span
         className={`text-sm font-semibold tabular-nums ${
-          accent ? 'text-emerald-700' : 'text-gray-900'
+          accent ? 'text-amber-600' : 'text-gray-900'
         }`}
       >
         {value}
@@ -1062,7 +1062,7 @@ function StepIndicator({ step }: { step: Step }) {
             <span
               className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] ${
                 isDone
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-amber-500 text-white'
                   : isCurrent
                     ? 'bg-gray-900 text-white'
                     : 'bg-gray-100 text-gray-400'

@@ -235,7 +235,7 @@ export default function SalesDashboardClient({
                     {c.phone && (
                       <a
                         href={`tel:${c.phone}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-md hover:bg-emerald-100 transition-colors"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors"
                       >
                         <PhoneCallIcon className="w-3 h-3" />
                         Call now

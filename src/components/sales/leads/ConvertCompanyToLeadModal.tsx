@@ -245,7 +245,7 @@ export default function ConvertCompanyToLeadModal({
               type="button"
               onClick={handleConvert}
               disabled={saving || !projectName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition disabled:opacity-60"
+              className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition disabled:opacity-60"
             >
               {saving ? 'Creating…' : 'Create lead'}
             </button>

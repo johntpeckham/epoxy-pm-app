@@ -391,7 +391,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
           </div>
           <button
             onClick={() => setShowNewModal(true)}
-            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
           >
             <PlusIcon className="w-4 h-4" />
             New appointment
@@ -454,7 +454,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                       <div className="flex items-center gap-2 flex-wrap">
                         <Link
                           href={`/sales/crm/${appt.company_id}`}
-                          className="text-[15px] font-medium text-gray-900 hover:text-teal-700"
+                          className="text-[15px] font-medium text-gray-900 hover:text-amber-600"
                         >
                           {company?.name ?? 'Unknown company'}
                         </Link>
@@ -485,7 +485,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                           {contact?.phone && (
                             <a
                               href={`tel:${contact.phone}`}
-                              className="inline-flex items-center gap-1.5 hover:text-teal-700"
+                              className="inline-flex items-center gap-1.5 hover:text-amber-600"
                             >
                               <PhoneIcon className="w-3.5 h-3.5 text-gray-400" />
                               {contact.phone}
@@ -513,7 +513,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                                 openPushMenuFor === appt.id ? null : appt.id
                               )
                             }
-                            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+                            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
                           >
                             Push to…
                             <ChevronDownIcon className="w-3.5 h-3.5" />
@@ -569,7 +569,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                         appt.pushed_to === 'job_walk' && appt.pushed_ref_id ? (
                           <Link
                             href={`/job-walk?walk=${appt.pushed_ref_id}`}
-                            className="text-xs text-gray-400 hover:text-teal-700"
+                            className="text-xs text-gray-400 hover:text-amber-600"
                           >
                             {PUSHED_TO_LABELS[appt.pushed_to]} →
                           </Link>
@@ -613,9 +613,9 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                         const isCompleted = i < currentStage
                         const isCurrent = i === currentStage
                         const stageClass = isCompleted
-                          ? 'bg-teal-50 text-teal-700 border border-teal-50'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-50'
                           : isCurrent
-                          ? 'border border-dashed border-teal-500 text-teal-700 bg-white'
+                          ? 'border border-dashed border-amber-400 text-amber-700 bg-white'
                           : 'bg-gray-50 text-gray-400 border border-gray-50'
                         return (
                           <span key={stage} className="inline-flex items-center gap-1.5">
@@ -685,7 +685,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
             {toast.href && (
               <Link
                 href={toast.href}
-                className="text-teal-300 hover:text-teal-100 underline"
+                className="text-amber-300 hover:text-amber-100 underline"
               >
                 View
               </Link>

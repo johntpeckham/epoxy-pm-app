@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -10,6 +10,7 @@ import {
   ChevronRightIcon,
   ChevronDownIcon,
   Trash2Icon,
+  CheckIcon,
 } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
 import type { UserRole } from '@/types'
@@ -83,6 +84,8 @@ export default function LeadsClient({
   const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<{ message: string; href?: string | null } | null>(null)
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
+  const statusDropdownRef = useRef<HTMLDivElement>(null)
 
   const selected = useMemo(
     () => leads.find((l) => l.id === selectedId) ?? null,
@@ -104,6 +107,19 @@ export default function LeadsClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Close status dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setStatusDropdownOpen(false)
+      }
+    }
+    if (statusDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [statusDropdownOpen])
+
   // Fetch customers for the modal + edit
   useEffect(() => {
     async function fetchCustomers() {
@@ -119,6 +135,7 @@ export default function LeadsClient({
   }, [userId])
 
   function selectLead(id: string) {
+    setStatusDropdownOpen(false)
     setSelectedId(id)
     setMobileView('detail')
     const params = new URLSearchParams(searchParams.toString())
@@ -134,9 +151,8 @@ export default function LeadsClient({
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)))
   }, [])
 
-  const toggleStatus = useCallback(async (lead: Lead) => {
-    const next: LeadStatus =
-      lead.status === 'completed' ? 'in_progress' : 'completed'
+  const setLeadStatus = useCallback(async (lead: Lead, next: LeadStatus) => {
+    if (next === lead.status) return
     setLeads((prev) =>
       prev.map((l) => (l.id === lead.id ? { ...l, status: next } : l))
     )
@@ -146,7 +162,7 @@ export default function LeadsClient({
       .update({ status: next })
       .eq('id', lead.id)
     if (error) {
-      console.error('[Leads] Status toggle failed:', error)
+      console.error('[Leads] Status update failed:', error)
       setLeads((prev) =>
         prev.map((l) => (l.id === lead.id ? { ...l, status: lead.status } : l))
       )
@@ -328,14 +344,37 @@ export default function LeadsClient({
                     {selected.address ? ` · ${selected.address}` : ''}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toggleStatus(selected)}
-                  title="Tap to toggle status"
-                  className={`inline-flex flex-shrink-0 items-center px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-transparent hover:border-current/40 cursor-pointer transition ${LEAD_STATUS_STYLES[selected.status].className}`}
-                >
-                  {LEAD_STATUS_STYLES[selected.status].label}
-                </button>
+                <div className="relative flex-shrink-0" ref={statusDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setStatusDropdownOpen((v) => !v)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition ${LEAD_STATUS_STYLES[selected.status].className}`}
+                  >
+                    {LEAD_STATUS_STYLES[selected.status].label}
+                    <ChevronDownIcon className="w-3 h-3" />
+                  </button>
+                  {statusDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[150px]">
+                      {(Object.keys(LEAD_STATUS_STYLES) as LeadStatus[]).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => {
+                            setLeadStatus(selected, s)
+                            setStatusDropdownOpen(false)
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 flex items-center justify-between gap-2"
+                        >
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${LEAD_STATUS_STYLES[s].className}`}>
+                            {LEAD_STATUS_STYLES[s].label}
+                          </span>
+                          {s === selected.status && (
+                            <CheckIcon className="w-3.5 h-3.5 text-gray-500" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <LeadPushMenu
                   lead={selected}
                   userId={userId}
@@ -428,7 +467,7 @@ export default function LeadsClient({
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg flex items-center gap-3">
           <span>{toast.message}</span>
           {toast.href && (
-            <a href={toast.href} className="text-teal-300 hover:text-teal-100 underline">
+            <a href={toast.href} className="text-amber-300 hover:text-amber-100 underline">
               View
             </a>
           )}
