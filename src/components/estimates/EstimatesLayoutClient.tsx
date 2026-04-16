@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { MonitorIcon } from 'lucide-react'
 import type { Customer, Estimate, EstimateSettings } from './types'
@@ -24,11 +25,21 @@ export default function EstimatesLayoutClient({
   initialAllEstimates,
   userId,
 }: EstimatesLayoutClientProps) {
+  const searchParams = useSearchParams()
+  const paramCustomerId = searchParams.get('customer')
+  const paramEstimateId = searchParams.get('estimate')
+  const paramFrom = searchParams.get('from')
+  const paramProject = searchParams.get('project')
+
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
-  const [selectedView, setSelectedView] = useState<'dashboard' | string>('dashboard')
+  const [selectedView, setSelectedView] = useState<'dashboard' | string>(
+    paramCustomerId ?? 'dashboard'
+  )
   const [estimates, setEstimates] = useState<Estimate[]>([])
   const [allEstimates, setAllEstimates] = useState<Estimate[]>(initialAllEstimates)
-  const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null)
+  const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(
+    paramEstimateId
+  )
   const [settings, setSettings] = useState<EstimateSettings | null>(initialSettings)
   const [showSetup, setShowSetup] = useState(!initialSettings)
   const [showSettings, setShowSettings] = useState(false)
@@ -36,12 +47,42 @@ export default function EstimatesLayoutClient({
   const [pendingChangeOrder, setPendingChangeOrder] = useState(false)
   const [showNewEstimateForm, setShowNewEstimateForm] = useState(false)
 
+  const backContext =
+    paramFrom === 'estimating' && paramCustomerId
+      ? {
+          url: `/sales/estimating?customer=${paramCustomerId}${
+            paramProject ? `&project=${paramProject}` : ''
+          }`,
+          label: 'Back to project',
+        }
+      : null
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
+
+  // When the customer URL param is present, load that customer's estimates once.
+  useEffect(() => {
+    let cancelled = false
+    async function loadFromParams() {
+      if (!paramCustomerId) return
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('estimates')
+        .select('*')
+        .eq('customer_id', paramCustomerId)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+      if (!cancelled && data) setEstimates(data)
+    }
+    loadFromParams()
+    return () => {
+      cancelled = true
+    }
+  }, [paramCustomerId, userId])
 
   const selectedCustomerId = selectedView !== 'dashboard' ? selectedView : null
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId) ?? null
@@ -221,6 +262,7 @@ export default function EstimatesLayoutClient({
               pendingChangeOrder={pendingChangeOrder}
               onChangeOrderHandled={() => setPendingChangeOrder(false)}
               onEstimateDeleted={() => { setSelectedEstimateId(null); refreshEstimates(); refreshAllEstimates() }}
+              backContext={backContext}
             />
           )}
         </div>
