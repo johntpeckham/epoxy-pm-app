@@ -19,8 +19,10 @@ import JobWalkNotesCard from './JobWalkNotesCard'
 import JobWalkPhotosCard from './JobWalkPhotosCard'
 import JobWalkMeasurementsCard from './JobWalkMeasurementsCard'
 import JobWalkCamToPlanCard from './JobWalkCamToPlanCard'
+import JobWalkPushMenu from './JobWalkPushMenu'
 
 export type JobWalkStatus = 'in_progress' | 'completed' | 'sent_to_estimating'
+export type JobWalkPushedTo = 'estimating' | 'estimate' | 'job'
 
 export interface JobWalk {
   id: string
@@ -34,6 +36,8 @@ export interface JobWalk {
   status: JobWalkStatus
   notes: string | null
   measurements: string | null
+  pushed_to: JobWalkPushedTo | null
+  pushed_ref_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -316,6 +320,11 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
                 <StatusDropdown
                   walk={selected}
                   onChange={(next) => setWalkStatus(selected, next)}
+                />
+                <JobWalkPushMenu
+                  walk={selected}
+                  userId={userId}
+                  onPatch={(patch) => handleUpdate(selected.id, patch)}
                 />
                 <button
                   type="button"

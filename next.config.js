@@ -36,6 +36,20 @@ const nextConfig = {
     ],
   },
   turbopack: {},
+  async redirects() {
+    return [
+      {
+        source: "/estimating",
+        destination: "/sales/estimating",
+        permanent: false,
+      },
+      {
+        source: "/estimating/project-takeoff",
+        destination: "/sales/estimating",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 module.exports = withPWA(nextConfig);

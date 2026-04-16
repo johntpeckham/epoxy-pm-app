@@ -16,6 +16,10 @@ import {
   MailIcon,
   VoicemailIcon,
   MessageSquareIcon,
+  FootprintsIcon,
+  CalculatorIcon,
+  FileTextIcon,
+  BriefcaseIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/types'
@@ -32,6 +36,10 @@ interface Props {
   contactCount: number
   upcomingApptCount: number
   activeLeadsCount: number
+  activeJobWalksCount: number
+  activeProjectsCount: number
+  estimateCount: number
+  jobsCount: number
   weekActivity: ActivityWithComparison
   monthActivity: ActivityWithComparison
   overdueContacts: OverdueContact[]
@@ -45,6 +53,10 @@ export default function SalesDashboardClient({
   contactCount,
   upcomingApptCount,
   activeLeadsCount,
+  activeJobWalksCount,
+  activeProjectsCount,
+  estimateCount,
+  jobsCount,
   weekActivity,
   monthActivity,
   overdueContacts,
@@ -120,8 +132,19 @@ export default function SalesDashboardClient({
       <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
       <p className="text-sm text-gray-500 mb-4">CRM, dialer, and appointments.</p>
 
+      {/* ── Pipeline visual ── */}
+      <SalesPipeline
+        crmCount={companyCount}
+        leadsCount={activeLeadsCount}
+        apptsCount={upcomingApptCount}
+        jobWalksCount={activeJobWalksCount}
+        projectsCount={activeProjectsCount}
+        estimateCount={estimateCount}
+        jobsCount={jobsCount}
+      />
+
       {/* ── Quick actions ── */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mt-4">
         <QuickActionCard
           href="/sales/crm"
           icon={<UsersIcon className="w-5 h-5" />}
@@ -148,6 +171,22 @@ export default function SalesDashboardClient({
           title="Leads"
           subtitle={`${activeLeadsCount} active ${
             activeLeadsCount === 1 ? 'lead' : 'leads'
+          }`}
+        />
+        <QuickActionCard
+          href="/job-walk"
+          icon={<FootprintsIcon className="w-5 h-5" />}
+          title="Job Walk"
+          subtitle={`${activeJobWalksCount} active job ${
+            activeJobWalksCount === 1 ? 'walk' : 'walks'
+          }`}
+        />
+        <QuickActionCard
+          href="/sales/estimating"
+          icon={<CalculatorIcon className="w-5 h-5" />}
+          title="Estimating"
+          subtitle={`${activeProjectsCount} active ${
+            activeProjectsCount === 1 ? 'project' : 'projects'
           }`}
         />
         <button
@@ -439,6 +478,77 @@ export default function SalesDashboardClient({
 }
 
 /* ── Subcomponents ── */
+
+function SalesPipeline({
+  crmCount,
+  leadsCount,
+  apptsCount,
+  jobWalksCount,
+  projectsCount,
+  estimateCount,
+  jobsCount,
+}: {
+  crmCount: number
+  leadsCount: number
+  apptsCount: number
+  jobWalksCount: number
+  projectsCount: number
+  estimateCount: number
+  jobsCount: number
+}) {
+  const stages: {
+    key: string
+    label: string
+    count: number
+    href: string
+    icon: React.ReactNode
+  }[] = [
+    { key: 'crm', label: 'CRM', count: crmCount, href: '/sales/crm', icon: <UsersIcon className="w-3.5 h-3.5" /> },
+    { key: 'leads', label: 'Leads', count: leadsCount, href: '/sales/leads', icon: <TargetIcon className="w-3.5 h-3.5" /> },
+    { key: 'appts', label: 'Appointments', count: apptsCount, href: '/sales/appointments', icon: <CalendarIcon className="w-3.5 h-3.5" /> },
+    { key: 'jw', label: 'Job Walk', count: jobWalksCount, href: '/job-walk', icon: <FootprintsIcon className="w-3.5 h-3.5" /> },
+    { key: 'est', label: 'Estimating', count: projectsCount, href: '/sales/estimating', icon: <CalculatorIcon className="w-3.5 h-3.5" /> },
+    { key: 'estimate', label: 'Estimate', count: estimateCount, href: '/sales/estimating', icon: <FileTextIcon className="w-3.5 h-3.5" /> },
+    { key: 'job', label: 'Job', count: jobsCount, href: '/job-board', icon: <BriefcaseIcon className="w-3.5 h-3.5" /> },
+  ]
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <p className="text-[11px] uppercase tracking-wider text-gray-400 mb-3">
+        Pipeline
+      </p>
+      <div className="flex items-stretch gap-2 flex-wrap">
+        {stages.map((s, i) => (
+          <div key={s.key} className="flex items-stretch gap-2">
+            <Link
+              href={s.href}
+              className="group flex flex-col justify-between min-w-[110px] px-3 py-2.5 rounded-lg border border-gray-200 bg-white hover:border-amber-300 hover:bg-amber-50 transition-colors"
+            >
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500 group-hover:text-amber-700">
+                <span className="text-amber-500 group-hover:text-amber-600">
+                  {s.icon}
+                </span>
+                <span className="truncate">{s.label}</span>
+              </div>
+              <span className="mt-1 text-lg font-medium text-gray-900 tabular-nums leading-none">
+                {formatPipelineCount(s.count)}
+              </span>
+            </Link>
+            {i < stages.length - 1 && (
+              <div className="flex items-center text-gray-300 px-0.5 select-none">
+                <ChevronRightIcon className="w-4 h-4" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function formatPipelineCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`
+  return n.toLocaleString()
+}
 
 function QuickActionCard({
   href,
