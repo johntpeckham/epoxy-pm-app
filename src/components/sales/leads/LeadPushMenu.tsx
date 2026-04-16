@@ -114,7 +114,7 @@ export default function LeadPushMenu({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors"
+          className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
         >
           Push to…
           <ChevronDownIcon className="w-3.5 h-3.5" />
@@ -346,7 +346,7 @@ function PushToJobWalkModal({
               type="button"
               onClick={handleConfirm}
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition disabled:opacity-60"
+              className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition disabled:opacity-60"
             >
               {saving ? 'Creating…' : 'Create job walk'}
             </button>

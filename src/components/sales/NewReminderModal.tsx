@@ -190,7 +190,7 @@ export default function NewReminderModal({
             <button
               onClick={handleSave}
               disabled={!reminderDate || saving}
-              className="px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition-colors"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>

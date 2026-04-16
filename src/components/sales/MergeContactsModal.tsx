@@ -270,7 +270,7 @@ export default function MergeContactsModal({
             <button
               onClick={handleMerge}
               disabled={loading || merging || !contactA || !contactB}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition-colors"
             >
               {merging ? 'Merging…' : 'Merge contacts'}
               {!merging && <ArrowRightIcon className="w-3.5 h-3.5" />}
@@ -308,7 +308,7 @@ function SurvivorOption({
       onClick={onClick}
       className={`px-3 py-2 text-sm text-left rounded-lg border transition-colors ${
         active
-          ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+          ? 'border-amber-300 bg-amber-50 text-amber-800'
           : 'border-gray-200 text-gray-700 hover:bg-gray-50'
       }`}
     >
@@ -333,14 +333,14 @@ function PickCell({
     <label
       onClick={onSelect}
       className={`flex items-start gap-2 px-3 py-2 cursor-pointer ${
-        checked ? 'bg-emerald-50/50' : 'hover:bg-gray-50'
+        checked ? 'bg-amber-50/50' : 'hover:bg-gray-50'
       }`}
     >
       <input
         type="radio"
         checked={checked}
         onChange={onSelect}
-        className="mt-0.5 w-3.5 h-3.5 text-emerald-500 focus:ring-emerald-500/20"
+        className="mt-0.5 w-3.5 h-3.5 text-amber-500 focus:ring-amber-500/20"
       />
       <span className={`${empty ? 'text-gray-300 italic' : 'text-gray-700'} text-sm`}>
         {empty ? '—' : display}

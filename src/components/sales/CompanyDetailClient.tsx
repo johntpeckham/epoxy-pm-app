@@ -677,13 +677,13 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           )}
           <button
             onClick={() => setShowConvertToLead(true)}
-            className="px-3 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors"
+            className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
           >
             Convert to lead
           </button>
           <button
             onClick={() => setConfirmConvert(true)}
-            className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
           >
             Convert to customer
           </button>
@@ -723,12 +723,12 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         {tags.map((t) => (
           <span
             key={t.id}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-teal-50 text-teal-700 rounded-full"
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-amber-50 text-amber-700 rounded-full"
           >
             {t.name}
             <button
               onClick={() => handleRemoveTag(t.id)}
-              className="text-teal-500 hover:text-teal-800"
+              className="text-amber-500 hover:text-amber-700"
               aria-label={`Remove ${t.name}`}
             >
               <XIcon className="w-3 h-3" />
@@ -752,7 +752,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                 }
               }}
               placeholder="Tag name"
-              className="px-2.5 py-1 text-xs border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+              className="px-2.5 py-1 text-xs border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               autoFocus
             />
             {tagInput && (
@@ -784,7 +784,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                       setTagInput('')
                       setShowTagInput(false)
                     }}
-                    className="block w-full text-left px-3 py-1.5 text-xs text-teal-700 hover:bg-gray-50"
+                    className="block w-full text-left px-3 py-1.5 text-xs text-amber-700 hover:bg-gray-50"
                   >
                     Create &ldquo;{tagInput}&rdquo;
                   </button>
@@ -909,7 +909,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                     {selectedContactIds.size === 2 && (
                       <button
                         onClick={() => setShowMergeContactsModal(true)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700"
                       >
                         Merge selected
                       </button>
@@ -960,7 +960,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                       key={c.id}
                       className={`group flex items-start gap-3 p-3 rounded-lg transition-colors ${
                         mergeContactsMode && checked
-                          ? 'bg-emerald-50/60'
+                          ? 'bg-amber-50/60'
                           : 'hover:bg-gray-50'
                       }`}
                     >
@@ -976,7 +976,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                               return next
                             })
                           }}
-                          className="mt-3 w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500/20"
+                          className="mt-3 w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500/20"
                         />
                       )}
                       <div
@@ -990,7 +990,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                             {c.first_name} {c.last_name}
                           </span>
                           {c.is_primary && (
-                            <span className="text-[10px] uppercase tracking-wide text-teal-600">
+                            <span className="text-[10px] uppercase tracking-wide text-amber-500">
                               Primary
                             </span>
                           )}
@@ -1002,7 +1002,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                           {c.phone && (
                             <a
                               href={`tel:${c.phone}`}
-                              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-teal-700"
+                              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-amber-600"
                             >
                               <PhoneIcon className="w-3 h-3" />
                               {c.phone}
@@ -1011,7 +1011,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                           {c.email && (
                             <a
                               href={`mailto:${c.email}`}
-                              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-teal-700"
+                              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-amber-600"
                             >
                               <MailIcon className="w-3 h-3" />
                               {c.email}
@@ -1022,7 +1022,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => setShowLogCall(true)}
-                          className="p-1.5 text-gray-400 hover:text-teal-700 hover:bg-white rounded transition-colors"
+                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-white rounded transition-colors"
                           title="Log call"
                         >
                           <PhoneIcon className="w-3.5 h-3.5" />
@@ -1032,7 +1032,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                             setAppointmentContactPrefill(c.id)
                             setShowNewAppointment(true)
                           }}
-                          className="p-1.5 text-gray-400 hover:text-teal-700 hover:bg-white rounded transition-colors"
+                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-white rounded transition-colors"
                           title="Schedule appointment"
                         >
                           <CalendarIcon className="w-3.5 h-3.5" />
@@ -1095,7 +1095,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                 <div className="flex justify-end mt-2">
                   <button
                     onClick={handleAddComment}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
                   >
                     Post
                   </button>
@@ -1238,7 +1238,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                           <span className="text-xs font-medium text-gray-700">{a.label}</span>
                         )}
                         {a.is_primary && (
-                          <span className="text-[10px] uppercase tracking-wide text-teal-600">
+                          <span className="text-[10px] uppercase tracking-wide text-amber-500">
                             Primary
                           </span>
                         )}
@@ -1311,8 +1311,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                         onClick={() => handleToggleReminder(r.id, r.is_completed)}
                         className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                           r.is_completed
-                            ? 'border-teal-500 bg-teal-500'
-                            : 'border-gray-300 hover:border-teal-500'
+                            ? 'border-amber-400 bg-amber-500'
+                            : 'border-gray-300 hover:border-amber-400'
                         }`}
                         aria-label={r.is_completed ? 'Mark incomplete' : 'Mark complete'}
                       >
@@ -1428,7 +1428,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                         href={f.file_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-sm text-gray-700 hover:text-teal-700 truncate flex-1"
+                        className="text-sm text-gray-700 hover:text-amber-600 truncate flex-1"
                       >
                         {f.file_name}
                       </a>
@@ -1722,7 +1722,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                 <button
                   onClick={handleAddLink}
                   disabled={!linkUrl.trim()}
-                  className="px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition-colors"
                 >
                   Save
                 </button>

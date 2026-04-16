@@ -833,7 +833,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           </button>
           <button
             onClick={() => setShowNewModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
           >
             <PlusIcon className="w-4 h-4" />
             New company
@@ -985,7 +985,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           {companies.length === 0 && (
             <button
               onClick={() => setShowNewModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
             >
               <PlusIcon className="w-4 h-4" />
               New company
