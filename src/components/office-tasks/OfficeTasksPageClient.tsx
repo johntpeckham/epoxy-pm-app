@@ -654,140 +654,112 @@ export default function OfficeTasksPageClient({
           </button>
         </div>
 
-        {/* ── Employees Card (spans 2 columns) ── */}
-        {canManageEmployees && (
-          <div
+      </div>
+
+      {/* ── Compact Navigation Sections ── */}
+
+      {/* ── People Section ── hidden for foreman */}
+      {!isForeman && (
+      <div className="mt-5">
+        <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">People</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {canManageEmployees && (
+          <button
             onClick={() => setView({ kind: 'employees' })}
-            className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
-            <div className="flex items-center gap-2">
-              <span className="text-amber-500">
-                <UsersIcon className="w-5 h-5" />
-              </span>
-              <h3 className="text-sm font-semibold text-gray-900">Employees</h3>
-            </div>
-          </div>
-        )}
-
-        {/* ── Contacts Card (spans 2 columns) ── hidden for foreman */}
-        {!isForeman && (
-        <Link
-          href="/office/contacts"
-          className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer block"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-amber-500">
-              <ContactIcon className="w-5 h-5" />
-            </span>
-            <h3 className="text-sm font-semibold text-gray-900 flex-1">Contacts</h3>
-            <span className="text-xs text-gray-500">
-              {contactCount} {contactCount === 1 ? 'contact' : 'contacts'}
-            </span>
-          </div>
-        </Link>
-        )}
-
-        {/* ── Customers Card (spans 2 columns) ── hidden for foreman */}
-        {!isForeman && (
-        <Link
-          href="/office/customers"
-          className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer block"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-amber-500">
-              <UsersIcon className="w-5 h-5" />
-            </span>
-            <h3 className="text-sm font-semibold text-gray-900 flex-1">Customers</h3>
-            <span className="text-xs text-gray-500">
-              {customerCount} {customerCount === 1 ? 'customer' : 'customers'}
-            </span>
-          </div>
-        </Link>
-        )}
-
-        {/* ── Vendors Card (spans 2 columns) ── hidden for foreman */}
-        {!isForeman && (
-        <Link
-          href="/office/vendors"
-          className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer block"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-amber-500">
-              <Building2Icon className="w-5 h-5" />
-            </span>
-            <h3 className="text-sm font-semibold text-gray-900 flex-1">Vendors</h3>
-            <span className="text-xs text-gray-500">
-              {vendorCount} {vendorCount === 1 ? 'vendor' : 'vendors'}
-            </span>
-          </div>
-        </Link>
-        )}
-
-        {/* ── Material Inventory Card (spans 2 columns) ── hidden for foreman */}
-        {!isForeman && (
-        <Link
-          href="/inventory"
-          className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer block"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-amber-500">
-              <PackageIcon className="w-5 h-5" />
-            </span>
-            <h3 className="text-sm font-semibold text-gray-900">Material Inventory</h3>
-          </div>
-        </Link>
-        )}
-
-        {/* ── Scheduling Card (spans 2 columns) ── hidden for foreman */}
-        {!isForeman && (
-        <Link
-          href="/scheduling"
-          className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 cursor-pointer block"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-amber-500">
-              <CalendarIcon className="w-5 h-5" />
-            </span>
-            <h3 className="text-sm font-semibold text-gray-900">Scheduling</h3>
-          </div>
-        </Link>
-        )}
-
-        {/* ── SOPs & Forms Card (spans 2 columns) ── hidden for foreman */}
-        {!isForeman && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
-          {/* Card header */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-amber-500">
-              <FileTextIcon className="w-5 h-5" />
-            </span>
-            <h3 className="text-sm font-semibold text-gray-900 flex-1">SOPs &amp; Forms</h3>
-          </div>
-
-          <p className="text-sm text-gray-400">Coming soon — standard operating procedures and forms.</p>
+            <UsersIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1 text-left">Employees</span>
+            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          </button>
+          )}
+          <Link
+            href="/office/contacts"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+          >
+            <ContactIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Contacts</span>
+            <span className="text-[12px] text-gray-400 mr-2">{contactCount}</span>
+            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          </Link>
+          <Link
+            href="/office/customers"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+          >
+            <UsersIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Customers</span>
+            <span className="text-[12px] text-gray-400 mr-2">{customerCount}</span>
+            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          </Link>
         </div>
-        )}
+      </div>
+      )}
 
-        {/* ── Company Meetings Card ── */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-amber-500">
-              <UsersIcon className="w-5 h-5" />
-            </span>
-            <h3 className="text-sm font-semibold text-gray-900 flex-1">Company Meetings</h3>
+      {/* ── Resources Section ── hidden for foreman */}
+      {!isForeman && (
+      <div className="mt-5">
+        <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Resources</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <Link
+            href="/office/vendors"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+          >
+            <Building2Icon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Vendors</span>
+            <span className="text-[12px] text-gray-400 mr-2">{vendorCount}</span>
+            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          </Link>
+          <Link
+            href="/inventory"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+          >
+            <PackageIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Material inventory</span>
+            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          </Link>
+          <Link
+            href="/scheduling"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+          >
+            <CalendarIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Scheduling</span>
+            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          </Link>
+        </div>
+      </div>
+      )}
+
+      {/* ── Admin Section ── */}
+      <div className="mt-5">
+        <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Admin</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {/* SOPs & Forms tile — hidden for foreman */}
+          {!isForeman && (
+          <div className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3">
+            <FileTextIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">SOPs &amp; forms</span>
+            <span className="text-[12px] text-gray-400">Coming soon</span>
           </div>
-          <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-2.5">
-              <span className="text-xs font-medium text-gray-700">Weekly Meeting</span>
-              <span className="text-xs text-gray-400">Coming soon</span>
+          )}
+
+          {/* Company Meetings tile with sub-items */}
+          <div className="bg-white border border-gray-200/80 rounded-md overflow-hidden">
+            <div className="flex items-center px-4 py-3">
+              <UsersIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+              <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Company meetings</span>
             </div>
-            <div className="flex items-center justify-between px-3 py-2.5">
-              <span className="text-xs font-medium text-gray-700">Sales Meeting</span>
-              <span className="text-xs text-gray-400">Coming soon</span>
+            <div className="border-t border-gray-100">
+              <div className="flex items-center justify-between px-4 py-2 pl-10">
+                <span className="text-[12px] text-gray-600">Weekly meeting</span>
+                <span className="text-[12px] text-gray-400">Coming soon</span>
+              </div>
+              <div className="border-t border-gray-100 flex items-center justify-between px-4 py-2 pl-10">
+                <span className="text-[12px] text-gray-600">Sales meeting</span>
+                <span className="text-[12px] text-gray-400">Coming soon</span>
+              </div>
             </div>
           </div>
         </div>
-
       </div>
 
       {/* Create modal */}
