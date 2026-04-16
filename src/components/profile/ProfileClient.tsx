@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon, TargetIcon, GitBranchIcon, BellIcon, TableIcon, CalculatorIcon, HashIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon, TargetIcon, GitBranchIcon, BellIcon, TableIcon, CalculatorIcon, HashIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { Profile, CslbLicense } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -48,6 +48,14 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const [showPreLienManagement, setShowPreLienManagement] = useState(false)
   // Sales management modal
   const [showSalesManagement, setShowSalesManagement] = useState(false)
+  // User management modal (controlled from tile)
+  const [showUserManagement, setShowUserManagement] = useState(false)
+  // Employee management modal (controlled from tile)
+  const [showEmployeeManagement, setShowEmployeeManagement] = useState(false)
+  // Edit profile modal
+  const [showEditProfile, setShowEditProfile] = useState(false)
+  // Company info modal
+  const [showCompanyInfo, setShowCompanyInfo] = useState(false)
   const isSalesman = role === 'salesman'
 
   // Display name state
@@ -349,596 +357,231 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
     <div className="min-h-screen bg-gray-50 dark:bg-[#1a1a1a]">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => router.push('/jobs')}
             className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-[#e5e5e5] hover:bg-gray-100 dark:hover:bg-[#2e2e2e] transition"
           >
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-[#e5e5e5] flex-1">Profile Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-[#e5e5e5] flex-1">Settings</h1>
         </div>
 
-        {/* Appearance Section */}
-        <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <MoonIcon className="w-5 h-5 text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide">Appearance</h2>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-[#e5e5e5]">Dark mode</p>
-              <p className="text-xs text-gray-400 dark:text-[#6b6b6b] mt-0.5">Switch to dark theme</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isDarkMode}
-              aria-label="Toggle dark mode"
-              onClick={toggleTheme}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isDarkMode ? 'bg-amber-500' : 'bg-gray-300'}`}
-            >
-              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-4' : 'translate-x-0.5'}`} />
-            </button>
-          </div>
-        </div>
-
-        {/* Company Information Section */}
-        {(isAdmin || isOfficeManager) ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Company Information</h2>
-              {!companyInfoEditing && (
-                <button
-                  onClick={startEditCompanyInfo}
-                  className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
-                >
-                  <PencilIcon className="w-3.5 h-3.5" />
-                  Edit
-                </button>
-              )}
-            </div>
-
-            {companyInfoEditing ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Legal Company Name</label>
-                  <input
-                    value={ciLegalName}
-                    onChange={(e) => setCiLegalName(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    placeholder="e.g., Peckham Coatings Inc."
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">DBA (Doing Business As)</label>
-                  <input
-                    value={ciDba}
-                    onChange={(e) => setCiDba(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    placeholder="e.g., Peckham Coatings"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Company Address</label>
-                  <textarea
-                    value={ciAddress}
-                    onChange={(e) => setCiAddress(e.target.value)}
-                    rows={2}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-                    placeholder="123 Main St, City, State ZIP"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Mailing Address</label>
-                  <textarea
-                    value={ciMailing}
-                    onChange={(e) => setCiMailing(e.target.value)}
-                    rows={2}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-                    placeholder="PO Box 123, City, State ZIP"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Phone Number</label>
-                    <input
-                      value={ciPhone}
-                      onChange={(e) => setCiPhone(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder="(555) 123-4567"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      value={ciEmail}
-                      onChange={(e) => setCiEmail(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder="info@company.com"
-                    />
-                  </div>
-                </div>
-                {/* CSLB Licenses */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-2">CSLB License Numbers</label>
-                  <div className="space-y-2">
-                    {ciLicenses.map((license) => (
-                      <div key={license.id} className="flex items-center gap-2">
-                        <input
-                          value={license.number}
-                          onChange={(e) => updateLicense(license.id, 'number', e.target.value)}
-                          className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          placeholder="License #"
-                        />
-                        <input
-                          value={license.classification}
-                          onChange={(e) => updateLicense(license.id, 'classification', e.target.value)}
-                          className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          placeholder="Classification"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeLicense(license.id)}
-                          className="p-1 text-gray-400 hover:text-red-500 transition flex-shrink-0"
-                        >
-                          <XIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addLicense}
-                    className="mt-2 flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
-                  >
-                    <PlusIcon className="w-3.5 h-3.5" />
-                    Add License
-                  </button>
-                </div>
-                {companyInfoError && <p className="text-xs text-red-500">{companyInfoError}</p>}
-                <div className="flex items-center gap-3 pt-2">
-                  <button
-                    onClick={saveCompanyInfo}
-                    disabled={companyInfoSaving}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
-                  >
-                    {companyInfoSaving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button
-                    onClick={cancelEditCompanyInfo}
-                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
+        {/* Profile Card */}
+        <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-4 mb-3 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center flex-shrink-0">
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt="Avatar"
+                width={48}
+                height={48}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <div className="space-y-3 text-sm">
-                {companyInfoSuccess && <p className="text-xs text-green-600 mb-2">Company info saved successfully</p>}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-gray-400">Legal Company Name</p>
-                    <p className="text-gray-900">{companySettings?.legal_name || <span className="text-gray-300 italic">Not set</span>}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">DBA</p>
-                    <p className="text-gray-900">{companySettings?.dba || <span className="text-gray-300 italic">Not set</span>}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Company Address</p>
-                    <p className="text-gray-900 whitespace-pre-line">{companySettings?.company_address || <span className="text-gray-300 italic">Not set</span>}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Mailing Address</p>
-                    <p className="text-gray-900 whitespace-pre-line">{companySettings?.mailing_address || <span className="text-gray-300 italic">Not set</span>}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Phone</p>
-                    <p className="text-gray-900">{companySettings?.phone || <span className="text-gray-300 italic">Not set</span>}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Email</p>
-                    <p className="text-gray-900">{companySettings?.email || <span className="text-gray-300 italic">Not set</span>}</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">CSLB Licenses</p>
-                  {companySettings?.cslb_licenses && companySettings.cslb_licenses.length > 0 ? (
-                    <div className="space-y-0.5">
-                      {companySettings.cslb_licenses.map((l, i) => (
-                        <p key={i} className="text-gray-900">License #{l.number} — {l.classification}</p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-300 italic">None</p>
-                  )}
-                </div>
-              </div>
+              <span className="text-sm font-bold text-white">{initials}</span>
             )}
           </div>
-        ) : (
-          /* Read-only view for non-admin/non-office-manager users */
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Company Information</h2>
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-gray-400">Legal Company Name</p>
-                  <p className="text-gray-900">{companySettings?.legal_name || <span className="text-gray-300 italic">Not set</span>}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">DBA</p>
-                  <p className="text-gray-900">{companySettings?.dba || <span className="text-gray-300 italic">Not set</span>}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">Phone</p>
-                  <p className="text-gray-900">{companySettings?.phone || <span className="text-gray-300 italic">Not set</span>}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">Email</p>
-                  <p className="text-gray-900">{companySettings?.email || <span className="text-gray-300 italic">Not set</span>}</p>
-                </div>
-              </div>
-            </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900 dark:text-[#e5e5e5] truncate">
+              {displayName || userEmail.split('@')[0]}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-[#a0a0a0] truncate">{userEmail}</p>
+            {role && (
+              <p className="text-[11px] text-gray-400 dark:text-[#6b6b6b] uppercase tracking-wide mt-0.5">
+                {role.replace('_', ' ')}
+              </p>
+            )}
           </div>
-        )}
+          <button
+            onClick={() => setShowEditProfile(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-amber-200 hover:bg-amber-50 text-amber-600 hover:text-amber-700 text-xs font-medium rounded-md transition flex-shrink-0"
+          >
+            <PencilIcon className="w-3.5 h-3.5" />
+            Edit profile
+          </button>
+        </div>
 
-        {/* Company Logo Section — Admin only */}
-        {isAdmin && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Company Logo</h2>
-            <p className="text-xs text-gray-400 mb-4">This logo will appear in the sidebar and on printed reports.</p>
-            <div className="flex items-center gap-5">
-              <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                {companySettings?.logo_url ? (
-                  <Image
-                    src={companySettings.logo_url}
-                    alt="Company logo"
-                    width={80}
-                    height={80}
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <BuildingIcon className="w-8 h-8 text-gray-300" />
-                )}
-              </div>
-              <div>
-                <button
-                  onClick={() => logoInputRef.current?.click()}
-                  disabled={logoUploading}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 transition"
-                >
-                  <UploadIcon className="w-4 h-4" />
-                  {logoUploading ? 'Uploading...' : 'Upload logo'}
-                </button>
-                <p className="text-xs text-gray-400 mt-1">PNG, JPG, or SVG.</p>
-                {logoError && <p className="text-xs text-red-500 mt-1">{logoError}</p>}
-                {logoSuccess && <p className="text-xs text-green-600 mt-1">Logo updated successfully</p>}
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/svg+xml"
-                  className="hidden"
-                  onChange={handleLogoUpload}
+        {/* Dark mode toggle */}
+        <div className="bg-white dark:bg-[#242424] rounded-md border border-gray-200 dark:border-[#2a2a2a] px-4 py-3 mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MoonIcon className="w-3.5 h-3.5 text-gray-500 dark:text-[#a0a0a0]" />
+            <span className="text-[13px] font-medium text-gray-900 dark:text-[#e5e5e5]">Dark mode</span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isDarkMode}
+            aria-label="Toggle dark mode"
+            onClick={toggleTheme}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isDarkMode ? 'bg-amber-500' : 'bg-gray-300'}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+
+        {/* Section: Company */}
+        {(isAdmin || isOfficeManager) && (
+          <div className="mt-1 mb-5">
+            <p className="text-[13px] font-medium text-gray-500 dark:text-[#a0a0a0] tracking-wide mb-2">Company</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <SettingsTile
+                icon={BuildingIcon}
+                title="Company info"
+                subtitle="Name, address, logo, appearance"
+                onClick={() => setShowCompanyInfo(true)}
+              />
+              {isAdmin && (
+                <SettingsTile
+                  icon={UsersIcon}
+                  title="User management"
+                  subtitle="Roles and team members"
+                  onClick={() => setShowUserManagement(true)}
                 />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Avatar Section */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Avatar</h2>
-          <div className="flex items-center gap-5">
-            <div className="relative group">
-              <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center flex-shrink-0">
-                {avatarUrl ? (
-                  <Image
-                    src={avatarUrl}
-                    alt="Avatar"
-                    width={80}
-                    height={80}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-xl font-bold text-white">{initials}</span>
-                )}
-              </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={avatarUploading}
-                className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors"
-              >
-                <CameraIcon className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
-            </div>
-            <div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={avatarUploading}
-                className="text-sm font-medium text-amber-600 hover:text-amber-700 transition"
-              >
-                {avatarUploading ? 'Uploading...' : 'Upload photo'}
-              </button>
-              <p className="text-xs text-gray-400 mt-1">JPG, PNG, or GIF. Max 2MB.</p>
-              {avatarError && <p className="text-xs text-red-500 mt-1">{avatarError}</p>}
-            </div>
-          </div>
-        </div>
-
-        {/* Display Name Section — hidden for Crew */}
-        {!isCrew && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Display Name</h2>
-            <p className="text-xs text-gray-400 mb-3">This name will appear in the chat feed instead of your email.</p>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder={userEmail.split('@')[0]}
-                className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-              />
-              <button
-                onClick={handleSaveDisplayName}
-                disabled={nameSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
-              >
-                {nameSuccess ? (
-                  <>
-                    <CheckIcon className="w-4 h-4" />
-                    Saved
-                  </>
-                ) : nameSaving ? (
-                  'Saving...'
-                ) : (
-                  'Save'
-                )}
-              </button>
-            </div>
-            {nameError && <p className="text-xs text-red-500 mt-2">{nameError}</p>}
-          </div>
-        )}
-
-        {/* Email Section (read-only) — hidden for Crew */}
-        {!isCrew && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Email</h2>
-            <p className="text-sm text-gray-900">{userEmail}</p>
-            <p className="text-xs text-gray-400 mt-1">Contact your administrator to change your email address.</p>
-          </div>
-        )}
-
-        {/* Change Password Section */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Change Password</h2>
-          <div className="space-y-3 max-w-sm">
-            <div>
-              <label htmlFor="new-password" className="block text-xs font-medium text-gray-500 mb-1">
-                New Password
-              </label>
-              <input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                autoComplete="new-password"
-                placeholder="••••••••"
-                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-              />
-            </div>
-            <div>
-              <label htmlFor="confirm-password" className="block text-xs font-medium text-gray-500 mb-1">
-                Confirm Password
-              </label>
-              <input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-                placeholder="••••••••"
-                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-              />
-            </div>
-            {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
-            <button
-              onClick={handleChangePassword}
-              disabled={passwordSaving || !newPassword || !confirmPassword}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
-            >
-              {passwordSuccess ? (
-                <>
-                  <CheckIcon className="w-4 h-4" />
-                  Updated
-                </>
-              ) : passwordSaving ? (
-                'Updating...'
-              ) : (
-                'Update Password'
               )}
-            </button>
-          </div>
-        </div>
-
-        {/* Job Feed Form Management — Admin and Office Manager */}
-        {(isAdmin || isOfficeManager) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <SlidersHorizontalIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Job Feed Form Management</h2>
-              <button
-                onClick={() => router.push('/form-management')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <SlidersHorizontalIcon className="w-3.5 h-3.5" />
-                Manage Forms
-              </button>
+              <SettingsTile
+                icon={UsersIcon}
+                title="Employee management"
+                subtitle="Profiles, roles, custom fields"
+                onClick={() => setShowEmployeeManagement(true)}
+              />
             </div>
-            <p className="text-xs text-gray-400">Customize form fields and layout for Daily Reports, JSA, Expenses, and more.</p>
           </div>
         )}
 
-        {/* Job Report Management — Admin and Office Manager */}
-        {(isAdmin || isOfficeManager) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <FileTextIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Job Report Management</h2>
-              <button
-                onClick={() => router.push('/job-report-management')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <FileTextIcon className="w-3.5 h-3.5" />
-                Manage Job Reports
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">Report form editor, material systems, and checklists for job reports.</p>
-          </div>
-        )}
-
-        {/* Checklist Templates — Admin and Office Manager */}
-        {(isAdmin || isOfficeManager) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <ClipboardCheckIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Checklist Templates</h2>
-              <button
-                onClick={() => router.push('/checklist-templates')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <ClipboardCheckIcon className="w-3.5 h-3.5" />
-                Manage Templates
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">Create reusable checklists that can be applied to projects from the Job Board.</p>
-          </div>
-        )}
-
-        {/* Warranty Management — Admin, Office Manager, Salesman */}
+        {/* Section: Sales */}
         {(isAdmin || isOfficeManager || isSalesman) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <ShieldCheckIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Warranty Management</h2>
-              <button
-                onClick={() => setShowWarrantyManagement(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <ShieldCheckIcon className="w-3.5 h-3.5" />
-                Manage Warranties
-              </button>
+          <div className="mb-5">
+            <p className="text-[13px] font-medium text-gray-500 dark:text-[#a0a0a0] tracking-wide mb-2">Sales</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <SettingsTile
+                icon={TargetIcon}
+                title="Sales management"
+                subtitle="Pipeline, estimates, notifications"
+                onClick={() => setShowSalesManagement(true)}
+              />
+              {(isAdmin || isOfficeManager) && (
+                <SettingsTile
+                  icon={UsersIcon}
+                  title="Customer management"
+                  subtitle="Manage customers across jobs"
+                  onClick={() => setShowCustomerManagement(true)}
+                />
+              )}
+              {(isAdmin || isOfficeManager) && (
+                <SettingsTile
+                  icon={Building2Icon}
+                  title="Vendor management"
+                  subtitle="Vendors and their contacts"
+                  onClick={() => setShowVendorManagement(true)}
+                />
+              )}
             </div>
-            <p className="text-xs text-gray-400">Create warranty templates and upload manufacturer warranty documents.</p>
           </div>
         )}
 
-        {/* Pre-Lien Management — Admin, Office Manager, Salesman */}
+        {/* Section: Operations */}
         {(isAdmin || isOfficeManager || isSalesman) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <ScrollTextIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Pre-Lien Management</h2>
-              <button
-                onClick={() => setShowPreLienManagement(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <ScrollTextIcon className="w-3.5 h-3.5" />
-                Manage Pre-Liens
-              </button>
+          <div className="mb-5">
+            <p className="text-[13px] font-medium text-gray-500 dark:text-[#a0a0a0] tracking-wide mb-2">Operations</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {(isAdmin || isOfficeManager) && (
+                <SettingsTile
+                  icon={SlidersHorizontalIcon}
+                  title="Job feed forms"
+                  subtitle="Daily reports, JSA, expenses"
+                  onClick={() => router.push('/form-management')}
+                />
+              )}
+              {(isAdmin || isOfficeManager) && (
+                <SettingsTile
+                  icon={FileTextIcon}
+                  title="Job reports"
+                  subtitle="Report editor and material systems"
+                  onClick={() => router.push('/job-report-management')}
+                />
+              )}
+              {(isAdmin || isOfficeManager) && (
+                <SettingsTile
+                  icon={ClipboardCheckIcon}
+                  title="Checklist templates"
+                  subtitle="Reusable checklists for projects"
+                  onClick={() => router.push('/checklist-templates')}
+                />
+              )}
+              {(isAdmin || isOfficeManager || isSalesman) && (
+                <SettingsTile
+                  icon={ShieldCheckIcon}
+                  title="Warranty management"
+                  subtitle="Templates and manufacturer docs"
+                  onClick={() => setShowWarrantyManagement(true)}
+                />
+              )}
+              {(isAdmin || isOfficeManager || isSalesman) && (
+                <SettingsTile
+                  icon={ScrollTextIcon}
+                  title="Pre-lien management"
+                  subtitle="CA Civil Code compliance"
+                  onClick={() => setShowPreLienManagement(true)}
+                />
+              )}
+              {(isAdmin || isOfficeManager) && (
+                <SettingsTile
+                  icon={PackageIcon}
+                  title="Material management"
+                  subtitle="Suppliers, products, pricing"
+                  onClick={() => router.push('/material-management')}
+                />
+              )}
             </div>
-            <p className="text-xs text-gray-400">Create pre-lien notice templates for California Civil Code compliance.</p>
           </div>
         )}
 
-        {/* Data Export — Admin and Office Manager */}
+        {/* Section: Data */}
         {(isAdmin || isOfficeManager) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <DownloadIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Data Export</h2>
-              <button
-                onClick={() => router.push('/data-export')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <DownloadIcon className="w-3.5 h-3.5" />
-                Manage Data Export
-              </button>
+          <div className="mb-5">
+            <p className="text-[13px] font-medium text-gray-500 dark:text-[#a0a0a0] tracking-wide mb-2">Data</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {(isAdmin || isOfficeManager) && (
+                <SettingsTile
+                  icon={DownloadIcon}
+                  title="Data export"
+                  subtitle="Reports, photos, project data"
+                  onClick={() => router.push('/data-export')}
+                />
+              )}
+              {isAdmin && (
+                <SettingsTile
+                  icon={Trash2Icon}
+                  title="Trash bin"
+                  subtitle="Restore or permanently delete"
+                  onClick={() => router.push('/trash-bin')}
+                />
+              )}
             </div>
-            <p className="text-xs text-gray-400">Download reports, photos, and project data for a selected date range.</p>
           </div>
         )}
 
-        {/* Material Management — Admin and Office Manager */}
-        {(isAdmin || isOfficeManager) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <PackageIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Material Management</h2>
-              <button
-                onClick={() => router.push('/material-management')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <PackageIcon className="w-3.5 h-3.5" />
-                Manage Materials
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">Manage master supplier and product catalog. Single source of truth for all material names and pricing.</p>
-          </div>
-        )}
-
-        {/* Trash Bin — Admin only */}
+        {/* Controlled UserManagement (triggered from tile) */}
         {isAdmin && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Trash2Icon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">Trash Bin</h2>
-              <button
-                onClick={() => router.push('/trash-bin')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <Trash2Icon className="w-3.5 h-3.5" />
-                Manage Trash
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">View, restore, or permanently delete items that have been removed. Items expire after 1 year.</p>
-          </div>
+          <UserManagement
+            currentUserId={userId}
+            hideTrigger
+            open={showUserManagement}
+            onOpenChange={setShowUserManagement}
+          />
         )}
 
-        {/* User Management — Admin only */}
-        {isAdmin && <UserManagement currentUserId={userId} />}
-
-        {/* Employee Management — Admin and Office Manager */}
-        {(isAdmin || isOfficeManager) && <EmployeeManagement />}
-
-        {/* Customer Management — Admin and Office Manager */}
+        {/* Controlled EmployeeManagement (triggered from tile) */}
         {(isAdmin || isOfficeManager) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <UsersIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">
-                Customer Management
-              </h2>
-              <button
-                onClick={() => setShowCustomerManagement(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <UsersIcon className="w-3.5 h-3.5" />
-                Manage Customers
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">Manage customers across jobs, estimates, and billing.</p>
-          </div>
+          <EmployeeManagement
+            hideTrigger
+            open={showEmployeeManagement}
+            onOpenChange={setShowEmployeeManagement}
+          />
         )}
+
+        {/* Customer / Sales / Vendor modals (rendered when open) */}
         {showCustomerManagement && (
           <CustomerManagementModal
             open={showCustomerManagement}
@@ -947,51 +590,11 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
             onCustomersChanged={() => {}}
           />
         )}
-
-        {/* Sales Management — Admin, Office Manager, Salesman */}
-        {(isAdmin || isOfficeManager || isSalesman) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <TargetIcon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">
-                Sales Management
-              </h2>
-              <button
-                onClick={() => setShowSalesManagement(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <SlidersHorizontalIcon className="w-3.5 h-3.5" />
-                Manage Sales
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">Configure the estimate form, pipeline, notifications, and takeoff tool.</p>
-          </div>
-        )}
         {showSalesManagement && (
           <SalesManagementModal
             isAdmin={isAdmin}
             onClose={() => setShowSalesManagement(false)}
           />
-        )}
-
-        {/* Vendor Management — Admin and Office Manager */}
-        {(isAdmin || isOfficeManager) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Building2Icon className="w-5 h-5 text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">
-                Vendor Management
-              </h2>
-              <button
-                onClick={() => setShowVendorManagement(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-              >
-                <Building2Icon className="w-3.5 h-3.5" />
-                Manage Vendors
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">Manage vendors and their contacts — companies we buy from.</p>
-          </div>
         )}
         {showVendorManagement && (
           <VendorManagementModal
@@ -1005,6 +608,465 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         )}
         {showPreLienManagement && (
           <PreLienManagement onClose={() => setShowPreLienManagement(false)} />
+        )}
+
+        {/* Edit Profile Modal */}
+        {showEditProfile && (
+          <Portal>
+            <div
+              className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header"
+              onClick={() => setShowEditProfile(false)}
+            >
+              <div
+                className="mt-auto md:my-auto md:mx-auto w-full md:max-w-lg bg-white md:rounded-xl flex flex-col overflow-hidden max-h-[90vh]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div
+                  className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
+                  style={{ minHeight: '56px' }}
+                >
+                  <h3 className="text-base font-bold text-gray-900">Edit profile</h3>
+                  <button
+                    onClick={() => setShowEditProfile(false)}
+                    className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+                  >
+                    <XIcon className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                  {/* Avatar */}
+                  <div>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Avatar</h4>
+                    <div className="flex items-center gap-5">
+                      <div className="relative group">
+                        <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center flex-shrink-0">
+                          {avatarUrl ? (
+                            <Image
+                              src={avatarUrl}
+                              alt="Avatar"
+                              width={80}
+                              height={80}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xl font-bold text-white">{initials}</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={avatarUploading}
+                          className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors"
+                        >
+                          <CameraIcon className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarUpload}
+                        />
+                      </div>
+                      <div>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={avatarUploading}
+                          className="text-sm font-medium text-amber-600 hover:text-amber-700 transition"
+                        >
+                          {avatarUploading ? 'Uploading...' : 'Upload photo'}
+                        </button>
+                        <p className="text-xs text-gray-400 mt-1">JPG, PNG, or GIF. Max 2MB.</p>
+                        {avatarError && <p className="text-xs text-red-500 mt-1">{avatarError}</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Display Name */}
+                  {!isCrew && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Display name</h4>
+                      <p className="text-xs text-gray-400 mb-2">This name will appear in the chat feed instead of your email.</p>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          value={displayName}
+                          onChange={(e) => setDisplayName(e.target.value)}
+                          placeholder={userEmail.split('@')[0]}
+                          className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        />
+                        <button
+                          onClick={handleSaveDisplayName}
+                          disabled={nameSaving}
+                          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                        >
+                          {nameSuccess ? (
+                            <>
+                              <CheckIcon className="w-4 h-4" />
+                              Saved
+                            </>
+                          ) : nameSaving ? (
+                            'Saving...'
+                          ) : (
+                            'Save'
+                          )}
+                        </button>
+                      </div>
+                      {nameError && <p className="text-xs text-red-500 mt-2">{nameError}</p>}
+                    </div>
+                  )}
+
+                  {/* Email (read-only) */}
+                  {!isCrew && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Email</h4>
+                      <p className="text-sm text-gray-900">{userEmail}</p>
+                      <p className="text-xs text-gray-400 mt-1">Contact your administrator to change your email address.</p>
+                    </div>
+                  )}
+
+                  {/* Change Password */}
+                  <div>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Change password</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="new-password" className="block text-xs font-medium text-gray-500 mb-1">
+                          New password
+                        </label>
+                        <input
+                          id="new-password"
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          autoComplete="new-password"
+                          placeholder="••••••••"
+                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="confirm-password" className="block text-xs font-medium text-gray-500 mb-1">
+                          Confirm password
+                        </label>
+                        <input
+                          id="confirm-password"
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          autoComplete="new-password"
+                          placeholder="••••••••"
+                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        />
+                      </div>
+                      {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
+                      <button
+                        onClick={handleChangePassword}
+                        disabled={passwordSaving || !newPassword || !confirmPassword}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+                      >
+                        {passwordSuccess ? (
+                          <>
+                            <CheckIcon className="w-4 h-4" />
+                            Updated
+                          </>
+                        ) : passwordSaving ? (
+                          'Updating...'
+                        ) : (
+                          'Update password'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className="flex-none flex justify-end p-4 border-t border-gray-200"
+                  style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowEditProfile(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Portal>
+        )}
+
+        {/* Company Info Modal */}
+        {showCompanyInfo && (
+          <Portal>
+            <div
+              className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header"
+              onClick={() => {
+                if (companyInfoEditing) cancelEditCompanyInfo()
+                setShowCompanyInfo(false)
+              }}
+            >
+              <div
+                className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl bg-white md:rounded-xl flex flex-col overflow-hidden max-h-[90vh]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div
+                  className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
+                  style={{ minHeight: '56px' }}
+                >
+                  <div className="flex items-center gap-2">
+                    <BuildingIcon className="w-5 h-5 text-amber-500" />
+                    <h3 className="text-base font-bold text-gray-900">Company info</h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (companyInfoEditing) cancelEditCompanyInfo()
+                      setShowCompanyInfo(false)
+                    }}
+                    className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+                  >
+                    <XIcon className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                  {/* Company Logo (admin only) */}
+                  {isAdmin && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Company logo</h4>
+                      <p className="text-xs text-gray-400 mb-3">This logo will appear in the sidebar and on printed reports.</p>
+                      <div className="flex items-center gap-5">
+                        <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                          {companySettings?.logo_url ? (
+                            <Image
+                              src={companySettings.logo_url}
+                              alt="Company logo"
+                              width={80}
+                              height={80}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <BuildingIcon className="w-8 h-8 text-gray-300" />
+                          )}
+                        </div>
+                        <div>
+                          <button
+                            onClick={() => logoInputRef.current?.click()}
+                            disabled={logoUploading}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 transition"
+                          >
+                            <UploadIcon className="w-4 h-4" />
+                            {logoUploading ? 'Uploading...' : 'Upload logo'}
+                          </button>
+                          <p className="text-xs text-gray-400 mt-1">PNG, JPG, or SVG.</p>
+                          {logoError && <p className="text-xs text-red-500 mt-1">{logoError}</p>}
+                          {logoSuccess && <p className="text-xs text-green-600 mt-1">Logo updated successfully</p>}
+                          <input
+                            ref={logoInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/svg+xml"
+                            className="hidden"
+                            onChange={handleLogoUpload}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Company details */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Company information</h4>
+                      {(isAdmin || isOfficeManager) && !companyInfoEditing && (
+                        <button
+                          onClick={startEditCompanyInfo}
+                          className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
+                        >
+                          <PencilIcon className="w-3.5 h-3.5" />
+                          Edit
+                        </button>
+                      )}
+                    </div>
+
+                    {(isAdmin || isOfficeManager) && companyInfoEditing ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Legal Company Name</label>
+                          <input
+                            value={ciLegalName}
+                            onChange={(e) => setCiLegalName(e.target.value)}
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            placeholder="e.g., Peckham Coatings Inc."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">DBA (Doing Business As)</label>
+                          <input
+                            value={ciDba}
+                            onChange={(e) => setCiDba(e.target.value)}
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            placeholder="e.g., Peckham Coatings"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Company Address</label>
+                          <textarea
+                            value={ciAddress}
+                            onChange={(e) => setCiAddress(e.target.value)}
+                            rows={2}
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                            placeholder="123 Main St, City, State ZIP"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Mailing Address</label>
+                          <textarea
+                            value={ciMailing}
+                            onChange={(e) => setCiMailing(e.target.value)}
+                            rows={2}
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                            placeholder="PO Box 123, City, State ZIP"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Phone Number</label>
+                            <input
+                              value={ciPhone}
+                              onChange={(e) => setCiPhone(e.target.value)}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              placeholder="(555) 123-4567"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Email Address</label>
+                            <input
+                              type="email"
+                              value={ciEmail}
+                              onChange={(e) => setCiEmail(e.target.value)}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              placeholder="info@company.com"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-2">CSLB License Numbers</label>
+                          <div className="space-y-2">
+                            {ciLicenses.map((license) => (
+                              <div key={license.id} className="flex items-center gap-2">
+                                <input
+                                  value={license.number}
+                                  onChange={(e) => updateLicense(license.id, 'number', e.target.value)}
+                                  className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                  placeholder="License #"
+                                />
+                                <input
+                                  value={license.classification}
+                                  onChange={(e) => updateLicense(license.id, 'classification', e.target.value)}
+                                  className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                  placeholder="Classification"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeLicense(license.id)}
+                                  className="p-1 text-gray-400 hover:text-red-500 transition flex-shrink-0"
+                                >
+                                  <XIcon className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={addLicense}
+                            className="mt-2 flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
+                          >
+                            <PlusIcon className="w-3.5 h-3.5" />
+                            Add License
+                          </button>
+                        </div>
+                        {companyInfoError && <p className="text-xs text-red-500">{companyInfoError}</p>}
+                        <div className="flex items-center gap-3 pt-2">
+                          <button
+                            onClick={saveCompanyInfo}
+                            disabled={companyInfoSaving}
+                            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
+                          >
+                            {companyInfoSaving ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            onClick={cancelEditCompanyInfo}
+                            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 text-sm">
+                        {companyInfoSuccess && <p className="text-xs text-green-600 mb-2">Company info saved successfully</p>}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-xs text-gray-400">Legal Company Name</p>
+                            <p className="text-gray-900">{companySettings?.legal_name || <span className="text-gray-300 italic">Not set</span>}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-400">DBA</p>
+                            <p className="text-gray-900">{companySettings?.dba || <span className="text-gray-300 italic">Not set</span>}</p>
+                          </div>
+                          {(isAdmin || isOfficeManager) && (
+                            <>
+                              <div>
+                                <p className="text-xs text-gray-400">Company Address</p>
+                                <p className="text-gray-900 whitespace-pre-line">{companySettings?.company_address || <span className="text-gray-300 italic">Not set</span>}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-400">Mailing Address</p>
+                                <p className="text-gray-900 whitespace-pre-line">{companySettings?.mailing_address || <span className="text-gray-300 italic">Not set</span>}</p>
+                              </div>
+                            </>
+                          )}
+                          <div>
+                            <p className="text-xs text-gray-400">Phone</p>
+                            <p className="text-gray-900">{companySettings?.phone || <span className="text-gray-300 italic">Not set</span>}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-400">Email</p>
+                            <p className="text-gray-900">{companySettings?.email || <span className="text-gray-300 italic">Not set</span>}</p>
+                          </div>
+                        </div>
+                        {(isAdmin || isOfficeManager) && (
+                          <div>
+                            <p className="text-xs text-gray-400 mb-1">CSLB Licenses</p>
+                            {companySettings?.cslb_licenses && companySettings.cslb_licenses.length > 0 ? (
+                              <div className="space-y-0.5">
+                                {companySettings.cslb_licenses.map((l, i) => (
+                                  <p key={i} className="text-gray-900">License #{l.number} — {l.classification}</p>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-gray-300 italic">None</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div
+                  className="flex-none flex justify-end p-4 border-t border-gray-200"
+                  style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (companyInfoEditing) cancelEditCompanyInfo()
+                      setShowCompanyInfo(false)
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Portal>
         )}
       </div>
     </div>
@@ -1171,5 +1233,28 @@ function SalesManagementModal({
         />
       )}
     </Portal>
+  )
+}
+
+interface SettingsTileProps {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  subtitle: string
+  onClick: () => void
+}
+
+function SettingsTile({ icon: Icon, title, subtitle, onClick }: SettingsTileProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-left bg-white dark:bg-[#242424] border border-gray-200/80 dark:border-[#2a2a2a] rounded-md px-4 py-[14px] cursor-pointer hover:bg-gray-50 dark:hover:bg-[#2e2e2e] hover:border-gray-300 dark:hover:border-[#3a3a3a] transition-all"
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="w-3.5 h-3.5 text-gray-500 dark:text-[#a0a0a0] flex-shrink-0" />
+        <span className="text-[13px] font-medium text-gray-900 dark:text-[#e5e5e5]">{title}</span>
+      </div>
+      <p className="text-[11px] text-gray-400 dark:text-[#6b6b6b] mt-1 ml-[22px]">{subtitle}</p>
+    </button>
   )
 }

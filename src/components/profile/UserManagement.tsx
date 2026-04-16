@@ -33,10 +33,34 @@ const ROLE_BADGE_COLORS: Record<UserRole, string> = {
   crew: 'bg-gray-100 text-gray-600',
 }
 
-export default function UserManagement({ currentUserId }: { currentUserId: string }) {
+interface UserManagementProps {
+  currentUserId: string
+  /** Hide the built-in collapsed "Manage Users" trigger card. */
+  hideTrigger?: boolean
+  /** Controlled main modal open state. When provided, parent controls open/close. */
+  open?: boolean
+  /** Called when the main modal open state should change. */
+  onOpenChange?: (open: boolean) => void
+}
+
+export default function UserManagement({
+  currentUserId,
+  hideTrigger = false,
+  open: openProp,
+  onOpenChange,
+}: UserManagementProps) {
   const router = useRouter()
   const supabase = createClient()
-  const [mainOpen, setMainOpen] = useState(false)
+  const [internalMainOpen, setInternalMainOpen] = useState(false)
+  const isControlled = openProp !== undefined
+  const mainOpen = isControlled ? (openProp as boolean) : internalMainOpen
+  const setMainOpen = useCallback(
+    (next: boolean) => {
+      if (!isControlled) setInternalMainOpen(next)
+      onOpenChange?.(next)
+    },
+    [isControlled, onOpenChange]
+  )
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -286,20 +310,22 @@ export default function UserManagement({ currentUserId }: { currentUserId: strin
   return (
     <>
       {/* Collapsed card */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <div className="flex items-center gap-2 mb-2">
-          <UsersIcon className="w-5 h-5 text-gray-400" />
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">User Management</h2>
-          <button
-            onClick={() => setMainOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
-          >
-            <UsersIcon className="w-3.5 h-3.5" />
-            Manage Users
-          </button>
+      {!hideTrigger && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <UsersIcon className="w-5 h-5 text-gray-400" />
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex-1">User Management</h2>
+            <button
+              onClick={() => setMainOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
+            >
+              <UsersIcon className="w-3.5 h-3.5" />
+              Manage Users
+            </button>
+          </div>
+          <p className="text-xs text-gray-400">Manage user roles and add new team members.</p>
         </div>
-        <p className="text-xs text-gray-400">Manage user roles and add new team members.</p>
-      </div>
+      )}
 
       {/* Full modal */}
       {mainOpen && (
