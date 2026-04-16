@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   FileTextIcon,
   PlusIcon,
@@ -17,6 +18,7 @@ import {
   ChevronRightIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { DEFAULT_TERMS } from '@/components/estimates/types'
 import type {
   Customer,
   Estimate,
@@ -101,6 +103,7 @@ export default function ProjectEstimatesCard({
   userId,
   onPatch,
 }: ProjectEstimatesCardProps) {
+  const router = useRouter()
   const [estimates, setEstimates] = useState<Estimate[]>([])
   const [followUpsByEstimate, setFollowUpsByEstimate] = useState<
     Record<string, EstimateFollowUp[]>
@@ -112,6 +115,7 @@ export default function ProjectEstimatesCard({
   const [expandedFollowUps, setExpandedFollowUps] = useState<
     Record<string, boolean>
   >({})
+  const [creatingEstimate, setCreatingEstimate] = useState(false)
 
   const customerId = customer.id
 
@@ -253,6 +257,61 @@ export default function ProjectEstimatesCard({
     }))
   }
 
+  async function handleNewEstimate() {
+    if (creatingEstimate) return
+    setCreatingEstimate(true)
+    const supabase = createClient()
+
+    // Default estimate_number to numeric portion of project_number when possible.
+    let estimateNumber: number | null = null
+    if (project.project_number) {
+      const match = project.project_number.match(/(\d+)/)
+      if (match) estimateNumber = parseInt(match[1], 10)
+    }
+    if (estimateNumber == null) {
+      const { data: settings } = await supabase
+        .from('estimate_settings')
+        .select('next_estimate_number')
+        .eq('user_id', userId)
+        .maybeSingle()
+      estimateNumber = (settings as { next_estimate_number?: number } | null)?.next_estimate_number ?? 1000
+      await supabase
+        .from('estimate_settings')
+        .update({ next_estimate_number: estimateNumber + 1 })
+        .eq('user_id', userId)
+    }
+
+    const { data, error } = await supabase
+      .from('estimates')
+      .insert({
+        estimate_number: estimateNumber,
+        customer_id: customerId,
+        date: new Date().toISOString().split('T')[0],
+        project_name: project.name || '',
+        description: '',
+        salesperson: '',
+        line_items: [],
+        subtotal: 0,
+        tax: 0,
+        total: 0,
+        terms: DEFAULT_TERMS,
+        notes: '',
+        status: 'Draft',
+        user_id: userId,
+      })
+      .select('id')
+      .single()
+
+    setCreatingEstimate(false)
+    if (error || !data) {
+      console.error('[ProjectEstimatesCard] create estimate failed:', error)
+      return
+    }
+    router.push(
+      `/estimates?customer=${customerId}&estimate=${data.id}&from=estimating&project=${project.id}`
+    )
+  }
+
   return (
     <>
       <div className="bg-white rounded-xl border border-gray-200 p-4 transition-all hover:shadow-sm hover:border-gray-300">
@@ -262,14 +321,25 @@ export default function ProjectEstimatesCard({
           </span>
           <h3 className="text-sm font-semibold text-gray-900 flex-1">
             Estimates
+            {project.project_number && (
+              <span className="ml-2 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                #{project.project_number}
+              </span>
+            )}
           </h3>
-          <Link
-            href={`/estimates?customer=${customerId}&new=1`}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
+          <button
+            type="button"
+            onClick={handleNewEstimate}
+            disabled={creatingEstimate}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition disabled:opacity-60"
           >
-            <PlusIcon className="w-3.5 h-3.5" />
+            {creatingEstimate ? (
+              <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <PlusIcon className="w-3.5 h-3.5" />
+            )}
             New estimate
-          </Link>
+          </button>
         </div>
 
         {!loading && estimates.length > 0 && (

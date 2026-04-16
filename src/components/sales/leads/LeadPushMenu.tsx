@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ChevronDownIcon, XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
+import { assignNextProjectNumber } from '@/lib/nextProjectNumber'
 import type { Lead } from './LeadsClient'
 import NewAppointmentModal, {
   type AppointmentCompanyOption,
@@ -442,6 +443,7 @@ function PushToEstimatingModal({
 
     const measurementsText = includeMeasurements ? lead.measurements : null
     const detailsText = includeProjectDetails ? lead.project_details : null
+    const projectNumber = await assignNextProjectNumber(supabase, userId)
 
     const { data: newProject, error: projErr } = await supabase
       .from('estimating_projects')
@@ -454,6 +456,7 @@ function PushToEstimatingModal({
         source_ref_id: lead.id,
         measurements: measurementsText,
         pipeline_stage: 'Lead',
+        project_number: projectNumber,
         created_by: userId,
       })
       .select('*')

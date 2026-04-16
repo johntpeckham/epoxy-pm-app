@@ -15,6 +15,7 @@ export interface EstimatingProject {
   source_ref_id: string | null
   measurements: string | null
   pipeline_stage: string
+  project_number: string | null
   created_by: string | null
   created_at: string
   updated_at: string

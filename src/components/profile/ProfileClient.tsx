@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon, TargetIcon, GitBranchIcon, BellIcon, TableIcon, CalculatorIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, LayersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon, TargetIcon, GitBranchIcon, BellIcon, TableIcon, CalculatorIcon, HashIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { Profile, CslbLicense } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -14,6 +14,7 @@ import UserManagement from './UserManagement'
 import EmployeeManagement from './EmployeeManagement'
 import PipelineStagesEditor from './PipelineStagesEditor'
 import ReminderRulesEditor from './ReminderRulesEditor'
+import ProjectNumbersEditor from './ProjectNumbersEditor'
 import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 import VendorManagementModal from '@/components/ui/VendorManagementModal'
 import WarrantyManagement from '@/components/warranty/WarrantyManagement'
@@ -966,7 +967,10 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
           </div>
         )}
         {showSalesManagement && (
-          <SalesManagementModal onClose={() => setShowSalesManagement(false)} />
+          <SalesManagementModal
+            isAdmin={isAdmin}
+            onClose={() => setShowSalesManagement(false)}
+          />
         )}
 
         {/* Vendor Management — Admin and Office Manager */}
@@ -1006,9 +1010,16 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   )
 }
 
-function SalesManagementModal({ onClose }: { onClose: () => void }) {
+function SalesManagementModal({
+  isAdmin,
+  onClose,
+}: {
+  isAdmin: boolean
+  onClose: () => void
+}) {
   const [showPipelineEditor, setShowPipelineEditor] = useState(false)
   const [showRuleEditor, setShowRuleEditor] = useState(false)
+  const [showProjectNumbersEditor, setShowProjectNumbersEditor] = useState(false)
 
   const cards: {
     icon: React.ReactNode
@@ -1033,6 +1044,16 @@ function SalesManagementModal({ onClose }: { onClose: () => void }) {
       description: 'Configure reminders and follow-up cadences for leads.',
       onClick: () => setShowRuleEditor(true),
     },
+    ...(isAdmin
+      ? [
+          {
+            icon: <HashIcon className="w-5 h-5" />,
+            title: 'Project Numbers',
+            description: 'Configure auto-numbering formats per salesperson.',
+            onClick: () => setShowProjectNumbersEditor(true),
+          },
+        ]
+      : []),
     {
       icon: <TableIcon className="w-5 h-5" />,
       title: 'Edit Takeoff Tool',
@@ -1137,6 +1158,9 @@ function SalesManagementModal({ onClose }: { onClose: () => void }) {
       )}
       {showRuleEditor && (
         <ReminderRulesEditor onClose={() => setShowRuleEditor(false)} />
+      )}
+      {showProjectNumbersEditor && (
+        <ProjectNumbersEditor onClose={() => setShowProjectNumbersEditor(false)} />
       )}
     </Portal>
   )
