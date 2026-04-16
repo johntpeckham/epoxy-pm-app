@@ -46,6 +46,25 @@ export const PROJECT_SOURCE_LABELS: Record<EstimatingProjectSource, string> = {
   manual: 'Created manually',
 }
 
+export interface PipelineStageAutomationRules {
+  auto_advance_trigger?:
+    | 'estimate_sent'
+    | 'estimate_accepted'
+    | 'estimate_declined'
+    | 'manual'
+  auto_reminder_enabled?: boolean
+  auto_reminder_days?: number
+}
+
+export interface PipelineStageNotificationRules {
+  notify_on_enter?: boolean
+  notify_who?: 'creator' | 'assigned' | 'admins' | 'specific'
+  notify_specific_user_id?: string | null
+  via_in_app?: boolean
+  via_email?: boolean
+  via_sms?: boolean
+}
+
 export interface PipelineStage {
   id: string
   name: string
@@ -53,6 +72,8 @@ export interface PipelineStage {
   color: string
   is_default: boolean
   is_active: boolean
+  automation_rules?: PipelineStageAutomationRules
+  notification_rules?: PipelineStageNotificationRules
   created_at: string
   updated_at: string
 }

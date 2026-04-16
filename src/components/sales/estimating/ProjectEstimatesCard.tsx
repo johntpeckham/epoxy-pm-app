@@ -281,6 +281,24 @@ export default function ProjectEstimatesCard({
         .eq('user_id', userId)
     }
 
+    // Pre-fill defaults from estimate_form_settings (admin-configured).
+    const { data: formSettings } = await supabase
+      .from('estimate_form_settings')
+      .select('default_terms, default_notes, default_tax_rate, default_salesperson_id')
+      .limit(1)
+      .maybeSingle()
+    let defaultSalespersonName = ''
+    if (formSettings?.default_salesperson_id) {
+      const { data: spProfile } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', formSettings.default_salesperson_id)
+        .maybeSingle()
+      defaultSalespersonName =
+        (spProfile as { display_name?: string | null } | null)?.display_name ??
+        ''
+    }
+
     const { data, error } = await supabase
       .from('estimates')
       .insert({
@@ -289,13 +307,13 @@ export default function ProjectEstimatesCard({
         date: new Date().toISOString().split('T')[0],
         project_name: project.name || '',
         description: '',
-        salesperson: '',
+        salesperson: defaultSalespersonName,
         line_items: [],
         subtotal: 0,
         tax: 0,
         total: 0,
-        terms: DEFAULT_TERMS,
-        notes: '',
+        terms: formSettings?.default_terms ?? DEFAULT_TERMS,
+        notes: formSettings?.default_notes ?? '',
         status: 'Draft',
         user_id: userId,
       })
