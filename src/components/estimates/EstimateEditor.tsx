@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon, FilePlusIcon, Trash2Icon } from 'lucide-react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon, FilePlusIcon, Trash2Icon, SendIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { softDeleteEstimate, moveToTrash } from '@/lib/trashBin'
 import { applyDefaultChecklist } from '@/lib/applyDefaultChecklist'
@@ -15,6 +17,8 @@ import { useMaterialSystems } from '@/lib/useMaterialSystems'
 import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
+import SendEstimateModal from '@/components/sales/estimating/SendEstimateModal'
+import type { EstimatingProject, PipelineStage } from '@/components/sales/estimating/types'
 
 interface EstimateEditorProps {
   estimate: Estimate
@@ -27,6 +31,7 @@ interface EstimateEditorProps {
   pendingChangeOrder?: boolean
   onChangeOrderHandled?: () => void
   onDeleted?: () => void
+  backContext?: { url: string; label: string } | null
 }
 
 function genId(): string {
@@ -38,7 +43,21 @@ function calcAmount(item: LineItem): number {
   return (item.ft ?? 0) * (item.rate ?? 0)
 }
 
-const STATUS_OPTIONS = ['Draft', 'Sent', 'Accepted', 'Invoiced'] as const
+const STATUS_OPTIONS = ['Draft', 'Sent', 'Accepted', 'Declined', 'Invoiced'] as const
+
+function formatShortDate(d: string | null | undefined): string {
+  if (!d) return ''
+  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function statusBadgeClasses(status: string): string {
+  const base = 'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap'
+  if (status === 'Sent') return `${base} bg-amber-100 text-amber-700`
+  if (status === 'Accepted') return `${base} bg-green-100 text-green-700`
+  if (status === 'Declined') return `${base} bg-red-100 text-red-700`
+  if (status === 'Invoiced') return `${base} bg-blue-100 text-blue-700`
+  return `${base} bg-gray-100 text-gray-600`
+}
 
 export default function EstimateEditor({
   estimate: initialEstimate,
@@ -51,7 +70,11 @@ export default function EstimateEditor({
   pendingChangeOrder,
   onChangeOrderHandled,
   onDeleted,
+  backContext,
 }: EstimateEditorProps) {
+  const searchParams = useSearchParams()
+  const fromParam = searchParams?.get('from') ?? null
+  const projectIdParam = searchParams?.get('project') ?? null
   const [estimateNumber, setEstimateNumber] = useState(initialEstimate.estimate_number)
   const [date, setDate] = useState(initialEstimate.date)
   const [projectName, setProjectName] = useState(initialEstimate.project_name ?? '')
@@ -64,7 +87,7 @@ export default function EstimateEditor({
   )
   const [tax, setTax] = useState(initialEstimate.tax ?? 0)
   const [terms, setTerms] = useState(initialEstimate.terms ?? DEFAULT_TERMS)
-  const [status, setStatus] = useState<string>(initialEstimate.status)
+  const [status, setStatus] = useState<Estimate['status']>(initialEstimate.status)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [pushSuccess, setPushSuccess] = useState(false)
@@ -84,6 +107,11 @@ export default function EstimateEditor({
   const [materialSystemRows, setMaterialSystemRows] = useState<MaterialSystemRow[]>(
     initialEstimate.material_systems ?? []
   )
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [project, setProject] = useState<EstimatingProject | null>(null)
+  const [sentAt, setSentAt] = useState<string | null>(initialEstimate.sent_at ?? null)
+  const [acceptedAt, setAcceptedAt] = useState<string | null>(initialEstimate.accepted_at ?? null)
+  const [declinedAt, setDeclinedAt] = useState<string | null>(initialEstimate.declined_at ?? null)
   const { systems: allMaterialSystems, addSystem: addMaterialSystem, updateSystem: updateMaterialSystem } = useMaterialSystems()
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -96,6 +124,25 @@ export default function EstimateEditor({
       onChangeOrderHandled?.()
     }
   }, [pendingChangeOrder, onChangeOrderHandled])
+
+  // Load estimating project when opened from the estimating workflow
+  useEffect(() => {
+    if (fromParam !== 'estimating' || !projectIdParam) return
+    let cancelled = false
+    async function loadProject() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('estimating_projects')
+        .select('*')
+        .eq('id', projectIdParam)
+        .maybeSingle()
+      if (!cancelled && data) setProject(data as EstimatingProject)
+    }
+    loadProject()
+    return () => {
+      cancelled = true
+    }
+  }, [fromParam, projectIdParam])
 
   const companyName = settings?.company_name ?? 'Peckham Inc. DBA Peckham Coatings'
   const companyAddress = settings?.company_address ?? '1865 Herndon Ave K106, Clovis, CA 93611'
@@ -178,7 +225,7 @@ export default function EstimateEditor({
     await saveToDb()
   }
 
-  async function handleStatusChange(newStatus: string) {
+  async function handleStatusChange(newStatus: Estimate['status']) {
     setStatus(newStatus)
     setShowStatusMenu(false)
   }
@@ -343,6 +390,78 @@ export default function EstimateEditor({
     setConverting(false)
   }
 
+  async function moveToTerminalStage(target: 'Won' | 'Lost') {
+    if (!project) return
+    const supabase = createClient()
+    const fromStage = project.pipeline_stage
+    if (fromStage === target) return
+    const { data: stagesData } = await supabase
+      .from('pipeline_stages')
+      .select('*')
+      .order('display_order', { ascending: true })
+    const stages = (stagesData as PipelineStage[]) ?? []
+    if (!stages.some((s) => s.name === target)) return
+
+    const projectPatch: Partial<EstimatingProject> = { pipeline_stage: target }
+    if (target === 'Won') projectPatch.status = 'completed'
+    if (target === 'Lost') projectPatch.status = 'on_hold'
+    await supabase
+      .from('estimating_projects')
+      .update(projectPatch)
+      .eq('id', project.id)
+    await supabase.from('pipeline_history').insert({
+      project_id: project.id,
+      from_stage: fromStage,
+      to_stage: target,
+      changed_by: userId,
+    })
+    setProject({ ...project, ...projectPatch })
+  }
+
+  async function completePendingReminders() {
+    if (!project) return
+    const supabase = createClient()
+    await supabase
+      .from('estimating_reminders')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('project_id', project.id)
+      .eq('status', 'pending')
+  }
+
+  async function handleMarkAccepted() {
+    const supabase = createClient()
+    const now = new Date().toISOString()
+    await supabase
+      .from('estimates')
+      .update({ status: 'Accepted', accepted_at: now })
+      .eq('id', estimateIdRef.current)
+    setStatus('Accepted')
+    setAcceptedAt(now)
+    await moveToTerminalStage('Won')
+    await completePendingReminders()
+    onUpdated()
+  }
+
+  async function handleMarkDeclined() {
+    const supabase = createClient()
+    const now = new Date().toISOString()
+    await supabase
+      .from('estimates')
+      .update({ status: 'Declined', declined_at: now })
+      .eq('id', estimateIdRef.current)
+    setStatus('Declined')
+    setDeclinedAt(now)
+    await moveToTerminalStage('Lost')
+    await completePendingReminders()
+    onUpdated()
+  }
+
+  async function handleOpenSend() {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    await saveToDb()
+    setShowSendModal(true)
+  }
+
   async function handleDeleteEstimate() {
     setIsDeleting(true)
     const supabase = createClient()
@@ -357,13 +476,23 @@ export default function EstimateEditor({
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">
       {/* Top bar */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition-colors"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Back to {customer.name}
-        </button>
+        {backContext ? (
+          <Link
+            href={backContext.url}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            <ArrowLeftIcon className="w-4 h-4" />
+            {backContext.label}
+          </Link>
+        ) : (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            <ArrowLeftIcon className="w-4 h-4" />
+            Back to {customer.name}
+          </button>
+        )}
         <div className="flex items-center gap-2">
           {/* Save status */}
           <span className="text-xs text-gray-400">
@@ -416,6 +545,45 @@ export default function EstimateEditor({
           >
             Export PDF
           </button>
+          {/* Status badge */}
+          <span className={statusBadgeClasses(status)}>
+            {status === 'Sent' && sentAt
+              ? `Sent \u2014 ${formatShortDate(sentAt)}`
+              : status === 'Accepted' && acceptedAt
+              ? `Accepted \u2014 ${formatShortDate(acceptedAt)}`
+              : status === 'Declined' && declinedAt
+              ? `Declined \u2014 ${formatShortDate(declinedAt)}`
+              : status}
+          </span>
+          {/* Send estimate (drafts only, requires project context) */}
+          {(status === 'Draft' || !status) && project && (
+            <button
+              onClick={handleOpenSend}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-400 transition-colors"
+            >
+              <SendIcon className="w-3.5 h-3.5" />
+              Send
+            </button>
+          )}
+          {/* Mark accepted / declined (sent only, requires project context) */}
+          {status === 'Sent' && project && (
+            <>
+              <button
+                onClick={handleMarkAccepted}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <CheckIcon className="w-3.5 h-3.5" />
+                Mark accepted
+              </button>
+              <button
+                onClick={handleMarkDeclined}
+                className="inline-flex items-center gap-1 px-3 py-1.5 border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors"
+              >
+                <XIcon className="w-3.5 h-3.5" />
+                Mark declined
+              </button>
+            </>
+          )}
           {/* Push to Jobs */}
           {status === 'Accepted' && (
             <button
@@ -789,6 +957,32 @@ export default function EstimateEditor({
           pdfData={pdfPreview}
           title="Estimate"
           onClose={() => { setShowPreview(false); setPdfPreview(null) }}
+        />
+      )}
+
+      {showSendModal && project && (
+        <SendEstimateModal
+          estimate={{
+            ...initialEstimate,
+            estimate_number: estimateNumber,
+            project_name: projectName,
+            line_items: lineItems.map((item) => ({ ...item, amount: calcAmount(item) })),
+            subtotal,
+            tax,
+            total,
+            status,
+          }}
+          customer={customer}
+          project={project}
+          userId={userId}
+          onClose={() => setShowSendModal(false)}
+          onSent={(patch, pipelinePatch) => {
+            if (patch.status) setStatus(patch.status)
+            if (patch.sent_at !== undefined) setSentAt(patch.sent_at ?? null)
+            if (pipelinePatch && project) setProject({ ...project, ...pipelinePatch })
+            setShowSendModal(false)
+            onUpdated()
+          }}
         />
       )}
     </div>

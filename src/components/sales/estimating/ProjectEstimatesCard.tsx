@@ -317,7 +317,7 @@ export default function ProjectEstimatesCard({
                 <div key={e.id} className="py-2.5">
                   <div className="flex items-center gap-3">
                     <Link
-                      href={`/estimates?customer=${customerId}&estimate=${e.id}`}
+                      href={`/estimates?customer=${customerId}&estimate=${e.id}&from=estimating&project=${project.id}`}
                       className="min-w-0 flex-1 group"
                     >
                       <p className="text-sm font-medium text-gray-900 truncate group-hover:text-amber-700 transition">
