@@ -21,6 +21,8 @@ import {
   UsersIcon,
   FileTextIcon,
   ContactIcon,
+  VideoIcon,
+  MegaphoneIcon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
@@ -767,6 +769,28 @@ export default function OfficeTasksPageClient({
           <p className="text-sm text-gray-400">Coming soon — standard operating procedures and forms.</p>
         </div>
         )}
+
+        {/* ── Weekly Meeting Card (placeholder) ── */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-amber-500">
+              <VideoIcon className="w-5 h-5" />
+            </span>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">Weekly Meeting</h3>
+          </div>
+          <p className="text-center text-xs text-gray-400 py-4">Coming soon</p>
+        </div>
+
+        {/* ── Sales Meeting Card (placeholder) ── */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-amber-500">
+              <MegaphoneIcon className="w-5 h-5" />
+            </span>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">Sales Meeting</h3>
+          </div>
+          <p className="text-center text-xs text-gray-400 py-4">Coming soon</p>
+        </div>
 
       </div>
 
