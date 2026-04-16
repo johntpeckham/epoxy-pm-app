@@ -21,8 +21,6 @@ import {
   UsersIcon,
   FileTextIcon,
   ContactIcon,
-  VideoIcon,
-  MegaphoneIcon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
@@ -770,26 +768,24 @@ export default function OfficeTasksPageClient({
         </div>
         )}
 
-        {/* ── Weekly Meeting Card (placeholder) ── */}
+        {/* ── Company Meetings Card ── */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-amber-500">
-              <VideoIcon className="w-5 h-5" />
+              <UsersIcon className="w-5 h-5" />
             </span>
-            <h3 className="text-sm font-semibold text-gray-900 flex-1">Weekly Meeting</h3>
+            <h3 className="text-sm font-semibold text-gray-900 flex-1">Company Meetings</h3>
           </div>
-          <p className="text-center text-xs text-gray-400 py-4">Coming soon</p>
-        </div>
-
-        {/* ── Sales Meeting Card (placeholder) ── */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-amber-500">
-              <MegaphoneIcon className="w-5 h-5" />
-            </span>
-            <h3 className="text-sm font-semibold text-gray-900 flex-1">Sales Meeting</h3>
+          <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs font-medium text-gray-700">Weekly Meeting</span>
+              <span className="text-xs text-gray-400">Coming soon</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs font-medium text-gray-700">Sales Meeting</span>
+              <span className="text-xs text-gray-400">Coming soon</span>
+            </div>
           </div>
-          <p className="text-center text-xs text-gray-400 py-4">Coming soon</p>
         </div>
 
       </div>
