@@ -1,12 +1,15 @@
 'use client'
 
-import { TableIcon } from 'lucide-react'
+import { useState } from 'react'
+import { TableIcon, PencilIcon } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
+import { useUserRole } from '@/lib/useUserRole'
 import ProjectMeasurementsCard from './ProjectMeasurementsCard'
 import ProjectEstimatesCard from './ProjectEstimatesCard'
 import ProjectPipelineCard from './ProjectPipelineCard'
 import ProjectRemindersCard from './ProjectRemindersCard'
+import ProjectNumberOverrideModal from './ProjectNumberOverrideModal'
 
 interface ProjectDashboardProps {
   project: EstimatingProject
@@ -21,9 +24,32 @@ export default function ProjectDashboard({
   userId,
   onPatch,
 }: ProjectDashboardProps) {
+  const { role } = useUserRole()
+  const isAdmin = role === 'admin'
+  const [showOverride, setShowOverride] = useState(false)
+
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
       <div className="px-4 py-4 border-b border-gray-200 bg-white">
+        {project.project_number && (
+          <div className="mb-1">
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setShowOverride(true)}
+                title="Edit project number"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-full px-2.5 py-0.5 transition"
+              >
+                Project #{project.project_number}
+                <PencilIcon className="w-3 h-3" />
+              </button>
+            ) : (
+              <span className="inline-flex items-center text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-0.5">
+                Project #{project.project_number}
+              </span>
+            )}
+          </div>
+        )}
         <h2 className="text-base font-bold text-gray-900 truncate">
           {project.name || 'Untitled project'}
         </h2>
@@ -70,6 +96,17 @@ export default function ProjectDashboard({
           customerId={customer.id}
         />
       </div>
+
+      {showOverride && (
+        <ProjectNumberOverrideModal
+          project={project}
+          onClose={() => setShowOverride(false)}
+          onUpdated={(patch) => {
+            onPatch(patch)
+            setShowOverride(false)
+          }}
+        />
+      )}
     </div>
   )
 }

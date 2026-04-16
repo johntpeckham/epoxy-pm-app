@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ChevronDownIcon, XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
+import { assignNextProjectNumber } from '@/lib/nextProjectNumber'
 import type { JobWalk } from './JobWalkClient'
 
 interface JobWalkMeasurementPdf {
@@ -190,6 +191,7 @@ function PushToEstimatingModal({
     }
 
     const supabase = createClient()
+    const projectNumber = await assignNextProjectNumber(supabase, userId)
 
     const { data: newProject, error: projErr } = await supabase
       .from('estimating_projects')
@@ -202,6 +204,7 @@ function PushToEstimatingModal({
         source_ref_id: walk.id,
         measurements: includeMeasurements ? walk.measurements : null,
         pipeline_stage: 'Job Walk',
+        project_number: projectNumber,
         created_by: userId,
       })
       .select('*')

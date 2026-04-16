@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { XIcon, SearchIcon, ChevronDownIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase/client'
+import { assignNextProjectNumber } from '@/lib/nextProjectNumber'
 import type { Customer } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
 
@@ -74,6 +75,7 @@ export default function NewProjectModal({
     setSaving(true)
     setError(null)
     const supabase = createClient()
+    const projectNumber = await assignNextProjectNumber(supabase, userId)
     const { data, error: insertErr } = await supabase
       .from('estimating_projects')
       .insert({
@@ -83,6 +85,7 @@ export default function NewProjectModal({
         status: 'active',
         source: 'manual',
         pipeline_stage: 'Estimating',
+        project_number: projectNumber,
         created_by: userId,
       })
       .select('*')

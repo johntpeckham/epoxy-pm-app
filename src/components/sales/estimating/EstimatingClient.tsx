@@ -433,6 +433,9 @@ function ProjectListRow({
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-gray-900 truncate">
+            {project.project_number && (
+              <span className="text-amber-600 mr-1.5">#{project.project_number}</span>
+            )}
             {project.name}
           </p>
           {project.description && (
@@ -551,7 +554,12 @@ function ProjectSidebarItem({
       {isSelected && (
         <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-amber-500" />
       )}
-      <p className="text-sm font-semibold text-gray-900 truncate">{project.name}</p>
+      <p className="text-sm font-semibold text-gray-900 truncate">
+        {project.project_number && (
+          <span className="text-amber-600 mr-1">#{project.project_number}</span>
+        )}
+        {project.name}
+      </p>
       <div className="mt-1.5 flex items-center gap-1.5">
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusStyle.className}`}

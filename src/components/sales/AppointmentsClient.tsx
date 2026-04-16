@@ -12,6 +12,7 @@ import {
   SearchIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { assignNextProjectNumber } from '@/lib/nextProjectNumber'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import NewAppointmentModal, {
@@ -429,6 +430,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
     }
 
     // Step 2: create an estimating project
+    const projectNumber = await assignNextProjectNumber(supabase, userId)
     const { data: newProject, error: projErr } = await supabase
       .from('estimating_projects')
       .insert({
@@ -439,6 +441,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
         source: 'appointment',
         source_ref_id: appt.id,
         pipeline_stage: 'Estimating',
+        project_number: projectNumber,
         created_by: userId,
       })
       .select('id')
