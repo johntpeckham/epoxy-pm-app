@@ -4,18 +4,14 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import type { UserRole } from '@/types'
 import SalesDashboardClient from '@/components/sales/SalesDashboardClient'
-import {
-  fetchWeekActivity,
-  fetchMonthActivity,
-  fetchOverdueContacts,
-  fetchRecentActivity,
-  fetchTeamStats,
-} from '@/lib/salesStats'
+import { fetchTeamOverview } from '@/lib/salesTeamStats'
 
 export default async function SalesPage() {
   const supabase = await createClient()
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
   if (!session) return redirect('/login')
   const user = session.user
 
@@ -34,70 +30,12 @@ export default async function SalesPage() {
     return redirect('/my-work')
   }
 
-  // Top-card counts + upcoming appointments
-  const nowIso = new Date().toISOString()
-  const [
-    { count: companyCountRaw },
-    { count: contactCountRaw },
-    { count: upcomingApptCountRaw },
-    { count: activeLeadsCountRaw },
-    { count: activeJobWalksCountRaw },
-    { count: activeProjectsCountRaw },
-    { count: estimateCountRaw },
-    { count: jobsCountRaw },
-    weekActivity,
-    monthActivity,
-    overdueContacts,
-    recentActivity,
-    teamStats,
-  ] = await Promise.all([
-    supabase.from('crm_companies').select('id', { count: 'exact', head: true }),
-    supabase.from('crm_contacts').select('id', { count: 'exact', head: true }),
-    supabase
-      .from('crm_appointments')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'scheduled')
-      .gte('date', nowIso),
-    supabase
-      .from('leads')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'in_progress'),
-    supabase
-      .from('job_walks')
-      .select('id', { count: 'exact', head: true })
-      .neq('status', 'completed'),
-    supabase
-      .from('estimating_projects')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'active'),
-    supabase
-      .from('estimates')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id),
-    supabase.from('projects').select('id', { count: 'exact', head: true }),
-    fetchWeekActivity(supabase, user.id),
-    fetchMonthActivity(supabase, user.id),
-    fetchOverdueContacts(supabase, 30, 200),
-    fetchRecentActivity(supabase, 20, 0),
-    userRole === 'admin' ? fetchTeamStats(supabase) : Promise.resolve([]),
-  ])
+  const initialOverview = await fetchTeamOverview(supabase, 'weekly')
 
   return (
     <SalesDashboardClient
-      userRole={userRole}
-      companyCount={companyCountRaw ?? 0}
-      contactCount={contactCountRaw ?? 0}
-      upcomingApptCount={upcomingApptCountRaw ?? 0}
-      activeLeadsCount={activeLeadsCountRaw ?? 0}
-      activeJobWalksCount={activeJobWalksCountRaw ?? 0}
-      activeProjectsCount={activeProjectsCountRaw ?? 0}
-      estimateCount={estimateCountRaw ?? 0}
-      jobsCount={jobsCountRaw ?? 0}
-      weekActivity={weekActivity}
-      monthActivity={monthActivity}
-      overdueContacts={overdueContacts}
-      recentActivity={recentActivity}
-      teamStats={teamStats}
+      initialRange="weekly"
+      initialOverview={initialOverview}
     />
   )
 }
