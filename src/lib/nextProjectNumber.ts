@@ -103,3 +103,29 @@ export function previewNextNumber(
 ): string {
   return `${prefix}${currentNumber + 1}${suffix}`
 }
+
+/**
+ * Peek at the next project number for a user without incrementing the
+ * sequence. If the user has no sequence yet, returns the default "1000".
+ * Used to pre-populate the New Project modal before the project is created.
+ */
+export async function peekNextProjectNumber(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string> {
+  const { data } = await supabase
+    .from('user_project_sequences')
+    .select('prefix, suffix, current_number')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  const seq = data as
+    | { prefix: string; suffix: string; current_number: number }
+    | null
+
+  if (!seq) {
+    return '1000'
+  }
+
+  return `${seq.prefix}${seq.current_number + 1}${seq.suffix}`
+}

@@ -1,10 +1,20 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { XIcon, SearchIcon, ChevronDownIcon } from 'lucide-react'
+import {
+  XIcon,
+  SearchIcon,
+  ChevronDownIcon,
+  PencilIcon,
+  Loader2Icon,
+  AlertTriangleIcon,
+} from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase/client'
-import { assignNextProjectNumber } from '@/lib/nextProjectNumber'
+import {
+  assignNextProjectNumber,
+  peekNextProjectNumber,
+} from '@/lib/nextProjectNumber'
 import type { Customer } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
 
@@ -33,6 +43,40 @@ export default function NewProjectModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const [autoProjectNumber, setAutoProjectNumber] = useState<string | null>(null)
+  const [projectNumber, setProjectNumber] = useState('')
+  const [editingNumber, setEditingNumber] = useState(false)
+  const [loadingNumber, setLoadingNumber] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    peekNextProjectNumber(supabase, userId)
+      .then((n) => {
+        if (cancelled) return
+        setAutoProjectNumber(n)
+        setProjectNumber(n)
+        setLoadingNumber(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setAutoProjectNumber('1000')
+        setProjectNumber('1000')
+        setLoadingNumber(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  const isOverridden =
+    autoProjectNumber !== null && projectNumber.trim() !== autoProjectNumber
+
+  function cancelEditNumber() {
+    if (autoProjectNumber !== null) setProjectNumber(autoProjectNumber)
+    setEditingNumber(false)
+  }
 
   const selectedCustomer = useMemo(
     () => customers.find((c) => c.id === customerId) ?? null,
@@ -72,10 +116,24 @@ export default function NewProjectModal({
       setError('Please enter a project name.')
       return
     }
+    const finalNumber = projectNumber.trim()
+    if (!finalNumber) {
+      setError('Project number cannot be empty.')
+      return
+    }
     setSaving(true)
     setError(null)
     const supabase = createClient()
-    const projectNumber = await assignNextProjectNumber(supabase, userId)
+
+    let assignedNumber: string
+    if (isOverridden) {
+      // One-time override: use custom number, do NOT increment sequence.
+      assignedNumber = finalNumber
+    } else {
+      // Regular: atomically reserve next number from sequence.
+      assignedNumber = await assignNextProjectNumber(supabase, userId)
+    }
+
     const { data, error: insertErr } = await supabase
       .from('estimating_projects')
       .insert({
@@ -85,14 +143,24 @@ export default function NewProjectModal({
         status: 'active',
         source: 'manual',
         pipeline_stage: 'Estimating',
-        project_number: projectNumber,
+        project_number: assignedNumber,
         created_by: userId,
       })
       .select('*')
       .single()
     if (insertErr || !data) {
       setSaving(false)
-      setError(`Failed to create project: ${insertErr?.message ?? 'unknown error'}`)
+      const msg = insertErr?.message ?? 'unknown error'
+      if (
+        insertErr?.code === '23505' ||
+        msg.toLowerCase().includes('duplicate')
+      ) {
+        setError(
+          `Project number ${assignedNumber} is already in use. Please pick a different number.`
+        )
+      } else {
+        setError(`Failed to create project: ${msg}`)
+      }
       return
     }
     const created = data as EstimatingProject
@@ -186,6 +254,73 @@ export default function NewProjectModal({
                       ))
                     )}
                   </div>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Project number
+              </label>
+              {editingNumber ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={projectNumber}
+                      onChange={(e) => setProjectNumber(e.target.value)}
+                      autoFocus
+                      className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                      placeholder="e.g. 1006-P"
+                    />
+                    <button
+                      type="button"
+                      onClick={cancelEditNumber}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-700 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {isOverridden && (
+                    <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
+                      <AlertTriangleIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                      <span>
+                        This is a one-time override. Your next project will
+                        return to the regular sequence. To change your sequence
+                        permanently, ask your admin to update it in Sales
+                        Management.
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    {loadingNumber ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-400">
+                        <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+                        <span>Loading…</span>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          #{autoProjectNumber}
+                        </p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          Auto-assigned
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingNumber(true)}
+                    disabled={loadingNumber}
+                    title="Edit project number"
+                    className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition disabled:opacity-50"
+                  >
+                    <PencilIcon className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
             </div>
