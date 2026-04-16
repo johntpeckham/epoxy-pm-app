@@ -1,14 +1,12 @@
 'use client'
 
-import {
-  TableIcon,
-  GitBranchIcon,
-  BellIcon,
-} from 'lucide-react'
+import { TableIcon } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
 import ProjectMeasurementsCard from './ProjectMeasurementsCard'
 import ProjectEstimatesCard from './ProjectEstimatesCard'
+import ProjectPipelineCard from './ProjectPipelineCard'
+import ProjectRemindersCard from './ProjectRemindersCard'
 
 interface ProjectDashboardProps {
   project: EstimatingProject
@@ -55,14 +53,19 @@ export default function ProjectDashboard({
           userId={userId}
         />
 
-        <ComingSoonCard
-          icon={<GitBranchIcon className="w-5 h-5" />}
-          title="Pipeline"
+        <ProjectPipelineCard
+          key={`pipeline-${project.id}`}
+          project={project}
+          userId={userId}
+          onPatch={onPatch}
         />
 
-        <ComingSoonCard
-          icon={<BellIcon className="w-5 h-5" />}
-          title="Reminders"
+        <ProjectRemindersCard
+          key={`reminders-${project.id}`}
+          projectId={project.id}
+          projectName={project.name}
+          userId={userId}
+          customerId={customer.id}
         />
       </div>
     </div>
