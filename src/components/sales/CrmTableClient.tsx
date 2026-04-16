@@ -20,7 +20,10 @@ import NewCompanyModal from './NewCompanyModal'
 import ImportCsvModal from './ImportCsvModal'
 import MergeCompaniesModal from './MergeCompaniesModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import ExistingCustomersView from './ExistingCustomersView'
 import { toCsv, downloadCsv } from '@/lib/csv'
+
+type CrmViewMode = 'new' | 'existing'
 
 type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
 type CompanyPriority = 'high' | 'medium' | 'low'
@@ -137,6 +140,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const supabase = useMemo(() => createClient(), [])
+
+  const [viewMode, setViewMode] = useState<CrmViewMode>('new')
 
   const [loading, setLoading] = useState(true)
   const [companies, setCompanies] = useState<CompanyRow[]>([])
@@ -771,12 +776,36 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     </th>
   )
 
+  if (viewMode === 'existing') {
+    return (
+      <ExistingCustomersView
+        userId={userId}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+      />
+    )
+  }
+
   return (
     <div className="flex-1 overflow-y-auto bg-white">
       {/* ── Header ── */}
       <div className="px-7 pt-8 pb-4 flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
+        <div className="min-w-0 flex items-center gap-3">
           <h1 className="text-[22px] font-medium text-gray-900 leading-tight">CRM</h1>
+          <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-xs">
+            <button
+              onClick={() => setViewMode('new')}
+              className="px-3 py-1 rounded-full font-medium transition-colors bg-white text-gray-900 shadow-sm"
+            >
+              New customers
+            </button>
+            <button
+              onClick={() => setViewMode('existing')}
+              className="px-3 py-1 rounded-full font-medium transition-colors text-gray-500 hover:text-gray-700"
+            >
+              Existing customers
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative" style={{ width: 280 }}>
