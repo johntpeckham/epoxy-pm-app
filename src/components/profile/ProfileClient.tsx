@@ -15,6 +15,7 @@ import EmployeeManagement from './EmployeeManagement'
 import PipelineStagesEditor from './PipelineStagesEditor'
 import ReminderRulesEditor from './ReminderRulesEditor'
 import ProjectNumbersEditor from './ProjectNumbersEditor'
+import EstimateFormSettingsEditor from './EstimateFormSettingsEditor'
 import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 import VendorManagementModal from '@/components/ui/VendorManagementModal'
 import WarrantyManagement from '@/components/warranty/WarrantyManagement'
@@ -1020,6 +1021,7 @@ function SalesManagementModal({
   const [showPipelineEditor, setShowPipelineEditor] = useState(false)
   const [showRuleEditor, setShowRuleEditor] = useState(false)
   const [showProjectNumbersEditor, setShowProjectNumbersEditor] = useState(false)
+  const [showEstimateFormEditor, setShowEstimateFormEditor] = useState(false)
 
   const cards: {
     icon: React.ReactNode
@@ -1031,6 +1033,7 @@ function SalesManagementModal({
       icon: <FileTextIcon className="w-5 h-5" />,
       title: 'Edit Estimate Form',
       description: 'Customize the fields and layout shown on the estimate.',
+      onClick: () => setShowEstimateFormEditor(true),
     },
     {
       icon: <GitBranchIcon className="w-5 h-5" />,
@@ -1161,6 +1164,11 @@ function SalesManagementModal({
       )}
       {showProjectNumbersEditor && (
         <ProjectNumbersEditor onClose={() => setShowProjectNumbersEditor(false)} />
+      )}
+      {showEstimateFormEditor && (
+        <EstimateFormSettingsEditor
+          onClose={() => setShowEstimateFormEditor(false)}
+        />
       )}
     </Portal>
   )

@@ -60,24 +60,25 @@ export async function assignNextProjectNumber(
   let seq = existing as UserProjectSequenceRow | null
 
   if (!seq) {
+    const defaults = await loadSequenceDefaults(supabase)
     const { data: created } = await supabase
       .from('user_project_sequences')
       .insert({
         user_id: userId,
-        prefix: '',
-        suffix: '',
-        current_number: 999,
-        format_example: '1000',
+        prefix: defaults.prefix,
+        suffix: defaults.suffix,
+        current_number: defaults.numeric - 1,
+        format_example: defaults.formatExample,
       })
       .select('*')
       .single()
     seq = (created as UserProjectSequenceRow) ?? {
       id: '',
       user_id: userId,
-      prefix: '',
-      suffix: '',
-      current_number: 999,
-      format_example: '1000',
+      prefix: defaults.prefix,
+      suffix: defaults.suffix,
+      current_number: defaults.numeric - 1,
+      format_example: defaults.formatExample,
     }
   }
 
@@ -105,9 +106,36 @@ export function previewNextNumber(
 }
 
 /**
+ * Loads the admin-configured default project number format from
+ * sales_settings. Falls back to "1000" if no row exists.
+ */
+async function loadSequenceDefaults(supabase: SupabaseClient): Promise<{
+  prefix: string
+  suffix: string
+  numeric: number
+  formatExample: string
+}> {
+  const { data } = await supabase
+    .from('sales_settings')
+    .select('default_project_number_format')
+    .limit(1)
+    .maybeSingle()
+  const formatExample =
+    (data?.default_project_number_format as string | undefined)?.trim() ||
+    '1000'
+  const parsed = parseProjectFormat(formatExample)
+  return {
+    prefix: parsed.prefix,
+    suffix: parsed.suffix,
+    numeric: parsed.numeric,
+    formatExample,
+  }
+}
+
+/**
  * Peek at the next project number for a user without incrementing the
- * sequence. If the user has no sequence yet, returns the default "1000".
- * Used to pre-populate the New Project modal before the project is created.
+ * sequence. If the user has no sequence yet, uses the admin's default
+ * format. Used to pre-populate the New Project modal.
  */
 export async function peekNextProjectNumber(
   supabase: SupabaseClient,
@@ -124,7 +152,8 @@ export async function peekNextProjectNumber(
     | null
 
   if (!seq) {
-    return '1000'
+    const defaults = await loadSequenceDefaults(supabase)
+    return defaults.formatExample
   }
 
   return `${seq.prefix}${seq.current_number + 1}${seq.suffix}`

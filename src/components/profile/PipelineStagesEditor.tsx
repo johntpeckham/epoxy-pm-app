@@ -6,16 +6,58 @@ import {
   GitBranchIcon,
   PlusIcon,
   Trash2Icon,
-  ChevronUpIcon,
-  ChevronDownIcon,
   Loader2Icon,
   AlertTriangleIcon,
+  GripVerticalIcon,
+  LockIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-import type { PipelineStage } from '@/components/sales/estimating/types'
+import type {
+  PipelineStage,
+  PipelineStageAutomationRules,
+} from '@/components/sales/estimating/types'
 import { SYSTEM_STAGES } from '@/components/sales/estimating/types'
+
+const PRESET_COLORS: { value: string; label: string }[] = [
+  { value: '#10B981', label: 'Green' },
+  { value: '#3B82F6', label: 'Blue' },
+  { value: '#F59E0B', label: 'Amber' },
+  { value: '#EF4444', label: 'Red' },
+  { value: '#14B8A6', label: 'Teal' },
+  { value: '#8B5CF6', label: 'Purple' },
+  { value: '#6B7280', label: 'Grey' },
+]
+
+const AUTO_ADVANCE_OPTIONS: {
+  value: NonNullable<PipelineStageAutomationRules['auto_advance_trigger']>
+  label: string
+}[] = [
+  { value: 'manual', label: 'Manual only' },
+  { value: 'estimate_sent', label: 'When estimate sent' },
+  { value: 'estimate_accepted', label: 'When estimate accepted' },
+  { value: 'estimate_declined', label: 'When estimate declined' },
+]
 
 interface DraftStage {
   id: string
@@ -24,6 +66,7 @@ interface DraftStage {
   is_active: boolean
   is_default: boolean
   original_name: string | null
+  automation_rules: PipelineStageAutomationRules
   isNew?: boolean
   isDeleted?: boolean
 }
@@ -41,6 +84,14 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
     draft: DraftStage
     count: number
   } | null>(null)
+  const [expandedAutomation, setExpandedAutomation] = useState<Set<string>>(
+    new Set()
+  )
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
 
   const fetchStages = useCallback(async () => {
     setLoading(true)
@@ -58,6 +109,7 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
         is_active: s.is_active,
         is_default: s.is_default,
         original_name: s.name,
+        automation_rules: s.automation_rules ?? {},
       }))
     )
     setLoading(false)
@@ -73,17 +125,39 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
     setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)))
   }
 
-  function move(id: string, dir: -1 | 1) {
+  function updateAutomation(
+    id: string,
+    patch: Partial<PipelineStageAutomationRules>
+  ) {
+    setDrafts((prev) =>
+      prev.map((d) =>
+        d.id === id
+          ? { ...d, automation_rules: { ...d.automation_rules, ...patch } }
+          : d
+      )
+    )
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
     setDrafts((prev) => {
-      const list = prev.filter((d) => !d.isDeleted)
-      const idx = list.findIndex((d) => d.id === id)
-      const nextIdx = idx + dir
-      if (idx < 0 || nextIdx < 0 || nextIdx >= list.length) return prev
-      const reordered = [...list]
-      const [item] = reordered.splice(idx, 1)
-      reordered.splice(nextIdx, 0, item)
+      const active_list = prev.filter((d) => !d.isDeleted)
+      const from = active_list.findIndex((d) => d.id === active.id)
+      const to = active_list.findIndex((d) => d.id === over.id)
+      if (from < 0 || to < 0) return prev
+      const reordered = arrayMove(active_list, from, to)
       const deleted = prev.filter((d) => d.isDeleted)
       return [...reordered, ...deleted]
+    })
+  }
+
+  function toggleAutomation(id: string) {
+    setExpandedAutomation((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
     })
   }
 
@@ -98,6 +172,7 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
         is_active: true,
         is_default: false,
         original_name: null,
+        automation_rules: {},
         isNew: true,
       },
     ])
@@ -132,7 +207,6 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
     try {
       const ordered = drafts.filter((d) => !d.isDeleted)
 
-      // Detect rename — original_name != name for existing rows
       const renames = ordered
         .filter(
           (d) =>
@@ -142,7 +216,6 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
         )
         .map((d) => ({ from: d.original_name as string, to: d.name.trim() }))
 
-      // Apply renames to estimating_projects first
       for (const r of renames) {
         await supabase
           .from('estimating_projects')
@@ -150,13 +223,11 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
           .eq('pipeline_stage', r.from)
       }
 
-      // Deletes
       const deletedIds = drafts.filter((d) => d.isDeleted && !d.isNew).map((d) => d.id)
       if (deletedIds.length > 0) {
         await supabase.from('pipeline_stages').delete().in('id', deletedIds)
       }
 
-      // Updates + inserts with new display_order
       for (let i = 0; i < ordered.length; i++) {
         const d = ordered[i]
         const row = {
@@ -165,6 +236,7 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
           is_active: d.is_active,
           is_default: d.is_default,
           display_order: i + 1,
+          automation_rules: d.automation_rules,
         }
         if (d.isNew) {
           await supabase.from('pipeline_stages').insert(row)
@@ -219,84 +291,36 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
             ) : (
               <>
                 <p className="text-xs text-gray-500">
-                  Rename, recolor, reorder, or deactivate stages. &quot;Won&quot; and
-                  &quot;Lost&quot; cannot be deleted.
+                  Drag to reorder, click a swatch to change color, expand
+                  Automation for stage triggers. &quot;Won&quot; and
+                  &quot;Lost&quot; are system stages and cannot be deleted.
                 </p>
-                <div className="space-y-2">
-                  {visible.map((d, idx) => {
-                    const isSystem = SYSTEM_STAGES.includes(
-                      d.name as (typeof SYSTEM_STAGES)[number]
-                    )
-                    return (
-                      <div
-                        key={d.id}
-                        className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg"
-                      >
-                        <div className="flex flex-col">
-                          <button
-                            type="button"
-                            onClick={() => move(d.id, -1)}
-                            disabled={idx === 0}
-                            className="w-6 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                            aria-label="Move up"
-                          >
-                            <ChevronUpIcon className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => move(d.id, 1)}
-                            disabled={idx === visible.length - 1}
-                            className="w-6 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                            aria-label="Move down"
-                          >
-                            <ChevronDownIcon className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <input
-                          type="color"
-                          value={d.color}
-                          onChange={(e) =>
-                            updateDraft(d.id, { color: e.target.value })
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={visible.map((d) => d.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {visible.map((d) => (
+                        <SortableStageRow
+                          key={d.id}
+                          draft={d}
+                          isExpanded={expandedAutomation.has(d.id)}
+                          onToggleExpand={() => toggleAutomation(d.id)}
+                          onUpdate={(patch) => updateDraft(d.id, patch)}
+                          onUpdateAutomation={(patch) =>
+                            updateAutomation(d.id, patch)
                           }
-                          className="w-8 h-8 rounded cursor-pointer border border-gray-200"
-                          aria-label="Stage color"
+                          onDelete={() => requestDelete(d)}
                         />
-                        <input
-                          type="text"
-                          value={d.name}
-                          onChange={(e) =>
-                            updateDraft(d.id, { name: e.target.value })
-                          }
-                          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                        />
-                        <label className="flex items-center gap-1 text-xs text-gray-500">
-                          <input
-                            type="checkbox"
-                            checked={d.is_active}
-                            onChange={(e) =>
-                              updateDraft(d.id, { is_active: e.target.checked })
-                            }
-                            className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500"
-                          />
-                          Active
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => requestDelete(d)}
-                          disabled={isSystem}
-                          title={
-                            isSystem
-                              ? `Cannot delete system stage "${d.name}"`
-                              : 'Delete stage'
-                          }
-                          className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <Trash2Icon className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
                 <button
                   type="button"
                   onClick={addStage}
@@ -350,5 +374,213 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
         />
       )}
     </Portal>
+  )
+}
+
+function SortableStageRow({
+  draft,
+  isExpanded,
+  onToggleExpand,
+  onUpdate,
+  onUpdateAutomation,
+  onDelete,
+}: {
+  draft: DraftStage
+  isExpanded: boolean
+  onToggleExpand: () => void
+  onUpdate: (patch: Partial<DraftStage>) => void
+  onUpdateAutomation: (patch: Partial<PipelineStageAutomationRules>) => void
+  onDelete: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: draft.id })
+
+  const isSystem = SYSTEM_STAGES.includes(
+    draft.name as (typeof SYSTEM_STAGES)[number]
+  )
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+    >
+      <div className="flex items-center gap-2 p-2">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          className="p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing"
+        >
+          <GripVerticalIcon className="w-4 h-4" />
+        </button>
+        <ColorSwatchPicker
+          value={draft.color}
+          onChange={(color) => onUpdate({ color })}
+        />
+        <input
+          type="text"
+          value={draft.name}
+          onChange={(e) => onUpdate({ name: e.target.value })}
+          disabled={isSystem}
+          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+        />
+        <label className="flex items-center gap-1 text-xs text-gray-500">
+          <input
+            type="checkbox"
+            checked={draft.is_active}
+            onChange={(e) => onUpdate({ is_active: e.target.checked })}
+            className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500"
+          />
+          Active
+        </label>
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          title="Automation"
+          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded"
+        >
+          {isExpanded ? (
+            <ChevronDownIcon className="w-4 h-4" />
+          ) : (
+            <ChevronRightIcon className="w-4 h-4" />
+          )}
+        </button>
+        {isSystem ? (
+          <span
+            title="System stage — cannot be deleted"
+            className="p-1.5 text-gray-300"
+          >
+            <LockIcon className="w-3.5 h-3.5" />
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onDelete}
+            title="Delete stage"
+            className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded"
+          >
+            <Trash2Icon className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {isExpanded && (
+        <div className="px-3 pb-3 pt-1 bg-amber-50/40 border-t border-amber-100 space-y-2">
+          <div>
+            <label className="block text-[11px] font-medium text-gray-500 mb-1">
+              Auto-advance to this stage when:
+            </label>
+            <select
+              value={draft.automation_rules.auto_advance_trigger ?? 'manual'}
+              onChange={(e) =>
+                onUpdateAutomation({
+                  auto_advance_trigger: e.target
+                    .value as PipelineStageAutomationRules['auto_advance_trigger'],
+                })
+              }
+              className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            >
+              {AUTO_ADVANCE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={Boolean(draft.automation_rules.auto_reminder_enabled)}
+                onChange={(e) =>
+                  onUpdateAutomation({ auto_reminder_enabled: e.target.checked })
+                }
+                className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500"
+              />
+              Auto-create reminder when entering this stage
+            </label>
+            {draft.automation_rules.auto_reminder_enabled && (
+              <div className="mt-1.5 flex items-center gap-2 pl-5">
+                <span className="text-xs text-gray-500">Days after:</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.automation_rules.auto_reminder_days ?? 3}
+                  onChange={(e) =>
+                    onUpdateAutomation({
+                      auto_reminder_days: Math.max(
+                        0,
+                        parseInt(e.target.value || '0', 10)
+                      ),
+                    })
+                  }
+                  className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ColorSwatchPicker({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-7 h-7 rounded-md border border-gray-200 hover:ring-2 hover:ring-amber-300 transition"
+        style={{ backgroundColor: value }}
+        aria-label="Pick color"
+      />
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-[75]"
+            onClick={() => setOpen(false)}
+          />
+          <div className="absolute left-0 top-full mt-1 z-[76] bg-white border border-gray-200 rounded-lg shadow-lg p-2 flex items-center gap-1">
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => {
+                  onChange(c.value)
+                  setOpen(false)
+                }}
+                title={c.label}
+                className={`w-6 h-6 rounded ${
+                  value === c.value ? 'ring-2 ring-offset-1 ring-amber-500' : ''
+                }`}
+                style={{ backgroundColor: c.value }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   )
 }

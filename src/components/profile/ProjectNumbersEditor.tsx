@@ -44,8 +44,21 @@ interface CombinedRow {
 
 const RELEVANT_ROLES = ['admin', 'salesman', 'office_manager']
 
+interface SalesSettingsRow {
+  id: string
+  default_project_number_format: string
+}
+
 export default function ProjectNumbersEditor({ onClose }: ProjectNumbersEditorProps) {
   const [rows, setRows] = useState<CombinedRow[]>([])
+  const [salesSettings, setSalesSettings] = useState<SalesSettingsRow | null>(
+    null
+  )
+  const [defaultFormatDraft, setDefaultFormatDraft] = useState('1000')
+  const [savingDefault, setSavingDefault] = useState(false)
+  const [defaultSaveMessage, setDefaultSaveMessage] = useState<string | null>(
+    null
+  )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<CombinedRow | null>(null)
@@ -65,9 +78,15 @@ export default function ProjectNumbersEditor({ onClose }: ProjectNumbersEditorPr
         RELEVANT_ROLES.includes(u.role)
       )
 
-      const { data: seqData, error: seqErr } = await supabase
-        .from('user_project_sequences')
-        .select('*')
+      const [{ data: seqData, error: seqErr }, { data: salesData }] =
+        await Promise.all([
+          supabase.from('user_project_sequences').select('*'),
+          supabase
+            .from('sales_settings')
+            .select('id, default_project_number_format')
+            .limit(1)
+            .maybeSingle(),
+        ])
       if (seqErr) throw seqErr
       const sequences = (seqData as SequenceRow[]) ?? []
 
@@ -81,6 +100,18 @@ export default function ProjectNumbersEditor({ onClose }: ProjectNumbersEditorPr
         })
 
       setRows(combined)
+
+      if (salesData) {
+        setSalesSettings({
+          id: salesData.id,
+          default_project_number_format:
+            salesData.default_project_number_format ?? '1000',
+        })
+        setDefaultFormatDraft(salesData.default_project_number_format ?? '1000')
+      } else {
+        setSalesSettings({ id: '', default_project_number_format: '1000' })
+        setDefaultFormatDraft('1000')
+      }
     } catch (err) {
       console.error('[ProjectNumbersEditor] fetch failed:', err)
       setError(err instanceof Error ? err.message : 'Failed to load data.')
@@ -88,6 +119,46 @@ export default function ProjectNumbersEditor({ onClose }: ProjectNumbersEditorPr
       setLoading(false)
     }
   }, [])
+
+  async function saveDefaultFormat() {
+    if (!salesSettings) return
+    const trimmed = defaultFormatDraft.trim() || '1000'
+    setSavingDefault(true)
+    setDefaultSaveMessage(null)
+    const supabase = createClient()
+    try {
+      if (salesSettings.id) {
+        const { error: updErr } = await supabase
+          .from('sales_settings')
+          .update({ default_project_number_format: trimmed })
+          .eq('id', salesSettings.id)
+        if (updErr) throw updErr
+      } else {
+        const { data: inserted, error: insErr } = await supabase
+          .from('sales_settings')
+          .insert({ default_project_number_format: trimmed })
+          .select('id')
+          .single()
+        if (insErr) throw insErr
+        setSalesSettings({
+          id: inserted.id,
+          default_project_number_format: trimmed,
+        })
+      }
+      setSalesSettings((prev) =>
+        prev ? { ...prev, default_project_number_format: trimmed } : prev
+      )
+      setDefaultSaveMessage('Saved')
+      setTimeout(() => setDefaultSaveMessage(null), 2000)
+    } catch (err) {
+      console.error('[ProjectNumbersEditor] save default failed:', err)
+      setDefaultSaveMessage(
+        err instanceof Error ? err.message : 'Failed to save default.'
+      )
+    } finally {
+      setSavingDefault(false)
+    }
+  }
 
   useEffect(() => {
     fetchData()
@@ -126,12 +197,46 @@ export default function ProjectNumbersEditor({ onClose }: ProjectNumbersEditorPr
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
             <p className="text-xs text-gray-500">
               Each salesperson gets their own auto-numbering format. Projects
               created by that user will be assigned the next number in their
               sequence.
             </p>
+
+            {!loading && salesSettings && (
+              <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-lg">
+                <label className="block text-xs font-semibold text-amber-800 mb-1">
+                  Default format for new users
+                </label>
+                <p className="text-[11px] text-amber-700 mb-2">
+                  Used when a user creates their first project without a
+                  configured sequence.
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={defaultFormatDraft}
+                    onChange={(e) => setDefaultFormatDraft(e.target.value)}
+                    placeholder="e.g. 1000 or P-1000"
+                    className="flex-1 px-3 py-2 border border-amber-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveDefaultFormat}
+                    disabled={savingDefault}
+                    className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition disabled:opacity-60"
+                  >
+                    {savingDefault ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+                {defaultSaveMessage && (
+                  <p className="text-[11px] text-amber-700 mt-1">
+                    {defaultSaveMessage}
+                  </p>
+                )}
+              </div>
+            )}
 
             {loading ? (
               <div className="py-8 flex items-center justify-center text-gray-400">
