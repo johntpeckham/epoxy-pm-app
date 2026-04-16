@@ -50,9 +50,36 @@ export interface Estimate {
   total: number
   terms: string | null
   notes: string | null
-  status: 'Draft' | 'Sent' | 'Accepted' | 'Invoiced'
+  status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Invoiced'
+  sent_at: string | null
+  sent_to_email: string | null
+  sent_to_name: string | null
+  sent_message: string | null
+  accepted_at: string | null
+  declined_at: string | null
   created_at: string
   user_id: string
+}
+
+export type EstimateFollowUpType = 'call' | 'email' | 'text' | 'other'
+export type EstimateFollowUpOutcome =
+  | 'connected'
+  | 'voicemail'
+  | 'no_answer'
+  | 'sent'
+  | 'replied'
+  | 'other'
+
+export interface EstimateFollowUp {
+  id: string
+  estimate_id: string
+  project_id: string | null
+  follow_up_type: EstimateFollowUpType
+  notes: string | null
+  outcome: EstimateFollowUpOutcome | null
+  contacted_name: string | null
+  created_by: string | null
+  created_at: string
 }
 
 export interface EstimateSettings {
