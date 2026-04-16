@@ -82,16 +82,25 @@ export default function NewProjectModal({
         description: description.trim() || null,
         status: 'active',
         source: 'manual',
+        pipeline_stage: 'Estimating',
         created_by: userId,
       })
       .select('*')
       .single()
-    setSaving(false)
     if (insertErr || !data) {
+      setSaving(false)
       setError(`Failed to create project: ${insertErr?.message ?? 'unknown error'}`)
       return
     }
-    onCreated(data as EstimatingProject)
+    const created = data as EstimatingProject
+    await supabase.from('pipeline_history').insert({
+      project_id: created.id,
+      from_stage: null,
+      to_stage: 'Estimating',
+      changed_by: userId,
+    })
+    setSaving(false)
+    onCreated(created)
   }
 
   return (

@@ -44,3 +44,54 @@ export const PROJECT_SOURCE_LABELS: Record<EstimatingProjectSource, string> = {
   appointment: 'From appointment',
   manual: 'Created manually',
 }
+
+export interface PipelineStage {
+  id: string
+  name: string
+  display_order: number
+  color: string
+  is_default: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface PipelineHistoryEntry {
+  id: string
+  project_id: string
+  from_stage: string | null
+  to_stage: string
+  changed_by: string | null
+  notes: string | null
+  created_at: string
+}
+
+export type ReminderStatus = 'pending' | 'completed' | 'snoozed' | 'dismissed'
+export type ReminderType = 'auto' | 'manual'
+
+export interface EstimatingReminder {
+  id: string
+  project_id: string
+  title: string
+  description: string | null
+  due_date: string
+  reminder_type: ReminderType
+  trigger_event: 'estimate_sent' | 'stage_change' | null
+  status: ReminderStatus
+  snoozed_until: string | null
+  completed_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ReminderRule {
+  id: string
+  trigger_event: string
+  days_after: number
+  title_template: string
+  is_active: boolean
+  created_at: string
+}
+
+export const SYSTEM_STAGES = ['Won', 'Lost'] as const

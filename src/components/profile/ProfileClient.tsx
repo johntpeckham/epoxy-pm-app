@@ -12,6 +12,8 @@ import { useUserRole } from '@/lib/useUserRole'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import UserManagement from './UserManagement'
 import EmployeeManagement from './EmployeeManagement'
+import PipelineStagesEditor from './PipelineStagesEditor'
+import ReminderRulesEditor from './ReminderRulesEditor'
 import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 import VendorManagementModal from '@/components/ui/VendorManagementModal'
 import WarrantyManagement from '@/components/warranty/WarrantyManagement'
@@ -1005,7 +1007,15 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
 }
 
 function SalesManagementModal({ onClose }: { onClose: () => void }) {
-  const cards: { icon: React.ReactNode; title: string; description: string }[] = [
+  const [showPipelineEditor, setShowPipelineEditor] = useState(false)
+  const [showRuleEditor, setShowRuleEditor] = useState(false)
+
+  const cards: {
+    icon: React.ReactNode
+    title: string
+    description: string
+    onClick?: () => void
+  }[] = [
     {
       icon: <FileTextIcon className="w-5 h-5" />,
       title: 'Edit Estimate Form',
@@ -1015,11 +1025,13 @@ function SalesManagementModal({ onClose }: { onClose: () => void }) {
       icon: <GitBranchIcon className="w-5 h-5" />,
       title: 'Edit Pipeline Visual',
       description: 'Rename or reorder stages shown on the sales pipeline.',
+      onClick: () => setShowPipelineEditor(true),
     },
     {
       icon: <BellIcon className="w-5 h-5" />,
       title: 'Edit Notifications and Follow-ups',
       description: 'Configure reminders and follow-up cadences for leads.',
+      onClick: () => setShowRuleEditor(true),
     },
     {
       icon: <TableIcon className="w-5 h-5" />,
@@ -1056,26 +1068,52 @@ function SalesManagementModal({ onClose }: { onClose: () => void }) {
 
           <div className="flex-1 overflow-y-auto p-4 md:p-6">
             <p className="text-sm text-gray-500 mb-4">
-              Configure sales workflows and tools. These settings are placeholders for Phase 2.
+              Configure sales workflows and tools.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {cards.map((c) => (
-                <div
-                  key={c.title}
-                  className="bg-white rounded-xl border border-gray-200 p-4"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-amber-500">{c.icon}</span>
-                    <h4 className="text-sm font-semibold text-gray-900 flex-1">
-                      {c.title}
-                    </h4>
+              {cards.map((c) => {
+                const isActive = Boolean(c.onClick)
+                const body = (
+                  <>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-amber-500">{c.icon}</span>
+                      <h4 className="text-sm font-semibold text-gray-900 flex-1">
+                        {c.title}
+                      </h4>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3">{c.description}</p>
+                    {isActive ? (
+                      <p className="text-[11px] font-medium text-amber-600 text-center py-4 bg-amber-50 rounded-lg">
+                        Open editor
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-gray-400 text-center py-4 bg-gray-50 rounded-lg">
+                        Coming soon
+                      </p>
+                    )}
+                  </>
+                )
+                if (isActive) {
+                  return (
+                    <button
+                      key={c.title}
+                      type="button"
+                      onClick={c.onClick}
+                      className="text-left bg-white rounded-xl border border-gray-200 p-4 hover:border-amber-300 hover:shadow-sm transition"
+                    >
+                      {body}
+                    </button>
+                  )
+                }
+                return (
+                  <div
+                    key={c.title}
+                    className="bg-white rounded-xl border border-gray-200 p-4"
+                  >
+                    {body}
                   </div>
-                  <p className="text-xs text-gray-500 mb-3">{c.description}</p>
-                  <p className="text-[11px] text-gray-400 text-center py-4 bg-gray-50 rounded-lg">
-                    Coming soon
-                  </p>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
@@ -1093,6 +1131,13 @@ function SalesManagementModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
+
+      {showPipelineEditor && (
+        <PipelineStagesEditor onClose={() => setShowPipelineEditor(false)} />
+      )}
+      {showRuleEditor && (
+        <ReminderRulesEditor onClose={() => setShowRuleEditor(false)} />
+      )}
     </Portal>
   )
 }
