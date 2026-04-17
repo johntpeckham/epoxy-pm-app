@@ -131,7 +131,7 @@ function PageThumbnail({
           onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
           className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-full bg-black/60 hover:bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <XIcon className="w-3.5 h-3.5" />
+          <XIcon className="w-4 h-4" />
         </button>
       )}
 
@@ -350,7 +350,7 @@ export default function TakeoffDashboard({
       {/* Section 0 — Page header */}
       <div className="mb-5 flex items-start justify-between">
         <div>
-          <h1 className="text-lg font-bold text-gray-900 leading-tight">Project Takeoffs</h1>
+          <h1 className="text-2xl font-bold text-gray-900 leading-tight">Project Takeoffs</h1>
           <p className="text-sm text-gray-500 mt-0.5">{projectName}</p>
         </div>
         {pages.length > 0 && (
@@ -359,7 +359,7 @@ export default function TakeoffDashboard({
               onClick={() => setShowPushModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-amber-500 text-amber-600 hover:bg-amber-50 text-xs font-semibold rounded-lg transition-colors"
             >
-              <SendIcon className="w-3.5 h-3.5" />
+              <SendIcon className="w-4 h-4" />
               Push Plans To Job
             </button>
             <button
@@ -368,9 +368,9 @@ export default function TakeoffDashboard({
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-300 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
             >
               {isDownloadingReport ? (
-                <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+                <Loader2Icon className="w-4 h-4 animate-spin" />
               ) : (
-                <DownloadIcon className="w-3.5 h-3.5" />
+                <DownloadIcon className="w-4 h-4" />
               )}
               {isDownloadingReport ? 'Generating...' : 'Download Report'}
             </button>
@@ -580,7 +580,7 @@ export default function TakeoffDashboard({
         }`}>
           {toast.message}
           <button onClick={() => setToast(null)} className="ml-1 hover:opacity-80">
-            <XIcon className="w-3.5 h-3.5" />
+            <XIcon className="w-4 h-4" />
           </button>
         </div>
       )}

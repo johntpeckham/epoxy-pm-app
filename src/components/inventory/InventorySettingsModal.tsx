@@ -169,7 +169,7 @@ export default function InventorySettingsModal({
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         placeholder="Name"
-                        className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                        className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleEditSave()
                           if (e.key === 'Escape') setEditId(null)
@@ -180,7 +180,7 @@ export default function InventorySettingsModal({
                         value={editAbbr}
                         onChange={(e) => setEditAbbr(e.target.value)}
                         placeholder="Abbr"
-                        className="w-20 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                        className="w-20 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleEditSave()
                           if (e.key === 'Escape') setEditId(null)
@@ -218,14 +218,14 @@ export default function InventorySettingsModal({
                         className="p-1 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 opacity-0 group-hover:opacity-100 transition-all"
                         title="Edit"
                       >
-                        <PencilIcon className="w-3.5 h-3.5" />
+                        <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteClick(ut)}
                         className="p-1 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                         title="Delete"
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
+                        <Trash2Icon className="w-4 h-4" />
                       </button>
                     </div>
                   )
@@ -240,7 +240,7 @@ export default function InventorySettingsModal({
                     value={addName}
                     onChange={(e) => setAddName(e.target.value)}
                     placeholder="Name (e.g. Gallons)"
-                    className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                    className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleAdd()
                       if (e.key === 'Escape') setAdding(false)
@@ -251,7 +251,7 @@ export default function InventorySettingsModal({
                     value={addAbbr}
                     onChange={(e) => setAddAbbr(e.target.value)}
                     placeholder="Abbr (e.g. gal)"
-                    className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                    className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleAdd()
                       if (e.key === 'Escape') setAdding(false)
@@ -278,7 +278,7 @@ export default function InventorySettingsModal({
                   onClick={() => setAdding(true)}
                   className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
                 >
-                  <PlusIcon className="w-3.5 h-3.5" />
+                  <PlusIcon className="w-4 h-4" />
                   Add Unit Type
                 </button>
               )}

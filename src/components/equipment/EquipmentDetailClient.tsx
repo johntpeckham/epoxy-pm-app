@@ -812,7 +812,7 @@ export default function EquipmentDetailClient({
                           {hasSidePills && (
                             <div className="flex items-center gap-2 flex-wrap mb-1.5">
                               {service.is_recurring && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">
                                   Recurring
                                 </span>
                               )}
@@ -888,7 +888,7 @@ export default function EquipmentDetailClient({
                           {hasSidePills && (
                             <div className="flex items-center gap-2 flex-wrap mb-1.5">
                               {service.is_recurring && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">
                                   Recurring
                                 </span>
                               )}
@@ -1144,7 +1144,7 @@ export default function EquipmentDetailClient({
                           className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 transition-colors"
                         >
                           View
-                          <ExternalLinkIcon className="w-3.5 h-3.5" />
+                          <ExternalLinkIcon className="w-4 h-4" />
                         </a>
                         {canManage && (
                           <button
@@ -1152,7 +1152,7 @@ export default function EquipmentDetailClient({
                             className="p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md transition-colors"
                             title="Delete"
                           >
-                            <TrashIcon className="w-3.5 h-3.5" />
+                            <TrashIcon className="w-4 h-4" />
                           </button>
                         )}
                       </div>

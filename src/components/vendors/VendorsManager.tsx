@@ -741,7 +741,7 @@ function ManageVendorTypesModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
-            <h3 className="text-base font-bold text-gray-900">Manage Vendor Types</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Manage Vendor Types</h3>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
@@ -762,7 +762,7 @@ function ManageVendorTypesModal({
                     <span className="text-sm text-gray-900">{t.name}</span>
                     <button
                       onClick={() => onRequestDelete(t)}
-                      className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
                       title="Delete type"
                     >
                       <XIcon className="w-4 h-4" />
@@ -955,7 +955,7 @@ function VendorContactsPanel({
           onClick={openAdd}
           className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded-md hover:bg-amber-50 transition"
         >
-          <PlusIcon className="w-3.5 h-3.5" />
+          <PlusIcon className="w-4 h-4" />
           Add contact
         </button>
       </div>
@@ -1017,7 +1017,7 @@ function VendorContactsPanel({
                   className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
                   title="Edit contact"
                 >
-                  <PencilIcon className="w-3.5 h-3.5" />
+                  <PencilIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -1099,7 +1099,7 @@ function ContactFormModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
-          <h3 className="text-base font-bold text-gray-900">{title}</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
@@ -1166,7 +1166,7 @@ function ContactFormModal({
               type="checkbox"
               checked={form.is_primary}
               onChange={(e) => update('is_primary', e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+              className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
             />
             Primary contact
           </label>
@@ -1258,7 +1258,7 @@ function VendorFormModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
-          <h3 className="text-base font-bold text-gray-900">{title}</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
@@ -1362,7 +1362,7 @@ function VendorFormModal({
                 style={{ backgroundColor: '#f3f4f6' }}
                 title="No color"
               >
-                <XIcon className="w-3.5 h-3.5 text-gray-400" />
+                <XIcon className="w-4 h-4 text-gray-400" />
               </button>
               {PRESET_COLORS.map((c) => (
                 <button

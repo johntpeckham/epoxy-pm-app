@@ -203,7 +203,7 @@ export default function TrashBinClient({ userId }: TrashBinClientProps) {
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-gray-900">Trash Bin</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Trash Bin</h1>
             <p className="text-xs text-gray-400">
               Deleted items are kept for 1 year before being permanently removed.
             </p>
@@ -241,11 +241,11 @@ export default function TrashBinClient({ userId }: TrashBinClientProps) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search deleted items..."
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <XIcon className="w-3.5 h-3.5" />
+                <XIcon className="w-4 h-4" />
               </button>
             )}
           </div>

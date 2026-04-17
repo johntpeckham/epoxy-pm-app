@@ -176,12 +176,12 @@ export default function SalesmanExpenseCard({
               >
                 {expense.status === 'Unpaid' ? (
                   <>
-                    <CheckIcon className="w-3.5 h-3.5" />
+                    <CheckIcon className="w-4 h-4" />
                     Mark Paid
                   </>
                 ) : (
                   <>
-                    <UndoIcon className="w-3.5 h-3.5" />
+                    <UndoIcon className="w-4 h-4" />
                     Mark Unpaid
                   </>
                 )}
@@ -190,14 +190,14 @@ export default function SalesmanExpenseCard({
                 onClick={() => onEdit(expense)}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
               >
-                <PencilIcon className="w-3.5 h-3.5" />
+                <PencilIcon className="w-4 h-4" />
                 Edit
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 transition-colors"
               >
-                <Trash2Icon className="w-3.5 h-3.5" />
+                <Trash2Icon className="w-4 h-4" />
                 Delete
               </button>
             </div>

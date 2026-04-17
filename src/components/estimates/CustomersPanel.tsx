@@ -88,7 +88,7 @@ export default function CustomersPanel({
                 onClick={() => setShowNewDropdown(!showNewDropdown)}
                 className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
+                <PlusIcon className="w-4 h-4" />
                 New
               </button>
               {showNewDropdown && (
@@ -97,14 +97,14 @@ export default function CustomersPanel({
                     onClick={handleNewEstimate}
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors flex items-center gap-2"
                   >
-                    <FileTextIcon className="w-3.5 h-3.5" />
+                    <FileTextIcon className="w-4 h-4" />
                     New Estimate
                   </button>
                   <button
                     onClick={handleNewChangeOrder}
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors flex items-center gap-2"
                   >
-                    <ClipboardListIcon className="w-3.5 h-3.5" />
+                    <ClipboardListIcon className="w-4 h-4" />
                     New Change Order
                   </button>
                 </div>

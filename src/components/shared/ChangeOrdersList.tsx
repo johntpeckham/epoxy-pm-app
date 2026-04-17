@@ -107,7 +107,7 @@ export default function ChangeOrdersList({
                   onClick={() => setConfirmDelete(co.id)}
                   className="text-gray-400 hover:text-red-500 transition-colors"
                 >
-                  <TrashIcon className="w-3.5 h-3.5" />
+                  <TrashIcon className="w-4 h-4" />
                 </button>
               )}
             </div>

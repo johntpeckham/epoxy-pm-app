@@ -211,7 +211,7 @@ export default function JobWalkPhotosCard({ walkId, userId }: JobWalkPhotosCardP
                   <button
                     type="button"
                     onClick={() => setLightboxIndex(idx)}
-                    className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                     aria-label="Open photo"
                   >
                     <Image
@@ -232,7 +232,7 @@ export default function JobWalkPhotosCard({ walkId, userId }: JobWalkPhotosCardP
                     className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-red-500 transition opacity-80 group-hover:opacity-100"
                     aria-label="Delete photo"
                   >
-                    <XIcon className="w-3.5 h-3.5" />
+                    <XIcon className="w-4 h-4" />
                   </button>
                 </div>
                 {editingId === photo.id ? (

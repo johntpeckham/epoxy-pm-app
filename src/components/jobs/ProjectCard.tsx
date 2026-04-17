@@ -86,31 +86,31 @@ export default memo(function ProjectCard({
           <button
             onClick={(e) => { e.stopPropagation(); onTogglePin(project) }}
             title={isPinned ? 'Unpin project' : 'Pin project'}
-            className={`p-1.5 rounded-md transition ${
+            className={`p-1.5 rounded-lg transition ${
               isPinned
                 ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-100'
                 : 'text-gray-400 hover:text-amber-600 hover:bg-amber-100'
             }`}
           >
-            <PinIcon className={`w-3.5 h-3.5 ${isPinned ? 'fill-current' : ''}`} />
+            <PinIcon className={`w-4 h-4 ${isPinned ? 'fill-current' : ''}`} />
           </button>
         )}
         {showEditDelete && onEdit && (
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(project) }}
             title="Edit project"
-            className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
           >
-            <PencilIcon className="w-3.5 h-3.5" />
+            <PencilIcon className="w-4 h-4" />
           </button>
         )}
         {showEditDelete && onDelete && (
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(project) }}
             title="Delete project"
-            className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
           >
-            <Trash2Icon className="w-3.5 h-3.5" />
+            <Trash2Icon className="w-4 h-4" />
           </button>
         )}
       </div>

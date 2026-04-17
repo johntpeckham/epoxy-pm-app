@@ -816,7 +816,7 @@ export default function TakeoffViewer({
       <div className="flex flex-col h-full bg-white">
         <div className="flex items-center bg-gray-900 flex-shrink-0">
           <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors border-r border-gray-700">
-            <ArrowLeftIcon className="w-3.5 h-3.5" />
+            <ArrowLeftIcon className="w-4 h-4" />
             Dashboard
           </button>
         </div>
@@ -1232,7 +1232,7 @@ export default function TakeoffViewer({
       {/* Back + Toolbar */}
       <div className="flex items-center bg-gray-900 flex-shrink-0">
         <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors border-r border-gray-700">
-          <ArrowLeftIcon className="w-3.5 h-3.5" />
+          <ArrowLeftIcon className="w-4 h-4" />
           Dashboard
         </button>
         <div className="flex-1 min-w-0 flex items-center">
@@ -1270,7 +1270,7 @@ export default function TakeoffViewer({
       {/* Scale not set warning banner */}
       {!scaleCalibrated && activeTool !== 'set-scale' && (
         <div className="bg-amber-500 text-white text-xs px-4 py-2 flex items-center gap-2 font-medium flex-shrink-0">
-          <AlertTriangleIcon className="w-3.5 h-3.5 flex-shrink-0" />
+          <AlertTriangleIcon className="w-4 h-4 flex-shrink-0" />
           Scale not set — click &apos;Set Scale&apos; in the toolbar before measuring
         </div>
       )}
@@ -1394,7 +1394,7 @@ export default function TakeoffViewer({
                   onChange={e => setScaleFeet(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleScaleSubmit()}
                   placeholder="0"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   autoFocus
                   min="0"
                   step="any"
@@ -1408,7 +1408,7 @@ export default function TakeoffViewer({
                   onChange={e => { const v = Number(e.target.value); if (v <= 11.99 || e.target.value === '') setScaleInches(e.target.value) }}
                   onKeyDown={e => e.key === 'Enter' && handleScaleSubmit()}
                   placeholder="0"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   min="0"
                   max="11.99"
                   step="any"

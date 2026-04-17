@@ -27,7 +27,7 @@ const SERVICE_TYPE_SUGGESTIONS = [
 ]
 
 const inputCls =
-  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
+  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
 function todayString() {
@@ -269,7 +269,7 @@ export default function MaintenanceLogModal({
                       onClick={() => setPhotoUrl(null)}
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                     >
-                      <TrashIcon className="w-3.5 h-3.5" />
+                      <TrashIcon className="w-4 h-4" />
                       Remove
                     </button>
                   )}

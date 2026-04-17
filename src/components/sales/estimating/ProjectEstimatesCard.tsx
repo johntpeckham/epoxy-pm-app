@@ -59,13 +59,13 @@ function formatShortDate(d: string | null | undefined): string {
 function followUpIcon(type: EstimateFollowUp['follow_up_type']) {
   switch (type) {
     case 'call':
-      return <PhoneIcon className="w-3.5 h-3.5" />
+      return <PhoneIcon className="w-4 h-4" />
     case 'email':
-      return <MailIcon className="w-3.5 h-3.5" />
+      return <MailIcon className="w-4 h-4" />
     case 'text':
-      return <MessageSquareIcon className="w-3.5 h-3.5" />
+      return <MessageSquareIcon className="w-4 h-4" />
     default:
-      return <MessageCircleIcon className="w-3.5 h-3.5" />
+      return <MessageCircleIcon className="w-4 h-4" />
   }
 }
 
@@ -352,9 +352,9 @@ export default function ProjectEstimatesCard({
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition disabled:opacity-60"
           >
             {creatingEstimate ? (
-              <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+              <Loader2Icon className="w-4 h-4 animate-spin" />
             ) : (
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
             )}
             New estimate
           </button>
@@ -427,7 +427,7 @@ export default function ProjectEstimatesCard({
                         title="Send estimate"
                         className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition"
                       >
-                        <SendIcon className="w-3.5 h-3.5" />
+                        <SendIcon className="w-4 h-4" />
                         Send
                       </button>
                     )}
@@ -440,7 +440,7 @@ export default function ProjectEstimatesCard({
                         onClick={() => handleMarkAccepted(e)}
                         className="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800"
                       >
-                        <CheckIcon className="w-3.5 h-3.5" />
+                        <CheckIcon className="w-4 h-4" />
                         Mark accepted
                       </button>
                       <button
@@ -448,7 +448,7 @@ export default function ProjectEstimatesCard({
                         onClick={() => handleMarkDeclined(e)}
                         className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700"
                       >
-                        <XIcon className="w-3.5 h-3.5" />
+                        <XIcon className="w-4 h-4" />
                         Mark declined
                       </button>
                       <button
@@ -456,7 +456,7 @@ export default function ProjectEstimatesCard({
                         onClick={() => setFollowingUpFor(e)}
                         className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:text-amber-800"
                       >
-                        <MessageCircleIcon className="w-3.5 h-3.5" />
+                        <MessageCircleIcon className="w-4 h-4" />
                         Follow up
                       </button>
                     </div>

@@ -297,7 +297,7 @@ export default memo(function DailyReportCard({ report, expandedId, onToggleExpan
                 href={`/projects/${report.project_id}`}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors"
               >
-                <ExternalLinkIcon className="w-3.5 h-3.5" />
+                <ExternalLinkIcon className="w-4 h-4" />
                 View in project feed
               </Link>
               <div className="flex items-center gap-1">
@@ -307,7 +307,7 @@ export default memo(function DailyReportCard({ report, expandedId, onToggleExpan
                   title="Download PDF"
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:text-amber-900 hover:bg-amber-100 rounded-md transition disabled:opacity-40"
                 >
-                  <DownloadIcon className="w-3.5 h-3.5" />
+                  <DownloadIcon className="w-4 h-4" />
                   <span>{pdfLoading ? 'Generating...' : 'PDF'}</span>
                 </button>
                 <button
@@ -315,7 +315,7 @@ export default memo(function DailyReportCard({ report, expandedId, onToggleExpan
                   title="Edit report"
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:text-amber-900 hover:bg-amber-100 rounded-md transition"
                 >
-                  <PencilIcon className="w-3.5 h-3.5" />
+                  <PencilIcon className="w-4 h-4" />
                   <span>Edit</span>
                 </button>
                 <button
@@ -323,7 +323,7 @@ export default memo(function DailyReportCard({ report, expandedId, onToggleExpan
                   title="Delete report"
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition"
                 >
-                  <Trash2Icon className="w-3.5 h-3.5" />
+                  <Trash2Icon className="w-4 h-4" />
                   <span>Delete</span>
                 </button>
               </div>

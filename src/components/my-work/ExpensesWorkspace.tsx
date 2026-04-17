@@ -219,9 +219,9 @@ export default function ExpensesWorkspace({
             className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 disabled:opacity-50 transition"
           >
             {downloading ? (
-              <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+              <LoaderIcon className="w-4 h-4 animate-spin" />
             ) : (
-              <DownloadIcon className="w-3.5 h-3.5" />
+              <DownloadIcon className="w-4 h-4" />
             )}
             Download
           </button>
@@ -286,9 +286,9 @@ export default function ExpensesWorkspace({
           className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 disabled:opacity-50 transition"
         >
           {downloading ? (
-            <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+            <LoaderIcon className="w-4 h-4 animate-spin" />
           ) : (
-            <DownloadIcon className="w-3.5 h-3.5" />
+            <DownloadIcon className="w-4 h-4" />
           )}
           Download
         </button>
@@ -334,7 +334,7 @@ export default function ExpensesWorkspace({
               className="flex items-center gap-2 w-full text-left mb-3"
             >
               <ChevronRightIcon
-                className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showPaid ? 'rotate-90' : ''}`}
+                className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${showPaid ? 'rotate-90' : ''}`}
               />
               <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
                 Paid ({paidExpenses.length})

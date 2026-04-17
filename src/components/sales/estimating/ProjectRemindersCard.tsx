@@ -168,7 +168,7 @@ export default function ProjectRemindersCard({
             onClick={() => setShowAdd(true)}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
           >
-            <PlusIcon className="w-3.5 h-3.5" />
+            <PlusIcon className="w-4 h-4" />
             Add reminder
           </button>
         </div>
@@ -205,7 +205,7 @@ export default function ProjectRemindersCard({
                   className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition"
                 >
                   <ChevronDownIcon
-                    className={`w-3.5 h-3.5 transition-transform ${
+                    className={`w-4 h-4 transition-transform ${
                       completedOpen ? 'rotate-180' : ''
                     }`}
                   />
@@ -280,7 +280,7 @@ function ReminderRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           {isOverdue && (
-            <AlertTriangleIcon className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+            <AlertTriangleIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
           )}
           <p
             className={`text-sm font-medium truncate ${
@@ -319,21 +319,21 @@ function ReminderRow({
           onClick={onComplete}
           className="text-green-600 hover:bg-green-50"
         >
-          <CheckIcon className="w-3.5 h-3.5" />
+          <CheckIcon className="w-4 h-4" />
         </IconButton>
         <IconButton
           label="Snooze"
           onClick={onSnooze}
           className="text-gray-600 hover:bg-gray-50"
         >
-          <Clock3Icon className="w-3.5 h-3.5" />
+          <Clock3Icon className="w-4 h-4" />
         </IconButton>
         <IconButton
           label="Dismiss"
           onClick={onDismiss}
           className="text-red-500 hover:bg-red-50"
         >
-          <XIcon className="w-3.5 h-3.5" />
+          <XIcon className="w-4 h-4" />
         </IconButton>
       </div>
     </div>
@@ -434,11 +434,11 @@ function AddReminderModal({
             className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h3 className="text-base font-bold text-gray-900">Add reminder</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Add reminder</h3>
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -454,7 +454,7 @@ function AddReminderModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Follow up with customer"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
               />
             </div>
             <div>
@@ -466,7 +466,7 @@ function AddReminderModal({
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 placeholder="Optional notes…"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white resize-y"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white resize-y"
               />
             </div>
             <div>
@@ -477,7 +477,7 @@ function AddReminderModal({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
               />
             </div>
             {error && (
@@ -539,10 +539,10 @@ function SnoozePicker({
             className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h3 className="text-base font-bold text-gray-900">Snooze reminder</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Snooze reminder</h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -570,7 +570,7 @@ function SnoozePicker({
                   type="date"
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
                 />
                 <button
                   type="button"

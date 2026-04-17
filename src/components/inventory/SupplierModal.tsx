@@ -161,7 +161,7 @@ export default function SupplierModal({ supplier, masterSuppliers, onClose, onSa
                       }}
                       onFocus={() => setDropdownOpen(true)}
                       placeholder="Search master suppliers…"
-                      className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                      className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                     />
                   </div>
                   {dropdownOpen && (
@@ -185,7 +185,7 @@ export default function SupplierModal({ supplier, masterSuppliers, onClose, onSa
                         onClick={handleAddNew}
                         className="w-full text-left px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors font-medium border-t border-gray-100 dark:border-[#3a3a3a] flex items-center gap-1.5"
                       >
-                        <PlusIcon className="w-3.5 h-3.5" />
+                        <PlusIcon className="w-4 h-4" />
                         Add New Supplier{searchQuery.trim() ? `: "${searchQuery.trim()}"` : ''}
                       </button>
                     </div>
@@ -230,7 +230,7 @@ export default function SupplierModal({ supplier, masterSuppliers, onClose, onSa
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Versaflex"
-                    className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                    className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                   />
                 </div>
               )}

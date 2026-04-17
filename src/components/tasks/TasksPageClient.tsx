@@ -36,7 +36,7 @@ interface TasksPageClientProps {
 }
 
 const inputCls =
-  'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+  'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500'
 const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
@@ -556,20 +556,20 @@ export default function TasksPageClient({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by project, task title, or assignee..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
           />
         </div>
         <div className="relative">
           <select
             value={sortOption}
             onChange={(e) => setSortOption(e.target.value as SortOption)}
-            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
+            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>
       </div>
 
@@ -653,7 +653,7 @@ export default function TasksPageClient({
                 className="flex items-center gap-2 w-full text-left mb-4"
               >
                 <ChevronRightIcon
-                  className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
+                  className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
                 />
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
                 <span className="text-xs text-gray-400">({completedProjectGroups.length})</span>
@@ -699,7 +699,7 @@ export default function TasksPageClient({
               <h2 className="text-lg font-semibold text-gray-900">New Task</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -711,7 +711,7 @@ export default function TasksPageClient({
                 <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm flex items-center justify-between">
                   <span>{createError}</span>
                   <button onClick={() => setCreateError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
-                    <XIcon className="w-3.5 h-3.5" />
+                    <XIcon className="w-4 h-4" />
                   </button>
                 </div>
               )}
@@ -810,7 +810,7 @@ export default function TasksPageClient({
               </div>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition flex-shrink-0"
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition flex-shrink-0"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -925,7 +925,7 @@ export default function TasksPageClient({
               <h2 className="text-lg font-semibold text-gray-900">Image Preview</h2>
               <button
                 onClick={() => setPreviewImage(null)}
-                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>

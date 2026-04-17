@@ -471,14 +471,14 @@ export default function MyTasksCard({ userId, userRole }: Props) {
               href="/my-work/employee-summary"
               className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
             >
-              <BarChart3Icon className="w-3.5 h-3.5" />
+              <BarChart3Icon className="w-4 h-4" />
               Employee summary
             </Link>
             <Link
               href="/my-work/manage-playbook"
               className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
             >
-              <Settings2Icon className="w-3.5 h-3.5" />
+              <Settings2Icon className="w-4 h-4" />
               Manage tasks
             </Link>
           </div>

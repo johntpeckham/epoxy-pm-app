@@ -151,7 +151,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             {role === 'admin' && (
               <button
                 onClick={openCommandCenter}
-                className="relative p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors group"
+                className="relative p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors group"
                 aria-label="Command center"
               >
                 <MonitorIcon className="w-[18px] h-[18px]" />
@@ -570,7 +570,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           {role === 'admin' && (
             <button
               onClick={openCommandCenter}
-              className="text-gray-400 hover:text-white p-1.5 rounded-md hover:bg-gray-800 transition-colors"
+              className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 transition-colors"
               aria-label="Command center"
               title="Command center"
             >
@@ -580,7 +580,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           <NotificationBell userId={userId} />
           <button
             onClick={() => setShowMobileReportModal(true)}
-            className="text-amber-400 hover:text-amber-300 p-1.5 rounded-md hover:bg-gray-800 transition-colors"
+            className="text-amber-400 hover:text-amber-300 p-1.5 rounded-lg hover:bg-gray-800 transition-colors"
             aria-label="Report a Problem"
           >
             <BugIcon className="w-5 h-5" />
@@ -621,7 +621,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         <div className="absolute right-3" style={{ top: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
           <button
             onClick={() => setMobileOpen(false)}
-            className="text-gray-400 hover:text-white p-1.5 rounded-md hover:bg-gray-800"
+            className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800"
           >
             <XIcon className="w-5 h-5" />
           </button>

@@ -193,7 +193,7 @@ export default function PostCommentsSection({ postId, userId }: PostCommentsSect
                     className="flex-shrink-0 p-1.5 rounded text-gray-300 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 transition-opacity mt-1"
                     title="Delete comment"
                   >
-                    <XIcon className="w-3.5 h-3.5" />
+                    <XIcon className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -223,7 +223,7 @@ export default function PostCommentsSection({ postId, userId }: PostCommentsSect
           className="flex-shrink-0 p-1.5 rounded-full text-amber-600 hover:bg-amber-50 disabled:opacity-30 disabled:hover:bg-transparent transition"
           title="Send comment"
         >
-          <SendIcon className="w-3.5 h-3.5" />
+          <SendIcon className="w-4 h-4" />
         </button>
       </div>
     </div>

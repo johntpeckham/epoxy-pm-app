@@ -101,7 +101,7 @@ export default function JobsOverview({ projects, onSelectProject, onBack, onProj
           {onBack && (
             <button
               onClick={onBack}
-              className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             >
               <ChevronRightIcon className="w-5 h-5 rotate-180" />
             </button>

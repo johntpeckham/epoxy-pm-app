@@ -297,7 +297,7 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
           <ArrowLeftIcon className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-lg font-bold text-gray-900">Checklist Templates</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Checklist Templates</h1>
           <p className="text-xs text-gray-400">Create reusable checklists that can be applied to projects from the Job Board.</p>
         </div>
         {!isEditing && (
@@ -314,7 +314,7 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
       {isEditing ? (
         /* ── Template Edit/Create Form ──────────────────────────── */
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-base font-bold text-gray-900 mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
             {editingTemplate ? 'Edit Template' : 'New Template'}
           </h2>
 
@@ -339,7 +339,7 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
               <input
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 placeholder="Optional description"
               />
             </div>
@@ -362,14 +362,14 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
                           disabled={idx === 0}
                           className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                         >
-                          <ChevronUpIcon className="w-3.5 h-3.5" />
+                          <ChevronUpIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => moveItem(idx, 'down')}
                           disabled={idx === formItems.length - 1}
                           className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                         >
-                          <ChevronDownIcon className="w-3.5 h-3.5" />
+                          <ChevronDownIcon className="w-4 h-4" />
                         </button>
                       </div>
 
@@ -482,7 +482,7 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         onClick={() => startEdit(tpl)}
-                        className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
                         title="Edit template"
                       >
                         <PencilIcon className="w-4 h-4" />
@@ -490,7 +490,7 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
                       {!tpl.is_default && !tpl.is_closeout && (
                         <button
                           onClick={() => setTemplateToDelete(tpl)}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
                           title="Delete template"
                         >
                           <Trash2Icon className="w-4 h-4" />

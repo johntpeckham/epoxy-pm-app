@@ -513,7 +513,7 @@ export default function EstimateEditor({
               className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
             >
               {status}
-              <ChevronDownIcon className="w-3.5 h-3.5" />
+              <ChevronDownIcon className="w-4 h-4" />
             </button>
             {showStatusMenu && (
               <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
@@ -535,7 +535,7 @@ export default function EstimateEditor({
             onClick={() => setShowChangeOrderModal(true)}
             className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <FilePlusIcon className="w-3.5 h-3.5" />
+            <FilePlusIcon className="w-4 h-4" />
             Change Order
           </button>
           {/* Export PDF */}
@@ -561,7 +561,7 @@ export default function EstimateEditor({
               onClick={handleOpenSend}
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-400 transition-colors"
             >
-              <SendIcon className="w-3.5 h-3.5" />
+              <SendIcon className="w-4 h-4" />
               Send
             </button>
           )}
@@ -572,14 +572,14 @@ export default function EstimateEditor({
                 onClick={handleMarkAccepted}
                 className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
               >
-                <CheckIcon className="w-3.5 h-3.5" />
+                <CheckIcon className="w-4 h-4" />
                 Mark accepted
               </button>
               <button
                 onClick={handleMarkDeclined}
                 className="inline-flex items-center gap-1 px-3 py-1.5 border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors"
               >
-                <XIcon className="w-3.5 h-3.5" />
+                <XIcon className="w-4 h-4" />
                 Mark declined
               </button>
             </>
@@ -599,7 +599,7 @@ export default function EstimateEditor({
               onClick={() => setShowConvertConfirm(true)}
               className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <ReceiptIcon className="w-3.5 h-3.5" />
+              <ReceiptIcon className="w-4 h-4" />
               Convert to Invoice
             </button>
           )}
@@ -609,7 +609,7 @@ export default function EstimateEditor({
             className="p-1.5 text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg hover:border-red-200 transition-colors"
             title="Delete estimate"
           >
-            <Trash2Icon className="w-3.5 h-3.5" />
+            <Trash2Icon className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -642,7 +642,7 @@ export default function EstimateEditor({
       {showConvertConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-            <h3 className="text-base font-bold text-gray-900 mb-2">Convert to Invoice</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Convert to Invoice</h3>
             <p className="text-sm text-gray-600 mb-6">Convert this estimate to an invoice?</p>
             <div className="flex justify-end gap-2">
               <button
@@ -861,7 +861,7 @@ export default function EstimateEditor({
               onClick={addLineItem}
               className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 mt-2 transition-colors"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
               Add Line Item
             </button>
           </div>

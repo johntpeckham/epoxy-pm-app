@@ -137,9 +137,9 @@ export default function TeamTasksSection({ currentUserId }: Props) {
                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
                 >
                   {isExpanded ? (
-                    <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
+                    <ChevronDownIcon className="w-4 h-4 text-gray-400" />
                   ) : (
-                    <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400" />
+                    <ChevronRightIcon className="w-4 h-4 text-gray-400" />
                   )}
                   <span className="text-xs font-medium text-gray-900 flex-1 text-left">
                     {profile.display_name ?? 'Unknown'}

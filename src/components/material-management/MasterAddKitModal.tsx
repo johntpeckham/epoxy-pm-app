@@ -213,7 +213,7 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
                         }}
                         onFocus={() => setSupplierDropdownOpen(true)}
                         placeholder="Search suppliers…"
-                        className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 pr-8 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                        className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 pr-8 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                       />
                       {selectedSupplierId && (
                         <button
@@ -267,7 +267,7 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
                   value={kitName}
                   onChange={(e) => setKitName(e.target.value)}
                   placeholder="e.g. Epoxy Kit"
-                  className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                  className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                 />
               </div>
 
@@ -283,7 +283,7 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
                         value={row.name}
                         onChange={(e) => updateRow(row.localId, { name: e.target.value })}
                         placeholder={`Product ${idx + 1} name`}
-                        className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                        className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                       />
                       <select
                         value={row.unit}
@@ -291,7 +291,7 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
                           updateRow(row.localId, { unit: e.target.value })
                         }
                         aria-label="Unit"
-                        className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                        className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                       >
                         {unitTypes.length === 0 ? (
                           <option value="" disabled>No units</option>
@@ -325,7 +325,7 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
                   onClick={addRow}
                   className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
                 >
-                  <PlusIcon className="w-3.5 h-3.5" />
+                  <PlusIcon className="w-4 h-4" />
                   Add Product
                 </button>
               </div>

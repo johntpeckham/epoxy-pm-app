@@ -532,7 +532,7 @@ export default function DataExportClient() {
   }, [startDate, endDate, selectedProjectIds, includeDaily, includeTimesheets, includeExpenses, includeJsa, includeFeed, includePhotos, includePlans, includeProjectReport, allProjects, companySettings])
 
   const inputCls =
-    'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
+    'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white'
 
   const dataTypeCheckboxes: { label: string; checked: boolean; onChange: (v: boolean) => void }[] = [
     { label: 'Daily Reports', checked: includeDaily, onChange: setIncludeDaily },
@@ -576,7 +576,7 @@ export default function DataExportClient() {
                   if (!e.target.checked && !showComplete && !showClosed) return
                   setShowActive(e.target.checked)
                 }}
-                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
               />
               <span className="text-sm font-medium text-gray-700">Ongoing</span>
             </label>
@@ -588,7 +588,7 @@ export default function DataExportClient() {
                   if (!e.target.checked && !showActive && !showClosed) return
                   setShowComplete(e.target.checked)
                 }}
-                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
               />
               <span className="text-sm font-medium text-gray-700">Completed</span>
             </label>
@@ -600,7 +600,7 @@ export default function DataExportClient() {
                   if (!e.target.checked && !showActive && !showComplete) return
                   setShowClosed(e.target.checked)
                 }}
-                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
               />
               <span className="text-sm font-medium text-gray-700">Closed</span>
             </label>
@@ -647,7 +647,7 @@ export default function DataExportClient() {
               checked={allVisibleSelected}
               onChange={handleSelectAll}
               disabled={filteredProjects.length === 0}
-              className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+              className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
             />
             <span className="text-sm font-medium text-gray-700">
               Select All
@@ -697,7 +697,7 @@ export default function DataExportClient() {
                   type="checkbox"
                   checked={cb.checked}
                   onChange={(e) => cb.onChange(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                  className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <span className="text-sm text-gray-700">{cb.label}</span>
               </label>

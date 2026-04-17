@@ -245,14 +245,14 @@ export default function CustomersPageClient({ userId }: Props) {
                       className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
                       title="Edit customer"
                     >
-                      <PencilIcon className="w-3.5 h-3.5" />
+                      <PencilIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setConfirmDelete(customer)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
                       title="Delete customer"
                     >
-                      <Trash2Icon className="w-3.5 h-3.5" />
+                      <Trash2Icon className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

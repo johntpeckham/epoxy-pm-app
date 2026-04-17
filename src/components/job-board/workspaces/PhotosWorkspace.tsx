@@ -116,9 +116,9 @@ export default function PhotosWorkspace({ project, userId, onBack }: PhotosWorks
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm disabled:opacity-50"
           >
             {uploading ? (
-              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <UploadIcon className="w-3.5 h-3.5" />
+              <UploadIcon className="w-4 h-4" />
             )}
             Upload
           </button>
@@ -164,7 +164,7 @@ export default function PhotosWorkspace({ project, userId, onBack }: PhotosWorks
                     className={`absolute top-1 right-1 p-1 rounded-full shadow-sm transition opacity-0 group-hover:opacity-100 ${entry.isPublished ? 'bg-white/90 text-amber-500 hover:bg-white' : 'bg-white/90 text-gray-400 hover:bg-white'}`}
                     title={entry.isPublished ? 'Published' : 'Hidden from feed'}
                   >
-                    {entry.isPublished ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeOffIcon className="w-3.5 h-3.5" />}
+                    {entry.isPublished ? <EyeIcon className="w-4 h-4" /> : <EyeOffIcon className="w-4 h-4" />}
                   </button>
                 </div>
               ))}

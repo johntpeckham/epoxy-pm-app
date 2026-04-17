@@ -3,7 +3,7 @@
 import { FormField } from '@/types'
 
 const inputCls =
-  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
+  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white'
 const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
@@ -120,7 +120,7 @@ export default function DynamicFormField({ field, value, onChange }: DynamicForm
             type="checkbox"
             checked={value === true || value === 'true'}
             onChange={(e) => onChange(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+            className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
           />
           <span className="text-sm text-gray-700">{field.label}</span>
           {field.required && <span className="text-red-400">*</span>}
@@ -148,7 +148,7 @@ export default function DynamicFormField({ field, value, onChange }: DynamicForm
                       onChange(selected.filter((s: string) => s !== opt))
                     }
                   }}
-                  className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                  className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <span className="text-sm text-gray-700">{opt}</span>
               </label>

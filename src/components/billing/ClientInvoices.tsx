@@ -110,7 +110,7 @@ export default function ClientInvoices({
                 onClick={onNewInvoice}
                 className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
+                <PlusIcon className="w-4 h-4" />
                 New Invoice
               </button>
             )}
@@ -119,7 +119,7 @@ export default function ClientInvoices({
               disabled={!latestInvoice}
               className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              <FilePlusIcon className="w-3.5 h-3.5" />
+              <FilePlusIcon className="w-4 h-4" />
               New Change Order
             </button>
           </div>
@@ -174,7 +174,7 @@ export default function ClientInvoices({
                         className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded"
                         title="Delete invoice"
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
+                        <Trash2Icon className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

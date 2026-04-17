@@ -179,12 +179,12 @@ const LEAD_SOURCE_LABELS: Record<string, string> = {
 }
 
 const AVATAR_COLORS = [
-  'bg-teal-500',
+  'bg-amber-500',
   'bg-purple-500',
   'bg-indigo-500',
   'bg-pink-500',
   'bg-orange-500',
-  'bg-cyan-500',
+  'bg-rose-500',
 ]
 
 function initials(first: string, last: string): string {
@@ -658,7 +658,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             ← Back
           </Link>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
-            <h1 className="text-[22px] font-medium text-gray-900 leading-tight truncate">
+            <h1 className="text-2xl font-bold text-gray-900 leading-tight truncate">
               {company.name}
             </h1>
             <span className={`text-sm ${STATUS_TEXT_COLOR[company.status]}`}>
@@ -829,7 +829,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                     className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
                   >
                     <span className={STATUS_TEXT_COLOR[s]}>{STATUS_LABELS[s]}</span>
-                    {company.status === s && <CheckIcon className="w-3.5 h-3.5 text-gray-400" />}
+                    {company.status === s && <CheckIcon className="w-4 h-4 text-gray-400" />}
                   </button>
                 ))}
               </div>
@@ -866,7 +866,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                     className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
                   >
                     <span className={PRIORITY_TEXT_COLOR[p]}>{PRIORITY_LABELS[p]}</span>
-                    {company.priority === p && <CheckIcon className="w-3.5 h-3.5 text-gray-400" />}
+                    {company.priority === p && <CheckIcon className="w-4 h-4 text-gray-400" />}
                   </button>
                 ))}
               </div>
@@ -896,7 +896,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       </div>
 
       {/* ── Two-column layout ── */}
-      <div className="px-7 pb-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="px-7 pb-10 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* LEFT COLUMN: Contacts + Activity */}
         <div className="lg:col-span-2 space-y-8">
           {/* Contacts */}
@@ -941,7 +941,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                       onClick={() => setShowNewContact(true)}
                       className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
                     >
-                      <PlusIcon className="w-3.5 h-3.5" />
+                      <PlusIcon className="w-4 h-4" />
                       Add contact
                     </button>
                   </>
@@ -1025,7 +1025,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                           className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-white rounded transition-colors"
                           title="Log call"
                         >
-                          <PhoneIcon className="w-3.5 h-3.5" />
+                          <PhoneIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => {
@@ -1035,7 +1035,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                           className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-white rounded transition-colors"
                           title="Schedule appointment"
                         >
-                          <CalendarIcon className="w-3.5 h-3.5" />
+                          <CalendarIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() =>
@@ -1052,14 +1052,14 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                           className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-white rounded transition-colors"
                           title="Edit"
                         >
-                          <PencilIcon className="w-3.5 h-3.5" />
+                          <PencilIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setDeleteContactId(c.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded transition-colors"
                           title="Delete"
                         >
-                          <Trash2Icon className="w-3.5 h-3.5" />
+                          <Trash2Icon className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -1077,7 +1077,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                 onClick={() => setShowLogCall(true)}
                 className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
+                <PlusIcon className="w-4 h-4" />
                 Log call
               </button>
             </div>
@@ -1219,7 +1219,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                 onClick={() => setShowNewAddress(true)}
                 className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
+                <PlusIcon className="w-4 h-4" />
                 Add
               </button>
             </div>
@@ -1264,14 +1264,14 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                         className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-white rounded transition-colors"
                         title="Edit"
                       >
-                        <PencilIcon className="w-3.5 h-3.5" />
+                        <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setDeleteAddressId(a.id)}
                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded transition-colors"
                         title="Delete"
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
+                        <Trash2Icon className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -1288,7 +1288,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                 onClick={() => setShowNewReminder(true)}
                 className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
+                <PlusIcon className="w-4 h-4" />
                 Add
               </button>
             </div>
@@ -1330,7 +1330,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                               : 'text-gray-900'
                           }`}
                         >
-                          <BellIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                          <BellIcon className="w-4 h-4 flex-shrink-0" />
                           <span>
                             {formatDate(r.reminder_date, { withTime: true })}
                           </span>
@@ -1355,7 +1355,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                         className="p-1 text-gray-300 hover:text-red-600 rounded opacity-0 group-hover:opacity-100 transition"
                         title="Delete"
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
+                        <Trash2Icon className="w-4 h-4" />
                       </button>
                     </div>
                   )
@@ -1388,14 +1388,14 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                   onClick={() => fileInputRef.current?.click()}
                   className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
                 >
-                  <UploadIcon className="w-3.5 h-3.5" />
+                  <UploadIcon className="w-4 h-4" />
                   Upload
                 </button>
                 <button
                   onClick={() => setShowAddLink(true)}
                   className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
                 >
-                  <LinkIcon className="w-3.5 h-3.5" />
+                  <LinkIcon className="w-4 h-4" />
                   Link
                 </button>
               </div>
@@ -1437,7 +1437,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                         className="p-1 text-gray-300 hover:text-red-600 rounded opacity-0 group-hover:opacity-100 transition"
                         title="Delete"
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
+                        <Trash2Icon className="w-4 h-4" />
                       </button>
                     </div>
                   )
@@ -1488,7 +1488,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                       >
                         <span>{label}</span>
                         {company.lead_source === value && (
-                          <CheckIcon className="w-3.5 h-3.5 text-gray-400" />
+                          <CheckIcon className="w-4 h-4 text-gray-400" />
                         )}
                       </button>
                     ))}
@@ -1678,10 +1678,10 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                 className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
                 style={{ minHeight: '56px' }}
               >
-                <h3 className="text-base font-bold text-gray-900">Add Link</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Add Link</h3>
                 <button
                   onClick={() => setShowAddLink(false)}
-                  className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+                  className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
                 >
                   <XIcon className="w-5 h-5" />
                 </button>

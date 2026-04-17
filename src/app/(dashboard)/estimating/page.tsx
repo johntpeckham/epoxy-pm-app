@@ -20,7 +20,7 @@ export default async function EstimatingPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-      <h1 className="text-[22px] font-medium text-gray-900 leading-tight">Estimating</h1>
+      <h1 className="text-2xl font-bold text-gray-900 leading-tight">Estimating</h1>
       <p className="text-sm text-gray-500 mb-4">
         Estimates, measurements, and project takeoffs.
       </p>

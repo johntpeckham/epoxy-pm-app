@@ -242,7 +242,7 @@ export default function EditTimecardModal({
             onClick={() => setDriveTimeEnabled((v) => !v)}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${driveTimeEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
           >
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${driveTimeEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${driveTimeEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
           </button>
         </div>
 
@@ -255,7 +255,7 @@ export default function EditTimecardModal({
                   type="checkbox"
                   checked={syncTimes}
                   onChange={(e) => handleSyncToggle(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                  className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <span className="text-[11px] font-medium text-gray-500">Sync All Times</span>
               </label>
@@ -451,7 +451,7 @@ export default function EditTimecardModal({
           <h2 className="text-lg font-semibold text-gray-900">Edit Timecard</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
           >
             <XIcon className="w-5 h-5" />
           </button>

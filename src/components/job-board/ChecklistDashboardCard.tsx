@@ -299,7 +299,7 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
                   onClick={() => { setShowNewDropdown(false); addManualItem() }}
                   className="w-full text-left px-3 py-2.5 hover:bg-amber-50 transition flex items-center gap-2"
                 >
-                  <PlusIcon className="w-3.5 h-3.5 text-gray-500" />
+                  <PlusIcon className="w-4 h-4 text-gray-500" />
                   <div>
                     <p className="text-xs font-medium text-gray-900">Add New Checklist Item</p>
                     <p className="text-[10px] text-gray-400">Add a blank item to edit</p>
@@ -310,7 +310,7 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
                   onClick={() => { setShowNewDropdown(false); setShowTemplateDropdown(true) }}
                   className="w-full text-left px-3 py-2.5 hover:bg-amber-50 transition flex items-center gap-2"
                 >
-                  <ClipboardCheckIcon className="w-3.5 h-3.5 text-gray-500" />
+                  <ClipboardCheckIcon className="w-4 h-4 text-gray-500" />
                   <div>
                     <p className="text-xs font-medium text-gray-900">Apply Template</p>
                     <p className="text-[10px] text-gray-400">Add items from a template</p>
@@ -356,11 +356,11 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
       {errorMessage && (
         <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <AlertCircleIcon className="w-3.5 h-3.5 flex-shrink-0" />
+            <AlertCircleIcon className="w-4 h-4 flex-shrink-0" />
             {errorMessage}
           </div>
           <button onClick={() => setErrorMessage(null)} className="text-red-400 hover:text-red-600 p-0.5">
-            <XIcon className="w-3.5 h-3.5" />
+            <XIcon className="w-4 h-4" />
           </button>
         </div>
       )}

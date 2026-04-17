@@ -150,9 +150,9 @@ export default function PlansWorkspace({ project, userId, onBack }: PlansWorkspa
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm disabled:opacity-50"
           >
             {uploading ? (
-              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <UploadCloudIcon className="w-3.5 h-3.5" />
+              <UploadCloudIcon className="w-4 h-4" />
             )}
             Upload
           </button>
@@ -204,17 +204,17 @@ export default function PlansWorkspace({ project, userId, onBack }: PlansWorkspa
                     <p className="text-xs text-gray-400">{formatDate(doc.created_at)}</p>
                     <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => handlePreview(doc)} className="p-1 text-gray-400 hover:text-amber-600 rounded" title="Preview">
-                        <EyeIcon className="w-3.5 h-3.5" />
+                        <EyeIcon className="w-4 h-4" />
                       </button>
                       <a href={getPublicUrl(doc.file_path)} download={doc.file_name} className="p-1 text-gray-400 hover:text-amber-600 rounded" title="Download">
-                        <DownloadIcon className="w-3.5 h-3.5" />
+                        <DownloadIcon className="w-4 h-4" />
                       </a>
                       <button
                         onClick={() => togglePublished(doc)}
                         className={`p-1 rounded transition ${published ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-300 hover:bg-gray-100'}`}
                         title={published ? 'Published' : 'Hidden from feed'}
                       >
-                        {published ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeOffIcon className="w-3.5 h-3.5" />}
+                        {published ? <EyeIcon className="w-4 h-4" /> : <EyeOffIcon className="w-4 h-4" />}
                       </button>
                       <button
                         onClick={() => handleDelete(doc)}
@@ -222,7 +222,7 @@ export default function PlansWorkspace({ project, userId, onBack }: PlansWorkspa
                         className="p-1 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
                         title="Delete"
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
+                        <Trash2Icon className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

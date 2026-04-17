@@ -585,7 +585,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
         <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Job Board</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Job Board</h1>
             </div>
             {canCreate('job_board') && (
               <button
@@ -600,13 +600,13 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
 
           {/* Search */}
           <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search projects…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+              className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
             />
           </div>
         </div>
@@ -706,7 +706,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                     className="flex items-center gap-2 w-full text-left mb-2"
                   >
                     <ChevronRightIcon
-                      className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showClosed ? 'rotate-90' : ''}`}
+                      className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${showClosed ? 'rotate-90' : ''}`}
                     />
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Closed</span>
                     <span className="text-xs text-gray-400">({closedProjects.length})</span>
@@ -753,7 +753,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setMobileView('list')}
-                    className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                    className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
                   >
                     <ChevronRightIcon className="w-5 h-5 rotate-180" />
                   </button>

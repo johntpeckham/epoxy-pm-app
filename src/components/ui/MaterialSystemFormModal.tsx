@@ -82,8 +82,8 @@ export default function MaterialSystemFormModal({
         >
           {/* Header */}
           <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
-            <h3 className="text-base font-bold text-gray-900">{title}</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition">
+            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition">
               <XIcon className="w-5 h-5" />
             </button>
           </div>
@@ -100,7 +100,7 @@ export default function MaterialSystemFormModal({
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="e.g. Epoxy Broadcast, Polyurea, MMA..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 autoFocus
               />
             </div>
@@ -138,7 +138,7 @@ export default function MaterialSystemFormModal({
                             value={item.material_name}
                             onChange={(e) => updateItem(idx, { material_name: e.target.value })}
                             placeholder="Material Name"
-                            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                           />
                         )}
                         <input
@@ -146,14 +146,14 @@ export default function MaterialSystemFormModal({
                           value={item.thickness}
                           onChange={(e) => updateItem(idx, { thickness: e.target.value })}
                           placeholder="Thickness"
-                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                         />
                         <input
                           type="text"
                           value={item.coverage_rate}
                           onChange={(e) => updateItem(idx, { coverage_rate: e.target.value })}
                           placeholder="Coverage Rate"
-                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                         />
                       </div>
                       <button
@@ -161,7 +161,7 @@ export default function MaterialSystemFormModal({
                         className="p-1.5 text-gray-400 hover:text-red-500 transition mt-0.5"
                         title="Remove material"
                       >
-                        <XIcon className="w-3.5 h-3.5" />
+                        <XIcon className="w-4 h-4" />
                       </button>
                     </div>
                     {/* Per-material notes */}
@@ -181,7 +181,7 @@ export default function MaterialSystemFormModal({
                 onClick={addItem}
                 className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 mt-2 transition-colors"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
+                <PlusIcon className="w-4 h-4" />
                 Add Material
               </button>
             </div>
@@ -194,7 +194,7 @@ export default function MaterialSystemFormModal({
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 placeholder="Optional notes for this system..."
                 rows={4}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-y"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-y"
               />
             </div>
           </div>

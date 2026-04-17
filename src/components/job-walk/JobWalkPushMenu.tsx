@@ -58,7 +58,7 @@ export default function JobWalkPushMenu({
           className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
         >
           Push to…
-          <ChevronDownIcon className="w-3.5 h-3.5" />
+          <ChevronDownIcon className="w-4 h-4" />
         </button>
         {open && (
           <div className="absolute right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[220px]">
@@ -281,11 +281,11 @@ function PushToEstimatingModal({
             className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h3 className="text-base font-bold text-gray-900">Push to estimating</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Push to estimating</h3>
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -303,7 +303,7 @@ function PushToEstimatingModal({
                   type="checkbox"
                   checked={includeNotes}
                   onChange={(e) => setIncludeNotes(e.target.checked)}
-                  className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
+                  className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <span className="text-sm text-gray-700">Include notes</span>
               </label>
@@ -312,7 +312,7 @@ function PushToEstimatingModal({
                   type="checkbox"
                   checked={includeMeasurements}
                   onChange={(e) => setIncludeMeasurements(e.target.checked)}
-                  className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
+                  className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <span className="text-sm text-gray-700">Include measurements</span>
               </label>
@@ -321,7 +321,7 @@ function PushToEstimatingModal({
                   type="checkbox"
                   checked={includePdfs}
                   onChange={(e) => setIncludePdfs(e.target.checked)}
-                  className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
+                  className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <span className="text-sm text-gray-700">Include measurement PDFs</span>
               </label>

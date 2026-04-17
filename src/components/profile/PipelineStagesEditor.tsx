@@ -270,14 +270,14 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
           >
             <div className="flex items-center gap-2">
               <GitBranchIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-base font-bold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900">
                 Edit Pipeline Visual
               </h3>
             </div>
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -436,14 +436,14 @@ function SortableStageRow({
           value={draft.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
           disabled={isSystem}
-          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 disabled:bg-gray-50 disabled:text-gray-500"
         />
         <label className="flex items-center gap-1 text-xs text-gray-500">
           <input
             type="checkbox"
             checked={draft.is_active}
             onChange={(e) => onUpdate({ is_active: e.target.checked })}
-            className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500"
+            className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500/20 focus:border-amber-500"
           />
           Active
         </label>
@@ -464,7 +464,7 @@ function SortableStageRow({
             title="System stage — cannot be deleted"
             className="p-1.5 text-gray-300"
           >
-            <LockIcon className="w-3.5 h-3.5" />
+            <LockIcon className="w-4 h-4" />
           </span>
         ) : (
           <button
@@ -473,7 +473,7 @@ function SortableStageRow({
             title="Delete stage"
             className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded"
           >
-            <Trash2Icon className="w-3.5 h-3.5" />
+            <Trash2Icon className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -492,7 +492,7 @@ function SortableStageRow({
                     .value as PipelineStageAutomationRules['auto_advance_trigger'],
                 })
               }
-              className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             >
               {AUTO_ADVANCE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -509,7 +509,7 @@ function SortableStageRow({
                 onChange={(e) =>
                   onUpdateAutomation({ auto_reminder_enabled: e.target.checked })
                 }
-                className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500"
+                className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500/20 focus:border-amber-500"
               />
               Auto-create reminder when entering this stage
             </label>
@@ -528,7 +528,7 @@ function SortableStageRow({
                       ),
                     })
                   }
-                  className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
             )}

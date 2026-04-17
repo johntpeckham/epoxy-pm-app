@@ -80,7 +80,7 @@ export default function TakeoffProjectList({
               onClick={() => setShowModal(true)}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
               New
             </button>
           </div>
@@ -123,7 +123,7 @@ export default function TakeoffProjectList({
                           if (e.key === 'Enter') handleFinishRename(project.id)
                           if (e.key === 'Escape') setEditingId(null)
                         }}
-                        className="flex-1 px-2 py-0.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        className="flex-1 px-2 py-0.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                         autoFocus
                         onClick={(e) => e.stopPropagation()}
                       />
@@ -134,7 +134,7 @@ export default function TakeoffProjectList({
                         }}
                         className="p-1 text-green-600 hover:text-green-500"
                       >
-                        <CheckIcon className="w-3.5 h-3.5" />
+                        <CheckIcon className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
@@ -159,20 +159,20 @@ export default function TakeoffProjectList({
                         e.stopPropagation()
                         handleStartRename(project)
                       }}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-100"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100"
                       title="Rename"
                     >
-                      <PencilIcon className="w-3.5 h-3.5" />
+                      <PencilIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         onDelete(project.id)
                       }}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-100"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-100"
                       title="Delete"
                     >
-                      <Trash2Icon className="w-3.5 h-3.5" />
+                      <Trash2Icon className="w-4 h-4" />
                     </button>
                   </div>
                 )}
@@ -200,7 +200,7 @@ export default function TakeoffProjectList({
                 if (e.key === 'Escape') { setShowModal(false); setNewName('') }
               }}
               placeholder="e.g. Valley Kitchen Floor"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               autoFocus
             />
             <div className="flex justify-end gap-2 mt-5">

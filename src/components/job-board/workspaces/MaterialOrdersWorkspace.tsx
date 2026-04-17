@@ -192,7 +192,7 @@ export default function MaterialOrdersWorkspace({ project, userId, onBack }: Mat
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
         >
-          <PlusIcon className="w-3.5 h-3.5" />
+          <PlusIcon className="w-4 h-4" />
           New Order
         </button>
       }
@@ -561,7 +561,7 @@ function MaterialOrderModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
-            <h3 className="text-base font-bold text-gray-900">{isEdit ? 'Edit Order' : 'New Material Order'}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{isEdit ? 'Edit Order' : 'New Material Order'}</h3>
             <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><XIcon className="w-5 h-5" /></button>
           </div>
 
@@ -664,7 +664,7 @@ function MaterialOrderModal({
                   type="checkbox"
                   checked={createTask}
                   onChange={(e) => setCreateTask(e.target.checked)}
-                  className="rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                  className="rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <span className="text-sm text-gray-700">Create a task for this order</span>
               </label>

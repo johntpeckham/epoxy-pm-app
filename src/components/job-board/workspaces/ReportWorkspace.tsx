@@ -751,7 +751,7 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
               onClick={() => setFieldGuidePickerOpen((v) => !v)}
               className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
               Add Field Guide
             </button>
 
@@ -781,7 +781,7 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
                         onClick={() => attachFieldGuide(t.id)}
                         className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                       >
-                        <BookOpenIcon className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                        <BookOpenIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />
                         <span className="font-medium truncate">{t.title}</span>
                       </button>
                     ))}
@@ -898,7 +898,7 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
                   onClick={() => setChecklistDropdownFieldId(checklistDropdownFieldId === field.id ? null : field.id)}
                   className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
                 >
-                  <PlusIcon className="w-3.5 h-3.5" />
+                  <PlusIcon className="w-4 h-4" />
                   Add Checklist
                 </button>
 
@@ -1041,7 +1041,7 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
         disabled={loading}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
       >
-        <PrinterIcon className="w-3.5 h-3.5" />
+        <PrinterIcon className="w-4 h-4" />
         <span className="hidden sm:inline">Print</span>
       </button>
       <button
@@ -1049,7 +1049,7 @@ export default function ReportWorkspace({ project, userId, userRole = 'crew', on
         disabled={loading || generatingPdf}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition"
       >
-        <FileDownIcon className="w-3.5 h-3.5" />
+        <FileDownIcon className="w-4 h-4" />
         <span className="hidden sm:inline">{generatingPdf ? 'Generating...' : 'PDF'}</span>
       </button>
       {!readOnly && autosaveStatus !== 'idle' && (

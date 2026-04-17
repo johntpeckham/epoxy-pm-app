@@ -110,8 +110,8 @@ export default function ReportProblemModal({ onClose, userId }: ReportProblemMod
         >
           {/* Header */}
           <div className="flex-none flex items-center justify-between px-4 border-b border-gray-700" style={{ minHeight: '52px' }}>
-            <h3 className="text-base font-semibold text-white">Report a Problem</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-800 transition-colors">
+            <h3 className="text-lg font-semibold text-white">Report a Problem</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 transition-colors">
               <XIcon className="w-5 h-5" />
             </button>
           </div>

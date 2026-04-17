@@ -37,7 +37,7 @@ interface AddPostPanelProps {
 }
 
 const inputCls =
-  'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+  'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500'
 const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
@@ -827,7 +827,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               Retry
             </button>
             <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 flex-shrink-0">
-              <XIcon className="w-3.5 h-3.5" />
+              <XIcon className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -921,7 +921,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         >
           {/* Header with close button */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Daily Report</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Daily Report</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
             </button>
@@ -1034,7 +1034,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                         onChange={(e) => setRCustomEmployeeName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') rAddCustomEmployee(); if (e.key === 'Escape') { setRShowCustomEmployeeInput(false); setRCustomEmployeeName('') } }}
                         placeholder="Name"
-                        className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                       />
                       <button type="button" onClick={rAddCustomEmployee} className="text-green-600 hover:text-green-700 p-0.5">
                         <CheckIcon className="w-4 h-4" />
@@ -1114,7 +1114,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
                 <span>{error}</span>
                 <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
-                  <XIcon className="w-3.5 h-3.5" />
+                  <XIcon className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -1256,7 +1256,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         >
           {/* Header with close button */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">JSA Report</h2>
+            <h2 className="text-lg font-semibold text-gray-900">JSA Report</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
             </button>
@@ -1347,7 +1347,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                     onChange={() => toggleJsaTask(t)}
                     className="sr-only"
                   />
-                  <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
                     jsaSelectedTasks[t.id] ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
                   }`}>
                     {jsaSelectedTasks[t.id] && (
@@ -1409,7 +1409,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
                 <span>{error}</span>
                 <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
-                  <XIcon className="w-3.5 h-3.5" />
+                  <XIcon className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -1432,7 +1432,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         >
           {/* Header with close button */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Timecard</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Timecard</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
             </button>
@@ -1469,7 +1469,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                   type="checkbox"
                   checked={tcSyncTimes}
                   onChange={(e) => tcHandleSyncToggle(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                  className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <span className="text-[11px] font-medium text-gray-500">Sync All Times</span>
               </label>
@@ -1655,7 +1655,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
                 <span>{error}</span>
                 <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
-                  <XIcon className="w-3.5 h-3.5" />
+                  <XIcon className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -1688,7 +1688,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         >
           {/* Header with close button */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Receipt</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Receipt</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
             </button>
@@ -1783,7 +1783,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
                 <span>{error}</span>
                 <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
-                  <XIcon className="w-3.5 h-3.5" />
+                  <XIcon className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -1806,7 +1806,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
         >
           {/* Header with close button */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Expense</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Expense</h2>
             <button onClick={cancelMode} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition">
               <XIcon className="w-4 h-4" />
             </button>
@@ -1912,7 +1912,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
                 <span>{error}</span>
                 <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
-                  <XIcon className="w-3.5 h-3.5" />
+                  <XIcon className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -1956,7 +1956,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
               onClick={() => { setPdfFile(null); setPdfCaption(''); if (pdfInputRef.current) pdfInputRef.current.value = '' }}
               className="p-0.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
             >
-              <XIcon className="w-3.5 h-3.5" />
+              <XIcon className="w-4 h-4" />
             </button>
           </div>
         </div>

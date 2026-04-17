@@ -247,7 +247,7 @@ export default function JobReportChecklistManagement({ userId }: JobReportCheckl
       {isEditing ? (
         /* ── Checklist Edit/Create Form ──────────────────────────── */
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-base font-bold text-gray-900 mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
             {editingChecklist ? 'Edit Checklist' : 'New Checklist'}
           </h2>
 
@@ -259,7 +259,7 @@ export default function JobReportChecklistManagement({ userId }: JobReportCheckl
               <input
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 placeholder="e.g., Safety Inspection, Quality Check"
               />
             </div>
@@ -282,14 +282,14 @@ export default function JobReportChecklistManagement({ userId }: JobReportCheckl
                           disabled={idx === 0}
                           className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                         >
-                          <ChevronUpIcon className="w-3.5 h-3.5" />
+                          <ChevronUpIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => moveItem(idx, 'down')}
                           disabled={idx === formItems.length - 1}
                           className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                         >
-                          <ChevronDownIcon className="w-3.5 h-3.5" />
+                          <ChevronDownIcon className="w-4 h-4" />
                         </button>
                       </div>
 
@@ -365,14 +365,14 @@ export default function JobReportChecklistManagement({ userId }: JobReportCheckl
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         onClick={() => startEdit(cl)}
-                        className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
                         title="Edit checklist"
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setChecklistToDelete(cl)}
-                        className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
                         title="Delete checklist"
                       >
                         <Trash2Icon className="w-4 h-4" />

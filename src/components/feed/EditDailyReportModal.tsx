@@ -18,7 +18,7 @@ interface EditDailyReportModalProps {
 }
 
 const inputCls =
-  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
 const FORM_KEY = 'daily_report'
@@ -242,7 +242,7 @@ export default function EditDailyReportModal({
                 onChange={(e) => setCustomEmployeeName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') addCustomEmployee(); if (e.key === 'Escape') { setShowCustomEmployeeInput(false); setCustomEmployeeName('') } }}
                 placeholder="Name"
-                className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
               <button type="button" onClick={addCustomEmployee} className="text-green-600 hover:text-green-700 p-0.5">
                 <CheckIcon className="w-4 h-4" />
@@ -319,7 +319,7 @@ export default function EditDailyReportModal({
           <h2 className="text-lg font-semibold text-gray-900">Edit Daily Report</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
           >
             <XIcon className="w-5 h-5" />
           </button>

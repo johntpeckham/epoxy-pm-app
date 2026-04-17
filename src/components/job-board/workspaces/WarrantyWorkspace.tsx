@@ -414,7 +414,7 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
                               : [...prev, mw.id]
                           )
                         }}
-                        className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                        className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
                       />
                       <FileTextIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       <span className="text-sm text-gray-900 flex-1">{mw.name}</span>

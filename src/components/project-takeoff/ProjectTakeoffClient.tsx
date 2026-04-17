@@ -128,7 +128,7 @@ export default function ProjectTakeoffClient({
   return (
     <div className="flex flex-col h-full w-full max-w-full">
       <div className="px-6 py-3 border-b border-gray-200 bg-white">
-        <h1 className="text-[22px] font-medium text-gray-900 leading-tight">Project Takeoff</h1>
+        <h1 className="text-2xl font-bold text-gray-900 leading-tight">Project Takeoff</h1>
       </div>
 
       <div className="flex flex-1 overflow-hidden min-h-0">

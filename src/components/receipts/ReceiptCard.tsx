@@ -142,7 +142,7 @@ export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
             </div>
           )}
           <div className="flex-shrink-0 text-gray-400">
-            {expanded ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+            {expanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
           </div>
         </button>
 
@@ -176,11 +176,11 @@ export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
           <span className="flex justify-center">
             {confirmed
               ? <CheckIcon className="w-4 h-4 text-green-600" />
-              : <CircleIcon className="w-3.5 h-3.5 text-gray-300" />}
+              : <CircleIcon className="w-4 h-4 text-gray-300" />}
           </span>
           {/* Chevron */}
           <span className="flex justify-center text-gray-400">
-            {expanded ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+            {expanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
           </span>
         </button>
 
@@ -295,28 +295,28 @@ export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
                 disabled={pdfLoading}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 hover:text-green-900 transition-colors disabled:opacity-40"
               >
-                <DownloadIcon className="w-3.5 h-3.5" />
+                <DownloadIcon className="w-4 h-4" />
                 {pdfLoading ? 'Generating PDF…' : 'Download PDF'}
               </button>
               <button
                 onClick={() => setShowEditModal(true)}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 hover:text-green-900 transition-colors"
               >
-                <PencilIcon className="w-3.5 h-3.5" />
+                <PencilIcon className="w-4 h-4" />
                 Edit
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-800 transition-colors"
               >
-                <Trash2Icon className="w-3.5 h-3.5" />
+                <Trash2Icon className="w-4 h-4" />
                 Delete
               </button>
               <Link
                 href={`/projects/${receipt.project_id}`}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 hover:text-green-900 transition-colors ml-auto"
               >
-                <ExternalLinkIcon className="w-3.5 h-3.5" />
+                <ExternalLinkIcon className="w-4 h-4" />
                 View in project
               </Link>
             </div>
