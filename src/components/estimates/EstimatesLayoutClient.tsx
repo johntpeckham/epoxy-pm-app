@@ -73,7 +73,7 @@ export default function EstimatesLayoutClient({
       const { data } = await supabase
         .from('estimates')
         .select('*')
-        .eq('customer_id', paramCustomerId)
+        .or(`customer_id.eq.${paramCustomerId},company_id.eq.${paramCustomerId}`)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
       if (!cancelled && data) setEstimates(data)
@@ -116,9 +116,9 @@ export default function EstimatesLayoutClient({
   async function refreshCustomers() {
     const supabase = createClient()
     const { data } = await supabase
-      .from('customers')
+      .from('companies')
       .select('*')
-      .eq('user_id', userId)
+      .eq('archived', false)
       .order('name', { ascending: true })
     if (data) setCustomers(data)
   }
@@ -131,7 +131,7 @@ export default function EstimatesLayoutClient({
       const { data } = await supabase
         .from('estimates')
         .select('*')
-        .eq('customer_id', view)
+        .or(`customer_id.eq.${view},company_id.eq.${view}`)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
       if (data) setEstimates(data)
@@ -144,7 +144,7 @@ export default function EstimatesLayoutClient({
     const { data } = await supabase
       .from('estimates')
       .select('*')
-      .eq('customer_id', selectedCustomerId)
+      .or(`customer_id.eq.${selectedCustomerId},company_id.eq.${selectedCustomerId}`)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
     if (data) setEstimates(data)
@@ -174,7 +174,7 @@ export default function EstimatesLayoutClient({
     const { data } = await supabase
       .from('estimates')
       .select('*')
-      .eq('customer_id', customerId)
+      .or(`customer_id.eq.${customerId},company_id.eq.${customerId}`)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
     if (data) setEstimates(data)

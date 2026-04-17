@@ -55,6 +55,7 @@ export default function EstimatesWorkspace({
       .insert({
         estimate_number: estimateNumber,
         customer_id: customer.id,
+        company_id: customer.id,
         date: new Date().toISOString().split('T')[0],
         project_name: '',
         description: '',

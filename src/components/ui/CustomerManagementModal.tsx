@@ -56,9 +56,9 @@ export default function CustomerManagementModal({
   const fetchCustomers = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
-      .from('customers')
+      .from('companies')
       .select('*')
-      .eq('user_id', userId)
+      .eq('archived', false)
       .order('name', { ascending: true })
     if (data) setCustomers(data)
     setLoading(false)
@@ -124,7 +124,7 @@ export default function CustomerManagementModal({
 
     if (editingCustomer) {
       const { error } = await supabase
-        .from('customers')
+        .from('companies')
         .update(payload)
         .eq('id', editingCustomer.id)
       if (error) {
@@ -133,7 +133,7 @@ export default function CustomerManagementModal({
         return
       }
     } else {
-      const { error } = await supabase.from('customers').insert(payload)
+      const { error } = await supabase.from('companies').insert({ ...payload, archived: false })
       if (error) {
         setFormError(error.message)
         setSaving(false)
@@ -150,7 +150,7 @@ export default function CustomerManagementModal({
   async function handleDelete() {
     if (!confirmDelete) return
     setDeleting(true)
-    const { data: snapshot } = await supabase.from('customers').select('*').eq('id', confirmDelete.id).single()
+    const { data: snapshot } = await supabase.from('companies').select('*').eq('id', confirmDelete.id).single()
     if (snapshot) {
       await moveToTrash(supabase, 'customer', confirmDelete.id, confirmDelete.name, userId, snapshot as Record<string, unknown>)
     }
