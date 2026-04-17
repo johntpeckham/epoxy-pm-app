@@ -17,7 +17,7 @@ import {
 import { Profile } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { moveToTrash } from '@/lib/trashBin'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface ChecklistTemplate {
   id: string
@@ -54,7 +54,6 @@ interface ChecklistTemplatesClientProps {
 }
 
 export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesClientProps) {
-  const router = useRouter()
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -289,13 +288,15 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => router.push('/profile')}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+      <div className="mb-6">
+        <Link
+          href="/profile"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
         >
-          <ArrowLeftIcon className="w-5 h-5" />
-        </button>
+          <ArrowLeftIcon className="w-4 h-4" />
+          Settings
+        </Link>
+        <div className="flex items-center gap-3">
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">Checklist Templates</h1>
           <p className="text-xs text-gray-400">Create reusable checklists that can be applied to projects from the Job Board.</p>
@@ -309,6 +310,7 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
             New Template
           </button>
         )}
+        </div>
       </div>
 
       {isEditing ? (

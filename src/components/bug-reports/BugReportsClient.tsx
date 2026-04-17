@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ArrowLeftIcon, Loader2Icon, XIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
@@ -24,7 +24,6 @@ interface BugReport {
 type StatusFilter = 'all' | 'open' | 'resolved'
 
 export default function BugReportsClient() {
-  const router = useRouter()
   const [reports, setReports] = useState<BugReport[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -154,14 +153,15 @@ export default function BugReportsClient() {
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-[#1a1a1a]">
       {/* Header */}
-      <div className="flex-none flex items-center gap-3 px-4 md:px-6 border-b border-gray-200 dark:border-gray-800" style={{ minHeight: '56px' }}>
-        <button
-          onClick={() => router.back()}
-          className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+      <div className="flex-none px-4 md:px-6 border-b border-gray-200 dark:border-gray-800 py-4">
+        <Link
+          href="/my-work"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
-          <ArrowLeftIcon className="w-5 h-5" />
-        </button>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bug Reports</h1>
+          <ArrowLeftIcon className="w-4 h-4" />
+          My Work
+        </Link>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">Bug Reports</h1>
       </div>
 
       {/* Filters */}

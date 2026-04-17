@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   PlusIcon,
@@ -11,6 +12,7 @@ import {
   ChevronDownIcon,
   Trash2Icon,
   CheckIcon,
+  ArrowLeftIcon,
 } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
 import type { UserRole } from '@/types'
@@ -235,7 +237,17 @@ export default function LeadsClient({
   }
 
   return (
-    <div className="flex h-full overflow-hidden w-full max-w-full">
+    <div className="flex flex-col h-full overflow-hidden w-full max-w-full">
+      <div className="px-4 pt-3 pb-1 flex-shrink-0 bg-white border-b border-gray-100">
+        <Link
+          href="/sales"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Sales
+        </Link>
+      </div>
+      <div className="flex flex-1 overflow-hidden">
       {/* ── Left panel: Lead list ── */}
       <div
         className={`flex-shrink-0 w-screen max-w-full lg:w-80 xl:w-96 min-w-0 bg-white border-r border-gray-200 flex-col overflow-hidden ${
@@ -472,6 +484,7 @@ export default function LeadsClient({
           )}
         </div>
       )}
+      </div>
     </div>
   )
 }

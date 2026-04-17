@@ -35,7 +35,7 @@ export default function EquipmentQrClient({ equipment }: Props) {
       <div className="print:hidden fixed top-4 left-4">
         <Link
           href={`/equipment/${equipment.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Back

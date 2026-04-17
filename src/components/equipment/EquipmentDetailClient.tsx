@@ -620,7 +620,7 @@ export default function EquipmentDetailClient({
       {onBack ? (
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Equipment
@@ -628,7 +628,7 @@ export default function EquipmentDetailClient({
       ) : (
         <Link
           href="/equipment"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Equipment

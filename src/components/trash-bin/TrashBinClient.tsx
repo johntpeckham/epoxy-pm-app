@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   ArrowLeftIcon,
   Trash2Icon,
@@ -92,7 +92,6 @@ interface TrashBinClientProps {
 }
 
 export default function TrashBinClient({ userId }: TrashBinClientProps) {
-  const router = useRouter()
   const [items, setItems] = useState<TrashBinItem[]>([])
   const [loading, setLoading] = useState(true)
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -195,13 +194,15 @@ export default function TrashBinClient({ userId }: TrashBinClientProps) {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={() => router.push('/profile')}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+        <div className="mb-6">
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
           >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </button>
+            <ArrowLeftIcon className="w-4 h-4" />
+            Settings
+          </Link>
+          <div className="flex items-center gap-3">
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900">Trash Bin</h1>
             <p className="text-xs text-gray-400">
@@ -211,6 +212,7 @@ export default function TrashBinClient({ userId }: TrashBinClientProps) {
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <Trash2Icon className="w-4 h-4" />
             {items.length} item{items.length !== 1 ? 's' : ''}
+          </div>
           </div>
         </div>
 
