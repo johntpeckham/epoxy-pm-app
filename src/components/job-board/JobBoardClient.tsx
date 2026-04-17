@@ -882,7 +882,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                         icon={<RulerIcon className="w-5 h-5" />}
                         title="Estimating"
                         onClick={() => openWorkspace('estimating')}
-                        content={<p className="text-xs text-gray-400">Project Takeoff</p>}
+                        content={<p className="text-xs text-gray-400">Measurements &amp; estimates</p>}
                       />
 
                       {/* 11. Material Orders */}

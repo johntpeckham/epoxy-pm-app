@@ -71,7 +71,7 @@ export default function TakeoffProjectList({
         <div className="px-4 pt-4 pb-3 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-base font-bold text-gray-900">Project Takeoffs</h1>
+              <h1 className="text-base font-bold text-gray-900">Measurement Tool</h1>
               <p className="text-xs text-gray-400 mt-0.5">
                 {projects.length} project{projects.length !== 1 ? 's' : ''}
               </p>

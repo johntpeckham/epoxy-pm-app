@@ -7,6 +7,7 @@ import {
   XIcon,
   Loader2Icon,
 } from 'lucide-react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
@@ -176,6 +177,14 @@ export default function ProjectMeasurementsCard({
           <h3 className="text-sm font-semibold text-gray-900 flex-1">Measurements</h3>
           <AutoSaveIndicator isSaving={saveState === 'saving'} />
         </div>
+
+        <Link
+          href={`/sales/estimating/measurement-tool/${project.id}`}
+          className="w-full flex items-center justify-center gap-2 min-h-[44px] px-3 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold transition shadow-sm mb-3"
+        >
+          <RulerIcon className="w-4 h-4" />
+          Measurement Tool
+        </Link>
 
         <textarea
           value={measurements}
