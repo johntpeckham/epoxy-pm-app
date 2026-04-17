@@ -39,6 +39,7 @@ export interface Estimate {
   id: string
   estimate_number: number
   customer_id: string
+  company_id: string | null
   date: string
   project_name: string | null
   description: string | null

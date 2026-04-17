@@ -170,13 +170,13 @@ export default function BillingDashboard({ invoices, customers, onSelectInvoice,
               </thead>
               <tbody>
                 {filteredInvoices.map((inv) => {
-                  const customer = customerMap[inv.client_id]
+                  const customer = customerMap[inv.company_id ?? inv.client_id]
                   const daysOverdue = inv.status === 'Overdue' ? getDaysOverdue(inv.due_date) : null
                   return (
                     <tr
                       key={inv.id}
                       className="border-b border-gray-50 hover:bg-blue-50 transition-colors cursor-pointer"
-                      onClick={() => onSelectInvoice?.(inv.client_id, inv.id)}
+                      onClick={() => onSelectInvoice?.(inv.company_id ?? inv.client_id, inv.id)}
                     >
                       <td className="px-4 py-3 text-sm text-gray-600">{inv.issued_date}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{inv.invoice_number}</td>

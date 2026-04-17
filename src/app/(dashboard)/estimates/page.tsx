@@ -11,9 +11,9 @@ export default async function EstimatesPage() {
   const user = session.user
 
   const { data: customers } = await supabase
-    .from('customers')
+    .from('companies')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('archived', false)
     .order('name', { ascending: true })
 
   const { data: settings } = await supabase

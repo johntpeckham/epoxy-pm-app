@@ -51,6 +51,7 @@ export default function NewInvoiceForm({
       .insert({
         invoice_number: nextNum,
         client_id: selectedCustomerId,
+        company_id: selectedCustomerId,
         project_name: projectName || '',
         line_items: [],
         subtotal: 0,

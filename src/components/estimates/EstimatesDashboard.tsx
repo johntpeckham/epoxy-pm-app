@@ -157,12 +157,13 @@ export default function EstimatesDashboard({ estimates, customers, onSelectEstim
               </thead>
               <tbody>
                 {filteredEstimates.map((est) => {
-                  const customer = customerMap[est.customer_id]
+                  const companyKey = est.company_id ?? est.customer_id
+                  const customer = customerMap[companyKey]
                   return (
                     <tr
                       key={est.id}
                       className="border-b border-gray-50 hover:bg-amber-50 transition-colors cursor-pointer"
-                      onClick={() => onSelectEstimate?.(est.customer_id, est.id)}
+                      onClick={() => onSelectEstimate?.(companyKey, est.id)}
                     >
                       <td className="px-4 py-3 text-sm text-gray-600">{est.date}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">#{est.estimate_number}</td>

@@ -26,7 +26,7 @@ export default function NewCustomerModal({ userId, onClose, onSaved }: NewCustom
     if (!name.trim()) return
     setSaving(true)
     const supabase = createClient()
-    await supabase.from('customers').insert({
+    await supabase.from('companies').insert({
       name: name.trim(),
       company: company.trim() || null,
       email: email.trim() || null,
@@ -36,6 +36,7 @@ export default function NewCustomerModal({ userId, onClose, onSaved }: NewCustom
       state: state.trim() || null,
       zip: zip.trim() || null,
       user_id: userId,
+      archived: false,
     })
     setSaving(false)
     onSaved()

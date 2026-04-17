@@ -41,7 +41,7 @@ export default function BillingLayoutClient({
     : null
 
   const customerInvoices = selectedCustomer
-    ? invoices.filter((inv) => inv.client_id === selectedCustomer.id)
+    ? invoices.filter((inv) => (inv.company_id ?? inv.client_id) === selectedCustomer.id)
     : []
 
   const selectedInvoice = selectedInvoiceId
@@ -51,9 +51,9 @@ export default function BillingLayoutClient({
   async function refreshCustomers() {
     const supabase = createClient()
     const { data } = await supabase
-      .from('customers')
+      .from('companies')
       .select('*')
-      .eq('user_id', userId)
+      .eq('archived', false)
       .order('name', { ascending: true })
     if (data) setCustomers(data)
   }
@@ -103,6 +103,7 @@ export default function BillingLayoutClient({
       .insert({
         invoice_number: nextNum,
         client_id: selectedCustomer.id,
+        company_id: selectedCustomer.id,
         project_name: '',
         line_items: [],
         subtotal: 0,
