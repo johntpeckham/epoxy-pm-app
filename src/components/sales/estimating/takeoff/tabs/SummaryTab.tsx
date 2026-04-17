@@ -2,7 +2,7 @@
 
 export default function SummaryTab() {
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="space-y-4">
       {/* Metric cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <MetricCard label="Total measurements" value="4,850 sf" />

@@ -58,25 +58,18 @@ const SAMPLE_AREAS: SampleArea[] = [
 
 export default function AreasTab() {
   return (
-    <div className="flex flex-col lg:flex-row gap-4">
-      {/* Mobile-only: Measurement references shown first */}
-      <div className="lg:hidden">
-        <MeasurementReferences />
+    <div className="space-y-4">
+      {/* Area type add buttons */}
+      <div className="flex flex-wrap gap-2">
+        {ADD_BUTTONS.map((btn) => (
+          <button
+            key={btn.type}
+            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-500 border-2 border-dashed border-gray-300 rounded-lg hover:text-amber-600 hover:border-amber-400 transition"
+          >
+            {btn.label}
+          </button>
+        ))}
       </div>
-
-      {/* Left column: area buttons + area cards */}
-      <div className="flex-1 min-w-0 space-y-4">
-        {/* Area type add buttons */}
-        <div className="flex flex-wrap gap-2">
-          {ADD_BUTTONS.map((btn) => (
-            <button
-              key={btn.type}
-              className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-500 border-2 border-dashed border-gray-300 rounded-lg hover:text-amber-600 hover:border-amber-400 transition"
-            >
-              {btn.label}
-            </button>
-          ))}
-        </div>
 
       {/* Area cards */}
       {SAMPLE_AREAS.map((area) => {
@@ -153,42 +146,6 @@ export default function AreasTab() {
         )
       })}
 
-      </div>
-
-      {/* Right column: sticky measurement references (desktop only) */}
-      <div className="hidden lg:block w-80 flex-shrink-0">
-        <div className="sticky top-4">
-          <MeasurementReferences />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function MeasurementReferences() {
-  return (
-    <div className="border-2 border-dashed border-gray-200 rounded-xl p-4">
-      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-        Measurement references
-      </h4>
-      <div className="grid grid-cols-1 gap-2">
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs font-medium text-gray-600">
-            Floor plan — main area
-          </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            From project measurements
-          </p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs font-medium text-gray-600">
-            Photo — warehouse overview
-          </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            From project measurements
-          </p>
-        </div>
-      </div>
     </div>
   )
 }
