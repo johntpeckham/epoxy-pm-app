@@ -362,6 +362,7 @@ export default function EstimateEditor({
     const { error } = await supabase.from('invoices').insert({
       invoice_number: String(estimateNumber),
       company_id: customer.id,
+      estimate_id: estimateIdRef.current,
       project_name: projectName || null,
       line_items: items,
       subtotal: sub,

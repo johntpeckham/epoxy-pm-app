@@ -6,6 +6,7 @@ export interface Invoice {
   id: string
   invoice_number: string
   company_id: string
+  estimate_id: string | null
   project_name: string | null
   line_items: LineItem[]
   subtotal: number
