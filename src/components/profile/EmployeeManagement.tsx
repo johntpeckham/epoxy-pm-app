@@ -1580,12 +1580,12 @@ export default function EmployeeManagement({
               {settingsOpen ? (
                 <>
                   <Settings2Icon className="w-5 h-5 text-gray-400" />
-                  <h2 className="text-lg font-semibold text-gray-900">Employee Settings</h2>
+                  <h1 className="text-2xl font-bold text-gray-900">Employee Settings</h1>
                 </>
               ) : (
                 <>
                   <UsersIcon className="w-5 h-5 text-gray-400" />
-                  <h2 className="text-lg font-semibold text-gray-900">Employee Management</h2>
+                  <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
                 </>
               )}
             </div>

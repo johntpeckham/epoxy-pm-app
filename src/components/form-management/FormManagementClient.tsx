@@ -1827,7 +1827,7 @@ export default function FormManagementClient({ filterFormKey, excludeFormKey, em
             Settings
           </Link>
           <div className="flex items-center gap-3">
-            <SlidersHorizontalIcon className="w-6 h-6 text-amber-500" />
+            <SlidersHorizontalIcon className="w-5 h-5 text-amber-500" />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Form Management</h1>
               <p className="text-sm text-gray-500">Customize form fields and layout for each app form.</p>

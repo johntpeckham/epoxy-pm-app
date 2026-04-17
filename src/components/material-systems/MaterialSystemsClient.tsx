@@ -395,7 +395,7 @@ export default function MaterialSystemsClient({ embedded }: MaterialSystemsClien
             Settings
           </Link>
           <div className="flex items-center gap-3">
-            <LayersIcon className="w-6 h-6 text-amber-500" />
+            <LayersIcon className="w-5 h-5 text-amber-500" />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Material System Management</h1>
               <p className="text-sm text-gray-500">Manage the master list of material systems used in Project Reports and Estimates.</p>

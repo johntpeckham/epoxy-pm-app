@@ -2090,7 +2090,7 @@ export default function InventoryPageClient({
                         )}
                       </button>
                       <h2
-                        className="text-[18px] font-medium uppercase tracking-wider text-gray-900 dark:text-[#f0f0f0] flex-1 truncate cursor-pointer py-3"
+                        className="text-xs font-semibold uppercase tracking-wide text-gray-900 dark:text-[#f0f0f0] flex-1 truncate cursor-pointer py-3"
                         onClick={() => toggleSupplierCollapsed(supplier.id)}
                       >
                         {getSupplierDisplayName(supplier)}

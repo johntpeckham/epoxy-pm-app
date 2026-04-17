@@ -719,12 +719,12 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
             {settingsOpen ? (
               <>
                 <Settings2Icon className="w-5 h-5 text-gray-400" />
-                <h2 className="text-lg font-semibold text-gray-900">Equipment Settings</h2>
+                <h1 className="text-2xl font-bold text-gray-900">Equipment Settings</h1>
               </>
             ) : (
               <>
                 <WrenchIcon className="w-5 h-5 text-gray-400" />
-                <h2 className="text-lg font-semibold text-gray-900">Equipment</h2>
+                <h1 className="text-2xl font-bold text-gray-900">Equipment</h1>
               </>
             )}
           </div>
