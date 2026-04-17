@@ -62,6 +62,13 @@ export default function ProjectDashboard({
       </div>
 
       <div className="p-4 space-y-4">
+        <ProjectPipelineCard
+          key={`pipeline-${project.id}`}
+          project={project}
+          userId={userId}
+          onPatch={onPatch}
+        />
+
         <ProjectTakeoffSheetsCard
           key={`takeoffs-${project.id}`}
           project={project}
@@ -80,13 +87,6 @@ export default function ProjectDashboard({
           key={`estimates-${project.id}`}
           project={project}
           customer={customer}
-          userId={userId}
-          onPatch={onPatch}
-        />
-
-        <ProjectPipelineCard
-          key={`pipeline-${project.id}`}
-          project={project}
           userId={userId}
           onPatch={onPatch}
         />

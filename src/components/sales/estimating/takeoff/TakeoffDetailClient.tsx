@@ -11,6 +11,8 @@ import LaborTab from './tabs/LaborTab'
 import PrepToolsTab from './tabs/PrepToolsTab'
 import SundriesTab from './tabs/SundriesTab'
 import TravelTab from './tabs/TravelTab'
+import ConfirmedMeasurementsCard from './ConfirmedMeasurementsCard'
+import MeasurementReferences from './tabs/MeasurementReferences'
 
 const TABS = [
   { key: 'summary', label: 'Summary' },
@@ -91,15 +93,34 @@ export default function TakeoffDetailClient({
         </div>
       </div>
 
-      {/* Tab content */}
+      {/* Tab content — two-column layout */}
       <div className="flex-1 overflow-y-auto p-4">
-        {activeTab === 'summary' && <SummaryTab />}
-        {activeTab === 'areas' && <AreasTab />}
-        {activeTab === 'materials' && <MaterialsTab />}
-        {activeTab === 'labor' && <LaborTab />}
-        {activeTab === 'prep' && <PrepToolsTab />}
-        {activeTab === 'sundries' && <SundriesTab />}
-        {activeTab === 'travel' && <TravelTab />}
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Mobile-only sidebar */}
+          <div className="lg:hidden space-y-3">
+            <ConfirmedMeasurementsCard />
+            {activeTab === 'areas' && <MeasurementReferences />}
+          </div>
+
+          {/* Left column: tab content */}
+          <div className="flex-1 min-w-0">
+            {activeTab === 'summary' && <SummaryTab />}
+            {activeTab === 'areas' && <AreasTab />}
+            {activeTab === 'materials' && <MaterialsTab />}
+            {activeTab === 'labor' && <LaborTab />}
+            {activeTab === 'prep' && <PrepToolsTab />}
+            {activeTab === 'sundries' && <SundriesTab />}
+            {activeTab === 'travel' && <TravelTab />}
+          </div>
+
+          {/* Right column: sticky sidebar (desktop only) */}
+          <div className="hidden lg:block w-80 flex-shrink-0">
+            <div className="sticky top-4 space-y-3">
+              <ConfirmedMeasurementsCard />
+              {activeTab === 'areas' && <MeasurementReferences />}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
