@@ -44,7 +44,7 @@ export default function JobReportManagementClient({ userId }: JobReportManagemen
             Settings
           </Link>
           <div className="flex items-center gap-3">
-            <FileTextIcon className="w-6 h-6 text-amber-500" />
+            <FileTextIcon className="w-5 h-5 text-amber-500" />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Job Report Management</h1>
               <p className="text-sm text-gray-500">Manage the report form, material systems, and checklists for job reports.</p>
