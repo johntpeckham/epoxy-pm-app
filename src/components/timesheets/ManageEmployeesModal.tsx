@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, PlusIcon, PencilIcon, Trash2Icon, CheckIcon, LoaderIcon } from 'lucide-react'
-import { Employee } from '@/types'
+import { EmployeeProfile } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import Portal from '@/components/ui/Portal'
 
@@ -16,25 +16,25 @@ const inputCls =
 
 export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalProps) {
   const supabase = createClient()
-  const [employees, setEmployees] = useState<Employee[]>([])
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<EmployeeProfile | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const fetchEmployees = useCallback(async () => {
     const { data, error } = await supabase
-      .from('employees')
+      .from('employee_profiles')
       .select('*')
       .order('name', { ascending: true })
     if (error) {
       console.error('[ManageEmployees] Fetch employees failed:', error)
     }
-    setEmployees((data as Employee[]) ?? [])
+    setEmployees((data as EmployeeProfile[]) ?? [])
     setLoading(false)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -45,7 +45,7 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
   async function handleAdd() {
     if (!newName.trim()) return
     setAdding(true)
-    const { error } = await supabase.from('employees').insert({ name: newName.trim() })
+    const { error } = await supabase.from('employee_profiles').insert({ name: newName.trim() })
     if (error) {
       console.error('[ManageEmployees] Insert employee failed:', error)
     } else {
@@ -58,7 +58,7 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
   async function handleSaveEdit() {
     if (!editingId || !editName.trim()) return
     setSavingEdit(true)
-    const { error } = await supabase.from('employees').update({ name: editName.trim() }).eq('id', editingId)
+    const { error } = await supabase.from('employee_profiles').update({ name: editName.trim() }).eq('id', editingId)
     if (error) {
       console.error('[ManageEmployees] Update employee failed:', error)
     } else {
@@ -69,8 +69,8 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
     setSavingEdit(false)
   }
 
-  async function handleToggleActive(emp: Employee) {
-    const { error } = await supabase.from('employees').update({ is_active: !emp.is_active }).eq('id', emp.id)
+  async function handleToggleActive(emp: EmployeeProfile) {
+    const { error } = await supabase.from('employee_profiles').update({ is_active: !emp.is_active }).eq('id', emp.id)
     if (error) {
       console.error('[ManageEmployees] Toggle active failed:', error)
     }
@@ -80,12 +80,10 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleting(true)
-    const { data: snapshot } = await supabase.from('employees').select('*').eq('id', deleteTarget.id).single()
+    const { data: snapshot } = await supabase.from('employee_profiles').select('*').eq('id', deleteTarget.id).single()
     if (snapshot) {
       const { data: { user } } = await supabase.auth.getUser()
       const deletedBy = user?.id ?? 'unknown'
-      // Insert into trash bin manually since the 'employee' type maps to employee_profiles table,
-      // but this component uses the separate 'employees' table (timesheets)
       const { error: trashInsertError } = await supabase.from('trash_bin').insert({
         item_type: 'employee',
         item_id: deleteTarget.id,
@@ -97,7 +95,7 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
       if (trashInsertError) {
         console.error('[ManageEmployees] Trash insert failed:', trashInsertError)
       }
-      const { error: deleteError } = await supabase.from('employees').delete().eq('id', deleteTarget.id)
+      const { error: deleteError } = await supabase.from('employee_profiles').delete().eq('id', deleteTarget.id)
       if (deleteError) {
         console.error('[ManageEmployees] Delete employee failed:', deleteError)
       }

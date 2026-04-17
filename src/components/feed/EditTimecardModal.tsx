@@ -88,6 +88,7 @@ export default function EditTimecardModal({
       supabase
         .from('employee_profiles')
         .select('*')
+        .eq('is_active', true)
         .order('name', { ascending: true })
         .then(({ data, error }) => {
           if (error) console.error('[EditTimecardModal] Fetch employees failed:', error)
@@ -143,7 +144,7 @@ export default function EditTimecardModal({
       : { time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }
     setEntries((prev) => [
       ...prev,
-      { employee_name: '', ...defaults },
+      { employee_name: '', employee_profile_id: null, ...defaults },
     ])
   }
 
