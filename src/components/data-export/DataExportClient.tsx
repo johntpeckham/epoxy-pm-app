@@ -559,7 +559,10 @@ export default function DataExportClient() {
             <ArrowLeftIcon className="w-4 h-4" />
             Settings
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Data Export</h1>
+          <div className="flex items-center gap-2">
+            <DownloadIcon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900">Data Export</h1>
+          </div>
         </div>
 
         {/* Unified Projects Card */}

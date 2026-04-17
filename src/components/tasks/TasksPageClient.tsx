@@ -532,7 +532,10 @@ export default function TasksPageClient({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+          <div className="flex items-center gap-2">
+            <CheckSquareIcon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+          </div>
         </div>
         {canCreate('tasks') && (
           <button

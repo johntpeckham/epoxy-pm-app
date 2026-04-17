@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeftIcon } from 'lucide-react'
+import { ArrowLeftIcon, TruckIcon } from 'lucide-react'
 import VendorsManager from '@/components/vendors/VendorsManager'
 
 interface Props {
@@ -23,7 +23,10 @@ export default function VendorsPageClient({ userId }: Props) {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Vendors</h1>
+          <div className="flex items-center gap-2">
+            <TruckIcon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900">Vendors</h1>
+          </div>
         </div>
 
         {/* Vendors manager content */}

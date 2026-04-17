@@ -13,6 +13,7 @@ import {
   ChevronDownIcon,
   CheckIcon,
   ClipboardCheckIcon,
+  ListChecksIcon,
 } from 'lucide-react'
 import { Profile } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -298,7 +299,10 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
         </Link>
         <div className="flex items-center gap-3">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">Checklist Templates</h1>
+          <div className="flex items-center gap-2">
+            <ListChecksIcon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900">Checklist Templates</h1>
+          </div>
           <p className="text-xs text-gray-400">Create reusable checklists that can be applied to projects from the Job Board.</p>
         </div>
         {!isEditing && (

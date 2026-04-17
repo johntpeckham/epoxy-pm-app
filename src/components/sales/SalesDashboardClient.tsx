@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { TrendingUpIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
   fetchTeamOverview,
@@ -56,7 +57,10 @@ export default function SalesDashboardClient({
     <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
       {/* Header with quick nav links */}
       <div className="flex items-baseline gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
+        <div className="flex items-center gap-2">
+          <TrendingUpIcon className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
+        </div>
         <nav className="flex items-center gap-3 flex-wrap">
           {NAV_LINKS.map((l) => (
             <Link

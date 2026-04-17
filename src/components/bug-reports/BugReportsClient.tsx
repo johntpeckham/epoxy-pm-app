@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeftIcon, Loader2Icon, XIcon, Trash2Icon } from 'lucide-react'
+import { ArrowLeftIcon, Loader2Icon, XIcon, Trash2Icon, BugIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -161,7 +161,10 @@ export default function BugReportsClient() {
           <ArrowLeftIcon className="w-4 h-4" />
           My Work
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">Bug Reports</h1>
+        <div className="flex items-center gap-2 mt-1">
+          <BugIcon className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bug Reports</h1>
+        </div>
       </div>
 
       {/* Filters */}

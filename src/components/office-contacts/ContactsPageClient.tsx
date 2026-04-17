@@ -67,7 +67,10 @@ export default function ContactsPageClient({ userId, initialContacts }: Props) {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
+          <div className="flex items-center gap-2">
+            <ContactIcon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
+          </div>
           <button
             onClick={() => setShowAddModal(true)}
             className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"

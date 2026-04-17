@@ -368,7 +368,10 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
             <ArrowLeftIcon className="w-4 h-4" />
             Dashboard
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-[#e5e5e5]">Settings</h1>
+          <div className="flex items-center gap-2">
+            <SlidersHorizontalIcon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-[#e5e5e5]">Settings</h1>
+          </div>
         </div>
 
         {/* Profile Card */}

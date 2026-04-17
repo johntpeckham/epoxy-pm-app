@@ -19,6 +19,7 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   ArrowLeftIcon,
+  Building2Icon,
 } from 'lucide-react'
 import { useUserRole } from '@/lib/useUserRole'
 import Portal from '@/components/ui/Portal'
@@ -875,7 +876,10 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             Sales
           </Link>
           <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900 leading-tight">CRM</h1>
+          <div className="flex items-center gap-2">
+            <Building2Icon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900 leading-tight">CRM</h1>
+          </div>
           <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-xs">
             <button
               onClick={() => setViewMode('new')}

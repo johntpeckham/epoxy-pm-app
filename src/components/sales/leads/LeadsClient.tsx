@@ -256,7 +256,10 @@ export default function LeadsClient({
       >
         <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
+            <div className="flex items-center gap-2">
+              <TargetIcon className="w-5 h-5 text-gray-400" />
+              <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
+            </div>
             <button
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
