@@ -125,7 +125,7 @@ export default function ProjectEstimatesCard({
     const { data } = await supabase
       .from('estimates')
       .select('*')
-      .eq('customer_id', customerId)
+      .eq('company_id', customerId)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
     const rows = (data as Estimate[]) ?? []
@@ -303,7 +303,7 @@ export default function ProjectEstimatesCard({
       .from('estimates')
       .insert({
         estimate_number: estimateNumber,
-        customer_id: customerId,
+        company_id: customerId,
         date: new Date().toISOString().split('T')[0],
         project_name: project.name || '',
         description: '',

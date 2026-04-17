@@ -157,7 +157,7 @@ export default function EstimatesDashboard({ estimates, customers, onSelectEstim
               </thead>
               <tbody>
                 {filteredEstimates.map((est) => {
-                  const companyKey = est.company_id ?? est.customer_id
+                  const companyKey = est.company_id
                   const customer = customerMap[companyKey]
                   return (
                     <tr

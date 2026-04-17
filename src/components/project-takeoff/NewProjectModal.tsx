@@ -53,7 +53,7 @@ export default function NewProjectModal({
     const { data, error: dbError } = await supabase
       .from('project_takeoff_projects')
       .insert({
-        customer_id: selectedCustomerId,
+        company_id: selectedCustomerId,
         name: name.trim(),
         description: description.trim() || null,
         status: 'active',

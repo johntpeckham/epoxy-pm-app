@@ -38,8 +38,7 @@ export interface MaterialSystemRow {
 export interface Estimate {
   id: string
   estimate_number: number
-  customer_id: string
-  company_id: string | null
+  company_id: string
   date: string
   project_name: string | null
   description: string | null

@@ -29,7 +29,6 @@ export type LeadPushedTo = 'appointment' | 'job_walk' | 'estimating' | 'estimate
 export interface Lead {
   id: string
   project_name: string
-  customer_id: string | null
   company_id: string | null
   customer_name: string | null
   customer_email: string | null

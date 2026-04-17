@@ -80,7 +80,7 @@ export default function EstimatingClient({
       const { data } = await supabase
         .from('estimating_projects')
         .select('*')
-        .eq('customer_id', customerId)
+        .eq('company_id', customerId)
         .order('created_at', { ascending: false })
       setProjects((data as EstimatingProject[]) ?? [])
       setLoadingProjects(false)
@@ -140,7 +140,7 @@ export default function EstimatingClient({
 
   function handleProjectCreated(project: EstimatingProject) {
     setProjects((prev) => [project, ...prev])
-    setSelectedCustomerId(project.customer_id)
+    setSelectedCustomerId(project.company_id)
     setSelectedProjectId(project.id)
     setShowNewModal(false)
     // The modal may have been opened from state 1 with no selected customer;

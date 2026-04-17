@@ -26,7 +26,7 @@ export default function LeadEditInfoModal({
 }: LeadEditInfoModalProps) {
   const [projectName, setProjectName] = useState(lead.project_name ?? '')
   const [customerQuery, setCustomerQuery] = useState(lead.customer_name ?? '')
-  const [customerId, setCustomerId] = useState<string | null>(lead.customer_id)
+  const [customerId, setCustomerId] = useState<string | null>(lead.company_id)
   const [customerEmail, setCustomerEmail] = useState(lead.customer_email ?? '')
   const [customerPhone, setCustomerPhone] = useState(lead.customer_phone ?? '')
   const [address, setAddress] = useState(lead.address ?? '')
@@ -91,7 +91,7 @@ export default function LeadEditInfoModal({
 
     const patch: Partial<Lead> = {
       project_name: projectName.trim() || 'Untitled Lead',
-      customer_id: finalCustomerId,
+      company_id: finalCustomerId,
       customer_name: customerQuery.trim() || null,
       customer_email: finalEmail,
       customer_phone: finalPhone,

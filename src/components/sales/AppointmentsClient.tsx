@@ -264,7 +264,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
       .from('job_walks')
       .insert({
         project_name: company.name,
-        customer_id: customerId,
+        company_id: customerId,
         customer_name: contact
           ? `${contact.first_name} ${contact.last_name}`.trim()
           : company.name,
@@ -336,7 +336,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
     const { data: newProject, error: projErr } = await supabase
       .from('estimating_projects')
       .insert({
-        customer_id: customerId,
+        company_id: customerId,
         name: appt.title || company.name,
         description: appt.notes,
         status: 'active',

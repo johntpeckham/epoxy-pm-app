@@ -1,6 +1,6 @@
 export interface ProjectTakeoffProject {
   id: string
-  customer_id: string
+  company_id: string
   name: string
   description: string | null
   status: string

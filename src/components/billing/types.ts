@@ -5,8 +5,7 @@ export type { Customer, LineItem, ChangeOrder }
 export interface Invoice {
   id: string
   invoice_number: string
-  client_id: string
-  company_id: string | null
+  company_id: string
   project_name: string | null
   line_items: LineItem[]
   subtotal: number

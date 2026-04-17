@@ -83,14 +83,10 @@ export default function ConvertCompanyToLeadModal({
     const phone = primaryContact?.phone ?? null
     const address = primaryAddress ? buildFullAddress(primaryAddress) : null
 
-    // The company itself is the customer in the unified table
-    const customerId = companyId
-
     const { data: newLead, error: leadErr } = await supabase
       .from('leads')
       .insert({
         project_name: projectName.trim(),
-        customer_id: customerId,
         company_id: companyId,
         customer_name: contactName || companyName,
         customer_email: email,
