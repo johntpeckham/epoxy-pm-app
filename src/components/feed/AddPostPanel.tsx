@@ -199,12 +199,12 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     return { time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }
   }
 
-  function tcToggleEmployee(name: string) {
+  function tcToggleEmployee(name: string, profileId?: string) {
     setTcEntries((prev) => {
       const exists = prev.some((e) => e.employee_name === name)
       if (exists) return prev.filter((e) => e.employee_name !== name)
       const defaults = tcGetDefaultTimes()
-      return [...prev, { employee_name: name, ...defaults }]
+      return [...prev, { employee_name: name, employee_profile_id: profileId ?? null, ...defaults }]
     })
   }
 
@@ -213,7 +213,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
     if (!name) return
     if (!tcEntries.some((e) => e.employee_name === name)) {
       const defaults = tcGetDefaultTimes()
-      setTcEntries((prev) => [...prev, { employee_name: name, ...defaults }])
+      setTcEntries((prev) => [...prev, { employee_name: name, employee_profile_id: null, ...defaults }])
     }
     setTcCustomName('')
     setTcShowCustomInput(false)
@@ -298,6 +298,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
       supabase
         .from('employee_profiles')
         .select('*')
+        .eq('is_active', true)
         .order('name', { ascending: true })
         .then(({ data, error }) => {
           if (error) {
@@ -1481,7 +1482,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
                   <button
                     key={emp.id}
                     type="button"
-                    onClick={() => tcToggleEmployee(emp.name)}
+                    onClick={() => tcToggleEmployee(emp.name, emp.id)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                       isSelected
                         ? 'bg-gray-900 text-white border-gray-900'

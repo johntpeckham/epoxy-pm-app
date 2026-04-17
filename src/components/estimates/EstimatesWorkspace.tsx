@@ -168,7 +168,7 @@ function CustomerEstimatesView({
     const { count } = await supabase
       .from('change_orders')
       .select('*', { count: 'exact', head: true })
-      .eq('parent_id', latestEstimate.id)
+      .eq('estimate_id', latestEstimate.id)
     const coNumber = `CO-${(count ?? 0) + 1}`
     const sub = coData.lineItems.reduce((s, item) => {
       const amt = (!item.ft || item.ft === 0) ? (item.rate ?? 0) : (item.ft ?? 0) * (item.rate ?? 0)
@@ -177,6 +177,7 @@ function CustomerEstimatesView({
     await supabase.from('change_orders').insert({
       parent_type: 'estimate',
       parent_id: latestEstimate.id,
+      estimate_id: latestEstimate.id,
       change_order_number: coNumber,
       description: coData.description,
       line_items: coData.lineItems,

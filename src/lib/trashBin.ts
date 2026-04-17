@@ -164,7 +164,7 @@ export async function softDeleteEstimate(
   const { data: estimate } = await supabase.from('estimates').select('*').eq('id', estimateId).single()
   if (!estimate) return { error: 'Estimate not found' }
 
-  const { data: changeOrders } = await supabase.from('change_orders').select('*').eq('parent_id', estimateId)
+  const { data: changeOrders } = await supabase.from('change_orders').select('*').eq('estimate_id', estimateId)
 
   const itemData: Record<string, unknown> = { estimate, change_orders: changeOrders ?? [] }
 
@@ -178,7 +178,7 @@ export async function softDeleteEstimate(
   })
   if (trashErr) return { error: 'Failed to move to trash: ' + trashErr.message }
 
-  await supabase.from('change_orders').delete().eq('parent_id', estimateId)
+  await supabase.from('change_orders').delete().eq('estimate_id', estimateId)
   const { error: deleteErr } = await supabase.from('estimates').delete().eq('id', estimateId)
   if (deleteErr) return { error: 'Trashed but failed to delete: ' + deleteErr.message }
 
@@ -198,7 +198,7 @@ export async function softDeleteInvoice(
   const { data: invoice } = await supabase.from('invoices').select('*').eq('id', invoiceId).single()
   if (!invoice) return { error: 'Invoice not found' }
 
-  const { data: changeOrders } = await supabase.from('change_orders').select('*').eq('parent_id', invoiceId)
+  const { data: changeOrders } = await supabase.from('change_orders').select('*').eq('invoice_id', invoiceId)
 
   const itemData: Record<string, unknown> = { invoice, change_orders: changeOrders ?? [] }
 
@@ -212,7 +212,7 @@ export async function softDeleteInvoice(
   })
   if (trashErr) return { error: 'Failed to move to trash: ' + trashErr.message }
 
-  await supabase.from('change_orders').delete().eq('parent_id', invoiceId)
+  await supabase.from('change_orders').delete().eq('invoice_id', invoiceId)
   const { error: deleteErr } = await supabase.from('invoices').delete().eq('id', invoiceId)
   if (deleteErr) return { error: 'Trashed but failed to delete: ' + deleteErr.message }
 

@@ -208,6 +208,7 @@ export interface ExpenseContent {
 
 export interface TimecardEntry {
   employee_name: string
+  employee_profile_id?: string | null
   time_in: string   // HH:MM format
   time_out: string   // HH:MM format
   lunch_minutes: number
@@ -221,13 +222,6 @@ export interface TimecardContent {
   address: string
   entries: TimecardEntry[]
   grand_total_hours: number
-}
-
-export interface Employee {
-  id: string
-  name: string
-  is_active: boolean
-  created_at: string
 }
 
 export type PostContent = TextContent | PhotoContent | DailyReportContent | TaskContent | PdfContent | JsaReportContent | ReceiptContent | ExpenseContent | TimecardContent
@@ -380,6 +374,7 @@ export interface AssignedTaskCompletion {
 export interface EmployeeProfile {
   id: string
   name: string
+  is_active: boolean
   photo_url: string | null
   role: string | null
   notes: string | null

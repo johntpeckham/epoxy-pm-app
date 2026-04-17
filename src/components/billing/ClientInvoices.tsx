@@ -77,7 +77,7 @@ export default function ClientInvoices({
     const { count } = await supabase
       .from('change_orders')
       .select('*', { count: 'exact', head: true })
-      .eq('parent_id', latestInvoice.id)
+      .eq('invoice_id', latestInvoice.id)
     const coNumber = `CO-${(count ?? 0) + 1}`
     const sub = coData.lineItems.reduce((s, item) => {
       const amt = (!item.ft || item.ft === 0) ? (item.rate ?? 0) : (item.ft ?? 0) * (item.rate ?? 0)
@@ -86,6 +86,7 @@ export default function ClientInvoices({
     await supabase.from('change_orders').insert({
       parent_type: 'invoice',
       parent_id: latestInvoice.id,
+      invoice_id: latestInvoice.id,
       change_order_number: coNumber,
       description: coData.description,
       line_items: coData.lineItems,

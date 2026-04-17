@@ -109,6 +109,7 @@ export default function NewTimecardModal({
       supabase
         .from('employee_profiles')
         .select('*')
+        .eq('is_active', true)
         .order('name', { ascending: true })
         .then(({ data, error }) => {
           if (error) console.error('[NewTimecardModal] Fetch employees failed:', error)
@@ -168,12 +169,12 @@ export default function NewTimecardModal({
     return { time_in: '07:00', time_out: '15:30', lunch_minutes: 30, total_hours: 8 }
   }
 
-  function toggleEmployee(name: string) {
+  function toggleEmployee(name: string, profileId?: string) {
     setEntries((prev) => {
       const exists = prev.some((e) => e.employee_name === name)
       if (exists) return prev.filter((e) => e.employee_name !== name)
       const defaults = getDefaultTimes()
-      return [...prev, { employee_name: name, ...defaults }]
+      return [...prev, { employee_name: name, employee_profile_id: profileId ?? null, ...defaults }]
     })
   }
 
@@ -183,7 +184,7 @@ export default function NewTimecardModal({
     const alreadyExists = entries.some((e) => e.employee_name === name)
     if (!alreadyExists) {
       const defaults = getDefaultTimes()
-      setEntries((prev) => [...prev, { employee_name: name, ...defaults }])
+      setEntries((prev) => [...prev, { employee_name: name, employee_profile_id: null, ...defaults }])
     }
     setCustomName('')
     setShowCustomInput(false)
@@ -460,7 +461,7 @@ export default function NewTimecardModal({
                 <button
                   key={emp.id}
                   type="button"
-                  onClick={() => toggleEmployee(emp.name)}
+                  onClick={() => toggleEmployee(emp.name, emp.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                     isSelected
                       ? 'bg-gray-900 text-white border-gray-900'
