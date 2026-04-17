@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeftIcon, ShieldIcon, CheckIcon, LoaderIcon } from 'lucide-react'
 import type { AccessLevel, RolePermission } from '@/types'
@@ -42,7 +42,6 @@ const ACCESS_OPTIONS: { value: AccessLevel; label: string; color: string; active
 ]
 
 export default function PermissionsClient() {
-  const router = useRouter()
   const [permissions, setPermissions] = useState<RolePermission[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null) // "role:feature" being saved
@@ -110,17 +109,20 @@ export default function PermissionsClient() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <button
-            onClick={() => router.push('/profile')}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+        <div className="mb-8">
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
           >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </button>
-          <ShieldIcon className="w-6 h-6 text-amber-500" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Permissions</h1>
-            <p className="text-sm text-gray-500">Control what each role can access. Admin always has full access.</p>
+            <ArrowLeftIcon className="w-4 h-4" />
+            Settings
+          </Link>
+          <div className="flex items-center gap-3">
+            <ShieldIcon className="w-6 h-6 text-amber-500" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Permissions</h1>
+              <p className="text-sm text-gray-500">Control what each role can access. Admin always has full access.</p>
+            </div>
           </div>
         </div>
 

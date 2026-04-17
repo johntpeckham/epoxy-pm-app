@@ -23,6 +23,7 @@ import {
   ChevronRightIcon,
   ArchiveIcon,
   ArchiveRestoreIcon,
+  ArrowLeftIcon,
 } from 'lucide-react'
 import { useUserRole } from '@/lib/useUserRole'
 import Portal from '@/components/ui/Portal'
@@ -655,8 +656,9 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   if (notFound)
     return (
       <div className="p-8">
-        <Link href="/sales/crm" className="text-xs text-gray-400 hover:text-gray-600">
-          ← Back to CRM
+        <Link href="/sales/crm" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+          <ArrowLeftIcon className="w-4 h-4" />
+          CRM
         </Link>
         <p className="text-sm text-gray-500 mt-4">Company not found.</p>
       </div>
@@ -690,9 +692,10 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         <div className="min-w-0 flex-1">
           <Link
             href="/sales/crm"
-            className="text-xs text-gray-400 hover:text-gray-600"
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
           >
-            ← Back
+            <ArrowLeftIcon className="w-4 h-4" />
+            CRM
           </Link>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <h1 className="text-2xl font-bold text-gray-900 leading-tight truncate">

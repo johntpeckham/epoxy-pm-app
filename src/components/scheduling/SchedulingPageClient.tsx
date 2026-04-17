@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   ArrowLeftIcon,
@@ -122,7 +122,6 @@ export default function SchedulingPageClient({
   publisherNames,
   employees,
 }: Props) {
-  const router = useRouter()
   const [activeWeekISO, setActiveWeekISO] = useState(nextWeekISO)
 
   // Custom week picker state
@@ -422,14 +421,15 @@ export default function SchedulingPageClient({
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-[#1a1a1a]">
       {/* Header */}
-      <div className="flex-none px-6 pt-5 pb-3 border-b border-gray-200 dark:border-[#333] bg-white dark:bg-[#222] flex items-center gap-4">
-        <button
-          onClick={() => router.push('/office')}
-          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] transition"
-          title="Back to Office"
+      <div className="flex-none px-6 pt-4 pb-3 border-b border-gray-200 dark:border-[#333] bg-white dark:bg-[#222]">
+        <Link
+          href="/office"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
         >
-          <ArrowLeftIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-        </button>
+          <ArrowLeftIcon className="w-4 h-4" />
+          Office
+        </Link>
+        <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 flex-1">
           <CalendarIcon className="w-5 h-5 text-amber-500" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Scheduling</h1>
@@ -483,6 +483,7 @@ export default function SchedulingPageClient({
             <UserIcon className="w-4 h-4" />
             Send Individual Schedule
           </button>
+        </div>
         </div>
       </div>
 

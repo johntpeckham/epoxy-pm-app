@@ -10,6 +10,7 @@ import {
   PhoneIcon,
   ChevronDownIcon,
   SearchIcon,
+  ArrowLeftIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { assignNextProjectNumber } from '@/lib/nextProjectNumber'
@@ -403,6 +404,13 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
       {/* Header */}
       <div className="px-7 pt-8 pb-4 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0 flex-1">
+          <Link
+            href="/sales"
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
+          >
+            <ArrowLeftIcon className="w-4 h-4" />
+            Sales
+          </Link>
           <h1 className="text-2xl font-bold text-gray-900 leading-tight">
             Appointments
           </h1>

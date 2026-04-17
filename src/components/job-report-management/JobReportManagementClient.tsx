@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   ArrowLeftIcon,
   FileTextIcon,
@@ -29,24 +29,26 @@ interface JobReportManagementClientProps {
 }
 
 export default function JobReportManagementClient({ userId }: JobReportManagementClientProps) {
-  const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('form-editor')
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={() => router.push('/profile')}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+        <div className="mb-6">
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
           >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </button>
-          <FileTextIcon className="w-6 h-6 text-amber-500" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Job Report Management</h1>
-            <p className="text-sm text-gray-500">Manage the report form, material systems, and checklists for job reports.</p>
+            <ArrowLeftIcon className="w-4 h-4" />
+            Settings
+          </Link>
+          <div className="flex items-center gap-3">
+            <FileTextIcon className="w-6 h-6 text-amber-500" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Job Report Management</h1>
+              <p className="text-sm text-gray-500">Manage the report form, material systems, and checklists for job reports.</p>
+            </div>
           </div>
         </div>
 

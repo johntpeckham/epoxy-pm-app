@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2Icon, RotateCcwIcon } from 'lucide-react'
+import Link from 'next/link'
+import { CheckCircle2Icon, RotateCcwIcon, ArrowLeftIcon } from 'lucide-react'
 import DialerSetup from './DialerSetup'
 import DialerSession from './DialerSession'
 import { type QueuedContact, type SessionStats } from './dialerTypes'
@@ -51,23 +52,31 @@ export default function DialerClient({ userId }: DialerClientProps) {
     setFinalStats(EMPTY_STATS)
   }
 
-  if (mode === 'setup') {
-    return <DialerSetup userId={userId} onStart={startSession} />
-  }
-
-  if (mode === 'session') {
-    return (
-      <DialerSession
-        userId={userId}
-        queue={queue}
-        onEnd={handleEnd}
-        onComplete={handleComplete}
-      />
-    )
-  }
-
-  // Complete
-  return <SessionComplete stats={finalStats} onNewSession={handleNewSession} />
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="px-7 pt-4 flex-shrink-0">
+        <Link
+          href="/sales"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Sales
+        </Link>
+      </div>
+      {mode === 'setup' && <DialerSetup userId={userId} onStart={startSession} />}
+      {mode === 'session' && (
+        <DialerSession
+          userId={userId}
+          queue={queue}
+          onEnd={handleEnd}
+          onComplete={handleComplete}
+        />
+      )}
+      {mode === 'complete' && (
+        <SessionComplete stats={finalStats} onNewSession={handleNewSession} />
+      )}
+    </div>
+  )
 }
 
 function SessionComplete({
