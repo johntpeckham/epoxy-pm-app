@@ -34,8 +34,8 @@ html {
   --dark-border: #3a3a3a;
   --dark-border-subtle: #2e2e2e;
   --dark-border-strong: #3a3a3a;
-  --dark-text-primary: #ffffff;
-  --dark-text-secondary: #f3f4f6;
+  --dark-text-primary: #f3f4f6;
+  --dark-text-secondary: #e5e7eb;
   --dark-text-tertiary: #d4d4d4;
 
   /* Override Tailwind's gray color palette in dark mode so that utilities
@@ -96,14 +96,11 @@ html.dark .border-r-gray-200 { border-right-color: var(--dark-border); }
 html.dark .ring-gray-100,
 html.dark .ring-gray-200 { --tw-ring-color: var(--dark-border); }
 
-/* Text colors — brightened sweep.  The dark theme used to dim body
-   text to #a0a0a0 and tertiary text to #6b6b6b, which made cards,
-   tables, and descriptions hard to read.  Each tier is bumped one step
-   brighter while preserving the heading > body > muted hierarchy:
-     gray-800/900 → primary  (#f5f5f5, near-white headings)
-     gray-400-700 → secondary (#d4d4d4, bright body / table data)
-     gray-200/300 → tertiary  (#a0a0a0, muted helper text)
-   gray-50/100 are explicit overrides so they aren't pulled into the
+/* Dark-mode text colors.  Three-tier hierarchy:
+     gray-800/900/100/50 → primary  (#f3f4f6 ≈ Tailwind gray-100, soft headings)
+     gray-400-700        → secondary (#e5e7eb ≈ Tailwind gray-200, body / data)
+     gray-200/300        → tertiary  (#d4d4d4, muted helper text)
+   gray-50/100 get explicit overrides so they aren't pulled into the
    bg color remap above. */
 html.dark .text-gray-900 { color: var(--dark-text-primary); }
 html.dark .text-gray-800 { color: var(--dark-text-primary); }
@@ -121,19 +118,19 @@ html.dark .placeholder-gray-500::placeholder { color: var(--dark-text-tertiary);
 /* Light-mode text darkening sweep.  Tailwind's defaults render gray-300
    through gray-500 as washed-out grays (#d1d5db..#6b7280) which makes
    body text, table data, timestamps, and descriptions hard to read on
-   white surfaces.  Darken them so they sit at the body / heading level:
-     gray-400..700 → #111827 (gray-900, body text + table data)
+   white surfaces.  Darken them to the body / heading level:
+     gray-400..700 → #374151 (gray-700, body text + table data)
      gray-300      → #4b5563 (gray-600, muted helper text)
-   gray-800/900 are already dark so they're left alone.
+   gray-800/900 are already dark (headings) so they're left alone.
 
    Sidebar exception: the sidebar uses `bg-black` as its surface in both
    themes and relies on muted gray text for nav labels.  Restore the
    original Tailwind values when the gray text sits inside a `bg-black`
    ancestor so the sidebar stays readable. */
-html:not(.dark) .text-gray-700 { color: #111827; }
-html:not(.dark) .text-gray-600 { color: #111827; }
-html:not(.dark) .text-gray-500 { color: #111827; }
-html:not(.dark) .text-gray-400 { color: #111827; }
+html:not(.dark) .text-gray-700 { color: #374151; }
+html:not(.dark) .text-gray-600 { color: #374151; }
+html:not(.dark) .text-gray-500 { color: #374151; }
+html:not(.dark) .text-gray-400 { color: #374151; }
 html:not(.dark) .text-gray-300 { color: #4b5563; }
 html:not(.dark) .placeholder-gray-400::placeholder,
 html:not(.dark) .placeholder-gray-500::placeholder { color: #6b7280; }
