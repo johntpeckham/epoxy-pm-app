@@ -143,13 +143,13 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
       .order('sort_order', { ascending: true }),
     supabase
       .from('crm_call_log')
-      .select('id, company_id, outcome, notes, call_date, created_by, crm_companies(name)')
+      .select('id, company_id, outcome, notes, call_date, created_by, companies(name)')
       .gte('call_date', todayStart)
       .lte('call_date', todayEnd)
       .order('call_date', { ascending: false }),
     supabase
       .from('crm_appointments')
-      .select('id, title, date, status, assigned_to, created_by, created_at, crm_companies(name)')
+      .select('id, title, date, status, assigned_to, created_by, created_at, companies(name)')
       .gte('created_at', todayStart)
       .lte('created_at', todayEnd)
       .order('created_at', { ascending: false }),
@@ -186,7 +186,7 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
       notes: string | null
       call_date: string
       created_by: string | null
-      crm_companies: { name: string } | null
+      companies: { name: string } | null
     }
     return {
       id: r.id,
@@ -195,7 +195,7 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
       notes: r.notes,
       call_date: r.call_date,
       created_by: r.created_by,
-      company_name: r.crm_companies?.name ?? null,
+      company_name: r.companies?.name ?? null,
       user_name: r.created_by ? profileById.get(r.created_by)?.display_name ?? null : null,
     }
   })
@@ -209,7 +209,7 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
       assigned_to: string | null
       created_by: string | null
       created_at: string
-      crm_companies: { name: string } | null
+      companies: { name: string } | null
     }
     return {
       id: r.id,
@@ -219,7 +219,7 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
       assigned_to: r.assigned_to,
       created_by: r.created_by,
       created_at: r.created_at,
-      company_name: r.crm_companies?.name ?? null,
+      company_name: r.companies?.name ?? null,
       user_name: r.created_by ? profileById.get(r.created_by)?.display_name ?? null : null,
     }
   })

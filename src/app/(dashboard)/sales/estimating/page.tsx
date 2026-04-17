@@ -30,9 +30,9 @@ export default async function SalesEstimatingPage() {
   }
 
   const { data: customers } = await supabase
-    .from('customers')
+    .from('companies')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('archived', false)
     .order('name', { ascending: true })
 
   return (

@@ -86,9 +86,9 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     async function fetchCustomers() {
       const supabase = createClient()
       const { data } = await supabase
-        .from('customers')
+        .from('companies')
         .select('*')
-        .eq('user_id', userId)
+        .eq('archived', false)
         .order('name', { ascending: true })
       if (data) setCustomers(data as Customer[])
     }

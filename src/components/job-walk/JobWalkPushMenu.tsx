@@ -154,22 +154,22 @@ function PushToEstimatingModal({
     const supabase = createClient()
     const baseName = walk.customer_name ?? walk.project_name ?? 'New customer'
     const { data: existing } = await supabase
-      .from('customers')
+      .from('companies')
       .select('id')
-      .eq('user_id', userId)
+      .eq('archived', false)
       .eq('name', baseName)
       .limit(1)
     if (existing && existing.length > 0) {
       return (existing[0] as { id: string }).id
     }
     const { data: created, error: custErr } = await supabase
-      .from('customers')
+      .from('companies')
       .insert({
-        user_id: userId,
         name: baseName,
         email: walk.customer_email,
         phone: walk.customer_phone,
         address: walk.address,
+        archived: false,
       })
       .select('id')
       .single()

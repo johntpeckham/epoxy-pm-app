@@ -145,8 +145,9 @@ export default function ExistingCustomersView({
       { data: companyTagRows },
     ] = await Promise.all([
       supabase
-        .from('customers')
-        .select('id, name, company, email, phone, city, state, created_at'),
+        .from('companies')
+        .select('id, name, company, email, phone, city, state, created_at')
+        .eq('archived', false),
       supabase
         .from('estimates')
         .select('id, customer_id, total, status, created_at'),

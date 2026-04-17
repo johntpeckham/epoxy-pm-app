@@ -548,8 +548,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   useEffect(() => {
     if (showCreateNewJob) {
       supabase
-        .from('customers')
+        .from('companies')
         .select('id, name, company')
+        .eq('archived', false)
         .order('name', { ascending: true })
         .then(({ data }) => {
           if (data) setNewJobCustomers(data)

@@ -83,39 +83,8 @@ export default function ConvertCompanyToLeadModal({
     const phone = primaryContact?.phone ?? null
     const address = primaryAddress ? buildFullAddress(primaryAddress) : null
 
-    // Find or create customer for this company
-    let customerId: string | null = null
-    const { data: existing } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('company', companyName)
-      .limit(1)
-      .maybeSingle()
-    if (existing) {
-      customerId = (existing as { id: string }).id
-    } else {
-      const { data: newCust, error: custErr } = await supabase
-        .from('customers')
-        .insert({
-          name: contactName || companyName,
-          company: companyName,
-          email,
-          phone,
-          address: primaryAddress?.address ?? null,
-          city: primaryAddress?.city ?? companyCity,
-          state: primaryAddress?.state ?? companyState,
-          zip: primaryAddress?.zip ?? null,
-          user_id: userId,
-        })
-        .select('id')
-        .single()
-      if (custErr || !newCust) {
-        setSaving(false)
-        setError(`Customer create failed: ${custErr?.message ?? 'unknown error'}`)
-        return
-      }
-      customerId = (newCust as { id: string }).id
-    }
+    // The company itself is the customer in the unified table
+    const customerId = companyId
 
     const { data: newLead, error: leadErr } = await supabase
       .from('leads')

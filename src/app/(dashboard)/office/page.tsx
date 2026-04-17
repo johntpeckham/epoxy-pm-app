@@ -123,9 +123,9 @@ export default async function OfficePage() {
     supabase.from('material_suppliers').select('id', { count: 'exact', head: true }),
     supabase.from('inventory_products').select('id', { count: 'exact', head: true }),
     supabase
-      .from('customers')
+      .from('companies')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id),
+      .eq('archived', false),
     supabase.from('vendors').select('id', { count: 'exact', head: true }),
   ])
   const supplierCount = supplierCountRaw ?? 0

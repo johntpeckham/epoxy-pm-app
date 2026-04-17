@@ -256,58 +256,8 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
     }
     const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
 
-    // Step 1: find-or-create customer for this company
-    let customerId: string | null = null
-    const { data: existingCustomer } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('company', company.name)
-      .limit(1)
-      .maybeSingle()
-    if (existingCustomer) {
-      customerId = (existingCustomer as { id: string }).id
-    } else {
-      const contactName = contact
-        ? `${contact.first_name} ${contact.last_name}`.trim()
-        : company.name
-      // Look up a primary address for the company
-      const { data: addrRows } = await supabase
-        .from('crm_company_addresses')
-        .select('address, city, state, zip, is_primary')
-        .eq('company_id', company.id)
-        .order('is_primary', { ascending: false })
-        .limit(1)
-      const addr = (addrRows ?? [])[0] as
-        | {
-            address: string
-            city: string | null
-            state: string | null
-            zip: string | null
-          }
-        | undefined
-      const { data: newCustomer, error: custErr } = await supabase
-        .from('customers')
-        .insert({
-          name: contactName || company.name,
-          company: company.name,
-          email: contact?.email ?? null,
-          phone: contact?.phone ?? null,
-          address: addr?.address ?? null,
-          city: addr?.city ?? company.city ?? null,
-          state: addr?.state ?? company.state ?? null,
-          zip: addr?.zip ?? null,
-          user_id: userId,
-        })
-        .select('id')
-        .single()
-      if (custErr || !newCustomer) {
-        setPushing(false)
-        setPushTargetAppt(null)
-        showToast(`Customer create failed: ${custErr?.message ?? 'unknown error'}`)
-        return
-      }
-      customerId = (newCustomer as { id: string }).id
-    }
+    // Step 1: the company itself is the customer in the unified table
+    const customerId = company.id
 
     // Step 2: create a job walk
     const { data: newWalk, error: walkErr } = await supabase
@@ -378,57 +328,8 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
     }
     const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
 
-    // Step 1: find-or-create customer for this company
-    let customerId: string | null = null
-    const { data: existingCustomer } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('company', company.name)
-      .limit(1)
-      .maybeSingle()
-    if (existingCustomer) {
-      customerId = (existingCustomer as { id: string }).id
-    } else {
-      const contactName = contact
-        ? `${contact.first_name} ${contact.last_name}`.trim()
-        : company.name
-      const { data: addrRows } = await supabase
-        .from('crm_company_addresses')
-        .select('address, city, state, zip, is_primary')
-        .eq('company_id', company.id)
-        .order('is_primary', { ascending: false })
-        .limit(1)
-      const addr = (addrRows ?? [])[0] as
-        | {
-            address: string
-            city: string | null
-            state: string | null
-            zip: string | null
-          }
-        | undefined
-      const { data: newCustomer, error: custErr } = await supabase
-        .from('customers')
-        .insert({
-          name: contactName || company.name,
-          company: company.name,
-          email: contact?.email ?? null,
-          phone: contact?.phone ?? null,
-          address: addr?.address ?? null,
-          city: addr?.city ?? company.city ?? null,
-          state: addr?.state ?? company.state ?? null,
-          zip: addr?.zip ?? null,
-          user_id: userId,
-        })
-        .select('id')
-        .single()
-      if (custErr || !newCustomer) {
-        setPushing(false)
-        setPushEstimatingAppt(null)
-        showToast(`Customer create failed: ${custErr?.message ?? 'unknown error'}`)
-        return
-      }
-      customerId = (newCustomer as { id: string }).id
-    }
+    // Step 1: the company itself is the customer in the unified table
+    const customerId = company.id
 
     // Step 2: create an estimating project
     const projectNumber = await assignNextProjectNumber(supabase, userId)
