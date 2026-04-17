@@ -44,7 +44,7 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: "/estimating/project-takeoff",
+        source: "/job-takeoff",
         destination: "/sales/estimating",
         permanent: false,
       },

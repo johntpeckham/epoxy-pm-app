@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { RulerIcon, MonitorIcon } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { RulerIcon, MonitorIcon, ArrowLeftIcon } from 'lucide-react'
 import TakeoffProjectList from '@/components/takeoff/TakeoffProjectList'
 import TakeoffDashboard from '@/components/takeoff/TakeoffDashboard'
 import TakeoffViewer from '@/components/takeoff/TakeoffViewer'
@@ -13,13 +14,9 @@ import type {
   SerializedTakeoffProject,
 } from '@/components/takeoff/types'
 
-const LS_KEY = 'takeoff-projects'
-
 function genId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
-
-// ─── Base64 ↔ ArrayBuffer helpers ───
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
@@ -38,8 +35,6 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   }
   return bytes.buffer
 }
-
-// ─── Serialization helpers ───
 
 function serializeProjects(projects: TakeoffProject[]): string {
   const serialized: SerializedTakeoffProject[] = projects.map((p) => ({
@@ -88,8 +83,12 @@ function deserializeProjects(json: string): TakeoffProject[] {
   }
 }
 
-export default function JobTakeoffPage() {
-  // ─── Mobile detection ───
+export default function MeasurementToolPage() {
+  const params = useParams()
+  const router = useRouter()
+  const projectId = params.id as string
+  const lsKey = `takeoff-projects-${projectId}`
+
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -100,8 +99,10 @@ export default function JobTakeoffPage() {
 
   const [projects, setProjects] = useState<TakeoffProject[]>(() => {
     if (typeof window === 'undefined') return []
-    const saved = localStorage.getItem(LS_KEY)
-    return saved ? deserializeProjects(saved) : []
+    const saved = localStorage.getItem(lsKey)
+    if (saved) return deserializeProjects(saved)
+    const legacy = localStorage.getItem('takeoff-projects')
+    return legacy ? deserializeProjects(legacy) : []
   })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -110,8 +111,6 @@ export default function JobTakeoffPage() {
 
   const selectedProject = projects.find((p) => p.id === selectedId) ?? null
 
-  // ─── Persist to localStorage on every change ───
-
   const isInitialMount = useRef(true)
   useEffect(() => {
     if (isInitialMount.current) {
@@ -119,13 +118,11 @@ export default function JobTakeoffPage() {
       return
     }
     try {
-      localStorage.setItem(LS_KEY, serializeProjects(projects))
+      localStorage.setItem(lsKey, serializeProjects(projects))
     } catch {
       // localStorage full or unavailable
     }
-  }, [projects])
-
-  // ─── Project CRUD ───
+  }, [projects, lsKey])
 
   function handleAddProject(name: string) {
     const newProject: TakeoffProject = {
@@ -165,8 +162,6 @@ export default function JobTakeoffPage() {
     setActivePage(null)
   }
 
-  // ─── Update selected project fields ───
-
   const updateSelected = useCallback(
     (updates: Partial<TakeoffProject>) => {
       if (!selectedId) return
@@ -176,8 +171,6 @@ export default function JobTakeoffPage() {
     },
     [selectedId]
   )
-
-  // ─── Dashboard handlers ───
 
   const handleAddPages = useCallback(
     (newPages: TakeoffPage[]) => {
@@ -222,8 +215,6 @@ export default function JobTakeoffPage() {
     setViewMode('dashboard')
     setActivePage(null)
   }, [])
-
-  // ─── Viewer handlers ───
 
   const handlePageScaleChange = useCallback(
     (pixelsPerFoot: number) => {
@@ -278,8 +269,6 @@ export default function JobTakeoffPage() {
     setIsFullscreen((prev) => !prev)
   }, [])
 
-  // ─── Column 3 content ───
-
   let column3Content: React.ReactNode
 
   if (!selectedProject) {
@@ -289,13 +278,12 @@ export default function JobTakeoffPage() {
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <RulerIcon className="w-7 h-7 text-gray-400" />
           </div>
-          <p className="text-gray-400 text-sm">Select a project to view the takeoff</p>
+          <p className="text-gray-400 text-sm">Select a project to view measurements</p>
         </div>
       </div>
     )
   } else if (viewMode === 'viewer' && activePage) {
     const pageKey = `${activePage.pdfIndex}-${activePage.pageIndex}`
-    // Find the latest page data (may have been re-uploaded since activePage was set)
     const latestPage = selectedProject.pages.find(
       (p) => p.pdfIndex === activePage.pdfIndex && p.pageIndex === activePage.pageIndex
     ) ?? activePage
@@ -336,11 +324,8 @@ export default function JobTakeoffPage() {
     )
   }
 
-  // ─── Viewer overlay (covers columns 2+3, leaves left nav visible) ───
-
   const showViewerOverlay = viewMode === 'viewer' && activePage && selectedProject
 
-  // ─── Mobile block ───
   if (isMobile) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50 p-6">
@@ -350,14 +335,12 @@ export default function JobTakeoffPage() {
           </div>
           <h2 className="text-lg font-bold text-gray-900 mb-2">Desktop Only Feature</h2>
           <p className="text-sm text-gray-500 leading-relaxed">
-            Measurements is designed for desktop use. Please open this page on a desktop or laptop for the best experience.
+            The Measurement Tool is designed for desktop use. Please open this page on a desktop or laptop for the best experience.
           </p>
         </div>
       </div>
     )
   }
-
-  // ─── Fullscreen mode ───
 
   if (isFullscreen && showViewerOverlay) {
     return (
@@ -368,27 +351,43 @@ export default function JobTakeoffPage() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden w-full max-w-full">
-      <TakeoffProjectList
-        projects={projects}
-        selectedId={selectedId}
-        onSelect={handleSelectProject}
-        onAdd={handleAddProject}
-        onDelete={handleDeleteProject}
-        onRename={handleRenameProject}
-      />
-      <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
-        {!showViewerOverlay && column3Content}
+    <div className="flex flex-col h-full overflow-hidden w-full max-w-full">
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-white border-b border-gray-200 flex-shrink-0">
+        <button
+          onClick={() => router.push(`/sales/estimating?project=${projectId}`)}
+          className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-amber-600 transition-colors"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Back to Project
+        </button>
+        <div className="h-4 w-px bg-gray-200" />
+        <div className="flex items-center gap-1.5">
+          <RulerIcon className="w-4 h-4 text-amber-500" />
+          <span className="text-sm font-semibold text-gray-900">Measurement Tool</span>
+        </div>
       </div>
 
-      {/* Viewer overlay — fixed, starts after left nav (w-56 = 224px on lg) */}
-      {showViewerOverlay && (
-        <div
-          className="fixed top-0 bottom-0 right-0 left-0 lg:left-56 z-40 bg-white flex flex-col"
-        >
-          {column3Content}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <TakeoffProjectList
+          projects={projects}
+          selectedId={selectedId}
+          onSelect={handleSelectProject}
+          onAdd={handleAddProject}
+          onDelete={handleDeleteProject}
+          onRename={handleRenameProject}
+        />
+        <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
+          {!showViewerOverlay && column3Content}
         </div>
-      )}
+
+        {showViewerOverlay && (
+          <div
+            className="fixed top-0 bottom-0 right-0 left-0 lg:left-56 z-40 bg-white flex flex-col"
+          >
+            {column3Content}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
