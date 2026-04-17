@@ -455,7 +455,7 @@ function PushToEstimatingModal({
         source: 'lead',
         source_ref_id: lead.id,
         measurements: measurementsText,
-        pipeline_stage: 'Lead',
+        pipeline_stage: 'lead',
         project_number: projectNumber,
         created_by: userId,
       })
@@ -472,7 +472,7 @@ function PushToEstimatingModal({
     await supabase.from('pipeline_history').insert({
       project_id: projectId,
       from_stage: null,
-      to_stage: 'Lead',
+      to_stage: 'lead',
       changed_by: userId,
     })
 

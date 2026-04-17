@@ -342,7 +342,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
         status: 'active',
         source: 'appointment',
         source_ref_id: appt.id,
-        pipeline_stage: 'Estimating',
+        pipeline_stage: 'estimating',
         project_number: projectNumber,
         created_by: userId,
       })
@@ -359,7 +359,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
     await supabase.from('pipeline_history').insert({
       project_id: projectId,
       from_stage: null,
-      to_stage: 'Estimating',
+      to_stage: 'estimating',
       changed_by: userId,
     })
 

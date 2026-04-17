@@ -391,21 +391,21 @@ export default function EstimateEditor({
     setConverting(false)
   }
 
-  async function moveToTerminalStage(target: 'Won' | 'Lost') {
+  async function moveToTerminalStage(targetSlug: 'won' | 'lost') {
     if (!project) return
     const supabase = createClient()
     const fromStage = project.pipeline_stage
-    if (fromStage === target) return
+    if (fromStage === targetSlug) return
     const { data: stagesData } = await supabase
       .from('pipeline_stages')
       .select('*')
       .order('display_order', { ascending: true })
     const stages = (stagesData as PipelineStage[]) ?? []
-    if (!stages.some((s) => s.name === target)) return
+    if (!stages.some((s) => s.slug === targetSlug)) return
 
-    const projectPatch: Partial<EstimatingProject> = { pipeline_stage: target }
-    if (target === 'Won') projectPatch.status = 'completed'
-    if (target === 'Lost') projectPatch.status = 'on_hold'
+    const projectPatch: Partial<EstimatingProject> = { pipeline_stage: targetSlug }
+    if (targetSlug === 'won') projectPatch.status = 'completed'
+    if (targetSlug === 'lost') projectPatch.status = 'on_hold'
     await supabase
       .from('estimating_projects')
       .update(projectPatch)
@@ -413,7 +413,7 @@ export default function EstimateEditor({
     await supabase.from('pipeline_history').insert({
       project_id: project.id,
       from_stage: fromStage,
-      to_stage: target,
+      to_stage: targetSlug,
       changed_by: userId,
     })
     setProject({ ...project, ...projectPatch })
@@ -438,7 +438,7 @@ export default function EstimateEditor({
       .eq('id', estimateIdRef.current)
     setStatus('Accepted')
     setAcceptedAt(now)
-    await moveToTerminalStage('Won')
+    await moveToTerminalStage('won')
     await completePendingReminders()
     onUpdated()
   }
@@ -452,7 +452,7 @@ export default function EstimateEditor({
       .eq('id', estimateIdRef.current)
     setStatus('Declined')
     setDeclinedAt(now)
-    await moveToTerminalStage('Lost')
+    await moveToTerminalStage('lost')
     await completePendingReminders()
     onUpdated()
   }

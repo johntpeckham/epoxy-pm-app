@@ -67,6 +67,7 @@ export interface PipelineStageNotificationRules {
 
 export interface PipelineStage {
   id: string
+  slug: string
   name: string
   display_order: number
   color: string
@@ -116,4 +117,4 @@ export interface ReminderRule {
   created_at: string
 }
 
-export const SYSTEM_STAGES = ['Won', 'Lost'] as const
+export const SYSTEM_STAGES = ['won', 'lost'] as const

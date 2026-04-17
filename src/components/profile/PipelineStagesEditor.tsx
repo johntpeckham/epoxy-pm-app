@@ -59,13 +59,17 @@ const AUTO_ADVANCE_OPTIONS: {
   { value: 'estimate_declined', label: 'When estimate declined' },
 ]
 
+function toSlug(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+}
+
 interface DraftStage {
   id: string
+  slug: string | null
   name: string
   color: string
   is_active: boolean
   is_default: boolean
-  original_name: string | null
   automation_rules: PipelineStageAutomationRules
   isNew?: boolean
   isDeleted?: boolean
@@ -104,11 +108,11 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
     setDrafts(
       rows.map((s) => ({
         id: s.id,
+        slug: s.slug,
         name: s.name,
         color: s.color,
         is_active: s.is_active,
         is_default: s.is_default,
-        original_name: s.name,
         automation_rules: s.automation_rules ?? {},
       }))
     )
@@ -167,11 +171,11 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
       ...prev,
       {
         id,
+        slug: null,
         name: 'New Stage',
         color: '#F59E0B',
         is_active: true,
         is_default: false,
-        original_name: null,
         automation_rules: {},
         isNew: true,
       },
@@ -179,7 +183,7 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
   }
 
   async function requestDelete(draft: DraftStage) {
-    if (SYSTEM_STAGES.includes(draft.name as (typeof SYSTEM_STAGES)[number])) {
+    if (draft.slug && SYSTEM_STAGES.includes(draft.slug as (typeof SYSTEM_STAGES)[number])) {
       setError(`Cannot delete system stage "${draft.name}".`)
       return
     }
@@ -191,7 +195,7 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
     const { count } = await supabase
       .from('estimating_projects')
       .select('id', { count: 'exact', head: true })
-      .eq('pipeline_stage', draft.original_name ?? draft.name)
+      .eq('pipeline_stage', draft.slug!)
     if ((count ?? 0) > 0) {
       setConfirmDelete({ draft, count: count ?? 0 })
       return
@@ -206,22 +210,6 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
 
     try {
       const ordered = drafts.filter((d) => !d.isDeleted)
-
-      const renames = ordered
-        .filter(
-          (d) =>
-            !d.isNew &&
-            d.original_name &&
-            d.original_name !== d.name.trim()
-        )
-        .map((d) => ({ from: d.original_name as string, to: d.name.trim() }))
-
-      for (const r of renames) {
-        await supabase
-          .from('estimating_projects')
-          .update({ pipeline_stage: r.to })
-          .eq('pipeline_stage', r.from)
-      }
 
       const deletedIds = drafts.filter((d) => d.isDeleted && !d.isNew).map((d) => d.id)
       if (deletedIds.length > 0) {
@@ -239,7 +227,7 @@ export default function PipelineStagesEditor({ onClose }: PipelineStagesEditorPr
           automation_rules: d.automation_rules,
         }
         if (d.isNew) {
-          await supabase.from('pipeline_stages').insert(row)
+          await supabase.from('pipeline_stages').insert({ ...row, slug: toSlug(d.name.trim()) })
         } else {
           await supabase.from('pipeline_stages').update(row).eq('id', d.id)
         }
@@ -401,8 +389,8 @@ function SortableStageRow({
     isDragging,
   } = useSortable({ id: draft.id })
 
-  const isSystem = SYSTEM_STAGES.includes(
-    draft.name as (typeof SYSTEM_STAGES)[number]
+  const isSystem = draft.slug != null && SYSTEM_STAGES.includes(
+    draft.slug as (typeof SYSTEM_STAGES)[number]
   )
 
   const style = {

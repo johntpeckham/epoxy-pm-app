@@ -142,7 +142,7 @@ export default function NewProjectModal({
         description: description.trim() || null,
         status: 'active',
         source: 'manual',
-        pipeline_stage: 'Estimating',
+        pipeline_stage: 'estimating',
         project_number: assignedNumber,
         created_by: userId,
       })
@@ -167,7 +167,7 @@ export default function NewProjectModal({
     await supabase.from('pipeline_history').insert({
       project_id: created.id,
       from_stage: null,
-      to_stage: 'Estimating',
+      to_stage: 'estimating',
       changed_by: userId,
     })
     setSaving(false)

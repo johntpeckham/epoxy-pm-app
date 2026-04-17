@@ -83,23 +83,23 @@ export default function SendEstimateModal({
         .select('*')
         .order('display_order', { ascending: true })
       const stages = (stagesData as PipelineStage[]) ?? []
-      const targetIdx = stages.findIndex((s) => s.name === 'Estimate Sent')
-      const currentIdx = stages.findIndex((s) => s.name === project.pipeline_stage)
+      const targetIdx = stages.findIndex((s) => s.slug === 'estimate_sent')
+      const currentIdx = stages.findIndex((s) => s.slug === project.pipeline_stage)
       let pipelinePatch: Partial<EstimatingProject> | undefined
       if (targetIdx >= 0 && (currentIdx < 0 || currentIdx < targetIdx)) {
         const fromStage = project.pipeline_stage
         const { error: projErr } = await supabase
           .from('estimating_projects')
-          .update({ pipeline_stage: 'Estimate Sent' })
+          .update({ pipeline_stage: 'estimate_sent' })
           .eq('id', project.id)
         if (projErr) throw projErr
         await supabase.from('pipeline_history').insert({
           project_id: project.id,
           from_stage: fromStage,
-          to_stage: 'Estimate Sent',
+          to_stage: 'estimate_sent',
           changed_by: userId,
         })
-        pipelinePatch = { pipeline_stage: 'Estimate Sent' }
+        pipelinePatch = { pipeline_stage: 'estimate_sent' }
       }
 
       // 3. Auto-create reminders from active rules (skip duplicates)

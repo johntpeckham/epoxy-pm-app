@@ -183,21 +183,20 @@ export default function ProjectEstimatesCard({
       .eq('status', 'pending')
   }
 
-  async function moveToTerminalStage(target: 'Won' | 'Lost') {
+  async function moveToTerminalStage(targetSlug: 'won' | 'lost') {
     const supabase = createClient()
     const fromStage = project.pipeline_stage
-    if (fromStage === target) return
+    if (fromStage === targetSlug) return
     const { data: stagesData } = await supabase
       .from('pipeline_stages')
       .select('*')
       .order('display_order', { ascending: true })
     const stages = (stagesData as PipelineStage[]) ?? []
-    const targetExists = stages.some((s) => s.name === target)
-    if (!targetExists) return
+    if (!stages.some((s) => s.slug === targetSlug)) return
 
-    const projectPatch: Partial<EstimatingProject> = { pipeline_stage: target }
-    if (target === 'Won') projectPatch.status = 'completed'
-    if (target === 'Lost') projectPatch.status = 'on_hold'
+    const projectPatch: Partial<EstimatingProject> = { pipeline_stage: targetSlug }
+    if (targetSlug === 'won') projectPatch.status = 'completed'
+    if (targetSlug === 'lost') projectPatch.status = 'on_hold'
     await supabase
       .from('estimating_projects')
       .update(projectPatch)
@@ -205,7 +204,7 @@ export default function ProjectEstimatesCard({
     await supabase.from('pipeline_history').insert({
       project_id: project.id,
       from_stage: fromStage,
-      to_stage: target,
+      to_stage: targetSlug,
       changed_by: userId,
     })
     onPatch(projectPatch)
@@ -217,7 +216,7 @@ export default function ProjectEstimatesCard({
     const patch: Partial<Estimate> = { status: 'Accepted', accepted_at: now }
     await supabase.from('estimates').update(patch).eq('id', e.id)
     patchLocal(e.id, patch)
-    await moveToTerminalStage('Won')
+    await moveToTerminalStage('won')
     await completePendingReminders()
   }
 
@@ -227,7 +226,7 @@ export default function ProjectEstimatesCard({
     const patch: Partial<Estimate> = { status: 'Declined', declined_at: now }
     await supabase.from('estimates').update(patch).eq('id', e.id)
     patchLocal(e.id, patch)
-    await moveToTerminalStage('Lost')
+    await moveToTerminalStage('lost')
     await completePendingReminders()
   }
 
