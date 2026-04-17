@@ -13,6 +13,8 @@ import SundriesTab from './tabs/SundriesTab'
 import TravelTab from './tabs/TravelTab'
 import ConfirmedMeasurementsCard from './ConfirmedMeasurementsCard'
 import MeasurementReferences from './tabs/MeasurementReferences'
+import AddModuleButton from './AddModuleButton'
+import CpiCalculatorCard from './CpiCalculatorCard'
 
 const TABS = [
   { key: 'summary', label: 'Summary' },
@@ -43,6 +45,17 @@ export default function TakeoffDetailClient({
 }: TakeoffDetailClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('summary')
+  const [sidebarModules, setSidebarModules] = useState<string[]>(
+    () => (takeoff as unknown as Record<string, unknown>).sidebar_modules as string[] ?? []
+  )
+
+  function handleAddModule(moduleId: string) {
+    setSidebarModules((prev) => [...prev, moduleId])
+  }
+
+  function handleRemoveModule(moduleId: string) {
+    setSidebarModules((prev) => prev.filter((m) => m !== moduleId))
+  }
 
   function handleBack() {
     router.push(
@@ -100,6 +113,10 @@ export default function TakeoffDetailClient({
           <div className="lg:hidden space-y-3">
             <ConfirmedMeasurementsCard />
             {activeTab === 'areas' && <MeasurementReferences />}
+            {sidebarModules.includes('cpi_calculator') && (
+              <CpiCalculatorCard onRemove={() => handleRemoveModule('cpi_calculator')} />
+            )}
+            <AddModuleButton activeModules={sidebarModules} onAddModule={handleAddModule} />
           </div>
 
           {/* Left column: tab content */}
@@ -118,6 +135,10 @@ export default function TakeoffDetailClient({
             <div className="sticky top-4 space-y-3">
               <ConfirmedMeasurementsCard />
               {activeTab === 'areas' && <MeasurementReferences />}
+              {sidebarModules.includes('cpi_calculator') && (
+                <CpiCalculatorCard onRemove={() => handleRemoveModule('cpi_calculator')} />
+              )}
+              <AddModuleButton activeModules={sidebarModules} onAddModule={handleAddModule} />
             </div>
           </div>
         </div>
