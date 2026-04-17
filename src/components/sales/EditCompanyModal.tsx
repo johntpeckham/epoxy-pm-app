@@ -101,7 +101,7 @@ export default function EditCompanyModal({
     setError(null)
     const supabase = createClient()
     const { error: err } = await supabase
-      .from('crm_companies')
+      .from('companies')
       .update({
         name: name.trim(),
         industry: industry.trim() || null,

@@ -213,7 +213,7 @@ export default function ImportCsvModal({
     }
     // Load existing companies once.
     const { data: existingCompanies } = await supabase
-      .from('crm_companies')
+      .from('companies')
       .select('id, name')
       .order('name', { ascending: true })
     const candidates = (existingCompanies ?? []) as { id: string; name: string }[]
@@ -292,9 +292,10 @@ export default function ImportCsvModal({
               Object.keys(r.mapped.extras).length > 0 ? r.mapped.extras : null,
             import_batch_id: batchId,
             created_by: userId,
+            archived: false,
           }))
           const { data: inserted, error: insertErr } = await supabase
-            .from('crm_companies')
+            .from('companies')
             .insert(companyPayload)
             .select('id, name')
           if (insertErr) throw insertErr
@@ -333,7 +334,7 @@ export default function ImportCsvModal({
           }
           if (contactPayload.length > 0) {
             const { error: cerr } = await supabase
-              .from('crm_contacts')
+              .from('contacts')
               .insert(contactPayload)
             if (cerr) throw cerr
             createdContacts += contactPayload.length
@@ -351,7 +352,7 @@ export default function ImportCsvModal({
           const targetId = row.mergeTargetId!
           // Contact (if present)
           if (row.mapped.contact_first_name || row.mapped.contact_last_name) {
-            const { error: cerr } = await supabase.from('crm_contacts').insert({
+            const { error: cerr } = await supabase.from('contacts').insert({
               company_id: targetId,
               first_name: row.mapped.contact_first_name || '',
               last_name: row.mapped.contact_last_name || '',
@@ -381,7 +382,7 @@ export default function ImportCsvModal({
           // Merge extras into existing import_metadata
           if (Object.keys(row.mapped.extras).length > 0) {
             const { data: existing } = await supabase
-              .from('crm_companies')
+              .from('companies')
               .select('import_metadata')
               .eq('id', targetId)
               .maybeSingle()
@@ -391,7 +392,7 @@ export default function ImportCsvModal({
             >
             const nextMeta = { ...existingMeta, ...row.mapped.extras }
             await supabase
-              .from('crm_companies')
+              .from('companies')
               .update({ import_metadata: nextMeta })
               .eq('id', targetId)
           }
