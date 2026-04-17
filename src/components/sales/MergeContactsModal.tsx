@@ -73,7 +73,7 @@ export default function MergeContactsModal({
     async function load() {
       setLoading(true)
       const { data, error: err } = await supabase
-        .from('crm_contacts')
+        .from('contacts')
         .select('id, company_id, first_name, last_name, job_title, email, phone, is_primary')
         .in('id', [contactIdA, contactIdB])
       if (cancelled) return
@@ -117,7 +117,7 @@ export default function MergeContactsModal({
         update[f] = valueFor(src, f)
       }
       const { error: upErr } = await supabase
-        .from('crm_contacts')
+        .from('contacts')
         .update(update)
         .eq('id', survivingId)
       if (upErr) throw upErr
@@ -145,7 +145,7 @@ export default function MergeContactsModal({
 
       // Delete losing contact
       const { error: delErr } = await supabase
-        .from('crm_contacts')
+        .from('contacts')
         .delete()
         .eq('id', losingId)
       if (delErr) throw delErr

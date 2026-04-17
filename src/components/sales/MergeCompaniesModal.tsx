@@ -103,7 +103,7 @@ export default function MergeCompaniesModal({
     async function load() {
       setLoading(true)
       const { data, error: err } = await supabase
-        .from('crm_companies')
+        .from('companies')
         .select(
           'id, name, industry, zone, region, state, county, city, status, priority, lead_source, deal_value, assigned_to, notes, import_metadata'
         )
@@ -159,14 +159,14 @@ export default function MergeCompaniesModal({
       if (Object.keys(mergedMeta).length > 0) update.import_metadata = mergedMeta
 
       const { error: upErr } = await supabase
-        .from('crm_companies')
+        .from('companies')
         .update(update)
         .eq('id', survivingId)
       if (upErr) throw upErr
 
       // Move related rows from losing to surviving.
       const relocateTables: [string, string][] = [
-        ['crm_contacts', 'company_id'],
+        ['contacts', 'company_id'],
         ['crm_company_addresses', 'company_id'],
         ['crm_company_tags', 'company_id'],
         ['crm_call_log', 'company_id'],
@@ -185,7 +185,7 @@ export default function MergeCompaniesModal({
 
       // Delete the losing company.
       const { error: delErr } = await supabase
-        .from('crm_companies')
+        .from('companies')
         .delete()
         .eq('id', losingId)
       if (delErr) throw delErr

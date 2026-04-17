@@ -21,7 +21,10 @@ import {
   BellIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  ArchiveIcon,
+  ArchiveRestoreIcon,
 } from 'lucide-react'
+import { useUserRole } from '@/lib/useUserRole'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import NewContactModal, { type ContactForModal } from './NewContactModal'
@@ -33,7 +36,7 @@ import NewReminderModal from './NewReminderModal'
 import MergeContactsModal from './MergeContactsModal'
 import ConvertCompanyToLeadModal from './leads/ConvertCompanyToLeadModal'
 
-type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
+type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
 interface Company {
@@ -52,6 +55,9 @@ interface Company {
   assigned_to: string | null
   notes: string | null
   import_metadata: Record<string, string> | null
+  archived: boolean
+  archived_at: string | null
+  archived_by: string | null
   created_at: string
   updated_at: string
 }
@@ -126,6 +132,8 @@ const STATUS_LABELS: Record<CompanyStatus, string> = {
   hot_lead: 'Hot Lead',
   lost: 'Lost',
   blacklisted: 'Blacklisted',
+  active: 'Active',
+  inactive: 'Inactive',
 }
 
 const STATUS_TEXT_COLOR: Record<CompanyStatus, string> = {
@@ -134,6 +142,8 @@ const STATUS_TEXT_COLOR: Record<CompanyStatus, string> = {
   hot_lead: 'text-[#854F0B]',
   lost: 'text-[#791F1F]',
   blacklisted: 'text-gray-400',
+  active: 'text-green-600',
+  inactive: 'text-gray-400',
 }
 
 const PRIORITY_LABELS: Record<CompanyPriority, string> = {
@@ -277,6 +287,10 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [deleting, setDeleting] = useState(false)
   const [deleteFileId, setDeleteFileId] = useState<string | null>(null)
   const [showAddLink, setShowAddLink] = useState(false)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+  const { role } = useUserRole()
+  const isAdmin = role === 'admin'
   const [linkUrl, setLinkUrl] = useState('')
   const [linkLabel, setLinkLabel] = useState('')
   const [tagInput, setTagInput] = useState('')
@@ -298,7 +312,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     setLoading(true)
 
     const { data: companyData, error: companyErr } = await supabase
-      .from('crm_companies')
+      .from('companies')
       .select('*')
       .eq('id', companyId)
       .maybeSingle()
@@ -321,7 +335,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       { data: reminderData },
     ] = await Promise.all([
       supabase
-        .from('crm_contacts')
+        .from('contacts')
         .select('*')
         .eq('company_id', companyId)
         .order('is_primary', { ascending: false })
@@ -384,7 +398,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
 
   // ─── Mutations ──────────────────────────────────────────────────────────
   async function updateCompany(fields: Partial<Company>) {
-    const { error } = await supabase.from('crm_companies').update(fields).eq('id', companyId)
+    const { error } = await supabase.from('companies').update(fields).eq('id', companyId)
     if (error) {
       showToast(`Update failed: ${error.message}`)
       return
@@ -394,7 +408,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
 
   async function handleDeleteCompany() {
     setDeleting(true)
-    const { error } = await supabase.from('crm_companies').delete().eq('id', companyId)
+    const { error } = await supabase.from('companies').delete().eq('id', companyId)
     setDeleting(false)
     if (error) {
       showToast(`Delete failed: ${error.message}`)
@@ -407,6 +421,30 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   async function handleBlacklist() {
     await updateCompany({ status: 'blacklisted' })
     setConfirmBlacklist(false)
+  }
+
+  async function handleArchiveToggle() {
+    if (!company) return
+    if (!isAdmin) {
+      showToast('Only admins can archive or restore companies. Contact your admin.')
+      return
+    }
+    setArchiving(true)
+    const archive = !company.archived
+    const updates: Record<string, unknown> = {
+      archived: archive,
+      archived_at: archive ? new Date().toISOString() : null,
+      archived_by: archive ? userId : null,
+    }
+    const { error } = await supabase.from('companies').update(updates).eq('id', companyId)
+    setArchiving(false)
+    setShowArchiveConfirm(false)
+    if (error) {
+      showToast(`${archive ? 'Archive' : 'Restore'} failed: ${error.message}`)
+      return
+    }
+    setCompany((prev) => prev ? { ...prev, archived: archive, archived_at: archive ? new Date().toISOString() : null, archived_by: archive ? userId : null } : prev)
+    showToast(`Company ${archive ? 'archived' : 'restored'}`)
   }
 
   async function handleConvertToCustomer() {
@@ -438,7 +476,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   }
 
   async function handleDeleteContact(id: string) {
-    const { error } = await supabase.from('crm_contacts').delete().eq('id', id)
+    const { error } = await supabase.from('contacts').delete().eq('id', id)
     if (error) {
       showToast(`Delete failed: ${error.message}`)
       return
@@ -661,6 +699,11 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             <h1 className="text-2xl font-bold text-gray-900 leading-tight truncate">
               {company.name}
             </h1>
+            {company.archived && (
+              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-200 text-gray-500 rounded">
+                Archived
+              </span>
+            )}
             <span className={`text-sm ${STATUS_TEXT_COLOR[company.status]}`}>
               {STATUS_LABELS[company.status]}
             </span>
@@ -687,6 +730,20 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           >
             Convert to customer
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => setShowArchiveConfirm(true)}
+              disabled={archiving}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+              title={company.archived ? 'Restore company' : 'Archive company'}
+            >
+              {company.archived ? (
+                <ArchiveRestoreIcon className="w-4 h-4" />
+              ) : (
+                <ArchiveIcon className="w-4 h-4" />
+              )}
+            </button>
+          )}
           <button
             onClick={() => setShowEditCompany(true)}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
@@ -1730,6 +1787,22 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             </div>
           </div>
         </Portal>
+      )}
+
+      {showArchiveConfirm && company && (
+        <ConfirmDialog
+          title={company.archived ? 'Restore company?' : 'Archive company?'}
+          message={
+            company.archived
+              ? `Restore "${company.name}"? It will reappear in the CRM list.`
+              : `Archive "${company.name}"? It will be hidden from the CRM list but not deleted.`
+          }
+          confirmLabel={company.archived ? 'Restore' : 'Archive'}
+          variant={company.archived ? 'default' : 'destructive'}
+          loading={archiving}
+          onConfirm={handleArchiveToggle}
+          onCancel={() => (archiving ? null : setShowArchiveConfirm(false))}
+        />
       )}
 
       {confirmDelete && (

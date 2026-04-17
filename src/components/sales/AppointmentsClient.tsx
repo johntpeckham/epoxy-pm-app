@@ -165,11 +165,12 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
     ] = await Promise.all([
       supabase.from('crm_appointments').select('*').order('date', { ascending: false }),
       supabase
-        .from('crm_companies')
+        .from('companies')
         .select('id, name, city, state')
+        .eq('archived', false)
         .order('name', { ascending: true }),
       supabase
-        .from('crm_contacts')
+        .from('contacts')
         .select('id, company_id, first_name, last_name, phone, email, is_primary')
         .order('last_name', { ascending: true }),
       supabase

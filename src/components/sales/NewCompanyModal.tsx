@@ -63,7 +63,7 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
     const handle = setTimeout(async () => {
       const supabase = createClient()
       const { data } = await supabase
-        .from('crm_companies')
+        .from('companies')
         .select('id, name')
       if (cancelled) return
       const candidates = (data ?? []) as { id: string; name: string }[]
@@ -81,7 +81,7 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
     setSaving(true)
     setError(null)
     const supabase = createClient()
-    const { error: insertErr } = await supabase.from('crm_companies').insert({
+    const { error: insertErr } = await supabase.from('companies').insert({
       name: name.trim(),
       industry: industry.trim() || null,
       zone: zone.trim() || null,
@@ -92,6 +92,7 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
       lead_source: leadSource || null,
       deal_value: Number(dealValue) || 0,
       created_by: userId,
+      archived: false,
     })
     setSaving(false)
     if (insertErr) {

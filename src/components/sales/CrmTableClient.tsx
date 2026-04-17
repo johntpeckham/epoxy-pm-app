@@ -15,7 +15,10 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   Trash2Icon,
+  ArchiveIcon,
+  ArchiveRestoreIcon,
 } from 'lucide-react'
+import { useUserRole } from '@/lib/useUserRole'
 import Portal from '@/components/ui/Portal'
 import NewCompanyModal from './NewCompanyModal'
 import ImportCsvModal from './ImportCsvModal'
@@ -26,7 +29,7 @@ import { toCsv, downloadCsv } from '@/lib/csv'
 
 type CrmViewMode = 'new' | 'existing'
 
-type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
+type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
 interface ContactRow {
@@ -59,6 +62,7 @@ interface CompanyRow {
   tag_ids: string[]
   created_at: string
   updated_at: string
+  archived: boolean
 }
 
 interface ProfileMini {
@@ -89,6 +93,8 @@ const STATUS_LABELS: Record<CompanyStatus, string> = {
   hot_lead: 'Hot Lead',
   lost: 'Lost',
   blacklisted: 'Blacklisted',
+  active: 'Active',
+  inactive: 'Inactive',
 }
 
 const PRIORITY_LABELS: Record<CompanyPriority, string> = {
@@ -103,6 +109,8 @@ const STATUS_TEXT_COLOR: Record<CompanyStatus, string> = {
   hot_lead: 'text-[#854F0B]',
   lost: 'text-[#791F1F]',
   blacklisted: 'text-gray-400',
+  active: 'text-green-600',
+  inactive: 'text-gray-400',
 }
 
 const PRIORITY_TEXT_COLOR: Record<CompanyPriority, string> = {
@@ -196,9 +204,15 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     setTimeout(() => setToast(null), 2500)
   }
 
+  const [includeArchived, setIncludeArchived] = useState(false)
+  const { role } = useUserRole()
+  const isAdmin = role === 'admin'
+
   const [showNewModal, setShowNewModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [showMergeModal, setShowMergeModal] = useState(false)
+  const [archivingId, setArchivingId] = useState<string | null>(null)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null)
   const [openFilter, setOpenFilter] = useState<FilterField | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -245,7 +259,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       })
     )
     const updates: Record<string, unknown> = { [field]: value }
-    const { error } = await supabase.from('crm_companies').update(updates).eq('id', id)
+    const { error } = await supabase.from('companies').update(updates).eq('id', id)
     if (error) {
       showToast(`Save failed: ${error.message}`)
       // revert
@@ -259,7 +273,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     if (selectedIds.size === 0) return
     setDeleting(true)
     const ids = Array.from(selectedIds)
-    const { error } = await supabase.from('crm_companies').delete().in('id', ids)
+    const { error } = await supabase.from('companies').delete().in('id', ids)
     setDeleting(false)
     if (error) {
       showToast(`Delete failed: ${error.message}`)
@@ -268,6 +282,34 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     setShowDeleteConfirm(false)
     setSelectedIds(new Set())
     showToast(`Deleted ${ids.length} ${ids.length === 1 ? 'company' : 'companies'}`)
+    fetchAll()
+  }
+
+  async function handleArchiveToggle(id: string, name: string, archive: boolean) {
+    if (!isAdmin) {
+      showToast('Only admins can archive or restore companies. Contact your admin.')
+      return
+    }
+    setShowArchiveConfirm({ id, name, archive })
+  }
+
+  async function confirmArchive() {
+    if (!showArchiveConfirm) return
+    const { id, archive } = showArchiveConfirm
+    setArchivingId(id)
+    const updates: Record<string, unknown> = {
+      archived: archive,
+      archived_at: archive ? new Date().toISOString() : null,
+      archived_by: archive ? userId : null,
+    }
+    const { error } = await supabase.from('companies').update(updates).eq('id', id)
+    setArchivingId(null)
+    setShowArchiveConfirm(null)
+    if (error) {
+      showToast(`${archive ? 'Archive' : 'Restore'} failed: ${error.message}`)
+      return
+    }
+    showToast(`Company ${archive ? 'archived' : 'restored'}`)
     fetchAll()
   }
 
@@ -280,7 +322,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     const [{ data: contactRows }, { data: addressRows }, { data: companyExtras }] =
       await Promise.all([
         supabase
-          .from('crm_contacts')
+          .from('contacts')
           .select('company_id, first_name, last_name, email, phone, is_primary')
           .in('company_id', ids),
         supabase
@@ -288,7 +330,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           .select('company_id, address, city, state, is_primary')
           .in('company_id', ids),
         supabase
-          .from('crm_companies')
+          .from('companies')
           .select('id, lead_source, deal_value')
           .in('id', ids),
       ])
@@ -423,11 +465,13 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     // Companies — fetch all (client-side filter/sort/paginate keeps aggregate
     // sorting correct across pages; dataset is expected to stay in the low
     // thousands for Phase 1B).
-    const { data: companyData } = await supabase
-      .from('crm_companies')
+    let companyQuery = supabase
+      .from('companies')
       .select(
-        'id, name, industry, zone, region, state, county, city, status, priority, assigned_to, created_at, updated_at'
+        'id, name, industry, zone, region, state, county, city, status, priority, assigned_to, created_at, updated_at, archived'
       )
+    if (!includeArchived) companyQuery = companyQuery.eq('archived', false)
+    const { data: companyData } = await companyQuery
     const companyRows = (companyData ?? []) as Array<{
       id: string
       name: string
@@ -442,6 +486,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       assigned_to: string | null
       created_at: string
       updated_at: string
+      archived: boolean
     }>
     const companyIds = companyRows.map((c) => c.id)
 
@@ -450,7 +495,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     const contactCounts = new Map<string, number>()
     if (companyIds.length > 0) {
       const { data: contactsForCount } = await supabase
-        .from('crm_contacts')
+        .from('contacts')
         .select('id, company_id, first_name, last_name, job_title, email, phone, is_primary')
         .in('company_id', companyIds)
         .order('is_primary', { ascending: false })
@@ -554,7 +599,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
 
     setCompanies(merged)
     setLoading(false)
-  }, [supabase])
+  }, [supabase, includeArchived])
 
   // Contact-names search blob (kept in ref so state deps stay minimal).
   const searchBlobRef = useRef<Map<string, string>>(new Map())
@@ -1007,6 +1052,17 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             </div>
           )
         })}
+        {isAdmin && (
+          <label className="flex items-center gap-1.5 text-xs text-gray-500 ml-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+              className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-3.5 w-3.5"
+            />
+            Include archived
+          </label>
+        )}
         {activeFilterCount > 0 && (
           <button
             onClick={() =>
@@ -1094,8 +1150,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                   <Fragment key={c.id}>
                     <tr
                       onClick={() => router.push(`/sales/crm/${c.id}`)}
-                      className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                        blacklisted ? 'opacity-40' : ''
+                      className={`group border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                        blacklisted || c.archived ? 'opacity-40' : ''
                       }`}
                       style={{ borderBottomWidth: '0.5px' }}
                     >
@@ -1136,8 +1192,13 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                         className="pl-2 pr-2 text-sm font-medium text-gray-900"
                         style={{ paddingTop: 14, paddingBottom: 14 }}
                       >
-                        <span className="block truncate" title={c.name}>
+                        <span className="flex items-center gap-1.5 truncate" title={c.name}>
                           {c.name}
+                          {c.archived && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 text-gray-500 rounded">
+                              Archived
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td
@@ -1247,11 +1308,32 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                         />
                       </td>
                       <td
-                        className="pl-2 pr-7 text-sm text-gray-500 truncate"
+                        className="pl-2 pr-2 text-sm text-gray-500"
                         style={{ paddingTop: 14, paddingBottom: 14 }}
-                        title={c.last_note ?? ''}
                       >
-                        {c.last_note || '—'}
+                        <div className="flex items-center gap-1">
+                          <span className="truncate flex-1" title={c.last_note ?? ''}>
+                            {c.last_note || '—'}
+                          </span>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleArchiveToggle(c.id, c.name, !c.archived)
+                              }}
+                              disabled={archivingId === c.id}
+                              className="opacity-0 group-hover:opacity-100 shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-opacity"
+                              title={c.archived ? 'Restore company' : 'Archive company'}
+                            >
+                              {c.archived ? (
+                                <ArchiveRestoreIcon className="w-3.5 h-3.5" />
+                              ) : (
+                                <ArchiveIcon className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                     {expanded &&
@@ -1420,6 +1502,23 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           loading={deleting}
           onConfirm={handleBulkDelete}
           onCancel={() => (deleting ? null : setShowDeleteConfirm(false))}
+        />
+      )}
+
+      {/* ── Archive confirmation ── */}
+      {showArchiveConfirm && (
+        <ConfirmDialog
+          title={showArchiveConfirm.archive ? 'Archive company' : 'Restore company'}
+          message={
+            showArchiveConfirm.archive
+              ? `Archive "${showArchiveConfirm.name}"? It will be hidden from the CRM list but not deleted.`
+              : `Restore "${showArchiveConfirm.name}"? It will reappear in the CRM list.`
+          }
+          confirmLabel={showArchiveConfirm.archive ? 'Archive' : 'Restore'}
+          variant={showArchiveConfirm.archive ? 'destructive' : 'default'}
+          loading={archivingId !== null}
+          onConfirm={confirmArchive}
+          onCancel={() => (archivingId ? null : setShowArchiveConfirm(null))}
         />
       )}
 

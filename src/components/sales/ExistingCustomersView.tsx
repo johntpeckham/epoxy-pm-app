@@ -160,8 +160,9 @@ export default function ExistingCustomersView({
         .from('invoices')
         .select('id, client_id, total, issued_date'),
       supabase
-        .from('crm_companies')
-        .select('id, name, industry, region, assigned_to'),
+        .from('companies')
+        .select('id, name, industry, region, assigned_to')
+        .eq('archived', false),
       supabase
         .from('profiles')
         .select('id, display_name'),

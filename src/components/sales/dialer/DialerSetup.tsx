@@ -107,11 +107,12 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
       { data: templateData },
     ] = await Promise.all([
       supabase
-        .from('crm_companies')
+        .from('companies')
         .select('id, name, industry, zone, region, county, city, state, status, priority')
+        .eq('archived', false)
         .order('name', { ascending: true }),
       supabase
-        .from('crm_contacts')
+        .from('contacts')
         .select('id, company_id, first_name, last_name, job_title, email, phone, is_primary')
         .order('last_name', { ascending: true }),
       supabase

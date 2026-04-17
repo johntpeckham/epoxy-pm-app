@@ -48,7 +48,7 @@ export default function NewContactModal({
     // If marking this contact as primary, clear primary on the others first
     if (isPrimary) {
       await supabase
-        .from('crm_contacts')
+        .from('contacts')
         .update({ is_primary: false })
         .eq('company_id', companyId)
     }
@@ -64,7 +64,7 @@ export default function NewContactModal({
 
     if (isEdit && existing?.id) {
       const { error: err } = await supabase
-        .from('crm_contacts')
+        .from('contacts')
         .update(payload)
         .eq('id', existing.id)
       if (err) {
@@ -74,7 +74,7 @@ export default function NewContactModal({
       }
     } else {
       const { error: err } = await supabase
-        .from('crm_contacts')
+        .from('contacts')
         .insert({ ...payload, company_id: companyId })
       if (err) {
         setError(err.message)

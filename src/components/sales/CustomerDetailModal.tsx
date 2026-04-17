@@ -83,7 +83,7 @@ export default function CustomerDetailModal({
       const nameLower = customer.name.trim().toLowerCase()
       if (nameLower) {
         const { data: companies } = await supabase
-          .from('crm_companies')
+          .from('companies')
           .select('id, name')
           .ilike('name', nameLower)
         const companyIds = (companies ?? [])
