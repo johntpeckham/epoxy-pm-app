@@ -358,13 +358,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
 
   /* ---- Render ---- */
   return (
-    <div
-      className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 transition-all"
-      style={{
-        boxShadow:
-          '0 0 20px 6px rgba(99, 153, 34, 0.18), 0 0 40px 12px rgba(99, 153, 34, 0.09)',
-      }}
-    >
+    <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 transition-all">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
         <span className="text-amber-500">
