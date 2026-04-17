@@ -65,17 +65,17 @@ export default function CustomerDetailModal({
         supabase
           .from('estimates')
           .select('id, estimate_number, project_name, total, status, created_at')
-          .eq('customer_id', customer.id)
+          .eq('company_id', customer.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('projects')
           .select('id, name, status, created_at')
-          .eq('client_name', customer.name)
+          .eq('company_id', customer.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('estimating_projects')
           .select('id, name, status, created_at')
-          .eq('customer_id', customer.id)
+          .eq('company_id', customer.id)
           .order('created_at', { ascending: false }),
       ])
 

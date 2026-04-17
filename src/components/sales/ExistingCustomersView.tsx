@@ -150,16 +150,16 @@ export default function ExistingCustomersView({
         .eq('archived', false),
       supabase
         .from('estimates')
-        .select('id, customer_id, total, status, created_at'),
+        .select('id, company_id, total, status, created_at'),
       supabase
         .from('estimating_projects')
-        .select('id, customer_id, status, created_at, updated_at'),
+        .select('id, company_id, status, created_at, updated_at'),
       supabase
         .from('projects')
-        .select('id, client_name, status, created_at'),
+        .select('id, company_id, client_name, status, created_at'),
       supabase
         .from('invoices')
-        .select('id, client_id, total, issued_date'),
+        .select('id, company_id, total, issued_date'),
       supabase
         .from('companies')
         .select('id, name, industry, region, assigned_to')
@@ -229,20 +229,19 @@ export default function ExistingCustomersView({
     >()
     const lastEstimateDate = new Map<string, string>()
     for (const row of (estimateRows ?? []) as Array<{
-      customer_id: string | null
+      company_id: string | null
       total: number | null
       status: string | null
       created_at: string
     }>) {
-      if (!row.customer_id) continue
-      // Track latest estimate activity (for last contact)
-      const existing = lastEstimateDate.get(row.customer_id)
+      if (!row.company_id) continue
+      const existing = lastEstimateDate.get(row.company_id)
       if (!existing || row.created_at > existing) {
-        lastEstimateDate.set(row.customer_id, row.created_at)
+        lastEstimateDate.set(row.company_id, row.created_at)
       }
       if ((row.status ?? '').toLowerCase() === 'accepted') {
         const cur =
-          acceptedByCustomer.get(row.customer_id) ?? {
+          acceptedByCustomer.get(row.company_id) ?? {
             count: 0,
             revenue: 0,
             lastDate: null as string | null,
@@ -252,7 +251,7 @@ export default function ExistingCustomersView({
         if (!cur.lastDate || row.created_at > cur.lastDate) {
           cur.lastDate = row.created_at
         }
-        acceptedByCustomer.set(row.customer_id, cur)
+        acceptedByCustomer.set(row.company_id, cur)
       }
     }
 
@@ -262,7 +261,7 @@ export default function ExistingCustomersView({
       { count: number; lastDate: string | null }
     >()
     for (const row of (estimatingProjectRows ?? []) as Array<{
-      customer_id: string
+      company_id: string
       status: string
       created_at: string
       updated_at: string | null
@@ -270,13 +269,13 @@ export default function ExistingCustomersView({
       if ((row.status ?? '').toLowerCase() !== 'completed') continue
       const when = row.updated_at ?? row.created_at
       const cur =
-        completedEstProjByCustomer.get(row.customer_id) ?? {
+        completedEstProjByCustomer.get(row.company_id) ?? {
           count: 0,
           lastDate: null as string | null,
         }
       cur.count += 1
       if (!cur.lastDate || when > cur.lastDate) cur.lastDate = when
-      completedEstProjByCustomer.set(row.customer_id, cur)
+      completedEstProjByCustomer.set(row.company_id, cur)
     }
 
     // Aggregate completed projects by client_name
@@ -310,13 +309,13 @@ export default function ExistingCustomersView({
       { revenue: number; lastDate: string | null }
     >()
     for (const row of (invoiceRows ?? []) as Array<{
-      client_id: string | null
+      company_id: string | null
       total: number | null
       issued_date: string | null
     }>) {
-      if (!row.client_id) continue
+      if (!row.company_id) continue
       const cur =
-        invoiceByCustomer.get(row.client_id) ?? {
+        invoiceByCustomer.get(row.company_id) ?? {
           revenue: 0,
           lastDate: null as string | null,
         }
@@ -324,7 +323,7 @@ export default function ExistingCustomersView({
       if (row.issued_date && (!cur.lastDate || row.issued_date > cur.lastDate)) {
         cur.lastDate = row.issued_date
       }
-      invoiceByCustomer.set(row.client_id, cur)
+      invoiceByCustomer.set(row.company_id, cur)
     }
 
     // Latest call_date by customer (via crm_company name match)

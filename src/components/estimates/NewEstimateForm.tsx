@@ -48,7 +48,6 @@ export default function NewEstimateForm({
       .from('estimates')
       .insert({
         estimate_number: estimateNumber,
-        customer_id: selectedCustomerId,
         company_id: selectedCustomerId,
         date: new Date().toISOString().split('T')[0],
         project_name: projectName || '',

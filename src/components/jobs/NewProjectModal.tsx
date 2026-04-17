@@ -24,7 +24,7 @@ interface NewProjectModalProps {
 
 export default function NewProjectModal({ onClose, onCreated }: NewProjectModalProps) {
   const [name, setName] = useState('')
-  const [clientName, setClientName] = useState('')
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null)
   const [address, setAddress] = useState('')
   const [estimateNumber, setEstimateNumber] = useState('')
   const [status, setStatus] = useState<'Active' | 'Completed' | 'Closed'>('Active')
@@ -40,11 +40,17 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Customer selector state
+  // Company selector state
   const [customers, setCustomers] = useState<Customer[]>([])
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [showNewCompanyForm, setShowNewCompanyForm] = useState(false)
+  const [newCompanyName, setNewCompanyName] = useState('')
+  const [newCompanyAddress, setNewCompanyAddress] = useState('')
+  const [newCompanyCity, setNewCompanyCity] = useState('')
+  const [newCompanyState, setNewCompanyState] = useState('')
+  const [creatingCompany, setCreatingCompany] = useState(false)
 
   // Employee profiles for crew selector
   const [employeeProfiles, setEmployeeProfiles] = useState<EmployeeProfile[]>([])
@@ -131,21 +137,61 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
     setShowCustomCrewInput(false)
   }
 
+  async function handleCreateNewCompany() {
+    if (!newCompanyName.trim()) return
+    setCreatingCompany(true)
+    const supabase = createClient()
+    const { data, error: err } = await supabase
+      .from('companies')
+      .insert({
+        name: newCompanyName.trim(),
+        address: newCompanyAddress.trim() || null,
+        city: newCompanyCity.trim() || null,
+        state: newCompanyState.trim() || null,
+        status: 'prospect',
+        archived: false,
+      })
+      .select()
+      .single()
+    setCreatingCompany(false)
+    if (err || !data) return
+    const newCust = data as Customer
+    setCustomers((prev) => [...prev, newCust].sort((a, b) => a.name.localeCompare(b.name)))
+    setSelectedCompanyId(newCust.id)
+    if (newCust.address) {
+      const parts = [newCust.address, newCust.city, newCust.state].filter(Boolean)
+      setAddress(parts.join(', '))
+    }
+    setShowNewCompanyForm(false)
+    setShowCustomerDropdown(false)
+    setNewCompanyName('')
+    setNewCompanyAddress('')
+    setNewCompanyCity('')
+    setNewCompanyState('')
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
+    if (!selectedCompanyId) {
+      setError('Please select a company')
+      setLoading(false)
+      return
+    }
     if (startDate && endDate && endDate < startDate) {
       setError('End date must be on or after start date')
       setLoading(false)
       return
     }
 
+    const selectedCompany = customers.find((c) => c.id === selectedCompanyId)
     const supabase = createClient()
     const { data: newProject, error } = await supabase.from('projects').insert({
       name: name.trim(),
-      client_name: clientName.trim(),
+      company_id: selectedCompanyId,
+      client_name: selectedCompany?.name ?? '',
       address: address.trim(),
       status,
       ...(estimateNumber.trim() ? { estimate_number: estimateNumber.trim() } : {}),
@@ -245,57 +291,118 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Client Name <span className="text-red-500">*</span>
+                Company <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                required
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                placeholder="e.g. John Smith"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-              />
-              <div className="relative mt-1" ref={dropdownRef}>
+              <div className="relative" ref={dropdownRef}>
                 <button
                   type="button"
-                  onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setCustomerSearch('') }}
-                  className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+                  onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setCustomerSearch(''); setShowNewCompanyForm(false) }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
-                  Select existing customer
-                  <ChevronDownIcon className="w-3 h-3" />
+                  <span className={selectedCompanyId ? 'text-gray-900' : 'text-gray-400'}>
+                    {customers.find((c) => c.id === selectedCompanyId)?.name ?? 'Select a company...'}
+                  </span>
+                  <ChevronDownIcon className="w-4 h-4 text-gray-400" />
                 </button>
                 {showCustomerDropdown && (
-                  <div className="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 flex flex-col">
+                  <div className="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-64 flex flex-col">
                     <div className="p-2 border-b border-gray-100">
                       <input
                         type="text"
-                        placeholder="Search customers..."
+                        placeholder="Search companies..."
                         value={customerSearch}
                         onChange={(e) => setCustomerSearch(e.target.value)}
                         className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                         autoFocus
                       />
                     </div>
-                    <div className="overflow-y-auto flex-1">
-                      {filteredCustomers.length === 0 ? (
-                        <p className="px-3 py-2 text-xs text-gray-400">No customers found.</p>
-                      ) : (
-                        filteredCustomers.map((c) => (
+                    {showNewCompanyForm ? (
+                      <div className="p-3 space-y-2 border-b border-gray-100">
+                        <input
+                          type="text"
+                          placeholder="Company name *"
+                          value={newCompanyName}
+                          onChange={(e) => setNewCompanyName(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                          autoFocus
+                        />
+                        <input
+                          type="text"
+                          placeholder="Address"
+                          value={newCompanyAddress}
+                          onChange={(e) => setNewCompanyAddress(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="City"
+                            value={newCompanyCity}
+                            onChange={(e) => setNewCompanyCity(e.target.value)}
+                            className="flex-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                          />
+                          <input
+                            type="text"
+                            placeholder="State"
+                            value={newCompanyState}
+                            onChange={(e) => setNewCompanyState(e.target.value)}
+                            className="w-20 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                          />
+                        </div>
+                        <div className="flex gap-2">
                           <button
-                            key={c.id}
                             type="button"
-                            onClick={() => {
-                              setClientName(c.name)
-                              setShowCustomerDropdown(false)
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors"
+                            onClick={() => setShowNewCompanyForm(false)}
+                            className="flex-1 px-2 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50"
                           >
-                            <p className="text-gray-900 text-xs font-medium truncate">{c.name}</p>
-                            {c.company && <p className="text-gray-500 text-xs truncate">{c.company}</p>}
+                            Cancel
                           </button>
-                        ))
-                      )}
-                    </div>
+                          <button
+                            type="button"
+                            onClick={handleCreateNewCompany}
+                            disabled={!newCompanyName.trim() || creatingCompany}
+                            className="flex-1 px-2 py-1.5 text-xs text-white bg-amber-500 rounded-md hover:bg-amber-600 disabled:opacity-50"
+                          >
+                            {creatingCompany ? 'Creating...' : 'Create'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="overflow-y-auto flex-1">
+                          {filteredCustomers.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-gray-400">No companies found.</p>
+                          ) : (
+                            filteredCustomers.map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCompanyId(c.id)
+                                  setShowCustomerDropdown(false)
+                                  const parts = [c.address, c.city, c.state].filter(Boolean)
+                                  if (parts.length > 0 && !address) setAddress(parts.join(', '))
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors"
+                              >
+                                <p className="text-gray-900 text-xs font-medium truncate">{c.name}</p>
+                                {(c.city || c.state) && (
+                                  <p className="text-gray-500 text-xs truncate">{[c.city, c.state].filter(Boolean).join(', ')}</p>
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowNewCompanyForm(true)}
+                          className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium text-amber-600 hover:bg-amber-50 border-t border-gray-100 transition-colors"
+                        >
+                          <PlusIcon className="w-3.5 h-3.5" />
+                          Add new company
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

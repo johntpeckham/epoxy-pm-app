@@ -7,7 +7,7 @@ export type EstimatingProjectSource =
 
 export interface EstimatingProject {
   id: string
-  customer_id: string
+  company_id: string
   name: string
   description: string | null
   status: EstimatingProjectStatus

@@ -62,7 +62,7 @@ export default function ProjectNumberOverrideModal({
           await supabase
             .from('estimates')
             .update({ estimate_number: numericNew })
-            .eq('customer_id', project.customer_id)
+            .eq('company_id', project.company_id)
             .eq('estimate_number', numericOld)
 
           await supabase

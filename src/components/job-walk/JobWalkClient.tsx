@@ -27,7 +27,7 @@ export type JobWalkPushedTo = 'estimating' | 'estimate' | 'job'
 export interface JobWalk {
   id: string
   project_name: string
-  customer_id: string | null
+  company_id: string | null
   customer_name: string | null
   customer_email: string | null
   customer_phone: string | null

@@ -41,7 +41,7 @@ export default function BillingLayoutClient({
     : null
 
   const customerInvoices = selectedCustomer
-    ? invoices.filter((inv) => (inv.company_id ?? inv.client_id) === selectedCustomer.id)
+    ? invoices.filter((inv) => inv.company_id === selectedCustomer.id)
     : []
 
   const selectedInvoice = selectedInvoiceId
@@ -102,7 +102,6 @@ export default function BillingLayoutClient({
       .from('invoices')
       .insert({
         invoice_number: nextNum,
-        client_id: selectedCustomer.id,
         company_id: selectedCustomer.id,
         project_name: '',
         line_items: [],

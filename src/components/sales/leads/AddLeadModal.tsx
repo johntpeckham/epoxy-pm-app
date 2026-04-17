@@ -137,7 +137,7 @@ export default function AddLeadModal({
       .from('leads')
       .insert({
         project_name: projectName.trim(),
-        customer_id: customerId,
+        company_id: customerId,
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone,

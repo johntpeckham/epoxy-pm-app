@@ -26,7 +26,7 @@ export default function JobWalkEditInfoModal({
 }: JobWalkEditInfoModalProps) {
   const [projectName, setProjectName] = useState(walk.project_name ?? '')
   const [customerQuery, setCustomerQuery] = useState(walk.customer_name ?? '')
-  const [customerId, setCustomerId] = useState<string | null>(walk.customer_id)
+  const [customerId, setCustomerId] = useState<string | null>(walk.company_id)
   const [customerEmail, setCustomerEmail] = useState(walk.customer_email ?? '')
   const [customerPhone, setCustomerPhone] = useState(walk.customer_phone ?? '')
   const [address, setAddress] = useState(walk.address ?? '')
@@ -93,7 +93,7 @@ export default function JobWalkEditInfoModal({
 
     const patch: Partial<JobWalk> = {
       project_name: projectName.trim() || 'Untitled Job Walk',
-      customer_id: finalCustomerId,
+      company_id: finalCustomerId,
       customer_name: customerQuery.trim() || null,
       customer_email: finalEmail,
       customer_phone: finalPhone,

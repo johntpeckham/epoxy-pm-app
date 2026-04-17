@@ -150,7 +150,7 @@ function PushToEstimatingModal({
   const [error, setError] = useState<string | null>(null)
 
   async function ensureCustomer(): Promise<string | null> {
-    if (walk.customer_id) return walk.customer_id
+    if (walk.company_id) return walk.company_id
     const supabase = createClient()
     const baseName = walk.customer_name ?? walk.project_name ?? 'New customer'
     const { data: existing } = await supabase
@@ -196,7 +196,7 @@ function PushToEstimatingModal({
     const { data: newProject, error: projErr } = await supabase
       .from('estimating_projects')
       .insert({
-        customer_id: customerId,
+        company_id: customerId,
         name: walk.project_name,
         description: includeNotes ? walk.notes : null,
         status: 'active',
@@ -294,7 +294,7 @@ function PushToEstimatingModal({
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
             <p className="text-sm text-gray-600">
               This will create a new estimating project for this customer
-              {walk.customer_id ? '' : ' (a customer record will also be created)'}.
+              {walk.company_id ? '' : ' (a company record will also be created)'}.
             </p>
 
             <div className="space-y-2">

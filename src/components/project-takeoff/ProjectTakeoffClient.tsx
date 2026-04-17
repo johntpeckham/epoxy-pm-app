@@ -49,7 +49,7 @@ export default function ProjectTakeoffClient({
   )
 
   const customerProjects = useMemo(
-    () => projects.filter((p) => p.customer_id === selectedCustomerId),
+    () => projects.filter((p) => p.company_id === selectedCustomerId),
     [projects, selectedCustomerId]
   )
 
@@ -61,7 +61,7 @@ export default function ProjectTakeoffClient({
   const customerEstimates = useMemo(
     () =>
       selectedCustomerId
-        ? allEstimates.filter((e) => e.customer_id === selectedCustomerId)
+        ? allEstimates.filter((e) => e.company_id === selectedCustomerId)
         : [],
     [allEstimates, selectedCustomerId]
   )
@@ -86,7 +86,7 @@ export default function ProjectTakeoffClient({
 
   function handleProjectCreated(project: ProjectTakeoffProject) {
     setProjects((prev) => [project, ...prev])
-    setSelectedCustomerId(project.customer_id)
+    setSelectedCustomerId(project.company_id)
     setSelectedProjectId(project.id)
     setShowNewProjectModal(false)
   }
