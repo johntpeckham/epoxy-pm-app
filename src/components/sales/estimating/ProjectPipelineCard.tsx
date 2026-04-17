@@ -90,7 +90,9 @@ export default function ProjectPipelineCard({
     }
   }, [fetchStages, fetchHistory])
 
-  const currentIndex = stages.findIndex((s) => s.name === project.pipeline_stage)
+  const currentIndex = stages.findIndex((s) => s.slug === project.pipeline_stage)
+  const slugToName: Record<string, string> = {}
+  for (const s of stages) slugToName[s.slug] = s.name
 
   async function triggerEstimateSentReminders(projectId: string) {
     const supabase = createClient()
@@ -134,12 +136,12 @@ export default function ProjectPipelineCard({
     setMoving(true)
     const supabase = createClient()
     const fromStage = project.pipeline_stage
-    const toStage = stage.name
+    const toSlug = stage.slug
 
-    const projectPatch: Partial<EstimatingProject> = { pipeline_stage: toStage }
-    if (toStage === 'Won') {
+    const projectPatch: Partial<EstimatingProject> = { pipeline_stage: toSlug }
+    if (toSlug === 'won') {
       projectPatch.status = 'completed'
-    } else if (toStage === 'Lost') {
+    } else if (toSlug === 'lost') {
       projectPatch.status = 'on_hold'
     }
 
@@ -156,14 +158,14 @@ export default function ProjectPipelineCard({
     await supabase.from('pipeline_history').insert({
       project_id: project.id,
       from_stage: fromStage,
-      to_stage: toStage,
+      to_stage: toSlug,
       changed_by: userId,
     })
 
-    if (toStage === 'Estimate Sent') {
+    if (toSlug === 'estimate_sent') {
       await triggerEstimateSentReminders(project.id)
     }
-    if (toStage === 'Won' || toStage === 'Lost') {
+    if (toSlug === 'won' || toSlug === 'lost') {
       await completePendingReminders(project.id)
     }
 
@@ -261,11 +263,11 @@ export default function ProjectPipelineCard({
                           : 'System'}
                       </span>
                       {h.from_stage ? (
-                        <> moved from <span className="font-medium">{h.from_stage}</span> to </>
+                        <> moved from <span className="font-medium">{slugToName[h.from_stage] ?? h.from_stage}</span> to </>
                       ) : (
                         <> set stage to </>
                       )}
-                      <span className="font-medium">{h.to_stage}</span>
+                      <span className="font-medium">{slugToName[h.to_stage] ?? h.to_stage}</span>
                       <span className="text-gray-400">
                         {' — '}
                         {new Date(h.created_at).toLocaleDateString()}{' '}
