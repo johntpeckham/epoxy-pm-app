@@ -31,7 +31,7 @@ export default function LaborTab() {
   const laborTotal = crew1Total + driveTotal
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4">
       {/* Crew 1 */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-3">

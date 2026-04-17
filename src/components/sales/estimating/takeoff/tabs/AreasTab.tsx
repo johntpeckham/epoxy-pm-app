@@ -58,7 +58,7 @@ const SAMPLE_AREAS: SampleArea[] = [
 
 export default function AreasTab() {
   return (
-    <div className="flex flex-col lg:flex-row gap-4 max-w-5xl">
+    <div className="flex flex-col lg:flex-row gap-4">
       {/* Mobile-only: Measurement references shown first */}
       <div className="lg:hidden">
         <MeasurementReferences />
