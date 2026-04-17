@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { TableIcon, PencilIcon } from 'lucide-react'
+import { PencilIcon } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
 import { useUserRole } from '@/lib/useUserRole'
+import ProjectTakeoffSheetsCard from './ProjectTakeoffSheetsCard'
 import ProjectMeasurementsCard from './ProjectMeasurementsCard'
 import ProjectEstimatesCard from './ProjectEstimatesCard'
 import ProjectPipelineCard from './ProjectPipelineCard'
@@ -61,9 +62,11 @@ export default function ProjectDashboard({
       </div>
 
       <div className="p-4 space-y-4">
-        <ComingSoonCard
-          icon={<TableIcon className="w-5 h-5" />}
-          title="Takeoff sheet"
+        <ProjectTakeoffSheetsCard
+          key={`takeoffs-${project.id}`}
+          project={project}
+          customer={customer}
+          userId={userId}
         />
 
         <ProjectMeasurementsCard
@@ -111,20 +114,3 @@ export default function ProjectDashboard({
   )
 }
 
-function ComingSoonCard({
-  icon,
-  title,
-}: {
-  icon: React.ReactNode
-  title: string
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-amber-500">{icon}</span>
-        <h3 className="text-sm font-semibold text-gray-900 flex-1">{title}</h3>
-      </div>
-      <p className="text-center text-xs text-gray-400 py-6">Coming soon</p>
-    </div>
-  )
-}

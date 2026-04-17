@@ -118,3 +118,148 @@ export interface ReminderRule {
 }
 
 export const SYSTEM_STAGES = ['won', 'lost'] as const
+
+// ── Takeoff types ──────────────────────────────────────────────────────
+
+export type TakeoffStatus = 'draft' | 'complete'
+
+export interface Takeoff {
+  id: string
+  project_id: string
+  customer_id: string | null
+  template_id: string | null
+  name: string
+  status: TakeoffStatus
+  overhead_percent: number
+  profit_percent: number
+  mobilization_cost: number
+  misc_cost: number
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface TakeoffTemplate {
+  id: string
+  name: string
+  description: string | null
+  area_types: string[]
+  default_materials: unknown[]
+  default_labor: unknown[]
+  default_prep_tools: unknown[]
+  default_sundries: unknown[]
+  default_travel: unknown[]
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type TakeoffAreaType = 'floor' | 'roof' | 'walls' | 'cove' | 'custom'
+
+export interface TakeoffArea {
+  id: string
+  takeoff_id: string
+  area_type: TakeoffAreaType
+  name: string
+  parent_area_id: string | null
+  sort_order: number
+  created_at: string
+}
+
+export interface TakeoffAreaMeasurement {
+  id: string
+  area_id: string
+  section_name: string | null
+  length: number
+  width: number | null
+  total: number
+  sort_order: number
+  created_at: string
+}
+
+export interface TakeoffMaterial {
+  id: string
+  takeoff_id: string
+  product_name: string
+  description: string | null
+  unit: string | null
+  quantity: number
+  cost_per_unit: number
+  total: number
+  manufacturer_product_id: string | null
+  sort_order: number
+  created_at: string
+}
+
+export interface TakeoffLabor {
+  id: string
+  takeoff_id: string
+  crew_group: string
+  role: string
+  hourly_rate: number
+  estimated_hours: number
+  total: number
+  is_drive_time: boolean
+  sort_order: number
+  created_at: string
+}
+
+export interface TakeoffPrepTool {
+  id: string
+  takeoff_id: string
+  product_name: string
+  description: string | null
+  quantity: number
+  cost_per_unit: number
+  total: number
+  sort_order: number
+  created_at: string
+}
+
+export interface TakeoffSundry {
+  id: string
+  takeoff_id: string
+  product_name: string
+  description: string | null
+  quantity: number
+  cost_per_unit: number
+  total: number
+  sort_order: number
+  created_at: string
+}
+
+export interface TakeoffTravel {
+  id: string
+  takeoff_id: string
+  item_name: string
+  details: string | null
+  quantity: number
+  rate: number
+  total: number
+  sort_order: number
+  created_at: string
+}
+
+export interface TakeoffSettings {
+  id: string
+  tax_rate: number
+  mobilization_cost: number
+  overhead_percent: number
+  profit_percent: number
+  updated_by: string | null
+  updated_at: string
+}
+
+export const TAKEOFF_STATUS_STYLES: Record<TakeoffStatus, { label: string; className: string }> = {
+  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-600' },
+  complete: { label: 'Complete', className: 'bg-green-100 text-green-700' },
+}
+
+export const AREA_TYPE_STYLES: Record<TakeoffAreaType, { label: string; className: string; unit: string }> = {
+  floor: { label: 'Floor', className: 'bg-blue-100 text-blue-700', unit: 'SF' },
+  roof: { label: 'Roof', className: 'bg-red-100 text-red-700', unit: 'SF' },
+  walls: { label: 'Walls', className: 'bg-amber-100 text-amber-700', unit: 'SF' },
+  cove: { label: 'Cove', className: 'bg-green-100 text-green-700', unit: 'LF' },
+  custom: { label: 'Custom', className: 'bg-gray-100 text-gray-600', unit: 'SF' },
+}

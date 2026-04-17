@@ -16,6 +16,8 @@ import PipelineStagesEditor from './PipelineStagesEditor'
 import ReminderRulesEditor from './ReminderRulesEditor'
 import ProjectNumbersEditor from './ProjectNumbersEditor'
 import EstimateFormSettingsEditor from './EstimateFormSettingsEditor'
+import TakeoffTemplatesEditor from './TakeoffTemplatesEditor'
+import TakeoffDefaultsEditor from './TakeoffDefaultsEditor'
 import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 import VendorManagementModal from '@/components/ui/VendorManagementModal'
 import WarrantyManagement from '@/components/warranty/WarrantyManagement'
@@ -1084,6 +1086,8 @@ function SalesManagementModal({
   const [showRuleEditor, setShowRuleEditor] = useState(false)
   const [showProjectNumbersEditor, setShowProjectNumbersEditor] = useState(false)
   const [showEstimateFormEditor, setShowEstimateFormEditor] = useState(false)
+  const [showTakeoffTemplatesEditor, setShowTakeoffTemplatesEditor] = useState(false)
+  const [showTakeoffDefaultsEditor, setShowTakeoffDefaultsEditor] = useState(false)
 
   const cards: {
     icon: React.ReactNode
@@ -1121,8 +1125,15 @@ function SalesManagementModal({
       : []),
     {
       icon: <TableIcon className="w-5 h-5" />,
-      title: 'Edit Takeoff Tool',
-      description: 'Adjust how measurement takeoffs are captured.',
+      title: 'Takeoff Templates',
+      description: 'Manage templates for takeoff sheets.',
+      onClick: () => setShowTakeoffTemplatesEditor(true),
+    },
+    {
+      icon: <SlidersHorizontalIcon className="w-5 h-5" />,
+      title: 'Takeoff Defaults',
+      description: 'Set default tax rate, overhead, profit, and mobilization cost.',
+      onClick: () => setShowTakeoffDefaultsEditor(true),
     },
   ]
 
@@ -1230,6 +1241,16 @@ function SalesManagementModal({
       {showEstimateFormEditor && (
         <EstimateFormSettingsEditor
           onClose={() => setShowEstimateFormEditor(false)}
+        />
+      )}
+      {showTakeoffTemplatesEditor && (
+        <TakeoffTemplatesEditor
+          onClose={() => setShowTakeoffTemplatesEditor(false)}
+        />
+      )}
+      {showTakeoffDefaultsEditor && (
+        <TakeoffDefaultsEditor
+          onClose={() => setShowTakeoffDefaultsEditor(false)}
         />
       )}
     </Portal>
