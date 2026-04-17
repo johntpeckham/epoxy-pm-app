@@ -1261,7 +1261,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                           <tr
                             key={`${c.id}-${k.id}`}
                             onClick={() => router.push(`/sales/crm/${c.id}`)}
-                            className={`border-b border-gray-100 bg-amber-50/30 hover:bg-amber-50 cursor-pointer ${
+                            className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
                               blacklisted ? 'opacity-40' : ''
                             }`}
                             style={{ borderBottomWidth: '0.5px' }}
