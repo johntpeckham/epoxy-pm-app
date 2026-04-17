@@ -98,6 +98,8 @@ export interface ChangeOrder {
   id: string
   parent_type: 'estimate' | 'invoice'
   parent_id: string
+  estimate_id: string | null
+  invoice_id: string | null
   change_order_number: string
   description: string
   line_items: LineItem[]

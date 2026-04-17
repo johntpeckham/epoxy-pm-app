@@ -163,8 +163,7 @@ export default function InvoiceEditor({
       const { data } = await supabase
         .from('change_orders')
         .select('*')
-        .eq('parent_type', 'invoice')
-        .eq('parent_id', invoiceIdRef.current)
+        .eq('invoice_id', invoiceIdRef.current)
         .order('created_at', { ascending: true })
       if (data) setChangeOrders(data)
     }
@@ -182,6 +181,7 @@ export default function InvoiceEditor({
       .insert({
         parent_type: 'invoice',
         parent_id: invoiceIdRef.current,
+        invoice_id: invoiceIdRef.current,
         change_order_number: coNumber,
         description: coData.description,
         line_items: coData.lineItems,

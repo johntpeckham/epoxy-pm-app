@@ -282,8 +282,7 @@ export default function EstimateEditor({
       const { data } = await supabase
         .from('change_orders')
         .select('*')
-        .eq('parent_type', 'estimate')
-        .eq('parent_id', estimateIdRef.current)
+        .eq('estimate_id', estimateIdRef.current)
         .order('created_at', { ascending: true })
       if (data) setChangeOrders(data)
     }
@@ -301,6 +300,7 @@ export default function EstimateEditor({
       .insert({
         parent_type: 'estimate',
         parent_id: estimateIdRef.current,
+        estimate_id: estimateIdRef.current,
         change_order_number: coNumber,
         description: coData.description,
         line_items: coData.lineItems,
