@@ -8,9 +8,7 @@ import {
   CalculatorIcon,
   ChevronLeftIcon,
   UsersIcon,
-  MailIcon,
-  PhoneIcon,
-  MapPinIcon,
+  FolderOpenIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer } from '@/components/estimates/types'
@@ -40,6 +38,34 @@ export default function EstimatingClient({
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [search, setSearch] = useState('')
   const [showNewModal, setShowNewModal] = useState(false)
+  const [listMode, setListMode] = useState<'customers' | 'my-projects'>('customers')
+  const [myProjects, setMyProjects] = useState<(EstimatingProject & { company_name?: string })[]>([])
+  const [loadingMyProjects, setLoadingMyProjects] = useState(false)
+
+  const fetchMyProjects = useCallback(async () => {
+    setLoadingMyProjects(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('estimating_projects')
+      .select('*, companies(name)')
+      .eq('created_by', userId)
+      .order('project_number', { ascending: false, nullsFirst: false })
+    const mapped = (data ?? []).map((p: Record<string, unknown>) => {
+      const companies = p.companies as { name: string } | null
+      return {
+        ...(p as unknown as EstimatingProject),
+        company_name: companies?.name ?? undefined,
+      }
+    })
+    setMyProjects(mapped)
+    setLoadingMyProjects(false)
+  }, [userId])
+
+  useEffect(() => {
+    if (listMode === 'my-projects') {
+      fetchMyProjects()
+    }
+  }, [listMode, fetchMyProjects])
 
   // Initialize from URL on mount
   useEffect(() => {
@@ -123,6 +149,11 @@ export default function EstimatingClient({
     setSelectedProjectId(id)
   }
 
+  function handleSelectMyProject(project: EstimatingProject) {
+    setSelectedCustomerId(project.company_id)
+    setSelectedProjectId(project.id)
+  }
+
   function handleBackToCustomers() {
     setSelectedCustomerId(null)
     setSelectedProjectId(null)
@@ -184,6 +215,11 @@ export default function EstimatingClient({
             onSearch={setSearch}
             onSelect={handleSelectCustomer}
             onNewProject={() => setShowNewModal(true)}
+            listMode={listMode}
+            onListModeChange={setListMode}
+            myProjects={myProjects}
+            loadingMyProjects={loadingMyProjects}
+            onSelectMyProject={handleSelectMyProject}
           />
         )}
       </div>
@@ -243,6 +279,11 @@ interface CustomerSidebarProps {
   onSearch: (value: string) => void
   onSelect: (id: string) => void
   onNewProject: () => void
+  listMode: 'customers' | 'my-projects'
+  onListModeChange: (mode: 'customers' | 'my-projects') => void
+  myProjects: (EstimatingProject & { company_name?: string })[]
+  loadingMyProjects: boolean
+  onSelectMyProject: (project: EstimatingProject) => void
 }
 
 function CustomerSidebar({
@@ -252,7 +293,21 @@ function CustomerSidebar({
   onSearch,
   onSelect,
   onNewProject,
+  listMode,
+  onListModeChange,
+  myProjects,
+  loadingMyProjects,
+  onSelectMyProject,
 }: CustomerSidebarProps) {
+  const filteredMyProjects = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return myProjects
+    return myProjects.filter((p) => {
+      const hay = [p.name, p.project_number ?? ''].join(' ').toLowerCase()
+      return hay.includes(q)
+    })
+  }, [myProjects, search])
+
   return (
     <>
       <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
@@ -267,11 +322,34 @@ function CustomerSidebar({
           </button>
         </div>
 
+        <div className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5">
+          <button
+            onClick={() => onListModeChange('customers')}
+            className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+              listMode === 'customers'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Customers
+          </button>
+          <button
+            onClick={() => onListModeChange('my-projects')}
+            className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+              listMode === 'my-projects'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            My Projects
+          </button>
+        </div>
+
         <div className="relative">
           <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search customers…"
+            placeholder={listMode === 'customers' ? 'Search customers…' : 'Search projects…'}
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
@@ -280,23 +358,50 @@ function CustomerSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {customers.length === 0 ? (
+        {listMode === 'customers' ? (
+          customers.length === 0 ? (
+            <div className="text-center py-12 px-4">
+              <UsersIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">
+                {search ? 'No matching customers' : 'No customers yet.'}
+              </p>
+            </div>
+          ) : (
+            customers.map((c) => (
+              <CustomerListItem
+                key={c.id}
+                customer={c}
+                isSelected={selectedCustomerId === c.id}
+                onSelect={() => onSelect(c.id)}
+              />
+            ))
+          )
+        ) : loadingMyProjects ? (
+          <p className="text-sm text-gray-400 text-center py-12">Loading…</p>
+        ) : filteredMyProjects.length === 0 ? (
           <div className="text-center py-12 px-4">
-            <UsersIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <FolderOpenIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-sm text-gray-400">
-              {search
-                ? 'No matching customers'
-                : 'No customers yet.'}
+              {search ? 'No matching projects' : 'No projects yet.'}
             </p>
           </div>
         ) : (
-          customers.map((c) => (
-            <CustomerListItem
-              key={c.id}
-              customer={c}
-              isSelected={selectedCustomerId === c.id}
-              onSelect={() => onSelect(c.id)}
-            />
+          filteredMyProjects.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => onSelectMyProject(p)}
+              className="w-full text-left relative rounded-lg border px-3 py-2.5 transition border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+            >
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                {p.project_number && (
+                  <span className="text-amber-600 mr-1.5">#{p.project_number}</span>
+                )}
+                {p.name}
+              </p>
+              {p.company_name && (
+                <p className="text-xs text-gray-400 truncate mt-0.5">{p.company_name}</p>
+              )}
+            </button>
           ))
         )}
       </div>
@@ -316,7 +421,7 @@ function CustomerListItem({
   return (
     <button
       onClick={onSelect}
-      className={`w-full text-left relative rounded-lg border p-3 transition ${
+      className={`w-full text-left relative rounded-lg border px-3 py-2.5 transition ${
         isSelected
           ? 'border-gray-300 bg-gray-50'
           : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
@@ -326,31 +431,6 @@ function CustomerListItem({
         <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-amber-500" />
       )}
       <p className="text-sm font-semibold text-gray-900 truncate">{customer.name}</p>
-      {customer.company && (
-        <p className="text-xs text-gray-600 truncate mt-0.5">{customer.company}</p>
-      )}
-      <div className="mt-1 flex flex-col gap-0.5 text-[11px] text-gray-500">
-        {customer.email && (
-          <span className="inline-flex items-center gap-1 truncate">
-            <MailIcon className="w-3 h-3 text-gray-400 flex-shrink-0" />
-            <span className="truncate">{customer.email}</span>
-          </span>
-        )}
-        {customer.phone && (
-          <span className="inline-flex items-center gap-1 truncate">
-            <PhoneIcon className="w-3 h-3 text-gray-400 flex-shrink-0" />
-            <span className="truncate">{customer.phone}</span>
-          </span>
-        )}
-        {(customer.address || customer.city) && (
-          <span className="inline-flex items-center gap-1 truncate">
-            <MapPinIcon className="w-3 h-3 text-gray-400 flex-shrink-0" />
-            <span className="truncate">
-              {[customer.address, customer.city, customer.state].filter(Boolean).join(', ')}
-            </span>
-          </span>
-        )}
-      </div>
     </button>
   )
 }
