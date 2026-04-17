@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeftIcon } from 'lucide-react'
+import { ArrowLeftIcon } from 'lucide-react'
 import type { Takeoff } from '../types'
 import SummaryTab from './tabs/SummaryTab'
 import AreasTab from './tabs/AreasTab'
@@ -69,9 +69,9 @@ export default function TakeoffDetailClient({
       <div className="flex-none bg-white border-b border-gray-200 px-4 py-3">
         <button
           onClick={handleBack}
-          className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition mb-1"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
         >
-          <ChevronLeftIcon className="w-4 h-4" />
+          <ArrowLeftIcon className="w-4 h-4" />
           Back to project
         </button>
         <p className="text-xs text-gray-400">

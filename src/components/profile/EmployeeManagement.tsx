@@ -1550,28 +1550,33 @@ export default function EmployeeManagement({
       {mainOpen && (() => {
       const mainContent = (
         <>
-          {/* Header */}
-          <div className="flex-none flex items-center justify-between px-6 border-b border-gray-200" style={{ minHeight: '56px' }}>
-            <div className="flex items-center gap-2">
-              {settingsOpen ? (
+          {/* Back button — own line above header */}
+          {settingsOpen ? (
+            <div className="flex-none px-6 pt-3">
+              <button
+                onClick={() => setSettingsOpen(false)}
+                className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+              >
+                <ArrowLeftIcon className="w-4 h-4" />
+                Employee Management
+              </button>
+            </div>
+          ) : (
+            isInline && onBack && (
+              <div className="flex-none px-6 pt-3">
                 <button
-                  onClick={() => setSettingsOpen(false)}
-                  className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mr-2"
+                  onClick={onBack}
+                  className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
                 >
                   <ArrowLeftIcon className="w-4 h-4" />
-                  Employee Management
+                  Office
                 </button>
-              ) : (
-                isInline && onBack && (
-                  <button
-                    onClick={onBack}
-                    className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mr-2"
-                  >
-                    <ArrowLeftIcon className="w-4 h-4" />
-                    Office
-                  </button>
-                )
-              )}
+              </div>
+            )
+          )}
+          {/* Header */}
+          <div className="flex-none flex items-center justify-between px-6 py-2 border-b border-gray-200">
+            <div className="flex items-center gap-2">
               {settingsOpen ? (
                 <>
                   <Settings2Icon className="w-5 h-5 text-gray-400" />

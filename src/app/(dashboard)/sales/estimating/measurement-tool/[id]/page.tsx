@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { RulerIcon, MonitorIcon, ArrowLeftIcon } from 'lucide-react'
 import TakeoffProjectList from '@/components/takeoff/TakeoffProjectList'
 import TakeoffDashboard from '@/components/takeoff/TakeoffDashboard'
@@ -85,7 +86,6 @@ function deserializeProjects(json: string): TakeoffProject[] {
 
 export default function MeasurementToolPage() {
   const params = useParams()
-  const router = useRouter()
   const projectId = params.id as string
   const lsKey = `takeoff-projects-${projectId}`
 
@@ -352,15 +352,14 @@ export default function MeasurementToolPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden w-full max-w-full">
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-white border-b border-gray-200 flex-shrink-0">
-        <button
-          onClick={() => router.push(`/sales/estimating?project=${projectId}`)}
-          className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-amber-600 transition-colors"
+      <div className="bg-white border-b border-gray-200 flex-shrink-0 px-4 py-2.5">
+        <Link
+          href={`/sales/estimating?project=${projectId}`}
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2"
         >
           <ArrowLeftIcon className="w-4 h-4" />
-          Back to Project
-        </button>
-        <div className="h-4 w-px bg-gray-200" />
+          Estimating
+        </Link>
         <div className="flex items-center gap-1.5">
           <RulerIcon className="w-4 h-4 text-amber-500" />
           <span className="text-sm font-semibold text-gray-900">Measurement Tool</span>
