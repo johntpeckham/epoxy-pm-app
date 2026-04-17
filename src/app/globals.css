@@ -118,6 +118,37 @@ html.dark .text-gray-50 { color: var(--dark-text-primary); }
 html.dark .placeholder-gray-400::placeholder,
 html.dark .placeholder-gray-500::placeholder { color: var(--dark-text-tertiary); }
 
+/* Light-mode text darkening sweep.  Tailwind's defaults render gray-300
+   through gray-500 as washed-out grays (#d1d5db..#6b7280) which makes
+   body text, table data, timestamps, and descriptions hard to read on
+   white surfaces.  Darken them so they sit at the body / heading level:
+     gray-400..700 → #111827 (gray-900, body text + table data)
+     gray-300      → #4b5563 (gray-600, muted helper text)
+   gray-800/900 are already dark so they're left alone.
+
+   Sidebar exception: the sidebar uses `bg-black` as its surface in both
+   themes and relies on muted gray text for nav labels.  Restore the
+   original Tailwind values when the gray text sits inside a `bg-black`
+   ancestor so the sidebar stays readable. */
+html:not(.dark) .text-gray-700 { color: #111827; }
+html:not(.dark) .text-gray-600 { color: #111827; }
+html:not(.dark) .text-gray-500 { color: #111827; }
+html:not(.dark) .text-gray-400 { color: #111827; }
+html:not(.dark) .text-gray-300 { color: #4b5563; }
+html:not(.dark) .placeholder-gray-400::placeholder,
+html:not(.dark) .placeholder-gray-500::placeholder { color: #6b7280; }
+
+html:not(.dark) .bg-black .text-gray-700,
+html:not(.dark) .bg-gray-900 .text-gray-700 { color: #374151; }
+html:not(.dark) .bg-black .text-gray-600,
+html:not(.dark) .bg-gray-900 .text-gray-600 { color: #4b5563; }
+html:not(.dark) .bg-black .text-gray-500,
+html:not(.dark) .bg-gray-900 .text-gray-500 { color: #6b7280; }
+html:not(.dark) .bg-black .text-gray-400,
+html:not(.dark) .bg-gray-900 .text-gray-400 { color: #9ca3af; }
+html:not(.dark) .bg-black .text-gray-300,
+html:not(.dark) .bg-gray-900 .text-gray-300 { color: #d1d5db; }
+
 /* ── Semantic / pill colors ───────────────────────────────────────────────
    Status and category pills use Tailwind *-50/*-100 backgrounds with
    *-600/*-700/*-800 text.  On a dark surface the raw values are both
