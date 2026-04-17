@@ -55,6 +55,8 @@ const PROJECT_RELATED_TABLES = [
   'project_documents',
   'project_contracts',
   'material_orders',
+  'project_warranties',
+  'project_preliens',
 ]
 
 /**
