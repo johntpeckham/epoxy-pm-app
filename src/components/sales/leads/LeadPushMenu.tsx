@@ -403,22 +403,22 @@ function PushToEstimatingModal({
     if (lead.customer_id) return lead.customer_id
     const supabase = createClient()
     const { data: existing } = await supabase
-      .from('customers')
+      .from('companies')
       .select('id')
-      .eq('user_id', userId)
+      .eq('archived', false)
       .eq('name', lead.customer_name ?? lead.project_name)
       .limit(1)
     if (existing && existing.length > 0) {
       return (existing[0] as { id: string }).id
     }
     const { data: created, error: custErr } = await supabase
-      .from('customers')
+      .from('companies')
       .insert({
-        user_id: userId,
         name: lead.customer_name ?? lead.project_name ?? 'New customer',
         email: lead.customer_email,
         phone: lead.customer_phone,
         address: lead.address,
+        archived: false,
       })
       .select('id')
       .single()

@@ -106,7 +106,7 @@ export default function AddLeadModal({
         return
       }
       const { data: newCust, error: custErr } = await supabase
-        .from('customers')
+        .from('companies')
         .insert({
           name: trimmedName,
           company: null,
@@ -116,7 +116,7 @@ export default function AddLeadModal({
           city: null,
           state: null,
           zip: null,
-          user_id: userId,
+          archived: false,
         })
         .select('*')
         .single()

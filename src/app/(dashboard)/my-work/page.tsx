@@ -92,7 +92,7 @@ export default async function MyWorkPage() {
     .from('crm_follow_up_reminders')
     .select(
       'id, reminder_date, note, company_id, contact_id, is_completed, ' +
-        'crm_companies!inner(id, name), crm_contacts(first_name, last_name)'
+        'companies!inner(id, name), contacts(first_name, last_name)'
     )
     .eq('assigned_to', user.id)
     .eq('is_completed', false)
@@ -106,8 +106,8 @@ export default async function MyWorkPage() {
     company_id: string
     contact_id: string | null
     is_completed: boolean
-    crm_companies: { id: string; name: string } | null
-    crm_contacts: { first_name: string; last_name: string } | null
+    companies: { id: string; name: string } | null
+    contacts: { first_name: string; last_name: string } | null
   }
 
   const reminders = ((reminderRows ?? []) as unknown as RawReminder[]).map((r) => ({
@@ -115,9 +115,9 @@ export default async function MyWorkPage() {
     reminder_date: r.reminder_date,
     note: r.note,
     company_id: r.company_id,
-    company_name: r.crm_companies?.name ?? 'Company',
-    contact_name: r.crm_contacts
-      ? `${r.crm_contacts.first_name} ${r.crm_contacts.last_name}`
+    company_name: r.companies?.name ?? 'Company',
+    contact_name: r.contacts
+      ? `${r.contacts.first_name} ${r.contacts.last_name}`
       : null,
   }))
 
@@ -170,7 +170,7 @@ export default async function MyWorkPage() {
         .lt('call_date', weekEnd.toISOString()),
       supabase
         .from('crm_appointments')
-        .select('id, date, company_id, crm_companies!inner(id, name)')
+        .select('id, date, company_id, companies!inner(id, name)')
         .eq('status', 'scheduled')
         .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
         .gte('date', now.toISOString())
@@ -188,7 +188,7 @@ export default async function MyWorkPage() {
       id: string
       date: string
       company_id: string
-      crm_companies: { id: string; name: string } | null
+      companies: { id: string; name: string } | null
     }
     const first = ((nextApptData ?? []) as unknown as ApptRow[])[0]
     salesActivity = {
@@ -198,7 +198,7 @@ export default async function MyWorkPage() {
         ? {
             id: first.id,
             company_id: first.company_id,
-            company_name: first.crm_companies?.name ?? 'Company',
+            company_name: first.companies?.name ?? 'Company',
             date: first.date,
           }
         : null,

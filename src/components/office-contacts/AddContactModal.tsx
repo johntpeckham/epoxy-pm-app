@@ -29,13 +29,13 @@ export default function AddContactModal({ userId, onClose, onAdded }: AddContact
     setError(null)
     const supabase = createClient()
     const { data, error: insertError } = await supabase
-      .from('customers')
+      .from('companies')
       .insert({
         name: name.trim(),
         email: email.trim() || null,
         phone: phone.trim() || null,
         address: address.trim() || null,
-        user_id: userId,
+        archived: false,
       })
       .select()
       .single()

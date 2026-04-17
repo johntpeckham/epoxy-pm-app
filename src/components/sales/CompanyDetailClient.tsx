@@ -455,7 +455,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     const contactName = primary
       ? `${primary.first_name} ${primary.last_name}`.trim()
       : company.name
-    const { error } = await supabase.from('customers').insert({
+    const { error } = await supabase.from('companies').update({
       name: contactName,
       company: company.name,
       email: primary?.email ?? null,
@@ -464,15 +464,14 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       city: primaryAddr?.city ?? company.city ?? null,
       state: primaryAddr?.state ?? company.state ?? null,
       zip: primaryAddr?.zip ?? null,
-      user_id: userId,
-    })
+    }).eq('id', company.id)
     setConverting(false)
     setConfirmConvert(false)
     if (error) {
       showToast(`Convert failed: ${error.message}`)
       return
     }
-    showToast('Customer created from company')
+    showToast('Company updated with customer details')
   }
 
   async function handleDeleteContact(id: string) {

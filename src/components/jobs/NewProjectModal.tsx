@@ -59,7 +59,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
     const supabase = createClient()
     async function fetchData() {
       const [custResult, empResult, tmplResult] = await Promise.all([
-        supabase.from('customers').select('*').order('name', { ascending: true }),
+        supabase.from('companies').select('*').eq('archived', false).order('name', { ascending: true }),
         supabase.from('employee_profiles').select('*').order('name', { ascending: true }),
         supabase.from('checklist_templates').select('id, name, is_default, is_closeout').order('name', { ascending: true }),
       ])

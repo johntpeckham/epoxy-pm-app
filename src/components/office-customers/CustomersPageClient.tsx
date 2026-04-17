@@ -49,9 +49,9 @@ export default function CustomersPageClient({ userId }: Props) {
   const fetchCustomers = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
-      .from('customers')
+      .from('companies')
       .select('*')
-      .eq('user_id', userId)
+      .eq('archived', false)
       .order('name', { ascending: true })
     if (data) setCustomers(data as Customer[])
     setLoading(false)
@@ -117,7 +117,7 @@ export default function CustomersPageClient({ userId }: Props) {
 
     if (editingCustomer) {
       const { error } = await supabase
-        .from('customers')
+        .from('companies')
         .update(payload)
         .eq('id', editingCustomer.id)
       if (error) {
@@ -126,7 +126,7 @@ export default function CustomersPageClient({ userId }: Props) {
         return
       }
     } else {
-      const { error } = await supabase.from('customers').insert(payload)
+      const { error } = await supabase.from('companies').insert({ ...payload, archived: false })
       if (error) {
         setFormError(error.message)
         setSaving(false)
@@ -143,7 +143,7 @@ export default function CustomersPageClient({ userId }: Props) {
     if (!confirmDelete) return
     setDeleting(true)
     const { data: snapshot } = await supabase
-      .from('customers')
+      .from('companies')
       .select('*')
       .eq('id', confirmDelete.id)
       .single()

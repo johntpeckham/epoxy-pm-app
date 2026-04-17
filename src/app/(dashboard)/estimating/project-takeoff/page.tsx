@@ -13,9 +13,9 @@ export default async function ProjectTakeoffPage() {
 
   const [customersRes, projectsRes, estimatesRes, settingsRes] = await Promise.all([
     supabase
-      .from('customers')
+      .from('companies')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('archived', false)
       .order('name', { ascending: true }),
     supabase
       .from('project_takeoff_projects')
