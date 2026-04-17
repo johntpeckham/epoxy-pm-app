@@ -214,7 +214,7 @@ export default function MaterialSystemPicker({
                   className="text-gray-400 hover:text-amber-600 transition-colors"
                   title="Edit system"
                 >
-                  <SettingsIcon className="w-3.5 h-3.5" />
+                  <SettingsIcon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => removeRow(row.id)}
@@ -284,7 +284,7 @@ export default function MaterialSystemPicker({
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
           >
-            <PlusIcon className="w-3.5 h-3.5" />
+            <PlusIcon className="w-4 h-4" />
             Add Material System
           </button>
 
@@ -329,7 +329,7 @@ export default function MaterialSystemPicker({
                 onClick={() => { setShowAddModal(true); setShowDropdown(false); setSearchQuery('') }}
                 className="flex-none w-full text-left px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 border-t border-gray-100 transition-colors flex items-center gap-1"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
+                <PlusIcon className="w-4 h-4" />
                 Add New
               </button>
             </div>

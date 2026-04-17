@@ -138,8 +138,8 @@ export default function MasterSettingsModal({
                 {unitTypes.map((ut) =>
                   editId === ut.id ? (
                     <div key={ut.id} className="flex items-center gap-2">
-                      <input ref={editNameRef} type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]" onKeyDown={(e) => { if (e.key === 'Enter') handleEditSave(); if (e.key === 'Escape') setEditId(null) }} />
-                      <input type="text" value={editAbbr} onChange={(e) => setEditAbbr(e.target.value)} placeholder="Abbr" className="w-20 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]" onKeyDown={(e) => { if (e.key === 'Enter') handleEditSave(); if (e.key === 'Escape') setEditId(null) }} />
+                      <input ref={editNameRef} type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]" onKeyDown={(e) => { if (e.key === 'Enter') handleEditSave(); if (e.key === 'Escape') setEditId(null) }} />
+                      <input type="text" value={editAbbr} onChange={(e) => setEditAbbr(e.target.value)} placeholder="Abbr" className="w-20 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]" onKeyDown={(e) => { if (e.key === 'Enter') handleEditSave(); if (e.key === 'Escape') setEditId(null) }} />
                       <button onClick={handleEditSave} disabled={editSaving || !editName.trim() || !editAbbr.trim()} className="p-1.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-50 transition-colors" title="Save"><CheckIcon className="w-4 h-4" /></button>
                       <button onClick={() => setEditId(null)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white transition-colors" title="Cancel"><XIcon className="w-4 h-4" /></button>
                     </div>
@@ -147,22 +147,22 @@ export default function MasterSettingsModal({
                     <div key={ut.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-[#2e2e2e] group transition-colors">
                       <span className="text-sm text-gray-900 dark:text-white flex-1 min-w-0 truncate">{ut.name}</span>
                       <span className="text-xs text-gray-500 dark:text-[#6b6b6b] font-mono">{ut.abbreviation}</span>
-                      <button onClick={() => startEdit(ut)} className="p-1 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 opacity-0 group-hover:opacity-100 transition-all" title="Edit"><PencilIcon className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => handleDeleteClick(ut)} className="p-1 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" title="Delete"><Trash2Icon className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => startEdit(ut)} className="p-1 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 opacity-0 group-hover:opacity-100 transition-all" title="Edit"><PencilIcon className="w-4 h-4" /></button>
+                      <button onClick={() => handleDeleteClick(ut)} className="p-1 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" title="Delete"><Trash2Icon className="w-4 h-4" /></button>
                     </div>
                   )
                 )}
               </div>
               {adding ? (
                 <div className="flex items-center gap-2 mt-2">
-                  <input ref={addNameRef} type="text" value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="Name (e.g. Gallons)" className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]" onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }} />
-                  <input type="text" value={addAbbr} onChange={(e) => setAddAbbr(e.target.value)} placeholder="Abbr (e.g. gal)" className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]" onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }} />
+                  <input ref={addNameRef} type="text" value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="Name (e.g. Gallons)" className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]" onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }} />
+                  <input type="text" value={addAbbr} onChange={(e) => setAddAbbr(e.target.value)} placeholder="Abbr (e.g. gal)" className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2.5 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]" onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }} />
                   <button onClick={handleAdd} disabled={addSaving || !addName.trim() || !addAbbr.trim()} className="p-1.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-50 transition-colors" title="Save"><CheckIcon className="w-4 h-4" /></button>
                   <button onClick={() => { setAdding(false); setAddName(''); setAddAbbr('') }} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white transition-colors" title="Cancel"><XIcon className="w-4 h-4" /></button>
                 </div>
               ) : (
                 <button onClick={() => setAdding(true)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors">
-                  <PlusIcon className="w-3.5 h-3.5" />
+                  <PlusIcon className="w-4 h-4" />
                   Add Unit Type
                 </button>
               )}

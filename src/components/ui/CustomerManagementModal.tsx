@@ -183,7 +183,7 @@ export default function CustomerManagementModal({
                 onClick={openAddModal}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg transition"
               >
-                <PlusIcon className="w-3.5 h-3.5" />
+                <PlusIcon className="w-4 h-4" />
                 Add Customer
               </button>
               <button
@@ -246,14 +246,14 @@ export default function CustomerManagementModal({
                         className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
                         title="Edit customer"
                       >
-                        <PencilIcon className="w-3.5 h-3.5" />
+                        <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setConfirmDelete(customer)}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
                         title="Delete customer"
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
+                        <Trash2Icon className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -275,7 +275,7 @@ export default function CustomerManagementModal({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-              <h3 className="text-base font-bold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900">
                 {editingCustomer ? 'Edit Customer' : 'New Customer'}
               </h3>
               <button

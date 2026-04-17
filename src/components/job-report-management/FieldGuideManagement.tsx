@@ -642,7 +642,7 @@ export default function FieldGuideManagement({ userId }: FieldGuideManagementPro
                   <input
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                     placeholder="e.g., Epoxy Floor Coating SOP"
                   />
                 </div>
@@ -742,14 +742,14 @@ export default function FieldGuideManagement({ userId }: FieldGuideManagementPro
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => startEdit(guide)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
                       title="Edit field guide"
                     >
                       <PencilIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setGuideToDelete(guide)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
                       title="Delete field guide"
                     >
                       <Trash2Icon className="w-4 h-4" />

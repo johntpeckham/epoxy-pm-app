@@ -49,7 +49,7 @@ export default function CustomerProjectsPanel({
           onClick={onNewProject}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
         >
-          <PlusIcon className="w-3.5 h-3.5" />
+          <PlusIcon className="w-4 h-4" />
           New project
         </button>
       </div>

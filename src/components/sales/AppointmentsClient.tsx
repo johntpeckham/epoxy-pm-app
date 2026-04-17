@@ -501,7 +501,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
       {/* Header */}
       <div className="px-7 pt-8 pb-4 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-medium text-gray-900 leading-tight">
+          <h1 className="text-2xl font-bold text-gray-900 leading-tight">
             Appointments
           </h1>
           <p className="text-sm text-gray-400 mt-1">
@@ -594,12 +594,12 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                       </div>
                       <div className="mt-1.5 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
                         <span className="inline-flex items-center gap-1.5">
-                          <CalendarIcon className="w-3.5 h-3.5 text-gray-400" />
+                          <CalendarIcon className="w-4 h-4 text-gray-400" />
                           {formatDateTime(appt.date)}
                         </span>
                         {contact && (
                           <span className="inline-flex items-center gap-1.5">
-                            <UserIcon className="w-3.5 h-3.5 text-gray-400" />
+                            <UserIcon className="w-4 h-4 text-gray-400" />
                             {contact.first_name} {contact.last_name}
                           </span>
                         )}
@@ -608,7 +608,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                         <div className="mt-1 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
                           {appt.address && (
                             <span className="inline-flex items-center gap-1.5">
-                              <MapPinIcon className="w-3.5 h-3.5 text-gray-400" />
+                              <MapPinIcon className="w-4 h-4 text-gray-400" />
                               {appt.address}
                             </span>
                           )}
@@ -617,7 +617,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                               href={`tel:${contact.phone}`}
                               className="inline-flex items-center gap-1.5 hover:text-amber-600"
                             >
-                              <PhoneIcon className="w-3.5 h-3.5 text-gray-400" />
+                              <PhoneIcon className="w-4 h-4 text-gray-400" />
                               {contact.phone}
                             </a>
                           )}
@@ -646,7 +646,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                             className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
                           >
                             Push to…
-                            <ChevronDownIcon className="w-3.5 h-3.5" />
+                            <ChevronDownIcon className="w-4 h-4" />
                           </button>
                           {openPushMenuFor === appt.id && (
                             <>

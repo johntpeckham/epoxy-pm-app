@@ -176,7 +176,7 @@ function InlinePhotoPost({
                     style={{ backgroundColor: selectedPaths?.has(path) ? '#f59e0b' : 'rgba(0,0,0,0.35)' }}
                   >
                     {selectedPaths?.has(path) && (
-                      <CheckIcon className="w-3.5 h-3.5 text-white" />
+                      <CheckIcon className="w-4 h-4 text-white" />
                     )}
                   </div>
                 )}
@@ -911,7 +911,7 @@ function ExpensePost({
       )}
       {attachmentUrl && !isImage && (
         <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-900 font-medium">
-          <FileTextIcon className="w-3.5 h-3.5" />
+          <FileTextIcon className="w-4 h-4" />
           View attachment
         </a>
       )}
@@ -1119,7 +1119,7 @@ function InlinePdfPost({ content }: { content: PdfContent }) {
               <h2 className="text-lg font-semibold text-gray-900 truncate">{content.filename}</h2>
               <button
                 onClick={() => setShowPreview(false)}
-                className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -1413,9 +1413,9 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           onClick={handleDownloadPdf}
           disabled={pdfLoading}
           title="Download PDF"
-          className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition disabled:opacity-40"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition disabled:opacity-40"
         >
-          <DownloadIcon className="w-3.5 h-3.5" />
+          <DownloadIcon className="w-4 h-4" />
         </button>
       )}
       {post.post_type === 'pdf' && (
@@ -1423,16 +1423,16 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
           <button
             onClick={handlePdfFileDownload}
             title="Download file"
-            className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
           >
-            <DownloadIcon className="w-3.5 h-3.5" />
+            <DownloadIcon className="w-4 h-4" />
           </button>
           <button
             onClick={handlePdfFilePrint}
             title="Print / open in new tab"
-            className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
           >
-            <PrinterIcon className="w-3.5 h-3.5" />
+            <PrinterIcon className="w-4 h-4" />
           </button>
         </>
       )}
@@ -1454,41 +1454,41 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
             }
           }}
           title="Edit post"
-          className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
         >
-          <PencilIcon className="w-3.5 h-3.5" />
+          <PencilIcon className="w-4 h-4" />
         </button>
       )}
       {post.post_type === 'photo' && (
         <button
           onClick={() => setPhotoEditMode(true)}
           title="Edit photos"
-          className="p-1 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition"
         >
-          <PencilIcon className="w-3.5 h-3.5" />
+          <PencilIcon className="w-4 h-4" />
         </button>
       )}
       <button
         onClick={() => setShowDeleteConfirm(true)}
         title="Delete post"
-        className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
+        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
       >
-        <Trash2Icon className="w-3.5 h-3.5" />
+        <Trash2Icon className="w-4 h-4" />
       </button>
       <button
         onClick={handlePinToggle}
         disabled={pinning}
         title={post.is_pinned ? 'Unpin post' : 'Pin post'}
-        className={`p-1 rounded-md transition ${
+        className={`p-1.5 rounded-lg transition ${
           post.is_pinned
             ? 'text-amber-500 hover:bg-amber-50'
             : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'
         }`}
       >
         {post.is_pinned ? (
-          <PinOffIcon className="w-3.5 h-3.5" />
+          <PinOffIcon className="w-4 h-4" />
         ) : (
-          <PinIcon className="w-3.5 h-3.5" />
+          <PinIcon className="w-4 h-4" />
         )}
       </button>
     </div>
@@ -1626,14 +1626,14 @@ export default function PostCard({ post, userId, onPinToggle, onDeleted, onUpdat
                           onClick={() => setEditingText(false)}
                           className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition"
                         >
-                          <XIcon className="w-3.5 h-3.5" /> Cancel
+                          <XIcon className="w-4 h-4" /> Cancel
                         </button>
                         <button
                           onClick={handleSaveText}
                           disabled={savingText || !editText.trim()}
                           className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-md transition"
                         >
-                          <CheckIcon className="w-3.5 h-3.5" /> {savingText ? 'Saving…' : 'Save'}
+                          <CheckIcon className="w-4 h-4" /> {savingText ? 'Saving…' : 'Save'}
                         </button>
                       </div>
                     </div>

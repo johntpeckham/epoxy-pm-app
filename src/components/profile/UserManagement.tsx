@@ -319,7 +319,7 @@ export default function UserManagement({
               onClick={() => setMainOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
             >
-              <UsersIcon className="w-3.5 h-3.5" />
+              <UsersIcon className="w-4 h-4" />
               Manage Users
             </button>
           </div>
@@ -343,7 +343,7 @@ export default function UserManagement({
                 onClick={() => router.push('/permissions')}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
               >
-                <SettingsIcon className="w-3.5 h-3.5" />
+                <SettingsIcon className="w-4 h-4" />
                 Permissions
               </button>
               <button
@@ -361,7 +361,7 @@ export default function UserManagement({
       {/* Add New User Section */}
       <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
         <div className="flex items-center gap-1.5 mb-3">
-          <UserPlusIcon className="w-3.5 h-3.5 text-gray-500" />
+          <UserPlusIcon className="w-4 h-4 text-gray-500" />
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
             Add New User
           </h3>
@@ -375,7 +375,7 @@ export default function UserManagement({
                 value={addEmail}
                 onChange={(e) => setAddEmail(e.target.value)}
                 placeholder="Email"
-                className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
               />
             </div>
             <input
@@ -383,7 +383,7 @@ export default function UserManagement({
               value={addDisplayName}
               onChange={(e) => setAddDisplayName(e.target.value)}
               placeholder="Display Name"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -392,12 +392,12 @@ export default function UserManagement({
               value={addPassword}
               onChange={(e) => setAddPassword(e.target.value)}
               placeholder="Password (min 8 chars)"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
             />
             <select
               value={addRole}
               onChange={(e) => setAddRole(e.target.value as UserRole)}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition bg-white"
             >
               {ROLE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -475,7 +475,7 @@ export default function UserManagement({
                     onClick={() => openEditModal(user)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
                   >
-                    <PencilIcon className="w-3.5 h-3.5" />
+                    <PencilIcon className="w-4 h-4" />
                     Edit
                   </button>
                 )}
@@ -563,7 +563,7 @@ export default function UserManagement({
                   value={editDisplayName}
                   onChange={(e) => setEditDisplayName(e.target.value)}
                   placeholder="Enter display name"
-                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                 />
               </div>
 
@@ -576,7 +576,7 @@ export default function UserManagement({
                   id="edit-role"
                   value={editRole}
                   onChange={(e) => setEditRole(e.target.value as UserRole)}
-                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition bg-white"
                 >
                   {ROLE_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -630,7 +630,7 @@ export default function UserManagement({
               {users.find((u) => u.id === currentUserId)?.role === 'admin' && (
                 <div className="pt-3 border-t border-gray-100">
                   <div className="flex items-center gap-1.5 mb-3">
-                    <LockIcon className="w-3.5 h-3.5 text-gray-400" />
+                    <LockIcon className="w-4 h-4 text-gray-400" />
                     <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Change Password</h4>
                   </div>
                   <div className="space-y-3">
@@ -644,7 +644,7 @@ export default function UserManagement({
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="Enter new password"
-                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                       />
                     </div>
                     <div>
@@ -657,7 +657,7 @@ export default function UserManagement({
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="Confirm new password"
-                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                       />
                     </div>
                     <button
@@ -667,7 +667,7 @@ export default function UserManagement({
                     >
                       {passwordSuccess ? (
                         <>
-                          <CheckIcon className="w-3.5 h-3.5" />
+                          <CheckIcon className="w-4 h-4" />
                           Password Updated
                         </>
                       ) : passwordSaving ? (
@@ -711,7 +711,7 @@ export default function UserManagement({
                     onClick={() => setShowDeleteConfirm(true)}
                     className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 transition"
                   >
-                    <Trash2Icon className="w-3.5 h-3.5" />
+                    <Trash2Icon className="w-4 h-4" />
                     Delete User
                   </button>
                 )}

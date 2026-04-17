@@ -22,7 +22,7 @@ export default function ProjectTakeoffToolCard() {
         className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors"
       >
         Open takeoff tool
-        <ArrowUpRightIcon className="w-3.5 h-3.5" />
+        <ArrowUpRightIcon className="w-4 h-4" />
       </Link>
     </div>
   )

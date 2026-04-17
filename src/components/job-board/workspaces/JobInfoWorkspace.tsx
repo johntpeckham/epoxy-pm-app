@@ -26,7 +26,7 @@ export default function JobInfoWorkspace({ project, onBack, onEdit }: JobInfoWor
           onClick={onEdit}
           className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
         >
-          <PencilIcon className="w-3.5 h-3.5" />
+          <PencilIcon className="w-4 h-4" />
           Edit Project
         </button>
       }

@@ -11,7 +11,7 @@ interface JsaTemplateManagerModalProps {
 }
 
 const inputCls =
-  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
+  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white'
 const textareaCls = inputCls + ' resize-none'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
@@ -140,7 +140,7 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
           <h2 className="text-lg font-semibold text-gray-900">Manage JSA Task Templates</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
           >
             <XIcon className="w-5 h-5" />
           </button>
@@ -166,14 +166,14 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
                       disabled={idx === 0}
                       className="p-0.5 text-gray-400 hover:text-amber-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
                     >
-                      <ChevronUpIcon className="w-3.5 h-3.5" />
+                      <ChevronUpIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleReorder(t.id, 'down')}
                       disabled={idx === templates.length - 1}
                       className="p-0.5 text-gray-400 hover:text-amber-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
                     >
-                      <ChevronDownIcon className="w-3.5 h-3.5" />
+                      <ChevronDownIcon className="w-4 h-4" />
                     </button>
                   </div>
 
@@ -189,13 +189,13 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
                       onClick={() => startEdit(t)}
                       className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition"
                     >
-                      <PencilIcon className="w-3.5 h-3.5" />
+                      <PencilIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(t.id)}
                       className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
                     >
-                      <Trash2Icon className="w-3.5 h-3.5" />
+                      <Trash2Icon className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -261,7 +261,7 @@ export default function JsaTemplateManagerModal({ onClose }: JsaTemplateManagerM
                   disabled={saving || !formName.trim()}
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-md transition"
                 >
-                  <CheckIcon className="w-3.5 h-3.5" />
+                  <CheckIcon className="w-4 h-4" />
                   {saving ? 'Saving...' : 'Save'}
                 </button>
               </div>

@@ -181,7 +181,7 @@ export default function ProjectMeasurementsCard({
           value={measurements}
           onChange={(e) => handleTextChange(e.target.value)}
           placeholder="Add measurement notes for this project…"
-          className="w-full min-h-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white resize-y"
+          className="w-full min-h-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white resize-y"
         />
 
         <div className="mt-3">
@@ -208,7 +208,7 @@ export default function ProjectMeasurementsCard({
                       aria-label="Delete PDF"
                       className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-red-500 transition opacity-80 group-hover:opacity-100"
                     >
-                      <XIcon className="w-3.5 h-3.5" />
+                      <XIcon className="w-4 h-4" />
                     </button>
                   </div>
                   <p

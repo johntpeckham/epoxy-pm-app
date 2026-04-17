@@ -154,7 +154,7 @@ export default function SearchableDropdown({
         >
           {/* Search */}
           <div className="flex items-center gap-2 px-2.5 py-2 border-b border-gray-100">
-            <SearchIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <SearchIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
             <input
               ref={searchInputRef}
               type="text"
@@ -179,7 +179,7 @@ export default function SearchableDropdown({
                   option === value ? 'text-amber-600 font-medium' : 'text-gray-700'
                 }`}
               >
-                {option === value && <CheckIcon className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
+                {option === value && <CheckIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />}
                 <span className={option === value ? '' : 'pl-[22px]'}>{option}</span>
               </button>
             ))}
@@ -197,7 +197,7 @@ export default function SearchableDropdown({
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
                       placeholder="New name..."
-                      className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') { e.preventDefault(); handleAddNew() }
@@ -221,7 +221,7 @@ export default function SearchableDropdown({
                   onClick={() => { setAddingNew(true); setNewName(search); setAddError('') }}
                   className="w-full text-left px-3 py-2 text-sm text-amber-600 hover:bg-amber-50 transition flex items-center gap-2 font-medium"
                 >
-                  <PlusIcon className="w-3.5 h-3.5" />
+                  <PlusIcon className="w-4 h-4" />
                   Add New
                 </button>
               )}

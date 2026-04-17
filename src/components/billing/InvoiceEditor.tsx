@@ -256,7 +256,7 @@ export default function InvoiceEditor({
               className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
             >
               {status}
-              <ChevronDownIcon className="w-3.5 h-3.5" />
+              <ChevronDownIcon className="w-4 h-4" />
             </button>
             {showStatusMenu && (
               <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
@@ -278,7 +278,7 @@ export default function InvoiceEditor({
             onClick={() => setShowChangeOrderModal(true)}
             className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <FilePlusIcon className="w-3.5 h-3.5" />
+            <FilePlusIcon className="w-4 h-4" />
             Change Order
           </button>
           {/* Delete */}
@@ -287,7 +287,7 @@ export default function InvoiceEditor({
             className="p-1.5 text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg hover:border-red-200 transition-colors"
             title="Delete invoice"
           >
-            <Trash2Icon className="w-3.5 h-3.5" />
+            <Trash2Icon className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -475,7 +475,7 @@ export default function InvoiceEditor({
               onClick={addLineItem}
               className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 mt-2 transition-colors"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
               Add Line Item
             </button>
           </div>

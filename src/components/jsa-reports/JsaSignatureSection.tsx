@@ -18,7 +18,7 @@ interface JsaSignatureSectionProps {
 const DEFAULT_ROW_COUNT = 10
 
 const inputCls =
-  'w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
+  'w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white'
 
 // ── Signature Modal ──────────────────────────────────────────────────────────
 
@@ -296,7 +296,7 @@ export default function JsaSignatureSection({ initialSignatures, onChange }: Jsa
                     className="h-[36px] w-[90px] object-contain border border-gray-200 rounded bg-white"
                   />
                   <span className="absolute inset-0 flex items-center justify-center bg-white/70 opacity-0 group-hover:opacity-100 transition rounded">
-                    <PenLineIcon className="w-3.5 h-3.5 text-amber-600" />
+                    <PenLineIcon className="w-4 h-4 text-amber-600" />
                   </span>
                 </button>
               ) : (
@@ -318,7 +318,7 @@ export default function JsaSignatureSection({ initialSignatures, onChange }: Jsa
           onClick={addRow}
           className="flex items-center gap-1 mt-2 text-xs text-amber-600 hover:text-amber-700 font-medium transition"
         >
-          <PlusIcon className="w-3.5 h-3.5" />
+          <PlusIcon className="w-4 h-4" />
           Add Row
         </button>
       </div>

@@ -567,9 +567,9 @@ export default function TimesheetsPageClient({
                         className="flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 font-medium disabled:opacity-50 transition"
                       >
                         {downloadingWeek === `${project.projectName}-${week.weekMonday}` ? (
-                          <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+                          <LoaderIcon className="w-4 h-4 animate-spin" />
                         ) : (
-                          <DownloadIcon className="w-3.5 h-3.5" />
+                          <DownloadIcon className="w-4 h-4" />
                         )}
                         Week PDF
                       </button>
@@ -631,20 +631,20 @@ export default function TimesheetsPageClient({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search project, employee, date..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
           />
         </div>
         <div className="relative">
           <select
             value={sortOption}
             onChange={(e) => setSortOption(e.target.value as SortOption)}
-            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
+            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>
       </div>
 

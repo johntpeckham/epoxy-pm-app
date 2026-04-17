@@ -135,12 +135,12 @@ export default function LogFollowUpModal({
           >
             <div className="flex items-center gap-2">
               <MessageCircleIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-base font-bold text-gray-900">Log follow-up</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Log follow-up</h3>
             </div>
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -159,7 +159,7 @@ export default function LogFollowUpModal({
                       e.target.value as EstimateFollowUp['follow_up_type']
                     )
                   }
-                  className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
                   <option value="call">Call</option>
                   <option value="email">Email</option>
@@ -178,7 +178,7 @@ export default function LogFollowUpModal({
                       e.target.value as NonNullable<EstimateFollowUp['outcome']>
                     )
                   }
-                  className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
                   <option value="connected">Connected</option>
                   <option value="voicemail">Voicemail</option>
@@ -197,7 +197,7 @@ export default function LogFollowUpModal({
                 type="text"
                 value={contactedName}
                 onChange={(e) => setContactedName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
             </div>
             <div>
@@ -208,7 +208,7 @@ export default function LogFollowUpModal({
                 rows={4}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
                 placeholder="What did you discuss?"
               />
             </div>

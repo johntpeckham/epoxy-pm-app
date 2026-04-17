@@ -19,7 +19,7 @@ interface EditReceiptModalProps {
 }
 
 const inputCls =
-  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
 const FORM_KEY = 'expense'
@@ -259,7 +259,7 @@ export default function EditReceiptModal({
           <h2 className="text-lg font-semibold text-gray-900">Edit Expense</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
           >
             <XIcon className="w-5 h-5" />
           </button>
@@ -288,7 +288,7 @@ export default function EditReceiptModal({
                 type="checkbox"
                 checked={restricted}
                 onChange={(e) => setRestricted(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 focus:border-amber-500"
               />
               <span className="text-sm text-gray-700">Office Only</span>
             </label>

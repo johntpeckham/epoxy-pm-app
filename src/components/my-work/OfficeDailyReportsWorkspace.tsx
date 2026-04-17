@@ -470,22 +470,22 @@ export default function OfficeDailyReportsWorkspace({ userId, userRole }: Props)
             {!salesNotApplicable && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <MetricBox
-                  icon={<PhoneIcon className="w-3.5 h-3.5" />}
+                  icon={<PhoneIcon className="w-4 h-4" />}
                   label="Calls made"
                   value={metrics.calls}
                 />
                 <MetricBox
-                  icon={<MailIcon className="w-3.5 h-3.5" />}
+                  icon={<MailIcon className="w-4 h-4" />}
                   label="Emails sent"
                   value={metrics.emails}
                 />
                 <MetricBox
-                  icon={<MessageSquareIcon className="w-3.5 h-3.5" />}
+                  icon={<MessageSquareIcon className="w-4 h-4" />}
                   label="Texts sent"
                   value={metrics.texts}
                 />
                 <MetricBox
-                  icon={<CalendarIcon className="w-3.5 h-3.5" />}
+                  icon={<CalendarIcon className="w-4 h-4" />}
                   label="Appts set"
                   value={metrics.appointments}
                 />
@@ -657,22 +657,22 @@ export default function OfficeDailyReportsWorkspace({ userId, userRole }: Props)
                         ) : (
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             <MetricBox
-                              icon={<PhoneIcon className="w-3.5 h-3.5" />}
+                              icon={<PhoneIcon className="w-4 h-4" />}
                               label="Calls made"
                               value={report.sales_calls}
                             />
                             <MetricBox
-                              icon={<MailIcon className="w-3.5 h-3.5" />}
+                              icon={<MailIcon className="w-4 h-4" />}
                               label="Emails sent"
                               value={report.sales_emails}
                             />
                             <MetricBox
-                              icon={<MessageSquareIcon className="w-3.5 h-3.5" />}
+                              icon={<MessageSquareIcon className="w-4 h-4" />}
                               label="Texts sent"
                               value={report.sales_texts}
                             />
                             <MetricBox
-                              icon={<CalendarIcon className="w-3.5 h-3.5" />}
+                              icon={<CalendarIcon className="w-4 h-4" />}
                               label="Appts set"
                               value={report.sales_appointments}
                             />

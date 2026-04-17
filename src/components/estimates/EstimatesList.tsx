@@ -68,7 +68,7 @@ export default function EstimatesList({ estimates, onSelect, userId, onEstimateD
                   className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded"
                   title="Delete estimate"
                 >
-                  <Trash2Icon className="w-3.5 h-3.5" />
+                  <Trash2Icon className="w-4 h-4" />
                 </button>
               </div>
             </div>

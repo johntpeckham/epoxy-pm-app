@@ -145,7 +145,7 @@ export default function ProjectFeedClient({
                   onClick={onEdit}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
                 >
-                  <PencilIcon className="w-3.5 h-3.5" />
+                  <PencilIcon className="w-4 h-4" />
                   Edit
                 </button>
               )}
@@ -153,21 +153,21 @@ export default function ProjectFeedClient({
                 onClick={() => setShowPlansModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
               >
-                <FileTextIcon className="w-3.5 h-3.5" />
+                <FileTextIcon className="w-4 h-4" />
                 Plans
               </button>
               <button
                 onClick={() => setShowReportModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
               >
-                <ClipboardListIcon className="w-3.5 h-3.5" />
+                <ClipboardListIcon className="w-4 h-4" />
                 Report
               </button>
               <button
                 onClick={() => setShowPhotosModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition"
               >
-                <CameraIcon className="w-3.5 h-3.5" />
+                <CameraIcon className="w-4 h-4" />
                 Pictures
               </button>
             </div>
@@ -179,7 +179,7 @@ export default function ProjectFeedClient({
                 onClick={onEdit}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
               >
-                <PencilIcon className="w-3.5 h-3.5" />
+                <PencilIcon className="w-4 h-4" />
                 Edit
               </button>
             )}
@@ -187,21 +187,21 @@ export default function ProjectFeedClient({
               onClick={() => setShowPlansModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
             >
-              <FileTextIcon className="w-3.5 h-3.5" />
+              <FileTextIcon className="w-4 h-4" />
               Plans
             </button>
             <button
               onClick={() => setShowReportModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
             >
-              <ClipboardListIcon className="w-3.5 h-3.5" />
+              <ClipboardListIcon className="w-4 h-4" />
               Job Report
             </button>
             <button
               onClick={() => setShowPhotosModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 transition flex-shrink-0"
             >
-              <CameraIcon className="w-3.5 h-3.5" />
+              <CameraIcon className="w-4 h-4" />
               Pictures
             </button>
           </div>

@@ -820,7 +820,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       {/* ── Header ── */}
       <div className="px-7 pt-8 pb-4 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0 flex items-center gap-3">
-          <h1 className="text-[22px] font-medium text-gray-900 leading-tight">CRM</h1>
+          <h1 className="text-2xl font-bold text-gray-900 leading-tight">CRM</h1>
           <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-xs">
             <button
               onClick={() => setViewMode('new')}
@@ -852,7 +852,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
                 aria-label="Clear search"
               >
-                <XIcon className="w-3.5 h-3.5" />
+                <XIcon className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -970,7 +970,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                       type="checkbox"
                                       checked={checked}
                                       onChange={() => toggleFilterValue(g.field, opt.value)}
-                                      className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
+                                      className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
                                     />
                                     <span className="truncate">{opt.label}</span>
                                   </label>
@@ -994,7 +994,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleFilterValue(field, opt.value)}
-                              className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
+                              className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
                             />
                             <span className="truncate">{opt.label}</span>
                           </label>
@@ -1112,9 +1112,9 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                             aria-label={expanded ? 'Collapse contacts' : 'Expand contacts'}
                           >
                             {expanded ? (
-                              <ChevronDownIcon className="w-3.5 h-3.5" />
+                              <ChevronDownIcon className="w-4 h-4" />
                             ) : (
-                              <ChevronRightIcon className="w-3.5 h-3.5" />
+                              <ChevronRightIcon className="w-4 h-4" />
                             )}
                           </button>
                         ) : null}
@@ -1128,7 +1128,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                           type="checkbox"
                           checked={selectedIds.has(c.id)}
                           onChange={() => toggleRowSelected(c.id)}
-                          className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
+                          className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
                           aria-label={`Select ${c.name}`}
                         />
                       </td>

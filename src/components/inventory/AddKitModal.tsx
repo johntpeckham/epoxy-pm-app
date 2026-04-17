@@ -256,7 +256,7 @@ export default function AddKitModal({
                   <select
                     value={selectedSupplierId}
                     onChange={(e) => setSelectedSupplierId(e.target.value)}
-                    className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                    className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                   >
                     <option value="">Select a supplier…</option>
                     {suppliers.map((s) => (
@@ -287,7 +287,7 @@ export default function AddKitModal({
                       }}
                       onFocus={() => setDropdownOpen(true)}
                       placeholder="Search master kit groups…"
-                      className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                      className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                     />
                   </div>
                   {dropdownOpen && (
@@ -311,7 +311,7 @@ export default function AddKitModal({
                         onClick={handleAddNew}
                         className="w-full text-left px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors font-medium border-t border-gray-100 dark:border-[#3a3a3a] flex items-center gap-1.5"
                       >
-                        <PlusIcon className="w-3.5 h-3.5" />
+                        <PlusIcon className="w-4 h-4" />
                         Add New Kit{searchQuery.trim() ? `: "${searchQuery.trim()}"` : ''}
                       </button>
                     </div>
@@ -363,7 +363,7 @@ export default function AddKitModal({
                     onChange={(e) => setKitName(e.target.value)}
                     placeholder="e.g. Epoxy Kit"
                     readOnly={!!selectedMasterKitId}
-                    className={`w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
+                    className={`w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 ${
                       selectedMasterKitId ? 'bg-gray-50 dark:bg-[#1a1a1a]' : 'bg-white dark:bg-[#2e2e2e]'
                     }`}
                   />
@@ -384,7 +384,7 @@ export default function AddKitModal({
                           value={row.name}
                           onChange={(e) => updateRow(row.localId, { name: e.target.value })}
                           placeholder={`Product ${idx + 1} name`}
-                          className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                          className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                         />
                         <input
                           type="number"
@@ -394,7 +394,7 @@ export default function AddKitModal({
                           value={row.quantity}
                           onChange={(e) => updateRow(row.localId, { quantity: e.target.value })}
                           aria-label="Quantity"
-                          className="w-16 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                          className="w-16 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                         />
                         <select
                           value={row.unit}
@@ -402,7 +402,7 @@ export default function AddKitModal({
                             updateRow(row.localId, { unit: e.target.value })
                           }
                           aria-label="Unit"
-                          className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white dark:bg-[#2e2e2e]"
+                          className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
                         >
                           {unitTypes.length === 0 ? (
                             <option value="" disabled>No units</option>
@@ -436,7 +436,7 @@ export default function AddKitModal({
                     onClick={addRow}
                     className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
                   >
-                    <PlusIcon className="w-3.5 h-3.5" />
+                    <PlusIcon className="w-4 h-4" />
                     Add Product
                   </button>
                 </div>

@@ -12,7 +12,7 @@ interface ManageEmployeesModalProps {
 }
 
 const inputCls =
-  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500'
 
 export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalProps) {
   const supabase = createClient()
@@ -118,7 +118,7 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
           <h2 className="text-lg font-semibold text-gray-900">Manage Employees</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
           >
             <XIcon className="w-5 h-5" />
           </button>
@@ -169,7 +169,7 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit() }}
-                        className="flex-1 border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        className="flex-1 border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                       />
                       <button
                         onClick={handleSaveEdit}
@@ -204,13 +204,13 @@ export default function ManageEmployeesModal({ onClose }: ManageEmployeesModalPr
                         onClick={() => { setEditingId(emp.id); setEditName(emp.name) }}
                         className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition"
                       >
-                        <PencilIcon className="w-3.5 h-3.5" />
+                        <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setDeleteTarget(emp)}
                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
+                        <Trash2Icon className="w-4 h-4" />
                       </button>
                     </>
                   )}

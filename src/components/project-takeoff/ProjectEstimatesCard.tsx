@@ -49,7 +49,7 @@ export default function ProjectEstimatesCard({
           onClick={onNewEstimate}
           className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
         >
-          <PlusIcon className="w-3.5 h-3.5" />
+          <PlusIcon className="w-4 h-4" />
           New estimate
         </button>
       </div>

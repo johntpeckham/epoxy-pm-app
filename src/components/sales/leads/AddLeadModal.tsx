@@ -160,7 +160,7 @@ export default function AddLeadModal({
 
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1.5'
   const inputCls =
-    'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white'
+    'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white'
 
   return (
     <Portal>
@@ -180,7 +180,7 @@ export default function AddLeadModal({
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -257,7 +257,7 @@ export default function AddLeadModal({
                         onClick={handleStartCreate}
                         className="w-full text-left px-3 py-2 border-t border-gray-100 flex items-center gap-2 text-sm text-amber-600 hover:bg-amber-50 transition"
                       >
-                        <PlusIcon className="w-3.5 h-3.5" />
+                        <PlusIcon className="w-4 h-4" />
                         Create new customer
                       </button>
                     </div>
@@ -279,7 +279,7 @@ export default function AddLeadModal({
                         setNewCustomerAddress('')
                       }}
                       aria-label="Close new customer details"
-                      className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition"
+                      className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
                     >
                       <XIcon className="w-4 h-4" />
                     </button>

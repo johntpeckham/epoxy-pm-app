@@ -668,28 +668,28 @@ export default function OfficeTasksPageClient({
             onClick={() => setView({ kind: 'employees' })}
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
-            <UsersIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <UsersIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1 text-left">Employees</span>
-            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </button>
           )}
           <Link
             href="/office/contacts"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
-            <ContactIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <ContactIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Contacts</span>
             <span className="text-[12px] text-gray-400 mr-2">{contactCount}</span>
-            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           <Link
             href="/office/customers"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
-            <UsersIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <UsersIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Customers</span>
             <span className="text-[12px] text-gray-400 mr-2">{customerCount}</span>
-            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
         </div>
       </div>
@@ -704,26 +704,26 @@ export default function OfficeTasksPageClient({
             href="/office/vendors"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
-            <Building2Icon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <Building2Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Vendors</span>
             <span className="text-[12px] text-gray-400 mr-2">{vendorCount}</span>
-            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           <Link
             href="/inventory"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
-            <PackageIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <PackageIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Material inventory</span>
-            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           <Link
             href="/scheduling"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
-            <CalendarIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <CalendarIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Scheduling</span>
-            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
         </div>
       </div>
@@ -736,7 +736,7 @@ export default function OfficeTasksPageClient({
           {/* SOPs & Forms tile — hidden for foreman */}
           {!isForeman && (
           <div className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3">
-            <FileTextIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <FileTextIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">SOPs &amp; forms</span>
             <span className="text-[12px] text-gray-400">Coming soon</span>
           </div>
@@ -745,7 +745,7 @@ export default function OfficeTasksPageClient({
           {/* Company Meetings tile with sub-items */}
           <div className="bg-white border border-gray-200/80 rounded-md overflow-hidden">
             <div className="flex items-center px-4 py-3">
-              <UsersIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+              <UsersIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
               <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Company meetings</span>
             </div>
             <div className="border-t border-gray-100">

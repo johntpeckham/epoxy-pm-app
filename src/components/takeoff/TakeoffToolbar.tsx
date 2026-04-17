@@ -40,12 +40,12 @@ interface TakeoffToolbarProps {
 }
 
 const tools: { mode: ToolMode; label: string; icon: React.ReactNode; group: string }[] = [
-  { mode: 'pan', label: 'Pan', icon: <MousePointer2Icon className="w-3.5 h-3.5" />, group: 'nav' },
-  { mode: 'linear', label: 'Linear', icon: <Minus className="w-3.5 h-3.5" />, group: 'measure' },
-  { mode: 'area-polygon', label: 'Area', icon: <PentagonIcon className="w-3.5 h-3.5" />, group: 'measure' },
-  { mode: 'markup-rect', label: 'Markup Rect', icon: <SquareDashedIcon className="w-3.5 h-3.5" />, group: 'markup' },
-  { mode: 'markup-text', label: 'Text', icon: <TypeIcon className="w-3.5 h-3.5" />, group: 'markup' },
-  { mode: 'markup-arrow', label: 'Arrow', icon: <ArrowRightIcon className="w-3.5 h-3.5" />, group: 'markup' },
+  { mode: 'pan', label: 'Pan', icon: <MousePointer2Icon className="w-4 h-4" />, group: 'nav' },
+  { mode: 'linear', label: 'Linear', icon: <Minus className="w-4 h-4" />, group: 'measure' },
+  { mode: 'area-polygon', label: 'Area', icon: <PentagonIcon className="w-4 h-4" />, group: 'measure' },
+  { mode: 'markup-rect', label: 'Markup Rect', icon: <SquareDashedIcon className="w-4 h-4" />, group: 'markup' },
+  { mode: 'markup-text', label: 'Text', icon: <TypeIcon className="w-4 h-4" />, group: 'markup' },
+  { mode: 'markup-arrow', label: 'Arrow', icon: <ArrowRightIcon className="w-4 h-4" />, group: 'markup' },
 ]
 
 export default function TakeoffToolbar({
@@ -134,7 +134,7 @@ export default function TakeoffToolbar({
               disabled={currentPage <= 0}
               className="p-1 rounded text-gray-500 hover:text-white hover:bg-gray-800 disabled:opacity-30"
             >
-              <ChevronLeftIcon className="w-3.5 h-3.5" />
+              <ChevronLeftIcon className="w-4 h-4" />
             </button>
             <span className="text-gray-400 text-[10px] font-medium min-w-[60px] text-center">
               {currentPage + 1} / {totalPages}
@@ -144,7 +144,7 @@ export default function TakeoffToolbar({
               disabled={currentPage >= totalPages - 1}
               className="p-1 rounded text-gray-500 hover:text-white hover:bg-gray-800 disabled:opacity-30"
             >
-              <ChevronRightIcon className="w-3.5 h-3.5" />
+              <ChevronRightIcon className="w-4 h-4" />
             </button>
           </div>
           <div className="w-px h-5 bg-gray-700 mx-1.5" />
@@ -154,13 +154,13 @@ export default function TakeoffToolbar({
       {/* Zoom */}
       <div className="flex items-center gap-0.5">
         <button onClick={onZoomOut} className="p-1 rounded text-gray-500 hover:text-white hover:bg-gray-800">
-          <ZoomOutIcon className="w-3.5 h-3.5" />
+          <ZoomOutIcon className="w-4 h-4" />
         </button>
         <span className="text-gray-400 text-[10px] font-medium min-w-[32px] text-center">
           {Math.round(zoom * 100)}%
         </span>
         <button onClick={onZoomIn} className="p-1 rounded text-gray-500 hover:text-white hover:bg-gray-800">
-          <ZoomInIcon className="w-3.5 h-3.5" />
+          <ZoomInIcon className="w-4 h-4" />
         </button>
       </div>
 
@@ -173,7 +173,7 @@ export default function TakeoffToolbar({
             title="Download Page PDF"
             className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
           >
-            {isDownloading ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <DownloadIcon className="w-3.5 h-3.5" />}
+            {isDownloading ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
           </button>
         )}
         <button
@@ -181,7 +181,7 @@ export default function TakeoffToolbar({
           title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-gray-800 transition-colors"
         >
-          {isFullscreen ? <Minimize2Icon className="w-3.5 h-3.5" /> : <Maximize2Icon className="w-3.5 h-3.5" />}
+          {isFullscreen ? <Minimize2Icon className="w-4 h-4" /> : <Maximize2Icon className="w-4 h-4" />}
         </button>
       </div>
     </div>

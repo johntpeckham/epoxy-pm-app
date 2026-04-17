@@ -286,9 +286,9 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
             onClick={() => { setShowNewDropdown(!showNewDropdown); setShowTemplateDropdown(false) }}
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
           >
-            <PlusIcon className="w-3.5 h-3.5" />
+            <PlusIcon className="w-4 h-4" />
             New
-            <ChevronDownIcon className="w-3.5 h-3.5" />
+            <ChevronDownIcon className="w-4 h-4" />
           </button>
           {showNewDropdown && !showTemplateDropdown && (
             <>
@@ -392,8 +392,8 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
                       onClick={() => toggleGroup(group)}
                       className="w-full flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 hover:bg-gray-100 transition text-left"
                     >
-                      <ChevronRightIcon className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
-                      <FileTextIcon className="w-3.5 h-3.5 text-gray-400" />
+                      <ChevronRightIcon className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+                      <FileTextIcon className="w-4 h-4 text-gray-400" />
                       <span className="text-xs font-bold text-gray-600 uppercase tracking-wide flex-1">{group}</span>
                       <span className="text-xs text-gray-400">{groupComplete}/{groupItems.length}</span>
                     </button>

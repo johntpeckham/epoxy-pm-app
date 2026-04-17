@@ -207,9 +207,9 @@ export default function NotificationsCard({ userId }: NotificationsCardProps) {
                         title={isExpanded ? 'Collapse' : 'Expand'}
                       >
                         {isExpanded ? (
-                          <ChevronUpIcon className="w-3.5 h-3.5" />
+                          <ChevronUpIcon className="w-4 h-4" />
                         ) : (
-                          <ChevronDownIcon className="w-3.5 h-3.5" />
+                          <ChevronDownIcon className="w-4 h-4" />
                         )}
                       </button>
                     </div>

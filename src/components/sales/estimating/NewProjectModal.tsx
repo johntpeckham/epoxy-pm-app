@@ -188,11 +188,11 @@ export default function NewProjectModal({
             className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h3 className="text-base font-bold text-gray-900">New project</h3>
+            <h3 className="text-lg font-semibold text-gray-900">New project</h3>
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -220,14 +220,14 @@ export default function NewProjectModal({
               {showDropdown && (
                 <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-hidden">
                   <div className="relative p-2 border-b border-gray-100">
-                    <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="text"
                       autoFocus
                       placeholder="Search customers…"
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="w-full pl-7 pr-2 py-1.5 border border-gray-200 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="w-full pl-7 pr-2 py-1.5 border border-gray-200 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
                     />
                   </div>
                   <div className="overflow-y-auto max-h-48">
@@ -270,7 +270,7 @@ export default function NewProjectModal({
                       value={projectNumber}
                       onChange={(e) => setProjectNumber(e.target.value)}
                       autoFocus
-                      className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                      className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
                       placeholder="e.g. 1006-P"
                     />
                     <button
@@ -283,7 +283,7 @@ export default function NewProjectModal({
                   </div>
                   {isOverridden && (
                     <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
-                      <AlertTriangleIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                      <AlertTriangleIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
                       <span>
                         This is a one-time override. Your next project will
                         return to the regular sequence. To change your sequence
@@ -298,7 +298,7 @@ export default function NewProjectModal({
                   <div className="flex-1 min-w-0">
                     {loadingNumber ? (
                       <div className="flex items-center gap-2 text-sm text-gray-400">
-                        <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+                        <Loader2Icon className="w-4 h-4 animate-spin" />
                         <span>Loading…</span>
                       </div>
                     ) : (
@@ -319,7 +319,7 @@ export default function NewProjectModal({
                     title="Edit project number"
                     className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition disabled:opacity-50"
                   >
-                    <PencilIcon className="w-3.5 h-3.5" />
+                    <PencilIcon className="w-4 h-4" />
                   </button>
                 </div>
               )}
@@ -334,7 +334,7 @@ export default function NewProjectModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Warehouse floor coating"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
               />
             </div>
 
@@ -347,7 +347,7 @@ export default function NewProjectModal({
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 placeholder="Optional project notes…"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white resize-y"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white resize-y"
               />
             </div>
 

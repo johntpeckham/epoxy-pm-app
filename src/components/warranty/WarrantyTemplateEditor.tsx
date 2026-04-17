@@ -208,7 +208,7 @@ const BLOCK_TYPE_META: Record<TemplateBlock['type'], { label: string; badge: str
   sub_header: { label: 'Sub Header', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
   body: { label: 'Body', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
   divider: { label: 'Divider', badge: 'bg-gray-100 text-gray-600 border-gray-300' },
-  spacer: { label: 'Spacer', badge: 'bg-sky-50 text-sky-600 border-sky-200' },
+  spacer: { label: 'Spacer', badge: 'bg-gray-100 text-gray-500 border-gray-200' },
   signature: { label: 'Signature', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
@@ -459,7 +459,7 @@ function SortableBlockRow({
             className="p-1 text-gray-400 hover:text-red-500 transition"
             title="Delete block"
           >
-            <Trash2Icon className="w-3.5 h-3.5" />
+            <Trash2Icon className="w-4 h-4" />
           </button>
         </div>
 
@@ -575,7 +575,7 @@ function SortableBlockRow({
                   value={block.signatureName ?? ''}
                   onChange={(e) => onUpdate(block.id, { signatureName: e.target.value })}
                   placeholder="e.g., John Peckham"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
               <div>
@@ -585,7 +585,7 @@ function SortableBlockRow({
                   value={block.signatureTitle ?? ''}
                   onChange={(e) => onUpdate(block.id, { signatureTitle: e.target.value })}
                   placeholder="e.g., Project Manager"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
             </div>
@@ -954,7 +954,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   placeholder="e.g., 1-Year Standard Warranty"
                 />
               </div>
@@ -963,7 +963,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                 <input
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   placeholder="Optional description"
                 />
               </div>
@@ -972,7 +972,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                 <input
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   placeholder='e.g., "1 year", "15 years"'
                 />
               </div>
@@ -990,7 +990,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                     }`}
                   >
                     <span
-                      className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                      className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
                         headerDivider.enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'
                       }`}
                     />
@@ -1045,7 +1045,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                     onClick={() => setShowAddMenu(!showAddMenu)}
                     className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded-md border border-amber-200 bg-amber-50 hover:bg-amber-100 transition"
                   >
-                    <PlusIcon className="w-3.5 h-3.5" />
+                    <PlusIcon className="w-4 h-4" />
                     Add Block
                   </button>
                   {showAddMenu && (
@@ -1082,7 +1082,7 @@ export default function WarrantyTemplateEditor({ template, onSave, onCancel }: P
                         onClick={() => addBlock('spacer')}
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-amber-50 transition text-left"
                       >
-                        <ChevronsUpDownIcon className="w-4 h-4 text-sky-500" />
+                        <ChevronsUpDownIcon className="w-4 h-4 text-gray-500" />
                         Spacer
                       </button>
                       <button

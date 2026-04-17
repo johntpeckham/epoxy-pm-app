@@ -212,10 +212,10 @@ export default function MergeCompaniesModal({
             className="flex-none flex items-center justify-between px-5 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h3 className="text-base font-bold text-gray-900">Merge companies</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Merge companies</h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -314,7 +314,7 @@ export default function MergeCompaniesModal({
               className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition-colors"
             >
               {merging ? 'Merging…' : 'Merge companies'}
-              {!merging && <ArrowRightIcon className="w-3.5 h-3.5" />}
+              {!merging && <ArrowRightIcon className="w-4 h-4" />}
             </button>
           </div>
         </div>
@@ -375,7 +375,7 @@ function PickCell({
         type="radio"
         checked={checked}
         onChange={onSelect}
-        className="mt-0.5 w-3.5 h-3.5 text-amber-500 focus:ring-amber-500/20"
+        className="mt-0.5 w-4 h-4 text-amber-500 focus:ring-amber-500/20"
       />
       <span className={`${empty ? 'text-gray-300 italic' : 'text-gray-700'} text-sm`}>
         {empty ? '—' : String(value)}

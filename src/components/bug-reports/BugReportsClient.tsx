@@ -157,11 +157,11 @@ export default function BugReportsClient() {
       <div className="flex-none flex items-center gap-3 px-4 md:px-6 border-b border-gray-200 dark:border-gray-800" style={{ minHeight: '56px' }}>
         <button
           onClick={() => router.back()}
-          className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Bug Reports</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bug Reports</h1>
       </div>
 
       {/* Filters */}
@@ -300,7 +300,7 @@ export default function BugReportsClient() {
                   onClick={() => setDeleteTarget(report.id)}
                   className="px-3 py-1.5 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-500/10 rounded-lg transition"
                 >
-                  <Trash2Icon className="w-3.5 h-3.5 inline mr-1" />
+                  <Trash2Icon className="w-4 h-4 inline mr-1" />
                   Delete
                 </button>
               </div>

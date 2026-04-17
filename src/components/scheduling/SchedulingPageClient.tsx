@@ -432,7 +432,7 @@ export default function SchedulingPageClient({
         </button>
         <div className="flex items-center gap-2 flex-1">
           <CalendarIcon className="w-5 h-5 text-amber-500" />
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Scheduling</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Scheduling</h1>
         </div>
         <div className="flex items-center gap-2">
           {/* Download dropdown */}
@@ -448,7 +448,7 @@ export default function SchedulingPageClient({
                 <DownloadIcon className="w-4 h-4" />
               )}
               Download
-              <ChevronDownIcon className="w-3.5 h-3.5 ml-0.5" />
+              <ChevronDownIcon className="w-4 h-4 ml-0.5" />
             </button>
             {downloadDropdownOpen && (
               <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-[#444] rounded-lg shadow-lg z-20 py-1">
@@ -924,7 +924,7 @@ export default function SchedulingPageClient({
                     onClick={() => setSelectedIndividualId(null)}
                     className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 mb-3 transition"
                   >
-                    <ArrowLeftIcon className="w-3.5 h-3.5" />
+                    <ArrowLeftIcon className="w-4 h-4" />
                     Back to employee list
                   </button>
                   <div className="mb-3">

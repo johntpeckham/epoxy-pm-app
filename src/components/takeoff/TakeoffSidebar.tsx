@@ -95,7 +95,7 @@ export default function TakeoffSidebar({
           className="w-6 h-6 flex items-center justify-center rounded bg-amber-500 hover:bg-amber-400 text-white transition-colors"
           title="Add Item"
         >
-          <PlusIcon className="w-3.5 h-3.5" />
+          <PlusIcon className="w-4 h-4" />
         </button>
       </div>
 
@@ -229,7 +229,7 @@ export default function TakeoffSidebar({
                       onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id) }}
                       className="p-1.5 text-gray-700 hover:text-red-400 flex-shrink-0 transition-colors"
                     >
-                      <Trash2Icon className="w-3.5 h-3.5" />
+                      <Trash2Icon className="w-4 h-4" />
                     </button>
                   </>
                 )}

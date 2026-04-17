@@ -240,12 +240,12 @@ export default function NewAppointmentModal({
             className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h3 className="text-base font-bold text-gray-900">
+            <h3 className="text-lg font-semibold text-gray-900">
               {isEdit ? 'Edit Appointment' : 'New Appointment'}
             </h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -277,7 +277,7 @@ export default function NewAppointmentModal({
                     />
                     <div className="absolute left-0 right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
                       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
-                        <SearchIcon className="w-3.5 h-3.5 text-gray-400" />
+                        <SearchIcon className="w-4 h-4 text-gray-400" />
                         <input
                           type="text"
                           value={companySearch}
@@ -320,7 +320,7 @@ export default function NewAppointmentModal({
                                 )}
                               </span>
                               {c.id === companyId && (
-                                <CheckIcon className="w-3.5 h-3.5 text-amber-500" />
+                                <CheckIcon className="w-4 h-4 text-amber-500" />
                               )}
                             </button>
                           ))

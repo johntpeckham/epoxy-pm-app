@@ -28,7 +28,7 @@ export default function ProjectsLeftPanel({
           onClick={onBack}
           className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-amber-600 transition-colors mb-2"
         >
-          <ArrowLeftIcon className="w-3.5 h-3.5" />
+          <ArrowLeftIcon className="w-4 h-4" />
           Back to customers
         </button>
         <div className="flex items-center justify-between gap-2">
@@ -43,7 +43,7 @@ export default function ProjectsLeftPanel({
             className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
             title="New project"
           >
-            <PlusIcon className="w-3.5 h-3.5" />
+            <PlusIcon className="w-4 h-4" />
           </button>
         </div>
       </div>

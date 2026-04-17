@@ -397,7 +397,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
             onClick={() => setShowEditProfile(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-amber-200 hover:bg-amber-50 text-amber-600 hover:text-amber-700 text-xs font-medium rounded-md transition flex-shrink-0"
           >
-            <PencilIcon className="w-3.5 h-3.5" />
+            <PencilIcon className="w-4 h-4" />
             Edit profile
           </button>
         </div>
@@ -405,7 +405,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         {/* Dark mode toggle */}
         <div className="bg-white dark:bg-[#242424] rounded-md border border-gray-200 dark:border-[#2a2a2a] px-4 py-3 mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <MoonIcon className="w-3.5 h-3.5 text-gray-500 dark:text-[#a0a0a0]" />
+            <MoonIcon className="w-4 h-4 text-gray-500 dark:text-[#a0a0a0]" />
             <span className="text-[13px] font-medium text-gray-900 dark:text-[#e5e5e5]">Dark mode</span>
           </div>
           <button
@@ -416,7 +416,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
             onClick={toggleTheme}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isDarkMode ? 'bg-amber-500' : 'bg-gray-300'}`}
           >
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-4' : 'translate-x-0.5'}`} />
           </button>
         </div>
 
@@ -625,10 +625,10 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
                   style={{ minHeight: '56px' }}
                 >
-                  <h3 className="text-base font-bold text-gray-900">Edit profile</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Edit profile</h3>
                   <button
                     onClick={() => setShowEditProfile(false)}
-                    className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+                    className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
                   >
                     <XIcon className="w-5 h-5" />
                   </button>
@@ -692,7 +692,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
                           placeholder={userEmail.split('@')[0]}
-                          className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                          className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                         />
                         <button
                           onClick={handleSaveDisplayName}
@@ -739,7 +739,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                           onChange={(e) => setNewPassword(e.target.value)}
                           autoComplete="new-password"
                           placeholder="••••••••"
-                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                         />
                       </div>
                       <div>
@@ -753,7 +753,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           autoComplete="new-password"
                           placeholder="••••••••"
-                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                         />
                       </div>
                       {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
@@ -813,14 +813,14 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                 >
                   <div className="flex items-center gap-2">
                     <BuildingIcon className="w-5 h-5 text-amber-500" />
-                    <h3 className="text-base font-bold text-gray-900">Company info</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Company info</h3>
                   </div>
                   <button
                     onClick={() => {
                       if (companyInfoEditing) cancelEditCompanyInfo()
                       setShowCompanyInfo(false)
                     }}
-                    className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+                    className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
                   >
                     <XIcon className="w-5 h-5" />
                   </button>
@@ -878,7 +878,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                           onClick={startEditCompanyInfo}
                           className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
                         >
-                          <PencilIcon className="w-3.5 h-3.5" />
+                          <PencilIcon className="w-4 h-4" />
                           Edit
                         </button>
                       )}
@@ -891,7 +891,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                           <input
                             value={ciLegalName}
                             onChange={(e) => setCiLegalName(e.target.value)}
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                             placeholder="e.g., Peckham Coatings Inc."
                           />
                         </div>
@@ -900,7 +900,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                           <input
                             value={ciDba}
                             onChange={(e) => setCiDba(e.target.value)}
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                             placeholder="e.g., Peckham Coatings"
                           />
                         </div>
@@ -930,7 +930,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                             <input
                               value={ciPhone}
                               onChange={(e) => setCiPhone(e.target.value)}
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                               placeholder="(555) 123-4567"
                             />
                           </div>
@@ -940,7 +940,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                               type="email"
                               value={ciEmail}
                               onChange={(e) => setCiEmail(e.target.value)}
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                               placeholder="info@company.com"
                             />
                           </div>
@@ -953,13 +953,13 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                                 <input
                                   value={license.number}
                                   onChange={(e) => updateLicense(license.id, 'number', e.target.value)}
-                                  className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                  className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                                   placeholder="License #"
                                 />
                                 <input
                                   value={license.classification}
                                   onChange={(e) => updateLicense(license.id, 'classification', e.target.value)}
-                                  className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                  className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                                   placeholder="Classification"
                                 />
                                 <button
@@ -977,7 +977,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                             onClick={addLicense}
                             className="mt-2 flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
                           >
-                            <PlusIcon className="w-3.5 h-3.5" />
+                            <PlusIcon className="w-4 h-4" />
                             Add License
                           </button>
                         </div>
@@ -1142,11 +1142,11 @@ function SalesManagementModal({
           >
             <div className="flex items-center gap-2">
               <CalculatorIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-base font-bold text-gray-900">Sales Management</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Sales Management</h3>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -1251,7 +1251,7 @@ function SettingsTile({ icon: Icon, title, subtitle, onClick }: SettingsTileProp
       className="text-left bg-white dark:bg-[#242424] border border-gray-200/80 dark:border-[#2a2a2a] rounded-md px-4 py-[14px] cursor-pointer hover:bg-gray-50 dark:hover:bg-[#2e2e2e] hover:border-gray-300 dark:hover:border-[#3a3a3a] transition-all"
     >
       <div className="flex items-center gap-2">
-        <Icon className="w-3.5 h-3.5 text-gray-500 dark:text-[#a0a0a0] flex-shrink-0" />
+        <Icon className="w-4 h-4 text-gray-500 dark:text-[#a0a0a0] flex-shrink-0" />
         <span className="text-[13px] font-medium text-gray-900 dark:text-[#e5e5e5]">{title}</span>
       </div>
       <p className="text-[11px] text-gray-400 dark:text-[#6b6b6b] mt-1 ml-[22px]">{subtitle}</p>

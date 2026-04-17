@@ -902,7 +902,7 @@ export default function SchedulerClient({
             <div>
               <div className="flex items-center gap-2">
                 <CalendarRangeIcon className="w-5 h-5 text-amber-500" />
-                <h1 className="text-lg font-semibold text-gray-900">Scheduler</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Scheduler</h1>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
                 Drag employees onto a project bucket and pick which days they&apos;ll be there.
@@ -1648,7 +1648,7 @@ function AssignmentRow({
         className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
         title="Remove"
       >
-        <XIcon className="w-3.5 h-3.5" />
+        <XIcon className="w-4 h-4" />
       </button>
     </div>
   )
@@ -1894,7 +1894,7 @@ function DaySelectionModal({
                   type="checkbox"
                   checked={isWholeWeekSelected}
                   onChange={toggleWholeWeek}
-                  className="w-3.5 h-3.5 rounded border-gray-300 dark:border-[#4a4a4a] dark:bg-[#1e1e1e] text-amber-500 focus:ring-amber-500 cursor-pointer"
+                  className="w-4 h-4 rounded border-gray-300 dark:border-[#4a4a4a] dark:bg-[#1e1e1e] text-amber-500 focus:ring-amber-500 cursor-pointer"
                 />
                 <span className="text-[11px] font-semibold text-gray-600 dark:text-[#c4a776] uppercase tracking-wide">
                   {weekLabel}

@@ -218,7 +218,7 @@ export default function ProjectPipelineCard({
                       onClick={() => setConfirmStage(stage)}
                     />
                     {idx < stages.length - 1 && (
-                      <ChevronRightIcon className="w-3.5 h-3.5 text-gray-300 mx-0.5 flex-shrink-0" />
+                      <ChevronRightIcon className="w-4 h-4 text-gray-300 mx-0.5 flex-shrink-0" />
                     )}
                   </div>
                 )
@@ -233,13 +233,13 @@ export default function ProjectPipelineCard({
             onClick={() => setHistoryOpen((v) => !v)}
             className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition"
           >
-            <HistoryIcon className="w-3.5 h-3.5" />
+            <HistoryIcon className="w-4 h-4" />
             Stage history
             {history.length > 0 && (
               <span className="text-gray-400">({history.length})</span>
             )}
             <ChevronDownIcon
-              className={`w-3.5 h-3.5 transition-transform ${
+              className={`w-4 h-4 transition-transform ${
                 historyOpen ? 'rotate-180' : ''
               }`}
             />

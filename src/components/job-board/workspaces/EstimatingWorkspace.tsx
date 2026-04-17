@@ -36,7 +36,7 @@ export default function EstimatingWorkspace({ project, onBack }: EstimatingWorks
             className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
           >
             Open Measurements
-            <ExternalLinkIcon className="w-3.5 h-3.5" />
+            <ExternalLinkIcon className="w-4 h-4" />
           </Link>
           <p className="text-xs text-gray-400 mt-3">Note: Measurements is a desktop-only feature.</p>
         </div>

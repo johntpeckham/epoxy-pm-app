@@ -185,13 +185,13 @@ export default function ProjectNumbersEditor({ onClose }: ProjectNumbersEditorPr
           >
             <div className="flex items-center gap-2">
               <HashIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-base font-bold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900">
                 Project Numbers
               </h3>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -219,7 +219,7 @@ export default function ProjectNumbersEditor({ onClose }: ProjectNumbersEditorPr
                     value={defaultFormatDraft}
                     onChange={(e) => setDefaultFormatDraft(e.target.value)}
                     placeholder="e.g. 1000 or P-1000"
-                    className="flex-1 px-3 py-2 border border-amber-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-amber-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                   <button
                     type="button"
@@ -446,14 +446,14 @@ function EditSequenceModal({
           >
             <div className="flex items-center gap-2">
               <HashIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-base font-bold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900">
                 {seq ? 'Edit' : 'Set up'} — {name}
               </h3>
             </div>
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -469,7 +469,7 @@ function EditSequenceModal({
                 value={formatInput}
                 onChange={(e) => setFormatInput(e.target.value)}
                 autoFocus
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 placeholder="e.g. 1000-P or P-1000 or 3000"
               />
               <p className="text-xs text-gray-400 mt-1">
@@ -488,7 +488,7 @@ function EditSequenceModal({
                 onChange={(e) =>
                   setCurrentNumber(parseInt(e.target.value || '0', 10))
                 }
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
               <p className="text-xs text-gray-400 mt-1">
                 The last number that was assigned. The next project will be

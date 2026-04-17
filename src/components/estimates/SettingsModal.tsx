@@ -60,8 +60,8 @@ export default function SettingsModal({ settings, userId, onSave, onClose }: Set
     <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
       <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-md h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
-          <h3 className="text-base font-bold text-gray-900">Estimate Settings</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition">
+          <h3 className="text-lg font-semibold text-gray-900">Estimate Settings</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition">
             <XIcon className="w-5 h-5" />
           </button>
         </div>

@@ -56,7 +56,7 @@ export default function SalesDashboardClient({
     <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
       {/* Header with quick nav links */}
       <div className="flex items-baseline gap-4 flex-wrap">
-        <h1 className="text-[22px] font-medium text-gray-900">Sales</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
         <nav className="flex items-center gap-3 flex-wrap">
           {NAV_LINKS.map((l) => (
             <Link

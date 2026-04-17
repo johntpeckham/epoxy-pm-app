@@ -386,14 +386,14 @@ export default function EstimateFormSettingsEditor({
           >
             <div className="flex items-center gap-2">
               <FileTextIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-base font-bold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900">
                 Edit Estimate Form
               </h3>
             </div>
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -588,7 +588,7 @@ function DefaultsSection({
             value={settings.default_terms ?? ''}
             onChange={(e) => onUpdate('default_terms', e.target.value)}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-y"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-y"
             placeholder="Payment terms, warranty, etc…"
           />
         </div>
@@ -600,7 +600,7 @@ function DefaultsSection({
             value={settings.default_notes ?? ''}
             onChange={(e) => onUpdate('default_notes', e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-y"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-y"
             placeholder="Notes that appear on every new estimate…"
           />
         </div>
@@ -621,7 +621,7 @@ function DefaultsSection({
                   parseFloat(e.target.value || '0') || 0
                 )
               }
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
           </div>
           <div>
@@ -633,7 +633,7 @@ function DefaultsSection({
               onChange={(e) =>
                 onUpdate('default_salesperson_id', e.target.value || null)
               }
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             >
               <option value="">None</option>
               {users.map((u) => (
@@ -750,7 +750,7 @@ function SortableSectionRow({
         value={section.name}
         onChange={(e) => onUpdate({ name: e.target.value })}
         disabled={section.system}
-        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 disabled:bg-gray-50 disabled:text-gray-500"
       />
       {!section.system && (
         <select
@@ -758,7 +758,7 @@ function SortableSectionRow({
           onChange={(e) =>
             onUpdate({ type: e.target.value as SectionType })
           }
-          className="px-2 py-1.5 border border-gray-200 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="px-2 py-1.5 border border-gray-200 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
         >
           {CUSTOM_SECTION_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -773,7 +773,7 @@ function SortableSectionRow({
           checked={section.visible}
           onChange={(e) => onUpdate({ visible: e.target.checked })}
           disabled={section.required}
-          className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500 disabled:opacity-50"
+          className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500 disabled:opacity-50"
         />
         Visible
       </label>
@@ -786,7 +786,7 @@ function SortableSectionRow({
           }
           className="p-1.5 text-gray-300"
         >
-          <LockIcon className="w-3.5 h-3.5" />
+          <LockIcon className="w-4 h-4" />
         </span>
       ) : (
         <button
@@ -795,7 +795,7 @@ function SortableSectionRow({
           title="Delete section"
           className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded"
         >
-          <Trash2Icon className="w-3.5 h-3.5" />
+          <Trash2Icon className="w-4 h-4" />
         </button>
       )}
     </div>
@@ -820,7 +820,7 @@ function TextField({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
       />
     </div>
   )

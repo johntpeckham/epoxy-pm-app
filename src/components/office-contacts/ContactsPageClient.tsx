@@ -67,7 +67,7 @@ export default function ContactsPageClient({ userId, initialContacts }: Props) {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-[22px] font-medium text-gray-900">Contacts</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
           <button
             onClick={() => setShowAddModal(true)}
             className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
@@ -121,7 +121,7 @@ export default function ContactsPageClient({ userId, initialContacts }: Props) {
                           href={`tel:${c.phone}`}
                           className="inline-flex items-center gap-1.5 text-sm text-amber-700 hover:text-amber-800"
                         >
-                          <PhoneIcon className="w-3.5 h-3.5" />
+                          <PhoneIcon className="w-4 h-4" />
                           {c.phone}
                         </a>
                       )}
@@ -130,7 +130,7 @@ export default function ContactsPageClient({ userId, initialContacts }: Props) {
                           href={`mailto:${c.email}`}
                           className="inline-flex items-center gap-1.5 text-sm text-amber-700 hover:text-amber-800 break-all"
                         >
-                          <MailIcon className="w-3.5 h-3.5" />
+                          <MailIcon className="w-4 h-4" />
                           {c.email}
                         </a>
                       )}

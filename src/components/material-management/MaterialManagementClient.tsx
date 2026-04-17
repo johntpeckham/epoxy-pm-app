@@ -263,7 +263,7 @@ function SortableItemRow({ id, reorderMode, children }: { id: string; reorderMod
     <div ref={setNodeRef} style={style} className={`flex items-center ${isDragging ? 'z-50 relative opacity-80 bg-amber-50 dark:bg-amber-900/10' : ''}`}>
       {reorderMode && (
         <div {...attributes} {...listeners} className="flex-shrink-0 w-6 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-[#6b6b6b] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none" title="Drag to reorder">
-          <GripVerticalIcon className="w-3.5 h-3.5" />
+          <GripVerticalIcon className="w-4 h-4" />
         </div>
       )}
       <div className="flex-1 min-w-0">{children}</div>
@@ -875,12 +875,12 @@ export default function MaterialManagementClient({
         <div className="mt-2 sm:mt-0 flex sm:justify-end items-center gap-1">
           {canManage && (
             <button onClick={() => openEditProduct(product)} className="p-1.5 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors" title="Edit product">
-              <PencilIcon className="w-3.5 h-3.5" />
+              <PencilIcon className="w-4 h-4" />
             </button>
           )}
           {canDelete && (
             <button onClick={() => setDeleteProductTarget(product)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors" title="Delete product">
-              <Trash2Icon className="w-3.5 h-3.5" />
+              <Trash2Icon className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -910,12 +910,12 @@ export default function MaterialManagementClient({
         <div className="mt-2 sm:mt-0 flex sm:justify-end items-center gap-1">
           {canManage && (
             <button onClick={() => openEditKitGroup(group)} className="p-1.5 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors" title="Edit kit group">
-              <PencilIcon className="w-3.5 h-3.5" />
+              <PencilIcon className="w-4 h-4" />
             </button>
           )}
           {canDelete && (
             <button onClick={() => setDeleteKitGroupTarget(group)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors" title="Delete kit group">
-              <Trash2Icon className="w-3.5 h-3.5" />
+              <Trash2Icon className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -966,21 +966,21 @@ export default function MaterialManagementClient({
               onClick={() => openAddProduct()}
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition border border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-[#a0a0a0] bg-white dark:bg-[#2e2e2e] hover:bg-gray-50 dark:hover:bg-[#3a3a3a]"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
               Add Product
             </button>
             <button
               onClick={() => openAddKit()}
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition border border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-[#a0a0a0] bg-white dark:bg-[#2e2e2e] hover:bg-gray-50 dark:hover:bg-[#3a3a3a]"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
               Add Kit
             </button>
             <button
               onClick={openAddSupplier}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
               <span className="hidden sm:inline">Add Supplier</span>
               <span className="sm:hidden">Supplier</span>
             </button>
@@ -1045,12 +1045,12 @@ export default function MaterialManagementClient({
                       </span>
                       {canManage && (
                         <button onClick={() => openEditSupplier(supplier)} className="p-1.5 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors" title="Edit supplier">
-                          <PencilIcon className="w-3.5 h-3.5" />
+                          <PencilIcon className="w-4 h-4" />
                         </button>
                       )}
                       {canDelete && (
                         <button onClick={() => setDeleteSupplierTarget(supplier)} className="p-1.5 mr-2 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors" title="Delete supplier">
-                          <Trash2Icon className="w-3.5 h-3.5" />
+                          <Trash2Icon className="w-4 h-4" />
                         </button>
                       )}
                     </div>

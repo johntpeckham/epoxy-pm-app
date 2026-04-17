@@ -27,7 +27,7 @@ const PRESET_COLORS = [
 ]
 
 const inputCls =
-  'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+  'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500'
 const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
           onClick={() => openCreateForm()}
           className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
         >
-          <PlusIcon className="w-3.5 h-3.5" />
+          <PlusIcon className="w-4 h-4" />
           Add Event
         </button>
       }
@@ -388,7 +388,7 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm mb-3 flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600"><XIcon className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600"><XIcon className="w-4 h-4" /></button>
           </div>
         )}
 
@@ -550,14 +550,14 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
                   onClick={() => openEditForm(detailEvent)}
                   className="flex-1 flex items-center justify-center gap-1.5 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50 transition"
                 >
-                  <PencilIcon className="w-3.5 h-3.5" />
+                  <PencilIcon className="w-4 h-4" />
                   Edit
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="flex-1 flex items-center justify-center gap-1.5 border border-red-200 text-red-600 rounded-lg py-2 text-sm font-medium hover:bg-red-50 transition"
                 >
-                  <Trash2Icon className="w-3.5 h-3.5" />
+                  <Trash2Icon className="w-4 h-4" />
                   Delete
                 </button>
               </div>
@@ -603,7 +603,7 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
               {/* Header */}
               <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
                 <h2 className="text-lg font-semibold text-gray-900">{editingEvent ? 'Edit Event' : 'New Event'}</h2>
-                <button onClick={() => { setShowForm(false); resetForm() }} className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition">
+                <button onClick={() => { setShowForm(false); resetForm() }} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition">
                   <XIcon className="w-5 h-5" />
                 </button>
               </div>
@@ -614,7 +614,7 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
                   <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm flex items-center justify-between">
                     <span>{formError}</span>
                     <button onClick={() => setFormError(null)} className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0">
-                      <XIcon className="w-3.5 h-3.5" />
+                      <XIcon className="w-4 h-4" />
                     </button>
                   </div>
                 )}
@@ -664,7 +664,7 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
                       onClick={() => setFormIncludeWeekends(!formIncludeWeekends)}
                       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${formIncludeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
                     >
-                      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${formIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${formIncludeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
                     </button>
                   </div>
                 </div>
@@ -699,7 +699,7 @@ export default function SchedulingWorkspace({ project, userId, onBack }: Schedul
                           onChange={(e) => setCustomCrewName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') addCustomCrewMember(); if (e.key === 'Escape') { setShowCustomCrewInput(false); setCustomCrewName('') } }}
                           placeholder="Name"
-                          className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                         />
                         <button type="button" onClick={addCustomCrewMember} className="text-green-600 hover:text-green-700 p-0.5">
                           <CheckIcon className="w-4 h-4" />

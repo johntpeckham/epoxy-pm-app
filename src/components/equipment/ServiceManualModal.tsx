@@ -246,7 +246,7 @@ export default function ServiceManualModal({
                       cancelPending()
                     }
                   }}
-                  className="flex-1 min-w-0 border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                  className="flex-1 min-w-0 border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
                 />
                 <button
                   type="button"
@@ -255,9 +255,9 @@ export default function ServiceManualModal({
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
                 >
                   {uploading ? (
-                    <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2Icon className="w-4 h-4 animate-spin" />
                   ) : (
-                    <UploadCloudIcon className="w-3.5 h-3.5" />
+                    <UploadCloudIcon className="w-4 h-4" />
                   )}
                   {uploading ? 'Saving…' : 'Save'}
                 </button>

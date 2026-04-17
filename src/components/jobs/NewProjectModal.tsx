@@ -215,7 +215,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
           <h2 className="text-lg font-semibold text-gray-900">New Project</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
           >
             <XIcon className="w-5 h-5" />
           </button>
@@ -239,7 +239,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Aircraft Hangar Coating"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
             </div>
 
@@ -253,7 +253,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="e.g. John Smith"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
               <div className="relative mt-1" ref={dropdownRef}>
                 <button
@@ -311,7 +311,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="e.g. 123 Main St, Austin TX"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
             </div>
 
@@ -324,7 +324,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                 value={estimateNumber}
                 onChange={(e) => setEstimateNumber(e.target.value)}
                 placeholder="e.g. EST-1042"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
             </div>
 
@@ -335,7 +335,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as 'Active' | 'Completed' | 'Closed')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
               >
                 <option value="Active">Active</option>
                 <option value="Completed">Completed</option>
@@ -356,7 +356,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                     setStartDate(e.target.value)
                     if (endDate && e.target.value > endDate) setEndDate(e.target.value)
                   }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
               <div className="w-1/2 sm:w-full">
@@ -368,7 +368,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                   value={endDate}
                   min={startDate || undefined}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
             </div>
@@ -382,7 +382,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                 onClick={() => setIncludeWeekends(!includeWeekends)}
                 className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${includeWeekends ? 'bg-blue-600' : 'bg-gray-300'}`}
               >
-                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${includeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${includeWeekends ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </button>
             </div>
 
@@ -397,7 +397,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                     onClick={() => setDriveTimeEnabled(!driveTimeEnabled)}
                     className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${driveTimeEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
                   >
-                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${driveTimeEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${driveTimeEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
                 {driveTimeEnabled && (
@@ -417,7 +417,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                           else if (num > 30) setDriveTimeDays('30')
                           else setDriveTimeDays(String(num))
                         }}
-                        className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                       />
                     </div>
                     <div className="flex rounded-lg border border-gray-300 overflow-hidden flex-1">
@@ -470,7 +470,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                       onChange={(e) => setCustomCrewName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomCrewMember() } if (e.key === 'Escape') { setShowCustomCrewInput(false); setCustomCrewName('') } }}
                       placeholder="Name"
-                      className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="border border-gray-300 rounded-full px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                     />
                     <button type="button" onClick={addCustomCrewMember} className="text-green-600 hover:text-green-700 p-0.5">
                       <CheckIcon className="w-4 h-4" />
@@ -533,7 +533,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Optional notes..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
               />
             </div>
 

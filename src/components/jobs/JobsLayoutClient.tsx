@@ -147,26 +147,26 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
         <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Job Feed</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Job Feed</h1>
             </div>
           </div>
 
           {/* Search */}
           <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search projects…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+              className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
             />
           </div>
 
         </div>
 
         {/* Scrollable project list */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        <div className="flex-1 overflow-y-auto p-3 space-y-4">
           {filtered.length === 0 ? (
             <div className="text-center py-12">
               <BriefcaseIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -241,7 +241,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
                     className="flex items-center gap-2 w-full text-left mb-2"
                   >
                     <ChevronRightIcon
-                      className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showClosed ? 'rotate-90' : ''}`}
+                      className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${showClosed ? 'rotate-90' : ''}`}
                     />
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Closed</span>
                     <span className="text-xs text-gray-400">({closedProjects.length})</span>

@@ -649,12 +649,12 @@ export default function ProjectReportModal({
         {/* Header */}
         <div data-report-header className="flex-none flex items-center justify-between px-4 border-b border-gray-200 print:hidden" style={{ minHeight: '56px' }}>
           <div>
-            <h2 className="text-base font-bold text-gray-900">Job Report</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Job Report</h2>
             <p className="text-xs text-gray-500 mt-0.5">{projectName}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
           >
             <XIcon className="w-5 h-5" />
           </button>

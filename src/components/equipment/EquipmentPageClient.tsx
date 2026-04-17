@@ -62,7 +62,7 @@ const CATEGORY_BADGE_PALETTE = [
   'bg-purple-100 text-purple-700',
   'bg-pink-100 text-pink-700',
   'bg-amber-100 text-amber-700',
-  'bg-teal-100 text-teal-700',
+  'bg-rose-100 text-rose-700',
 ]
 
 function categoryBadgeClass(name: string | null | undefined): string {
@@ -144,7 +144,7 @@ function SortableCategoryRow({
         disabled={deleting}
         className="text-gray-400 hover:text-red-500 transition disabled:opacity-50 flex-shrink-0"
       >
-        <Trash2Icon className="w-3.5 h-3.5" />
+        <Trash2Icon className="w-4 h-4" />
       </button>
     </div>
   )
@@ -408,7 +408,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       }}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
     >
-      <PlusIcon className="w-3.5 h-3.5" />
+      <PlusIcon className="w-4 h-4" />
       Add Equipment
     </button>
   )
@@ -419,7 +419,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 text-xs font-medium rounded-lg transition"
       title="Equipment Settings"
     >
-      <Settings2Icon className="w-3.5 h-3.5" />
+      <Settings2Icon className="w-4 h-4" />
       Settings
     </button>
   )
@@ -429,7 +429,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       <select
         value={categoryFilter}
         onChange={(e) => setCategoryFilter(e.target.value)}
-        className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-[#a0a0a0]! bg-white dark:bg-[#2e2e2e]! focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
+        className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-[#a0a0a0]! bg-white dark:bg-[#2e2e2e]! focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 appearance-none"
       >
         <option value="">All</option>
         {categories.map((c) => (
@@ -441,7 +441,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       <select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
-        className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-[#a0a0a0]! bg-white dark:bg-[#2e2e2e]! focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent appearance-none"
+        className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-[#a0a0a0]! bg-white dark:bg-[#2e2e2e]! focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 appearance-none"
       >
         {STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
@@ -597,7 +597,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
             value={newCategoryName}
             onChange={(e) => setNewCategoryName(e.target.value)}
             placeholder="New category name"
-            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
             onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
           />
           <button

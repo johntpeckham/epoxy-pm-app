@@ -393,14 +393,14 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
           >
             <div className="flex items-center gap-2">
               <BellIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-base font-bold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900">
                 Edit Notifications and Follow-ups
               </h3>
             </div>
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
               <XIcon className="w-5 h-5" />
             </button>
@@ -530,7 +530,7 @@ function RulesSection({
                   onChange={(e) =>
                     onUpdate(d.id, { trigger_event: e.target.value })
                   }
-                  className="px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
                   {TRIGGER_OPTIONS.map((t) => (
                     <option key={t.value} value={t.value}>
@@ -551,7 +551,7 @@ function RulesSection({
                         ),
                       })
                     }
-                    className="w-16 px-2 py-1.5 border border-gray-200 rounded-md text-sm text-right focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    className="w-16 px-2 py-1.5 border border-gray-200 rounded-md text-sm text-right focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                   <span className="text-xs text-gray-500">days after</span>
                 </div>
@@ -562,7 +562,7 @@ function RulesSection({
                     onChange={(e) =>
                       onUpdate(d.id, { is_active: e.target.checked })
                     }
-                    className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500"
+                    className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500/20 focus:border-amber-500"
                   />
                   Active
                 </label>
@@ -575,7 +575,7 @@ function RulesSection({
                     onUpdate(d.id, { title_template: e.target.value })
                   }
                   placeholder="Follow up on {project_name}"
-                  className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <button
                   type="button"
@@ -583,7 +583,7 @@ function RulesSection({
                   title="Delete rule"
                   className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded"
                 >
-                  <Trash2Icon className="w-3.5 h-3.5" />
+                  <Trash2Icon className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -690,14 +690,14 @@ function TemplateRow({
           value={template.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
           placeholder="Template name"
-          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
         />
         <label className="flex items-center gap-1 text-xs text-gray-500">
           <input
             type="checkbox"
             checked={template.is_active}
             onChange={(e) => onUpdate({ is_active: e.target.checked })}
-            className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500"
+            className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500/20 focus:border-amber-500"
           />
           Active
         </label>
@@ -707,7 +707,7 @@ function TemplateRow({
           title="Delete template"
           className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded"
         >
-          <Trash2Icon className="w-3.5 h-3.5" />
+          <Trash2Icon className="w-4 h-4" />
         </button>
       </div>
       {isExpanded && (
@@ -722,7 +722,7 @@ function TemplateRow({
               onChange={(e) =>
                 onUpdate({ subject_template: e.target.value })
               }
-              className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
           </div>
           <div>
@@ -827,7 +827,7 @@ function StageNotifRow({
             type="checkbox"
             checked={Boolean(rules.notify_on_enter)}
             onChange={(e) => onUpdate({ notify_on_enter: e.target.checked })}
-            className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500"
+            className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500/20 focus:border-amber-500"
           />
           Notify on enter
         </label>
@@ -846,7 +846,7 @@ function StageNotifRow({
                     .value as PipelineStageNotificationRules['notify_who'],
                 })
               }
-              className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             >
               {NOTIFY_WHO_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -867,7 +867,7 @@ function StageNotifRow({
                     notify_specific_user_id: e.target.value || null,
                   })
                 }
-                className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               >
                 <option value="">None</option>
                 {users.map((u) => (
@@ -884,7 +884,7 @@ function StageNotifRow({
                 type="checkbox"
                 checked={Boolean(rules.via_in_app ?? true)}
                 onChange={(e) => onUpdate({ via_in_app: e.target.checked })}
-                className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500"
+                className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500/20 focus:border-amber-500"
               />
               In-app
             </label>
@@ -893,7 +893,7 @@ function StageNotifRow({
                 type="checkbox"
                 checked={false}
                 disabled
-                className="w-3.5 h-3.5 rounded"
+                className="w-4 h-4 rounded"
               />
               Email <span className="text-[10px]">(coming soon)</span>
             </label>
@@ -902,7 +902,7 @@ function StageNotifRow({
                 type="checkbox"
                 checked={false}
                 disabled
-                className="w-3.5 h-3.5 rounded"
+                className="w-4 h-4 rounded"
               />
               SMS <span className="text-[10px]">(coming soon)</span>
             </label>
@@ -934,7 +934,7 @@ function EscalationSection({
             onChange={(e) =>
               onUpdate({ reminder_escalation_enabled: e.target.checked })
             }
-            className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500"
+            className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500/20 focus:border-amber-500"
           />
           Notify admin when a reminder is snoozed too many times
         </label>
@@ -953,7 +953,7 @@ function EscalationSection({
                   ),
                 })
               }
-              className="w-20 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-20 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
             <span className="text-xs text-gray-500">snoozes</span>
           </div>

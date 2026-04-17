@@ -49,14 +49,14 @@ import {
 import type { FormTemplate, FormField, FormFieldType } from '@/types'
 
 const FIELD_TYPE_OPTIONS: { value: FormFieldType; label: string; icon: React.ReactNode }[] = [
-  { value: 'short_text', label: 'Short Text', icon: <TypeIcon className="w-3.5 h-3.5" /> },
-  { value: 'long_text', label: 'Long Text', icon: <AlignLeftIcon className="w-3.5 h-3.5" /> },
-  { value: 'checkbox', label: 'Checkbox', icon: <CheckSquareIcon className="w-3.5 h-3.5" /> },
-  { value: 'checkbox_group', label: 'Checkbox Group', icon: <CheckSquareIcon className="w-3.5 h-3.5" /> },
-  { value: 'dropdown', label: 'Dropdown', icon: <ListIcon className="w-3.5 h-3.5" /> },
-  { value: 'date', label: 'Date', icon: <CalendarIcon className="w-3.5 h-3.5" /> },
-  { value: 'number', label: 'Number', icon: <HashIcon className="w-3.5 h-3.5" /> },
-  { value: 'section_header', label: 'Section Header', icon: <MinusIcon className="w-3.5 h-3.5" /> },
+  { value: 'short_text', label: 'Short Text', icon: <TypeIcon className="w-4 h-4" /> },
+  { value: 'long_text', label: 'Long Text', icon: <AlignLeftIcon className="w-4 h-4" /> },
+  { value: 'checkbox', label: 'Checkbox', icon: <CheckSquareIcon className="w-4 h-4" /> },
+  { value: 'checkbox_group', label: 'Checkbox Group', icon: <CheckSquareIcon className="w-4 h-4" /> },
+  { value: 'dropdown', label: 'Dropdown', icon: <ListIcon className="w-4 h-4" /> },
+  { value: 'date', label: 'Date', icon: <CalendarIcon className="w-4 h-4" /> },
+  { value: 'number', label: 'Number', icon: <HashIcon className="w-4 h-4" /> },
+  { value: 'section_header', label: 'Section Header', icon: <MinusIcon className="w-4 h-4" /> },
 ]
 
 const FIELD_TYPE_COLORS: Record<FormFieldType, string> = {
@@ -69,8 +69,8 @@ const FIELD_TYPE_COLORS: Record<FormFieldType, string> = {
   number: 'bg-orange-50 text-orange-700 border-orange-200',
   section_header: 'bg-gray-100 text-gray-600 border-gray-300',
   signature: 'bg-pink-50 text-pink-700 border-pink-200',
-  checklist_placeholder: 'bg-teal-50 text-teal-700 border-teal-200',
-  material_system_placeholder: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  checklist_placeholder: 'bg-amber-50 text-amber-700 border-amber-200',
+  material_system_placeholder: 'bg-amber-50 text-amber-700 border-amber-200',
   field_guide_placeholder: 'bg-amber-50 text-amber-700 border-amber-200',
   picture_upload: 'bg-violet-50 text-violet-700 border-violet-200',
 }
@@ -197,7 +197,7 @@ function FieldControls({
         title="Move up"
         className="p-1 text-gray-300 hover:text-amber-600 disabled:text-gray-200 disabled:hover:text-gray-200 rounded transition"
       >
-        <ChevronUpIcon className="w-3.5 h-3.5" />
+        <ChevronUpIcon className="w-4 h-4" />
       </button>
       <button
         onClick={() => onMove(fieldId, 'down')}
@@ -205,7 +205,7 @@ function FieldControls({
         title="Move down"
         className="p-1 text-gray-300 hover:text-amber-600 disabled:text-gray-200 disabled:hover:text-gray-200 rounded transition"
       >
-        <ChevronDownIcon className="w-3.5 h-3.5" />
+        <ChevronDownIcon className="w-4 h-4" />
       </button>
       {!noDelete && (
         deleteConfirm === fieldId ? (
@@ -265,17 +265,17 @@ function groupFieldsIntoSections(fields: FormField[]): FieldSection[] {
 
 /* ── Add Item dropdown options ── */
 const ADD_ITEM_TYPE_OPTIONS: { value: FormFieldType; label: string; icon: React.ReactNode }[] = [
-  { value: 'section_header', label: 'Header', icon: <MinusIcon className="w-3.5 h-3.5" /> },
-  { value: 'short_text', label: 'Text', icon: <TypeIcon className="w-3.5 h-3.5" /> },
-  { value: 'long_text', label: 'Paragraph Text', icon: <AlignLeftIcon className="w-3.5 h-3.5" /> },
-  { value: 'picture_upload', label: 'Picture Upload', icon: <ImageIcon className="w-3.5 h-3.5" /> },
-  { value: 'date', label: 'Date', icon: <CalendarIcon className="w-3.5 h-3.5" /> },
-  { value: 'number', label: 'Number', icon: <HashIcon className="w-3.5 h-3.5" /> },
-  { value: 'checkbox', label: 'Checkbox', icon: <CheckSquareIcon className="w-3.5 h-3.5" /> },
-  { value: 'dropdown', label: 'Select / Dropdown', icon: <ListIcon className="w-3.5 h-3.5" /> },
-  { value: 'checklist_placeholder', label: 'Checklist', icon: <ClipboardCheckIcon className="w-3.5 h-3.5" /> },
-  { value: 'material_system_placeholder', label: 'Material System', icon: <PackageIcon className="w-3.5 h-3.5" /> },
-  { value: 'field_guide_placeholder', label: 'Field Guide', icon: <BookOpenIcon className="w-3.5 h-3.5" /> },
+  { value: 'section_header', label: 'Header', icon: <MinusIcon className="w-4 h-4" /> },
+  { value: 'short_text', label: 'Text', icon: <TypeIcon className="w-4 h-4" /> },
+  { value: 'long_text', label: 'Paragraph Text', icon: <AlignLeftIcon className="w-4 h-4" /> },
+  { value: 'picture_upload', label: 'Picture Upload', icon: <ImageIcon className="w-4 h-4" /> },
+  { value: 'date', label: 'Date', icon: <CalendarIcon className="w-4 h-4" /> },
+  { value: 'number', label: 'Number', icon: <HashIcon className="w-4 h-4" /> },
+  { value: 'checkbox', label: 'Checkbox', icon: <CheckSquareIcon className="w-4 h-4" /> },
+  { value: 'dropdown', label: 'Select / Dropdown', icon: <ListIcon className="w-4 h-4" /> },
+  { value: 'checklist_placeholder', label: 'Checklist', icon: <ClipboardCheckIcon className="w-4 h-4" /> },
+  { value: 'material_system_placeholder', label: 'Material System', icon: <PackageIcon className="w-4 h-4" /> },
+  { value: 'field_guide_placeholder', label: 'Field Guide', icon: <BookOpenIcon className="w-4 h-4" /> },
 ]
 
 /* ── Add Item dropdown component ── */
@@ -521,7 +521,7 @@ function SortableFieldRow({
           {...listeners}
           className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-gray-200 hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none"
         >
-          <GripVerticalIcon className="w-3.5 h-3.5" />
+          <GripVerticalIcon className="w-4 h-4" />
         </div>
       )}
       {renderField(field)}
@@ -561,7 +561,7 @@ function SectionHeaderField({ field, onUpdate, autoEdit, onEditDone, collapsed, 
       <div className="flex items-center gap-1">
         {onToggleCollapse && (
           <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
-            {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+            {collapsed ? <ChevronRightIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
           </button>
         )}
         <InlineEdit
@@ -695,7 +695,7 @@ function CheckboxGroupField({
               onClick={() => onRemoveOption(i)}
               className="opacity-0 group-hover/opt:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition"
             >
-              <XIcon className="w-3.5 h-3.5" />
+              <XIcon className="w-4 h-4" />
             </button>
           </div>
         ))}
@@ -763,7 +763,7 @@ function DropdownField({
                 onClick={() => onRemoveOption(i)}
                 className="opacity-0 group-hover/opt:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition"
               >
-                <XIcon className="w-3.5 h-3.5" />
+                <XIcon className="w-4 h-4" />
               </button>
             </div>
           ))}
@@ -914,7 +914,7 @@ function MaterialSystemEditorSection({ collapsed, onToggleCollapse }: { collapse
         <div className="flex items-center gap-1">
           {onToggleCollapse && (
             <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
-              {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+              {collapsed ? <ChevronRightIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
             </button>
           )}
           <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
@@ -942,7 +942,7 @@ function ChecklistEditorSection({ name, items, collapsed, onToggleCollapse }: { 
         <div className="flex items-center gap-1">
           {onToggleCollapse && (
             <button onClick={(e) => { e.stopPropagation(); onToggleCollapse() }} className="p-0.5 text-gray-400 hover:text-amber-600 transition flex-shrink-0">
-              {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+              {collapsed ? <ChevronRightIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
             </button>
           )}
           <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">

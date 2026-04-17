@@ -191,7 +191,7 @@ export function ChecklistItemRow({
               onChange={(e) => setNameValue(e.target.value)}
               onBlur={commitName}
               onKeyDown={(e) => { if (e.key === 'Enter') commitName(); if (e.key === 'Escape') { setNameValue(item.name); setEditingName(false) } }}
-              className="w-full text-sm text-gray-900 border border-amber-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full text-sm text-gray-900 border border-amber-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
               autoFocus
             />
           ) : (
@@ -262,7 +262,7 @@ export function ChecklistItemRow({
               }`}
               title="Add details"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
             </button>
 
             {showDropdown && (
@@ -275,7 +275,7 @@ export function ChecklistItemRow({
                   onClick={() => handleDropdownAction('assignee')}
                   className="w-full text-left px-3 py-2.5 hover:bg-amber-50 transition flex items-center gap-2.5"
                 >
-                  <UserIcon className="w-3.5 h-3.5 text-gray-400" />
+                  <UserIcon className="w-4 h-4 text-gray-400" />
                   <span className="text-xs text-gray-700">{hasAssignee ? 'Change Assignee' : 'Add Assignee'}</span>
                 </button>
                 {hasAssignee && (
@@ -283,7 +283,7 @@ export function ChecklistItemRow({
                     onClick={() => handleDropdownAction('remove_assignee')}
                     className="w-full text-left px-3 py-2 hover:bg-red-50 transition flex items-center gap-2.5"
                   >
-                    <XIcon className="w-3.5 h-3.5 text-red-400" />
+                    <XIcon className="w-4 h-4 text-red-400" />
                     <span className="text-xs text-red-500">Remove Assignee</span>
                   </button>
                 )}
@@ -295,7 +295,7 @@ export function ChecklistItemRow({
                   onClick={() => handleDropdownAction('due_date')}
                   className="w-full text-left px-3 py-2.5 hover:bg-amber-50 transition flex items-center gap-2.5"
                 >
-                  <CalendarIcon className="w-3.5 h-3.5 text-gray-400" />
+                  <CalendarIcon className="w-4 h-4 text-gray-400" />
                   <span className="text-xs text-gray-700">{hasDueDate ? 'Change Due Date' : 'Add Due Date'}</span>
                 </button>
                 {hasDueDate && (
@@ -303,7 +303,7 @@ export function ChecklistItemRow({
                     onClick={() => handleDropdownAction('remove_due_date')}
                     className="w-full text-left px-3 py-2 hover:bg-red-50 transition flex items-center gap-2.5"
                   >
-                    <XIcon className="w-3.5 h-3.5 text-red-400" />
+                    <XIcon className="w-4 h-4 text-red-400" />
                     <span className="text-xs text-red-500">Remove Due Date</span>
                   </button>
                 )}
@@ -315,7 +315,7 @@ export function ChecklistItemRow({
                   onClick={() => handleDropdownAction('notes')}
                   className="w-full text-left px-3 py-2.5 hover:bg-amber-50 transition flex items-center gap-2.5"
                 >
-                  <StickyNoteIcon className="w-3.5 h-3.5 text-gray-400" />
+                  <StickyNoteIcon className="w-4 h-4 text-gray-400" />
                   <span className="text-xs text-gray-700">{hasNotes ? 'Edit Note' : 'Add Note'}</span>
                 </button>
                 {hasNotes && (
@@ -323,7 +323,7 @@ export function ChecklistItemRow({
                     onClick={() => handleDropdownAction('remove_notes')}
                     className="w-full text-left px-3 py-2 hover:bg-red-50 transition flex items-center gap-2.5"
                   >
-                    <XIcon className="w-3.5 h-3.5 text-red-400" />
+                    <XIcon className="w-4 h-4 text-red-400" />
                     <span className="text-xs text-red-500">Remove Note</span>
                   </button>
                 )}
@@ -338,7 +338,7 @@ export function ChecklistItemRow({
             onClick={onDelete}
             className="p-1 text-gray-300 hover:text-red-500 transition flex-shrink-0"
           >
-            <Trash2Icon className="w-3.5 h-3.5" />
+            <Trash2Icon className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -381,7 +381,7 @@ export function ChecklistItemRow({
             onClick={() => setEditingField(null)}
             className="p-1 text-gray-400 hover:text-gray-600 transition"
           >
-            <XIcon className="w-3.5 h-3.5" />
+            <XIcon className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -406,7 +406,7 @@ export function ChecklistItemRow({
             onClick={() => setEditingField(null)}
             className="p-1 text-gray-400 hover:text-gray-600 transition"
           >
-            <XIcon className="w-3.5 h-3.5" />
+            <XIcon className="w-4 h-4" />
           </button>
         </div>
       )}

@@ -57,8 +57,8 @@ export default function ChangeOrderModal({ onSave, onClose, saving }: ChangeOrde
       <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-2xl h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
-          <h3 className="text-base font-bold text-gray-900">New Change Order</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100 transition">
+          <h3 className="text-lg font-semibold text-gray-900">New Change Order</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition">
             <XIcon className="w-5 h-5" />
           </button>
         </div>
@@ -141,7 +141,7 @@ export default function ChangeOrderModal({ onSave, onClose, saving }: ChangeOrde
               onClick={addLineItem}
               className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 mt-2 transition-colors"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
+              <PlusIcon className="w-4 h-4" />
               Add Line Item
             </button>
             <div className="flex justify-end mt-3">

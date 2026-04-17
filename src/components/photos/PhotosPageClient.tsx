@@ -205,20 +205,20 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by project name..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
           />
         </div>
         <div className="relative">
           <select
             value={sortOption}
             onChange={(e) => setSortOption(e.target.value as SortOption)}
-            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
+            className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>
       </div>
 
@@ -274,7 +274,7 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
                 className="flex items-center gap-2 w-full text-left mb-4"
               >
                 <ChevronRightIcon
-                  className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
+                  className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
                 />
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
                 <span className="text-xs text-gray-400">({completedGroups.length})</span>
@@ -400,9 +400,9 @@ function DaySection({
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition disabled:opacity-50"
         >
           {downloading ? (
-            <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+            <Loader2Icon className="w-4 h-4 animate-spin" />
           ) : (
-            <DownloadIcon className="w-3.5 h-3.5" />
+            <DownloadIcon className="w-4 h-4" />
           )}
           Download
         </button>

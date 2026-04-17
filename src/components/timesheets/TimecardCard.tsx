@@ -110,7 +110,7 @@ export default memo(function TimecardCard({ timecard, expandedId, onToggleExpand
         >
           {/* Chevron on LEFT */}
           <ChevronRightIcon
-            className={`w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${
+            className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${
               expanded ? 'rotate-90' : ''
             }`}
           />
@@ -220,7 +220,7 @@ export default memo(function TimecardCard({ timecard, expandedId, onToggleExpand
                 href={`/projects/${timecard.project_id}`}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 transition-colors"
               >
-                <ExternalLinkIcon className="w-3.5 h-3.5" />
+                <ExternalLinkIcon className="w-4 h-4" />
                 View in project feed
               </Link>
               <div className="flex items-center gap-1">
@@ -230,7 +230,7 @@ export default memo(function TimecardCard({ timecard, expandedId, onToggleExpand
                   title="Download PDF"
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-100 rounded-md transition"
                 >
-                  <DownloadIcon className="w-3.5 h-3.5" />
+                  <DownloadIcon className="w-4 h-4" />
                   <span>{pdfLoading ? 'Generating...' : 'PDF'}</span>
                 </button>
                 <button
@@ -238,7 +238,7 @@ export default memo(function TimecardCard({ timecard, expandedId, onToggleExpand
                   title="Edit"
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-100 rounded-md transition"
                 >
-                  <PencilIcon className="w-3.5 h-3.5" />
+                  <PencilIcon className="w-4 h-4" />
                   <span>Edit</span>
                 </button>
                 <button
@@ -246,7 +246,7 @@ export default memo(function TimecardCard({ timecard, expandedId, onToggleExpand
                   title="Delete"
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition"
                 >
-                  <Trash2Icon className="w-3.5 h-3.5" />
+                  <Trash2Icon className="w-4 h-4" />
                   <span>Delete</span>
                 </button>
               </div>

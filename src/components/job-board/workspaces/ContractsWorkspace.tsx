@@ -259,7 +259,7 @@ export default function ContractsWorkspace({ project, userId, onBack }: Contract
           onClick={() => setShowUploadForm(true)}
           className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
         >
-          <UploadCloudIcon className="w-3.5 h-3.5" />
+          <UploadCloudIcon className="w-4 h-4" />
           Upload
         </button>
       }
@@ -268,11 +268,11 @@ export default function ContractsWorkspace({ project, userId, onBack }: Contract
         {error && (
           <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <AlertCircleIcon className="w-3.5 h-3.5 flex-shrink-0" />
+              <AlertCircleIcon className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
             <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 p-0.5">
-              <XIcon className="w-3.5 h-3.5" />
+              <XIcon className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -288,7 +288,7 @@ export default function ContractsWorkspace({ project, userId, onBack }: Contract
                   value={uploadName}
                   onChange={(e) => setUploadName(e.target.value)}
                   placeholder="e.g., Subcontractor Agreement, PO #1234"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
               <div>
@@ -309,9 +309,9 @@ export default function ContractsWorkspace({ project, userId, onBack }: Contract
                   className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-4 py-2 rounded-lg text-sm font-semibold transition shadow-sm disabled:opacity-50"
                 >
                   {uploading ? (
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <UploadCloudIcon className="w-3.5 h-3.5" />
+                    <UploadCloudIcon className="w-4 h-4" />
                   )}
                   {uploading ? 'Uploading...' : 'Upload'}
                 </button>

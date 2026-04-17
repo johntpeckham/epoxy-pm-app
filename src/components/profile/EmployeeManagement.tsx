@@ -205,7 +205,7 @@ function SortableRoleRow({
         disabled={deleting}
         className="text-gray-400 hover:text-red-500 transition disabled:opacity-50 flex-shrink-0"
       >
-        <Trash2Icon className="w-3.5 h-3.5" />
+        <Trash2Icon className="w-4 h-4" />
       </button>
     </div>
   )
@@ -291,7 +291,7 @@ function SortableCertRow<T extends ColoredItem>({
         disabled={deleting}
         className="text-gray-400 hover:text-red-500 transition disabled:opacity-50 flex-shrink-0"
       >
-        <Trash2Icon className="w-3.5 h-3.5" />
+        <Trash2Icon className="w-4 h-4" />
       </button>
     </div>
   )
@@ -347,7 +347,7 @@ function SimpleNamedRow<T extends NamedItem>({
         disabled={deleting}
         className="text-gray-400 hover:text-red-500 transition disabled:opacity-50 flex-shrink-0"
       >
-        <Trash2Icon className="w-3.5 h-3.5" />
+        <Trash2Icon className="w-4 h-4" />
       </button>
     </div>
   )
@@ -1538,7 +1538,7 @@ export default function EmployeeManagement({
               onClick={() => setMainOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs font-medium rounded-lg transition"
             >
-              <UsersIcon className="w-3.5 h-3.5" />
+              <UsersIcon className="w-4 h-4" />
               Manage Employees
             </button>
           </div>
@@ -1612,21 +1612,21 @@ export default function EmployeeManagement({
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 text-xs font-medium rounded-lg transition"
                   title="Employee Settings"
                 >
-                  <Settings2Icon className="w-3.5 h-3.5" />
+                  <Settings2Icon className="w-4 h-4" />
                   Settings
                 </button>
                 <button
                   onClick={openOnboarding}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 text-xs font-medium rounded-lg transition"
                 >
-                  <UserPlusIcon className="w-3.5 h-3.5" />
+                  <UserPlusIcon className="w-4 h-4" />
                   +Onboarding
                 </button>
                 <button
                   onClick={openAddModal}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded-lg transition"
                 >
-                  <PlusIcon className="w-3.5 h-3.5" />
+                  <PlusIcon className="w-4 h-4" />
                   Add Employee
                 </button>
                 {!isInline && (
@@ -1739,7 +1739,7 @@ export default function EmployeeManagement({
                           {empCrews.map(c => (
                             <span
                               key={c.id}
-                              className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-semibold leading-tight bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
+                              className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-semibold leading-tight bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                             >
                               {c.name}
                             </span>
@@ -1808,7 +1808,7 @@ export default function EmployeeManagement({
                     value={newRoleName}
                     onChange={(e) => setNewRoleName(e.target.value)}
                     placeholder="New role name"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddRole()}
                   />
                   <button
@@ -1851,7 +1851,7 @@ export default function EmployeeManagement({
                     value={newCertName}
                     onChange={(e) => setNewCertName(e.target.value)}
                     placeholder="New certification name"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddCert()}
                   />
                   <ColorPickerDropdown
@@ -1901,7 +1901,7 @@ export default function EmployeeManagement({
                     value={newOshaName}
                     onChange={(e) => setNewOshaName(e.target.value)}
                     placeholder="New OSHA training name"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddOsha()}
                   />
                   <ColorPickerDropdown
@@ -1952,7 +1952,7 @@ export default function EmployeeManagement({
                     value={newCrewName}
                     onChange={(e) => setNewCrewName(e.target.value)}
                     placeholder="New crew name"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddCrew()}
                   />
                   <button
@@ -1992,7 +1992,7 @@ export default function EmployeeManagement({
                     value={newSkillTypeName}
                     onChange={(e) => setNewSkillTypeName(e.target.value)}
                     placeholder="New skill type name"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddSkillType()}
                   />
                   <button
@@ -2031,7 +2031,7 @@ export default function EmployeeManagement({
                     value={newFieldLabel}
                     onChange={(e) => setNewFieldLabel(e.target.value)}
                     placeholder="Field label"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
                   />
                   <button
@@ -2054,7 +2054,7 @@ export default function EmployeeManagement({
                         disabled={deletingFieldId === field.id}
                         className="text-gray-400 hover:text-red-500 transition disabled:opacity-50"
                       >
-                        <Trash2Icon className="w-3.5 h-3.5" />
+                        <Trash2Icon className="w-4 h-4" />
                       </button>
                     </div>
                   ))}
@@ -2164,7 +2164,7 @@ export default function EmployeeManagement({
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
                       placeholder="Employee name"
-                      className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                      className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                     />
                   </div>
 
@@ -2180,7 +2180,7 @@ export default function EmployeeManagement({
                       id="emp-role"
                       value={formRole}
                       onChange={(e) => setFormRole(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                      className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition bg-white"
                     >
                       <option value="">No role</option>
                       {roles.map((r) => (
@@ -2295,7 +2295,7 @@ export default function EmployeeManagement({
                           const id = e.target.value
                           if (id) toggleFormCrew(id)
                         }}
-                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition bg-white"
                       >
                         <option value="">Select crew...</option>
                         {crews
@@ -2320,13 +2320,13 @@ export default function EmployeeManagement({
                           return (
                             <span
                               key={st.id}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800 border border-sky-200"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
                             >
                               {st.name}
                               <button
                                 type="button"
                                 onClick={() => toggleFormSkillType(st.id)}
-                                className="rounded-full hover:bg-sky-200/70 transition p-0.5"
+                                className="rounded-full hover:bg-amber-200/70 transition p-0.5"
                                 aria-label={`Remove ${st.name}`}
                               >
                                 <XIcon className="w-3 h-3" />
@@ -2345,7 +2345,7 @@ export default function EmployeeManagement({
                           const id = e.target.value
                           if (id) toggleFormSkillType(id)
                         }}
-                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition bg-white"
                       >
                         <option value="">Select skill type...</option>
                         {skillTypes
@@ -2373,7 +2373,7 @@ export default function EmployeeManagement({
                       onChange={(e) => setFormNotes(e.target.value)}
                       placeholder="Optional notes"
                       rows={3}
-                      className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition resize-none"
+                      className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition resize-none"
                     />
                   </div>
 
@@ -2403,7 +2403,7 @@ export default function EmployeeManagement({
                                 }))
                               }
                               placeholder={field.label}
-                              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                             />
                           </div>
                         ))}
@@ -2553,7 +2553,7 @@ export default function EmployeeManagement({
                         value={formName}
                         onChange={(e) => setFormName(e.target.value)}
                         placeholder="Employee name"
-                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                       />
                     </div>
 
@@ -2566,7 +2566,7 @@ export default function EmployeeManagement({
                         id="onboard-role"
                         value={formRole}
                         onChange={(e) => setFormRole(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition bg-white"
                       >
                         <option value="">No role</option>
                         {roles.map((r) => (
@@ -2681,7 +2681,7 @@ export default function EmployeeManagement({
                             const id = e.target.value
                             if (id) toggleFormCrew(id)
                           }}
-                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition bg-white"
                         >
                           <option value="">Select crew...</option>
                           {crews
@@ -2706,13 +2706,13 @@ export default function EmployeeManagement({
                             return (
                               <span
                                 key={st.id}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800 border border-sky-200"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
                               >
                                 {st.name}
                                 <button
                                   type="button"
                                   onClick={() => toggleFormSkillType(st.id)}
-                                  className="rounded-full hover:bg-sky-200/70 transition p-0.5"
+                                  className="rounded-full hover:bg-amber-200/70 transition p-0.5"
                                   aria-label={`Remove ${st.name}`}
                                 >
                                   <XIcon className="w-3 h-3" />
@@ -2731,7 +2731,7 @@ export default function EmployeeManagement({
                             const id = e.target.value
                             if (id) toggleFormSkillType(id)
                           }}
-                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition bg-white"
+                          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition bg-white"
                         >
                           <option value="">Select skill type...</option>
                           {skillTypes
@@ -2756,7 +2756,7 @@ export default function EmployeeManagement({
                         onChange={(e) => setFormNotes(e.target.value)}
                         placeholder="Optional notes"
                         rows={3}
-                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition resize-none"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition resize-none"
                       />
                     </div>
 
@@ -2786,7 +2786,7 @@ export default function EmployeeManagement({
                                   }))
                                 }
                                 placeholder={field.label}
-                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                               />
                             </div>
                           ))}
