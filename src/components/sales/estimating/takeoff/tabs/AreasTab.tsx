@@ -156,7 +156,7 @@ export default function AreasTab() {
       </div>
 
       {/* Right column: sticky measurement references (desktop only) */}
-      <div className="hidden lg:block w-72 flex-shrink-0">
+      <div className="hidden lg:block w-80 flex-shrink-0">
         <div className="sticky top-4">
           <MeasurementReferences />
         </div>

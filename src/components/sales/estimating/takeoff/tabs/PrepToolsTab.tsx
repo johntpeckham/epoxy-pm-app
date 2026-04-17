@@ -16,7 +16,7 @@ export default function PrepToolsTab() {
   const total = subtotal + shipping + tax
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-4xl">
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
