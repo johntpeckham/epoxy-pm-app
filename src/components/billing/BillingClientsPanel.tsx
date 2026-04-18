@@ -61,8 +61,8 @@ export default function BillingClientsPanel({
     <>
       <div className="w-[300px] flex-shrink-0 border-r border-gray-200 bg-white flex flex-col h-full">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-3">
+        <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <DollarSignIcon className="w-5 h-5 text-gray-400" />
               <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
@@ -109,56 +109,54 @@ export default function BillingClientsPanel({
               placeholder="Search customers..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
             />
           </div>
         </div>
 
         {/* Dashboard pinned entry + Customer list */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="py-1">
-            {/* Dashboard - pinned at top */}
-            <button
-              onClick={() => onSelectView('dashboard')}
-              className={`w-full text-left px-4 py-3 transition-colors border-l-2 flex items-center gap-3 ${
-                selectedView === 'dashboard'
-                  ? 'border-l-gray-400 bg-gray-50'
-                  : 'border-l-transparent hover:bg-gray-50'
-              }`}
-            >
-              <LayoutDashboardIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-              <p className="text-sm font-medium text-gray-900">Dashboard</p>
-            </button>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {/* Dashboard - pinned at top */}
+          <button
+            onClick={() => onSelectView('dashboard')}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition border mb-1 ${
+              selectedView === 'dashboard'
+                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 text-gray-600'
+            }`}
+          >
+            <LayoutDashboardIcon className="w-4 h-4 flex-shrink-0" />
+            <span className="text-sm font-semibold">Dashboard</span>
+          </button>
 
-            {/* Divider */}
-            <div className="mx-4 border-t border-gray-100" />
-
-            {/* Customer list */}
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center px-6">
-                <UserIcon className="w-10 h-10 text-gray-300 mb-2" />
-                <p className="text-sm text-gray-400">
-                  {customers.length === 0
-                    ? 'No customers yet. Add one to get started.'
-                    : 'No matching customers.'}
-                </p>
-              </div>
-            ) : (
-              filtered.map((customer) => (
-                <button
-                  key={customer.id}
-                  onClick={() => onSelectView(customer.id)}
-                  className={`w-full text-left px-4 py-3 transition-colors border-l-2 ${
-                    selectedView === customer.id
-                      ? 'border-l-gray-400 bg-gray-50'
-                      : 'border-l-transparent hover:bg-gray-50'
-                  }`}
-                >
-                  <p className="text-sm font-medium text-gray-900 truncate">{customer.name}</p>
-                </button>
-              ))
-            )}
-          </div>
+          {/* Customer list */}
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 px-4">
+              <UserIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">
+                {customers.length === 0
+                  ? 'No customers yet. Add one to get started.'
+                  : 'No matching customers.'}
+              </p>
+            </div>
+          ) : (
+            filtered.map((customer) => (
+              <button
+                key={customer.id}
+                onClick={() => onSelectView(customer.id)}
+                className={`w-full text-left relative rounded-lg border p-3 transition ${
+                  selectedView === customer.id
+                    ? 'border-gray-300 bg-gray-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {selectedView === customer.id && (
+                  <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-amber-500" />
+                )}
+                <p className="text-sm font-semibold text-gray-900 truncate">{customer.name}</p>
+              </button>
+            ))
+          )}
         </div>
       </div>
 

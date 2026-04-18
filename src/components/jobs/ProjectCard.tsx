@@ -25,34 +25,30 @@ export default memo(function ProjectCard({
 }: ProjectCardProps) {
   return (
     <div
-      className={`relative group rounded-xl border transition-all duration-150 cursor-pointer ${
+      className={`relative group rounded-lg border transition cursor-pointer ${
         isSelected
-          ? 'bg-gray-50 dark:bg-[#2a2a2a]! border-gray-300 dark:border-[#3a3a3a]! shadow-sm'
-          : 'bg-white dark:bg-[#1e1e1e]! border-gray-200 dark:border-[#2a2a2a] hover:border-amber-300 dark:hover:border-[#3a3a3a] hover:shadow-sm dark:hover:bg-[#2a2a2a]!'
+          ? 'border-gray-300 bg-gray-50'
+          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
       }`}
     >
       {/* Selected indicator bar */}
       {isSelected && (
-        <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-amber-500 dark:bg-[#b8860b] rounded-full" />
+        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-amber-500" />
       )}
 
       {/* Main clickable body */}
       <button
         onClick={() => onSelect(project)}
-        className="w-full text-left p-3 pl-4"
+        className="w-full text-left p-3"
       >
         <div className="flex items-start gap-2 pr-10">
           <div className="flex-1 min-w-0">
-            <h3
-              className={`text-sm font-semibold truncate transition-colors ${
-                isSelected ? 'text-amber-700 dark:text-[#d4a24a]!' : 'text-gray-900 dark:text-[#e5e5e5] group-hover:text-amber-600'
-              }`}
-            >
+            <p className="text-sm font-semibold text-gray-900 truncate">
               {project.name}
-            </h3>
+            </p>
 
             <div className="mt-1">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
                 <UserIcon className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{project.client_name}</span>
               </div>
