@@ -54,9 +54,9 @@ export default function SalesDashboardClient({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+    <div className="flex-1 overflow-y-auto bg-gray-50">
       {/* Header with quick nav links */}
-      <div className="flex items-baseline gap-4 flex-wrap">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
         <div className="flex items-center gap-2">
           <TrendingUpIcon className="w-5 h-5 text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
@@ -75,7 +75,7 @@ export default function SalesDashboardClient({
       </div>
 
       {/* Time range toggle + date range */}
-      <div className="mt-3 flex items-center gap-3 flex-wrap">
+      <div className="p-4 flex items-center gap-3 flex-wrap">
         <div className="inline-flex items-center gap-1 bg-white rounded-full border border-gray-200 p-0.5">
           {RANGES.map((r) => {
             const active = r.value === range

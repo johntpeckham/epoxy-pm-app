@@ -403,24 +403,21 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
   return (
     <div className="flex-1 overflow-y-auto bg-white">
       {/* Header */}
-      <div className="px-7 pt-8 pb-4 flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0 flex-1">
-          <Link
-            href="/sales"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
-          >
-            <ArrowLeftIcon className="w-4 h-4" />
-            Sales
-          </Link>
-          <div className="flex items-center gap-2">
-            <CalendarCheckIcon className="w-5 h-5 text-gray-400" />
-            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-              Appointments
-            </h1>
-          </div>
-          <p className="text-sm text-gray-400 mt-1">
-            Schedule visits and push them through the pipeline.
-          </p>
+      <div className="px-4 sm:px-6 pt-4 pb-0">
+        <Link
+          href="/sales"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Sales
+        </Link>
+      </div>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <CalendarCheckIcon className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+            Appointments
+          </h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
@@ -443,8 +440,12 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
         </div>
       </div>
 
+      <p className="text-sm text-gray-400 px-4 sm:px-6 pt-3">
+        Schedule visits and push them through the pipeline.
+      </p>
+
       {/* Tabs */}
-      <div className="px-7 border-b border-gray-200 flex items-center gap-6">
+      <div className="px-4 sm:px-6 border-b border-gray-200 flex items-center gap-6">
         {(['upcoming', 'completed', 'all'] as TabKey[]).map((t) => {
           const isActive = tab === t
           return (

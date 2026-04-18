@@ -617,10 +617,11 @@ export default function EquipmentDetailClient({
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
       {/* Back button */}
+      <div className="mb-2">
       {onBack ? (
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Equipment
@@ -628,15 +629,16 @@ export default function EquipmentDetailClient({
       ) : (
         <Link
           href="/equipment"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Equipment
         </Link>
       )}
+      </div>
 
       {/* Page header */}
-      <div className="flex items-start gap-4 mb-6">
+      <div className="flex items-start gap-4 pb-4 mb-6 border-b border-gray-200 dark:border-[#2a2a2a]">
         {/* Profile photo */}
         <div className="relative group flex-shrink-0">
           <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200">
