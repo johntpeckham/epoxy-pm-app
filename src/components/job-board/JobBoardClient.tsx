@@ -626,10 +626,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
               {/* Jobs Overview link */}
               <button
                 onClick={deselectProject}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition mb-2 ${
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition border mb-2 ${
                   !selectedProject
-                    ? 'bg-amber-50 border border-amber-200 text-amber-700'
-                    : 'hover:bg-gray-100 text-gray-600'
+                    ? 'bg-amber-50 border-amber-200 text-amber-700'
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 text-gray-600'
                 }`}
               >
                 <LayoutGridIcon className="w-4 h-4 flex-shrink-0" />

@@ -166,7 +166,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
         </div>
 
         {/* Scrollable project list */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {filtered.length === 0 ? (
             <div className="text-center py-12">
               <BriefcaseIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
