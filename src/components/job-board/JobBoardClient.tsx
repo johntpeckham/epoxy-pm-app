@@ -658,7 +658,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
               )}
 
               {/* Active section */}
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Active</p>
+              <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-2">Active</p>
               {activeProjects.length === 0 ? (
                 <p className="text-xs text-gray-400 pb-2">No active projects</p>
               ) : (
@@ -677,25 +677,36 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                 ))
               )}
 
-              {/* Completed section — always expanded */}
+              {/* Completed section — collapsible */}
               {completedProjects.length > 0 && (
                 <div className="border-t border-gray-200 mt-4 pt-4">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Completed</p>
-                  <div className="space-y-2">
-                    {completedProjects.map((project) => (
-                      <ProjectCard
-                        key={project.id}
-                        project={project}
-                        isSelected={selectedProject?.id === project.id}
-                        onSelect={selectProject}
-                        onEdit={setEditingProject}
-                        onDelete={setProjectToDelete}
-                        showEditDelete={true}
-                        isPinned={false}
-                        onTogglePin={handleTogglePin}
-                      />
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => setShowCompleted(!showCompleted)}
+                    className="flex items-center gap-2 w-full text-left mb-2"
+                  >
+                    <ChevronRightIcon
+                      className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
+                    />
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
+                    <span className="text-xs text-gray-400">({completedProjects.length})</span>
+                  </button>
+                  {showCompleted && (
+                    <div className="space-y-2">
+                      {completedProjects.map((project) => (
+                        <ProjectCard
+                          key={project.id}
+                          project={project}
+                          isSelected={selectedProject?.id === project.id}
+                          onSelect={selectProject}
+                          onEdit={setEditingProject}
+                          onDelete={setProjectToDelete}
+                          showEditDelete={true}
+                          isPinned={false}
+                          onTogglePin={handleTogglePin}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
