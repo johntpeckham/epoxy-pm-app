@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { CheckCircle2Icon, RotateCcwIcon, ArrowLeftIcon } from 'lucide-react'
+import { CheckCircle2Icon, RotateCcwIcon, ArrowLeftIcon, PhoneIcon } from 'lucide-react'
 import DialerSetup from './DialerSetup'
 import DialerSession from './DialerSession'
 import { type QueuedContact, type SessionStats } from './dialerTypes'
@@ -54,14 +54,12 @@ export default function DialerClient({ userId }: DialerClientProps) {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="px-7 pt-4 flex-shrink-0">
-        <Link
-          href="/sales"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Sales
-        </Link>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
+          <PhoneIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Dialer</h1>
+        </div>
       </div>
       {mode === 'setup' && <DialerSetup userId={userId} onStart={startSession} />}
       {mode === 'session' && (
