@@ -864,7 +864,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-white">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] gap-4 flex-wrap">
         <div className="flex items-center gap-3">
@@ -1114,7 +1114,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           )}
         </div>
       ) : (
-        <div className="w-full">
+        <div className="mx-4 sm:mx-6 mb-4 bg-white dark:bg-[#242424] rounded-lg border border-gray-200 dark:border-[#2a2a2a] overflow-hidden">
           <table className="w-full table-fixed">
             <colgroup>
               <col style={{ width: '3%' }} />
@@ -1427,7 +1427,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           </table>
 
           {/* ── Pagination footer ── */}
-          <div className="px-7 py-4 flex items-center justify-between bg-gray-50 border-t border-gray-200" style={{ borderTopWidth: '0.5px' }}>
+          <div className="px-7 py-4 flex items-center justify-between bg-gray-50 dark:bg-[#2a2a2a] border-t border-gray-200 dark:border-[#333]" style={{ borderTopWidth: '0.5px' }}>
             <p className="text-xs text-gray-400">
               Showing {pageStart + 1}-{pageEnd} of {totalCount}
             </p>

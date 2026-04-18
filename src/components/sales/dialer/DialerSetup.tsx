@@ -363,7 +363,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-white">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       <div className="max-w-[760px] mx-auto px-6 pt-14 pb-16">
         {/* Header */}
         <div className="text-center mb-10">
@@ -378,7 +378,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
         {/* Two cards */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-5 items-stretch">
           {/* Auto-select */}
-          <div className="border border-gray-200 rounded-xl p-6 md:p-7 flex flex-col">
+          <div className="bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl p-6 md:p-7 flex flex-col">
             <div className="flex items-center gap-2 mb-1">
               <ClockIcon className="w-4 h-4 text-teal-600" />
               <h2 className="text-[15px] font-medium text-gray-900">
@@ -492,7 +492,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
           {/* or divider */}
           <div className="hidden md:flex flex-col items-center justify-center">
             <div className="h-full w-px bg-gray-100" />
-            <div className="absolute my-auto bg-white px-2 text-xs text-gray-400">
+            <div className="absolute my-auto bg-gray-50 dark:bg-[#1a1a1a] px-2 text-xs text-gray-400">
               or
             </div>
           </div>
@@ -501,7 +501,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
           </div>
 
           {/* Manual pick */}
-          <div className="border border-gray-200 rounded-xl p-6 md:p-7 flex flex-col">
+          <div className="bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl p-6 md:p-7 flex flex-col">
             <div className="flex items-center gap-2 mb-1">
               <UserPlusIcon className="w-4 h-4 text-teal-600" />
               <h2 className="text-[15px] font-medium text-gray-900">
@@ -626,7 +626,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
         </div>
 
         {/* Templates section */}
-        <div className="mt-10 border border-gray-200 rounded-xl overflow-hidden">
+        <div className="mt-10 bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl overflow-hidden">
           <button
             onClick={() => setTemplatesOpen((v) => !v)}
             className="w-full flex items-center gap-2 px-5 py-3 hover:bg-gray-50 transition-colors"
