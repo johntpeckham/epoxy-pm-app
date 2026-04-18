@@ -327,7 +327,7 @@ export default function EmployeeSummaryClient() {
       {/* Summary cards */}
       <div className="px-6 grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <SummaryCard label="Team completion rate" value={`${teamRate}%`} />
-        <SummaryCard label="Tasks assigned" value={String(totalAssigned)} />
+        <SummaryCard label="Items assigned" value={String(totalAssigned)} />
         <SummaryCard label="Completed" value={String(totalCompleted)} />
         <SummaryCard label="Not completed" value={String(totalMissed)} />
       </div>
@@ -355,7 +355,7 @@ export default function EmployeeSummaryClient() {
           <p className="text-sm text-gray-400 py-10 text-center">Loading…</p>
         ) : sortedRows.length === 0 ? (
           <p className="text-sm text-gray-400 py-10 text-center bg-white rounded-xl border border-gray-100">
-            No assigned tasks for anyone in this period.
+            No assigned work items for anyone in this period.
           </p>
         ) : (
           <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
@@ -490,7 +490,7 @@ function EmployeeRowView({
       {expanded && (
         <div className="px-6 pb-4 bg-gray-50/50 border-t border-gray-100">
           {perTask.length === 0 ? (
-            <p className="text-xs text-gray-400 py-3">No applicable tasks.</p>
+            <p className="text-xs text-gray-400 py-3">No applicable work items.</p>
           ) : (
             <div className="space-y-2 pt-3">
               {perTask.map(({ task, assigned, completed, notes }) => {

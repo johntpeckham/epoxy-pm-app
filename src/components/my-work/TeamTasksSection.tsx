@@ -119,7 +119,7 @@ export default function TeamTasksSection({ currentUserId }: Props) {
         <p className="text-xs text-gray-400 py-3 text-center">Loading…</p>
       ) : usersWithTasks.length === 0 ? (
         <p className="text-xs text-gray-400 py-3 text-center">
-          No team playbook tasks for this date
+          No team playbook work items for this date
         </p>
       ) : (
         <div className="space-y-1">
