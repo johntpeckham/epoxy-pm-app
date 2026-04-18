@@ -9,6 +9,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ListChecksIcon,
+  PlusIcon,
   Settings2Icon,
 } from 'lucide-react'
 import type { AssignedTask, AssignedTaskCompletion, UserRole } from '@/types'
@@ -85,6 +86,10 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const [loading, setLoading] = useState(true)
   const [noteTaskId, setNoteTaskId] = useState<string | null>(null)
   const [noteValue, setNoteValue] = useState('')
+  const [showNewTask, setShowNewTask] = useState(false)
+  const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [newTaskDesc, setNewTaskDesc] = useState('')
+  const [savingNewTask, setSavingNewTask] = useState(false)
 
   const today = startOfToday()
   const isToday = isSameDay(viewDate, today)
@@ -356,15 +361,50 @@ export default function MyTasksCard({ userId, userRole }: Props) {
     setNoteValue('')
   }
 
+  /* ---- Create new task ---- */
+  async function createNewTask() {
+    if (!newTaskTitle.trim()) return
+    setSavingNewTask(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data } = await supabase
+      .from('assigned_tasks')
+      .insert({
+        title: newTaskTitle.trim(),
+        description: newTaskDesc.trim() || null,
+        task_type: 'one_time' as const,
+        day_of_week: null,
+        specific_date: dateKey,
+        assigned_to: userId,
+        created_by: user?.id ?? null,
+        is_active: true,
+      })
+      .select()
+      .single()
+    if (data) {
+      setTasks((prev) => [...prev, data as AssignedTask])
+    }
+    setNewTaskTitle('')
+    setNewTaskDesc('')
+    setShowNewTask(false)
+    setSavingNewTask(false)
+  }
+
   /* ---- Render ---- */
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
   return (
     <div className="col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] transition-all">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700" style={{ background: 'rgba(239, 159, 39, 0.12)' }}>
-        <ListChecksIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#BA7517' }} />
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <ListChecksIcon className="w-5 h-5 flex-shrink-0 text-amber-500" />
         <h3 className="text-sm font-medium text-gray-900 dark:text-white flex-1">Daily Playbook</h3>
+        <button
+          onClick={() => setShowNewTask(true)}
+          className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-white px-2 py-1 rounded-lg text-xs font-semibold transition shadow-sm"
+        >
+          <PlusIcon className="w-3 h-3" />
+          New
+        </button>
         <div className="flex items-center gap-1">
           <button
             onClick={goPrev}
@@ -399,6 +439,48 @@ export default function MyTasksCard({ userId, userRole }: Props) {
           {completedCount} / {totalCount}
         </span>
       </div>
+
+      {/* Inline new task form */}
+      {showNewTask && (
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#252525]">
+          <input
+            autoFocus
+            value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
+            placeholder="Task name"
+            className="w-full text-sm px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 mb-2"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) createNewTask()
+              if (e.key === 'Escape') { setShowNewTask(false); setNewTaskTitle(''); setNewTaskDesc('') }
+            }}
+          />
+          <input
+            value={newTaskDesc}
+            onChange={(e) => setNewTaskDesc(e.target.value)}
+            placeholder="Description (optional)"
+            className="w-full text-xs px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 mb-2"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') createNewTask()
+              if (e.key === 'Escape') { setShowNewTask(false); setNewTaskTitle(''); setNewTaskDesc('') }
+            }}
+          />
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => { setShowNewTask(false); setNewTaskTitle(''); setNewTaskDesc('') }}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-2 py-1"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={createNewTask}
+              disabled={!newTaskTitle.trim() || savingNewTask}
+              className="text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded-lg transition"
+            >
+              {savingNewTask ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Body */}
       {loading ? (
