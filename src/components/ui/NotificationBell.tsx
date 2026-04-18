@@ -78,7 +78,7 @@ export default function NotificationBell({ userId, isOpen, onOpenChange }: Notif
   }
 
   return (
-    <div className="relative">
+    <div>
       <button
         onClick={() => onOpenChange(!isOpen)}
         className={`relative p-1.5 transition-colors rounded-lg ${isOpen ? 'text-white bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
@@ -94,7 +94,7 @@ export default function NotificationBell({ userId, isOpen, onOpenChange }: Notif
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1.5 w-80 max-sm:right-[-48px] max-sm:w-[calc(100vw-16px)] bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl overflow-hidden z-50 flex flex-col">
+        <div className="absolute right-0 top-full mt-1.5 w-80 max-sm:right-[-8px] max-sm:w-[calc(100vw-16px)] bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl overflow-hidden z-50 flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#3a3a3a]">
             <div className="flex items-center gap-2">

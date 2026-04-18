@@ -140,9 +140,9 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
         </Link>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="relative flex items-center gap-2">
         {role === 'admin' && (
-          <div className="relative" ref={commandCenterRef}>
+          <div ref={commandCenterRef}>
             <button
               onClick={() => {
                 if (commandCenterOpen) {
@@ -227,7 +227,7 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
             </div>
           )}
         </div>
-        <div className="relative" ref={settingsDropdownRef}>
+        <div ref={settingsDropdownRef}>
           <button
             onClick={() => {
               if (settingsDropdownOpen) {
