@@ -13,7 +13,7 @@
 | Runtime | React 19.2.3 |
 | Database | Supabase (PostgreSQL + Auth + Storage + RLS) |
 | Auth | Supabase Auth (email/password, session cookies, iOS PWA localStorage recovery) |
-| Storage | Supabase Storage (9 buckets) |
+| Storage | Supabase Storage (15 buckets) |
 | Styling | Tailwind CSS 4 |
 | Icons | Lucide React 0.575.0 |
 | Deployment | PWA-capable (next-pwa) |
@@ -506,7 +506,7 @@ The Job Board (`/job-board`) contains a workspace switcher with these tabs/cards
 
 ## 7. Supabase Storage Buckets
 
-**14 buckets** identified across the codebase.
+**15 buckets** identified across the codebase.
 
 | Bucket | Used By | Stores |
 |--------|---------|--------|
@@ -526,6 +526,7 @@ The Job Board (`/job-board`) contains a workspace switcher with these tabs/cards
 | `job-walk-photos` | JobWalkPhotosCard | Pre-construction site walk photos |
 | `job-walk-measurements` | JobWalkMeasurementsCard | Job walk measurement PDF uploads |
 | `estimating-project-files` | ProjectMeasurementsCard, MeasurementToolClient | Estimating project measurement PDFs |
+| `bug-reports` | ReportProblemModal | Auto-captured screenshots attached to bug reports |
 
 ---
 
