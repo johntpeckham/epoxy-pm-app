@@ -582,13 +582,11 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
         }`}
       >
         {/* List header */}
-        <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-[#2a2a2a] space-y-3 flex-shrink-0">
+        <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] space-y-3 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <ClipboardListIcon className="w-5 h-5 text-gray-400" />
-                <h1 className="text-2xl font-bold text-gray-900">Job Board</h1>
-              </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <ClipboardListIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Job Board</h1>
             </div>
             {canCreate('job_board') && (
               <button

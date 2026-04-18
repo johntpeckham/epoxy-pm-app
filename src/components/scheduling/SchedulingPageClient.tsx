@@ -421,18 +421,11 @@ export default function SchedulingPageClient({
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-[#1a1a1a]">
       {/* Header */}
-      <div className="flex-none px-6 pt-4 pb-3 border-b border-gray-200 dark:border-[#333] bg-white dark:bg-[#222]">
-        <Link
-          href="/office"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Office
-        </Link>
-        <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 flex-1">
-          <CalendarIcon className="w-5 h-5 text-amber-500" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Scheduling</h1>
+      <div className="flex-none flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link href="/office" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
+          <CalendarIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Scheduling</h1>
         </div>
         <div className="flex items-center gap-2">
           {/* Download dropdown */}
@@ -483,7 +476,6 @@ export default function SchedulingPageClient({
             <UserIcon className="w-4 h-4" />
             Send Individual Schedule
           </button>
-        </div>
         </div>
       </div>
 

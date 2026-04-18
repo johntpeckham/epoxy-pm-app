@@ -122,10 +122,9 @@ export default function EquipmentDetailLoader({
       <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+          className="inline-flex items-center text-gray-400 hover:text-gray-600 mb-4"
         >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Equipment
+          <ArrowLeftIcon className="w-5 h-5" />
         </button>
         <div className="flex items-center justify-center py-16">
           <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
@@ -139,10 +138,9 @@ export default function EquipmentDetailLoader({
       <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+          className="inline-flex items-center text-gray-400 hover:text-gray-600 mb-4"
         >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Equipment
+          <ArrowLeftIcon className="w-5 h-5" />
         </button>
         <p className="text-sm text-red-600">{error ?? 'Equipment not found'}</p>
       </div>

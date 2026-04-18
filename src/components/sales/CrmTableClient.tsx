@@ -866,20 +866,12 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   return (
     <div className="flex-1 overflow-y-auto bg-white">
       {/* ── Header ── */}
-      <div className="px-4 sm:px-6 pt-4 pb-0">
-        <Link
-          href="/sales"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Sales
-        </Link>
-      </div>
-      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] gap-4 flex-wrap">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] gap-4 flex-wrap">
         <div className="flex items-center gap-3">
+          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <div className="flex items-center gap-2">
             <Building2Icon className="w-5 h-5 text-gray-400" />
-            <h1 className="text-2xl font-bold text-gray-900 leading-tight">CRM</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">CRM</h1>
           </div>
           <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-xs">
             <button

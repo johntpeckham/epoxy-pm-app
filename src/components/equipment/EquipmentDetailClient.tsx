@@ -616,27 +616,6 @@ export default function EquipmentDetailClient({
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
-      {/* Back button */}
-      <div className="mb-2">
-      {onBack ? (
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Equipment
-        </button>
-      ) : (
-        <Link
-          href="/equipment"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Equipment
-        </Link>
-      )}
-      </div>
-
       {/* Page header */}
       <div className="flex items-start gap-4 pb-4 mb-6 border-b border-gray-200 dark:border-[#2a2a2a]">
         {/* Profile photo */}
@@ -683,8 +662,13 @@ export default function EquipmentDetailClient({
         {/* Name + status + QR code */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
+            {onBack ? (
+              <button onClick={onBack} className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></button>
+            ) : (
+              <Link href="/equipment" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
+            )}
             <WrenchIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-            <h1 className="text-2xl font-bold text-gray-900">{equipment.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{equipment.name}</h1>
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
                 equipment.status === 'active'

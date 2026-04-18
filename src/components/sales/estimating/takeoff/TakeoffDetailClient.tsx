@@ -66,25 +66,23 @@ export default function TakeoffDetailClient({
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gray-50">
       {/* Header */}
-      <div className="flex-none bg-white border-b border-gray-200 px-4 py-3">
-        <button
-          onClick={handleBack}
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Back to project
-        </button>
-        <p className="text-xs text-gray-400">
-          {customerName} &middot; {projectName}
-        </p>
-        <h1 className="text-base font-bold text-gray-900 mt-0.5">
-          {takeoff.name}
-        </h1>
-        {takeoff.template_id && (
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            From template
-          </p>
-        )}
+      <div className="flex-none bg-white dark:bg-[#242424] border-b border-gray-200 dark:border-[#2a2a2a] px-4 sm:px-6 py-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <button onClick={handleBack} className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></button>
+          <div className="min-w-0">
+            <p className="text-xs text-gray-400">
+              {customerName} &middot; {projectName}
+            </p>
+            <h1 className="text-base font-bold text-gray-900 dark:text-white mt-0.5 truncate">
+              {takeoff.name}
+            </h1>
+            {takeoff.template_id && (
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                From template
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Tab bar */}

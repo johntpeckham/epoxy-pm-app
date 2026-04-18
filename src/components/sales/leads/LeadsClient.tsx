@@ -238,15 +238,6 @@ export default function LeadsClient({
 
   return (
     <div className="flex flex-col h-full overflow-hidden w-full max-w-full">
-      <div className="px-4 pt-3 pb-1 flex-shrink-0 bg-white border-b border-gray-200 dark:border-[#2a2a2a]">
-        <Link
-          href="/sales"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Sales
-        </Link>
-      </div>
       <div className="flex flex-1 overflow-hidden">
       {/* ── Left panel: Lead list ── */}
       <div
@@ -254,11 +245,12 @@ export default function LeadsClient({
           mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
         }`}
       >
-        <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-[#2a2a2a] space-y-3 flex-shrink-0">
+        <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] space-y-3 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <TargetIcon className="w-5 h-5 text-gray-400" />
-              <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
+            <div className="flex items-center gap-2 min-w-0">
+              <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
+              <TargetIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Leads</h1>
             </div>
             <button
               onClick={() => setShowAddModal(true)}
