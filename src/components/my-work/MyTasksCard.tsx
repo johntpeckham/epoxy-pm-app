@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import {
@@ -10,9 +10,9 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ListChecksIcon,
+  MoreVerticalIcon,
   PlusIcon,
   Settings2Icon,
-  XIcon,
 } from 'lucide-react'
 import type { AssignedTask, AssignedTaskCompletion, UserRole } from '@/types'
 import TeamTasksSection from './TeamTasksSection'
@@ -550,7 +550,6 @@ export default function MyTasksCard({ userId, userRole }: Props) {
             <div>
               <div className="flex items-center gap-1.5 py-1.5">
                 <span className="text-[12px] text-gray-400 dark:text-gray-500">Assigned work</span>
-                <span className="text-[11px] text-gray-300 dark:text-gray-600 ml-auto">{assignedTasks.length}</span>
               </div>
               <TaskSection
                 tasks={assignedTasks}
@@ -579,7 +578,6 @@ export default function MyTasksCard({ userId, userRole }: Props) {
                 <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400" />
               )}
               <span className="text-[12px] text-gray-400 dark:text-gray-500">My work</span>
-              <span className="text-[11px] text-gray-300 dark:text-gray-600 ml-auto">{myTasks.length}</span>
             </button>
             {myWorkExpanded && (
               myTasks.length === 0 ? (
@@ -610,7 +608,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
         </div>
       )}
 
-      {/* Admin: Team Playbook section + management links */}
+      {/* Admin: Team Playbook section */}
       {isAdmin && (
         <div className="px-4 pb-3 mt-2">
           <button
@@ -625,28 +623,30 @@ export default function MyTasksCard({ userId, userRole }: Props) {
             <span className="text-[12px] text-gray-400 dark:text-gray-500">Team Playbook</span>
           </button>
           {teamExpanded && (
-            <>
-              <div className="mt-1">
-                <TeamTasksSection currentUserId={userId} />
-              </div>
-              <div className="mt-3 flex justify-end items-center gap-1">
-                <Link
-                  href="/my-work/employee-summary"
-                  className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
-                >
-                  <BarChart3Icon className="w-4 h-4" />
-                  Employee summary
-                </Link>
-                <Link
-                  href="/my-work/manage-playbook"
-                  className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
-                >
-                  <Settings2Icon className="w-4 h-4" />
-                  Manage work
-                </Link>
-              </div>
-            </>
+            <div className="mt-1">
+              <TeamTasksSection currentUserId={userId} />
+            </div>
           )}
+        </div>
+      )}
+
+      {/* Admin: management links — always visible at card bottom */}
+      {isAdmin && (
+        <div className="flex justify-center items-center gap-3 px-4 py-2.5 border-t border-gray-200 dark:border-gray-700">
+          <Link
+            href="/my-work/employee-summary"
+            className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+          >
+            <BarChart3Icon className="w-4 h-4" />
+            Employee summary
+          </Link>
+          <Link
+            href="/my-work/manage-playbook"
+            className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+          >
+            <Settings2Icon className="w-4 h-4" />
+            Manage work
+          </Link>
         </div>
       )}
     </div>
@@ -684,6 +684,22 @@ function TaskSection({
   editable?: boolean
   onDelete?: (t: AssignedTask) => void
 }) {
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpenId) return
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpenId(null)
+        setConfirmDeleteId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [menuOpenId])
+
   if (tasks.length === 0) return null
   return (
     <div>
@@ -719,37 +735,68 @@ function TaskSection({
                     </p>
                   )}
                 </div>
-                {isDone ? (
-                  <span className="text-xs font-medium text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5">Complete</span>
-                ) : !editingNote ? (
-                  c?.note ? (
+                <div className="w-[76px] flex-shrink-0 text-right mt-0.5">
+                  {isDone ? (
+                    <span className="text-xs font-medium text-green-600 dark:text-green-400">Complete</span>
+                  ) : !editingNote ? (
                     <button
                       onClick={() => onOpenNote(task)}
-                      className="text-xs font-medium flex-shrink-0 mt-0.5 hover:opacity-80"
+                      className="text-xs font-medium hover:opacity-80"
                       style={{ color: '#E24B4A' }}
-                      title={`Not completed: ${c.note}`}
+                      title={c?.note ? `Not completed: ${c.note}` : undefined}
                     >
                       Incomplete
                     </button>
-                  ) : (
-                    <button
-                      onClick={() => onOpenNote(task)}
-                      className="text-xs font-medium flex-shrink-0 mt-0.5 hover:opacity-80"
-                      style={{ color: '#E24B4A' }}
-                    >
-                      Incomplete
-                    </button>
-                  )
-                ) : null}
-                {editable && onDelete && (
-                  <button
-                    onClick={() => onDelete(task)}
-                    className="p-0.5 text-gray-300 hover:text-red-500 flex-shrink-0 mt-0.5 transition-colors"
-                    title="Delete work item"
-                  >
-                    <XIcon className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                  ) : null}
+                </div>
+                <div className="w-7 flex-shrink-0 relative">
+                  {editable && onDelete ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          setMenuOpenId(menuOpenId === task.id ? null : task.id)
+                          setConfirmDeleteId(null)
+                        }}
+                        className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      >
+                        <MoreVerticalIcon className="w-4 h-4" />
+                      </button>
+                      {menuOpenId === task.id && (
+                        <div
+                          ref={menuRef}
+                          className="absolute right-0 top-6 z-20 bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden"
+                        >
+                          {confirmDeleteId === task.id ? (
+                            <div className="px-3 py-2 min-w-[160px]">
+                              <p className="text-xs text-gray-700 dark:text-gray-200 mb-2">Delete this item?</p>
+                              <div className="flex items-center gap-2 justify-end">
+                                <button
+                                  onClick={() => { setMenuOpenId(null); setConfirmDeleteId(null) }}
+                                  className="text-[11px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-2 py-0.5"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => { onDelete(task); setMenuOpenId(null); setConfirmDeleteId(null) }}
+                                  className="text-[11px] font-medium text-red-600 hover:text-red-700 px-2 py-0.5"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteId(task.id)}
+                              className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </div>
               </div>
               {!isDone && c?.note && !editingNote && (
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 italic mt-1 ml-6">
