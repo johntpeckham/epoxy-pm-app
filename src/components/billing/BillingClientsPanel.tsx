@@ -155,9 +155,6 @@ export default function BillingClientsPanel({
                   }`}
                 >
                   <p className="text-sm font-medium text-gray-900 truncate">{customer.name}</p>
-                  {customer.company && (
-                    <p className="text-xs text-gray-500 truncate">{customer.company}</p>
-                  )}
                 </button>
               ))
             )}
