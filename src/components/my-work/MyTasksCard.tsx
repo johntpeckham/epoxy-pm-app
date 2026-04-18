@@ -357,29 +357,29 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   }
 
   /* ---- Render ---- */
+  const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+
   return (
-    <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 transition-all">
+    <div className="col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] transition-all">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-amber-500">
-          <ListChecksIcon className="w-5 h-5" />
-        </span>
-        <h3 className="text-sm font-semibold text-gray-900 flex-1">Daily Playbook</h3>
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700" style={{ background: 'rgba(239, 159, 39, 0.12)' }}>
+        <ListChecksIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#BA7517' }} />
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white flex-1">Daily Playbook</h3>
         <div className="flex items-center gap-1">
           <button
             onClick={goPrev}
-            className="p-1 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded transition"
+            className="p-1 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition"
             title="Previous day"
           >
             <ChevronLeftIcon className="w-4 h-4" />
           </button>
-          <span className="text-xs text-gray-600 font-medium min-w-[90px] text-center">
+          <span className="text-xs text-gray-600 dark:text-gray-300 font-medium min-w-[90px] text-center">
             {isToday ? 'Today' : formatLongDate(viewDate)}
           </span>
           <button
             onClick={goNext}
             disabled={!canGoNext}
-            className="p-1 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 disabled:cursor-not-allowed"
+            className="p-1 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 disabled:cursor-not-allowed"
             title="Next day"
           >
             <ChevronRightIcon className="w-4 h-4" />
@@ -387,19 +387,28 @@ export default function MyTasksCard({ userId, userRole }: Props) {
         </div>
       </div>
 
-      <p className="text-[11px] text-gray-400 mb-3">
-        {completedCount} of {totalCount} completed
-      </p>
+      {/* Progress bar */}
+      <div className="flex items-center gap-3 px-4 py-2.5">
+        <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${pct}%`, background: '#EF9F27' }}
+          />
+        </div>
+        <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">
+          {completedCount} / {totalCount}
+        </span>
+      </div>
 
       {/* Body */}
       {loading ? (
-        <p className="text-xs text-gray-400 py-4 text-center">Loading…</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">Loading…</p>
       ) : totalCount === 0 ? (
-        <p className="text-xs text-gray-400 py-4 text-center">
+        <p className="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">
           No tasks for this day
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 px-4 pb-4 pt-1">
           <TaskSection
             label="Daily tasks"
             tasks={dailyTasks}
@@ -456,21 +465,21 @@ export default function MyTasksCard({ userId, userRole }: Props) {
       {/* Admin: Team Playbook section + management links */}
       {isAdmin && (
         <>
-          <div className="mt-5 pt-4 border-t border-gray-100">
-            <p className="text-[12px] text-gray-400 mb-2">Team Playbook</p>
+          <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-700 px-4">
+            <p className="text-[12px] text-gray-400 dark:text-gray-500 mb-2">Team Playbook</p>
             <TeamTasksSection currentUserId={userId} />
           </div>
-          <div className="mt-3 flex justify-end items-center gap-1">
+          <div className="mt-3 pb-3 flex justify-end items-center gap-1">
             <Link
               href="/my-work/employee-summary"
-              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
             >
               <BarChart3Icon className="w-4 h-4" />
               Employee summary
             </Link>
             <Link
               href="/my-work/manage-playbook"
-              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
             >
               <Settings2Icon className="w-4 h-4" />
               Manage tasks
@@ -514,21 +523,21 @@ function TaskSection({
   if (tasks.length === 0) return null
   return (
     <div>
-      <p className="text-[12px] text-gray-400 mb-1.5">{label}</p>
-      <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+      <p className="text-[12px] text-gray-400 dark:text-gray-500 mb-1.5">{label}</p>
+      <div className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg overflow-hidden">
         {tasks.map((task) => {
           const c = completionByTaskId.get(task.id)
           const isDone = !!c?.is_completed
           const editingNote = noteTaskId === task.id
           return (
-            <div key={task.id} className="px-3 py-2">
+            <div key={task.id} className="py-2 px-5">
               <div className="flex items-start gap-2.5">
                 <button
                   onClick={() => (isDone ? onUncheckBox(task) : onCheckBox(task))}
                   className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                     isDone
                       ? 'border-amber-400 bg-amber-50 hover:border-amber-500'
-                      : 'border-gray-300 hover:border-amber-500'
+                      : 'border-gray-300 dark:border-gray-500 hover:border-amber-500'
                   }`}
                 >
                   {isDone && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
@@ -536,39 +545,43 @@ function TaskSection({
                 <div className="flex-1 min-w-0">
                   <p
                     className={`text-xs font-medium truncate ${
-                      isDone ? 'text-gray-400 line-through' : 'text-gray-900'
+                      isDone ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-gray-100'
                     }`}
                   >
                     {task.title}
                   </p>
                   {task.description && (
-                    <p className="text-[11px] text-gray-500 truncate">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                       {task.description}
                     </p>
                   )}
                 </div>
-                {!isDone && !editingNote && (
+                {isDone ? (
+                  <span className="text-xs font-medium text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5">Complete</span>
+                ) : !editingNote ? (
                   c?.note ? (
                     <button
                       onClick={() => onOpenNote(task)}
-                      className="text-[11px] text-gray-500 italic hover:text-gray-700 flex-shrink-0 mt-0.5"
+                      className="text-xs font-medium flex-shrink-0 mt-0.5 hover:opacity-80"
+                      style={{ color: '#E24B4A' }}
                       title={`Not completed: ${c.note}`}
                     >
-                      Not completed
+                      Incomplete
                     </button>
                   ) : (
                     <button
                       onClick={() => onOpenNote(task)}
-                      className="text-[11px] text-gray-400 hover:text-gray-600 flex-shrink-0 mt-0.5"
+                      className="text-xs font-medium flex-shrink-0 mt-0.5 hover:opacity-80"
+                      style={{ color: '#E24B4A' }}
                     >
-                      Did not complete
+                      Incomplete
                     </button>
                   )
-                )}
+                ) : null}
               </div>
               {!isDone && c?.note && !editingNote && (
-                <p className="text-[11px] text-gray-500 italic mt-1 ml-6">
-                  “{c.note}”
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 italic mt-1 ml-6">
+                  {'"'}{c.note}{'"'}
                 </p>
               )}
               {editingNote && (
@@ -578,7 +591,7 @@ function TaskSection({
                     value={noteValue}
                     onChange={(e) => onNoteChange(e.target.value)}
                     placeholder="Why wasn't this completed?"
-                    className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:border-amber-500"
+                    className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') onSaveNote()
                       if (e.key === 'Escape') onCancelNote()
@@ -586,7 +599,7 @@ function TaskSection({
                   />
                   <button
                     onClick={onSaveNote}
-                    className="text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50"
+                    className="text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30"
                   >
                     Save
                   </button>
