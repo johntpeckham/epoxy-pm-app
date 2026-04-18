@@ -310,7 +310,7 @@ function CustomerSidebar({
 
   return (
     <>
-      <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
+      <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-[#2a2a2a] space-y-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CalculatorIcon className="w-5 h-5 text-gray-400" />
@@ -567,7 +567,7 @@ function ProjectSidebar({
 }: ProjectSidebarProps) {
   return (
     <>
-      <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-2 flex-shrink-0">
+      <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-[#2a2a2a] space-y-2 flex-shrink-0">
         <button
           onClick={onBack}
           className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"

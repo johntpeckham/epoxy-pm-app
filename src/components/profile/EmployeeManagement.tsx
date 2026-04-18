@@ -1575,7 +1575,7 @@ export default function EmployeeManagement({
             )
           )}
           {/* Header */}
-          <div className="flex-none flex items-center justify-between px-6 py-2 border-b border-gray-200">
+          <div className="flex-none flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a]">
             <div className="flex items-center gap-2">
               {settingsOpen ? (
                 <>

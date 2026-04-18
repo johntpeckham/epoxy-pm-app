@@ -714,7 +714,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
           )}
         </div>
         {/* Header bar */}
-        <div className="flex-none flex items-center justify-between px-6 py-2 border-b border-gray-200">
+        <div className="flex-none flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a]">
           <div className="flex items-center gap-2">
             {settingsOpen ? (
               <>
@@ -775,7 +775,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       ) : (
         <>
           {/* Equipment header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
             <div className="flex items-center gap-2">
               <WrenchIcon className="w-5 h-5 text-gray-400" />
               <h1 className="text-2xl font-bold text-gray-900">Equipment</h1>

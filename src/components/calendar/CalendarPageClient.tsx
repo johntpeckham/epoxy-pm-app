@@ -936,14 +936,11 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   return (
     <div className="flex flex-col min-h-0 lg:h-screen">
       {/* Header */}
-      <div className="px-4 py-5 sm:px-6 flex-shrink-0">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-gray-400" />
-              <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-            </div>
-          </div>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
+        </div>
           <div className="flex items-center gap-2">
             {canDownloadPdf && (
               <button
@@ -969,7 +966,6 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               </button>
             )}
           </div>
-        </div>
       </div>
 
       {/* FullCalendar */}
