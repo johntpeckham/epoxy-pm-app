@@ -269,9 +269,9 @@ export default function DialerSession({
   const progressPct = Math.round((currentIndex / Math.max(1, queue.length)) * 100)
 
   return (
-    <div className="flex-1 flex flex-col bg-white min-h-0">
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#1a1a1a] min-h-0">
       {/* Top bar */}
-      <div className="flex-none border-b border-gray-100 px-5 py-3 flex items-center gap-4">
+      <div className="flex-none border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] px-5 py-3 flex items-center gap-4">
         <button
           onClick={() => setShowEndConfirm(true)}
           className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
@@ -416,7 +416,7 @@ export default function DialerSession({
         </div>
 
         {/* Right sidebar */}
-        <aside className="hidden lg:flex flex-col w-[280px] flex-none border-l border-gray-100 bg-gray-50/40 overflow-y-auto">
+        <aside className="hidden lg:flex flex-col w-[280px] flex-none border-l border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] overflow-y-auto">
           <div className="p-5 space-y-6">
             {/* Company */}
             <div>

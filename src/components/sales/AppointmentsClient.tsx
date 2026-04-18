@@ -446,7 +446,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
               onClick={() => setTab(t)}
               className={`-mb-px py-2 text-sm transition-colors ${
                 isActive
-                  ? 'text-gray-900 border-b-[1.5px] border-gray-900'
+                  ? 'text-amber-500 border-b-[1.5px] border-amber-500 font-medium'
                   : 'text-gray-400 hover:text-gray-600 border-b-[1.5px] border-transparent'
               }`}
             >
