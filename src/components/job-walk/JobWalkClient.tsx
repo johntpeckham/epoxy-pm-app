@@ -399,7 +399,6 @@ interface JobWalkListItemProps {
 }
 
 function JobWalkListItem({ walk, isSelected, onSelect }: JobWalkListItemProps) {
-  const statusStyle = STATUS_STYLES[walk.status]
   return (
     <button
       onClick={onSelect}
@@ -422,19 +421,7 @@ function JobWalkListItem({ walk, isSelected, onSelect }: JobWalkListItemProps) {
               {walk.customer_name}
             </p>
           )}
-          {walk.address && (
-            <p className="text-xs text-gray-400 truncate mt-0.5">
-              {walk.address}
-            </p>
-          )}
         </div>
-      </div>
-      <div className="mt-2">
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusStyle.className}`}
-        >
-          {statusStyle.label}
-        </span>
       </div>
     </button>
   )

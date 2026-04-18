@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { MapPinIcon, UserIcon, PencilIcon, Trash2Icon, PinIcon } from 'lucide-react'
+import { UserIcon, PencilIcon, Trash2Icon, PinIcon } from 'lucide-react'
 import { Project } from '@/types'
 
 interface ProjectCardProps {
@@ -43,37 +43,18 @@ export default memo(function ProjectCard({
       >
         <div className="flex items-start gap-2 pr-10">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3
-                className={`text-sm font-semibold truncate transition-colors ${
-                  isSelected ? 'text-amber-700 dark:text-[#d4a24a]!' : 'text-gray-900 dark:text-[#e5e5e5] group-hover:text-amber-600'
-                }`}
-              >
-                {project.estimate_number
-                  ? `Est. #${project.estimate_number} - ${project.name}`
-                  : project.name}
-              </h3>
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
-                  project.status === 'Active'
-                    ? 'bg-green-100 dark:bg-[rgba(34,197,94,0.15)] text-green-700 dark:text-[#4ade80]'
-                    : project.status === 'Completed'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-500'
-                }`}
-              >
-                {project.status}
-              </span>
-            </div>
+            <h3
+              className={`text-sm font-semibold truncate transition-colors ${
+                isSelected ? 'text-amber-700 dark:text-[#d4a24a]!' : 'text-gray-900 dark:text-[#e5e5e5] group-hover:text-amber-600'
+              }`}
+            >
+              {project.name}
+            </h3>
 
-            <div className="mt-1 space-y-0.5">
+            <div className="mt-1">
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
                 <UserIcon className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{project.client_name}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <MapPinIcon className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{project.address}</span>
               </div>
             </div>
           </div>

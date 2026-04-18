@@ -491,7 +491,6 @@ interface LeadListItemProps {
 }
 
 function LeadListItem({ lead, isSelected, onSelect }: LeadListItemProps) {
-  const statusStyle = LEAD_STATUS_STYLES[lead.status]
   return (
     <button
       onClick={onSelect}
@@ -513,18 +512,6 @@ function LeadListItem({ lead, isSelected, onSelect }: LeadListItemProps) {
             <p className="text-xs text-gray-600 truncate mt-0.5">{lead.customer_name}</p>
           )}
         </div>
-      </div>
-      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-        {lead.category && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
-            {lead.category}
-          </span>
-        )}
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusStyle.className}`}
-        >
-          {statusStyle.label}
-        </span>
       </div>
     </button>
   )
