@@ -23,11 +23,14 @@ function tasksForUserOnDate(
 ): AssignedTask[] {
   const dayOfWeek = date.getDay()
   const dateKey = toDateKey(date)
+  const dayOfMonth = date.getDate()
   return tasks
     .filter((t) => t.is_active && t.assigned_to === userId)
     .filter((t) => {
       if (t.task_type === 'daily') return true
+      if (t.task_type === 'weekdays') return dayOfWeek >= 1 && dayOfWeek <= 5
       if (t.task_type === 'weekly') return t.day_of_week === dayOfWeek
+      if (t.task_type === 'monthly') return t.day_of_month === dayOfMonth
       if (t.task_type === 'one_time') return t.specific_date === dateKey
       return false
     })
@@ -187,11 +190,7 @@ export default function TeamTasksSection({ currentUserId }: Props) {
                               {t.title}
                             </p>
                             <p className="text-[10px] text-gray-400">
-                              {t.task_type === 'daily'
-                                ? 'Daily'
-                                : t.task_type === 'weekly'
-                                  ? 'Weekly'
-                                  : 'One-time'}
+                              {t.task_type === 'one_time' ? 'One-time' : t.task_type === 'weekdays' ? 'Weekdays' : t.task_type.charAt(0).toUpperCase() + t.task_type.slice(1)}
                             </p>
                             {c?.note && (
                               <p className="text-[11px] text-gray-500 italic mt-0.5">

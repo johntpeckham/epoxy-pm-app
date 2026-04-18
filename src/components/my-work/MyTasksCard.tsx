@@ -12,6 +12,7 @@ import {
   ListChecksIcon,
   PlusIcon,
   Settings2Icon,
+  XIcon,
 } from 'lucide-react'
 import type { AssignedTask, AssignedTaskCompletion, UserRole } from '@/types'
 import TeamTasksSection from './TeamTasksSection'
@@ -54,11 +55,14 @@ function isSameDay(a: Date, b: Date): boolean {
 function tasksForDate(tasks: AssignedTask[], date: Date): AssignedTask[] {
   const dayOfWeek = date.getDay()
   const dateKey = toDateKey(date)
+  const dayOfMonth = date.getDate()
   return tasks
     .filter((t) => t.is_active)
     .filter((t) => {
       if (t.task_type === 'daily') return true
+      if (t.task_type === 'weekdays') return dayOfWeek >= 1 && dayOfWeek <= 5
       if (t.task_type === 'weekly') return t.day_of_week === dayOfWeek
+      if (t.task_type === 'monthly') return t.day_of_month === dayOfMonth
       if (t.task_type === 'one_time') return t.specific_date === dateKey
       return false
     })
@@ -90,8 +94,14 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const [showNewTask, setShowNewTask] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDesc, setNewTaskDesc] = useState('')
+  const [newTaskType, setNewTaskType] = useState<AssignedTask['task_type']>('daily')
+  const [newTaskDayOfWeek, setNewTaskDayOfWeek] = useState<number>(new Date().getDay())
+  const [newTaskDayOfMonth, setNewTaskDayOfMonth] = useState<number>(new Date().getDate())
+  const [newTaskDate, setNewTaskDate] = useState<string>(() => toDateKey(new Date()))
   const [savingNewTask, setSavingNewTask] = useState(false)
   const [teamExpanded, setTeamExpanded] = useState(false)
+  const [assignedExpanded, setAssignedExpanded] = useState(true)
+  const [myWorkExpanded, setMyWorkExpanded] = useState(true)
 
   const today = startOfToday()
   const isToday = isSameDay(viewDate, today)
@@ -208,11 +218,10 @@ export default function MyTasksCard({ userId, userRole }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /* ---- Derived: tasks applicable on viewDate, split by type ---- */
+  /* ---- Derived: tasks applicable on viewDate, split by source ---- */
   const applicable = useMemo(() => tasksForDate(tasks, viewDate), [tasks, viewDate])
-  const dailyTasks = applicable.filter((t) => t.task_type === 'daily')
-  const weeklyTasks = applicable.filter((t) => t.task_type === 'weekly')
-  const oneTimeTasks = applicable.filter((t) => t.task_type === 'one_time')
+  const assignedTasks = applicable.filter((t) => t.created_by !== userId)
+  const myTasks = applicable.filter((t) => t.created_by === userId)
 
   const completionByTaskId = useMemo(() => {
     const m = new Map<string, AssignedTaskCompletion>()
@@ -367,17 +376,17 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   async function createNewTask() {
     if (!newTaskTitle.trim()) return
     setSavingNewTask(true)
-    const { data: { user } } = await supabase.auth.getUser()
     const { data } = await supabase
       .from('assigned_tasks')
       .insert({
         title: newTaskTitle.trim(),
         description: newTaskDesc.trim() || null,
-        task_type: 'one_time' as const,
-        day_of_week: null,
-        specific_date: dateKey,
+        task_type: newTaskType,
+        day_of_week: newTaskType === 'weekly' ? newTaskDayOfWeek : null,
+        day_of_month: newTaskType === 'monthly' ? newTaskDayOfMonth : null,
+        specific_date: newTaskType === 'one_time' ? newTaskDate : null,
         assigned_to: userId,
-        created_by: user?.id ?? null,
+        created_by: userId,
         is_active: true,
       })
       .select()
@@ -387,6 +396,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
     }
     setNewTaskTitle('')
     setNewTaskDesc('')
+    setNewTaskType('daily')
     setShowNewTask(false)
     setSavingNewTask(false)
   }
@@ -462,10 +472,52 @@ export default function MyTasksCard({ userId, userRole }: Props) {
             placeholder="Description (optional)"
             className="w-full text-xs px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 mb-2"
             onKeyDown={(e) => {
-              if (e.key === 'Enter') createNewTask()
               if (e.key === 'Escape') { setShowNewTask(false); setNewTaskTitle(''); setNewTaskDesc('') }
             }}
           />
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            {(['daily', 'weekdays', 'weekly', 'monthly', 'one_time'] as const).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setNewTaskType(opt)}
+                className={`px-2.5 py-1 text-[11px] rounded-full border transition ${
+                  newTaskType === opt
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-white dark:bg-[#1e1e1e] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-amber-400'
+                }`}
+              >
+                {opt === 'one_time' ? 'One-time' : opt === 'weekdays' ? 'Weekdays' : opt.charAt(0).toUpperCase() + opt.slice(1)}
+              </button>
+            ))}
+          </div>
+          {newTaskType === 'weekly' && (
+            <div className="flex gap-1 mb-2">
+              {['S','M','T','W','T','F','S'].map((d, i) => (
+                <button key={i} type="button" onClick={() => setNewTaskDayOfWeek(i)}
+                  className={`w-7 h-7 text-[11px] rounded-full border transition ${
+                    newTaskDayOfWeek === i ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-[#1e1e1e] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600'
+                  }`}>{d}</button>
+              ))}
+            </div>
+          )}
+          {newTaskType === 'monthly' && (
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Day</span>
+              <input type="number" min={1} max={31} value={newTaskDayOfMonth}
+                onChange={(e) => setNewTaskDayOfMonth(Number(e.target.value))}
+                className="w-16 text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          )}
+          {newTaskType === 'one_time' && (
+            <div className="mb-2">
+              <input type="date" value={newTaskDate}
+                onChange={(e) => setNewTaskDate(e.target.value)}
+                className="text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          )}
           <div className="flex items-center justify-end gap-2">
             <button
               onClick={() => { setShowNewTask(false); setNewTaskTitle(''); setNewTaskDesc('') }}
@@ -492,57 +544,79 @@ export default function MyTasksCard({ userId, userRole }: Props) {
           No tasks for this day
         </p>
       ) : (
-        <div className="space-y-4 px-4 pb-4 pt-1">
-          <TaskSection
-            label="Daily tasks"
-            tasks={dailyTasks}
-            completionByTaskId={completionByTaskId}
-            noteTaskId={noteTaskId}
-            noteValue={noteValue}
-            onCheckBox={markCompleted}
-            onUncheckBox={markIncomplete}
-            onOpenNote={openUncheck}
-            onNoteChange={setNoteValue}
-            onSaveNote={saveUncheck}
-            onCancelNote={() => {
-              setNoteTaskId(null)
-              setNoteValue('')
-            }}
-          />
-          <TaskSection
-            label="Weekly tasks"
-            tasks={weeklyTasks}
-            completionByTaskId={completionByTaskId}
-            noteTaskId={noteTaskId}
-            noteValue={noteValue}
-            onCheckBox={markCompleted}
-            onUncheckBox={markIncomplete}
-            onOpenNote={openUncheck}
-            onNoteChange={setNoteValue}
-            onSaveNote={saveUncheck}
-            onCancelNote={() => {
-              setNoteTaskId(null)
-              setNoteValue('')
-            }}
-          />
-          {oneTimeTasks.length > 0 && (
-            <TaskSection
-              label="One-time tasks"
-              tasks={oneTimeTasks}
-              completionByTaskId={completionByTaskId}
-              noteTaskId={noteTaskId}
-              noteValue={noteValue}
-              onCheckBox={markCompleted}
-              onUncheckBox={markIncomplete}
-              onOpenNote={openUncheck}
-              onNoteChange={setNoteValue}
-              onSaveNote={saveUncheck}
-              onCancelNote={() => {
-                setNoteTaskId(null)
-                setNoteValue('')
-              }}
-            />
+        <div className="px-4 pb-4 pt-1 space-y-1">
+          {/* Assigned work section */}
+          {assignedTasks.length > 0 && (
+            <div>
+              <button
+                onClick={() => setAssignedExpanded((v) => !v)}
+                className="flex items-center gap-1.5 w-full text-left py-1.5"
+              >
+                {assignedExpanded ? (
+                  <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
+                ) : (
+                  <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400" />
+                )}
+                <span className="text-[12px] text-gray-400 dark:text-gray-500">Assigned work</span>
+                <span className="text-[11px] text-gray-300 dark:text-gray-600 ml-auto">{assignedTasks.length}</span>
+              </button>
+              {assignedExpanded && (
+                <TaskSection
+                  tasks={assignedTasks}
+                  completionByTaskId={completionByTaskId}
+                  noteTaskId={noteTaskId}
+                  noteValue={noteValue}
+                  onCheckBox={markCompleted}
+                  onUncheckBox={markIncomplete}
+                  onOpenNote={openUncheck}
+                  onNoteChange={setNoteValue}
+                  onSaveNote={saveUncheck}
+                  onCancelNote={() => { setNoteTaskId(null); setNoteValue('') }}
+                />
+              )}
+            </div>
           )}
+
+          {/* My work section */}
+          <div>
+            <button
+              onClick={() => setMyWorkExpanded((v) => !v)}
+              className="flex items-center gap-1.5 w-full text-left py-1.5"
+            >
+              {myWorkExpanded ? (
+                <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
+              ) : (
+                <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400" />
+              )}
+              <span className="text-[12px] text-gray-400 dark:text-gray-500">My work</span>
+              <span className="text-[11px] text-gray-300 dark:text-gray-600 ml-auto">{myTasks.length}</span>
+            </button>
+            {myWorkExpanded && (
+              myTasks.length === 0 ? (
+                <p className="text-xs text-gray-400 dark:text-gray-500 py-3 pl-5">
+                  No personal tasks yet. Click + New to add one.
+                </p>
+              ) : (
+                <TaskSection
+                  tasks={myTasks}
+                  completionByTaskId={completionByTaskId}
+                  noteTaskId={noteTaskId}
+                  noteValue={noteValue}
+                  onCheckBox={markCompleted}
+                  onUncheckBox={markIncomplete}
+                  onOpenNote={openUncheck}
+                  onNoteChange={setNoteValue}
+                  onSaveNote={saveUncheck}
+                  onCancelNote={() => { setNoteTaskId(null); setNoteValue('') }}
+                  editable
+                  onDelete={async (t) => {
+                    setTasks((prev) => prev.filter((x) => x.id !== t.id))
+                    await supabase.from('assigned_tasks').delete().eq('id', t.id)
+                  }}
+                />
+              )
+            )}
+          </div>
         </div>
       )}
 
@@ -578,7 +652,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
                   className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
                 >
                   <Settings2Icon className="w-4 h-4" />
-                  Manage tasks
+                  Manage work
                 </Link>
               </div>
             </>
@@ -594,7 +668,6 @@ export default function MyTasksCard({ userId, userRole }: Props) {
 /* ------------------------------------------------------------------ */
 
 function TaskSection({
-  label,
   tasks,
   completionByTaskId,
   noteTaskId,
@@ -605,8 +678,9 @@ function TaskSection({
   onNoteChange,
   onSaveNote,
   onCancelNote,
+  editable,
+  onDelete,
 }: {
-  label: string
   tasks: AssignedTask[]
   completionByTaskId: Map<string, AssignedTaskCompletion>
   noteTaskId: string | null
@@ -617,11 +691,12 @@ function TaskSection({
   onNoteChange: (v: string) => void
   onSaveNote: () => void
   onCancelNote: () => void
+  editable?: boolean
+  onDelete?: (t: AssignedTask) => void
 }) {
   if (tasks.length === 0) return null
   return (
     <div>
-      <p className="text-[12px] text-gray-400 dark:text-gray-500 mb-1.5">{label}</p>
       <div className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg overflow-hidden">
         {tasks.map((task) => {
           const c = completionByTaskId.get(task.id)
@@ -676,6 +751,15 @@ function TaskSection({
                     </button>
                   )
                 ) : null}
+                {editable && onDelete && (
+                  <button
+                    onClick={() => onDelete(task)}
+                    className="p-0.5 text-gray-300 hover:text-red-500 flex-shrink-0 mt-0.5 transition-colors"
+                    title="Delete task"
+                  >
+                    <XIcon className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               {!isDone && c?.note && !editingNote && (
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 italic mt-1 ml-6">

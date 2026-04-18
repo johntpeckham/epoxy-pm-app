@@ -343,7 +343,7 @@ export interface Notification {
   created_at: string
 }
 
-export type AssignedTaskType = 'daily' | 'weekly' | 'one_time'
+export type AssignedTaskType = 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'one_time'
 
 export interface AssignedTask {
   id: string
@@ -351,6 +351,7 @@ export interface AssignedTask {
   description: string | null
   task_type: AssignedTaskType
   day_of_week: number | null
+  day_of_month: number | null
   specific_date: string | null
   assigned_to: string
   created_by: string | null
