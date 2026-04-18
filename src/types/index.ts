@@ -345,6 +345,8 @@ export interface Notification {
 
 export type AssignedTaskType = 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'one_time'
 
+export type AssignedTaskSource = 'manage' | 'self'
+
 export interface AssignedTask {
   id: string
   title: string
@@ -355,6 +357,7 @@ export interface AssignedTask {
   specific_date: string | null
   assigned_to: string
   created_by: string | null
+  source: AssignedTaskSource
   is_active: boolean
   created_at: string
   updated_at: string
