@@ -65,6 +65,7 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
   const [creating, setCreating] = useState(false)
   const [confirmDeleteWalk, setConfirmDeleteWalk] = useState<JobWalk | null>(null)
   const [deletingWalk, setDeletingWalk] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
 
   const selected = useMemo(
     () => jobWalks.find((w) => w.id === selectedId) ?? null,
@@ -267,24 +268,32 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
                 />
               ))}
 
-              {inProgressWalks.length > 0 && completedWalks.length > 0 && (
-                <div className="flex items-center gap-3 px-1 pt-3 pb-1">
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-widest">
-                    Completed
-                  </span>
-                  <div className="flex-1 h-px bg-gray-200" />
+              {completedWalks.length > 0 && (
+                <div className="border-t border-gray-200 mt-4 pt-4">
+                  <button
+                    onClick={() => setShowCompleted(!showCompleted)}
+                    className="flex items-center gap-2 w-full text-left mb-2"
+                  >
+                    <ChevronRightIcon
+                      className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
+                    />
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
+                    <span className="text-xs text-gray-400">({completedWalks.length})</span>
+                  </button>
+                  {showCompleted && (
+                    <div className="space-y-2">
+                      {completedWalks.map((walk) => (
+                        <JobWalkListItem
+                          key={walk.id}
+                          walk={walk}
+                          isSelected={selectedId === walk.id}
+                          onSelect={() => selectWalk(walk.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
-
-              {completedWalks.map((walk) => (
-                <JobWalkListItem
-                  key={walk.id}
-                  walk={walk}
-                  isSelected={selectedId === walk.id}
-                  onSelect={() => selectWalk(walk.id)}
-                />
-              ))}
             </>
           )}
         </div>
