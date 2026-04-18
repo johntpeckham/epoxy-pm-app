@@ -25,9 +25,13 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
   const [showReportModal, setShowReportModal] = useState(false)
   const [showReportDropdown, setShowReportDropdown] = useState(false)
   const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false)
+  const [commandCenterOpen, setCommandCenterOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const avatarDropdownRef = useRef<HTMLDivElement>(null)
   const reportDropdownRef = useRef<HTMLDivElement>(null)
   const settingsDropdownRef = useRef<HTMLDivElement>(null)
+  const commandCenterRef = useRef<HTMLDivElement>(null)
+  const notificationRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const { settings: companySettings } = useCompanySettings()
   const { role } = useUserRole()
@@ -42,6 +46,14 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
     router.push('/login')
   }
 
+  function closeAllDropdowns() {
+    setAvatarDropdownOpen(false)
+    setShowReportDropdown(false)
+    setSettingsDropdownOpen(false)
+    setCommandCenterOpen(false)
+    setNotificationsOpen(false)
+  }
+
   function openMobileSidebar() {
     window.dispatchEvent(new Event('open-mobile-sidebar'))
   }
@@ -54,33 +66,39 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
   }
 
   useEffect(() => {
+    const anyOpen = avatarDropdownOpen || showReportDropdown || settingsDropdownOpen || commandCenterOpen || notificationsOpen
+    if (!anyOpen) return
+
     function handleClick(e: MouseEvent) {
-      if (avatarDropdownRef.current && !avatarDropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (avatarDropdownRef.current && !avatarDropdownRef.current.contains(target)) {
         setAvatarDropdownOpen(false)
       }
-      if (reportDropdownRef.current && !reportDropdownRef.current.contains(e.target as Node)) {
+      if (reportDropdownRef.current && !reportDropdownRef.current.contains(target)) {
         setShowReportDropdown(false)
       }
-      if (settingsDropdownRef.current && !settingsDropdownRef.current.contains(e.target as Node)) {
+      if (settingsDropdownRef.current && !settingsDropdownRef.current.contains(target)) {
         setSettingsDropdownOpen(false)
+      }
+      if (commandCenterRef.current && !commandCenterRef.current.contains(target)) {
+        setCommandCenterOpen(false)
+      }
+      if (notificationRef.current && !notificationRef.current.contains(target)) {
+        setNotificationsOpen(false)
       }
     }
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        setSettingsDropdownOpen(false)
+        closeAllDropdowns()
       }
     }
-    if (avatarDropdownOpen || showReportDropdown || settingsDropdownOpen) {
-      document.addEventListener('mousedown', handleClick)
-      if (settingsDropdownOpen) {
-        document.addEventListener('keydown', handleKeyDown)
-      }
-      return () => {
-        document.removeEventListener('mousedown', handleClick)
-        document.removeEventListener('keydown', handleKeyDown)
-      }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [avatarDropdownOpen, showReportDropdown, settingsDropdownOpen])
+  }, [avatarDropdownOpen, showReportDropdown, settingsDropdownOpen, commandCenterOpen, notificationsOpen])
 
   return (
     <>
@@ -124,21 +142,59 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
 
       <div className="flex items-center gap-2">
         {role === 'admin' && (
-          <button
-            onClick={openCommandCenter}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-            aria-label="Command center"
-            title="Command center"
-          >
-            <MonitorIcon className="w-[18px] h-[18px]" />
-          </button>
+          <div className="relative" ref={commandCenterRef}>
+            <button
+              onClick={() => {
+                if (commandCenterOpen) {
+                  setCommandCenterOpen(false)
+                } else {
+                  closeAllDropdowns()
+                  setCommandCenterOpen(true)
+                }
+              }}
+              className={`p-1.5 transition-colors rounded-lg ${commandCenterOpen ? 'text-white bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+              aria-label="Command Center menu"
+              aria-expanded={commandCenterOpen}
+            >
+              <MonitorIcon className="w-[18px] h-[18px]" />
+            </button>
+            {commandCenterOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-1.5 w-56 bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl overflow-hidden z-50"
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { setCommandCenterOpen(false); openCommandCenter() }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+                >
+                  <MonitorIcon className="w-4 h-4 flex-shrink-0" />
+                  Open Command Center
+                </button>
+              </div>
+            )}
+          </div>
         )}
-        <NotificationBell userId={userId} />
+        <div ref={notificationRef}>
+          <NotificationBell
+            userId={userId}
+            isOpen={notificationsOpen}
+            onOpenChange={(open) => {
+              if (open) closeAllDropdowns()
+              setNotificationsOpen(open)
+            }}
+          />
+        </div>
         <div className="relative" ref={reportDropdownRef}>
           <button
             onClick={() => {
               if (role === 'admin') {
-                setShowReportDropdown((prev) => !prev)
+                if (showReportDropdown) {
+                  setShowReportDropdown(false)
+                } else {
+                  closeAllDropdowns()
+                  setShowReportDropdown(true)
+                }
               } else {
                 setShowReportModal(true)
               }
@@ -173,7 +229,14 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
         </div>
         <div className="relative" ref={settingsDropdownRef}>
           <button
-            onClick={() => setSettingsDropdownOpen((prev) => !prev)}
+            onClick={() => {
+              if (settingsDropdownOpen) {
+                setSettingsDropdownOpen(false)
+              } else {
+                closeAllDropdowns()
+                setSettingsDropdownOpen(true)
+              }
+            }}
             className={`p-1.5 transition-colors rounded-lg ${settingsDropdownOpen ? 'text-white bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
             aria-label="Settings menu"
             aria-expanded={settingsDropdownOpen}
@@ -281,7 +344,14 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
         </div>
         <div className="relative" ref={avatarDropdownRef}>
           <button
-            onClick={() => setAvatarDropdownOpen(!avatarDropdownOpen)}
+            onClick={() => {
+              if (avatarDropdownOpen) {
+                setAvatarDropdownOpen(false)
+              } else {
+                closeAllDropdowns()
+                setAvatarDropdownOpen(true)
+              }
+            }}
             className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-amber-500/50 transition-all"
           >
             {avatarUrl ? (

@@ -1,43 +1,23 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { createPortal } from 'react-dom'
-import { useTheme } from '@/components/theme/ThemeProvider'
-import { BellIcon, CheckIcon } from 'lucide-react'
+import { BellIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Notification } from '@/types'
 import { useRouter } from 'next/navigation'
 
 interface NotificationBellProps {
   userId: string
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-export default function NotificationBell({ userId }: NotificationBellProps) {
+export default function NotificationBell({ userId, isOpen, onOpenChange }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [open, setOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const router = useRouter()
   const supabaseRef = useRef(createClient())
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
-
-  // Dark-mode-aware color palette used by the inline-styled panel below.
-  const panelBg = isDark ? '#242424' : '#ffffff'
-  const panelBorder = isDark ? '#3a3a3a' : '#d1d5db'
-  const panelBorderSubtle = isDark ? '#3a3a3a' : '#e5e7eb'
-  const panelRowBorder = isDark ? '#2e2e2e' : '#f3f4f6'
-  const textPrimary = isDark ? '#e5e5e5' : '#111827'
-  const textSecondary = isDark ? '#a0a0a0' : '#6b7280'
-  const textTertiary = isDark ? '#6b6b6b' : '#9ca3af'
-  const textQuaternary = isDark ? '#5a5a5a' : '#d1d5db'
-  const rowHoverBg = isDark ? '#2e2e2e' : '#f9fafb'
-  const unreadBg = isDark ? 'rgba(245,158,11,0.10)' : '#fffbeb'
-  const unreadHoverBg = isDark ? 'rgba(245,158,11,0.18)' : '#fef3c7'
-  const unreadTitleColor = isDark ? '#e5e5e5' : '#111827'
-  const unreadBodyColor = isDark ? '#c0c0c0' : '#374151'
 
   const fetchNotifications = useCallback(async () => {
     const { data } = await supabaseRef.current
@@ -60,14 +40,6 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     return () => clearInterval(interval)
   }, [fetchNotifications])
 
-  // Track mobile viewport
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-
   async function markAsRead(id: string) {
     await supabaseRef.current.from('notifications').update({ read: true }).eq('id', id)
     setNotifications((prev) =>
@@ -89,7 +61,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   function handleNotificationClick(n: Notification) {
     if (!n.read) markAsRead(n.id)
     if (n.link) {
-      setOpen(false)
+      onOpenChange(false)
       router.push(n.link)
     }
   }
@@ -108,136 +80,94 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
-        className="relative p-1.5 text-gray-400 hover:text-white transition-colors"
+        onClick={() => onOpenChange(!isOpen)}
+        className={`relative p-1.5 transition-colors rounded-lg ${isOpen ? 'text-white bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
         aria-label="Notifications"
+        aria-expanded={isOpen}
       >
-        <BellIcon className="w-5 h-5" />
+        <BellIcon className="w-[18px] h-[18px]" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-0.5">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
-      {open && createPortal(
-        <>
-          {/* Dark backdrop */}
-          <div
-            onClick={() => setOpen(false)}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: isDark ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.3)', zIndex: 9998 }}
-          />
-          {/* Notification panel */}
-          <div style={{
-            position: 'fixed',
-            top: isMobile ? 'calc(3rem + env(safe-area-inset-top, 0px) + 4px)' : 'calc(3rem + 4px)',
-            right: isMobile ? '16px' : '80px',
-            left: isMobile ? '16px' : 'auto',
-            width: isMobile ? 'auto' : '360px',
-            maxHeight: '500px',
-            backgroundColor: panelBg,
-            border: `1px solid ${panelBorder}`,
-            borderRadius: '12px',
-            boxShadow: isDark ? '0 25px 50px rgba(0,0,0,0.6)' : '0 25px 50px rgba(0,0,0,0.25)',
-            zIndex: 9999,
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column' as const,
-          }}>
-            {/* Header */}
-            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${panelBorderSubtle}`, backgroundColor: panelBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '18px', color: textPrimary }}>Notifications</span>
-                {unreadCount > 0 && (
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    minWidth: '22px', height: '22px', padding: '0 6px',
-                    borderRadius: '11px', backgroundColor: '#d97706', color: '#ffffff',
-                    fontSize: '12px', fontWeight: 700, lineHeight: 1,
-                  }}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </div>
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-1.5 w-80 max-sm:right-[-48px] max-sm:w-[calc(100vw-16px)] bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl overflow-hidden z-50 flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#3a3a3a]">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-200">Notifications</span>
               {unreadCount > 0 && (
-                <button onClick={markAllAsRead} style={{ fontSize: '13px', color: '#d97706', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  Mark all read
-                </button>
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-600 text-white text-[11px] font-bold flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
               )}
             </div>
-            {/* Filter tabs */}
-            <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${panelBorderSubtle}`, backgroundColor: panelBg }}>
-              <button
-                onClick={() => setFilter('all')}
-                style={{
-                  flex: 1, padding: '8px 0', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                  color: filter === 'all' ? '#d97706' : textSecondary,
-                  borderBottom: filter === 'all' ? '2px solid #d97706' : '2px solid transparent',
-                  background: 'none', border: 'none', borderBottomStyle: 'solid',
-                }}
-              >
-                All
+            {unreadCount > 0 && (
+              <button onClick={markAllAsRead} className="text-xs text-amber-500 hover:text-amber-400 transition-colors">
+                Mark all read
               </button>
-              <button
-                onClick={() => setFilter('unread')}
-                style={{
-                  flex: 1, padding: '8px 0', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                  color: filter === 'unread' ? '#d97706' : textSecondary,
-                  borderBottom: filter === 'unread' ? '2px solid #d97706' : '2px solid transparent',
-                  background: 'none', border: 'none', borderBottomStyle: 'solid',
-                }}
-              >
-                Unread
-              </button>
-            </div>
-            {/* Notification list */}
-            <div style={{ overflowY: 'auto', maxHeight: '400px', backgroundColor: panelBg }}>
-              {(() => {
-                const filtered = filter === 'unread' ? notifications.filter(n => !n.read) : notifications
-                if (filtered.length === 0) {
-                  return (
-                    <div style={{ padding: '32px 16px', textAlign: 'center', color: textTertiary, backgroundColor: panelBg }}>
-                      {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
-                    </div>
-                  )
-                }
-                return filtered.map(n => {
-                  const isHovered = hoveredId === n.id
-                  const unread = !n.read
-                  let bg: string
-                  if (unread) {
-                    bg = isHovered ? unreadHoverBg : unreadBg
-                  } else {
-                    bg = isHovered ? rowHoverBg : panelBg
-                  }
-                  return (
-                    <button
-                      key={n.id}
-                      onClick={() => handleNotificationClick(n)}
-                      onMouseEnter={() => setHoveredId(n.id)}
-                      onMouseLeave={() => setHoveredId(null)}
-                      style={{
-                        display: 'flex', width: '100%', padding: '12px 16px', textAlign: 'left' as const,
-                        borderTop: 'none', borderRight: 'none', borderBottom: `1px solid ${panelRowBorder}`,
-                        borderLeft: 'none', gap: '10px', alignItems: 'flex-start',
-                        cursor: 'pointer', backgroundColor: bg,
-                        transition: 'background-color 150ms ease',
-                      }}
-                    >
-                      <div style={{ marginTop: '5px', width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: unread ? '#d97706' : isDark ? '#4a4a4a' : '#d1d5db' }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: unread ? 700 : 400, fontSize: '14px', color: unread ? unreadTitleColor : textSecondary }}>{n.title}</div>
-                        <div style={{ fontSize: '13px', color: unread ? unreadBodyColor : textTertiary, marginTop: '2px' }}>{n.message}</div>
-                        <div style={{ fontSize: '11px', color: unread ? textTertiary : textQuaternary, marginTop: '4px' }}>{formatTime(n.created_at)}</div>
-                      </div>
-                    </button>
-                  )
-                })
-              })()}
-            </div>
+            )}
           </div>
-        </>,
-        document.body
+
+          {/* Filter tabs */}
+          <div className="flex border-b border-[#3a3a3a]">
+            <button
+              onClick={() => setFilter('all')}
+              className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                filter === 'all'
+                  ? 'text-amber-500 border-b-2 border-amber-500'
+                  : 'text-gray-500 hover:text-gray-300 border-b-2 border-transparent'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFilter('unread')}
+              className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                filter === 'unread'
+                  ? 'text-amber-500 border-b-2 border-amber-500'
+                  : 'text-gray-500 hover:text-gray-300 border-b-2 border-transparent'
+              }`}
+            >
+              Unread
+            </button>
+          </div>
+
+          {/* Notification list */}
+          <div className="overflow-y-auto max-h-[360px]">
+            {(() => {
+              const filtered = filter === 'unread' ? notifications.filter(n => !n.read) : notifications
+              if (filtered.length === 0) {
+                return (
+                  <div className="py-8 text-center text-xs text-gray-500">
+                    {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+                  </div>
+                )
+              }
+              return filtered.map(n => (
+                <button
+                  key={n.id}
+                  onClick={() => handleNotificationClick(n)}
+                  className={`flex w-full px-3 py-2.5 gap-2.5 text-left border-b border-[#2e2e2e] transition-colors cursor-pointer ${
+                    !n.read
+                      ? 'bg-amber-500/10 hover:bg-amber-500/[0.18]'
+                      : 'hover:bg-white/10'
+                  }`}
+                >
+                  <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${!n.read ? 'bg-amber-500' : 'bg-[#4a4a4a]'}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm ${!n.read ? 'font-semibold text-gray-200' : 'text-gray-400'}`}>{n.title}</div>
+                    <div className={`text-xs mt-0.5 ${!n.read ? 'text-gray-400' : 'text-gray-500'}`}>{n.message}</div>
+                    <div className="text-[11px] text-gray-600 mt-1">{formatTime(n.created_at)}</div>
+                  </div>
+                </button>
+              ))
+            })()}
+          </div>
+        </div>
       )}
     </div>
   )
