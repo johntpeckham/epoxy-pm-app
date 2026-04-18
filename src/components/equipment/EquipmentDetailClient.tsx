@@ -681,6 +681,7 @@ export default function EquipmentDetailClient({
         {/* Name + status + QR code */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
+            <WrenchIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
             <h1 className="text-2xl font-bold text-gray-900">{equipment.name}</h1>
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${

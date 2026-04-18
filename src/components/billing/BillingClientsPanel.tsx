@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { PlusIcon, SearchIcon, Settings2Icon, UserIcon, LayoutDashboardIcon, FileTextIcon, ClipboardListIcon } from 'lucide-react'
+import { PlusIcon, SearchIcon, Settings2Icon, UserIcon, LayoutDashboardIcon, FileTextIcon, ClipboardListIcon, DollarSignIcon } from 'lucide-react'
 import type { Customer } from './types'
 import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 
@@ -64,7 +64,8 @@ export default function BillingClientsPanel({
         <div className="px-4 py-3 border-b border-gray-200">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-gray-900">Billing</h2>
+              <DollarSignIcon className="w-5 h-5 text-gray-400" />
+              <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
               <button
                 onClick={() => setShowCustomerManagement(true)}
                 className="p-1 text-gray-400 hover:text-gray-600 rounded"

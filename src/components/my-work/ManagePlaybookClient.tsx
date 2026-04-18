@@ -11,6 +11,7 @@ import {
   PowerIcon,
   XIcon,
   BarChart3Icon,
+  BookOpenIcon,
 } from 'lucide-react'
 import type { AssignedTask, AssignedTaskType, Profile } from '@/types'
 
@@ -99,9 +100,12 @@ export default function ManagePlaybookClient() {
           </Link>
         </div>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900 flex-1">
-            Manage Daily Playbook
-          </h1>
+          <div className="flex items-center gap-2 flex-1">
+            <BookOpenIcon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900">
+              Manage Daily Playbook
+            </h1>
+          </div>
           <Link
             href="/my-work/employee-summary"
             className="flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition"

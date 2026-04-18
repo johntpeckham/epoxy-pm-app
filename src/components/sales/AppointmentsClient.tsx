@@ -11,6 +11,7 @@ import {
   ChevronDownIcon,
   SearchIcon,
   ArrowLeftIcon,
+  CalendarCheckIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { assignNextProjectNumber } from '@/lib/nextProjectNumber'
@@ -411,9 +412,12 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
             <ArrowLeftIcon className="w-4 h-4" />
             Sales
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-            Appointments
-          </h1>
+          <div className="flex items-center gap-2">
+            <CalendarCheckIcon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+              Appointments
+            </h1>
+          </div>
           <p className="text-sm text-gray-400 mt-1">
             Schedule visits and push them through the pipeline.
           </p>

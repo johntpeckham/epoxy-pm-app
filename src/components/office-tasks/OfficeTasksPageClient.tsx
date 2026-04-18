@@ -21,6 +21,7 @@ import {
   UsersIcon,
   FileTextIcon,
   ContactIcon,
+  BuildingIcon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
@@ -442,7 +443,10 @@ export default function OfficeTasksPageClient({
 
   return (
     <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-      <h1 className="text-2xl font-bold text-gray-900 mb-4">Office</h1>
+      <div className="flex items-center gap-2 mb-4">
+        <BuildingIcon className="w-5 h-5 text-gray-400" />
+        <h1 className="text-2xl font-bold text-gray-900">Office</h1>
+      </div>
 
       {/* Dashboard grid — matches My Work layout */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

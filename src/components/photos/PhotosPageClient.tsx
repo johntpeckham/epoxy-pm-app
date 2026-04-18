@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon, ChevronRightIcon, PlusIcon, Trash2Icon, CheckCircleIcon } from 'lucide-react'
+import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon, ChevronRightIcon, PlusIcon, Trash2Icon, CheckCircleIcon, CameraIcon } from 'lucide-react'
 import type { PhotoEntry, PhotoItem } from '@/app/(dashboard)/photos/page'
 import { Project } from '@/types'
 import NewPhotoModal from './NewPhotoModal'
@@ -181,7 +181,10 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Photos</h1>
+          <div className="flex items-center gap-2">
+            <CameraIcon className="w-5 h-5 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900">Photos</h1>
+          </div>
         </div>
         {canCreate('photos') && (
           <button

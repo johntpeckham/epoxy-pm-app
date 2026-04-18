@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  UserIcon,
 } from 'lucide-react'
 import type {
   AssignedTask,
@@ -279,7 +280,10 @@ export default function EmployeeSummaryClient() {
           <ArrowLeftIcon className="w-4 h-4" />
           My Work
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Employee Summary</h1>
+        <div className="flex items-center gap-2">
+          <UserIcon className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-bold text-gray-900">Employee Summary</h1>
+        </div>
       </div>
 
       {/* Range selector */}

@@ -204,7 +204,10 @@ export default function TrashBinClient({ userId }: TrashBinClientProps) {
           </Link>
           <div className="flex items-center gap-3">
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">Trash Bin</h1>
+            <div className="flex items-center gap-2">
+              <Trash2Icon className="w-5 h-5 text-gray-400" />
+              <h1 className="text-2xl font-bold text-gray-900">Trash Bin</h1>
+            </div>
             <p className="text-xs text-gray-400">
               Deleted items are kept for 1 year before being permanently removed.
             </p>

@@ -776,7 +776,10 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
         <>
           {/* Equipment header */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Equipment</h1>
+            <div className="flex items-center gap-2">
+              <WrenchIcon className="w-5 h-5 text-gray-400" />
+              <h1 className="text-2xl font-bold text-gray-900">Equipment</h1>
+            </div>
             {canManage && (
               <div className="flex items-center gap-2">
                 <button
