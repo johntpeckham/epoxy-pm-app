@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, DollarSignIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, TargetIcon, CalculatorIcon } from 'lucide-react'
 import ReportProblemButton from '@/components/bug-reports/ReportProblemButton'
 import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
-import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 
@@ -40,7 +38,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     localStorage.setItem('sidebar-sales-expanded', String(salesExpanded))
   }, [salesExpanded])
 
-  const { settings: companySettings } = useCompanySettings()
   const { role, schedulerAccess } = useUserRole()
   const { canView } = usePermissions(role)
   const canSeeScheduler = role === 'admin' || schedulerAccess
@@ -106,37 +103,8 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
   const navContent = (
     <div className="flex flex-col h-full">
-      {/* Brand */}
-      <div className="px-5 py-5 border-b border-gray-800">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {companySettings?.logo_url ? (
-              <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: '#ffffff' }}>
-                <Image
-                  src={companySettings.logo_url}
-                  alt="Company logo"
-                  width={36}
-                  height={36}
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            ) : (
-              <div className="w-9 h-9 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-            )}
-            <div>
-              <div className="text-white font-semibold text-sm leading-tight">Peckham Coatings</div>
-            </div>
-          </div>
-          <div className="hidden" />
-        </div>
-      </div>
-
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-3 pt-3 pb-4 space-y-1">
         <Link
           href="/my-work"
           onClick={() => setMobileOpen(false)}
