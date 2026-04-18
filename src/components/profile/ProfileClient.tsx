@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
@@ -60,6 +60,21 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   // Company info modal
   const [showCompanyInfo, setShowCompanyInfo] = useState(false)
   const isSalesman = role === 'salesman'
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const section = searchParams.get('section')
+    const edit = searchParams.get('edit')
+    if (edit === '1') setShowEditProfile(true)
+    if (section === 'company-info') setShowCompanyInfo(true)
+    if (section === 'user-management') setShowUserManagement(true)
+    if (section === 'employee-management') setShowEmployeeManagement(true)
+    if (section === 'customer-management') setShowCustomerManagement(true)
+    if (section === 'vendor-management') setShowVendorManagement(true)
+    if (section || edit) {
+      window.history.replaceState({}, '', '/profile')
+    }
+  }, [searchParams])
 
   // Display name state
   const [displayName, setDisplayName] = useState(initialProfile.display_name ?? '')
