@@ -397,7 +397,7 @@ function TaskFormModal({
     } else {
       await supabase
         .from('assigned_tasks')
-        .insert({ ...payload, created_by: user?.id ?? null, is_active: true })
+        .insert({ ...payload, created_by: user?.id ?? null, source: 'manage' as const, is_active: true })
     }
     setSaving(false)
     onSaved()

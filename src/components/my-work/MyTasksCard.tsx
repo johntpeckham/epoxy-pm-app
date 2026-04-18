@@ -219,8 +219,8 @@ export default function MyTasksCard({ userId, userRole }: Props) {
 
   /* ---- Derived: tasks applicable on viewDate, split by source ---- */
   const applicable = useMemo(() => tasksForDate(tasks, viewDate), [tasks, viewDate])
-  const assignedTasks = applicable.filter((t) => t.created_by !== userId)
-  const myTasks = applicable.filter((t) => t.created_by === userId)
+  const assignedTasks = applicable.filter((t) => t.source === 'manage')
+  const myTasks = applicable.filter((t) => t.source === 'self')
 
   const completionByTaskId = useMemo(() => {
     const m = new Map<string, AssignedTaskCompletion>()
@@ -386,6 +386,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
         specific_date: newTaskType === 'one_time' ? newTaskDate : null,
         assigned_to: userId,
         created_by: userId,
+        source: 'self' as const,
         is_active: true,
       })
       .select()
