@@ -18,6 +18,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   const [open, setOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const router = useRouter()
   const supabaseRef = useRef(createClient())
   const { theme } = useTheme()
@@ -129,9 +130,9 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           {/* Notification panel */}
           <div style={{
             position: 'fixed',
-            top: isMobile ? '70px' : '60px',
-            left: isMobile ? '16px' : '250px',
-            right: isMobile ? '16px' : 'auto',
+            top: isMobile ? 'calc(3rem + env(safe-area-inset-top, 0px) + 4px)' : 'calc(3rem + 4px)',
+            right: isMobile ? '16px' : '80px',
+            left: isMobile ? '16px' : 'auto',
             width: isMobile ? 'auto' : '360px',
             maxHeight: '500px',
             backgroundColor: panelBg,
@@ -164,14 +165,43 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                 </button>
               )}
             </div>
+            {/* Filter tabs */}
+            <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${panelBorderSubtle}`, backgroundColor: panelBg }}>
+              <button
+                onClick={() => setFilter('all')}
+                style={{
+                  flex: 1, padding: '8px 0', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                  color: filter === 'all' ? '#d97706' : textSecondary,
+                  borderBottom: filter === 'all' ? '2px solid #d97706' : '2px solid transparent',
+                  background: 'none', border: 'none', borderBottomStyle: 'solid',
+                }}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilter('unread')}
+                style={{
+                  flex: 1, padding: '8px 0', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                  color: filter === 'unread' ? '#d97706' : textSecondary,
+                  borderBottom: filter === 'unread' ? '2px solid #d97706' : '2px solid transparent',
+                  background: 'none', border: 'none', borderBottomStyle: 'solid',
+                }}
+              >
+                Unread
+              </button>
+            </div>
             {/* Notification list */}
-            <div style={{ overflowY: 'auto', maxHeight: '420px', backgroundColor: panelBg }}>
-              {notifications.length === 0 ? (
-                <div style={{ padding: '32px 16px', textAlign: 'center', color: textTertiary, backgroundColor: panelBg }}>
-                  No notifications yet
-                </div>
-              ) : (
-                notifications.map(n => {
+            <div style={{ overflowY: 'auto', maxHeight: '400px', backgroundColor: panelBg }}>
+              {(() => {
+                const filtered = filter === 'unread' ? notifications.filter(n => !n.read) : notifications
+                if (filtered.length === 0) {
+                  return (
+                    <div style={{ padding: '32px 16px', textAlign: 'center', color: textTertiary, backgroundColor: panelBg }}>
+                      {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+                    </div>
+                  )
+                }
+                return filtered.map(n => {
                   const isHovered = hoveredId === n.id
                   const unread = !n.read
                   let bg: string
@@ -187,20 +217,23 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                       onMouseEnter={() => setHoveredId(n.id)}
                       onMouseLeave={() => setHoveredId(null)}
                       style={{
-                        display: 'block', width: '100%', padding: '12px 16px', textAlign: 'left' as const,
+                        display: 'flex', width: '100%', padding: '12px 16px', textAlign: 'left' as const,
                         borderTop: 'none', borderRight: 'none', borderBottom: `1px solid ${panelRowBorder}`,
-                        borderLeft: unread ? '3px solid #d97706' : '3px solid transparent',
+                        borderLeft: 'none', gap: '10px', alignItems: 'flex-start',
                         cursor: 'pointer', backgroundColor: bg,
                         transition: 'background-color 150ms ease',
                       }}
                     >
-                      <div style={{ fontWeight: unread ? 700 : 400, fontSize: '14px', color: unread ? unreadTitleColor : textSecondary }}>{n.title}</div>
-                      <div style={{ fontSize: '13px', color: unread ? unreadBodyColor : textTertiary, marginTop: '2px' }}>{n.message}</div>
-                      <div style={{ fontSize: '11px', color: unread ? textTertiary : textQuaternary, marginTop: '4px' }}>{formatTime(n.created_at)}</div>
+                      <div style={{ marginTop: '5px', width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: unread ? '#d97706' : isDark ? '#4a4a4a' : '#d1d5db' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: unread ? 700 : 400, fontSize: '14px', color: unread ? unreadTitleColor : textSecondary }}>{n.title}</div>
+                        <div style={{ fontSize: '13px', color: unread ? unreadBodyColor : textTertiary, marginTop: '2px' }}>{n.message}</div>
+                        <div style={{ fontSize: '11px', color: unread ? textTertiary : textQuaternary, marginTop: '4px' }}>{formatTime(n.created_at)}</div>
+                      </div>
                     </button>
                   )
                 })
-              )}
+              })()}
             </div>
           </div>
         </>,

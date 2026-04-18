@@ -283,13 +283,13 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* PWA safe-area utilities */
+/* PWA safe-area utilities — offset for the fixed global header */
 .safe-top {
-  padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  padding-top: calc(3rem + env(safe-area-inset-top, 0px));
 }
 @media (min-width: 1024px) {
   .safe-top {
-    padding-top: 0;
+    padding-top: 3rem;
   }
 }
 

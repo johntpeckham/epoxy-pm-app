@@ -688,7 +688,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   return (
     <div className="flex-1 overflow-y-auto bg-white">
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] gap-4 flex-wrap">
+      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-wrap">
           <Link href="/sales/crm" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight truncate">

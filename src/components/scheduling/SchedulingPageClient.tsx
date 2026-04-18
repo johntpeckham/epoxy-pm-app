@@ -421,7 +421,7 @@ export default function SchedulingPageClient({
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-[#1a1a1a]">
       {/* Header */}
-      <div className="flex-none flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+      <div className="flex-none flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
         <div className="flex items-center gap-2 min-w-0">
           <Link href="/office" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <CalendarIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />

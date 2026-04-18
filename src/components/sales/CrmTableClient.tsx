@@ -866,7 +866,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] gap-4 flex-wrap">
+      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <div className="flex items-center gap-2">
