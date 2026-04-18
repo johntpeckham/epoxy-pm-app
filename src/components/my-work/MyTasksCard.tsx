@@ -184,8 +184,8 @@ export default function MyTasksCard({ userId, userRole }: Props) {
           await supabase.from('notifications').insert({
             user_id: userId,
             type: 'assigned_tasks_uncompleted',
-            title: 'Uncompleted tasks',
-            message: `You have ${uncompleted.length} uncompleted task${
+            title: 'Uncompleted work items',
+            message: `You have ${uncompleted.length} uncompleted work item${
               uncompleted.length === 1 ? '' : 's'
             } from ${formatLongDate(yesterday)}`,
             link: `/my-work?tasks_date=${yesterdayKey}`,
@@ -459,7 +459,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
             autoFocus
             value={newTaskTitle}
             onChange={(e) => setNewTaskTitle(e.target.value)}
-            placeholder="Task name"
+            placeholder="Item name"
             className="w-full text-sm px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 mb-2"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) createNewTask()
@@ -541,7 +541,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
         <p className="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">Loading…</p>
       ) : totalCount === 0 ? (
         <p className="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">
-          No tasks for this day
+          No work items for this day
         </p>
       ) : (
         <div className="px-4 pb-4 pt-1 space-y-1">
@@ -584,7 +584,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
             {myWorkExpanded && (
               myTasks.length === 0 ? (
                 <p className="text-xs text-gray-400 dark:text-gray-500 py-3 pl-5">
-                  No personal tasks yet. Click + New to add one.
+                  No personal work items yet. Click + New to add one.
                 </p>
               ) : (
                 <TaskSection
@@ -745,7 +745,7 @@ function TaskSection({
                   <button
                     onClick={() => onDelete(task)}
                     className="p-0.5 text-gray-300 hover:text-red-500 flex-shrink-0 mt-0.5 transition-colors"
-                    title="Delete task"
+                    title="Delete work item"
                   >
                     <XIcon className="w-3.5 h-3.5" />
                   </button>

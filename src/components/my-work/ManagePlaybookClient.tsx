@@ -66,7 +66,7 @@ export default function ManagePlaybookClient() {
   }
 
   async function deleteTask(task: AssignedTask) {
-    if (!confirm(`Delete task "${task.title}"? This cannot be undone.`)) return
+    if (!confirm(`Delete work item "${task.title}"? This cannot be undone.`)) return
     setTasks((prev) => prev.filter((t) => t.id !== task.id))
     await supabase.from('assigned_tasks').delete().eq('id', task.id)
   }
@@ -131,7 +131,7 @@ export default function ManagePlaybookClient() {
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
           >
             <PlusIcon className="w-4 h-4" />
-            Add task
+            Add work item
           </button>
         </div>
       </div>
@@ -160,7 +160,7 @@ export default function ManagePlaybookClient() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">{p.role ?? 'Member'}</p>
                 </div>
                 <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-                  {count} task{count !== 1 ? 's' : ''}
+                  {count} item{count !== 1 ? 's' : ''}
                 </span>
                 <ChevronRightIcon className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" />
               </button>
@@ -260,7 +260,7 @@ function TaskGroup({
       </h2>
       {tasks.length === 0 ? (
         <p className="text-sm text-gray-400 px-4 py-6 bg-white rounded-xl border border-gray-100 text-center">
-          No {label.toLowerCase()} tasks
+          No {label.toLowerCase()} work items
         </p>
       ) : (
         <div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50 overflow-hidden">
@@ -408,7 +408,7 @@ function TaskFormModal({
       <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
         <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100">
           <h2 className="text-base font-bold text-gray-900 flex-1">
-            {task ? 'Edit task' : 'New task'}
+            {task ? 'Edit work item' : 'New work item'}
           </h2>
           <button
             onClick={onCancel}

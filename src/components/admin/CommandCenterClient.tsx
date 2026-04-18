@@ -742,7 +742,7 @@ function LiveActivityColumn({ data }: { data: CommandCenterData | null }) {
         id: `task-${comp.task_id}-${comp.user_id}`,
         time: comp.completed_at,
         dot: 'green',
-        text: `${user?.display_name || 'Someone'} completed ${task?.title ?? 'a task'}`,
+        text: `${user?.display_name || 'Someone'} completed ${task?.title ?? 'a work item'}`,
       })
     }
 
@@ -858,7 +858,7 @@ function DailyPlaybookRow({ data }: { data: CommandCenterData | null }) {
     <div className="mt-4">
       <SectionHeader title="Daily playbook" count={rows.length} />
       {rows.length === 0 ? (
-        <div style={{ color: C.text4, fontSize: 12 }}>No playbook tasks assigned today.</div>
+        <div style={{ color: C.text4, fontSize: 12 }}>No playbook work items assigned today.</div>
       ) : (
         <div
           className="grid gap-3"
@@ -1024,7 +1024,7 @@ function MetricsRow({ metrics }: MetricsRowProps) {
     { label: 'Appointments set', value: String(metrics.appointments) },
     { label: 'Estimates sent', value: String(metrics.estimatesSentToday) },
     { label: 'Reports filed', value: String(metrics.reports) },
-    { label: 'Tasks done', value: `${metrics.tasksPercent}%`, sub: 'Team average' },
+    { label: 'Work done', value: `${metrics.tasksPercent}%`, sub: 'Team average' },
   ]
 
   return (
