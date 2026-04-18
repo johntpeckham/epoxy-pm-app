@@ -22,6 +22,7 @@ import {
   FileTextIcon,
   ContactIcon,
   BuildingIcon,
+  BarChart3Icon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
@@ -739,6 +740,20 @@ export default function OfficeTasksPageClient({
       <div className="mt-5">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Admin</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {/* Reports tile — admin/office_manager only */}
+          {canManageEmployees && (
+          <Link
+            href="/reports"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+          >
+            <BarChart3Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <div className="ml-2.5 flex-1">
+              <span className="text-[13px] font-medium text-gray-900">Reports</span>
+              <p className="text-[11px] text-gray-400 mt-0.5">Timesheets, sales, expenses</p>
+            </div>
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          </Link>
+          )}
           {/* SOPs & Forms tile — hidden for foreman */}
           {!isForeman && (
           <div className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3">

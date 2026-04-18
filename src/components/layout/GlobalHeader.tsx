@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { SettingsIcon, LogOutIcon, MenuIcon, BugIcon, PencilIcon, BuildingIcon, UsersIcon, Building2Icon, DownloadIcon, MoonIcon } from 'lucide-react'
+import { SettingsIcon, LogOutIcon, MenuIcon, BugIcon, PencilIcon, BuildingIcon, UsersIcon, Building2Icon, DownloadIcon, MoonIcon, BarChart3Icon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { MonitorIcon } from 'lucide-react'
@@ -240,6 +240,14 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
               >
                 <DownloadIcon className="w-4 h-4 flex-shrink-0" />
                 Data export
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => { setSettingsDropdownOpen(false); router.push('/reports') }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                <BarChart3Icon className="w-4 h-4 flex-shrink-0" />
+                Reports
               </button>
               <div
                 role="menuitem"
