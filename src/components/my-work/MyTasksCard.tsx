@@ -6,6 +6,7 @@ import Link from 'next/link'
 import {
   BarChart3Icon,
   CheckIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ListChecksIcon,
@@ -90,6 +91,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDesc, setNewTaskDesc] = useState('')
   const [savingNewTask, setSavingNewTask] = useState(false)
+  const [teamExpanded, setTeamExpanded] = useState(false)
 
   const today = startOfToday()
   const isToday = isSameDay(viewDate, today)
@@ -393,7 +395,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
   return (
-    <div className="col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] transition-all">
+    <div className="col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] transition-all" style={{ borderLeft: '4px solid rgba(239, 159, 39, 0.55)' }}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <ListChecksIcon className="w-5 h-5 flex-shrink-0 text-amber-500" />
@@ -546,28 +548,42 @@ export default function MyTasksCard({ userId, userRole }: Props) {
 
       {/* Admin: Team Playbook section + management links */}
       {isAdmin && (
-        <>
-          <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-700 px-4">
-            <p className="text-[12px] text-gray-400 dark:text-gray-500 mb-2">Team Playbook</p>
-            <TeamTasksSection currentUserId={userId} />
-          </div>
-          <div className="mt-3 pb-3 flex justify-end items-center gap-1">
-            <Link
-              href="/my-work/employee-summary"
-              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
-            >
-              <BarChart3Icon className="w-4 h-4" />
-              Employee summary
-            </Link>
-            <Link
-              href="/my-work/manage-playbook"
-              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
-            >
-              <Settings2Icon className="w-4 h-4" />
-              Manage tasks
-            </Link>
-          </div>
-        </>
+        <div className="px-4 pb-3 mt-2">
+          <button
+            onClick={() => setTeamExpanded((v) => !v)}
+            className="flex items-center gap-1.5 w-full text-left py-1.5"
+          >
+            {teamExpanded ? (
+              <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
+            ) : (
+              <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400" />
+            )}
+            <span className="text-[12px] text-gray-400 dark:text-gray-500">Team Playbook</span>
+          </button>
+          {teamExpanded && (
+            <>
+              <div className="mt-1">
+                <TeamTasksSection currentUserId={userId} />
+              </div>
+              <div className="mt-3 flex justify-end items-center gap-1">
+                <Link
+                  href="/my-work/employee-summary"
+                  className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                >
+                  <BarChart3Icon className="w-4 h-4" />
+                  Employee summary
+                </Link>
+                <Link
+                  href="/my-work/manage-playbook"
+                  className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                >
+                  <Settings2Icon className="w-4 h-4" />
+                  Manage tasks
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   )
