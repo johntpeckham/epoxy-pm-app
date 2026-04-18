@@ -53,7 +53,7 @@ export default function DialerClient({ userId }: DialerClientProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-[#1a1a1a]">
       <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
@@ -101,7 +101,7 @@ function SessionComplete({
   ]
 
   return (
-    <div className="flex-1 overflow-y-auto bg-white">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       <div className="max-w-[520px] mx-auto px-6 pt-16 pb-12 text-center">
         <div className="w-14 h-14 mx-auto rounded-full bg-emerald-50 flex items-center justify-center mb-5">
           <CheckCircle2Icon className="w-7 h-7 text-emerald-600" />
@@ -114,7 +114,7 @@ function SessionComplete({
           {stats.total === 1 ? '' : 's'} logged.
         </p>
 
-        <div className="mt-10 border border-gray-100 rounded-xl divide-y divide-gray-100 text-left">
+        <div className="mt-10 bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl divide-y divide-gray-100 dark:divide-[#2a2a2a] text-left">
           {rows.map((r) => (
             <div
               key={r.label}

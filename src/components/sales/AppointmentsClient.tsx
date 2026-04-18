@@ -401,7 +401,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-1 overflow-y-auto bg-white">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] gap-4 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
@@ -481,7 +481,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
               return (
                 <div
                   key={appt.id}
-                  className={`border border-gray-200 rounded-xl px-6 py-5 transition-opacity ${
+                  className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl px-6 py-5 transition-opacity ${
                     isDimmed ? 'opacity-70' : ''
                   }`}
                 >
