@@ -185,7 +185,7 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
             }}
           />
         </div>
-        <div className="relative" ref={reportDropdownRef}>
+        <div ref={reportDropdownRef}>
           <button
             onClick={() => {
               if (role === 'admin') {
@@ -196,10 +196,11 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
                   setShowReportDropdown(true)
                 }
               } else {
+                closeAllDropdowns()
                 setShowReportModal(true)
               }
             }}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className={`p-1.5 transition-colors rounded-lg ${showReportDropdown ? 'text-amber-400 bg-white/10' : 'text-amber-500 hover:text-amber-400 hover:bg-white/10'}`}
             aria-label="Report a problem"
             title="Report a Problem"
           >
@@ -368,14 +369,13 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
           </button>
           {avatarDropdownOpen && (
             <div className="absolute right-0 top-full mt-1.5 w-48 bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl overflow-hidden z-50">
-              <Link
-                href="/profile"
-                onClick={() => setAvatarDropdownOpen(false)}
-                className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
+              <button
+                onClick={() => { setAvatarDropdownOpen(false); router.push('/profile?edit=1') }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
               >
-                <SettingsIcon className="w-4 h-4" />
-                Settings
-              </Link>
+                <PencilIcon className="w-4 h-4" />
+                Edit profile
+              </button>
               <div className="border-t border-[#3a3a3a]" />
               <button
                 onClick={handleSignOut}
