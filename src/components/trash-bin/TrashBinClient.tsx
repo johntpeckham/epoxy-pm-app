@@ -192,32 +192,29 @@ export default function TrashBinClient({ userId }: TrashBinClientProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="mb-6">
-          <Link
-            href="/profile"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
-          >
-            <ArrowLeftIcon className="w-4 h-4" />
-            Settings
-          </Link>
-          <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <Trash2Icon className="w-5 h-5 text-gray-400" />
-              <h1 className="text-2xl font-bold text-gray-900">Trash Bin</h1>
-            </div>
-            <p className="text-xs text-gray-400">
-              Deleted items are kept for 1 year before being permanently removed.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <Trash2Icon className="w-4 h-4" />
-            {items.length} item{items.length !== 1 ? 's' : ''}
-          </div>
-          </div>
+      <div className="bg-white dark:bg-[#242424] px-4 sm:px-6 pt-4 pb-0">
+        <Link
+          href="/profile"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Settings
+        </Link>
+      </div>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+        <div className="flex items-center gap-2">
+          <Trash2Icon className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-bold text-gray-900">Trash Bin</h1>
         </div>
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Trash2Icon className="w-4 h-4" />
+          {items.length} item{items.length !== 1 ? 's' : ''}
+        </div>
+      </div>
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <p className="text-xs text-gray-400 mb-6">
+          Deleted items are kept for 1 year before being permanently removed.
+        </p>
 
         {/* Success / Error banners */}
         {successMessage && (

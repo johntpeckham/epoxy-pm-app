@@ -287,23 +287,20 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
   }, [isEditing, templates])
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="mb-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white dark:bg-[#242424] px-4 sm:px-6 pt-4 pb-0">
         <Link
           href="/profile"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-1"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Settings
         </Link>
-        <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <ListChecksIcon className="w-5 h-5 text-gray-400" />
-            <h1 className="text-2xl font-bold text-gray-900">Checklist Templates</h1>
-          </div>
-          <p className="text-xs text-gray-400">Create reusable checklists that can be applied to projects from the Job Board.</p>
+      </div>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+        <div className="flex items-center gap-2">
+          <ListChecksIcon className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-bold text-gray-900">Checklist Templates</h1>
         </div>
         {!isEditing && (
           <button
@@ -314,8 +311,9 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
             New Template
           </button>
         )}
-        </div>
       </div>
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <p className="text-xs text-gray-400 mb-6">Create reusable checklists that can be applied to projects from the Job Board.</p>
 
       {isEditing ? (
         /* ── Template Edit/Create Form ──────────────────────────── */
@@ -520,6 +518,7 @@ export default function ChecklistTemplatesClient({ userId }: ChecklistTemplatesC
           loading={deleting}
         />
       )}
+      </div>
     </div>
   )
 }
