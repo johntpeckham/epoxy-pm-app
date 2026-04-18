@@ -101,6 +101,28 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     isSalesEstimatingActive,
   ])
 
+  useEffect(() => {
+    if (
+      isJobsActive ||
+      isReportsActive ||
+      isJsaReportsActive ||
+      isReceiptsActive ||
+      isTimesheetsActive ||
+      isPhotosActive ||
+      isTasksActive
+    ) {
+      setJobFeedExpanded(true)
+    }
+  }, [
+    isJobsActive,
+    isReportsActive,
+    isJsaReportsActive,
+    isReceiptsActive,
+    isTimesheetsActive,
+    isPhotosActive,
+    isTasksActive,
+  ])
+
   const navContent = (
     <div className="flex flex-col h-full">
       {/* Navigation */}
@@ -243,34 +265,20 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         {/* Soft divider */}
         <div className="mx-3 my-2 border-t border-gray-800/60" />
 
-        {canView('job_board') && (
-          <Link
-            href={jobBoardHref}
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isJobBoardActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <LayoutDashboardIcon className="w-5 h-5 flex-shrink-0" />
-            Job Board
-          </Link>
-        )}
-        {canView('jobs') && (
+        {(canView('job_board') || canView('jobs')) && (
           <div>
             <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
-              isJobsActive
+              isJobBoardActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                 : 'text-gray-400 hover:text-white hover:bg-gray-800'
             }`}>
               <Link
-                href={jobFeedHref}
+                href={jobBoardHref}
                 onClick={() => setMobileOpen(false)}
                 className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
               >
-                <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
-                Job Feed
+                <LayoutDashboardIcon className="w-5 h-5 flex-shrink-0" />
+                Job Board
               </Link>
               <button
                 onClick={() => setJobFeedExpanded(!jobFeedExpanded)}
@@ -283,15 +291,29 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             <div
               className="overflow-hidden transition-all duration-200 ease-in-out"
               style={{
-                maxHeight: jobFeedExpanded ? '400px' : '0px',
+                maxHeight: jobFeedExpanded ? '600px' : '0px',
                 opacity: jobFeedExpanded ? 1 : 0,
               }}
             >
+              {canView('jobs') && (
+                <Link
+                  href={jobFeedHref}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isJobsActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <BriefcaseIcon className="w-4 h-4 flex-shrink-0" />
+                  Job Feed
+                </Link>
+              )}
               {canView('daily_reports') && (
                 <Link
                   href="/daily-reports"
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isReportsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -305,7 +327,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 <Link
                   href="/jsa-reports"
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isJsaReportsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -319,7 +341,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 <Link
                   href="/receipts"
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isReceiptsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -333,7 +355,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 <Link
                   href="/timesheets"
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isTimesheetsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -347,7 +369,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 <Link
                   href="/photos"
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isPhotosActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -361,7 +383,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 <Link
                   href="/tasks"
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isTasksActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800'
