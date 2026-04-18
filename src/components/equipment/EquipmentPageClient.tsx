@@ -691,7 +691,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
     return (
       <div className="w-full h-full min-h-0 flex flex-col bg-gray-50 dark:bg-[#1a1a1a]! overflow-hidden relative">
         {/* Header bar */}
-        <div className="flex-none flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+        <div className="flex-none flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
           <div className="flex items-center gap-2 min-w-0">
             {settingsOpen ? (
               <>
@@ -733,7 +733,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       {settingsOpen ? (
         <>
           {/* Settings header */}
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] mb-6 -mx-4 sm:-mx-6">
+          <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 mb-6 -mx-4 sm:-mx-6">
             <div className="flex items-center gap-2 min-w-0">
               <button onClick={() => { setSettingsOpen(false); setCategoryError(null) }} className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></button>
               <Settings2Icon className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -745,7 +745,7 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
       ) : (
         <>
           {/* Equipment header */}
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+          <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
             <div className="flex items-center gap-2">
               <WrenchIcon className="w-5 h-5 text-gray-400" />
               <h1 className="text-2xl font-bold text-gray-900">Equipment</h1>

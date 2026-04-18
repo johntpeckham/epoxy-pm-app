@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import Sidebar from '@/components/ui/Sidebar'
+import GlobalHeader from '@/components/layout/GlobalHeader'
 import AuthProvider from '@/components/auth/AuthProvider'
 
 export default async function DashboardLayout({
@@ -33,6 +34,12 @@ export default async function DashboardLayout({
     <AuthProvider>
       <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-gray-50 dark:bg-[#1a1a1a] overflow-hidden">
         <Suspense>
+          <GlobalHeader
+            userId={user?.id ?? ''}
+            userEmail={user?.email}
+            displayName={profile?.display_name ?? undefined}
+            avatarUrl={profile?.avatar_url ?? undefined}
+          />
           <Sidebar
             userId={user?.id ?? ''}
             userEmail={user?.email}
@@ -40,7 +47,6 @@ export default async function DashboardLayout({
             avatarUrl={profile?.avatar_url ?? undefined}
           />
         </Suspense>
-        {/* Main content — offset for mobile top bar (+ safe area on iOS) / desktop sidebar */}
         <div className="flex-1 min-h-0 safe-top lg:pl-56 overflow-hidden">
           <main className="h-full overflow-y-auto">
             {children}

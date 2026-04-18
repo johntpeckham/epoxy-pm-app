@@ -898,7 +898,7 @@ export default function SchedulerClient({
       >
         <div className="hidden lg:flex flex-col h-full w-full">
           {/* Header */}
-          <div className="flex-none flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] gap-4">
+          <div className="flex-none flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4">
             <div className="flex items-center gap-2 min-w-0">
               <CalendarRangeIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Scheduler</h1>
