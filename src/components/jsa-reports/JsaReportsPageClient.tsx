@@ -134,7 +134,7 @@ export default function JsaReportsPageClient({
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
+    <div>
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -155,6 +155,7 @@ export default function JsaReportsPageClient({
         )}
       </div>
 
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
       {/* Search & Sort Controls */}
       <div className="flex items-center gap-2 mb-5">
         <div className="relative flex-1">
@@ -280,6 +281,8 @@ export default function JsaReportsPageClient({
           )}
         </div>
       )}
+
+      </div>
 
       {showModal && (
         <NewJsaReportModal
