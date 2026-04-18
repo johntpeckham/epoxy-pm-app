@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BellIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
+import { BellIcon } from 'lucide-react'
 import type { Notification } from '@/types'
 
 interface NotificationsCardProps {
@@ -14,14 +14,18 @@ function formatTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60_000)
   if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`
+  if (mins < 60) return `${mins}m ago`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs} hour${hrs === 1 ? '' : 's'} ago`
+  if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(hrs / 24)
   if (days === 1) return 'Yesterday'
-  if (days < 7) return `${days} days ago`
+  if (days < 7) return `${days}d ago`
   const weeks = Math.floor(days / 7)
-  return `${weeks} week${weeks === 1 ? '' : 's'} ago`
+  return `${weeks}w ago`
+}
+
+function isRecent(dateStr: string): boolean {
+  return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000
 }
 
 function getGoToLabel(n: Notification): string {
@@ -40,7 +44,6 @@ export default function NotificationsCard({ userId }: NotificationsCardProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
   const supabaseRef = useRef(createClient())
   const router = useRouter()
 
@@ -83,11 +86,6 @@ export default function NotificationsCard({ userId }: NotificationsCardProps) {
     }
   }
 
-  function handleExpandToggle(e: React.MouseEvent, id: string) {
-    e.stopPropagation()
-    setExpandedId((prev) => (prev === id ? null : id))
-  }
-
   function handleGoTo(e: React.MouseEvent, notif: Notification) {
     e.stopPropagation()
     if (!notif.read) markAsRead(notif.id)
@@ -95,124 +93,67 @@ export default function NotificationsCard({ userId }: NotificationsCardProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+    <div className="bg-white dark:bg-[#1e1e1e] rounded-xl border border-gray-200 dark:border-gray-700 col-span-2 transition-all">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-amber-500">
-          <BellIcon className="w-5 h-5" />
-        </span>
-        <h3 className="text-sm font-semibold text-gray-900 flex-1">
-          Notifications{unreadCount > 0 && (
-            <span className="ml-1.5 text-amber-600">({unreadCount})</span>
-          )}
-        </h3>
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <BellIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white flex-1">Notifications</h3>
+        {unreadCount > 0 && (
+          <span className="text-xs text-gray-500 dark:text-gray-400">{unreadCount} new</span>
+        )}
       </div>
 
       {/* Content */}
       {notifications.length === 0 ? (
         <div className="text-center py-6">
-          <BellIcon className="w-6 h-6 text-gray-300 mx-auto mb-1.5" />
-          <p className="text-xs text-gray-400">No notifications</p>
+          <BellIcon className="w-6 h-6 text-gray-300 dark:text-gray-600 mx-auto mb-1.5" />
+          <p className="text-xs text-gray-400 dark:text-gray-500">No notifications</p>
         </div>
       ) : (
-        <div className="space-y-0 max-h-[400px] overflow-y-auto -mx-4 px-4">
-          <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+        <div className="max-h-[400px] overflow-y-auto">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {notifications.map((n) => {
-              const isExpanded = expandedId === n.id
               const unread = !n.read
+              const recent = unread || isRecent(n.created_at)
               return (
-                <div key={n.id}>
-                  <div
-                    onClick={() => handleNotificationClick(n)}
-                    className={`flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors ${
-                      unread
-                        ? 'bg-amber-50/60 hover:bg-amber-50'
-                        : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    {/* Unread dot */}
-                    <div className="flex-shrink-0 pt-1.5">
-                      {unread ? (
-                        <div className="w-2 h-2 rounded-full bg-amber-500" />
-                      ) : (
-                        <div className="w-2 h-2" />
-                      )}
-                    </div>
+                <div
+                  key={n.id}
+                  onClick={() => handleNotificationClick(n)}
+                  className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
+                >
+                  {/* Dot indicator */}
+                  <div className="flex-shrink-0 mt-1.5">
+                    {recent ? (
+                      <div className="w-2 h-2 rounded-full" style={{ background: '#EF9F27' }} />
+                    ) : (
+                      <div className="w-2 h-2 rounded-full border-2 border-gray-400 dark:border-gray-500" />
+                    )}
+                  </div>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className={`text-[13px] leading-snug ${
-                          unread
-                            ? 'font-medium text-gray-900'
-                            : 'text-gray-500'
-                        }`}
-                      >
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={`text-[13px] font-medium leading-snug truncate ${
+                        unread ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                      }`}>
                         {n.title}
                       </p>
-                      <p
-                        className={`text-[13px] leading-snug mt-0.5 ${
-                          unread ? 'text-gray-700' : 'text-gray-400'
-                        }`}
-                      >
-                        {n.message}
-                      </p>
-                      <p className="text-[11px] text-gray-400 mt-1">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 whitespace-nowrap">
                         {formatTimeAgo(n.created_at)}
-                      </p>
-
-                      {/* Expanded detail */}
-                      {isExpanded && (
-                        <div className="mt-2 p-2 bg-gray-50 rounded-md border border-gray-100">
-                          <p className="text-[13px] text-gray-600 leading-relaxed">
-                            {n.message}
-                          </p>
-                          {n.type === 'assigned_tasks_uncompleted' && (
-                            <p className="text-[12px] text-gray-500 mt-1">
-                              Check your Daily Playbook to review and complete
-                              your outstanding tasks.
-                            </p>
-                          )}
-                          {n.type === 'task_assigned' && (
-                            <p className="text-[12px] text-gray-500 mt-1">
-                              A new task has been assigned to you. View it in
-                              your task list.
-                            </p>
-                          )}
-                          {n.link && (
-                            <button
-                              onClick={(e) => handleGoTo(e, n)}
-                              className="text-[12px] text-amber-600 hover:text-amber-700 font-medium mt-1.5 hover:underline"
-                            >
-                              {getGoToLabel(n)} &rarr;
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      </span>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex-shrink-0 flex items-start gap-1.5 pt-0.5">
-                      {n.link && (
-                        <button
-                          onClick={(e) => handleGoTo(e, n)}
-                          className="text-[11px] text-amber-600 hover:text-amber-700 font-medium whitespace-nowrap hover:underline"
-                        >
-                          {getGoToLabel(n)}
-                        </button>
-                      )}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                      {n.message}
+                    </p>
+                    {n.link && (
                       <button
-                        onClick={(e) => handleExpandToggle(e, n.id)}
-                        className="p-0.5 text-gray-400 hover:text-amber-500 rounded transition-colors"
-                        title={isExpanded ? 'Collapse' : 'Expand'}
+                        onClick={(e) => handleGoTo(e, n)}
+                        className="text-[11px] font-medium mt-1.5 hover:underline"
+                        style={{ color: '#EF9F27' }}
                       >
-                        {isExpanded ? (
-                          <ChevronUpIcon className="w-4 h-4" />
-                        ) : (
-                          <ChevronDownIcon className="w-4 h-4" />
-                        )}
+                        {getGoToLabel(n)} &rsaquo;
                       </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               )
@@ -221,8 +162,8 @@ export default function NotificationsCard({ userId }: NotificationsCardProps) {
 
           {/* View all link */}
           {totalCount > DISPLAY_LIMIT && (
-            <div className="text-center py-2 mt-1">
-              <span className="text-[12px] text-amber-600 font-medium">
+            <div className="text-center py-2 border-t border-gray-200 dark:border-gray-700">
+              <span className="text-xs text-amber-600 font-medium">
                 View all notifications
               </span>
             </div>
