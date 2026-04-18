@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import {
@@ -13,6 +14,7 @@ import {
   CameraIcon,
   SearchIcon,
   ChevronDownIcon,
+  ArrowLeftIcon,
   ChevronRightIcon,
   LoaderIcon,
 } from 'lucide-react'
@@ -532,8 +534,9 @@ export default function TasksPageClient({
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
         <div className="flex items-center gap-2">
+          <Link href="/jobs" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <CheckSquareIcon className="w-5 h-5 text-gray-400" />
-          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Field Tasks</h1>
         </div>
         {canCreate('tasks') && (
           <button

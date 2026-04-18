@@ -9,7 +9,9 @@ import {
   ChevronLeftIcon,
   UsersIcon,
   FolderOpenIcon,
+  ArrowLeftIcon,
 } from 'lucide-react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
@@ -313,6 +315,7 @@ function CustomerSidebar({
       <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
+            <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
             <CalculatorIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Estimating</h1>
           </div>

@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, DollarSignIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, TargetIcon, CalculatorIcon } from 'lucide-react'
-import ReportProblemButton from '@/components/bug-reports/ReportProblemButton'
-import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 
@@ -20,7 +18,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [showMobileReportModal, setShowMobileReportModal] = useState(false)
   const [jobFeedExpanded, setJobFeedExpanded] = useState(() => {
     if (typeof window === 'undefined') return false
     return localStorage.getItem('sidebar-job-feed-expanded') === 'true'
@@ -445,11 +442,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
       </nav>
 
-      {/* Report a Problem — desktop only; mobile shows it in the top header */}
-      <div className="hidden lg:block px-3 pb-2">
-        <ReportProblemButton role={role || 'crew'} userId={userId} />
-      </div>
-
       <div className="pb-2" />
     </div>
   )
@@ -493,12 +485,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         {navContent}
       </aside>
 
-      {showMobileReportModal && (
-        <ReportProblemModal
-          onClose={() => setShowMobileReportModal(false)}
-          userId={userId}
-        />
-      )}
     </>
   )
 }
