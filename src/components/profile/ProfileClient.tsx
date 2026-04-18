@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon, TargetIcon, GitBranchIcon, BellIcon, TableIcon, CalculatorIcon, HashIcon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon, TargetIcon, GitBranchIcon, BellIcon, TableIcon, CalculatorIcon, HashIcon, BarChart3Icon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { Profile, CslbLicense } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -564,6 +564,12 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   onClick={() => router.push('/data-export')}
                 />
               )}
+              <SettingsTile
+                icon={BarChart3Icon}
+                title="Reports"
+                subtitle="Timesheets, sales, expenses"
+                onClick={() => router.push('/reports')}
+              />
               {isAdmin && (
                 <SettingsTile
                   icon={Trash2Icon}
