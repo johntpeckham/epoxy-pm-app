@@ -898,15 +898,10 @@ export default function SchedulerClient({
       >
         <div className="hidden lg:flex flex-col h-full w-full">
           {/* Header */}
-          <div className="flex-none px-6 pt-5 pb-3 border-b border-gray-200 bg-white flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <CalendarRangeIcon className="w-5 h-5 text-amber-500" />
-                <h1 className="text-2xl font-bold text-gray-900">Scheduler</h1>
-              </div>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Drag employees onto a project bucket and pick which days they&apos;ll be there.
-              </p>
+          <div className="flex-none flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] gap-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <CalendarRangeIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Scheduler</h1>
             </div>
             <div className="flex items-center gap-3">
               <AutoSaveIndicator isSaving={saveState === 'saving'} />

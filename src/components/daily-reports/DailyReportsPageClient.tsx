@@ -136,16 +136,17 @@ export default function DailyReportsPageClient({
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Daily Reports</h1>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424] -mx-4 sm:-mx-6 -mt-6 mb-6">
+        <div className="flex items-center gap-2 min-w-0">
+          <ClipboardListIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Daily Reports</h1>
         </div>
         {canCreate('daily_reports') && (
           <button
             onClick={() => setShowModal(true)}
             disabled={projects.length === 0}
             title={projects.length === 0 ? 'Create a project first' : undefined}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
+            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm flex-shrink-0"
           >
             <PlusIcon className="w-4 h-4" />
             New

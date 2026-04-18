@@ -1550,42 +1550,22 @@ export default function EmployeeManagement({
       {mainOpen && (() => {
       const mainContent = (
         <>
-          {/* Back button — own line above header */}
-          {settingsOpen ? (
-            <div className="flex-none px-6 pt-3">
-              <button
-                onClick={() => setSettingsOpen(false)}
-                className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-              >
-                <ArrowLeftIcon className="w-4 h-4" />
-                Employee Management
-              </button>
-            </div>
-          ) : (
-            isInline && onBack && (
-              <div className="flex-none px-6 pt-3">
-                <button
-                  onClick={onBack}
-                  className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-                >
-                  <ArrowLeftIcon className="w-4 h-4" />
-                  Office
-                </button>
-              </div>
-            )
-          )}
           {/* Header */}
-          <div className="flex-none flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a]">
-            <div className="flex items-center gap-2">
+          <div className="flex-none flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+            <div className="flex items-center gap-2 min-w-0">
               {settingsOpen ? (
                 <>
-                  <Settings2Icon className="w-5 h-5 text-gray-400" />
-                  <h1 className="text-2xl font-bold text-gray-900">Employee Settings</h1>
+                  <button onClick={() => setSettingsOpen(false)} className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></button>
+                  <Settings2Icon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Employee Settings</h1>
                 </>
               ) : (
                 <>
-                  <UsersIcon className="w-5 h-5 text-gray-400" />
-                  <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
+                  {isInline && onBack && (
+                    <button onClick={onBack} className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></button>
+                  )}
+                  <UsersIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Employee Management</h1>
                 </>
               )}
             </div>

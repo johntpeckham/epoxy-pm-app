@@ -89,23 +89,15 @@ export default function ManagePlaybookClient() {
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center gap-4 mb-2">
-          <Link
-            href="/my-work"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-          >
-            <ArrowLeftIcon className="w-4 h-4" />
-            My Work
-          </Link>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link href="/my-work" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
+          <BookOpenIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
+            Manage Daily Playbook
+          </h1>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 flex-1">
-            <BookOpenIcon className="w-5 h-5 text-gray-400" />
-            <h1 className="text-2xl font-bold text-gray-900">
-              Manage Daily Playbook
-            </h1>
-          </div>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           <Link
             href="/my-work/employee-summary"
             className="flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition"
