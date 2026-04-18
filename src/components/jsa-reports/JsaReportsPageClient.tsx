@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusIcon, ShieldIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
+import { PlusIcon, ShieldIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, ArrowLeftIcon } from 'lucide-react'
+import Link from 'next/link'
 import { Project, JsaReportContent, DynamicFieldEntry } from '@/types'
 import JsaReportCard from './JsaReportCard'
 import NewJsaReportModal from './NewJsaReportModal'
@@ -135,8 +136,9 @@ export default function JsaReportsPageClient({
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 -mx-4 sm:-mx-6 -mt-6 mb-6">
+      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
         <div className="flex items-center gap-2 min-w-0">
+          <Link href="/jobs" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <ShieldIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">JSA Reports</h1>
         </div>

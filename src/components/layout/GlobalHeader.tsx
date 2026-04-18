@@ -5,11 +5,12 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { SettingsIcon, LogOutIcon, MenuIcon } from 'lucide-react'
+import { SettingsIcon, LogOutIcon, MenuIcon, BugIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { MonitorIcon } from 'lucide-react'
 import NotificationBell from '@/components/ui/NotificationBell'
+import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
 
 interface GlobalHeaderProps {
   userId: string
@@ -20,7 +21,10 @@ interface GlobalHeaderProps {
 
 export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl }: GlobalHeaderProps) {
   const [avatarDropdownOpen, setAvatarDropdownOpen] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [showReportDropdown, setShowReportDropdown] = useState(false)
   const avatarDropdownRef = useRef<HTMLDivElement>(null)
+  const reportDropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const { settings: companySettings } = useCompanySettings()
   const { role } = useUserRole()
@@ -49,14 +53,18 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
       if (avatarDropdownRef.current && !avatarDropdownRef.current.contains(e.target as Node)) {
         setAvatarDropdownOpen(false)
       }
+      if (reportDropdownRef.current && !reportDropdownRef.current.contains(e.target as Node)) {
+        setShowReportDropdown(false)
+      }
     }
-    if (avatarDropdownOpen) {
+    if (avatarDropdownOpen || showReportDropdown) {
       document.addEventListener('mousedown', handleClick)
       return () => document.removeEventListener('mousedown', handleClick)
     }
-  }, [avatarDropdownOpen])
+  }, [avatarDropdownOpen, showReportDropdown])
 
   return (
+    <>
     <header
       className="fixed top-0 left-0 right-0 z-50 h-12 bg-[#1a1a1a] flex items-center justify-between px-4"
       style={{
@@ -107,6 +115,43 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
           </button>
         )}
         <NotificationBell userId={userId} />
+        <div className="relative" ref={reportDropdownRef}>
+          <button
+            onClick={() => {
+              if (role === 'admin') {
+                setShowReportDropdown((prev) => !prev)
+              } else {
+                setShowReportModal(true)
+              }
+            }}
+            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            aria-label="Report a problem"
+            title="Report a Problem"
+          >
+            <BugIcon className="w-[18px] h-[18px]" />
+          </button>
+          {showReportDropdown && role === 'admin' && (
+            <div className="absolute right-0 top-full mt-1.5 w-48 bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl overflow-hidden z-50">
+              <button
+                onClick={() => { setShowReportDropdown(false); setShowReportModal(true) }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <BugIcon className="w-4 h-4" />
+                Report a Problem
+              </button>
+              <div className="border-t border-[#3a3a3a]" />
+              <button
+                onClick={() => { setShowReportDropdown(false); router.push('/bug-reports') }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                View All Reports
+              </button>
+            </div>
+          )}
+        </div>
         <Link
           href="/profile"
           className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10"
@@ -154,5 +199,12 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
         </div>
       </div>
     </header>
+      {showReportModal && (
+        <ReportProblemModal
+          onClose={() => setShowReportModal(false)}
+          userId={userId}
+        />
+      )}
+    </>
   )
 }

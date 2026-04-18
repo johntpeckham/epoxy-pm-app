@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon, ChevronRightIcon, PlusIcon, Trash2Icon, CheckCircleIcon, CameraIcon } from 'lucide-react'
+import { ImageIcon, DownloadIcon, Loader2Icon, SearchIcon, ChevronDownIcon, ChevronRightIcon, PlusIcon, Trash2Icon, CheckCircleIcon, CameraIcon, ArrowLeftIcon } from 'lucide-react'
+import Link from 'next/link'
 import type { PhotoEntry, PhotoItem } from '@/app/(dashboard)/photos/page'
 import { Project } from '@/types'
 import NewPhotoModal from './NewPhotoModal'
@@ -181,6 +182,7 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
         <div className="flex items-center gap-2">
+          <Link href="/jobs" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <CameraIcon className="w-5 h-5 text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900">Photos</h1>
         </div>

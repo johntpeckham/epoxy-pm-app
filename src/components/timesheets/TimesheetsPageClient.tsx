@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon, PlusIcon, DownloadIcon, LoaderIcon, ChevronLeftIcon, CalendarIcon } from 'lucide-react'
+import { ClockIcon, SearchIcon, ChevronDownIcon, ChevronRightIcon, SettingsIcon, PlusIcon, DownloadIcon, LoaderIcon, ChevronLeftIcon, CalendarIcon, ArrowLeftIcon } from 'lucide-react'
+import Link from 'next/link'
 import { Project, TimecardContent, DynamicFieldEntry } from '@/types'
 import TimecardCard from './TimecardCard'
 import ManageEmployeesModal from './ManageEmployeesModal'
@@ -598,6 +599,7 @@ export default function TimesheetsPageClient({
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 px-4 sm:px-6 pt-4 pb-2">
         <div className="flex items-center gap-2">
+          <Link href="/jobs" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <ClockIcon className="w-5 h-5 text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900">Timesheets</h1>
         </div>
