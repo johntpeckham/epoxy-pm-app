@@ -776,7 +776,7 @@ export default function MyWorkClient({
         >
           {/* ── Checklist items section ── */}
           <div className="mb-3">
-            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Checklist items</p>
+            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Job board checklist items</p>
             {activeChecklist.length === 0 && completedChecklist.length === 0 ? (
               <p className="text-xs text-gray-400 py-2">No checklist items assigned</p>
             ) : (
@@ -862,7 +862,7 @@ export default function MyWorkClient({
 
           {/* ── Office work section ── */}
           <div className="border-t border-gray-100 pt-3">
-            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Office work</p>
+            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Office tasks</p>
             {activeOfficeTasks.length === 0 && completedOfficeTasks.length === 0 ? (
               <p className="text-xs text-gray-400 py-2">No office tasks</p>
             ) : (
