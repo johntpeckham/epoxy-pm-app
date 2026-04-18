@@ -5,12 +5,13 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { SettingsIcon, LogOutIcon, MenuIcon, BugIcon } from 'lucide-react'
+import { SettingsIcon, LogOutIcon, MenuIcon, BugIcon, PencilIcon, BuildingIcon, UsersIcon, Building2Icon, DownloadIcon, MoonIcon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { MonitorIcon } from 'lucide-react'
 import NotificationBell from '@/components/ui/NotificationBell'
 import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
+import { useTheme } from '@/components/theme/ThemeProvider'
 
 interface GlobalHeaderProps {
   userId: string
@@ -23,11 +24,15 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
   const [avatarDropdownOpen, setAvatarDropdownOpen] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
   const [showReportDropdown, setShowReportDropdown] = useState(false)
+  const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false)
   const avatarDropdownRef = useRef<HTMLDivElement>(null)
   const reportDropdownRef = useRef<HTMLDivElement>(null)
+  const settingsDropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const { settings: companySettings } = useCompanySettings()
   const { role } = useUserRole()
+  const { theme, toggleTheme } = useTheme()
+  const isDarkMode = theme === 'dark'
 
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
 
@@ -56,12 +61,26 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
       if (reportDropdownRef.current && !reportDropdownRef.current.contains(e.target as Node)) {
         setShowReportDropdown(false)
       }
+      if (settingsDropdownRef.current && !settingsDropdownRef.current.contains(e.target as Node)) {
+        setSettingsDropdownOpen(false)
+      }
     }
-    if (avatarDropdownOpen || showReportDropdown) {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setSettingsDropdownOpen(false)
+      }
+    }
+    if (avatarDropdownOpen || showReportDropdown || settingsDropdownOpen) {
       document.addEventListener('mousedown', handleClick)
-      return () => document.removeEventListener('mousedown', handleClick)
+      if (settingsDropdownOpen) {
+        document.addEventListener('keydown', handleKeyDown)
+      }
+      return () => {
+        document.removeEventListener('mousedown', handleClick)
+        document.removeEventListener('keydown', handleKeyDown)
+      }
     }
-  }, [avatarDropdownOpen, showReportDropdown])
+  }, [avatarDropdownOpen, showReportDropdown, settingsDropdownOpen])
 
   return (
     <>
@@ -152,13 +171,106 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
             </div>
           )}
         </div>
-        <Link
-          href="/profile"
-          className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10"
-          aria-label="Settings"
-        >
-          <SettingsIcon className="w-[18px] h-[18px]" />
-        </Link>
+        <div className="relative" ref={settingsDropdownRef}>
+          <button
+            onClick={() => setSettingsDropdownOpen((prev) => !prev)}
+            className={`p-1.5 transition-colors rounded-lg ${settingsDropdownOpen ? 'text-white bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+            aria-label="Settings menu"
+            aria-expanded={settingsDropdownOpen}
+          >
+            <SettingsIcon className="w-[18px] h-[18px]" />
+          </button>
+          {settingsDropdownOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full mt-1.5 w-56 sm:w-56 max-sm:right-[-8px] max-sm:w-[calc(100vw-16px)] bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl overflow-hidden z-50"
+            >
+              <button
+                role="menuitem"
+                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?edit=1') }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                <PencilIcon className="w-4 h-4 flex-shrink-0" />
+                Edit profile
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=company-info') }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                <BuildingIcon className="w-4 h-4 flex-shrink-0" />
+                Company info
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=user-management') }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                <UsersIcon className="w-4 h-4 flex-shrink-0" />
+                User management
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=employee-management') }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                <UsersIcon className="w-4 h-4 flex-shrink-0" />
+                Employee management
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=customer-management') }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                <UsersIcon className="w-4 h-4 flex-shrink-0" />
+                Customer management
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=vendor-management') }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                <Building2Icon className="w-4 h-4 flex-shrink-0" />
+                Vendor management
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => { setSettingsDropdownOpen(false); router.push('/data-export') }}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                <DownloadIcon className="w-4 h-4 flex-shrink-0" />
+                Data export
+              </button>
+              <div
+                role="menuitem"
+                className="flex items-center justify-between w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                <div className="flex items-center gap-2.5">
+                  <MoonIcon className="w-4 h-4 flex-shrink-0" />
+                  Dark mode
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isDarkMode}
+                  aria-label="Toggle dark mode"
+                  onClick={(e) => { e.stopPropagation(); toggleTheme() }}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isDarkMode ? 'bg-amber-500' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              <div className="border-t border-[#3a3a3a]" />
+              <button
+                role="menuitem"
+                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile') }}
+                className="flex items-center justify-center w-full px-3 py-2.5 text-sm text-gray-400 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+              >
+                View all settings
+              </button>
+            </div>
+          )}
+        </div>
         <div className="relative" ref={avatarDropdownRef}>
           <button
             onClick={() => setAvatarDropdownOpen(!avatarDropdownOpen)}
