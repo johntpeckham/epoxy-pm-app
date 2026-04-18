@@ -528,14 +528,12 @@ export default function TasksPageClient({
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
+    <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <CheckSquareIcon className="w-5 h-5 text-gray-400" />
-            <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-          </div>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+        <div className="flex items-center gap-2">
+          <CheckSquareIcon className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
         </div>
         {canCreate('tasks') && (
           <button
@@ -550,6 +548,7 @@ export default function TasksPageClient({
         )}
       </div>
 
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
       {/* Search & Sort Controls */}
       <div className="flex items-center gap-2 mb-5">
         <div className="relative flex-1">
@@ -691,6 +690,7 @@ export default function TasksPageClient({
           )}
         </div>
       )}
+      </div>
 
       {/* ── New Task modal ───────────────────────────────────────────────────── */}
       {showCreateModal && (

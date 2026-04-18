@@ -177,14 +177,12 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6">
+    <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <CameraIcon className="w-5 h-5 text-gray-400" />
-            <h1 className="text-2xl font-bold text-gray-900">Photos</h1>
-          </div>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
+        <div className="flex items-center gap-2">
+          <CameraIcon className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-bold text-gray-900">Photos</h1>
         </div>
         {canCreate('photos') && (
           <button
@@ -199,6 +197,7 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
         )}
       </div>
 
+      <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6">
       {/* Search & Sort Controls */}
       <div className="flex items-center gap-2 mb-5">
         <div className="relative flex-1">
@@ -309,6 +308,7 @@ export default function PhotosPageClient({ entries, projects, allProjects, userI
           )}
         </div>
       )}
+      </div>
 
       {showModal && (
         <NewPhotoModal

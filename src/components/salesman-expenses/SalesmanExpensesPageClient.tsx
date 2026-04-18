@@ -189,9 +189,9 @@ export default function SalesmanExpensesPageClient({
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
+    <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#242424]">
         <div className="flex items-center gap-2">
           <DollarSignIcon className="w-5 h-5 text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900">Salesman Expenses</h1>
@@ -219,6 +219,7 @@ export default function SalesmanExpensesPageClient({
         </div>
       </div>
 
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
       {expenses.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -298,6 +299,7 @@ export default function SalesmanExpensesPageClient({
           </div>
         </div>
       )}
+      </div>
 
       {showNewModal && (
         <NewSalesmanExpenseModal
