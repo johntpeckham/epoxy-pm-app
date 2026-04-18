@@ -100,7 +100,6 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const [newTaskDate, setNewTaskDate] = useState<string>(() => toDateKey(new Date()))
   const [savingNewTask, setSavingNewTask] = useState(false)
   const [teamExpanded, setTeamExpanded] = useState(false)
-  const [assignedExpanded, setAssignedExpanded] = useState(true)
   const [myWorkExpanded, setMyWorkExpanded] = useState(true)
 
   const today = startOfToday()
@@ -545,35 +544,25 @@ export default function MyTasksCard({ userId, userRole }: Props) {
         </p>
       ) : (
         <div className="px-4 pb-4 pt-1 space-y-1">
-          {/* Assigned work section */}
+          {/* Assigned work section — always visible, not collapsible */}
           {assignedTasks.length > 0 && (
             <div>
-              <button
-                onClick={() => setAssignedExpanded((v) => !v)}
-                className="flex items-center gap-1.5 w-full text-left py-1.5"
-              >
-                {assignedExpanded ? (
-                  <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
-                ) : (
-                  <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400" />
-                )}
+              <div className="flex items-center gap-1.5 py-1.5">
                 <span className="text-[12px] text-gray-400 dark:text-gray-500">Assigned work</span>
                 <span className="text-[11px] text-gray-300 dark:text-gray-600 ml-auto">{assignedTasks.length}</span>
-              </button>
-              {assignedExpanded && (
-                <TaskSection
-                  tasks={assignedTasks}
-                  completionByTaskId={completionByTaskId}
-                  noteTaskId={noteTaskId}
-                  noteValue={noteValue}
-                  onCheckBox={markCompleted}
-                  onUncheckBox={markIncomplete}
-                  onOpenNote={openUncheck}
-                  onNoteChange={setNoteValue}
-                  onSaveNote={saveUncheck}
-                  onCancelNote={() => { setNoteTaskId(null); setNoteValue('') }}
-                />
-              )}
+              </div>
+              <TaskSection
+                tasks={assignedTasks}
+                completionByTaskId={completionByTaskId}
+                noteTaskId={noteTaskId}
+                noteValue={noteValue}
+                onCheckBox={markCompleted}
+                onUncheckBox={markIncomplete}
+                onOpenNote={openUncheck}
+                onNoteChange={setNoteValue}
+                onSaveNote={saveUncheck}
+                onCancelNote={() => { setNoteTaskId(null); setNoteValue('') }}
+              />
             </div>
           )}
 
