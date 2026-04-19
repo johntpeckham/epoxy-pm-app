@@ -99,6 +99,7 @@ const NAV_PAGES: NavPage[] = [
   { name: 'Billing', route: '/billing', icon: DollarSignIcon, description: 'Billing', keywords: ['invoices', 'change orders'], access: { type: 'all' } },
   { name: 'Calendar', route: '/calendar', icon: CalendarIcon, description: 'Calendar', keywords: ['events', 'schedule'], access: { type: 'permission', feature: 'calendar' } },
   { name: 'Scheduler', route: '/scheduler', icon: CalendarRangeIcon, description: 'Scheduler', keywords: ['crew schedule', 'weekly schedule'], access: { type: 'scheduler' } },
+  { name: 'SOPs & Forms', route: '/sops', icon: FileTextIcon, description: 'Office', keywords: ['standard operating procedures', 'processes', 'documentation'], access: { type: 'roles', roles: SALES_ROLES } },
   { name: 'Equipment', route: '/equipment', icon: WrenchIcon, description: 'Equipment', keywords: ['tools', 'maintenance', 'inventory'], access: { type: 'roles', roles: SALES_ROLES } },
   { name: 'Material Management', route: '/material-management', icon: PackageIcon, description: 'Materials', keywords: ['products', 'suppliers', 'catalog'], access: { type: 'roles', roles: ['admin', 'office_manager'] } },
   { name: 'Material Systems', route: '/material-systems', icon: BoxesIcon, description: 'Materials', keywords: ['system templates'], access: { type: 'roles', roles: ['admin', 'office_manager'] } },
