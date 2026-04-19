@@ -58,10 +58,13 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
     handleId?: HandleId
     startX: number
     startY: number
+    curX: number
+    curY: number
     annId: string
     snapshot: MarkupAnnotation[]
     moved: boolean
   } | null>(null)
+  const rafRef = useRef(0)
 
   const [textInput, setTextInput] = useState<{ dispX: number; dispY: number; editId?: string } | null>(null)
   const [textValue, setTextValue] = useState('')
@@ -156,14 +159,47 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
   }, [annotations, currentPoints, imgDims, tool, strokeWidth, color, drawing, selectedId])
 
   useEffect(() => { redraw() }, [redraw])
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
+
+  function drawDragFrame() {
+    const canvas = canvasRef.current
+    const drag = dragRef.current
+    if (!canvas || !drag || !imgDims.dispW || !imgDims.dispH) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const w = Math.round(imgDims.dispW)
+    const h = Math.round(imgDims.dispH)
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w
+      canvas.height = h
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    const sx = imgDims.dispW / imgDims.natW
+    const sy = imgDims.dispH / imgDims.natH
+    const virtualAnns = drag.snapshot.map(a => {
+      if (a.id !== drag.annId) return a
+      if (drag.mode === 'move') return moveAnnotation(a, drag.curX - drag.startX, drag.curY - drag.startY)
+      if (drag.mode === 'resize' && drag.handleId) return resizeAnnotation(a, drag.handleId, drag.curX, drag.curY)
+      return a
+    })
+    try {
+      renderMarkupToCanvas(ctx, { blurIntensity, annotations: virtualAnns }, imgRef.current, sx, sy)
+      const sel = virtualAnns.find(a => a.id === drag.annId)
+      if (sel) drawSelectionHighlight(ctx, sel, sx, sy)
+    } catch {
+      // drawing failed
+    }
+  }
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (textInput) return
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault()
-        setHistory(h => [...h.slice(-49), annotations])
-        setAnnotations(prev => prev.filter(a => a.id !== selectedId))
+        setAnnotations(prev => {
+          setHistory(h => [...h.slice(-49), prev])
+          return prev.filter(a => a.id !== selectedId)
+        })
         setSelectedId(null)
       }
       if (e.key === 'Escape') {
@@ -174,7 +210,7 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedId, textInput, annotations])
+  }, [selectedId, textInput])
 
   function handleToolChange(t: ToolType) {
     setTool(t)
@@ -200,7 +236,7 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
           const handles = getHandles(sel)
           const hid = hitTestHandle(handles, px, py, 12 * scaleTol)
           if (hid) {
-            dragRef.current = { mode: 'resize', handleId: hid, startX: px, startY: py, annId: selectedId, snapshot: [...annotations], moved: false }
+            dragRef.current = { mode: 'resize', handleId: hid, startX: px, startY: py, curX: px, curY: py, annId: selectedId, snapshot: [...annotations], moved: false }
             return
           }
         }
@@ -208,7 +244,7 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
       for (let i = annotations.length - 1; i >= 0; i--) {
         if (hitTestAnnotation(annotations[i], px, py, 10 * scaleTol)) {
           setSelectedId(annotations[i].id)
-          dragRef.current = { mode: 'move', startX: px, startY: py, annId: annotations[i].id, snapshot: [...annotations], moved: false }
+          dragRef.current = { mode: 'move', startX: px, startY: py, curX: px, curY: py, annId: annotations[i].id, snapshot: [...annotations], moved: false }
           return
         }
       }
@@ -236,18 +272,11 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
 
     if (dragRef.current) {
       const [px, py] = coords
-      const { mode, startX, startY, annId, handleId } = dragRef.current
+      dragRef.current.curX = px
+      dragRef.current.curY = py
       dragRef.current.moved = true
-      setAnnotations(prev => prev.map(a => {
-        if (a.id !== annId) return a
-        if (mode === 'move') return moveAnnotation(a, px - startX, py - startY)
-        if (mode === 'resize' && handleId) return resizeAnnotation(a, handleId, px, py)
-        return a
-      }))
-      if (mode === 'move') {
-        dragRef.current.startX = px
-        dragRef.current.startY = py
-      }
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(drawDragFrame)
       return
     }
 
@@ -261,8 +290,17 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
 
   function handlePointerUp() {
     if (dragRef.current) {
+      cancelAnimationFrame(rafRef.current)
       if (dragRef.current.moved) {
-        setHistory(h => [...h.slice(-49), dragRef.current!.snapshot])
+        const drag = dragRef.current
+        const finalAnns = drag.snapshot.map(a => {
+          if (a.id !== drag.annId) return a
+          if (drag.mode === 'move') return moveAnnotation(a, drag.curX - drag.startX, drag.curY - drag.startY)
+          if (drag.mode === 'resize' && drag.handleId) return resizeAnnotation(a, drag.handleId, drag.curX, drag.curY)
+          return a
+        })
+        setHistory(h => [...h.slice(-49), drag.snapshot])
+        setAnnotations(finalAnns)
       }
       dragRef.current = null
       return
