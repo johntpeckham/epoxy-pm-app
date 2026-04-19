@@ -140,6 +140,10 @@ export function hitTestAnnotation(a: MarkupAnnotation, px: number, py: number, t
     }
     return false
   }
+  if (a.type === 'focus-rect' || a.type === 'focus-circle') {
+    const bb = getBoundingBox(a)
+    return px >= bb.x - tol && px <= bb.x + bb.w + tol && py >= bb.y - tol && py <= bb.y + bb.h + tol
+  }
   return false
 }
 
@@ -274,13 +278,77 @@ export function drawAnnotation(ctx: CanvasRenderingContext2D, a: MarkupAnnotatio
   }
 }
 
+export function renderFocusEffect(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  focusAnns: MarkupAnnotation[],
+  canvasW: number, canvasH: number,
+  sx: number, sy: number,
+) {
+  const valid = focusAnns.filter(hasValidCoords)
+  if (valid.length === 0) return
+
+  ctx.save()
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'
+  ctx.fillRect(0, 0, canvasW, canvasH)
+  ctx.restore()
+
+  for (const a of valid) {
+    ctx.save()
+    ctx.beginPath()
+    if (a.type === 'focus-rect') {
+      ctx.rect(
+        Math.min(a.x1, a.x2) * sx, Math.min(a.y1, a.y2) * sy,
+        Math.abs(a.x2 - a.x1) * sx, Math.abs(a.y2 - a.y1) * sy,
+      )
+    } else {
+      ctx.ellipse(
+        ((a.x1 + a.x2) / 2) * sx, ((a.y1 + a.y2) / 2) * sy,
+        Math.max(1, (Math.abs(a.x2 - a.x1) / 2) * sx),
+        Math.max(1, (Math.abs(a.y2 - a.y1) / 2) * sy),
+        0, 0, Math.PI * 2,
+      )
+    }
+    ctx.clip()
+    ctx.drawImage(img, 0, 0, canvasW, canvasH)
+    ctx.restore()
+  }
+
+  ctx.save()
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'
+  ctx.lineWidth = 2
+  ctx.setLineDash([6, 4])
+  for (const a of valid) {
+    if (a.type === 'focus-rect') {
+      ctx.strokeRect(
+        Math.min(a.x1, a.x2) * sx, Math.min(a.y1, a.y2) * sy,
+        Math.abs(a.x2 - a.x1) * sx, Math.abs(a.y2 - a.y1) * sy,
+      )
+    } else {
+      ctx.beginPath()
+      ctx.ellipse(
+        ((a.x1 + a.x2) / 2) * sx, ((a.y1 + a.y2) / 2) * sy,
+        Math.max(1, (Math.abs(a.x2 - a.x1) / 2) * sx),
+        Math.max(1, (Math.abs(a.y2 - a.y1) / 2) * sy),
+        0, 0, Math.PI * 2,
+      )
+      ctx.stroke()
+    }
+  }
+  ctx.restore()
+}
+
 export function renderMarkupToCanvas(
   ctx: CanvasRenderingContext2D,
   markupData: MarkupData,
-  _img: HTMLImageElement | null,
+  img: HTMLImageElement | null,
   sx: number, sy: number,
 ) {
   try {
+    const focus = markupData.annotations.filter(a => a.type === 'focus-rect' || a.type === 'focus-circle')
+    if (focus.length > 0 && img) {
+      renderFocusEffect(ctx, img, focus, ctx.canvas.width, ctx.canvas.height, sx, sy)
+    }
     for (const a of markupData.annotations) {
       if (a.type === 'focus-rect' || a.type === 'focus-circle') continue
       drawAnnotation(ctx, a, sx, sy)
