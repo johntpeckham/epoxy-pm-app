@@ -32,20 +32,14 @@ import {
   FileDownIcon,
 } from 'lucide-react'
 import SOPImageMarkup from '@/components/sops/SOPImageMarkup'
+import { type MarkupData, normalizeMarkupData, renderMarkupToCanvas } from '@/components/sops/sopMarkupUtils'
 
 interface StepImage {
   id: string
   sop_step_id: string
   image_url: string
-  markup_data: Annotation[] | null
+  markup_data: MarkupData | null
   sort_order: number
-}
-
-interface Annotation {
-  type: 'arrow' | 'circle' | 'text' | 'freeform'
-  points: number[][]
-  strokeWidth: number
-  text?: string
 }
 
 interface Step {
@@ -67,58 +61,7 @@ interface Props {
   sopId?: string
 }
 
-function renderAnnotationsToCtx(ctx: CanvasRenderingContext2D, annotations: Annotation[], w: number, h: number, scaleX = 1, scaleY = 1) {
-  for (const a of annotations) {
-    ctx.strokeStyle = '#f59e0b'
-    ctx.fillStyle = '#f59e0b'
-    ctx.lineWidth = a.strokeWidth * scaleX
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-
-    const pts = a.points.map(([x, y]) => [x * scaleX, y * scaleY])
-
-    if (a.type === 'freeform' && pts.length > 1) {
-      ctx.beginPath()
-      ctx.moveTo(pts[0][0], pts[0][1])
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
-      ctx.stroke()
-    } else if (a.type === 'arrow' && pts.length === 2) {
-      const [start, end] = pts
-      ctx.beginPath()
-      ctx.moveTo(start[0], start[1])
-      ctx.lineTo(end[0], end[1])
-      ctx.stroke()
-      const angle = Math.atan2(end[1] - start[1], end[0] - start[0])
-      const headLen = Math.max(10, ctx.lineWidth * 5)
-      ctx.beginPath()
-      ctx.moveTo(end[0], end[1])
-      ctx.lineTo(end[0] - headLen * Math.cos(angle - Math.PI / 6), end[1] - headLen * Math.sin(angle - Math.PI / 6))
-      ctx.moveTo(end[0], end[1])
-      ctx.lineTo(end[0] - headLen * Math.cos(angle + Math.PI / 6), end[1] - headLen * Math.sin(angle + Math.PI / 6))
-      ctx.stroke()
-    } else if (a.type === 'circle' && pts.length === 2) {
-      const [start, end] = pts
-      const rx = Math.abs(end[0] - start[0]) / 2
-      const ry = Math.abs(end[1] - start[1]) / 2
-      const cx = (start[0] + end[0]) / 2
-      const cy = (start[1] + end[1]) / 2
-      ctx.beginPath()
-      ctx.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
-      ctx.stroke()
-    } else if (a.type === 'text' && pts.length >= 1 && a.text) {
-      const fs = Math.max(14, ctx.lineWidth * 6)
-      ctx.font = `bold ${fs}px sans-serif`
-      const metrics = ctx.measureText(a.text)
-      const px = 4
-      ctx.fillStyle = 'rgba(0,0,0,0.5)'
-      ctx.fillRect(pts[0][0] - px, pts[0][1] - fs - px, metrics.width + px * 2, fs + px * 2)
-      ctx.fillStyle = '#f59e0b'
-      ctx.fillText(a.text, pts[0][0], pts[0][1])
-    }
-  }
-}
-
-function MarkupOverlayImg({ annotations, imageUrl }: { annotations: Annotation[]; imageUrl: string }) {
+function MarkupOverlayImg({ markupData, imageUrl }: { markupData: MarkupData; imageUrl: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
@@ -137,70 +80,22 @@ function MarkupOverlayImg({ annotations, imageUrl }: { annotations: Annotation[]
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !dims || !annotations.length) return
+    if (!canvas || !dims || !markupData.annotations.length) return
 
     const img = new window.Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
-      const scaleX = dims.w / img.naturalWidth
-      const scaleY = dims.h / img.naturalHeight
+      const sx = dims.w / img.naturalWidth
+      const sy = dims.h / img.naturalHeight
       canvas.width = dims.w
       canvas.height = dims.h
       const ctx = canvas.getContext('2d')
       if (!ctx) return
       ctx.clearRect(0, 0, dims.w, dims.h)
-
-      for (const a of annotations) {
-        ctx.strokeStyle = '#f59e0b'
-        ctx.fillStyle = '#f59e0b'
-        ctx.lineWidth = a.strokeWidth * scaleX
-        ctx.lineCap = 'round'
-        ctx.lineJoin = 'round'
-
-        const pts = a.points.map(([x, y]) => [x * scaleX, y * scaleY])
-
-        if (a.type === 'freeform' && pts.length > 1) {
-          ctx.beginPath()
-          ctx.moveTo(pts[0][0], pts[0][1])
-          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
-          ctx.stroke()
-        } else if (a.type === 'arrow' && pts.length === 2) {
-          const [start, end] = pts
-          ctx.beginPath()
-          ctx.moveTo(start[0], start[1])
-          ctx.lineTo(end[0], end[1])
-          ctx.stroke()
-          const angle = Math.atan2(end[1] - start[1], end[0] - start[0])
-          const headLen = Math.max(10, ctx.lineWidth * 5)
-          ctx.beginPath()
-          ctx.moveTo(end[0], end[1])
-          ctx.lineTo(end[0] - headLen * Math.cos(angle - Math.PI / 6), end[1] - headLen * Math.sin(angle - Math.PI / 6))
-          ctx.moveTo(end[0], end[1])
-          ctx.lineTo(end[0] - headLen * Math.cos(angle + Math.PI / 6), end[1] - headLen * Math.sin(angle + Math.PI / 6))
-          ctx.stroke()
-        } else if (a.type === 'circle' && pts.length === 2) {
-          const [start, end] = pts
-          const rx = Math.abs(end[0] - start[0]) / 2
-          const ry = Math.abs(end[1] - start[1]) / 2
-          const cx = (start[0] + end[0]) / 2
-          const cy = (start[1] + end[1]) / 2
-          ctx.beginPath()
-          ctx.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
-          ctx.stroke()
-        } else if (a.type === 'text' && pts.length >= 1 && a.text) {
-          const fs = Math.max(14, ctx.lineWidth * 6)
-          ctx.font = `bold ${fs}px sans-serif`
-          const metrics = ctx.measureText(a.text)
-          const px = 4
-          ctx.fillStyle = 'rgba(0,0,0,0.5)'
-          ctx.fillRect(pts[0][0] - px, pts[0][1] - fs - px, metrics.width + px * 2, fs + px * 2)
-          ctx.fillStyle = '#f59e0b'
-          ctx.fillText(a.text, pts[0][0], pts[0][1])
-        }
-      }
+      renderMarkupToCanvas(ctx, markupData, img, sx, sy)
     }
     img.src = imageUrl
-  }, [annotations, dims, imageUrl])
+  }, [markupData, dims, imageUrl])
 
   return (
     <div ref={containerRef} className="absolute inset-0 pointer-events-none">
@@ -291,8 +186,8 @@ function SortableStep({
                         className="w-full h-auto object-contain cursor-pointer"
                         onClick={() => onPreviewImage(publicUrl)}
                       />
-                      {img.markup_data && img.markup_data.length > 0 && (
-                        <MarkupOverlayImg annotations={img.markup_data} imageUrl={publicUrl} />
+                      {img.markup_data && img.markup_data.annotations.length > 0 && (
+                        <MarkupOverlayImg markupData={img.markup_data} imageUrl={publicUrl} />
                       )}
                     </div>
                     <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition">
@@ -429,7 +324,10 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
         .select('*')
         .in('sop_step_id', stepIds)
         .order('sort_order')
-      imagesData = (imgs as StepImage[]) ?? []
+      imagesData = ((imgs ?? []) as Record<string, unknown>[]).map((img) => ({
+        ...img,
+        markup_data: normalizeMarkupData(img.markup_data),
+      })) as StepImage[]
     }
 
     const loadedSteps: Step[] = stepsList.map((s) => ({
@@ -694,16 +592,17 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
     )
   }
 
-  const handleMarkupSave = async (imageId: string, annotations: Annotation[]) => {
+  const handleMarkupSave = async (imageId: string, data: MarkupData) => {
+    const toStore = data.annotations.length > 0 ? data : null
     await supabase
       .from('sop_step_images')
-      .update({ markup_data: annotations })
+      .update({ markup_data: toStore })
       .eq('id', imageId)
     setSteps((prev) =>
       prev.map((s) => ({
         ...s,
         images: s.images.map((img) =>
-          img.id === imageId ? { ...img, markup_data: annotations } : img
+          img.id === imageId ? { ...img, markup_data: toStore } : img
         ),
       }))
     )
@@ -776,20 +675,13 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
               imgEl.src = publicUrl
             })
 
-            let canvas: HTMLCanvasElement
-            if (img.markup_data && img.markup_data.length > 0) {
-              canvas = document.createElement('canvas')
-              canvas.width = imgEl.naturalWidth
-              canvas.height = imgEl.naturalHeight
-              const ctx = canvas.getContext('2d')!
-              ctx.drawImage(imgEl, 0, 0)
-              renderAnnotationsToCtx(ctx, img.markup_data, imgEl.naturalWidth, imgEl.naturalHeight)
-            } else {
-              canvas = document.createElement('canvas')
-              canvas.width = imgEl.naturalWidth
-              canvas.height = imgEl.naturalHeight
-              const ctx = canvas.getContext('2d')!
-              ctx.drawImage(imgEl, 0, 0)
+            const canvas = document.createElement('canvas')
+            canvas.width = imgEl.naturalWidth
+            canvas.height = imgEl.naturalHeight
+            const ctx = canvas.getContext('2d')!
+            ctx.drawImage(imgEl, 0, 0)
+            if (img.markup_data && img.markup_data.annotations.length > 0) {
+              renderMarkupToCanvas(ctx, img.markup_data, imgEl, 1, 1)
             }
 
             const ratio = canvas.height / canvas.width
@@ -1093,8 +985,8 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
       {markupImage && (
         <SOPImageMarkup
           imageUrl={supabase.storage.from('sop-images').getPublicUrl(markupImage.image_url).data.publicUrl}
-          initialAnnotations={markupImage.markup_data ?? []}
-          onSave={(annotations) => handleMarkupSave(markupImage.id, annotations)}
+          initialMarkupData={markupImage.markup_data}
+          onSave={(data) => handleMarkupSave(markupImage.id, data)}
           onCancel={() => setMarkupImage(null)}
         />
       )}
