@@ -95,7 +95,7 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
 
   function getCoords(e: React.MouseEvent | React.TouchEvent): [number, number] | null {
     const canvas = canvasRef.current
-    if (!canvas) return null
+    if (!canvas || !imgDims.dispW || !imgDims.dispH) return null
     const rect = canvas.getBoundingClientRect()
     let cx: number, cy: number
     if ('touches' in e) {
@@ -104,41 +104,54 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
     } else {
       cx = e.clientX; cy = e.clientY
     }
-    return [(cx - rect.left) * (imgDims.natW / imgDims.dispW), (cy - rect.top) * (imgDims.natH / imgDims.dispH)]
+    const natX = (cx - rect.left) * (imgDims.natW / imgDims.dispW)
+    const natY = (cy - rect.top) * (imgDims.natH / imgDims.dispH)
+    if (!isFinite(natX) || !isFinite(natY)) return null
+    return [natX, natY]
   }
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current
-    if (!canvas || !imgDims.dispW) return
+    if (!canvas || !imgDims.dispW || !imgDims.dispH) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    canvas.width = imgDims.dispW
-    canvas.height = imgDims.dispH
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    const sx = imgDims.dispW / imgDims.natW
-    const sy = imgDims.dispH / imgDims.natH
 
-    const allAnns = [...annotations]
-    if (drawing && currentPoints.length >= 2) {
-      if (tool === 'freeform') {
-        allAnns.push({
-          id: '__preview__', type: 'freeform', color, strokeWidth,
-          x1: 0, y1: 0, x2: 0, y2: 0, points: currentPoints,
-        })
-      } else if (tool !== 'text' && tool !== 'select') {
-        allAnns.push({
-          id: '__preview__', type: tool, color, strokeWidth,
-          x1: currentPoints[0][0], y1: currentPoints[0][1],
-          x2: currentPoints[1][0], y2: currentPoints[1][1],
-        })
-      }
+    const w = Math.round(imgDims.dispW)
+    const h = Math.round(imgDims.dispH)
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w
+      canvas.height = h
     }
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    renderMarkupToCanvas(ctx, { blurIntensity, annotations: allAnns }, imgRef.current, sx, sy)
+    try {
+      const sx = imgDims.dispW / imgDims.natW
+      const sy = imgDims.dispH / imgDims.natH
 
-    if (selectedId) {
-      const sel = allAnns.find(a => a.id === selectedId)
-      if (sel) drawSelectionHighlight(ctx, sel, sx, sy)
+      const allAnns = [...annotations]
+      if (drawing && currentPoints.length >= 2) {
+        if (tool === 'freeform') {
+          allAnns.push({
+            id: '__preview__', type: 'freeform', color, strokeWidth,
+            x1: 0, y1: 0, x2: 0, y2: 0, points: currentPoints,
+          })
+        } else if (tool !== 'text' && tool !== 'select') {
+          allAnns.push({
+            id: '__preview__', type: tool, color, strokeWidth,
+            x1: currentPoints[0][0], y1: currentPoints[0][1],
+            x2: currentPoints[1][0], y2: currentPoints[1][1],
+          })
+        }
+      }
+
+      renderMarkupToCanvas(ctx, { blurIntensity, annotations: allAnns }, imgRef.current, sx, sy)
+
+      if (selectedId) {
+        const sel = allAnns.find(a => a.id === selectedId)
+        if (sel) drawSelectionHighlight(ctx, sel, sx, sy)
+      }
+    } catch {
+      // Render error — canvas stays cleared so the image underneath shows through
     }
   }, [annotations, currentPoints, imgDims, tool, strokeWidth, color, blurIntensity, drawing, selectedId])
 

@@ -217,50 +217,68 @@ export function resizeAnnotation(a: MarkupAnnotation, handleId: HandleId, px: nu
   return { ...a, x1: x, y1: y, x2: x + w, y2: y + h }
 }
 
-export function drawAnnotation(ctx: CanvasRenderingContext2D, a: MarkupAnnotation, sx: number, sy: number) {
-  ctx.strokeStyle = a.color
-  ctx.fillStyle = a.color
-  ctx.lineWidth = a.strokeWidth * sx
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
+function hasValidCoords(a: MarkupAnnotation): boolean {
+  if (!isFinite(a.x1) || !isFinite(a.y1) || !isFinite(a.x2) || !isFinite(a.y2)) return false
+  if (a.type === 'freeform' && a.points) {
+    for (const p of a.points) {
+      if (!isFinite(p[0]) || !isFinite(p[1])) return false
+    }
+  }
+  return true
+}
 
-  if (a.type === 'freeform' && a.points && a.points.length > 1) {
-    const pts = a.points.map(([x, y]) => [x * sx, y * sy])
-    ctx.beginPath()
-    ctx.moveTo(pts[0][0], pts[0][1])
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
-    ctx.stroke()
-  } else if (a.type === 'arrow') {
-    const ax1 = a.x1 * sx, ay1 = a.y1 * sy, ax2 = a.x2 * sx, ay2 = a.y2 * sy
-    ctx.beginPath()
-    ctx.moveTo(ax1, ay1)
-    ctx.lineTo(ax2, ay2)
-    ctx.stroke()
-    const angle = Math.atan2(ay2 - ay1, ax2 - ax1)
-    const headLen = Math.max(10, ctx.lineWidth * 5)
-    ctx.beginPath()
-    ctx.moveTo(ax2, ay2)
-    ctx.lineTo(ax2 - headLen * Math.cos(angle - Math.PI / 6), ay2 - headLen * Math.sin(angle - Math.PI / 6))
-    ctx.moveTo(ax2, ay2)
-    ctx.lineTo(ax2 - headLen * Math.cos(angle + Math.PI / 6), ay2 - headLen * Math.sin(angle + Math.PI / 6))
-    ctx.stroke()
-  } else if (a.type === 'circle') {
-    const cx = ((a.x1 + a.x2) / 2) * sx, cy = ((a.y1 + a.y2) / 2) * sy
-    const rx = (Math.abs(a.x2 - a.x1) / 2) * sx, ry = (Math.abs(a.y2 - a.y1) / 2) * sy
-    ctx.beginPath()
-    ctx.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
-    ctx.stroke()
-  } else if (a.type === 'text' && a.text) {
-    const fs = Math.max(14, ctx.lineWidth * 6)
-    ctx.font = `bold ${fs}px sans-serif`
-    const metrics = ctx.measureText(a.text)
-    const px = 4
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'
-    ctx.fillRect(a.x1 * sx - px, a.y1 * sy - fs - px, metrics.width + px * 2, fs + px * 2)
+export function drawAnnotation(ctx: CanvasRenderingContext2D, a: MarkupAnnotation, sx: number, sy: number) {
+  if (!hasValidCoords(a)) return
+  ctx.save()
+  try {
+    ctx.strokeStyle = a.color
     ctx.fillStyle = a.color
-    ctx.fillText(a.text, a.x1 * sx, a.y1 * sy)
+    ctx.lineWidth = a.strokeWidth * sx
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    if (a.type === 'freeform' && a.points && a.points.length > 1) {
+      const pts = a.points.map(([x, y]) => [x * sx, y * sy])
+      ctx.beginPath()
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+      ctx.stroke()
+    } else if (a.type === 'arrow') {
+      const ax1 = a.x1 * sx, ay1 = a.y1 * sy, ax2 = a.x2 * sx, ay2 = a.y2 * sy
+      ctx.beginPath()
+      ctx.moveTo(ax1, ay1)
+      ctx.lineTo(ax2, ay2)
+      ctx.stroke()
+      const angle = Math.atan2(ay2 - ay1, ax2 - ax1)
+      const headLen = Math.max(10, ctx.lineWidth * 5)
+      ctx.beginPath()
+      ctx.moveTo(ax2, ay2)
+      ctx.lineTo(ax2 - headLen * Math.cos(angle - Math.PI / 6), ay2 - headLen * Math.sin(angle - Math.PI / 6))
+      ctx.moveTo(ax2, ay2)
+      ctx.lineTo(ax2 - headLen * Math.cos(angle + Math.PI / 6), ay2 - headLen * Math.sin(angle + Math.PI / 6))
+      ctx.stroke()
+    } else if (a.type === 'circle') {
+      const cx = ((a.x1 + a.x2) / 2) * sx, cy = ((a.y1 + a.y2) / 2) * sy
+      const rx = (Math.abs(a.x2 - a.x1) / 2) * sx, ry = (Math.abs(a.y2 - a.y1) / 2) * sy
+      ctx.beginPath()
+      ctx.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
+      ctx.stroke()
+    } else if (a.type === 'text' && a.text) {
+      const fs = Math.max(14, ctx.lineWidth * 6)
+      ctx.font = `bold ${fs}px sans-serif`
+      const metrics = ctx.measureText(a.text)
+      const px = 4
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'
+      ctx.fillRect(a.x1 * sx - px, a.y1 * sy - fs - px, metrics.width + px * 2, fs + px * 2)
+      ctx.fillStyle = a.color
+      ctx.fillText(a.text, a.x1 * sx, a.y1 * sy)
+    }
+  } finally {
+    ctx.restore()
   }
 }
+
+let _blurCanvas: HTMLCanvasElement | null = null
 
 export function renderFocusBlur(
   ctx: CanvasRenderingContext2D,
@@ -270,58 +288,67 @@ export function renderFocusBlur(
   canvasW: number, canvasH: number,
   sx: number, sy: number,
 ) {
-  if (focusAnns.length === 0) return
-  const tmp = document.createElement('canvas')
-  tmp.width = canvasW
-  tmp.height = canvasH
-  const tc = tmp.getContext('2d')!
-  tc.filter = `blur(${Math.round(blurIntensity * sx)}px)`
-  tc.drawImage(img, 0, 0, canvasW, canvasH)
-  tc.filter = 'none'
-  tc.fillStyle = 'rgba(0,0,0,0.3)'
-  tc.fillRect(0, 0, canvasW, canvasH)
-
-  tc.globalCompositeOperation = 'destination-out'
-  tc.fillStyle = '#000'
-  for (const a of focusAnns) {
-    if (a.type === 'focus-rect') {
-      tc.fillRect(
-        Math.min(a.x1, a.x2) * sx, Math.min(a.y1, a.y2) * sy,
-        Math.abs(a.x2 - a.x1) * sx, Math.abs(a.y2 - a.y1) * sy,
-      )
-    } else {
-      const cx = ((a.x1 + a.x2) / 2) * sx, cy = ((a.y1 + a.y2) / 2) * sy
-      const rx = (Math.abs(a.x2 - a.x1) / 2) * sx, ry = (Math.abs(a.y2 - a.y1) / 2) * sy
-      tc.beginPath()
-      tc.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
-      tc.fill()
-    }
-  }
-  tc.globalCompositeOperation = 'source-over'
-  ctx.drawImage(tmp, 0, 0)
+  const validAnns = focusAnns.filter(hasValidCoords)
+  if (validAnns.length === 0) return
+  if (!canvasW || !canvasH || !isFinite(sx) || !isFinite(sy)) return
 
   ctx.save()
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-  ctx.lineWidth = 2
-  ctx.setLineDash([6, 4])
-  for (const a of focusAnns) {
-    if (a.type === 'focus-rect') {
-      ctx.strokeRect(
-        Math.min(a.x1, a.x2) * sx, Math.min(a.y1, a.y2) * sy,
-        Math.abs(a.x2 - a.x1) * sx, Math.abs(a.y2 - a.y1) * sy,
-      )
-    } else {
-      ctx.beginPath()
-      ctx.ellipse(
-        ((a.x1 + a.x2) / 2) * sx, ((a.y1 + a.y2) / 2) * sy,
-        Math.max(1, (Math.abs(a.x2 - a.x1) / 2) * sx),
-        Math.max(1, (Math.abs(a.y2 - a.y1) / 2) * sy),
-        0, 0, Math.PI * 2,
-      )
-      ctx.stroke()
+  try {
+    if (!_blurCanvas) _blurCanvas = document.createElement('canvas')
+    const tmp = _blurCanvas
+    tmp.width = canvasW
+    tmp.height = canvasH
+    const tc = tmp.getContext('2d')
+    if (!tc) return
+
+    tc.filter = `blur(${Math.round(blurIntensity * sx)}px)`
+    tc.drawImage(img, 0, 0, canvasW, canvasH)
+    tc.filter = 'none'
+    tc.fillStyle = 'rgba(0,0,0,0.3)'
+    tc.fillRect(0, 0, canvasW, canvasH)
+
+    tc.globalCompositeOperation = 'destination-out'
+    tc.fillStyle = '#000'
+    for (const a of validAnns) {
+      if (a.type === 'focus-rect') {
+        tc.fillRect(
+          Math.min(a.x1, a.x2) * sx, Math.min(a.y1, a.y2) * sy,
+          Math.abs(a.x2 - a.x1) * sx, Math.abs(a.y2 - a.y1) * sy,
+        )
+      } else {
+        const cx = ((a.x1 + a.x2) / 2) * sx, cy = ((a.y1 + a.y2) / 2) * sy
+        const rx = (Math.abs(a.x2 - a.x1) / 2) * sx, ry = (Math.abs(a.y2 - a.y1) / 2) * sy
+        tc.beginPath()
+        tc.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
+        tc.fill()
+      }
     }
+    tc.globalCompositeOperation = 'source-over'
+    ctx.drawImage(tmp, 0, 0)
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([6, 4])
+    for (const a of validAnns) {
+      if (a.type === 'focus-rect') {
+        ctx.strokeRect(
+          Math.min(a.x1, a.x2) * sx, Math.min(a.y1, a.y2) * sy,
+          Math.abs(a.x2 - a.x1) * sx, Math.abs(a.y2 - a.y1) * sy,
+        )
+      } else {
+        ctx.beginPath()
+        ctx.ellipse(
+          ((a.x1 + a.x2) / 2) * sx, ((a.y1 + a.y2) / 2) * sy,
+          Math.max(1, (Math.abs(a.x2 - a.x1) / 2) * sx),
+          Math.max(1, (Math.abs(a.y2 - a.y1) / 2) * sy),
+          0, 0, Math.PI * 2,
+        )
+        ctx.stroke()
+      }
+    }
+  } finally {
+    ctx.restore()
   }
-  ctx.restore()
 }
 
 export function renderMarkupToCanvas(
@@ -330,32 +357,40 @@ export function renderMarkupToCanvas(
   img: HTMLImageElement | null,
   sx: number, sy: number,
 ) {
-  const focus = markupData.annotations.filter(a => a.type === 'focus-rect' || a.type === 'focus-circle')
-  const other = markupData.annotations.filter(a => a.type !== 'focus-rect' && a.type !== 'focus-circle')
-  if (img && focus.length > 0) {
-    renderFocusBlur(ctx, img, focus, markupData.blurIntensity, ctx.canvas.width, ctx.canvas.height, sx, sy)
+  try {
+    const focus = markupData.annotations.filter(a => a.type === 'focus-rect' || a.type === 'focus-circle')
+    const other = markupData.annotations.filter(a => a.type !== 'focus-rect' && a.type !== 'focus-circle')
+    if (img && focus.length > 0) {
+      renderFocusBlur(ctx, img, focus, markupData.blurIntensity, ctx.canvas.width, ctx.canvas.height, sx, sy)
+    }
+    for (const a of other) drawAnnotation(ctx, a, sx, sy)
+  } catch {
+    // Rendering failed — leave canvas transparent so the image underneath shows through
   }
-  for (const a of other) drawAnnotation(ctx, a, sx, sy)
 }
 
 export function drawSelectionHighlight(ctx: CanvasRenderingContext2D, a: MarkupAnnotation, sx: number, sy: number) {
+  if (!hasValidCoords(a)) return
   const bb = getBoundingBox(a)
   ctx.save()
-  ctx.strokeStyle = '#378ADD'
-  ctx.lineWidth = 1.5
-  ctx.setLineDash([4, 3])
-  ctx.strokeRect(bb.x * sx - 4, bb.y * sy - 4, bb.w * sx + 8, bb.h * sy + 8)
-  ctx.setLineDash([])
-
-  const handles = getHandles(a)
-  for (const h of handles) {
-    ctx.fillStyle = '#FFFFFF'
+  try {
     ctx.strokeStyle = '#378ADD'
     ctx.lineWidth = 1.5
-    ctx.beginPath()
-    ctx.arc(h.x * sx, h.y * sy, 5, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
+    ctx.setLineDash([4, 3])
+    ctx.strokeRect(bb.x * sx - 4, bb.y * sy - 4, bb.w * sx + 8, bb.h * sy + 8)
+    ctx.setLineDash([])
+
+    const handles = getHandles(a)
+    for (const h of handles) {
+      ctx.fillStyle = '#FFFFFF'
+      ctx.strokeStyle = '#378ADD'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(h.x * sx, h.y * sy, 5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+    }
+  } finally {
+    ctx.restore()
   }
-  ctx.restore()
 }
