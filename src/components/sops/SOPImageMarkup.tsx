@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Fragment, type ReactNode } from 'react'
 import Portal from '@/components/ui/Portal'
 import {
   MousePointer2Icon, MoveRightIcon, CircleIcon, TypeIcon, PenIcon,
-  Undo2Icon, Trash2Icon, XIcon, SquareIcon, TargetIcon,
+  Undo2Icon, Trash2Icon, XIcon,
 } from 'lucide-react'
 import {
   type MarkupAnnotation, type MarkupData, type HandleId,
@@ -13,6 +13,37 @@ import {
   hitTestAnnotation, getHandles, hitTestHandle,
   moveAnnotation, resizeAnnotation,
 } from './sopMarkupUtils'
+
+function FocusRectIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor">
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1" strokeWidth="1.5" />
+      <path d="M4.5 8C5.5 6 10.5 6 11.5 8C10.5 10 5.5 10 4.5 8Z" strokeWidth="1" />
+      <circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function FocusCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor">
+      <circle cx="8" cy="8" r="6.5" strokeWidth="1.5" />
+      <path d="M4.5 8C5.5 6 10.5 6 11.5 8C10.5 10 5.5 10 4.5 8Z" strokeWidth="1" />
+      <circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function Tip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span className="relative group/tip inline-flex">
+      {children}
+      <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-0.5 rounded bg-gray-950 text-white text-[11px] whitespace-nowrap opacity-0 group-hover/tip:opacity-100 group-hover/tip:delay-300 pointer-events-none transition-opacity z-20">
+        {label}
+      </span>
+    </span>
+  )
+}
 
 type ToolType = 'select' | 'arrow' | 'circle' | 'text' | 'freeform' | 'focus-rect' | 'focus-circle'
 
@@ -23,14 +54,14 @@ interface Props {
   onCancel: () => void
 }
 
-const TOOLS: { type: ToolType; icon: typeof MousePointer2Icon; label: string }[] = [
+const TOOLS: { type: ToolType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { type: 'select', icon: MousePointer2Icon, label: 'Select' },
   { type: 'arrow', icon: MoveRightIcon, label: 'Arrow' },
   { type: 'circle', icon: CircleIcon, label: 'Circle' },
   { type: 'text', icon: TypeIcon, label: 'Text' },
-  { type: 'freeform', icon: PenIcon, label: 'Draw' },
-  { type: 'focus-rect', icon: SquareIcon, label: 'Focus Rectangle' },
-  { type: 'focus-circle', icon: TargetIcon, label: 'Focus Circle' },
+  { type: 'freeform', icon: PenIcon, label: 'Freeform' },
+  { type: 'focus-rect', icon: FocusRectIcon, label: 'Blur — rectangle' },
+  { type: 'focus-circle', icon: FocusCircleIcon, label: 'Blur — circle' },
 ]
 
 export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, onCancel }: Props) {
@@ -417,27 +448,35 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
       <div className="fixed inset-0 z-[70] flex flex-col bg-gray-900">
         <div className="flex items-center flex-wrap gap-1 px-3 py-2 bg-gray-800 border-b border-gray-700">
           {TOOLS.map(({ type: t, icon: Icon, label }) => (
-            <button
-              key={t}
-              onClick={() => handleToolChange(t)}
-              className={`p-1.5 rounded transition ${tool === t ? 'bg-amber-500 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-              title={label}
-            >
-              <Icon className="w-4 h-4" />
-            </button>
+            <Fragment key={t}>
+              {t === 'focus-rect' && (
+                <>
+                  <div className="w-px h-6 bg-gray-700 mx-0.5" />
+                  <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mx-0.5">Blur</span>
+                </>
+              )}
+              <Tip label={label}>
+                <button
+                  onClick={() => handleToolChange(t)}
+                  className={`p-1.5 rounded transition ${tool === t ? 'bg-amber-500 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+                >
+                  <Icon className="w-4 h-4" />
+                </button>
+              </Tip>
+            </Fragment>
           ))}
 
           <div className="w-px h-6 bg-gray-700 mx-0.5" />
 
           {STROKE_WIDTHS.map(sw => (
-            <button
-              key={sw}
-              onClick={() => setStrokeWidth(sw)}
-              className={`p-1 rounded transition ${strokeWidth === sw ? 'bg-amber-500' : 'hover:bg-gray-700'}`}
-              title={sw === 2 ? 'Thin' : sw === 4 ? 'Medium' : 'Thick'}
-            >
-              <div className="rounded-full bg-gray-300" style={{ width: sw * 2 + 4, height: sw * 2 + 4 }} />
-            </button>
+            <Tip key={sw} label={sw === 2 ? 'Thin' : sw === 4 ? 'Medium' : 'Thick'}>
+              <button
+                onClick={() => setStrokeWidth(sw)}
+                className={`p-1 rounded transition ${strokeWidth === sw ? 'bg-amber-500' : 'hover:bg-gray-700'}`}
+              >
+                <div className="rounded-full bg-gray-300" style={{ width: sw * 2 + 4, height: sw * 2 + 4 }} />
+              </button>
+            </Tip>
           ))}
 
           <div className="w-px h-6 bg-gray-700 mx-0.5" />
@@ -456,22 +495,24 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
 
           <div className="w-px h-6 bg-gray-700 mx-0.5" />
 
-          <button
-            onClick={handleUndo}
-            disabled={history.length === 0}
-            className="p-1.5 rounded text-gray-300 hover:bg-gray-700 transition disabled:opacity-30"
-            title="Undo"
-          >
-            <Undo2Icon className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleClearAll}
-            disabled={annotations.length === 0}
-            className="p-1.5 rounded text-gray-300 hover:bg-gray-700 transition disabled:opacity-30"
-            title="Clear all"
-          >
-            <Trash2Icon className="w-4 h-4" />
-          </button>
+          <Tip label="Undo">
+            <button
+              onClick={handleUndo}
+              disabled={history.length === 0}
+              className="p-1.5 rounded text-gray-300 hover:bg-gray-700 transition disabled:opacity-30"
+            >
+              <Undo2Icon className="w-4 h-4" />
+            </button>
+          </Tip>
+          <Tip label="Clear all">
+            <button
+              onClick={handleClearAll}
+              disabled={annotations.length === 0}
+              className="p-1.5 rounded text-gray-300 hover:bg-gray-700 transition disabled:opacity-30"
+            >
+              <Trash2Icon className="w-4 h-4" />
+            </button>
+          </Tip>
 
           {showBlurSlider && (
             <>
