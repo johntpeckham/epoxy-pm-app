@@ -10,6 +10,7 @@ import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { MonitorIcon } from 'lucide-react'
 import NotificationBell from '@/components/ui/NotificationBell'
+import NavigationSearch from '@/components/header/NavigationSearch'
 import ReportProblemModal from '@/components/bug-reports/ReportProblemModal'
 import { useTheme } from '@/components/theme/ThemeProvider'
 
@@ -141,6 +142,7 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
       </div>
 
       <div className="relative flex items-center gap-2">
+        <NavigationSearch />
         {role === 'admin' && (
           <div ref={commandCenterRef}>
             <button
