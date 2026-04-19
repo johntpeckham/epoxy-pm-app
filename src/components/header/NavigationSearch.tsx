@@ -244,27 +244,53 @@ export default function NavigationSearch() {
         )
 
         if (isSalesRole) {
-          queries.push(
-            Promise.resolve(supabase
-              .from('estimates')
-              .select('id, estimate_number, project_name')
-              .or(`project_name.ilike.${pattern},estimate_number::text.ilike.${pattern}`)
-              .limit(5))
-              .then(({ data }) => {
-                if (data) {
-                  for (const e of data) {
-                    results.push({
-                      id: `estimate-${e.id}`,
-                      name: e.project_name || `Estimate #${e.estimate_number}`,
-                      route: `/sales/estimating`,
-                      icon: CalculatorIcon,
-                      secondaryLabel: `#${e.estimate_number}`,
-                      category: 'Estimates',
-                    })
-                  }
+          const estimateNameQuery = Promise.resolve(supabase
+            .from('estimates')
+            .select('id, estimate_number, project_name')
+            .ilike('project_name', pattern)
+            .limit(5))
+            .then(({ data }) => {
+              if (data) {
+                for (const e of data) {
+                  results.push({
+                    id: `estimate-${e.id}`,
+                    name: e.project_name || `Estimate #${e.estimate_number}`,
+                    route: `/sales/estimating`,
+                    icon: CalculatorIcon,
+                    secondaryLabel: `#${e.estimate_number}`,
+                    category: 'Estimates',
+                  })
                 }
-              })
-          )
+              }
+            })
+          queries.push(estimateNameQuery)
+
+          const numericTerm = parseInt(term, 10)
+          if (!isNaN(numericTerm)) {
+            queries.push(
+              Promise.resolve(supabase
+                .from('estimates')
+                .select('id, estimate_number, project_name')
+                .eq('estimate_number', numericTerm)
+                .limit(5))
+                .then(({ data }) => {
+                  if (data) {
+                    for (const e of data) {
+                      if (!results.some((r) => r.id === `estimate-${e.id}`)) {
+                        results.push({
+                          id: `estimate-${e.id}`,
+                          name: e.project_name || `Estimate #${e.estimate_number}`,
+                          route: `/sales/estimating`,
+                          icon: CalculatorIcon,
+                          secondaryLabel: `#${e.estimate_number}`,
+                          category: 'Estimates',
+                        })
+                      }
+                    }
+                  }
+                })
+            )
+          }
 
           queries.push(
             Promise.resolve(supabase
@@ -489,12 +515,9 @@ export default function NavigationSearch() {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search..."
-          className="w-[220px] h-7 pl-8 pr-12 text-xs bg-[#2a2a2a] border border-[#3a3a3a] rounded-md text-white placeholder-gray-500 outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 transition-colors"
+          className="w-[220px] h-7 pl-8 pr-3 text-xs bg-[#2a2a2a] border border-[#3a3a3a] rounded-md text-white placeholder-gray-500 outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 transition-colors"
           autoComplete="off"
         />
-        <kbd className="absolute right-2 flex items-center gap-0.5 px-1 py-0.5 text-[9px] text-gray-500 bg-[#1e1e1e] border border-[#3a3a3a] rounded pointer-events-none">
-          ⌘K
-        </kbd>
       </div>
 
       {/* Mobile: expanded search input when open */}
