@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, DollarSignIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, TargetIcon, CalculatorIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, DollarSignIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, MailIcon, TargetIcon, CalculatorIcon } from 'lucide-react'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 
@@ -66,6 +66,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isSalesActive = pathname === '/sales'
   const isSalesCrmActive = pathname === '/sales/crm' || pathname.startsWith('/sales/crm/')
   const isSalesDialerActive = pathname === '/sales/dialer' || pathname.startsWith('/sales/dialer/')
+  const isSalesEmailerActive = pathname === '/sales/emailer' || pathname.startsWith('/sales/emailer/')
   const isSalesAppointmentsActive = pathname === '/sales/appointments' || pathname.startsWith('/sales/appointments/')
   const isSalesLeadsActive = pathname === '/sales/leads' || pathname.startsWith('/sales/leads/')
   const isJobWalkActive = pathname === '/job-walk' || pathname.startsWith('/job-walk/')
@@ -82,6 +83,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     if (
       isSalesCrmActive ||
       isSalesDialerActive ||
+      isSalesEmailerActive ||
       isSalesAppointmentsActive ||
       isSalesLeadsActive ||
       isJobWalkActive ||
@@ -92,6 +94,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   }, [
     isSalesCrmActive,
     isSalesDialerActive,
+    isSalesEmailerActive,
     isSalesAppointmentsActive,
     isSalesLeadsActive,
     isJobWalkActive,
@@ -206,6 +209,18 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
               >
                 <PhoneIcon className="w-4 h-4 flex-shrink-0" />
                 Dialer
+              </Link>
+              <Link
+                href="/sales/emailer"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isSalesEmailerActive
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                <MailIcon className="w-4 h-4 flex-shrink-0" />
+                Emailer
               </Link>
               <Link
                 href="/sales/appointments"
