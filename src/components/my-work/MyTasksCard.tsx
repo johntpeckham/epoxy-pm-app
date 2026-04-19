@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import {
+  AlertCircleIcon,
   BarChart3Icon,
   CheckIcon,
   ChevronDownIcon,
@@ -687,6 +688,8 @@ function TaskSection({
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [chevronOpenId, setChevronOpenId] = useState<string | null>(null)
+  const chevronRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!menuOpenId) return
@@ -699,6 +702,17 @@ function TaskSection({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [menuOpenId])
+
+  useEffect(() => {
+    if (!chevronOpenId) return
+    function handleClickOutside(e: MouseEvent) {
+      if (chevronRef.current && !chevronRef.current.contains(e.target as Node)) {
+        setChevronOpenId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [chevronOpenId])
 
   if (tasks.length === 0) return null
   return (
@@ -735,18 +749,43 @@ function TaskSection({
                     </p>
                   )}
                 </div>
-                <div className="w-[76px] flex-shrink-0 text-right mt-0.5">
+                <div className="flex-shrink-0 text-right mt-0.5 relative">
                   {isDone ? (
                     <span className="text-xs font-medium text-green-600 dark:text-green-400">Complete</span>
                   ) : !editingNote ? (
-                    <button
-                      onClick={() => onOpenNote(task)}
-                      className="text-xs font-medium hover:opacity-80"
-                      style={{ color: '#E24B4A' }}
-                      title={c?.note ? `Not completed: ${c.note}` : undefined}
-                    >
-                      Incomplete
-                    </button>
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={() => onOpenNote(task)}
+                        className="text-xs font-medium hover:opacity-80"
+                        style={{ color: '#E24B4A' }}
+                        title={c?.note ? `Not completed: ${c.note}` : undefined}
+                      >
+                        Incomplete
+                      </button>
+                      <div ref={chevronOpenId === task.id ? chevronRef : undefined} className="relative">
+                        <button
+                          onClick={() => setChevronOpenId(chevronOpenId === task.id ? null : task.id)}
+                          className="w-[28px] h-[28px] flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          aria-label="Status options"
+                        >
+                          <ChevronDownIcon className="w-[14px] h-[14px] text-gray-400 dark:text-gray-500" />
+                        </button>
+                        {chevronOpenId === task.id && (
+                          <div className="absolute right-0 top-7 z-30 bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden min-w-[180px]">
+                            <button
+                              onClick={() => {
+                                setChevronOpenId(null)
+                                onOpenNote(task)
+                              }}
+                              className="flex items-center gap-2 w-full px-3 py-2 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                            >
+                              <AlertCircleIcon className="w-3.5 h-3.5" />
+                              Mark as incomplete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   ) : null}
                 </div>
                 <div className="w-7 flex-shrink-0 relative">
