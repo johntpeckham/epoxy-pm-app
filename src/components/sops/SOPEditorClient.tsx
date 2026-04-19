@@ -97,9 +97,20 @@ function MarkupOverlayImg({ markupData, imageUrl }: { markupData: MarkupData; im
     img.src = imageUrl
   }, [markupData, dims, imageUrl])
 
+  const hasFocus = markupData.annotations.some(a => a.type === 'focus-rect' || a.type === 'focus-circle')
+
   return (
     <div ref={containerRef} className="absolute inset-0 pointer-events-none">
-      <canvas ref={canvasRef} className="w-full h-full" />
+      {hasFocus && (
+        <img
+          src={imageUrl}
+          alt=""
+          className="absolute inset-0 w-full h-full object-contain"
+          style={{ filter: `blur(${markupData.blurIntensity}px)` }}
+          draggable={false}
+        />
+      )}
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
     </div>
   )
 }
