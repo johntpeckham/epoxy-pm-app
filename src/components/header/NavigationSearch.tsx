@@ -246,7 +246,7 @@ export default function NavigationSearch() {
         if (isSalesRole) {
           const estimateNameQuery = Promise.resolve(supabase
             .from('estimates')
-            .select('id, estimate_number, project_name')
+            .select('id, estimate_number, project_name, company_id')
             .ilike('project_name', pattern)
             .limit(5))
             .then(({ data }) => {
@@ -255,7 +255,7 @@ export default function NavigationSearch() {
                   results.push({
                     id: `estimate-${e.id}`,
                     name: e.project_name || `Estimate #${e.estimate_number}`,
-                    route: `/sales/estimating`,
+                    route: `/estimates?customer=${e.company_id}&estimate=${e.id}`,
                     icon: CalculatorIcon,
                     secondaryLabel: `#${e.estimate_number}`,
                     category: 'Estimates',
@@ -270,7 +270,7 @@ export default function NavigationSearch() {
             queries.push(
               Promise.resolve(supabase
                 .from('estimates')
-                .select('id, estimate_number, project_name')
+                .select('id, estimate_number, project_name, company_id')
                 .eq('estimate_number', numericTerm)
                 .limit(5))
                 .then(({ data }) => {
@@ -280,7 +280,7 @@ export default function NavigationSearch() {
                         results.push({
                           id: `estimate-${e.id}`,
                           name: e.project_name || `Estimate #${e.estimate_number}`,
-                          route: `/sales/estimating`,
+                          route: `/estimates?customer=${e.company_id}&estimate=${e.id}`,
                           icon: CalculatorIcon,
                           secondaryLabel: `#${e.estimate_number}`,
                           category: 'Estimates',
@@ -545,7 +545,7 @@ export default function NavigationSearch() {
       {open && (
         <div
           ref={listRef}
-          className="absolute right-0 top-full mt-1.5 w-[min(420px,calc(100vw-16px))] sm:w-[420px] max-h-[70vh] overflow-y-auto bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl z-50 max-sm:fixed max-sm:inset-x-2 max-sm:top-[calc(3rem+env(safe-area-inset-top,0px)+4px)] max-sm:w-auto"
+          className="absolute left-0 top-full mt-1.5 w-[min(420px,calc(100vw-16px))] sm:w-[420px] max-h-[70vh] overflow-y-auto bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl z-50 max-sm:fixed max-sm:inset-x-2 max-sm:top-[calc(3rem+env(safe-area-inset-top,0px)+4px)] max-sm:w-auto"
         >
           {flatResults.length === 0 && !dataLoading ? (
             <div className="px-4 py-8 text-center text-sm text-gray-500">
