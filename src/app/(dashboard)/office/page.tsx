@@ -119,6 +119,7 @@ export default async function OfficePage() {
     { count: productCountRaw },
     { count: customerCountRaw },
     { count: vendorCountRaw },
+    { count: sopCountRaw },
   ] = await Promise.all([
     supabase.from('material_suppliers').select('id', { count: 'exact', head: true }),
     supabase.from('inventory_products').select('id', { count: 'exact', head: true }),
@@ -127,6 +128,7 @@ export default async function OfficePage() {
       .select('id', { count: 'exact', head: true })
       .eq('archived', false),
     supabase.from('vendors').select('id', { count: 'exact', head: true }),
+    supabase.from('sops').select('id', { count: 'exact', head: true }),
   ])
   const supplierCount = supplierCountRaw ?? 0
   const productCount = productCountRaw ?? 0
@@ -135,6 +137,7 @@ export default async function OfficePage() {
   const contactCount = customerCountRaw ?? 0
   const customerCount = customerCountRaw ?? 0
   const vendorCount = vendorCountRaw ?? 0
+  const sopCount = sopCountRaw ?? 0
 
   return (
     <OfficeTasksPageClient
@@ -152,6 +155,7 @@ export default async function OfficePage() {
       contactCount={contactCount}
       customerCount={customerCount}
       vendorCount={vendorCount}
+      sopCount={sopCount}
     />
   )
 }

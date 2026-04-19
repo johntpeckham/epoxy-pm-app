@@ -146,6 +146,7 @@ interface Props {
   contactCount: number
   customerCount: number
   vendorCount: number
+  sopCount: number
 }
 
 type OfficeView =
@@ -173,6 +174,7 @@ export default function OfficeTasksPageClient({
   contactCount,
   customerCount,
   vendorCount,
+  sopCount,
 }: Props) {
   const supabase = createClient()
 
@@ -756,11 +758,15 @@ export default function OfficeTasksPageClient({
           )}
           {/* SOPs & Forms tile — hidden for foreman */}
           {!isForeman && (
-          <div className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3">
+          <Link
+            href="/sops"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+          >
             <FileTextIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">SOPs &amp; forms</span>
-            <span className="text-[12px] text-gray-400">Coming soon</span>
-          </div>
+            {sopCount > 0 && <span className="text-[12px] text-gray-400 mr-2">{sopCount}</span>}
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          </Link>
           )}
 
           {/* Company Meetings tile with sub-items */}
