@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import Link from 'next/link'
 import { TrendingUpIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -16,15 +15,6 @@ interface Props {
   initialRange: TimeRange
   initialOverview: TeamOverview
 }
-
-const NAV_LINKS: { label: string; href: string }[] = [
-  { label: 'CRM', href: '/sales/crm' },
-  { label: 'Dialer', href: '/sales/dialer' },
-  { label: 'Appointments', href: '/sales/appointments' },
-  { label: 'Leads', href: '/sales/leads' },
-  { label: 'Job Walk', href: '/job-walk' },
-  { label: 'Estimating', href: '/sales/estimating' },
-]
 
 const RANGES: { value: TimeRange; label: string }[] = [
   { value: 'weekly', label: 'Weekly' },
@@ -55,23 +45,10 @@ export default function SalesDashboardClient({
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
-      {/* Header with quick nav links */}
-      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
-        <div className="flex items-center gap-2">
-          <TrendingUpIcon className="w-5 h-5 text-gray-400" />
-          <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
-        </div>
-        <nav className="flex items-center gap-3 flex-wrap">
-          {NAV_LINKS.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="text-[12px] text-gray-400 hover:text-amber-600 cursor-pointer transition-colors"
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
+      {/* Header */}
+      <div className="flex items-center px-4 sm:px-6 pt-4 pb-2">
+        <TrendingUpIcon className="w-5 h-5 text-gray-400" />
+        <h1 className="ml-2 text-2xl font-bold text-gray-900">Sales</h1>
       </div>
 
       {/* Time range toggle + date range */}
