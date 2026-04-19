@@ -278,13 +278,11 @@ export function drawAnnotation(ctx: CanvasRenderingContext2D, a: MarkupAnnotatio
   }
 }
 
-let _blurCanvas: HTMLCanvasElement | null = null
-
 export function renderFocusBlur(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
   focusAnns: MarkupAnnotation[],
-  blurIntensity: number,
+  _blurIntensity: number,
   canvasW: number, canvasH: number,
   sx: number, sy: number,
 ) {
@@ -294,38 +292,38 @@ export function renderFocusBlur(
 
   ctx.save()
   try {
-    if (!_blurCanvas) _blurCanvas = document.createElement('canvas')
-    const tmp = _blurCanvas
-    tmp.width = canvasW
-    tmp.height = canvasH
-    const tc = tmp.getContext('2d')
-    if (!tc) return
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'
+    ctx.fillRect(0, 0, canvasW, canvasH)
+  } finally {
+    ctx.restore()
+  }
 
-    tc.filter = `blur(${Math.round(blurIntensity * sx)}px)`
-    tc.drawImage(img, 0, 0, canvasW, canvasH)
-    tc.filter = 'none'
-    tc.fillStyle = 'rgba(0,0,0,0.3)'
-    tc.fillRect(0, 0, canvasW, canvasH)
-
-    tc.globalCompositeOperation = 'destination-out'
-    tc.fillStyle = '#000'
+  ctx.save()
+  try {
+    ctx.beginPath()
     for (const a of validAnns) {
       if (a.type === 'focus-rect') {
-        tc.fillRect(
+        ctx.rect(
           Math.min(a.x1, a.x2) * sx, Math.min(a.y1, a.y2) * sy,
           Math.abs(a.x2 - a.x1) * sx, Math.abs(a.y2 - a.y1) * sy,
         )
       } else {
-        const cx = ((a.x1 + a.x2) / 2) * sx, cy = ((a.y1 + a.y2) / 2) * sy
-        const rx = (Math.abs(a.x2 - a.x1) / 2) * sx, ry = (Math.abs(a.y2 - a.y1) / 2) * sy
-        tc.beginPath()
-        tc.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
-        tc.fill()
+        ctx.ellipse(
+          ((a.x1 + a.x2) / 2) * sx, ((a.y1 + a.y2) / 2) * sy,
+          Math.max(1, (Math.abs(a.x2 - a.x1) / 2) * sx),
+          Math.max(1, (Math.abs(a.y2 - a.y1) / 2) * sy),
+          0, 0, Math.PI * 2,
+        )
       }
     }
-    tc.globalCompositeOperation = 'source-over'
-    ctx.drawImage(tmp, 0, 0)
+    ctx.clip()
+    ctx.drawImage(img, 0, 0, canvasW, canvasH)
+  } finally {
+    ctx.restore()
+  }
 
+  ctx.save()
+  try {
     ctx.strokeStyle = 'rgba(255,255,255,0.5)'
     ctx.lineWidth = 2
     ctx.setLineDash([6, 4])

@@ -358,6 +358,7 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
   }
 
   const hasFocus = annotations.some(a => a.type === 'focus-rect' || a.type === 'focus-circle')
+  const hasFocusActive = hasFocus || (drawing && (tool === 'focus-rect' || tool === 'focus-circle') && currentPoints.length >= 2)
   const showBlurSlider = hasFocus || tool === 'focus-rect' || tool === 'focus-circle'
   const cursorStyle = tool === 'text' ? 'text' : tool === 'select' ? 'default' : 'crosshair'
 
@@ -464,6 +465,7 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
               alt=""
               className="w-full h-full object-contain rounded"
               draggable={false}
+              style={hasFocusActive ? { filter: `blur(${blurIntensity}px)` } : undefined}
             />
             <canvas
               ref={canvasRef}
