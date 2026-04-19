@@ -28,13 +28,24 @@ import {
   XIcon,
   GripVerticalIcon,
   ImageIcon,
+  PencilIcon,
+  FileDownIcon,
 } from 'lucide-react'
+import SOPImageMarkup from '@/components/sops/SOPImageMarkup'
 
 interface StepImage {
   id: string
   sop_step_id: string
   image_url: string
+  markup_data: Annotation[] | null
   sort_order: number
+}
+
+interface Annotation {
+  type: 'arrow' | 'circle' | 'text' | 'freeform'
+  points: number[][]
+  strokeWidth: number
+  text?: string
 }
 
 interface Step {
@@ -56,6 +67,148 @@ interface Props {
   sopId?: string
 }
 
+function renderAnnotationsToCtx(ctx: CanvasRenderingContext2D, annotations: Annotation[], w: number, h: number, scaleX = 1, scaleY = 1) {
+  for (const a of annotations) {
+    ctx.strokeStyle = '#f59e0b'
+    ctx.fillStyle = '#f59e0b'
+    ctx.lineWidth = a.strokeWidth * scaleX
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    const pts = a.points.map(([x, y]) => [x * scaleX, y * scaleY])
+
+    if (a.type === 'freeform' && pts.length > 1) {
+      ctx.beginPath()
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+      ctx.stroke()
+    } else if (a.type === 'arrow' && pts.length === 2) {
+      const [start, end] = pts
+      ctx.beginPath()
+      ctx.moveTo(start[0], start[1])
+      ctx.lineTo(end[0], end[1])
+      ctx.stroke()
+      const angle = Math.atan2(end[1] - start[1], end[0] - start[0])
+      const headLen = Math.max(10, ctx.lineWidth * 5)
+      ctx.beginPath()
+      ctx.moveTo(end[0], end[1])
+      ctx.lineTo(end[0] - headLen * Math.cos(angle - Math.PI / 6), end[1] - headLen * Math.sin(angle - Math.PI / 6))
+      ctx.moveTo(end[0], end[1])
+      ctx.lineTo(end[0] - headLen * Math.cos(angle + Math.PI / 6), end[1] - headLen * Math.sin(angle + Math.PI / 6))
+      ctx.stroke()
+    } else if (a.type === 'circle' && pts.length === 2) {
+      const [start, end] = pts
+      const rx = Math.abs(end[0] - start[0]) / 2
+      const ry = Math.abs(end[1] - start[1]) / 2
+      const cx = (start[0] + end[0]) / 2
+      const cy = (start[1] + end[1]) / 2
+      ctx.beginPath()
+      ctx.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
+      ctx.stroke()
+    } else if (a.type === 'text' && pts.length >= 1 && a.text) {
+      const fs = Math.max(14, ctx.lineWidth * 6)
+      ctx.font = `bold ${fs}px sans-serif`
+      const metrics = ctx.measureText(a.text)
+      const px = 4
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'
+      ctx.fillRect(pts[0][0] - px, pts[0][1] - fs - px, metrics.width + px * 2, fs + px * 2)
+      ctx.fillStyle = '#f59e0b'
+      ctx.fillText(a.text, pts[0][0], pts[0][1])
+    }
+  }
+}
+
+function MarkupOverlayImg({ annotations, imageUrl }: { annotations: Annotation[]; imageUrl: string }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const observer = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        setDims({ w: e.contentRect.width, h: e.contentRect.height })
+      }
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !dims || !annotations.length) return
+
+    const img = new window.Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const scaleX = dims.w / img.naturalWidth
+      const scaleY = dims.h / img.naturalHeight
+      canvas.width = dims.w
+      canvas.height = dims.h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.clearRect(0, 0, dims.w, dims.h)
+
+      for (const a of annotations) {
+        ctx.strokeStyle = '#f59e0b'
+        ctx.fillStyle = '#f59e0b'
+        ctx.lineWidth = a.strokeWidth * scaleX
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+
+        const pts = a.points.map(([x, y]) => [x * scaleX, y * scaleY])
+
+        if (a.type === 'freeform' && pts.length > 1) {
+          ctx.beginPath()
+          ctx.moveTo(pts[0][0], pts[0][1])
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+          ctx.stroke()
+        } else if (a.type === 'arrow' && pts.length === 2) {
+          const [start, end] = pts
+          ctx.beginPath()
+          ctx.moveTo(start[0], start[1])
+          ctx.lineTo(end[0], end[1])
+          ctx.stroke()
+          const angle = Math.atan2(end[1] - start[1], end[0] - start[0])
+          const headLen = Math.max(10, ctx.lineWidth * 5)
+          ctx.beginPath()
+          ctx.moveTo(end[0], end[1])
+          ctx.lineTo(end[0] - headLen * Math.cos(angle - Math.PI / 6), end[1] - headLen * Math.sin(angle - Math.PI / 6))
+          ctx.moveTo(end[0], end[1])
+          ctx.lineTo(end[0] - headLen * Math.cos(angle + Math.PI / 6), end[1] - headLen * Math.sin(angle + Math.PI / 6))
+          ctx.stroke()
+        } else if (a.type === 'circle' && pts.length === 2) {
+          const [start, end] = pts
+          const rx = Math.abs(end[0] - start[0]) / 2
+          const ry = Math.abs(end[1] - start[1]) / 2
+          const cx = (start[0] + end[0]) / 2
+          const cy = (start[1] + end[1]) / 2
+          ctx.beginPath()
+          ctx.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
+          ctx.stroke()
+        } else if (a.type === 'text' && pts.length >= 1 && a.text) {
+          const fs = Math.max(14, ctx.lineWidth * 6)
+          ctx.font = `bold ${fs}px sans-serif`
+          const metrics = ctx.measureText(a.text)
+          const px = 4
+          ctx.fillStyle = 'rgba(0,0,0,0.5)'
+          ctx.fillRect(pts[0][0] - px, pts[0][1] - fs - px, metrics.width + px * 2, fs + px * 2)
+          ctx.fillStyle = '#f59e0b'
+          ctx.fillText(a.text, pts[0][0], pts[0][1])
+        }
+      }
+    }
+    img.src = imageUrl
+  }, [annotations, dims, imageUrl])
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 pointer-events-none">
+      <canvas ref={canvasRef} className="w-full h-full" />
+    </div>
+  )
+}
+
 function SortableStep({
   step,
   onTextChange,
@@ -63,6 +216,7 @@ function SortableStep({
   onAddImage,
   onDeleteImage,
   onPreviewImage,
+  onMarkup,
   uploadingStepId,
 }: {
   step: Step
@@ -71,6 +225,7 @@ function SortableStep({
   onAddImage: (stepId: string) => void
   onDeleteImage: (imageId: string, imageUrl: string) => void
   onPreviewImage: (url: string) => void
+  onMarkup: (image: StepImage) => void
   uploadingStepId: string | null
 }) {
   const {
@@ -124,27 +279,41 @@ function SortableStep({
             rows={3}
           />
           {step.images.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {step.images.map((img) => (
-                <div key={img.id} className="relative group/img">
-                  <img
-                    src={supabase.storage.from('sop-images').getPublicUrl(img.image_url).data.publicUrl}
-                    alt=""
-                    className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer"
-                    onClick={() =>
-                      onPreviewImage(
-                        supabase.storage.from('sop-images').getPublicUrl(img.image_url).data.publicUrl
-                      )
-                    }
-                  />
-                  <button
-                    onClick={() => onDeleteImage(img.id, img.image_url)}
-                    className="absolute -top-1.5 -right-1.5 bg-white border border-gray-200 rounded-full p-0.5 text-gray-400 hover:text-red-600 opacity-0 group-hover/img:opacity-100 transition shadow-sm"
-                  >
-                    <XIcon className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
+            <div className="space-y-3 mt-3">
+              {step.images.map((img) => {
+                const publicUrl = supabase.storage.from('sop-images').getPublicUrl(img.image_url).data.publicUrl
+                return (
+                  <div key={img.id} className="relative group/img">
+                    <div className="relative overflow-hidden rounded-lg border border-gray-200">
+                      <img
+                        src={publicUrl}
+                        alt=""
+                        className="w-full h-auto object-contain cursor-pointer"
+                        onClick={() => onPreviewImage(publicUrl)}
+                      />
+                      {img.markup_data && img.markup_data.length > 0 && (
+                        <MarkupOverlayImg annotations={img.markup_data} imageUrl={publicUrl} />
+                      )}
+                    </div>
+                    <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onMarkup(img) }}
+                        className="bg-white border border-gray-200 rounded-full p-1.5 text-gray-500 hover:text-amber-600 shadow-sm transition"
+                        title="Markup image"
+                      >
+                        <PencilIcon className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => onDeleteImage(img.id, img.image_url)}
+                        className="bg-white border border-gray-200 rounded-full p-1.5 text-gray-400 hover:text-red-600 shadow-sm transition"
+                        title="Delete image"
+                      >
+                        <XIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
           <div className="mt-3">
@@ -187,6 +356,10 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [deleteStepConfirm, setDeleteStepConfirm] = useState<string | null>(null)
   const [deletingStep, setDeletingStep] = useState(false)
+
+  const [markupImage, setMarkupImage] = useState<StepImage | null>(null)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [createdByName, setCreatedByName] = useState('')
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isInitialLoad = useRef(true)
@@ -232,6 +405,13 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
     setStatus(sop.status)
     setWasPublished(sop.status === 'published')
     setCurrentSopId(sop.id)
+
+    const { data: creatorProfile } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', sop.created_by)
+      .single()
+    setCreatedByName(creatorProfile?.display_name ?? 'Unknown')
 
     const { data: stepsData } = await supabase
       .from('sop_steps')
@@ -487,7 +667,7 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
         image_url: storagePath,
         sort_order: currentImages.length,
       })
-      .select('id, sop_step_id, image_url, sort_order')
+      .select('id, sop_step_id, image_url, markup_data, sort_order')
       .single()
 
     if (insertErr || !imgRow) {
@@ -512,6 +692,127 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
         images: s.images.filter((img) => img.id !== imageId),
       }))
     )
+  }
+
+  const handleMarkupSave = async (imageId: string, annotations: Annotation[]) => {
+    await supabase
+      .from('sop_step_images')
+      .update({ markup_data: annotations })
+      .eq('id', imageId)
+    setSteps((prev) =>
+      prev.map((s) => ({
+        ...s,
+        images: s.images.map((img) =>
+          img.id === imageId ? { ...img, markup_data: annotations } : img
+        ),
+      }))
+    )
+    setMarkupImage(null)
+  }
+
+  const handleExportPdf = async () => {
+    setGeneratingPdf(true)
+    try {
+      const { jsPDF } = await import('jspdf')
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
+      const PW = doc.internal.pageSize.getWidth()
+      const PH = doc.internal.pageSize.getHeight()
+      const M = 20
+      const CW = PW - M * 2
+      let y = M
+
+      function checkPage(needed = 20) {
+        if (y + needed > PH - M) {
+          doc.addPage()
+          y = M
+        }
+      }
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(20)
+      doc.text(title, M, y)
+      y += 10
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(100)
+      const meta = `Type: ${sopType === 'office' ? 'Office' : 'Field'}  |  Created by: ${createdByName}  |  ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+      doc.text(meta, M, y)
+      y += 8
+      doc.setTextColor(0)
+
+      doc.setDrawColor(200)
+      doc.line(M, y, PW - M, y)
+      y += 8
+
+      for (const step of steps) {
+        checkPage(30)
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(13)
+        doc.text(`Step ${step.step_number}`, M, y)
+        y += 7
+
+        if (step.text_content.trim()) {
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(11)
+          const lines = doc.splitTextToSize(step.text_content, CW)
+          for (const line of lines) {
+            checkPage(6)
+            doc.text(line, M, y)
+            y += 5.5
+          }
+          y += 4
+        }
+
+        for (const img of step.images) {
+          const publicUrl = supabase.storage.from('sop-images').getPublicUrl(img.image_url).data.publicUrl
+          try {
+            const imgEl = document.createElement('img')
+            imgEl.crossOrigin = 'anonymous'
+            await new Promise<void>((resolve, reject) => {
+              imgEl.onload = () => resolve()
+              imgEl.onerror = reject
+              imgEl.src = publicUrl
+            })
+
+            let canvas: HTMLCanvasElement
+            if (img.markup_data && img.markup_data.length > 0) {
+              canvas = document.createElement('canvas')
+              canvas.width = imgEl.naturalWidth
+              canvas.height = imgEl.naturalHeight
+              const ctx = canvas.getContext('2d')!
+              ctx.drawImage(imgEl, 0, 0)
+              renderAnnotationsToCtx(ctx, img.markup_data, imgEl.naturalWidth, imgEl.naturalHeight)
+            } else {
+              canvas = document.createElement('canvas')
+              canvas.width = imgEl.naturalWidth
+              canvas.height = imgEl.naturalHeight
+              const ctx = canvas.getContext('2d')!
+              ctx.drawImage(imgEl, 0, 0)
+            }
+
+            const ratio = canvas.height / canvas.width
+            const imgW = Math.min(CW, 160)
+            const imgH = imgW * ratio
+            checkPage(imgH + 5)
+            const imgData = canvas.toDataURL('image/jpeg', 0.85)
+            doc.addImage(imgData, 'JPEG', M, y, imgW, imgH)
+            y += imgH + 5
+          } catch {
+            // skip images that fail to load
+          }
+        }
+
+        y += 4
+      }
+
+      const safeName = title.trim().replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'SOP'
+      doc.save(`${safeName}.pdf`)
+    } catch {
+      alert('Failed to generate PDF')
+    }
+    setGeneratingPdf(false)
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -656,6 +957,16 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
             >
               Save Draft
             </button>
+            {status === 'published' && (
+              <button
+                onClick={handleExportPdf}
+                disabled={generatingPdf}
+                className="inline-flex items-center gap-1.5 border border-amber-500 text-amber-600 hover:bg-amber-50 px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm disabled:opacity-50"
+              >
+                <FileDownIcon className="w-4 h-4" />
+                {generatingPdf ? 'Generating...' : 'PDF'}
+              </button>
+            )}
             <button
               onClick={handlePublish}
               disabled={publishing}
@@ -726,6 +1037,7 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
                     onAddImage={handleAddImage}
                     onDeleteImage={handleDeleteImage}
                     onPreviewImage={setPreviewImage}
+                    onMarkup={setMarkupImage}
                     uploadingStepId={uploadingStepId}
                   />
                 </div>
@@ -775,6 +1087,15 @@ export default function SOPEditorClient({ userId, sopId }: Props) {
           loading={deletingStep}
           onConfirm={() => handleDeleteStep(deleteStepConfirm)}
           onCancel={() => deletingStep ? null : setDeleteStepConfirm(null)}
+        />
+      )}
+
+      {markupImage && (
+        <SOPImageMarkup
+          imageUrl={supabase.storage.from('sop-images').getPublicUrl(markupImage.image_url).data.publicUrl}
+          initialAnnotations={markupImage.markup_data ?? []}
+          onSave={(annotations) => handleMarkupSave(markupImage.id, annotations)}
+          onCancel={() => setMarkupImage(null)}
         />
       )}
     </div>
