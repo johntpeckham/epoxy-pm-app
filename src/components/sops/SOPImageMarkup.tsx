@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Portal from '@/components/ui/Portal'
 import {
   MousePointer2Icon, MoveRightIcon, CircleIcon, TypeIcon, PenIcon,
-  SquareIcon, TargetIcon, Undo2Icon, Trash2Icon, XIcon,
+  Undo2Icon, Trash2Icon, XIcon,
 } from 'lucide-react'
 import {
   type MarkupAnnotation, type MarkupData, type HandleId,
@@ -14,7 +14,7 @@ import {
   moveAnnotation, resizeAnnotation,
 } from './sopMarkupUtils'
 
-type ToolType = 'select' | 'arrow' | 'circle' | 'text' | 'freeform' | 'focus-rect' | 'focus-circle'
+type ToolType = 'select' | 'arrow' | 'circle' | 'text' | 'freeform'
 
 interface Props {
   imageUrl: string
@@ -29,8 +29,6 @@ const TOOLS: { type: ToolType; icon: typeof MousePointer2Icon; label: string }[]
   { type: 'circle', icon: CircleIcon, label: 'Circle' },
   { type: 'text', icon: TypeIcon, label: 'Text' },
   { type: 'freeform', icon: PenIcon, label: 'Draw' },
-  { type: 'focus-rect', icon: SquareIcon, label: 'Focus □' },
-  { type: 'focus-circle', icon: TargetIcon, label: 'Focus ○' },
 ]
 
 export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, onCancel }: Props) {
@@ -42,8 +40,10 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
   const [tool, setTool] = useState<ToolType>('select')
   const [color, setColor] = useState(MARKUP_COLORS[3])
   const [strokeWidth, setStrokeWidth] = useState(4)
-  const [blurIntensity, setBlurIntensity] = useState(initialMarkupData?.blurIntensity ?? DEFAULT_BLUR_INTENSITY)
-  const [annotations, setAnnotations] = useState<MarkupAnnotation[]>(initialMarkupData?.annotations ?? [])
+  const blurIntensity = initialMarkupData?.blurIntensity ?? DEFAULT_BLUR_INTENSITY
+  const [annotations, setAnnotations] = useState<MarkupAnnotation[]>(
+    (initialMarkupData?.annotations ?? []).filter(a => a.type !== 'focus-rect' && a.type !== 'focus-circle')
+  )
   const [history, setHistory] = useState<MarkupAnnotation[][]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -153,7 +153,7 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
     } catch {
       // Render error — canvas stays cleared so the image underneath shows through
     }
-  }, [annotations, currentPoints, imgDims, tool, strokeWidth, color, blurIntensity, drawing, selectedId])
+  }, [annotations, currentPoints, imgDims, tool, strokeWidth, color, drawing, selectedId])
 
   useEffect(() => { redraw() }, [redraw])
 
@@ -357,9 +357,6 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
     setSelectedId(null)
   }
 
-  const hasFocus = annotations.some(a => a.type === 'focus-rect' || a.type === 'focus-circle')
-  const hasFocusActive = hasFocus || (drawing && (tool === 'focus-rect' || tool === 'focus-circle') && currentPoints.length >= 2)
-  const showBlurSlider = hasFocus || tool === 'focus-rect' || tool === 'focus-circle'
   const cursorStyle = tool === 'text' ? 'text' : tool === 'select' ? 'default' : 'crosshair'
 
   if (!imgLoaded) {
@@ -414,21 +411,6 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
             />
           ))}
 
-          {showBlurSlider && (
-            <>
-              <div className="w-px h-6 bg-gray-700 mx-0.5" />
-              <div className="flex items-center gap-1 text-xs text-gray-300 whitespace-nowrap">
-                <span>Blur</span>
-                <input
-                  type="range" min={2} max={20} value={blurIntensity}
-                  onChange={e => setBlurIntensity(Number(e.target.value))}
-                  className="w-16 accent-amber-500"
-                />
-                <span>{blurIntensity}px</span>
-              </div>
-            </>
-          )}
-
           <div className="w-px h-6 bg-gray-700 mx-0.5" />
 
           <button
@@ -465,12 +447,11 @@ export default function SOPImageMarkup({ imageUrl, initialMarkupData, onSave, on
               alt=""
               className="w-full h-full object-contain rounded"
               draggable={false}
-              style={hasFocusActive ? { filter: `blur(${blurIntensity}px)` } : undefined}
             />
             <canvas
               ref={canvasRef}
-              width={imgDims.dispW}
-              height={imgDims.dispH}
+              width={Math.round(imgDims.dispW)}
+              height={Math.round(imgDims.dispH)}
               className="absolute inset-0"
               style={{ cursor: cursorStyle, touchAction: 'none' }}
               onMouseDown={handlePointerDown}
