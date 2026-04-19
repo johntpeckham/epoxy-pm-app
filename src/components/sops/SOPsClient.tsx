@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export default function SOPsClient({ userId }: Props) {
+  const router = useRouter()
   const [divisions, setDivisions] = useState<Division[]>([])
   const [sops, setSOPs] = useState<SOP[]>([])
   const [profiles, setProfiles] = useState<Map<string, string>>(new Map())
@@ -240,6 +242,10 @@ export default function SOPsClient({ userId }: Props) {
   }
 
   const handleViewSOP = (sop: SOP) => {
+    if (sop.sop_format === 'created') {
+      router.push(`/sops/${sop.id}/edit`)
+      return
+    }
     if (sop.sop_format !== 'uploaded' || !sop.pdf_url) return
     if (window.innerWidth < 768) {
       const supabase = createClient()
@@ -282,7 +288,7 @@ export default function SOPsClient({ userId }: Props) {
     return (
       <div
         key={sop.id}
-        className={`group/row flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition ${isUploaded ? 'cursor-pointer' : 'cursor-default'}`}
+        className="group/row flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition cursor-pointer"
         onClick={() => handleViewSOP(sop)}
       >
         <div className="min-w-0 flex-1 flex items-center gap-2">
@@ -434,7 +440,7 @@ export default function SOPsClient({ userId }: Props) {
           </button>
           <button
             className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm flex-shrink-0"
-            onClick={() => {}}
+            onClick={() => router.push('/sops/new')}
           >
             <PlusIcon className="w-4 h-4" />
             <span className="hidden sm:inline">New SOP</span>
