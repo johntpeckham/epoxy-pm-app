@@ -140,10 +140,6 @@ export function hitTestAnnotation(a: MarkupAnnotation, px: number, py: number, t
     }
     return false
   }
-  if (a.type === 'focus-rect' || a.type === 'focus-circle') {
-    const bb = getBoundingBox(a)
-    return px >= bb.x - tol && px <= bb.x + bb.w + tol && py >= bb.y - tol && py <= bb.y + bb.h + tol
-  }
   return false
 }
 
@@ -278,90 +274,17 @@ export function drawAnnotation(ctx: CanvasRenderingContext2D, a: MarkupAnnotatio
   }
 }
 
-export function renderFocusBlur(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  focusAnns: MarkupAnnotation[],
-  _blurIntensity: number,
-  canvasW: number, canvasH: number,
-  sx: number, sy: number,
-) {
-  const validAnns = focusAnns.filter(hasValidCoords)
-  if (validAnns.length === 0) return
-  if (!canvasW || !canvasH || !isFinite(sx) || !isFinite(sy)) return
-
-  ctx.save()
-  try {
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'
-    ctx.fillRect(0, 0, canvasW, canvasH)
-  } finally {
-    ctx.restore()
-  }
-
-  ctx.save()
-  try {
-    ctx.beginPath()
-    for (const a of validAnns) {
-      if (a.type === 'focus-rect') {
-        ctx.rect(
-          Math.min(a.x1, a.x2) * sx, Math.min(a.y1, a.y2) * sy,
-          Math.abs(a.x2 - a.x1) * sx, Math.abs(a.y2 - a.y1) * sy,
-        )
-      } else {
-        ctx.ellipse(
-          ((a.x1 + a.x2) / 2) * sx, ((a.y1 + a.y2) / 2) * sy,
-          Math.max(1, (Math.abs(a.x2 - a.x1) / 2) * sx),
-          Math.max(1, (Math.abs(a.y2 - a.y1) / 2) * sy),
-          0, 0, Math.PI * 2,
-        )
-      }
-    }
-    ctx.clip()
-    ctx.drawImage(img, 0, 0, canvasW, canvasH)
-  } finally {
-    ctx.restore()
-  }
-
-  ctx.save()
-  try {
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-    ctx.lineWidth = 2
-    ctx.setLineDash([6, 4])
-    for (const a of validAnns) {
-      if (a.type === 'focus-rect') {
-        ctx.strokeRect(
-          Math.min(a.x1, a.x2) * sx, Math.min(a.y1, a.y2) * sy,
-          Math.abs(a.x2 - a.x1) * sx, Math.abs(a.y2 - a.y1) * sy,
-        )
-      } else {
-        ctx.beginPath()
-        ctx.ellipse(
-          ((a.x1 + a.x2) / 2) * sx, ((a.y1 + a.y2) / 2) * sy,
-          Math.max(1, (Math.abs(a.x2 - a.x1) / 2) * sx),
-          Math.max(1, (Math.abs(a.y2 - a.y1) / 2) * sy),
-          0, 0, Math.PI * 2,
-        )
-        ctx.stroke()
-      }
-    }
-  } finally {
-    ctx.restore()
-  }
-}
-
 export function renderMarkupToCanvas(
   ctx: CanvasRenderingContext2D,
   markupData: MarkupData,
-  img: HTMLImageElement | null,
+  _img: HTMLImageElement | null,
   sx: number, sy: number,
 ) {
   try {
-    const focus = markupData.annotations.filter(a => a.type === 'focus-rect' || a.type === 'focus-circle')
-    const other = markupData.annotations.filter(a => a.type !== 'focus-rect' && a.type !== 'focus-circle')
-    if (img && focus.length > 0) {
-      renderFocusBlur(ctx, img, focus, markupData.blurIntensity, ctx.canvas.width, ctx.canvas.height, sx, sy)
+    for (const a of markupData.annotations) {
+      if (a.type === 'focus-rect' || a.type === 'focus-circle') continue
+      drawAnnotation(ctx, a, sx, sy)
     }
-    for (const a of other) drawAnnotation(ctx, a, sx, sy)
   } catch {
     // Rendering failed — leave canvas transparent so the image underneath shows through
   }
