@@ -22,6 +22,7 @@ interface ExecTask {
   due_date: string
   recurrence: string | null
   end_date: string | null
+  color: string | null
   status: string
   completed_at: string | null
   completed_by: string | null
@@ -30,7 +31,18 @@ interface ExecTask {
   updated_at: string
 }
 
+interface RowItem {
+  key: string
+  task: ExecTask
+  isProjected: boolean
+  effectiveDate: string
+}
+
 const DEFAULT_CATEGORIES = ['Filing', 'Tax', 'Insurance', 'License', 'Other']
+const COLOR_SWATCHES = [
+  '#7F77DD', '#1D9E75', '#D85A30', '#D4537E', '#378ADD',
+  '#639922', '#EF9F27', '#E24B4A', '#888780',
+]
 const RECURRENCE_OPTIONS = [
   { value: 'one_time', label: 'One-time' },
   { value: 'quarterly', label: 'Quarterly' },
@@ -82,20 +94,19 @@ function fmtMonYear(d: string): string {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-function projectOccurrences(task: ExecTask, count: number): { date: string; isFinal: boolean }[] {
-  if (!task.recurrence || task.recurrence === 'one_time') return []
+function calcOccurrences(startDate: string, recurrence: string, endDate: string | null, count: number): { date: string; isFinal: boolean }[] {
   const results: { date: string; isFinal: boolean }[] = []
-  let current = task.due_date
+  let current = startDate
   for (let i = 0; i < count; i++) {
-    const next = calcNextDue(current, task.recurrence)
-    if (task.end_date && next > task.end_date) break
+    const next = calcNextDue(current, recurrence)
+    if (endDate && next > endDate) break
     results.push({ date: next, isFinal: false })
     current = next
   }
-  if (results.length > 0 && task.end_date) {
+  if (results.length > 0 && endDate) {
     const lastDate = results[results.length - 1].date
-    const afterLast = calcNextDue(lastDate, task.recurrence)
-    if (afterLast > task.end_date) {
+    const afterLast = calcNextDue(lastDate, recurrence)
+    if (afterLast > endDate) {
       results[results.length - 1].isFinal = true
     }
   }
@@ -135,21 +146,41 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
 
   const activeTasks = useMemo(() => tasks.filter(t => t.status === 'active'), [tasks])
 
-  const needsAttention = useMemo(
-    () => activeTasks.filter(t => daysDiff(t.due_date) <= 30)
-      .sort((a, b) => daysDiff(a.due_date) - daysDiff(b.due_date)),
-    [activeTasks],
-  )
-  const upcoming = useMemo(
-    () => activeTasks.filter(t => { const d = daysDiff(t.due_date); return d > 30 && d <= 365 })
-      .sort((a, b) => a.due_date.localeCompare(b.due_date)),
-    [activeTasks],
-  )
-  const longTerm = useMemo(
-    () => activeTasks.filter(t => daysDiff(t.due_date) > 365)
-      .sort((a, b) => a.due_date.localeCompare(b.due_date)),
-    [activeTasks],
-  )
+  const projectedRows = useMemo((): RowItem[] => {
+    const rows: RowItem[] = []
+    for (const task of activeTasks) {
+      if (!task.recurrence || task.recurrence === 'one_time') continue
+      const nextDate = calcNextDue(task.due_date, task.recurrence)
+      if (task.end_date && nextDate > task.end_date) continue
+      rows.push({ key: `${task.id}_proj`, task, isProjected: true, effectiveDate: nextDate })
+    }
+    return rows
+  }, [activeTasks])
+
+  const needsAttentionItems = useMemo((): RowItem[] => {
+    const real: RowItem[] = activeTasks
+      .filter(t => daysDiff(t.due_date) <= 30)
+      .map(t => ({ key: t.id, task: t, isProjected: false, effectiveDate: t.due_date }))
+    const proj = projectedRows.filter(r => daysDiff(r.effectiveDate) <= 30)
+    return [...real, ...proj].sort((a, b) => daysDiff(a.effectiveDate) - daysDiff(b.effectiveDate))
+  }, [activeTasks, projectedRows])
+
+  const upcomingItems = useMemo((): RowItem[] => {
+    const real: RowItem[] = activeTasks
+      .filter(t => { const d = daysDiff(t.due_date); return d > 30 && d <= 365 })
+      .map(t => ({ key: t.id, task: t, isProjected: false, effectiveDate: t.due_date }))
+    const proj = projectedRows.filter(r => { const d = daysDiff(r.effectiveDate); return d > 30 && d <= 365 })
+    return [...real, ...proj].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate))
+  }, [activeTasks, projectedRows])
+
+  const longTermItems = useMemo((): RowItem[] => {
+    const real: RowItem[] = activeTasks
+      .filter(t => daysDiff(t.due_date) > 365)
+      .map(t => ({ key: t.id, task: t, isProjected: false, effectiveDate: t.due_date }))
+    const proj = projectedRows.filter(r => daysDiff(r.effectiveDate) > 365)
+    return [...real, ...proj].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate))
+  }, [activeTasks, projectedRows])
+
   const completedTasks = useMemo(
     () => tasks.filter(t => t.status === 'completed')
       .sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))
@@ -157,13 +188,13 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
     [tasks],
   )
 
-  const overdueCount = needsAttention.filter(t => daysDiff(t.due_date) < 0).length
-  const dueSoonCount = needsAttention.filter(t => daysDiff(t.due_date) >= 0).length
+  const overdueCount = needsAttentionItems.filter(r => !r.isProjected && daysDiff(r.effectiveDate) < 0).length
+  const dueSoonCount = needsAttentionItems.filter(r => !r.isProjected && daysDiff(r.effectiveDate) >= 0).length
 
   /* ── CRUD ── */
 
   async function handleCreate(data: {
-    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null
+    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null; color: string | null
   }) {
     const optimistic: ExecTask = {
       id: crypto.randomUUID(),
@@ -174,6 +205,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
       due_date: data.due_date,
       recurrence: data.recurrence,
       end_date: data.end_date,
+      color: data.color,
       status: 'active',
       completed_at: null,
       completed_by: null,
@@ -195,6 +227,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
         due_date: data.due_date,
         recurrence: data.recurrence,
         end_date: data.end_date,
+        color: data.color,
         created_by: userId,
       })
       .select()
@@ -203,12 +236,12 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
   }
 
   async function handleUpdate(id: string, data: {
-    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null
+    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null; color: string | null
   }) {
     setTasks(prev => prev.map(t => t.id === id ? {
       ...t, title: data.title, description: data.description || null,
       category: data.category, due_date: data.due_date,
-      recurrence: data.recurrence, end_date: data.end_date, updated_at: new Date().toISOString(),
+      recurrence: data.recurrence, end_date: data.end_date, color: data.color, updated_at: new Date().toISOString(),
     } : t))
     setEditingTask(null)
     setShowModal(false)
@@ -220,7 +253,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
       .update({
         title: data.title, description: data.description || null,
         category: data.category, due_date: data.due_date,
-        recurrence: data.recurrence, end_date: data.end_date, updated_at: new Date().toISOString(),
+        recurrence: data.recurrence, end_date: data.end_date, color: data.color, updated_at: new Date().toISOString(),
       })
       .eq('id', id)
   }
@@ -245,6 +278,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
         title: task.title, description: task.description,
         category: task.category, due_date: nextDue,
         recurrence: task.recurrence, end_date: task.end_date,
+        color: task.color,
         status: 'active',
         completed_at: null, completed_by: null,
         created_by: userId,
@@ -258,6 +292,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
           title: task.title, description: task.description,
           category: task.category, due_date: nextDue,
           recurrence: task.recurrence, end_date: task.end_date,
+          color: task.color,
           company_id: task.company_id,
           created_by: userId,
         })
@@ -285,22 +320,53 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
     return 'border-l-gray-200'
   }
 
-  function renderActiveRow(task: ExecTask) {
-    const rel = relativeTime(task.due_date)
-    const bc = borderColor(task)
-    const isExp = expandedId === task.id
-    const isRecurring = task.recurrence && task.recurrence !== 'one_time'
-    const isOccExp = occExpId === task.id
+  function renderRow(item: RowItem) {
+    const { key, task, isProjected, effectiveDate } = item
+    const rel = relativeTime(effectiveDate)
+    const isRecurring = !!(task.recurrence && task.recurrence !== 'one_time')
+    const isOccExp = occExpId === key
+    const isExp = !isProjected && expandedId === task.id
+
+    const d = daysDiff(effectiveDate)
+    let bcClass = 'border-l-gray-200'
+    if (d < 0) bcClass = 'border-l-red-500'
+    else if (d <= 30) bcClass = 'border-l-amber-500'
+    else if (d <= 365) bcClass = 'border-l-gray-300'
+
+    const occs = isRecurring ? calcOccurrences(effectiveDate, task.recurrence!, task.end_date, 3) : []
+
     return (
-      <div key={task.id}>
+      <div key={key}>
         <button
-          onClick={() => setExpandedId(isExp ? null : task.id)}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 rounded-r-lg border-l-[3px] ${bc} text-left hover:bg-gray-100 transition-colors`}
+          onClick={() => {
+            if (isProjected) { setOccExpId(isOccExp ? null : key) }
+            else { setExpandedId(isExp ? null : task.id) }
+          }}
+          className={`w-full flex items-center gap-2 px-3 py-2.5 bg-gray-50 rounded-r-lg border-l-[3px] ${bcClass} text-left hover:bg-gray-100 transition-colors`}
+          style={isProjected ? { borderLeftStyle: 'dashed' } : undefined}
         >
+          {isRecurring ? (
+            <ChevronRightIcon
+              className={`w-3 h-3 text-gray-300 opacity-40 flex-shrink-0 transition-transform ${isOccExp ? 'rotate-90' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setOccExpId(isOccExp ? null : key) }}
+            />
+          ) : (
+            <span className="w-3 flex-shrink-0" />
+          )}
+          {task.color && (
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
+          )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
-              {isRecurring && (
+              <p className={`text-sm font-medium truncate ${isProjected ? 'text-gray-500' : 'text-gray-900'}`}>
+                {task.title}
+              </p>
+              {isProjected && (
+                <span className="inline-flex items-center rounded-full text-[10px] px-1.5 py-[1px] flex-shrink-0 bg-blue-50 text-blue-600 font-medium">
+                  Next occurrence
+                </span>
+              )}
+              {!isProjected && isRecurring && (
                 <span
                   className="inline-flex items-center rounded-full text-[11px] px-2 py-[1px] flex-shrink-0"
                   style={{ background: 'rgba(239,159,39,0.12)', color: '#BA7517' }}
@@ -309,40 +375,34 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Due {fmtDate(task.due_date)}
+            <p className={`text-xs mt-0.5 ${isProjected ? 'text-gray-400' : 'text-gray-500'}`}>
+              Due {fmtDate(effectiveDate)}
               {task.recurrence ? ` · ${recurrenceLabel(task.recurrence)}` : ''}
               {' · '}{task.category}
             </p>
           </div>
-          {isRecurring && (
-            <ChevronRightIcon
-              className={`w-3.5 h-3.5 text-gray-300 flex-shrink-0 transition-transform ${isOccExp ? 'rotate-90' : ''}`}
-              onClick={(e) => { e.stopPropagation(); setOccExpId(isOccExp ? null : task.id) }}
-            />
-          )}
           <span className={`text-xs flex-shrink-0 ${rel.cls}`}>{rel.text}</span>
         </button>
-        {isOccExp && isRecurring && (
-          <div className="ml-4 pl-3 border-l border-dashed border-gray-200 py-1.5 space-y-1">
-            {projectOccurrences(task, 3).map((occ, i) => {
+        {isOccExp && isRecurring && occs.length > 0 && (
+          <div className="ml-[15px] pl-3 border-l border-dashed border-gray-200 py-1.5 space-y-1">
+            {occs.map((occ, i) => {
               const occRel = relativeTime(occ.date)
               return (
-                <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 rounded text-xs">
-                  <span className="text-gray-700 font-medium">{fmtDate(occ.date)}</span>
-                  <span className={`ml-auto ${occRel.cls}`}>{occRel.text}</span>
+                <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 rounded text-[13px]">
+                  <span className="text-gray-600">{fmtDate(occ.date)}</span>
+                  <span className={`ml-auto text-[11px] ${occRel.cls}`}>{occRel.text}</span>
                 </div>
               )
             })}
             <div className="px-2.5 py-1 text-[11px]" style={{ color: '#BA7517' }}>
               {task.end_date
-                ? `Ends ${fmtMonYear(task.end_date)}${projectOccurrences(task, 3).at(-1)?.isFinal ? ' · Final occurrence' : ''}`
+                ? `Ends ${fmtMonYear(task.end_date)}${occs.at(-1)?.isFinal ? ' · Final occurrence' : ''}`
                 : '∞ Recurs indefinitely'}
             </div>
           </div>
         )}
         {isExp && (
-          <div className={`px-3 py-2 bg-gray-50 border-l-[3px] ${bc} rounded-br-lg -mt-0.5`}>
+          <div className={`px-3 py-2 bg-gray-50 border-l-[3px] ${bcClass} rounded-br-lg -mt-0.5`}>
             {task.description && (
               <p className="text-xs text-gray-600 mb-2 whitespace-pre-wrap">{task.description}</p>
             )}
@@ -426,10 +486,10 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
           <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
             Needs attention
           </p>
-          {needsAttention.length === 0 ? (
+          {needsAttentionItems.length === 0 ? (
             <p className="text-xs text-gray-400 py-3">All caught up — nothing due soon.</p>
           ) : (
-            <div className="space-y-1.5">{needsAttention.map(renderActiveRow)}</div>
+            <div className="space-y-1.5">{needsAttentionItems.map(renderRow)}</div>
           )}
         </div>
 
@@ -438,10 +498,10 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
           <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
             Upcoming (within 1 year)
           </p>
-          {upcoming.length === 0 ? (
+          {upcomingItems.length === 0 ? (
             <p className="text-xs text-gray-400 py-3">No upcoming tasks.</p>
           ) : (
-            <div className="space-y-1.5">{upcoming.map(renderActiveRow)}</div>
+            <div className="space-y-1.5">{upcomingItems.map(renderRow)}</div>
           )}
         </div>
 
@@ -457,17 +517,17 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
             <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
               Long-term (1 year+)
             </span>
-            {longTerm.length > 0 && (
+            {longTermItems.length > 0 && (
               <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full font-medium">
-                {longTerm.length}
+                {longTermItems.length}
               </span>
             )}
           </button>
           {longTermOpen && (
             <div className="mt-2 space-y-1.5">
-              {longTerm.length === 0
+              {longTermItems.length === 0
                 ? <p className="text-xs text-gray-400 py-3 pl-6">No long-term tasks.</p>
-                : longTerm.map(renderActiveRow)}
+                : longTermItems.map(renderRow)}
             </div>
           )}
         </div>
@@ -497,7 +557,11 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
               ) : (
                 completedTasks.map(task => (
                   <div key={task.id} className="opacity-60">
-                    <div className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 rounded-r-lg border-l-[3px] border-l-green-500">
+                    <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 rounded-r-lg border-l-[3px] border-l-green-500">
+                      <span className="w-3 flex-shrink-0" />
+                      {task.color ? (
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
+                      ) : null}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
                         <p className="text-xs text-gray-500 mt-0.5">
@@ -576,7 +640,7 @@ function ExecTaskModal({
   categories: string[]
   onSave: (data: {
     title: string; description: string; category: string
-    due_date: string; recurrence: string; end_date: string | null
+    due_date: string; recurrence: string; end_date: string | null; color: string | null
   }) => void
   onClose: () => void
 }) {
@@ -587,6 +651,7 @@ function ExecTaskModal({
   const [recurrence, setRecurrence] = useState(task?.recurrence ?? 'yearly')
   const [endsMode, setEndsMode] = useState<'never' | 'on_date'>(task?.end_date ? 'on_date' : 'never')
   const [endDate, setEndDate] = useState(task?.end_date ?? '')
+  const [color, setColor] = useState<string | null>(task?.color ?? null)
   const [addingCategory, setAddingCategory] = useState(false)
   const [customCategory, setCustomCategory] = useState('')
 
@@ -596,7 +661,7 @@ function ExecTaskModal({
     e.preventDefault()
     if (!title.trim() || !dueDate) return
     const finalEndDate = isOneTime || endsMode === 'never' ? null : endDate || null
-    onSave({ title: title.trim(), description, category, due_date: dueDate, recurrence, end_date: finalEndDate })
+    onSave({ title: title.trim(), description, category, due_date: dueDate, recurrence, end_date: finalEndDate, color })
   }
 
   function confirmCustomCategory() {
@@ -741,6 +806,30 @@ function ExecTaskModal({
               )}
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Color</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {COLOR_SWATCHES.map(sw => (
+                <button
+                  key={sw}
+                  type="button"
+                  onClick={() => setColor(color === sw ? null : sw)}
+                  className={`w-6 h-6 rounded-full border-2 transition-all ${color === sw ? 'border-gray-900 scale-110' : 'border-transparent hover:scale-110'}`}
+                  style={{ background: sw }}
+                />
+              ))}
+              {color && (
+                <button
+                  type="button"
+                  onClick={() => setColor(null)}
+                  className="text-[11px] text-gray-400 hover:text-gray-600 ml-1"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <button
