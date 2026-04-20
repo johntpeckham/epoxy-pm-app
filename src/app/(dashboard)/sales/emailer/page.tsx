@@ -27,5 +27,5 @@ export default async function SalesEmailerPage() {
     return redirect('/my-work')
   }
 
-  return <EmailerClient />
+  return <EmailerClient userId={user.id} />
 }
