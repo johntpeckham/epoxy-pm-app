@@ -13,6 +13,11 @@ import {
   Trash2Icon,
   CheckIcon,
   ArrowLeftIcon,
+  MapPinIcon,
+  PhoneIcon,
+  MailIcon,
+  CalendarIcon,
+  UserIcon,
 } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
 import type { UserRole } from '@/types'
@@ -66,6 +71,47 @@ export const LEAD_STATUS_STYLES: Record<LeadStatus, { label: string; className: 
   completed: { label: 'Completed', className: 'bg-blue-100 text-blue-700' },
 }
 
+type LeadStageKey = 'lead' | 'appointment' | 'job_walk' | 'estimating' | 'estimate' | 'job'
+const LEAD_STAGE_ORDER: LeadStageKey[] = [
+  'lead',
+  'appointment',
+  'job_walk',
+  'estimating',
+  'estimate',
+  'job',
+]
+const LEAD_STAGE_LABELS: Record<LeadStageKey, string> = {
+  lead: 'Lead',
+  appointment: 'Appointment',
+  job_walk: 'Job walk',
+  estimating: 'Estimating',
+  estimate: 'Estimate',
+  job: 'Job',
+}
+
+function leadStageIndex(pushedTo: LeadPushedTo | null): number {
+  if (!pushedTo) return 0
+  const map: Record<LeadPushedTo, number> = {
+    appointment: 1,
+    job_walk: 2,
+    estimating: 3,
+    estimate: 4,
+    job: 5,
+  }
+  return map[pushedTo]
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
 export default function LeadsClient({
   initialLeads,
   initialCategories,
@@ -76,8 +122,7 @@ export default function LeadsClient({
   const searchParams = useSearchParams()
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
   const [categories, setCategories] = useState<LeadCategory[]>(initialCategories)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [mobileView, setMobileView] = useState<'list' | 'detail'>('list')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [completedExpanded, setCompletedExpanded] = useState(false)
@@ -88,27 +133,19 @@ export default function LeadsClient({
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const statusDropdownRef = useRef<HTMLDivElement>(null)
 
-  const selected = useMemo(
-    () => leads.find((l) => l.id === selectedId) ?? null,
-    [leads, selectedId]
-  )
-
   function showToast(message: string, href?: string | null) {
     setToast({ message, href: href ?? null })
     setTimeout(() => setToast(null), 3500)
   }
 
-  // Restore selection from URL on mount
   useEffect(() => {
     const urlId = searchParams.get('lead')
     if (urlId && leads.some((l) => l.id === urlId)) {
-      setSelectedId(urlId)
-      setMobileView('detail')
+      setExpandedId(urlId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Close status dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
@@ -121,7 +158,6 @@ export default function LeadsClient({
     }
   }, [statusDropdownOpen])
 
-  // Fetch customers for the modal + edit
   useEffect(() => {
     async function fetchCustomers() {
       const supabase = createClient()
@@ -135,17 +171,18 @@ export default function LeadsClient({
     fetchCustomers()
   }, [userId])
 
-  function selectLead(id: string) {
+  function toggleExpand(id: string) {
     setStatusDropdownOpen(false)
-    setSelectedId(id)
-    setMobileView('detail')
+    const next = expandedId === id ? null : id
+    setExpandedId(next)
     const params = new URLSearchParams(searchParams.toString())
-    params.set('lead', id)
-    router.replace(`/sales/leads?${params.toString()}`, { scroll: false })
-  }
-
-  function backToList() {
-    setMobileView('list')
+    if (next) {
+      params.set('lead', next)
+    } else {
+      params.delete('lead')
+    }
+    const qs = params.toString()
+    router.replace(qs ? `/sales/leads?${qs}` : '/sales/leads', { scroll: false })
   }
 
   const handleUpdate = useCallback((id: string, patch: Partial<Lead>) => {
@@ -181,24 +218,17 @@ export default function LeadsClient({
       return
     }
     const deletedId = confirmDelete.id
-    setLeads((prev) => {
-      const next = prev.filter((l) => l.id !== deletedId)
-      const nextSelected = next[0]?.id ?? null
-      setSelectedId(nextSelected)
-      if (!nextSelected) setMobileView('list')
+    setLeads((prev) => prev.filter((l) => l.id !== deletedId))
+    if (expandedId === deletedId) {
+      setExpandedId(null)
       const params = new URLSearchParams(searchParams.toString())
-      if (nextSelected) {
-        params.set('lead', nextSelected)
-      } else {
-        params.delete('lead')
-      }
+      params.delete('lead')
       const qs = params.toString()
       router.replace(qs ? `/sales/leads?${qs}` : '/sales/leads', { scroll: false })
-      return next
-    })
+    }
     setDeleting(false)
     setConfirmDelete(null)
-  }, [confirmDelete, router, searchParams])
+  }, [confirmDelete, expandedId, router, searchParams])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -229,220 +259,272 @@ export default function LeadsClient({
       })
     }
     setShowAddModal(false)
-    selectLead(lead.id)
+    setExpandedId(lead.id)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('lead', lead.id)
+    router.replace(`/sales/leads?${params.toString()}`, { scroll: false })
   }
 
   function handleCategoriesChanged(next: LeadCategory[]) {
     setCategories(next)
   }
 
-  return (
-    <div className="flex flex-col h-full overflow-hidden w-full max-w-full">
-      <div className="flex flex-1 overflow-hidden">
-      {/* ── Left panel: Lead list ── */}
+  function renderCard(lead: Lead) {
+    const isExpanded = expandedId === lead.id
+    const currentStage = leadStageIndex(lead.pushed_to)
+    const isDimmed = lead.status === 'completed'
+
+    return (
       <div
-        className={`flex-shrink-0 w-screen max-w-full lg:w-80 xl:w-96 min-w-0 bg-white border-r border-gray-200 flex-col overflow-hidden ${
-          mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
+        key={lead.id}
+        className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl transition-opacity ${
+          isDimmed ? 'opacity-70' : ''
         }`}
       >
-        <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
-              <TargetIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Leads</h1>
-            </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Add lead
-            </button>
-          </div>
-
-          <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search leads…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {filtered.length === 0 ? (
-            <div className="text-center py-12 px-4">
-              <TargetIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">
-                {search ? 'No matching leads' : 'No leads yet. Add one to get started.'}
-              </p>
-            </div>
-          ) : (
-            <>
-              {inProgressLeads.map((lead) => (
-                <LeadListItem
-                  key={lead.id}
-                  lead={lead}
-                  isSelected={selectedId === lead.id}
-                  onSelect={() => selectLead(lead.id)}
-                />
-              ))}
-
-              {completedLeads.length > 0 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setCompletedExpanded((v) => !v)}
-                    className="w-full flex items-center gap-2 px-2 pt-3 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-widest hover:text-gray-500"
-                  >
-                    {completedExpanded ? (
-                      <ChevronDownIcon className="w-3 h-3" />
-                    ) : (
-                      <ChevronRightIcon className="w-3 h-3" />
-                    )}
-                    Completed ({completedLeads.length})
-                    <span className="flex-1 h-px bg-gray-200 ml-2" />
-                  </button>
-                  {completedExpanded &&
-                    completedLeads.map((lead) => (
-                      <LeadListItem
-                        key={lead.id}
-                        lead={lead}
-                        isSelected={selectedId === lead.id}
-                        onSelect={() => selectLead(lead.id)}
-                      />
-                    ))}
-                </>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── Right panel: Detail ── */}
-      <div
-        className={`flex-1 min-h-0 w-screen max-w-full min-w-0 overflow-hidden bg-gray-50 ${
-          mobileView === 'list' ? 'hidden lg:flex' : 'flex'
-        } flex-col`}
-      >
-        {selected ? (
-          <>
-            {/* Detail header */}
-            <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={backToList}
-                  className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                  aria-label="Back to list"
-                >
-                  <ChevronRightIcon className="w-5 h-5 rotate-180" />
-                </button>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-base font-bold text-gray-900 truncate">
-                    {selected.project_name || 'Untitled Lead'}
-                  </h2>
-                  <p className="text-xs text-gray-500 truncate">
-                    {selected.customer_name || '—'}
-                    {selected.address ? ` · ${selected.address}` : ''}
-                  </p>
-                </div>
-                <div className="relative flex-shrink-0" ref={statusDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setStatusDropdownOpen((v) => !v)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition ${LEAD_STATUS_STYLES[selected.status].className}`}
-                  >
-                    {LEAD_STATUS_STYLES[selected.status].label}
-                    <ChevronDownIcon className="w-3 h-3" />
-                  </button>
-                  {statusDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[150px]">
-                      {(Object.keys(LEAD_STATUS_STYLES) as LeadStatus[]).map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => {
-                            setLeadStatus(selected, s)
-                            setStatusDropdownOpen(false)
-                          }}
-                          className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 flex items-center justify-between gap-2"
-                        >
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${LEAD_STATUS_STYLES[s].className}`}>
-                            {LEAD_STATUS_STYLES[s].label}
-                          </span>
-                          {s === selected.status && (
-                            <CheckIcon className="w-4 h-4 text-gray-500" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
+        {/* Collapsed summary — always visible */}
+        <button
+          type="button"
+          onClick={() => toggleExpand(lead.id)}
+          className="w-full text-left px-6 py-5"
+        >
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[15px] font-medium text-gray-900 dark:text-white">
+                  {lead.project_name || 'Untitled Lead'}
+                </span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${LEAD_STATUS_STYLES[lead.status].className}`}>
+                  {LEAD_STATUS_STYLES[lead.status].label}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
+                {lead.customer_name && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <UserIcon className="w-4 h-4 text-gray-400" />
+                    {lead.customer_name}
+                  </span>
+                )}
+                {lead.date && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarIcon className="w-4 h-4 text-gray-400" />
+                    {formatDate(lead.date)}
+                  </span>
+                )}
+              </div>
+              {(lead.address || lead.customer_phone || lead.customer_email) && (
+                <div className="mt-1 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
+                  {lead.address && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPinIcon className="w-4 h-4 text-gray-400" />
+                      {lead.address}
+                    </span>
+                  )}
+                  {lead.customer_phone && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <PhoneIcon className="w-4 h-4 text-gray-400" />
+                      {lead.customer_phone}
+                    </span>
+                  )}
+                  {lead.customer_email && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MailIcon className="w-4 h-4 text-gray-400" />
+                      {lead.customer_email}
+                    </span>
                   )}
                 </div>
-                <LeadPushMenu
-                  lead={selected}
-                  userId={userId}
-                  onPatch={(patch) => handleUpdate(selected.id, patch)}
-                  showToast={showToast}
-                />
+              )}
+            </div>
+            <ChevronDownIcon
+              className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform ${
+                isExpanded ? 'rotate-180' : ''
+              }`}
+            />
+          </div>
+
+          {/* Pipeline tracker */}
+          <div className="mt-4 pt-[14px] border-t border-gray-100 dark:border-[#2a2a2a]">
+            <div className="text-[11px] text-gray-400 mb-2">Pipeline progress</div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {LEAD_STAGE_ORDER.map((stage, i) => {
+                const isCompleted = i < currentStage
+                const isCurrent = i === currentStage
+                const stageClass = isCompleted
+                  ? 'bg-amber-50 text-amber-700 border border-amber-50'
+                  : isCurrent
+                  ? 'border border-dashed border-amber-400 text-amber-700 bg-white dark:bg-[#242424]'
+                  : 'bg-gray-50 dark:bg-[#1a1a1a] text-gray-400 border border-gray-50 dark:border-[#1a1a1a]'
+                return (
+                  <span key={stage} className="inline-flex items-center gap-1.5">
+                    <span
+                      className={`px-2.5 py-1 text-[11px] font-medium rounded-full ${stageClass}`}
+                    >
+                      {LEAD_STAGE_LABELS[stage]}
+                    </span>
+                    {i < LEAD_STAGE_ORDER.length - 1 && (
+                      <span className="text-gray-300 text-[11px]">→</span>
+                    )}
+                  </span>
+                )
+              })}
+            </div>
+          </div>
+        </button>
+
+        {/* Expanded detail */}
+        {isExpanded && (
+          <div className="border-t border-gray-100 dark:border-[#2a2a2a]">
+            {/* Action bar */}
+            <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 dark:bg-[#1e1e1e] flex-wrap">
+              <div className="relative flex-shrink-0" ref={statusDropdownRef}>
                 <button
                   type="button"
-                  onClick={() => setConfirmDelete(selected)}
-                  title="Delete lead"
-                  aria-label="Delete lead"
-                  className="flex-shrink-0 p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition"
+                  onClick={() => setStatusDropdownOpen((v) => !v)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition ${LEAD_STATUS_STYLES[lead.status].className}`}
                 >
-                  <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
+                  {LEAD_STATUS_STYLES[lead.status].label}
+                  <ChevronDownIcon className="w-3 h-3" />
                 </button>
+                {statusDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-lg shadow-lg py-1 min-w-[150px]">
+                    {(Object.keys(LEAD_STATUS_STYLES) as LeadStatus[]).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          setLeadStatus(lead, s)
+                          setStatusDropdownOpen(false)
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center justify-between gap-2"
+                      >
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${LEAD_STATUS_STYLES[s].className}`}>
+                          {LEAD_STATUS_STYLES[s].label}
+                        </span>
+                        {s === lead.status && (
+                          <CheckIcon className="w-4 h-4 text-gray-500" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+              <LeadPushMenu
+                lead={lead}
+                userId={userId}
+                onPatch={(patch) => handleUpdate(lead.id, patch)}
+                showToast={showToast}
+              />
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(lead)}
+                title="Delete lead"
+                aria-label="Delete lead"
+                className="flex-shrink-0 p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition"
+              >
+                <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
+              </button>
             </div>
 
-            {/* Cards */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Detail cards */}
+            <div className="p-4 space-y-4">
               <LeadInfoCard
-                key={`info-${selected.id}`}
-                lead={selected}
+                key={`info-${lead.id}`}
+                lead={lead}
                 customers={customers}
-                onPatch={(patch) => handleUpdate(selected.id, patch)}
+                onPatch={(patch) => handleUpdate(lead.id, patch)}
               />
               <LeadCategoryCard
-                key={`cat-${selected.id}`}
-                lead={selected}
+                key={`cat-${lead.id}`}
+                lead={lead}
                 categories={categories}
                 isAdmin={userRole === 'admin'}
-                onPatch={(patch) => handleUpdate(selected.id, patch)}
+                onPatch={(patch) => handleUpdate(lead.id, patch)}
                 onCategoriesChanged={handleCategoriesChanged}
               />
               <LeadProjectDetailsCard
-                key={`pd-${selected.id}`}
-                lead={selected}
-                onPatch={(patch) => handleUpdate(selected.id, patch)}
+                key={`pd-${lead.id}`}
+                lead={lead}
+                onPatch={(patch) => handleUpdate(lead.id, patch)}
               />
               <LeadPhotosCard
-                key={`photos-${selected.id}`}
-                leadId={selected.id}
+                key={`photos-${lead.id}`}
+                leadId={lead.id}
                 userId={userId}
               />
               <LeadMeasurementsCard
-                key={`m-${selected.id}`}
-                lead={selected}
+                key={`m-${lead.id}`}
+                lead={lead}
                 userId={userId}
-                onPatch={(patch) => handleUpdate(selected.id, patch)}
+                onPatch={(patch) => handleUpdate(lead.id, patch)}
               />
             </div>
-          </>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
+          <TargetIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Leads</h1>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <SearchIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search leads…"
+              className="w-[200px] pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#242424] dark:border-[#2a2a2a] dark:text-white"
+            />
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Add lead
+          </button>
+        </div>
+      </div>
+
+      {/* Card list */}
+      <div className="px-4 sm:px-7 py-6">
+        {filtered.length === 0 ? (
+          <div className="text-center py-14">
+            <TargetIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">
+              {search ? 'No matching leads.' : 'No leads yet. Add one to get started.'}
+            </p>
+          </div>
         ) : (
-          <div className="hidden lg:flex flex-1 items-center justify-center p-8">
-            <div className="text-center max-w-sm">
-              <TargetIcon className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm text-gray-500">
-                Select a lead from the list, or click{' '}
-                <span className="font-semibold text-amber-600">+ Add lead</span> to create
-                one.
-              </p>
-            </div>
+          <div className="space-y-3">
+            {inProgressLeads.map((lead) => renderCard(lead))}
+
+            {completedLeads.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setCompletedExpanded((v) => !v)}
+                  className="w-full flex items-center gap-2 px-2 pt-4 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-widest hover:text-gray-500"
+                >
+                  {completedExpanded ? (
+                    <ChevronDownIcon className="w-3 h-3" />
+                  ) : (
+                    <ChevronRightIcon className="w-3 h-3" />
+                  )}
+                  Completed ({completedLeads.length})
+                  <span className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a] ml-2" />
+                </button>
+                {completedExpanded &&
+                  completedLeads.map((lead) => renderCard(lead))}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -479,40 +561,6 @@ export default function LeadsClient({
           )}
         </div>
       )}
-      </div>
     </div>
-  )
-}
-
-interface LeadListItemProps {
-  lead: Lead
-  isSelected: boolean
-  onSelect: () => void
-}
-
-function LeadListItem({ lead, isSelected, onSelect }: LeadListItemProps) {
-  return (
-    <button
-      onClick={onSelect}
-      className={`w-full text-left relative rounded-lg border p-3 transition ${
-        isSelected
-          ? 'border-gray-300 bg-gray-50 dark:bg-gray-100'
-          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-      }`}
-    >
-      {isSelected && (
-        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-amber-500" />
-      )}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900 truncate">
-            {lead.project_name || 'Untitled Lead'}
-          </p>
-          {lead.customer_name && (
-            <p className="text-xs text-gray-600 truncate mt-0.5">{lead.customer_name}</p>
-          )}
-        </div>
-      </div>
-    </button>
   )
 }
