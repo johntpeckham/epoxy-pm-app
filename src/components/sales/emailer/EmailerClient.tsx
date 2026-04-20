@@ -14,6 +14,14 @@ import {
   ChevronRightIcon,
   ChevronDownIcon,
   FileTextIcon,
+  SparklesIcon,
+  SendIcon,
+  SkipForwardIcon,
+  CheckCircle2Icon,
+  RotateCcwIcon,
+  BuildingIcon,
+  PhoneIcon,
+  MapPinIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -48,10 +56,18 @@ interface EmailQueueContact {
   contact_id: string
   contact_first_name: string
   contact_last_name: string
+  contact_job_title: string | null
   contact_email: string | null
+  contact_phone: string | null
   company_id: string
   company_name: string
   company_industry: string | null
+  company_zone: string | null
+  company_region: string | null
+  company_county: string | null
+  company_city: string | null
+  company_state: string | null
+  company_status: string
   company_priority: 'high' | 'medium' | 'low' | null
   last_call_date: string | null
 }
@@ -83,6 +99,13 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
+  const [mode, setMode] = useState<'setup' | 'session' | 'complete'>('setup')
+  const [sessionQueue, setSessionQueue] = useState<EmailQueueContact[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [subject, setSubject] = useState('')
+  const [body, setBody] = useState('')
+  const [skippedCount, setSkippedCount] = useState(0)
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 200)
     return () => clearTimeout(t)
@@ -93,6 +116,47 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     const t = setTimeout(() => setToast(null), 2500)
     return () => clearTimeout(t)
   }, [toast])
+
+  function startSession(queue: EmailQueueContact[]) {
+    if (queue.length === 0) {
+      setToast('No contacts match your filters')
+      return
+    }
+    setSessionQueue(queue)
+    setCurrentIndex(0)
+    setSubject('')
+    setBody('')
+    setSkippedCount(0)
+    setMode('session')
+  }
+
+  function skipContact() {
+    setSkippedCount((prev) => prev + 1)
+    if (currentIndex >= sessionQueue.length - 1) {
+      setMode('complete')
+    } else {
+      setCurrentIndex((prev) => prev + 1)
+      setSubject('')
+      setBody('')
+    }
+  }
+
+  function endSession() {
+    setMode('setup')
+    setSessionQueue([])
+    setCurrentIndex(0)
+    setSubject('')
+    setBody('')
+  }
+
+  function newSession() {
+    setMode('setup')
+    setSessionQueue([])
+    setCurrentIndex(0)
+    setSubject('')
+    setBody('')
+    setSkippedCount(0)
+  }
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -198,10 +262,18 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         contact_id: c.id,
         contact_first_name: c.first_name,
         contact_last_name: c.last_name,
+        contact_job_title: c.job_title,
         contact_email: c.email,
+        contact_phone: c.phone,
         company_id: comp.id,
         company_name: comp.name,
         company_industry: comp.industry,
+        company_zone: comp.zone,
+        company_region: comp.region,
+        company_county: comp.county,
+        company_city: comp.city,
+        company_state: comp.state,
+        company_status: comp.status,
         company_priority: comp.priority,
         last_call_date: lastCallMap.get(c.company_id) ?? null,
       })
@@ -240,10 +312,18 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         contact_id: c.id,
         contact_first_name: c.first_name,
         contact_last_name: c.last_name,
+        contact_job_title: c.job_title,
         contact_email: c.email,
+        contact_phone: c.phone,
         company_id: comp.id,
         company_name: comp.name,
         company_industry: comp.industry,
+        company_zone: comp.zone,
+        company_region: comp.region,
+        company_county: comp.county,
+        company_city: comp.city,
+        company_state: comp.state,
+        company_status: comp.status,
         company_priority: comp.priority,
         last_call_date: lastCallMap.get(c.company_id) ?? null,
       })
@@ -285,7 +365,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
       </div>
 
       {/* Setup view */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
+      {mode === 'setup' && <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
         <div className="max-w-[760px] mx-auto px-6 pt-14 pb-16">
           {/* Centered heading */}
           <div className="text-center mb-10">
@@ -402,7 +482,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                 </div>
               </div>
               <button
-                onClick={() => setToast('Email session coming soon')}
+                onClick={() => startSession(autoQueue)}
                 disabled={loading || autoQueue.length === 0}
                 className="mt-5 w-full py-3 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-40 transition-colors"
               >
@@ -537,7 +617,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
               </div>
 
               <button
-                onClick={() => setToast('Email session coming soon')}
+                onClick={() => startSession(manualQueueResolved)}
                 disabled={manualQueueResolved.length === 0}
                 className="mt-5 w-full py-3 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-40 transition-colors"
               >
@@ -573,7 +653,251 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
             )}
           </div>
         </div>
-      </div>
+      </div>}
+
+      {/* Session view */}
+      {mode === 'session' && sessionQueue[currentIndex] && (() => {
+        const current = sessionQueue[currentIndex]
+        const progressPct = Math.round((currentIndex / Math.max(1, sessionQueue.length)) * 100)
+        const location = [current.company_city, current.company_state].filter(Boolean).join(', ')
+        const regionInfo = [current.company_zone, current.company_region || current.company_county].filter(Boolean).join(' · ')
+
+        return (
+          <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#1a1a1a] min-h-0">
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-[960px] mx-auto px-4 sm:px-6 py-6 space-y-4">
+                {/* Session bar */}
+                <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] px-5 py-3 flex items-center gap-4">
+                  <button
+                    onClick={endSession}
+                    className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+                  >
+                    End session
+                  </button>
+                  <div className="flex-1 flex items-center gap-3">
+                    <span className="text-xs text-gray-500 tabular-nums">
+                      {currentIndex + 1} of {sessionQueue.length}
+                    </span>
+                    <div className="flex-1 h-[3px] bg-gray-100 dark:bg-[#333] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-teal-500 transition-all duration-500 ease-out"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={skipContact}
+                    className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-full transition-colors"
+                  >
+                    {currentIndex >= sessionQueue.length - 1 ? 'Finish' : 'Skip'}
+                    <SkipForwardIcon className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {/* Two-panel layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
+                  {/* Left panel — Contact context (below on mobile) */}
+                  <div className="space-y-4 order-2 lg:order-1">
+                    {/* Contact card */}
+                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-3">
+                        Contact
+                      </p>
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800 flex items-center justify-center text-teal-700 dark:text-teal-400 text-sm font-medium mb-3">
+                          {current.contact_first_name.charAt(0)}{current.contact_last_name.charAt(0)}
+                        </div>
+                        <h2 className="text-lg font-medium text-gray-900 dark:text-white leading-tight">
+                          {current.contact_first_name} {current.contact_last_name}
+                        </h2>
+                        {current.contact_job_title && (
+                          <p className="text-xs text-gray-500 mt-0.5">{current.contact_job_title}</p>
+                        )}
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <BuildingIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          <span className="text-gray-700 dark:text-gray-300">{current.company_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <MailIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          <span className="text-gray-700 dark:text-gray-300">{current.contact_email || '—'}</span>
+                        </div>
+                        {current.contact_phone && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <PhoneIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                            <span className="text-gray-700 dark:text-gray-300 tabular-nums">{current.contact_phone}</span>
+                          </div>
+                        )}
+                        {location && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <MapPinIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                            <span className="text-gray-700 dark:text-gray-300">{location}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Company details card */}
+                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">
+                        Company details
+                      </p>
+                      <div className="space-y-1.5 text-xs">
+                        {current.company_industry && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Industry</span>
+                            <span className="text-gray-700 dark:text-gray-300">{current.company_industry}</span>
+                          </div>
+                        )}
+                        {regionInfo && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Zone / Region</span>
+                            <span className="text-gray-700 dark:text-gray-300">{regionInfo}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Status</span>
+                          <span className="text-gray-700 dark:text-gray-300 capitalize">{current.company_status.replace(/_/g, ' ')}</span>
+                        </div>
+                        {current.company_priority && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Priority</span>
+                            <span className={`capitalize ${
+                              current.company_priority === 'high'
+                                ? 'text-red-600'
+                                : current.company_priority === 'medium'
+                                  ? 'text-amber-600'
+                                  : 'text-gray-500'
+                            }`}>
+                              {current.company_priority}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right panel — Compose area (on top on mobile) */}
+                  <div className="order-1 lg:order-2">
+                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-6">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-3">
+                        Compose Email
+                      </p>
+
+                      {/* To */}
+                      <div className="mb-3">
+                        <label className="block text-[11px] text-gray-400 mb-1">To</label>
+                        <div className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg bg-gray-50 dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400">
+                          {current.contact_email || 'No email address'}
+                        </div>
+                      </div>
+
+                      {/* Subject */}
+                      <div className="mb-3">
+                        <label className="block text-[11px] text-gray-400 mb-1">Subject</label>
+                        <input
+                          type="text"
+                          value={subject}
+                          onChange={(e) => setSubject(e.target.value)}
+                          placeholder="Email subject line..."
+                          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                        />
+                      </div>
+
+                      {/* Body */}
+                      <div className="mb-4">
+                        <label className="block text-[11px] text-gray-400 mb-1">Body</label>
+                        <textarea
+                          value={body}
+                          onChange={(e) => setBody(e.target.value)}
+                          rows={10}
+                          placeholder="Compose your email..."
+                          className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 resize-none"
+                        />
+                      </div>
+
+                      {/* Helper text */}
+                      <p className="text-xs text-gray-400 mb-3">
+                        AI compose and email sending will be available in a future update.
+                      </p>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled
+                          title="Coming soon"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-[#333] rounded-lg disabled:opacity-40 transition-colors"
+                        >
+                          <SparklesIcon className="w-3.5 h-3.5" />
+                          AI Compose
+                        </button>
+                        <button
+                          disabled
+                          title="Coming soon"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-[#333] rounded-lg disabled:opacity-40 transition-colors"
+                        >
+                          <SendIcon className="w-3.5 h-3.5" />
+                          Send
+                        </button>
+                        <button
+                          onClick={skipContact}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors"
+                        >
+                          <SkipForwardIcon className="w-3.5 h-3.5" />
+                          Skip
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Session complete view */}
+      {mode === 'complete' && (
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
+          <div className="max-w-[520px] mx-auto px-6 pt-16 pb-12 text-center">
+            <div className="w-14 h-14 mx-auto rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-5">
+              <CheckCircle2Icon className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <h1 className="text-[24px] font-medium text-gray-900 dark:text-white leading-tight">
+              Session complete
+            </h1>
+            <p className="text-sm text-gray-500 mt-2">
+              {sessionQueue.length} contact{sessionQueue.length === 1 ? '' : 's'} reviewed.
+            </p>
+
+            <div className="mt-10 bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl divide-y divide-gray-100 dark:divide-[#2a2a2a] text-left">
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Total contacts</span>
+                <span className="text-sm tabular-nums text-gray-500">{sessionQueue.length}</span>
+              </div>
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Skipped</span>
+                <span className="text-sm tabular-nums text-gray-500">{skippedCount}</span>
+              </div>
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm text-gray-900 dark:text-white font-medium">Emails sent</span>
+                <span className="text-sm tabular-nums text-emerald-700 dark:text-emerald-400 font-medium">0</span>
+              </div>
+            </div>
+
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <button
+                onClick={newSession}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+              >
+                <RotateCcwIcon className="w-4 h-4" />
+                Start new session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
