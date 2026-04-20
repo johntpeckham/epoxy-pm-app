@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   CalendarDaysIcon,
@@ -23,7 +23,6 @@ interface ExecTask {
   due_date: string
   recurrence: string | null
   end_date: string | null
-  color: string | null
   status: string
   completed_at: string | null
   completed_by: string | null
@@ -40,10 +39,6 @@ interface RowItem {
 }
 
 const DEFAULT_CATEGORIES = ['Filing', 'Tax', 'Insurance', 'License', 'Other']
-const COLOR_SWATCHES = [
-  '#7F77DD', '#1D9E75', '#D85A30', '#D4537E', '#378ADD',
-  '#639922', '#EF9F27', '#E24B4A', '#888780',
-]
 const RECURRENCE_OPTIONS = [
   { value: 'one_time', label: 'One-time' },
   { value: 'quarterly', label: 'Quarterly' },
@@ -127,6 +122,8 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
   const [completedOpen, setCompletedOpen] = useState(false)
   const [occExpId, setOccExpId] = useState<string | null>(null)
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const [completingId, setCompletingId] = useState<string | null>(null)
+  const completingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
 
   useEffect(() => {
@@ -195,7 +192,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
   /* ── CRUD ── */
 
   async function handleCreate(data: {
-    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null; color: string | null
+    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null
   }) {
     const optimistic: ExecTask = {
       id: crypto.randomUUID(),
@@ -206,7 +203,6 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
       due_date: data.due_date,
       recurrence: data.recurrence,
       end_date: data.end_date,
-      color: data.color,
       status: 'active',
       completed_at: null,
       completed_by: null,
@@ -228,7 +224,6 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
         due_date: data.due_date,
         recurrence: data.recurrence,
         end_date: data.end_date,
-        color: data.color,
         created_by: userId,
       })
       .select()
@@ -237,12 +232,12 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
   }
 
   async function handleUpdate(id: string, data: {
-    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null; color: string | null
+    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null
   }) {
     setTasks(prev => prev.map(t => t.id === id ? {
       ...t, title: data.title, description: data.description || null,
       category: data.category, due_date: data.due_date,
-      recurrence: data.recurrence, end_date: data.end_date, color: data.color, updated_at: new Date().toISOString(),
+      recurrence: data.recurrence, end_date: data.end_date, updated_at: new Date().toISOString(),
     } : t))
     setEditingTask(null)
     setShowModal(false)
@@ -254,7 +249,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
       .update({
         title: data.title, description: data.description || null,
         category: data.category, due_date: data.due_date,
-        recurrence: data.recurrence, end_date: data.end_date, color: data.color, updated_at: new Date().toISOString(),
+        recurrence: data.recurrence, end_date: data.end_date, updated_at: new Date().toISOString(),
       })
       .eq('id', id)
   }
@@ -279,7 +274,6 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
         title: task.title, description: task.description,
         category: task.category, due_date: nextDue,
         recurrence: task.recurrence, end_date: task.end_date,
-        color: task.color,
         status: 'active',
         completed_at: null, completed_by: null,
         created_by: userId,
@@ -293,7 +287,6 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
           title: task.title, description: task.description,
           category: task.category, due_date: nextDue,
           recurrence: task.recurrence, end_date: task.end_date,
-          color: task.color,
           company_id: task.company_id,
           created_by: userId,
         })
@@ -335,6 +328,18 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
     }
   }
 
+  function handleAnimatedComplete(task: ExecTask) {
+    if (completingId) return
+    setCompletingId(task.id)
+    setMenuOpenId(null)
+    if (completingTimerRef.current) clearTimeout(completingTimerRef.current)
+    completingTimerRef.current = setTimeout(() => {
+      handleComplete(task)
+      setCompletingId(null)
+      completingTimerRef.current = null
+    }, 1300)
+  }
+
   /* ── Render helpers ── */
 
   function renderRow(item: RowItem) {
@@ -343,6 +348,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
     const isRecurring = !!(task.recurrence && task.recurrence !== 'one_time')
     const isOccExp = occExpId === key
     const isMenuOpen = menuOpenId === key
+    const isCompleting = completingId === task.id && !isProjected
 
     const d = daysDiff(effectiveDate)
     let bcClass = 'border-l-gray-200'
@@ -353,7 +359,10 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
     const occs = isRecurring ? calcOccurrences(effectiveDate, task.recurrence!, task.end_date, 3) : []
 
     return (
-      <div key={key}>
+      <div
+        key={key}
+        className={isCompleting ? 'exec-completing' : ''}
+      >
         <div
           className={`w-full flex items-center gap-2 px-3 py-2.5 bg-gray-50 rounded-r-lg border-l-[3px] ${bcClass} hover:bg-gray-100 transition-colors`}
           style={isProjected ? { borderLeftStyle: 'dashed' } : undefined}
@@ -370,13 +379,13 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
           ) : (
             <span className="w-3 flex-shrink-0" />
           )}
-          {task.color && (
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
-          )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <p className={`text-sm font-medium truncate ${isProjected ? 'text-gray-500' : 'text-gray-900'}`}>
+              <p className={`text-sm font-medium truncate relative ${isProjected ? 'text-gray-500' : 'text-gray-900'}`}>
                 {task.title}
+                {isCompleting && (
+                  <span className="exec-strikethrough-line" />
+                )}
               </p>
               {isProjected && (
                 <span className="inline-flex items-center rounded-full text-[10px] px-1.5 py-[1px] flex-shrink-0 bg-blue-50 text-blue-600 font-medium">
@@ -401,9 +410,14 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
           <span className={`text-xs flex-shrink-0 ${rel.cls}`}>{rel.text}</span>
           {!isProjected && (
             <button
-              onClick={() => handleComplete(task)}
-              className="flex-shrink-0 w-[18px] h-[18px] rounded-[3px] border border-gray-300 flex items-center justify-center hover:border-gray-400 transition-colors"
+              onClick={() => handleAnimatedComplete(task)}
+              className={`flex-shrink-0 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center transition-all ${
+                isCompleting
+                  ? 'bg-[#1D9E75] border-[#1D9E75]'
+                  : 'border-2 border-gray-400 hover:border-gray-600'
+              }`}
             >
+              {isCompleting && <CheckIcon className="w-3 h-3 text-white" />}
             </button>
           )}
           <div className="relative flex-shrink-0">
@@ -480,6 +494,27 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+      <style>{`
+        .exec-completing {
+          animation: exec-fade-out 0.3s ease 1s forwards;
+        }
+        .exec-strikethrough-line {
+          position: absolute;
+          left: 0;
+          top: 50%;
+          height: 1.5px;
+          background: currentColor;
+          animation: exec-strikethrough 0.3s ease forwards;
+        }
+        @keyframes exec-strikethrough {
+          from { width: 0; }
+          to { width: 100%; }
+        }
+        @keyframes exec-fade-out {
+          from { opacity: 1; max-height: 80px; margin-bottom: 6px; }
+          to { opacity: 0; max-height: 0; margin-bottom: 0; overflow: hidden; }
+        }
+      `}</style>
       {/* Header */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-amber-500">
@@ -587,9 +622,6 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
                     <div key={task.id} className="opacity-60">
                       <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 rounded-r-lg border-l-[3px] border-l-green-500">
                         <span className="w-3 flex-shrink-0" />
-                        {task.color ? (
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
-                        ) : null}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate line-through">{task.title}</p>
                           <p className="text-xs text-gray-500 mt-0.5">
@@ -702,7 +734,7 @@ function ExecTaskModal({
   categories: string[]
   onSave: (data: {
     title: string; description: string; category: string
-    due_date: string; recurrence: string; end_date: string | null; color: string | null
+    due_date: string; recurrence: string; end_date: string | null
   }) => void
   onClose: () => void
 }) {
@@ -713,7 +745,6 @@ function ExecTaskModal({
   const [recurrence, setRecurrence] = useState(task?.recurrence ?? 'yearly')
   const [endsMode, setEndsMode] = useState<'never' | 'on_date'>(task?.end_date ? 'on_date' : 'never')
   const [endDate, setEndDate] = useState(task?.end_date ?? '')
-  const [color, setColor] = useState<string | null>(task?.color ?? null)
   const [addingCategory, setAddingCategory] = useState(false)
   const [customCategory, setCustomCategory] = useState('')
 
@@ -723,7 +754,7 @@ function ExecTaskModal({
     e.preventDefault()
     if (!title.trim() || !dueDate) return
     const finalEndDate = isOneTime || endsMode === 'never' ? null : endDate || null
-    onSave({ title: title.trim(), description, category, due_date: dueDate, recurrence, end_date: finalEndDate, color })
+    onSave({ title: title.trim(), description, category, due_date: dueDate, recurrence, end_date: finalEndDate })
   }
 
   function confirmCustomCategory() {
@@ -868,30 +899,6 @@ function ExecTaskModal({
               )}
             </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Color</label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {COLOR_SWATCHES.map(sw => (
-                <button
-                  key={sw}
-                  type="button"
-                  onClick={() => setColor(color === sw ? null : sw)}
-                  className={`w-6 h-6 rounded-full border-2 transition-all ${color === sw ? 'border-gray-900 scale-110' : 'border-transparent hover:scale-110'}`}
-                  style={{ background: sw }}
-                />
-              ))}
-              {color && (
-                <button
-                  type="button"
-                  onClick={() => setColor(null)}
-                  className="text-[11px] text-gray-400 hover:text-gray-600 ml-1"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <button
