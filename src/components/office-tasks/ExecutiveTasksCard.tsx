@@ -21,6 +21,7 @@ interface ExecTask {
   category: string
   due_date: string
   recurrence: string | null
+  end_date: string | null
   status: string
   completed_at: string | null
   completed_by: string | null
@@ -29,7 +30,7 @@ interface ExecTask {
   updated_at: string
 }
 
-const CATEGORIES = ['Filing', 'Tax', 'Insurance', 'License', 'Other'] as const
+const DEFAULT_CATEGORIES = ['Filing', 'Tax', 'Insurance', 'License', 'Other']
 const RECURRENCE_OPTIONS = [
   { value: 'one_time', label: 'One-time' },
   { value: 'quarterly', label: 'Quarterly' },
@@ -77,6 +78,30 @@ function fmtDate(d: string): string {
   })
 }
 
+function fmtMonYear(d: string): string {
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
+function projectOccurrences(task: ExecTask, count: number): { date: string; isFinal: boolean }[] {
+  if (!task.recurrence || task.recurrence === 'one_time') return []
+  const results: { date: string; isFinal: boolean }[] = []
+  let current = task.due_date
+  for (let i = 0; i < count; i++) {
+    const next = calcNextDue(current, task.recurrence)
+    if (task.end_date && next > task.end_date) break
+    results.push({ date: next, isFinal: false })
+    current = next
+  }
+  if (results.length > 0 && task.end_date) {
+    const lastDate = results[results.length - 1].date
+    const afterLast = calcNextDue(lastDate, task.recurrence)
+    if (afterLast > task.end_date) {
+      results[results.length - 1].isFinal = true
+    }
+  }
+  return results
+}
+
 /* ================================================================== */
 
 export default function ExecutiveTasksCard({ userId }: { userId: string }) {
@@ -89,6 +114,8 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
   const [longTermOpen, setLongTermOpen] = useState(false)
   const [completedOpen, setCompletedOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [occExpId, setOccExpId] = useState<string | null>(null)
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
 
   useEffect(() => {
     supabase
@@ -98,6 +125,10 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
       .then(({ data }) => {
         setTasks((data as ExecTask[]) ?? [])
         setLoading(false)
+        if (data && data.length > 0) {
+          const dbCats = [...new Set((data as ExecTask[]).map(t => t.category))]
+          setCategories(prev => [...new Set([...prev, ...dbCats])])
+        }
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -132,7 +163,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
   /* ── CRUD ── */
 
   async function handleCreate(data: {
-    title: string; description: string; category: string; due_date: string; recurrence: string
+    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null
   }) {
     const optimistic: ExecTask = {
       id: crypto.randomUUID(),
@@ -142,6 +173,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
       category: data.category,
       due_date: data.due_date,
       recurrence: data.recurrence,
+      end_date: data.end_date,
       status: 'active',
       completed_at: null,
       completed_by: null,
@@ -151,6 +183,9 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
     }
     setTasks(prev => [...prev, optimistic])
     setShowModal(false)
+    if (!categories.includes(data.category)) {
+      setCategories(prev => [...prev, data.category])
+    }
     const { data: inserted } = await supabase
       .from('executive_tasks')
       .insert({
@@ -159,6 +194,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
         category: data.category,
         due_date: data.due_date,
         recurrence: data.recurrence,
+        end_date: data.end_date,
         created_by: userId,
       })
       .select()
@@ -167,21 +203,24 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
   }
 
   async function handleUpdate(id: string, data: {
-    title: string; description: string; category: string; due_date: string; recurrence: string
+    title: string; description: string; category: string; due_date: string; recurrence: string; end_date: string | null
   }) {
     setTasks(prev => prev.map(t => t.id === id ? {
       ...t, title: data.title, description: data.description || null,
       category: data.category, due_date: data.due_date,
-      recurrence: data.recurrence, updated_at: new Date().toISOString(),
+      recurrence: data.recurrence, end_date: data.end_date, updated_at: new Date().toISOString(),
     } : t))
     setEditingTask(null)
     setShowModal(false)
+    if (!categories.includes(data.category)) {
+      setCategories(prev => [...prev, data.category])
+    }
     await supabase
       .from('executive_tasks')
       .update({
         title: data.title, description: data.description || null,
         category: data.category, due_date: data.due_date,
-        recurrence: data.recurrence, updated_at: new Date().toISOString(),
+        recurrence: data.recurrence, end_date: data.end_date, updated_at: new Date().toISOString(),
       })
       .eq('id', id)
   }
@@ -192,6 +231,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
       ...t, status: 'completed', completed_at: now, completed_by: userId, updated_at: now,
     } : t))
     setExpandedId(null)
+    setOccExpId(null)
     await supabase
       .from('executive_tasks')
       .update({ status: 'completed', completed_at: now, completed_by: userId, updated_at: now })
@@ -199,11 +239,13 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
 
     if (task.recurrence && task.recurrence !== 'one_time') {
       const nextDue = calcNextDue(task.due_date, task.recurrence)
+      if (task.end_date && nextDue > task.end_date) return
       const next: ExecTask = {
         id: crypto.randomUUID(), company_id: task.company_id,
         title: task.title, description: task.description,
         category: task.category, due_date: nextDue,
-        recurrence: task.recurrence, status: 'active',
+        recurrence: task.recurrence, end_date: task.end_date,
+        status: 'active',
         completed_at: null, completed_by: null,
         created_by: userId,
         created_at: new Date().toISOString(),
@@ -215,7 +257,8 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
         .insert({
           title: task.title, description: task.description,
           category: task.category, due_date: nextDue,
-          recurrence: task.recurrence, company_id: task.company_id,
+          recurrence: task.recurrence, end_date: task.end_date,
+          company_id: task.company_id,
           created_by: userId,
         })
         .select()
@@ -246,6 +289,8 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
     const rel = relativeTime(task.due_date)
     const bc = borderColor(task)
     const isExp = expandedId === task.id
+    const isRecurring = task.recurrence && task.recurrence !== 'one_time'
+    const isOccExp = occExpId === task.id
     return (
       <div key={task.id}>
         <button
@@ -253,15 +298,49 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
           className={`w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 rounded-r-lg border-l-[3px] ${bc} text-left hover:bg-gray-100 transition-colors`}
         >
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
+              {isRecurring && (
+                <span
+                  className="inline-flex items-center rounded-full text-[11px] px-2 py-[1px] flex-shrink-0"
+                  style={{ background: 'rgba(239,159,39,0.12)', color: '#BA7517' }}
+                >
+                  {task.end_date ? `Ends ${fmtMonYear(task.end_date)}` : '∞ Indefinite'}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-500 mt-0.5">
               Due {fmtDate(task.due_date)}
               {task.recurrence ? ` · ${recurrenceLabel(task.recurrence)}` : ''}
               {' · '}{task.category}
             </p>
           </div>
+          {isRecurring && (
+            <ChevronRightIcon
+              className={`w-3.5 h-3.5 text-gray-300 flex-shrink-0 transition-transform ${isOccExp ? 'rotate-90' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setOccExpId(isOccExp ? null : task.id) }}
+            />
+          )}
           <span className={`text-xs flex-shrink-0 ${rel.cls}`}>{rel.text}</span>
         </button>
+        {isOccExp && isRecurring && (
+          <div className="ml-4 pl-3 border-l border-dashed border-gray-200 py-1.5 space-y-1">
+            {projectOccurrences(task, 3).map((occ, i) => {
+              const occRel = relativeTime(occ.date)
+              return (
+                <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 rounded text-xs">
+                  <span className="text-gray-700 font-medium">{fmtDate(occ.date)}</span>
+                  <span className={`ml-auto ${occRel.cls}`}>{occRel.text}</span>
+                </div>
+              )
+            })}
+            <div className="px-2.5 py-1 text-[11px]" style={{ color: '#BA7517' }}>
+              {task.end_date
+                ? `Ends ${fmtMonYear(task.end_date)}${projectOccurrences(task, 3).at(-1)?.isFinal ? ' · Final occurrence' : ''}`
+                : '∞ Recurs indefinitely'}
+            </div>
+          </div>
+        )}
         {isExp && (
           <div className={`px-3 py-2 bg-gray-50 border-l-[3px] ${bc} rounded-br-lg -mt-0.5`}>
             {task.description && (
@@ -448,6 +527,7 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
       {showModal && (
         <ExecTaskModal
           task={editingTask}
+          categories={categories}
           onSave={data => editingTask ? handleUpdate(editingTask.id, data) : handleCreate(data)}
           onClose={() => { setShowModal(false); setEditingTask(null) }}
         />
@@ -488,13 +568,15 @@ export default function ExecutiveTasksCard({ userId }: { userId: string }) {
 
 function ExecTaskModal({
   task,
+  categories,
   onSave,
   onClose,
 }: {
   task: ExecTask | null
+  categories: string[]
   onSave: (data: {
     title: string; description: string; category: string
-    due_date: string; recurrence: string
+    due_date: string; recurrence: string; end_date: string | null
   }) => void
   onClose: () => void
 }) {
@@ -503,16 +585,32 @@ function ExecTaskModal({
   const [category, setCategory] = useState(task?.category ?? 'Filing')
   const [dueDate, setDueDate] = useState(task?.due_date ?? '')
   const [recurrence, setRecurrence] = useState(task?.recurrence ?? 'yearly')
+  const [endsMode, setEndsMode] = useState<'never' | 'on_date'>(task?.end_date ? 'on_date' : 'never')
+  const [endDate, setEndDate] = useState(task?.end_date ?? '')
+  const [addingCategory, setAddingCategory] = useState(false)
+  const [customCategory, setCustomCategory] = useState('')
+
+  const isOneTime = recurrence === 'one_time'
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim() || !dueDate) return
-    onSave({ title: title.trim(), description, category, due_date: dueDate, recurrence })
+    const finalEndDate = isOneTime || endsMode === 'never' ? null : endDate || null
+    onSave({ title: title.trim(), description, category, due_date: dueDate, recurrence, end_date: finalEndDate })
+  }
+
+  function confirmCustomCategory() {
+    const trimmed = customCategory.trim()
+    if (trimmed) {
+      setCategory(trimmed)
+      setAddingCategory(false)
+      setCustomCategory('')
+    }
   }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">
             {task ? 'Edit Executive Task' : 'New Executive Task'}
@@ -552,13 +650,37 @@ function ExecTaskModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value)}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 bg-white"
-              >
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              {addingCategory ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={customCategory}
+                    onChange={e => setCustomCategory(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmCustomCategory() } }}
+                    placeholder="New category..."
+                    autoFocus
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400"
+                  />
+                  <button type="button" onClick={confirmCustomCategory} className="p-1.5 text-green-600 hover:bg-green-50 rounded">
+                    <CheckIcon className="w-4 h-4" />
+                  </button>
+                  <button type="button" onClick={() => { setAddingCategory(false); setCustomCategory('') }} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded">
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={category}
+                  onChange={e => {
+                    if (e.target.value === '__add_new__') { setAddingCategory(true) }
+                    else setCategory(e.target.value)
+                  }}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 bg-white"
+                >
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="__add_new__">+ Add new</option>
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Recurrence</label>
@@ -583,6 +705,42 @@ function ExecTaskModal({
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 bg-white"
             />
           </div>
+
+          {!isOneTime && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ends</label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ends"
+                    checked={endsMode === 'never'}
+                    onChange={() => setEndsMode('never')}
+                    className="accent-amber-500"
+                  />
+                  Never
+                </label>
+                <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ends"
+                    checked={endsMode === 'on_date'}
+                    onChange={() => setEndsMode('on_date')}
+                    className="accent-amber-500"
+                  />
+                  On date
+                </label>
+              </div>
+              {endsMode === 'on_date' && (
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="mt-2 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 bg-white"
+                />
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <button
