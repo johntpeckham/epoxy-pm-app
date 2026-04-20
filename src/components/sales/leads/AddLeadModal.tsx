@@ -144,7 +144,7 @@ export default function AddLeadModal({
         address: address || null,
         date: date || null,
         category: category || null,
-        status: 'in_progress',
+        status: 'new',
         created_by: userId,
       })
       .select('*')

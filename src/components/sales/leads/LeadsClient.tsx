@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -11,7 +11,6 @@ import {
   ChevronRightIcon,
   ChevronDownIcon,
   Trash2Icon,
-  CheckIcon,
   ArrowLeftIcon,
   MapPinIcon,
   PhoneIcon,
@@ -30,7 +29,7 @@ import LeadMeasurementsCard from './LeadMeasurementsCard'
 import LeadPushMenu from './LeadPushMenu'
 import AddLeadModal from './AddLeadModal'
 
-export type LeadStatus = 'in_progress' | 'completed'
+export type LeadStatus = 'new' | 'appointment_set' | 'sent_to_estimating' | 'unable_to_reach' | 'disqualified'
 export type LeadPushedTo = 'appointment' | 'job_walk' | 'estimating' | 'estimate' | 'job'
 
 export interface Lead {
@@ -66,40 +65,13 @@ interface LeadsClientProps {
   userRole: UserRole
 }
 
-export const LEAD_STATUS_STYLES: Record<LeadStatus, { label: string; className: string }> = {
-  in_progress: { label: 'In Progress', className: 'bg-green-100 text-green-700' },
-  completed: { label: 'Completed', className: 'bg-blue-100 text-blue-700' },
-}
-
-type LeadStageKey = 'lead' | 'appointment' | 'job_walk' | 'estimating' | 'estimate' | 'job'
-const LEAD_STAGE_ORDER: LeadStageKey[] = [
-  'lead',
-  'appointment',
-  'job_walk',
-  'estimating',
-  'estimate',
-  'job',
+const LEAD_STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
+  { value: 'new', label: 'New' },
+  { value: 'appointment_set', label: 'Appointment Set' },
+  { value: 'sent_to_estimating', label: 'Sent to Estimating' },
+  { value: 'unable_to_reach', label: 'Unable to Reach' },
+  { value: 'disqualified', label: 'Disqualified' },
 ]
-const LEAD_STAGE_LABELS: Record<LeadStageKey, string> = {
-  lead: 'Lead',
-  appointment: 'Appointment',
-  job_walk: 'Job walk',
-  estimating: 'Estimating',
-  estimate: 'Estimate',
-  job: 'Job',
-}
-
-function leadStageIndex(pushedTo: LeadPushedTo | null): number {
-  if (!pushedTo) return 0
-  const map: Record<LeadPushedTo, number> = {
-    appointment: 1,
-    job_walk: 2,
-    estimating: 3,
-    estimate: 4,
-    job: 5,
-  }
-  return map[pushedTo]
-}
 
 function formatDate(iso: string | null): string {
   if (!iso) return ''
@@ -130,8 +102,6 @@ export default function LeadsClient({
   const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<{ message: string; href?: string | null } | null>(null)
-  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
-  const statusDropdownRef = useRef<HTMLDivElement>(null)
 
   function showToast(message: string, href?: string | null) {
     setToast({ message, href: href ?? null })
@@ -147,18 +117,6 @@ export default function LeadsClient({
   }, [])
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
-        setStatusDropdownOpen(false)
-      }
-    }
-    if (statusDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [statusDropdownOpen])
-
-  useEffect(() => {
     async function fetchCustomers() {
       const supabase = createClient()
       const { data } = await supabase
@@ -172,7 +130,6 @@ export default function LeadsClient({
   }, [userId])
 
   function toggleExpand(id: string) {
-    setStatusDropdownOpen(false)
     const next = expandedId === id ? null : id
     setExpandedId(next)
     const params = new URLSearchParams(searchParams.toString())
@@ -241,12 +198,12 @@ export default function LeadsClient({
     })
   }, [leads, search])
 
-  const inProgressLeads = useMemo(
-    () => filtered.filter((l) => l.status !== 'completed'),
+  const activeLeads = useMemo(
+    () => filtered.filter((l) => l.status !== 'disqualified'),
     [filtered]
   )
-  const completedLeads = useMemo(
-    () => filtered.filter((l) => l.status === 'completed'),
+  const disqualifiedLeads = useMemo(
+    () => filtered.filter((l) => l.status === 'disqualified'),
     [filtered]
   )
 
@@ -271,8 +228,7 @@ export default function LeadsClient({
 
   function renderCard(lead: Lead) {
     const isExpanded = expandedId === lead.id
-    const currentStage = leadStageIndex(lead.pushed_to)
-    const isDimmed = lead.status === 'completed'
+    const isDimmed = lead.status === 'disqualified'
 
     return (
       <div
@@ -290,14 +246,24 @@ export default function LeadsClient({
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[15px] font-medium text-gray-900 dark:text-white">
+                <span className="text-[17px] font-medium text-gray-900 dark:text-white">
                   {lead.project_name || 'Untitled Lead'}
                 </span>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${LEAD_STATUS_STYLES[lead.status].className}`}>
-                  {LEAD_STATUS_STYLES[lead.status].label}
-                </span>
+                <select
+                  value={lead.status}
+                  onChange={(e) => {
+                    e.stopPropagation()
+                    setLeadStatus(lead, e.target.value as LeadStatus)
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[12px] font-medium border border-gray-200 dark:border-[#3a3a3a] rounded-md px-1.5 py-1 text-gray-600 dark:text-gray-300 bg-white dark:bg-[#2a2a2a] max-w-[170px] cursor-pointer"
+                >
+                  {LEAD_STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
               </div>
-              <div className="mt-1.5 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
+              <div className="mt-2 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">
                 {lead.customer_name && (
                   <span className="inline-flex items-center gap-1.5">
                     <UserIcon className="w-4 h-4 text-gray-400" />
@@ -312,7 +278,7 @@ export default function LeadsClient({
                 )}
               </div>
               {(lead.address || lead.customer_phone || lead.customer_email) && (
-                <div className="mt-1 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
+                <div className="mt-1 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">
                   {lead.address && (
                     <span className="inline-flex items-center gap-1.5">
                       <MapPinIcon className="w-4 h-4 text-gray-400" />
@@ -340,34 +306,6 @@ export default function LeadsClient({
               }`}
             />
           </div>
-
-          {/* Pipeline tracker */}
-          <div className="mt-4 pt-[14px] border-t border-gray-100 dark:border-[#2a2a2a]">
-            <div className="text-[11px] text-gray-400 mb-2">Pipeline progress</div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {LEAD_STAGE_ORDER.map((stage, i) => {
-                const isCompleted = i < currentStage
-                const isCurrent = i === currentStage
-                const stageClass = isCompleted
-                  ? 'bg-amber-50 text-amber-700 border border-amber-50'
-                  : isCurrent
-                  ? 'border border-dashed border-amber-400 text-amber-700 bg-white dark:bg-[#242424]'
-                  : 'bg-gray-50 dark:bg-[#1a1a1a] text-gray-400 border border-gray-50 dark:border-[#1a1a1a]'
-                return (
-                  <span key={stage} className="inline-flex items-center gap-1.5">
-                    <span
-                      className={`px-2.5 py-1 text-[11px] font-medium rounded-full ${stageClass}`}
-                    >
-                      {LEAD_STAGE_LABELS[stage]}
-                    </span>
-                    {i < LEAD_STAGE_ORDER.length - 1 && (
-                      <span className="text-gray-300 text-[11px]">→</span>
-                    )}
-                  </span>
-                )
-              })}
-            </div>
-          </div>
         </button>
 
         {/* Expanded detail */}
@@ -375,37 +313,6 @@ export default function LeadsClient({
           <div className="border-t border-gray-100 dark:border-[#2a2a2a]">
             {/* Action bar */}
             <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 dark:bg-[#1e1e1e] flex-wrap">
-              <div className="relative flex-shrink-0" ref={statusDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setStatusDropdownOpen((v) => !v)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition ${LEAD_STATUS_STYLES[lead.status].className}`}
-                >
-                  {LEAD_STATUS_STYLES[lead.status].label}
-                  <ChevronDownIcon className="w-3 h-3" />
-                </button>
-                {statusDropdownOpen && (
-                  <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-lg shadow-lg py-1 min-w-[150px]">
-                    {(Object.keys(LEAD_STATUS_STYLES) as LeadStatus[]).map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          setLeadStatus(lead, s)
-                          setStatusDropdownOpen(false)
-                        }}
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center justify-between gap-2"
-                      >
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${LEAD_STATUS_STYLES[s].className}`}>
-                          {LEAD_STATUS_STYLES[s].label}
-                        </span>
-                        {s === lead.status && (
-                          <CheckIcon className="w-4 h-4 text-gray-500" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
               <LeadPushMenu
                 lead={lead}
                 userId={userId}
@@ -504,9 +411,9 @@ export default function LeadsClient({
           </div>
         ) : (
           <div className="space-y-3">
-            {inProgressLeads.map((lead) => renderCard(lead))}
+            {activeLeads.map((lead) => renderCard(lead))}
 
-            {completedLeads.length > 0 && (
+            {disqualifiedLeads.length > 0 && (
               <>
                 <button
                   type="button"
@@ -518,11 +425,11 @@ export default function LeadsClient({
                   ) : (
                     <ChevronRightIcon className="w-3 h-3" />
                   )}
-                  Completed ({completedLeads.length})
+                  Disqualified ({disqualifiedLeads.length})
                   <span className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a] ml-2" />
                 </button>
                 {completedExpanded &&
-                  completedLeads.map((lead) => renderCard(lead))}
+                  disqualifiedLeads.map((lead) => renderCard(lead))}
               </>
             )}
           </div>
