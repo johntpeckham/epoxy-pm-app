@@ -38,6 +38,7 @@ import {
   BoxesIcon,
   WarehouseIcon,
   FolderOpenIcon,
+  BanknoteIcon,
   BuildingIcon,
   LoaderIcon,
   type LucideIcon,
@@ -191,7 +192,7 @@ export default function NavigationSearch() {
     if (filteredPages.length > 0) {
       grouped.push({ category: 'Pages', items: filteredPages })
     }
-    const dataCategories = ['Projects', 'Estimates', 'Companies', 'Contacts', 'Leads', 'Equipment']
+    const dataCategories = ['Projects', 'Estimates', 'Companies', 'Contacts', 'Leads', 'Equipment', 'Check Deposits']
     for (const cat of dataCategories) {
       const items = dataResults.filter((r) => r.category === cat)
       if (items.length > 0) {
@@ -383,6 +384,33 @@ export default function NavigationSearch() {
           )
         }
 
+        if (role === 'admin') {
+          queries.push(
+            Promise.resolve(supabase
+              .from('check_deposits')
+              .select('id, name, invoice_number, check_number')
+              .or(`name.ilike.${pattern},invoice_number.ilike.${pattern},check_number.ilike.${pattern}`)
+              .limit(5))
+              .then(({ data }) => {
+                if (data) {
+                  for (const cd of data) {
+                    results.push({
+                      id: `check-deposit-${cd.id}`,
+                      name: cd.name,
+                      route: '/office',
+                      icon: BanknoteIcon,
+                      secondaryLabel: [
+                        cd.invoice_number && `Inv #${cd.invoice_number}`,
+                        cd.check_number && `Check #${cd.check_number}`,
+                      ].filter(Boolean).join(' · ') || 'Check Deposit',
+                      category: 'Check Deposits',
+                    })
+                  }
+                }
+              })
+          )
+        }
+
         await Promise.all(queries)
         setDataResults(results)
       } catch {
@@ -391,7 +419,7 @@ export default function NavigationSearch() {
         setDataLoading(false)
       }
     },
-    [isSalesRole]
+    [isSalesRole, role]
   )
 
   useEffect(() => {
