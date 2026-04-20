@@ -22,6 +22,7 @@ import {
   BuildingIcon,
   PhoneIcon,
   MapPinIcon,
+  ArrowRightIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -72,6 +73,36 @@ interface EmailQueueContact {
   last_call_date: string | null
 }
 
+interface RecentCall {
+  id: string
+  outcome: string
+  call_date: string
+  notes: string | null
+}
+
+interface RecentComment {
+  id: string
+  content: string
+  created_at: string
+}
+
+function formatDate(iso: string | null, withTime = false): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const date = d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  if (!withTime) return date
+  const time = d.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  return `${date} · ${time}`
+}
+
 interface EmailerClientProps {
   userId: string
 }
@@ -105,6 +136,11 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [skippedCount, setSkippedCount] = useState(0)
+  const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set())
+  const [recentCalls, setRecentCalls] = useState<RecentCall[]>([])
+  const [recentComment, setRecentComment] = useState<RecentComment | null>(null)
+  const [sidebarLoading, setSidebarLoading] = useState(false)
+  const [sessionTemplatesOpen, setSessionTemplatesOpen] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 200)
@@ -116,6 +152,42 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     const t = setTimeout(() => setToast(null), 2500)
     return () => clearTimeout(t)
   }, [toast])
+
+  useEffect(() => {
+    if (mode !== 'session') return
+    const current = sessionQueue[currentIndex]
+    if (!current) return
+    let cancelled = false
+    setSidebarLoading(true)
+    setRecentCalls([])
+    setRecentComment(null)
+
+    async function load() {
+      const companyId = current.company_id
+      const [{ data: calls }, { data: comments }] = await Promise.all([
+        supabase
+          .from('crm_call_log')
+          .select('id, outcome, call_date, notes')
+          .eq('company_id', companyId)
+          .order('call_date', { ascending: false })
+          .limit(3),
+        supabase
+          .from('crm_comments')
+          .select('id, content, created_at')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false })
+          .limit(1),
+      ])
+      if (cancelled) return
+      setRecentCalls((calls ?? []) as RecentCall[])
+      setRecentComment(((comments ?? [])[0] as RecentComment) ?? null)
+      setSidebarLoading(false)
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [mode, currentIndex, sessionQueue, supabase])
 
   function startSession(queue: EmailQueueContact[]) {
     if (queue.length === 0) {
@@ -131,6 +203,10 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
   }
 
   function skipContact() {
+    const current = sessionQueue[currentIndex]
+    if (current) {
+      setSkippedIds((prev) => new Set(prev).add(current.contact_id))
+    }
     setSkippedCount((prev) => prev + 1)
     if (currentIndex >= sessionQueue.length - 1) {
       setMode('complete')
@@ -147,6 +223,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     setCurrentIndex(0)
     setSubject('')
     setBody('')
+    setSkippedIds(new Set())
   }
 
   function newSession() {
@@ -156,6 +233,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     setSubject('')
     setBody('')
     setSkippedCount(0)
+    setSkippedIds(new Set())
   }
 
   const fetchAll = useCallback(async () => {
@@ -687,99 +765,24 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                   </div>
                   <button
                     onClick={skipContact}
-                    className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-full transition-colors"
+                    className="text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                   >
-                    {currentIndex >= sessionQueue.length - 1 ? 'Finish' : 'Skip'}
-                    <SkipForwardIcon className="w-3 h-3" />
+                    Skip
+                  </button>
+                  <button
+                    onClick={skipContact}
+                    className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-full transition-colors"
+                  >
+                    {currentIndex >= sessionQueue.length - 1 ? 'Finish' : 'Next contact'}
+                    <ArrowRightIcon className="w-3 h-3" />
                   </button>
                 </div>
 
-                {/* Two-panel layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
-                  {/* Left panel — Contact context (below on mobile) */}
-                  <div className="space-y-4 order-2 lg:order-1">
-                    {/* Contact card */}
-                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
-                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-3">
-                        Contact
-                      </p>
-                      <div className="flex flex-col items-center text-center">
-                        <div className="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800 flex items-center justify-center text-teal-700 dark:text-teal-400 text-sm font-medium mb-3">
-                          {current.contact_first_name.charAt(0)}{current.contact_last_name.charAt(0)}
-                        </div>
-                        <h2 className="text-lg font-medium text-gray-900 dark:text-white leading-tight">
-                          {current.contact_first_name} {current.contact_last_name}
-                        </h2>
-                        {current.contact_job_title && (
-                          <p className="text-xs text-gray-500 mt-0.5">{current.contact_job_title}</p>
-                        )}
-                      </div>
-                      <div className="mt-4 space-y-2">
-                        <div className="flex items-center gap-2 text-xs">
-                          <BuildingIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="text-gray-700 dark:text-gray-300">{current.company_name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          <MailIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="text-gray-700 dark:text-gray-300">{current.contact_email || '—'}</span>
-                        </div>
-                        {current.contact_phone && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <PhoneIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                            <span className="text-gray-700 dark:text-gray-300 tabular-nums">{current.contact_phone}</span>
-                          </div>
-                        )}
-                        {location && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <MapPinIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                            <span className="text-gray-700 dark:text-gray-300">{location}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Company details card */}
-                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
-                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">
-                        Company details
-                      </p>
-                      <div className="space-y-1.5 text-xs">
-                        {current.company_industry && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Industry</span>
-                            <span className="text-gray-700 dark:text-gray-300">{current.company_industry}</span>
-                          </div>
-                        )}
-                        {regionInfo && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Zone / Region</span>
-                            <span className="text-gray-700 dark:text-gray-300">{regionInfo}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Status</span>
-                          <span className="text-gray-700 dark:text-gray-300 capitalize">{current.company_status.replace(/_/g, ' ')}</span>
-                        </div>
-                        {current.company_priority && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Priority</span>
-                            <span className={`capitalize ${
-                              current.company_priority === 'high'
-                                ? 'text-red-600'
-                                : current.company_priority === 'medium'
-                                  ? 'text-amber-600'
-                                  : 'text-gray-500'
-                            }`}>
-                              {current.company_priority}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right panel — Compose area (on top on mobile) */}
-                  <div className="order-1 lg:order-2">
+                {/* Two-column layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+                  {/* Left column — Compose + Templates */}
+                  <div className="space-y-4">
+                    {/* Compose Email card */}
                     <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-6">
                       <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-3">
                         Compose Email
@@ -848,6 +851,182 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                           Skip
                         </button>
                       </div>
+
+                      {/* Collapsible Templates */}
+                      <div className="mt-4 border-t border-gray-100 dark:border-[#333] pt-4">
+                        <button
+                          onClick={() => setSessionTemplatesOpen((v) => !v)}
+                          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {sessionTemplatesOpen ? (
+                            <ChevronDownIcon className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronRightIcon className="w-3.5 h-3.5" />
+                          )}
+                          <FileTextIcon className="w-3.5 h-3.5" />
+                          Templates
+                        </button>
+                        {sessionTemplatesOpen && (
+                          <p className="text-xs text-gray-400 italic mt-2 pl-5">
+                            No email templates yet.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right column — Sidebar cards */}
+                  <div className="space-y-4">
+                    {/* Contact card */}
+                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-3">
+                        Contact
+                      </p>
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800 flex items-center justify-center text-teal-700 dark:text-teal-400 text-sm font-medium mb-3">
+                          {current.contact_first_name.charAt(0)}{current.contact_last_name.charAt(0)}
+                        </div>
+                        <h2 className="text-sm font-medium text-gray-900 dark:text-white leading-tight">
+                          {current.contact_first_name} {current.contact_last_name}
+                        </h2>
+                        {current.contact_job_title && (
+                          <p className="text-xs text-gray-500 mt-0.5">{current.contact_job_title}</p>
+                        )}
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        <div className="flex items-center gap-2 text-xs">
+                          <BuildingIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          <span className="text-gray-700 dark:text-gray-300 truncate">{current.company_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <MailIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          <span className="text-gray-700 dark:text-gray-300 truncate">{current.contact_email || '—'}</span>
+                        </div>
+                        {current.contact_phone && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <PhoneIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                            <span className="text-gray-700 dark:text-gray-300 tabular-nums">{current.contact_phone}</span>
+                          </div>
+                        )}
+                        {location && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <MapPinIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                            <span className="text-gray-700 dark:text-gray-300">{location}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Company card */}
+                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1.5">
+                        Company
+                      </p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {current.company_name}
+                      </p>
+                      {current.company_industry && (
+                        <p className="text-xs text-gray-500 mt-0.5">{current.company_industry}</p>
+                      )}
+                      {location && (
+                        <p className="text-xs text-gray-400 mt-0.5">{location}</p>
+                      )}
+                      {current.company_priority && (
+                        <span className={`inline-block mt-2 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                          current.company_priority === 'high'
+                            ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                            : current.company_priority === 'medium'
+                              ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          {current.company_priority} priority
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Last Activity card */}
+                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">
+                        Last activity
+                      </p>
+                      {sidebarLoading ? (
+                        <p className="text-xs text-gray-400 italic">Loading…</p>
+                      ) : recentCalls.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">No recent activity.</p>
+                      ) : (
+                        <ul className="space-y-2.5">
+                          {recentCalls.map((c) => (
+                            <li key={c.id} className="text-xs">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="capitalize text-gray-700 dark:text-gray-300">
+                                  {c.outcome.replace(/_/g, ' ')}
+                                </span>
+                                <span className="text-gray-400 tabular-nums">
+                                  {formatDate(c.call_date)}
+                                </span>
+                              </div>
+                              {c.notes && (
+                                <p className="text-gray-500 mt-0.5 line-clamp-2">
+                                  {c.notes}
+                                </p>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Notes card */}
+                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">
+                        Notes
+                      </p>
+                      {sidebarLoading ? (
+                        <p className="text-xs text-gray-400 italic">Loading…</p>
+                      ) : !recentComment ? (
+                        <p className="text-xs text-gray-400 italic">No notes.</p>
+                      ) : (
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          <p className="line-clamp-4 whitespace-pre-wrap leading-relaxed">
+                            {recentComment.content}
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            {formatDate(recentComment.created_at, true)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Queue card */}
+                    <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">
+                        Queue
+                      </p>
+                      <ul className="space-y-1">
+                        {sessionQueue.map((q, idx) => {
+                          const isCurrent = idx === currentIndex
+                          const isDone = skippedIds.has(q.contact_id)
+                          return (
+                            <li
+                              key={q.contact_id}
+                              className={`text-xs flex items-center gap-2 px-2 py-1 rounded ${
+                                isDone
+                                  ? 'text-gray-300 dark:text-gray-600 line-through'
+                                  : isCurrent
+                                    ? 'text-teal-700 dark:text-teal-400 font-medium bg-teal-50 dark:bg-teal-900/20'
+                                    : 'text-gray-500'
+                              }`}
+                            >
+                              {isCurrent && (
+                                <ChevronRightIcon className="w-3 h-3 text-teal-500 flex-none" />
+                              )}
+                              <span className="truncate flex-1">
+                                {q.contact_first_name} {q.contact_last_name}
+                              </span>
+                            </li>
+                          )
+                        })}
+                      </ul>
                     </div>
                   </div>
                 </div>
