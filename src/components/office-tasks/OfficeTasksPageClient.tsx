@@ -30,6 +30,7 @@ import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
 import EquipmentDetailLoader from '@/components/equipment/EquipmentDetailLoader'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
+import ExecutiveTasksCard from '@/components/office-tasks/ExecutiveTasksCard'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -795,13 +796,20 @@ export default function OfficeTasksPageClient({
       <div className="mt-8 pb-6">
         <div className="border-t border-gray-200/60" />
         <div className="mt-4">
-          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Executive Area</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3">
-              <LandmarkIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-              <div className="ml-2.5 flex-1">
-                <span className="text-[13px] font-medium text-gray-900">Check Deposits</span>
-                <p className="text-[11px] text-gray-400 mt-0.5">Coming soon</p>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3 px-4">Executive Area</p>
+          <div className="px-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <ExecutiveTasksCard userId={userId} />
+            {/* Check Deposits placeholder */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-amber-500">
+                  <LandmarkIcon className="w-5 h-5" />
+                </span>
+                <h3 className="text-sm font-semibold text-gray-900 flex-1">Check deposits</h3>
+              </div>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <LandmarkIcon className="w-10 h-10 text-gray-200 mb-3" />
+                <p className="text-sm text-gray-400 font-medium">Coming soon</p>
               </div>
             </div>
           </div>
