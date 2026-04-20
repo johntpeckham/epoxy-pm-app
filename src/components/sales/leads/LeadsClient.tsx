@@ -10,6 +10,7 @@ import {
   TargetIcon,
   ChevronRightIcon,
   ChevronDownIcon,
+  ChevronUpIcon,
   Trash2Icon,
   ArrowLeftIcon,
   MapPinIcon,
@@ -72,6 +73,14 @@ const LEAD_STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: 'unable_to_reach', label: 'Unable to Reach' },
   { value: 'disqualified', label: 'Disqualified' },
 ]
+
+const LEAD_STATUS_COLORS: Record<LeadStatus, { bg: string; border: string; text: string }> = {
+  new: { bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.3)', text: '#6b7280' },
+  appointment_set: { bg: 'rgba(29,158,117,0.15)', border: 'rgba(29,158,117,0.3)', text: '#1D9E75' },
+  sent_to_estimating: { bg: 'rgba(55,138,221,0.15)', border: 'rgba(55,138,221,0.3)', text: '#378ADD' },
+  unable_to_reach: { bg: 'rgba(239,159,39,0.15)', border: 'rgba(239,159,39,0.3)', text: '#EF9F27' },
+  disqualified: { bg: 'rgba(226,75,74,0.15)', border: 'rgba(226,75,74,0.3)', text: '#E24B4A' },
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) return ''
@@ -238,31 +247,15 @@ export default function LeadsClient({
         }`}
       >
         {/* Collapsed summary — always visible */}
-        <button
-          type="button"
+        <div
           onClick={() => toggleExpand(lead.id)}
-          className="w-full text-left px-6 py-5"
+          className="w-full text-left px-6 py-5 cursor-pointer"
         >
-          <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[17px] font-medium text-gray-900 dark:text-white">
-                  {lead.project_name || 'Untitled Lead'}
-                </span>
-                <select
-                  value={lead.status}
-                  onChange={(e) => {
-                    e.stopPropagation()
-                    setLeadStatus(lead, e.target.value as LeadStatus)
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="text-[12px] font-medium border border-gray-200 dark:border-[#3a3a3a] rounded-md px-1.5 py-1 text-gray-600 dark:text-gray-300 bg-white dark:bg-[#2a2a2a] max-w-[170px] cursor-pointer"
-                >
-                  {LEAD_STATUS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
+              <span className="text-[17px] font-medium text-gray-900 dark:text-white">
+                {lead.project_name || 'Untitled Lead'}
+              </span>
               <div className="mt-2 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">
                 {lead.customer_name && (
                   <span className="inline-flex items-center gap-1.5">
@@ -300,13 +293,36 @@ export default function LeadsClient({
                 </div>
               )}
             </div>
-            <ChevronDownIcon
-              className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform ${
-                isExpanded ? 'rotate-180' : ''
-              }`}
-            />
+            <div className="flex items-center gap-2.5 flex-shrink-0 mt-0.5">
+              <select
+                value={lead.status}
+                onChange={(e) => {
+                  e.stopPropagation()
+                  setLeadStatus(lead, e.target.value as LeadStatus)
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  backgroundColor: LEAD_STATUS_COLORS[lead.status].bg,
+                  borderColor: LEAD_STATUS_COLORS[lead.status].border,
+                  color: LEAD_STATUS_COLORS[lead.status].text,
+                }}
+                className="text-[12px] font-medium border rounded-md px-2 py-1 max-w-[175px] cursor-pointer outline-none"
+              >
+                {LEAD_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <span className="inline-flex items-center gap-1 text-[13px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors select-none">
+                {isExpanded ? 'Close' : 'View'}
+                {isExpanded ? (
+                  <ChevronUpIcon className="w-4 h-4" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4" />
+                )}
+              </span>
+            </div>
           </div>
-        </button>
+        </div>
 
         {/* Expanded detail */}
         {isExpanded && (
