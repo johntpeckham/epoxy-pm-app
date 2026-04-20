@@ -162,63 +162,29 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
     }
   }
 
-  async function advanceToDeposited(check: CheckDeposit) {
+  async function handleStatusChange(check: CheckDeposit, newStatus: CheckStatus) {
+    if (check.status === newStatus) return
     const now = new Date().toISOString()
+    const patch: Partial<CheckDeposit> & { updated_at: string } = {
+      status: newStatus,
+      updated_at: now,
+    }
+    if (newStatus === 'not_deposited') {
+      patch.deposited_at = null
+      patch.filed_at = null
+    } else if (newStatus === 'deposited') {
+      if (!check.deposited_at) patch.deposited_at = now
+      patch.filed_at = null
+    } else if (newStatus === 'filed_in_quickbooks') {
+      if (!check.deposited_at) patch.deposited_at = now
+      if (!check.filed_at) patch.filed_at = now
+    }
     setChecks((prev) =>
-      prev.map((c) =>
-        c.id === check.id
-          ? { ...c, status: 'deposited', deposited_at: now, updated_at: now }
-          : c
-      )
+      prev.map((c) => (c.id === check.id ? { ...c, ...patch } : c))
     )
     await supabase
       .from('check_deposits')
-      .update({ status: 'deposited', deposited_at: now, updated_at: now })
-      .eq('id', check.id)
-  }
-
-  async function revertToNotDeposited(check: CheckDeposit) {
-    const now = new Date().toISOString()
-    setChecks((prev) =>
-      prev.map((c) =>
-        c.id === check.id
-          ? { ...c, status: 'not_deposited', deposited_at: null, updated_at: now }
-          : c
-      )
-    )
-    await supabase
-      .from('check_deposits')
-      .update({ status: 'not_deposited', deposited_at: null, updated_at: now })
-      .eq('id', check.id)
-  }
-
-  async function advanceToFiled(check: CheckDeposit) {
-    const now = new Date().toISOString()
-    setChecks((prev) =>
-      prev.map((c) =>
-        c.id === check.id
-          ? { ...c, status: 'filed_in_quickbooks', filed_at: now, updated_at: now }
-          : c
-      )
-    )
-    await supabase
-      .from('check_deposits')
-      .update({ status: 'filed_in_quickbooks', filed_at: now, updated_at: now })
-      .eq('id', check.id)
-  }
-
-  async function revertToDeposited(check: CheckDeposit) {
-    const now = new Date().toISOString()
-    setChecks((prev) =>
-      prev.map((c) =>
-        c.id === check.id
-          ? { ...c, status: 'deposited', filed_at: null, updated_at: now }
-          : c
-      )
-    )
-    await supabase
-      .from('check_deposits')
-      .update({ status: 'deposited', filed_at: null, updated_at: now })
+      .update(patch)
       .eq('id', check.id)
   }
 
@@ -240,7 +206,7 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
 
     return (
       <div key={check.id} className={opacity}>
-        <div className="flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors">
+        <div className="flex items-start gap-3 px-3 py-2.5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
           {/* Thumbnail */}
           <div className="w-[44px] h-[44px] rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
             {check.photo_url ? (
@@ -265,77 +231,21 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
             <p className="text-[11px] text-gray-400 mt-0.5">
               Added {fmtDate(check.created_at)}
             </p>
-
-            {/* QuickBooks checkbox for deposited/filed sections */}
-            {(section === 'deposited' || section === 'filed_in_quickbooks') && (
-              <button
-                onClick={() =>
-                  section === 'deposited'
-                    ? advanceToFiled(check)
-                    : revertToDeposited(check)
-                }
-                className="flex items-center gap-1.5 mt-1.5"
-              >
-                <span
-                  className={`inline-flex items-center justify-center w-[14px] h-[14px] rounded-[3px] border flex-shrink-0 transition-colors ${
-                    section === 'filed_in_quickbooks'
-                      ? 'bg-green-600 border-green-600'
-                      : 'border-gray-300 bg-white'
-                  }`}
-                >
-                  {section === 'filed_in_quickbooks' && (
-                    <svg
-                      className="w-2.5 h-2.5 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  )}
-                </span>
-                <span
-                  className={`text-[11px] ${
-                    section === 'filed_in_quickbooks'
-                      ? 'text-green-700 font-medium'
-                      : 'text-gray-500'
-                  }`}
-                >
-                  Added to QuickBooks
-                </span>
-              </button>
-            )}
           </div>
 
-          {/* Right side: badge + menu */}
+          {/* Right side: dropdown + menu */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {section === 'not_deposited' && (
-              <button
-                onClick={() => advanceToDeposited(check)}
-                className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full hover:bg-amber-200 transition-colors"
-              >
-                Not deposited
-              </button>
-            )}
-            {(section === 'deposited' || section === 'filed_in_quickbooks') && (
-              <button
-                onClick={() =>
-                  section === 'deposited' ? revertToNotDeposited(check) : undefined
-                }
-                className={`text-[10px] font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full ${
-                  section === 'deposited'
-                    ? 'hover:bg-green-200 cursor-pointer'
-                    : 'cursor-default'
-                } transition-colors`}
-              >
-                Deposited
-              </button>
-            )}
+            <select
+              value={check.status}
+              onChange={(e) =>
+                handleStatusChange(check, e.target.value as CheckStatus)
+              }
+              className="text-[11px] font-medium border border-gray-200 rounded-md px-1.5 py-1 text-gray-700 bg-white max-w-[130px]"
+            >
+              <option value="not_deposited">Not deposited</option>
+              <option value="deposited">Deposited</option>
+              <option value="filed_in_quickbooks">Filed in QB</option>
+            </select>
 
             {/* Three-dot menu */}
             <div className="relative flex-shrink-0">
@@ -387,7 +297,7 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-orange-500">
+          <span className="text-amber-500">
             <BanknoteIcon className="w-5 h-5" />
           </span>
           <h3 className="text-sm font-semibold text-gray-900">Check deposits</h3>
@@ -407,7 +317,7 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
     <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <span className="text-orange-500">
+        <span className="text-amber-500">
           <BanknoteIcon className="w-5 h-5" />
         </span>
         <h3 className="text-sm font-semibold text-gray-900 flex-1">Check deposits</h3>
@@ -421,7 +331,7 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
             setEditingCheck(null)
             setShowModal(true)
           }}
-          className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm flex-shrink-0"
+          className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm flex-shrink-0"
         >
           <PlusIcon className="w-3.5 h-3.5" />
           Add check
@@ -509,7 +419,7 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
       <div className="border-t border-gray-100 mt-4 pt-3 -mx-4 px-4">
         <button
           onClick={expandAll}
-          className="w-full text-sm font-medium text-orange-600 hover:text-orange-700 transition-colors py-1"
+          className="w-full text-sm font-medium text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg py-1.5 transition-colors"
         >
           View all checks
         </button>
@@ -658,7 +568,7 @@ function CheckDepositModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Hansen Foods Processing"
               autoFocus
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 text-gray-900 placeholder-gray-400"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400"
             />
           </div>
 
@@ -671,7 +581,7 @@ function CheckDepositModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional notes..."
               rows={3}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 text-gray-900 placeholder-gray-400 resize-y"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400 resize-y"
             />
           </div>
 
@@ -699,7 +609,7 @@ function CheckDepositModal({
                 </button>
                 {uploading && (
                   <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-                    <Loader2Icon className="w-6 h-6 text-orange-500 animate-spin" />
+                    <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin" />
                   </div>
                 )}
               </div>
@@ -709,7 +619,7 @@ function CheckDepositModal({
                   type="button"
                   onClick={() => uploadInputRef.current?.click()}
                   disabled={uploading}
-                  className="flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-orange-300 hover:bg-orange-50 transition disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-amber-300 hover:bg-amber-50 transition disabled:opacity-50"
                 >
                   {uploading ? (
                     <Loader2Icon className="w-4 h-4 animate-spin" />
@@ -722,7 +632,7 @@ function CheckDepositModal({
                   type="button"
                   onClick={() => cameraInputRef.current?.click()}
                   disabled={uploading}
-                  className="flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold transition shadow-sm disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold transition shadow-sm disabled:opacity-50"
                 >
                   <CameraIcon className="w-4 h-4" />
                   Take photo
@@ -758,7 +668,7 @@ function CheckDepositModal({
             <button
               type="submit"
               disabled={!name.trim() || uploading}
-              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 rounded-lg transition-colors"
             >
               {check ? 'Save Changes' : 'Add Check'}
             </button>
