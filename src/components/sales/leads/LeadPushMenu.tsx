@@ -110,11 +110,12 @@ export default function LeadPushMenu({
       await supabase
         .from('leads')
         .update({
+          status: 'appointment_set',
           pushed_to: 'appointment',
           pushed_ref_id: newApptId,
         })
         .eq('id', lead.id)
-      onPatch({ pushed_to: 'appointment', pushed_ref_id: newApptId })
+      onPatch({ status: 'appointment_set', pushed_to: 'appointment', pushed_ref_id: newApptId })
     }
     showToast('Appointment created.', '/sales/appointments')
   }
@@ -273,7 +274,7 @@ function PushToJobWalkModal({
     const { error: updErr } = await supabase
       .from('leads')
       .update({
-        status: 'completed',
+        status: 'appointment_set',
         pushed_to: 'job_walk',
         pushed_ref_id: walkId,
       })
@@ -285,7 +286,7 @@ function PushToJobWalkModal({
       return
     }
     onPatch({
-      status: 'completed',
+      status: 'appointment_set',
       pushed_to: 'job_walk',
       pushed_ref_id: walkId,
     })
@@ -496,7 +497,7 @@ function PushToEstimatingModal({
     const { error: updErr } = await supabase
       .from('leads')
       .update({
-        status: 'completed',
+        status: 'sent_to_estimating',
         pushed_to: 'estimating',
         pushed_ref_id: projectId,
       })
@@ -508,7 +509,7 @@ function PushToEstimatingModal({
       return
     }
     onPatch({
-      status: 'completed',
+      status: 'sent_to_estimating',
       pushed_to: 'estimating',
       pushed_ref_id: projectId,
     })
