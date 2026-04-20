@@ -23,6 +23,7 @@ import {
   ContactIcon,
   BuildingIcon,
   BarChart3Icon,
+  LandmarkIcon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
@@ -788,6 +789,25 @@ export default function OfficeTasksPageClient({
           </div>
         </div>
       </div>
+
+      {/* ── Executive Area ── admin-only */}
+      {userRole === 'admin' && (
+      <div className="mt-8 pb-6">
+        <div className="border-t border-gray-200/60" />
+        <div className="mt-4">
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Executive Area</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3">
+              <LandmarkIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              <div className="ml-2.5 flex-1">
+                <span className="text-[13px] font-medium text-gray-900">Check Deposits</span>
+                <p className="text-[11px] text-gray-400 mt-0.5">Coming soon</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      )}
 
       {/* Create modal */}
       {showCreateModal && (
