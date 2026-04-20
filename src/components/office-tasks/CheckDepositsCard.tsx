@@ -13,6 +13,7 @@ import {
   MoreVerticalIcon,
   BanknoteIcon,
   ImageIcon,
+  SearchIcon,
   UploadIcon,
   CameraIcon,
   Loader2Icon,
@@ -23,6 +24,8 @@ interface CheckDeposit {
   company_id: string | null
   name: string
   description: string | null
+  invoice_number: string | null
+  check_number: string | null
   status: string
   photo_url: string | null
   deposited_at: string | null
@@ -55,6 +58,8 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
   const [depositedOpen, setDepositedOpen] = useState(true)
   const [filedOpen, setFiledOpen] = useState(false)
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     supabase
@@ -68,17 +73,34 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const notDeposited = useMemo(
-    () => checks.filter((c) => c.status === 'not_deposited'),
+  const totalPending = useMemo(
+    () => checks.filter((c) => c.status === 'not_deposited').length,
     [checks]
+  )
+
+  const filteredChecks = useMemo(() => {
+    if (!searchQuery.trim()) return checks
+    const q = searchQuery.toLowerCase()
+    return checks.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.description?.toLowerCase().includes(q) ||
+        c.invoice_number?.toLowerCase().includes(q) ||
+        c.check_number?.toLowerCase().includes(q)
+    )
+  }, [checks, searchQuery])
+
+  const notDeposited = useMemo(
+    () => filteredChecks.filter((c) => c.status === 'not_deposited'),
+    [filteredChecks]
   )
   const deposited = useMemo(
-    () => checks.filter((c) => c.status === 'deposited'),
-    [checks]
+    () => filteredChecks.filter((c) => c.status === 'deposited'),
+    [filteredChecks]
   )
   const filed = useMemo(
-    () => checks.filter((c) => c.status === 'filed_in_quickbooks'),
-    [checks]
+    () => filteredChecks.filter((c) => c.status === 'filed_in_quickbooks'),
+    [filteredChecks]
   )
 
   /* ── CRUD ── */
@@ -86,6 +108,8 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
   async function handleCreate(data: {
     name: string
     description: string
+    invoiceNumber: string
+    checkNumber: string
     photoUrl: string | null
   }) {
     const optimistic: CheckDeposit = {
@@ -93,6 +117,8 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
       company_id: null,
       name: data.name,
       description: data.description || null,
+      invoice_number: data.invoiceNumber || null,
+      check_number: data.checkNumber || null,
       status: 'not_deposited',
       photo_url: data.photoUrl,
       deposited_at: null,
@@ -109,6 +135,8 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
       .insert({
         name: data.name,
         description: data.description || null,
+        invoice_number: data.invoiceNumber || null,
+        check_number: data.checkNumber || null,
         photo_url: data.photoUrl,
         created_by: userId,
       })
@@ -122,7 +150,7 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
 
   async function handleUpdate(
     id: string,
-    data: { name: string; description: string; photoUrl: string | null }
+    data: { name: string; description: string; invoiceNumber: string; checkNumber: string; photoUrl: string | null }
   ) {
     setChecks((prev) =>
       prev.map((c) =>
@@ -131,6 +159,8 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
               ...c,
               name: data.name,
               description: data.description || null,
+              invoice_number: data.invoiceNumber || null,
+              check_number: data.checkNumber || null,
               photo_url: data.photoUrl,
               updated_at: new Date().toISOString(),
             }
@@ -144,6 +174,8 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
       .update({
         name: data.name,
         description: data.description || null,
+        invoice_number: data.invoiceNumber || null,
+        check_number: data.checkNumber || null,
         photo_url: data.photoUrl,
         updated_at: new Date().toISOString(),
       })
@@ -208,7 +240,10 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
       <div key={check.id} className={opacity}>
         <div className="flex items-start gap-3 px-3 py-2.5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
           {/* Thumbnail */}
-          <div className="w-[44px] h-[44px] rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+          <div
+            className={`w-[44px] h-[44px] rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${check.photo_url ? 'cursor-pointer ring-offset-1 hover:ring-2 hover:ring-amber-400/50' : ''}`}
+            onClick={() => check.photo_url && setLightboxUrl(check.photo_url)}
+          >
             {check.photo_url ? (
               <Image
                 src={check.photo_url}
@@ -225,8 +260,16 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
           {/* Content */}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">{check.name}</p>
+            {(check.invoice_number || check.check_number) && (
+              <p className="text-xs text-gray-500 truncate mt-0.5">
+                {[
+                  check.invoice_number && `Inv #${check.invoice_number}`,
+                  check.check_number && `Check #${check.check_number}`,
+                ].filter(Boolean).join(' · ')}
+              </p>
+            )}
             {check.description && (
-              <p className="text-xs text-gray-500 truncate mt-0.5">{check.description}</p>
+              <p className="text-xs text-gray-400 truncate mt-0.5">{check.description}</p>
             )}
             <p className="text-[11px] text-gray-400 mt-0.5">
               Added {fmtDate(check.created_at)}
@@ -321,9 +364,9 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
           <BanknoteIcon className="w-5 h-5" />
         </span>
         <h3 className="text-sm font-semibold text-gray-900 flex-1">Check deposits</h3>
-        {notDeposited.length > 0 && (
+        {totalPending > 0 && (
           <span className="text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-medium">
-            {notDeposited.length} pending
+            {totalPending} pending
           </span>
         )}
         <button
@@ -336,6 +379,18 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
           <PlusIcon className="w-3.5 h-3.5" />
           Add check
         </button>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative mb-3">
+        <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search checks..."
+          className="w-full text-sm border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400 bg-gray-50"
+        />
       </div>
 
       {/* Scrollable content */}
@@ -469,6 +524,30 @@ export default function CheckDepositsCard({ userId }: { userId: string }) {
           </div>
         </div>
       )}
+
+      {/* Photo Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 cursor-pointer"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setLightboxUrl(null)}
+              className="absolute -top-10 right-0 p-1 text-white/70 hover:text-white transition-colors"
+            >
+              <XIcon className="w-6 h-6" />
+            </button>
+            <Image
+              src={lightboxUrl}
+              alt="Check photo"
+              width={800}
+              height={600}
+              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -485,11 +564,13 @@ function CheckDepositModal({
 }: {
   check: CheckDeposit | null
   userId: string
-  onSave: (data: { name: string; description: string; photoUrl: string | null }) => void
+  onSave: (data: { name: string; description: string; invoiceNumber: string; checkNumber: string; photoUrl: string | null }) => void
   onClose: () => void
 }) {
   const supabase = createClient()
   const [name, setName] = useState(check?.name ?? '')
+  const [invoiceNumber, setInvoiceNumber] = useState(check?.invoice_number ?? '')
+  const [checkNumber, setCheckNumber] = useState(check?.check_number ?? '')
   const [description, setDescription] = useState(check?.description ?? '')
   const [photoUrl, setPhotoUrl] = useState<string | null>(check?.photo_url ?? null)
   const [uploading, setUploading] = useState(false)
@@ -539,7 +620,7 @@ function CheckDepositModal({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
-    onSave({ name: name.trim(), description, photoUrl })
+    onSave({ name: name.trim(), description, invoiceNumber: invoiceNumber.trim(), checkNumber: checkNumber.trim(), photoUrl })
   }
 
   return (
@@ -560,6 +641,20 @@ function CheckDepositModal({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              Invoice number
+            </label>
+            <input
+              type="text"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              placeholder="e.g., INV-1234"
+              autoFocus
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Name *
             </label>
             <input
@@ -567,7 +662,19 @@ function CheckDepositModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Hansen Foods Processing"
-              autoFocus
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Check number
+            </label>
+            <input
+              type="text"
+              value={checkNumber}
+              onChange={(e) => setCheckNumber(e.target.value)}
+              placeholder="e.g., 5678"
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400"
             />
           </div>
