@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   SearchIcon,
@@ -9,9 +10,11 @@ import {
   DownloadIcon,
   UploadIcon,
   PlusIcon,
+  ArrowLeftIcon,
   ArrowUpIcon,
   ArrowDownIcon,
   AlertTriangleIcon,
+  Building2Icon,
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { toCsv, downloadCsv } from '@/lib/csv'
@@ -730,7 +733,9 @@ export default function ExistingCustomersView({
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
         <div className="flex items-center gap-3">
+          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <div className="flex items-center gap-2">
+            <Building2Icon className="w-5 h-5 text-gray-400" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">CRM</h1>
           </div>
           {ViewToggle}
