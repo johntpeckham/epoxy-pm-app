@@ -855,11 +855,35 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
 
   if (viewMode === 'existing') {
     return (
-      <ExistingCustomersView
-        userId={userId}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-      />
+      <>
+        <ExistingCustomersView
+          userId={userId}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          onNewCompany={() => setShowNewModal(true)}
+          onImportCsv={() => setShowImportModal(true)}
+        />
+        {showNewModal && (
+          <NewCompanyModal
+            userId={userId}
+            onClose={() => setShowNewModal(false)}
+            onSaved={() => {
+              setShowNewModal(false)
+              fetchAll()
+            }}
+          />
+        )}
+        {showImportModal && (
+          <ImportCsvModal
+            userId={userId}
+            onClose={() => setShowImportModal(false)}
+            onImported={() => {
+              setShowImportModal(false)
+              fetchAll()
+            }}
+          />
+        )}
+      </>
     )
   }
 
@@ -878,13 +902,13 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
               onClick={() => setViewMode('new')}
               className="px-3 py-1 rounded-full font-medium transition-colors bg-white text-gray-900 shadow-sm"
             >
-              New customers
+              Prospects
             </button>
             <button
               onClick={() => setViewMode('existing')}
               className="px-3 py-1 rounded-full font-medium transition-colors text-gray-500 hover:text-gray-700"
             >
-              Existing customers
+              Customers
             </button>
           </div>
         </div>
