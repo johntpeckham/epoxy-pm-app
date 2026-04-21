@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -9,9 +9,14 @@ import {
   FootprintsIcon,
   ChevronRightIcon,
   ChevronDownIcon,
-  CheckIcon,
+  ChevronUpIcon,
   Trash2Icon,
   ArrowLeftIcon,
+  MapPinIcon,
+  PhoneIcon,
+  MailIcon,
+  CalendarIcon,
+  UserIcon,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Customer } from '@/components/estimates/types'
@@ -50,36 +55,51 @@ interface JobWalkClientProps {
   userId: string
 }
 
+const JOB_WALK_STATUS_OPTIONS: { value: JobWalkStatus; label: string }[] = [
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'sent_to_estimating', label: 'Sent to Estimating' },
+  { value: 'completed', label: 'Completed' },
+]
+
+const JOB_WALK_STATUS_COLORS: Record<JobWalkStatus, { bg: string; border: string; text: string }> = {
+  in_progress: { bg: 'rgba(239,159,39,0.15)', border: 'rgba(239,159,39,0.3)', text: '#EF9F27' },
+  sent_to_estimating: { bg: 'rgba(55,138,221,0.15)', border: 'rgba(55,138,221,0.3)', text: '#378ADD' },
+  completed: { bg: 'rgba(29,158,117,0.15)', border: 'rgba(29,158,117,0.3)', text: '#1D9E75' },
+}
+
 export const STATUS_STYLES: Record<JobWalkStatus, { label: string; className: string }> = {
   in_progress: { label: 'In Progress', className: 'bg-green-100 text-green-700' },
   completed: { label: 'Completed', className: 'bg-blue-100 text-blue-700' },
   sent_to_estimating: { label: 'Sent to Estimating', className: 'bg-gray-100 text-gray-600' },
 }
 
+function formatDate(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
 export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [jobWalks, setJobWalks] = useState<JobWalk[]>(initialJobWalks)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [mobileView, setMobileView] = useState<'list' | 'detail'>('list')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [creating, setCreating] = useState(false)
   const [confirmDeleteWalk, setConfirmDeleteWalk] = useState<JobWalk | null>(null)
   const [deletingWalk, setDeletingWalk] = useState(false)
-  const [showCompleted, setShowCompleted] = useState(false)
+  const [completedExpanded, setCompletedExpanded] = useState(false)
 
-  const selected = useMemo(
-    () => jobWalks.find((w) => w.id === selectedId) ?? null,
-    [jobWalks, selectedId]
-  )
-
-  // Restore selection from URL on mount
   useEffect(() => {
     const urlId = searchParams.get('walk')
     if (urlId && jobWalks.some((w) => w.id === urlId)) {
-      setSelectedId(urlId)
-      setMobileView('detail')
+      setExpandedId(urlId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -98,16 +118,17 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     fetchCustomers()
   }, [userId])
 
-  function selectWalk(id: string) {
-    setSelectedId(id)
-    setMobileView('detail')
+  function toggleExpand(id: string) {
+    const next = expandedId === id ? null : id
+    setExpandedId(next)
     const params = new URLSearchParams(searchParams.toString())
-    params.set('walk', id)
-    router.replace(`/job-walk?${params.toString()}`, { scroll: false })
-  }
-
-  function backToList() {
-    setMobileView('list')
+    if (next) {
+      params.set('walk', next)
+    } else {
+      params.delete('walk')
+    }
+    const qs = params.toString()
+    router.replace(qs ? `/job-walk?${qs}` : '/job-walk', { scroll: false })
   }
 
   const handleCreate = useCallback(async () => {
@@ -130,9 +151,12 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     }
     const created = data as JobWalk
     setJobWalks((prev) => [created, ...prev])
-    selectWalk(created.id)
+    setExpandedId(created.id)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('walk', created.id)
+    router.replace(`/job-walk?${params.toString()}`, { scroll: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creating, userId])
+  }, [creating, userId, router, searchParams])
 
   const handleUpdate = useCallback((id: string, patch: Partial<JobWalk>) => {
     setJobWalks((prev) =>
@@ -174,27 +198,17 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
       return
     }
     const deletedId = confirmDeleteWalk.id
-    setJobWalks((prev) => {
-      const next = prev.filter((w) => w.id !== deletedId)
-      // Pick the next available walk (first in list) or clear selection
-      const nextSelected = next[0]?.id ?? null
-      setSelectedId(nextSelected)
-      if (!nextSelected) {
-        setMobileView('list')
-      }
+    setJobWalks((prev) => prev.filter((w) => w.id !== deletedId))
+    if (expandedId === deletedId) {
+      setExpandedId(null)
       const params = new URLSearchParams(searchParams.toString())
-      if (nextSelected) {
-        params.set('walk', nextSelected)
-      } else {
-        params.delete('walk')
-      }
+      params.delete('walk')
       const qs = params.toString()
       router.replace(qs ? `/job-walk?${qs}` : '/job-walk', { scroll: false })
-      return next
-    })
+    }
     setDeletingWalk(false)
     setConfirmDeleteWalk(null)
-  }, [confirmDeleteWalk, router, searchParams])
+  }, [confirmDeleteWalk, expandedId, router, searchParams])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -216,177 +230,212 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     [filtered]
   )
 
-  return (
-    <div className="flex h-full overflow-hidden w-full max-w-full">
-      {/* ── Left Panel: Job Walk List ──────────────────────────────── */}
+  function renderCard(walk: JobWalk) {
+    const isExpanded = expandedId === walk.id
+    const isDimmed = walk.status === 'completed'
+
+    return (
       <div
-        className={`flex-shrink-0 w-screen max-w-full lg:w-80 xl:w-96 min-w-0 bg-white border-r border-gray-200 flex-col overflow-hidden ${
-          mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
+        key={walk.id}
+        className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl transition-opacity ${
+          isDimmed ? 'opacity-70' : ''
         }`}
       >
-        <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
-              <h1 className="text-2xl font-bold text-gray-900">Job Walk</h1>
-            </div>
-            <button
-              onClick={handleCreate}
-              disabled={creating}
-              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
-            >
-              <PlusIcon className="w-4 h-4" />
-              New
-            </button>
-          </div>
-
-          <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search job walks…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {filtered.length === 0 ? (
-            <div className="text-center py-12 px-4">
-              <FootprintsIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">
-                {search
-                  ? 'No matching job walks'
-                  : 'No job walks yet. Create one to get started.'}
-              </p>
-            </div>
-          ) : (
-            <>
-              {inProgressWalks.map((walk) => (
-                <JobWalkListItem
-                  key={walk.id}
-                  walk={walk}
-                  isSelected={selectedId === walk.id}
-                  onSelect={() => selectWalk(walk.id)}
-                />
-              ))}
-
-              {completedWalks.length > 0 && (
-                <div className="border-t border-gray-200 mt-4 pt-4">
-                  <button
-                    onClick={() => setShowCompleted(!showCompleted)}
-                    className="flex items-center gap-2 w-full text-left mb-2"
-                  >
-                    <ChevronRightIcon
-                      className={`w-4 h-4 text-amber-500 transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
-                    />
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Completed</span>
-                    <span className="text-xs text-gray-400">({completedWalks.length})</span>
-                  </button>
-                  {showCompleted && (
-                    <div className="space-y-2">
-                      {completedWalks.map((walk) => (
-                        <JobWalkListItem
-                          key={walk.id}
-                          walk={walk}
-                          isSelected={selectedId === walk.id}
-                          onSelect={() => selectWalk(walk.id)}
-                        />
-                      ))}
-                    </div>
+        {/* Collapsed summary — always visible */}
+        <div
+          onClick={() => toggleExpand(walk.id)}
+          className="w-full text-left px-6 py-5 cursor-pointer"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <span className="text-[17px] font-medium text-gray-900 dark:text-white">
+                {walk.project_name || 'Untitled Job Walk'}
+              </span>
+              <div className="mt-2 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">
+                {walk.customer_name && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <UserIcon className="w-4 h-4 text-gray-400" />
+                    {walk.customer_name}
+                  </span>
+                )}
+                {walk.date && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarIcon className="w-4 h-4 text-gray-400" />
+                    {formatDate(walk.date)}
+                  </span>
+                )}
+              </div>
+              {(walk.address || walk.customer_phone || walk.customer_email) && (
+                <div className="mt-1 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">
+                  {walk.address && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPinIcon className="w-4 h-4 text-gray-400" />
+                      {walk.address}
+                    </span>
+                  )}
+                  {walk.customer_phone && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <PhoneIcon className="w-4 h-4 text-gray-400" />
+                      {walk.customer_phone}
+                    </span>
+                  )}
+                  {walk.customer_email && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MailIcon className="w-4 h-4 text-gray-400" />
+                      {walk.customer_email}
+                    </span>
                   )}
                 </div>
               )}
-            </>
-          )}
+            </div>
+            <div className="flex items-center gap-2.5 flex-shrink-0 mt-0.5">
+              <select
+                value={walk.status}
+                onChange={(e) => {
+                  e.stopPropagation()
+                  setWalkStatus(walk, e.target.value as JobWalkStatus)
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  backgroundColor: JOB_WALK_STATUS_COLORS[walk.status].bg,
+                  borderColor: JOB_WALK_STATUS_COLORS[walk.status].border,
+                  color: JOB_WALK_STATUS_COLORS[walk.status].text,
+                }}
+                className="text-[12px] font-medium border rounded-md px-2 py-1 max-w-[175px] cursor-pointer outline-none"
+              >
+                {JOB_WALK_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <span className="inline-flex items-center gap-1 text-[13px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors select-none">
+                {isExpanded ? 'Close' : 'View'}
+                {isExpanded ? (
+                  <ChevronUpIcon className="w-4 h-4" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4" />
+                )}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* ── Right Panel: Detail ────────────────────────────────────── */}
-      <div
-        className={`flex-1 min-h-0 w-screen max-w-full min-w-0 overflow-hidden bg-gray-50 ${
-          mobileView === 'list' ? 'hidden lg:flex' : 'flex'
-        } flex-col`}
-      >
-        {selected ? (
-          <>
-            {/* Detail header */}
-            <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={backToList}
-                  className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                  aria-label="Back to list"
-                >
-                  <ChevronRightIcon className="w-5 h-5 rotate-180" />
-                </button>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-base font-bold text-gray-900 truncate">
-                    {selected.project_name || 'Untitled Job Walk'}
-                  </h2>
-                  <p className="text-xs text-gray-500 truncate">
-                    {selected.customer_name || '—'}
-                    {selected.address ? ` · ${selected.address}` : ''}
-                  </p>
-                </div>
-                <StatusDropdown
-                  walk={selected}
-                  onChange={(next) => setWalkStatus(selected, next)}
-                />
-                <JobWalkPushMenu
-                  walk={selected}
-                  userId={userId}
-                  onPatch={(patch) => handleUpdate(selected.id, patch)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setConfirmDeleteWalk(selected)}
-                  title="Delete job walk"
-                  aria-label="Delete job walk"
-                  className="flex-shrink-0 p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition"
-                >
-                  <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
-                </button>
-              </div>
+        {/* Expanded detail */}
+        {isExpanded && (
+          <div className="border-t border-gray-100 dark:border-[#2a2a2a]">
+            {/* Action bar */}
+            <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 dark:bg-[#1e1e1e] flex-wrap">
+              <JobWalkPushMenu
+                walk={walk}
+                userId={userId}
+                onPatch={(patch) => handleUpdate(walk.id, patch)}
+              />
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteWalk(walk)}
+                title="Delete job walk"
+                aria-label="Delete job walk"
+                className="flex-shrink-0 p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition"
+              >
+                <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
+              </button>
             </div>
 
-            {/* Cards */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Detail cards */}
+            <div className="p-4 space-y-4">
               <JobWalkInfoCard
-                key={`info-${selected.id}`}
-                walk={selected}
+                key={`info-${walk.id}`}
+                walk={walk}
                 customers={customers}
-                onPatch={(patch) => handleUpdate(selected.id, patch)}
+                onPatch={(patch) => handleUpdate(walk.id, patch)}
               />
               <JobWalkPhotosCard
-                key={`photos-${selected.id}`}
-                walkId={selected.id}
+                key={`photos-${walk.id}`}
+                walkId={walk.id}
                 userId={userId}
               />
               <JobWalkNotesCard
-                key={`notes-${selected.id}`}
-                walk={selected}
-                onPatch={(patch) => handleUpdate(selected.id, patch)}
+                key={`notes-${walk.id}`}
+                walk={walk}
+                onPatch={(patch) => handleUpdate(walk.id, patch)}
               />
               <JobWalkMeasurementsCard
-                key={`measurements-${selected.id}`}
-                walk={selected}
+                key={`measurements-${walk.id}`}
+                walk={walk}
                 userId={userId}
-                onPatch={(patch) => handleUpdate(selected.id, patch)}
+                onPatch={(patch) => handleUpdate(walk.id, patch)}
               />
               <JobWalkCamToPlanCard />
             </div>
-          </>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
+          <FootprintsIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Job Walk</h1>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <SearchIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search job walks…"
+              className="w-[200px] pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#242424] dark:border-[#2a2a2a] dark:text-white"
+            />
+          </div>
+          <button
+            onClick={handleCreate}
+            disabled={creating}
+            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-60 rounded-lg transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            New
+          </button>
+        </div>
+      </div>
+
+      {/* Card list */}
+      <div className="px-4 sm:px-7 py-6">
+        {filtered.length === 0 ? (
+          <div className="text-center py-14">
+            <FootprintsIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">
+              {search ? 'No matching job walks.' : 'No job walks yet. Create one to get started.'}
+            </p>
+          </div>
         ) : (
-          <div className="hidden lg:flex flex-1 items-center justify-center p-8">
-            <div className="text-center max-w-sm">
-              <FootprintsIcon className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm text-gray-500">
-                Select a job walk from the list, or click <span className="font-semibold text-amber-600">+ New</span> to create one.
-              </p>
-            </div>
+          <div className="space-y-3">
+            {inProgressWalks.map((walk) => renderCard(walk))}
+
+            {completedWalks.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setCompletedExpanded((v) => !v)}
+                  className="w-full flex items-center gap-2 px-2 pt-4 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-widest hover:text-gray-500"
+                >
+                  {completedExpanded ? (
+                    <ChevronDownIcon className="w-3 h-3" />
+                  ) : (
+                    <ChevronRightIcon className="w-3 h-3" />
+                  )}
+                  Completed ({completedWalks.length})
+                  <span className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a] ml-2" />
+                </button>
+                {completedExpanded &&
+                  completedWalks.map((walk) => renderCard(walk))}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -406,115 +455,3 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
   )
 }
 
-interface JobWalkListItemProps {
-  walk: JobWalk
-  isSelected: boolean
-  onSelect: () => void
-}
-
-function JobWalkListItem({ walk, isSelected, onSelect }: JobWalkListItemProps) {
-  return (
-    <button
-      onClick={onSelect}
-      className={`w-full text-left relative rounded-lg border p-3 transition ${
-        isSelected
-          ? 'border-gray-300 bg-gray-50 dark:bg-gray-100'
-          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-      }`}
-    >
-      {isSelected && (
-        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-amber-500" />
-      )}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900 truncate">
-            {walk.project_name || 'Untitled Job Walk'}
-          </p>
-          {walk.customer_name && (
-            <p className="text-xs text-gray-600 truncate mt-0.5">
-              {walk.customer_name}
-            </p>
-          )}
-        </div>
-      </div>
-    </button>
-  )
-}
-
-interface StatusDropdownProps {
-  walk: JobWalk
-  onChange: (next: JobWalkStatus) => void
-}
-
-function StatusDropdown({ walk, onChange }: StatusDropdownProps) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const current = STATUS_STYLES[walk.status]
-
-  useEffect(() => {
-    if (!open) return
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('keydown', handleEscape)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('keydown', handleEscape)
-    }
-  }, [open])
-
-  const options: JobWalkStatus[] = ['in_progress', 'completed']
-
-  return (
-    <div ref={containerRef} className="relative flex-shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition ${current.className} hover:opacity-80`}
-      >
-        {current.label}
-        <ChevronDownIcon className="w-3 h-3" />
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 mt-1.5 z-20 min-w-[160px] rounded-lg border border-gray-200 bg-white shadow-lg py-1"
-        >
-          {options.map((opt) => {
-            const style = STATUS_STYLES[opt]
-            const isActive = walk.status === opt
-            return (
-              <button
-                key={opt}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onChange(opt)
-                  setOpen(false)
-                }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-50 transition"
-              >
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${style.className}`}
-                >
-                  {style.label}
-                </span>
-                {isActive && (
-                  <CheckIcon className="w-4 h-4 text-amber-500 ml-auto flex-shrink-0" />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
