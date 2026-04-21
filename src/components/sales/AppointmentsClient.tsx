@@ -68,37 +68,6 @@ const PUSHED_TO_LABELS: Record<PushedTo, string> = {
   job: 'Pushed to job',
 }
 
-// Pipeline stages in order
-type StageKey = 'crm' | 'customer' | 'job_walk' | 'estimating' | 'estimate' | 'job'
-const STAGE_ORDER: StageKey[] = [
-  'crm',
-  'customer',
-  'job_walk',
-  'estimating',
-  'estimate',
-  'job',
-]
-const STAGE_LABELS: Record<StageKey, string> = {
-  crm: 'CRM',
-  customer: 'Customer',
-  job_walk: 'Job walk',
-  estimating: 'Estimating',
-  estimate: 'Estimate',
-  job: 'Job',
-}
-
-function stageIndex(pushedTo: PushedTo | null): number {
-  // CRM is always completed (stage 0). Push targets determine further progress.
-  if (!pushedTo) return 0
-  const map: Record<PushedTo, number> = {
-    job_walk: 2,
-    estimating: 3,
-    estimate: 4,
-    job: 5,
-  }
-  return map[pushedTo]
-}
-
 function formatDateTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
@@ -476,7 +445,6 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
             {visibleAppointments.map((appt) => {
               const company = companyMap.get(appt.company_id)
               const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
-              const currentStage = stageIndex(appt.pushed_to)
               const isDimmed = appt.status === 'completed'
               return (
                 <div
@@ -647,35 +615,6 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                     </div>
                   </div>
 
-                  {/* Pipeline tracker */}
-                  <div className="mt-4 pt-[14px] border-t border-gray-100">
-                    <div className="text-[11px] text-gray-400 mb-2">
-                      Pipeline progress
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {STAGE_ORDER.map((stage, i) => {
-                        const isCompleted = i < currentStage
-                        const isCurrent = i === currentStage
-                        const stageClass = isCompleted
-                          ? 'bg-amber-50 text-amber-700 border border-amber-50'
-                          : isCurrent
-                          ? 'border border-dashed border-amber-400 text-amber-700 bg-white'
-                          : 'bg-gray-50 text-gray-400 border border-gray-50'
-                        return (
-                          <span key={stage} className="inline-flex items-center gap-1.5">
-                            <span
-                              className={`px-2.5 py-1 text-[11px] font-medium rounded-full ${stageClass}`}
-                            >
-                              {STAGE_LABELS[stage]}
-                            </span>
-                            {i < STAGE_ORDER.length - 1 && (
-                              <span className="text-gray-300 text-[11px]">→</span>
-                            )}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  </div>
                 </div>
               )
             })}
