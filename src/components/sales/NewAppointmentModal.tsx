@@ -41,6 +41,7 @@ export interface AppointmentDraft {
 
 interface NewAppointmentModalProps {
   userId: string
+  isAdmin?: boolean
   existing?: AppointmentDraft
   prefill?: { companyId?: string; contactId?: string | null }
   companies: AppointmentCompanyOption[]
@@ -61,6 +62,7 @@ function toLocalInput(iso: string): string {
 
 export default function NewAppointmentModal({
   userId,
+  isAdmin = true,
   existing,
   prefill,
   companies,
@@ -402,7 +404,8 @@ export default function NewAppointmentModal({
               <select
                 value={assignedTo}
                 onChange={(e) => setAssignedTo(e.target.value)}
-                className={inputClass}
+                disabled={!isAdmin}
+                className={`${inputClass} ${!isAdmin ? 'bg-gray-50 text-gray-500' : ''}`}
               >
                 <option value="">— Unassigned —</option>
                 {assignees.map((a) => (

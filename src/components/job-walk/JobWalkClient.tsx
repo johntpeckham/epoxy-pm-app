@@ -20,6 +20,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Customer } from '@/components/estimates/types'
+import type { UserRole } from '@/types'
+import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import JobWalkInfoCard from './JobWalkInfoCard'
 import JobWalkNotesCard from './JobWalkNotesCard'
@@ -45,6 +47,7 @@ export interface JobWalk {
   measurements: string | null
   pushed_to: JobWalkPushedTo | null
   pushed_ref_id: string | null
+  assigned_to: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -53,6 +56,7 @@ export interface JobWalk {
 interface JobWalkClientProps {
   initialJobWalks: JobWalk[]
   userId: string
+  userRole: UserRole
 }
 
 const JOB_WALK_STATUS_OPTIONS: { value: JobWalkStatus; label: string }[] = [
@@ -84,13 +88,15 @@ function formatDate(iso: string | null): string {
   })
 }
 
-export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClientProps) {
+export default function JobWalkClient({ initialJobWalks, userId, userRole }: JobWalkClientProps) {
+  const isAdmin = userRole === 'admin'
   const router = useRouter()
   const searchParams = useSearchParams()
   const [jobWalks, setJobWalks] = useState<JobWalk[]>(initialJobWalks)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [assignees, setAssignees] = useState<AppointmentAssigneeOption[]>([])
   const [creating, setCreating] = useState(false)
   const [confirmDeleteWalk, setConfirmDeleteWalk] = useState<JobWalk | null>(null)
   const [deletingWalk, setDeletingWalk] = useState(false)
@@ -104,18 +110,30 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Fetch customers for the dropdown
   useEffect(() => {
-    async function fetchCustomers() {
+    async function fetchCustomersAndAssignees() {
       const supabase = createClient()
-      const { data } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('archived', false)
-        .order('name', { ascending: true })
-      if (data) setCustomers(data as Customer[])
+      const [{ data: custData }, { data: profData }] = await Promise.all([
+        supabase
+          .from('companies')
+          .select('*')
+          .eq('archived', false)
+          .order('name', { ascending: true }),
+        supabase
+          .from('profiles')
+          .select('id, display_name, role')
+          .in('role', ['admin', 'office_manager', 'salesman'])
+          .order('display_name', { ascending: true }),
+      ])
+      if (custData) setCustomers(custData as Customer[])
+      setAssignees(
+        ((profData ?? []) as { id: string; display_name: string | null }[]).map((p) => ({
+          id: p.id,
+          display_name: p.display_name,
+        }))
+      )
     }
-    fetchCustomers()
+    fetchCustomersAndAssignees()
   }, [userId])
 
   function toggleExpand(id: string) {
@@ -140,6 +158,7 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
       .insert({
         project_name: 'New Job Walk',
         status: 'in_progress',
+        assigned_to: userId,
         created_by: userId,
       })
       .select('*')
@@ -221,13 +240,44 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     })
   }, [jobWalks, search])
 
-  const inProgressWalks = useMemo(
-    () => filtered.filter((w) => w.status !== 'completed'),
-    [filtered]
+  const assigneeMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const a of assignees) m.set(a.id, a.display_name || a.id.slice(0, 8))
+    return m
+  }, [assignees])
+
+  const myFiltered = useMemo(
+    () => (isAdmin ? filtered.filter((w) => w.assigned_to === userId) : filtered),
+    [isAdmin, filtered, userId]
   )
+
+  const inProgressWalks = useMemo(
+    () => myFiltered.filter((w) => w.status !== 'completed'),
+    [myFiltered]
+  )
+
+  const otherUserSections = useMemo(() => {
+    if (!isAdmin) return []
+    const others = filtered.filter((w) => w.assigned_to !== userId && w.status !== 'completed')
+    const grouped = new Map<string, JobWalk[]>()
+    for (const w of others) {
+      const key = w.assigned_to ?? '__unassigned__'
+      const arr = grouped.get(key) ?? []
+      arr.push(w)
+      grouped.set(key, arr)
+    }
+    return Array.from(grouped.entries())
+      .map(([uid, items]) => ({
+        userId: uid,
+        name: uid === '__unassigned__' ? 'Unassigned' : (assigneeMap.get(uid) ?? uid.slice(0, 8)),
+        walks: items,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [isAdmin, filtered, userId, assigneeMap])
+
   const completedWalks = useMemo(
-    () => filtered.filter((w) => w.status === 'completed'),
-    [filtered]
+    () => (isAdmin ? filtered.filter((w) => w.status === 'completed') : filtered.filter((w) => w.status === 'completed')),
+    [filtered, isAdmin]
   )
 
   function renderCard(walk: JobWalk) {
@@ -347,6 +397,8 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
                 key={`info-${walk.id}`}
                 walk={walk}
                 customers={customers}
+                assignees={assignees}
+                isAdmin={isAdmin}
                 onPatch={(patch) => handleUpdate(walk.id, patch)}
               />
               <JobWalkPhotosCard
@@ -416,6 +468,30 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
         ) : (
           <div className="space-y-3">
             {inProgressWalks.map((walk) => renderCard(walk))}
+
+            {/* Admin: other users' sections */}
+            {isAdmin && otherUserSections.length > 0 && (
+              <>
+                <div className="pt-4 pb-2">
+                  <div className="border-t border-gray-200 dark:border-[#2a2a2a]" />
+                </div>
+                {otherUserSections.map((section) => (
+                  <div key={section.userId}>
+                    <div className="flex items-baseline gap-2 pb-2 pt-1">
+                      <span className="text-[16px] font-medium text-gray-900 dark:text-white">
+                        {section.name}
+                      </span>
+                      <span className="text-[13px] text-gray-400">
+                        ({section.walks.length})
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {section.walks.map((walk) => renderCard(walk))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
 
             {completedWalks.length > 0 && (
               <>

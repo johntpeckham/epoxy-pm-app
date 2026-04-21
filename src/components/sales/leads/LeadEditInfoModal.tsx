@@ -5,11 +5,14 @@ import { createClient } from '@/lib/supabase/client'
 import { XIcon, UserIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { Customer } from '@/components/estimates/types'
+import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
 import type { Lead } from './LeadsClient'
 
 interface LeadEditInfoModalProps {
   lead: Lead
   customers: Customer[]
+  assignees?: AppointmentAssigneeOption[]
+  isAdmin?: boolean
   onClose: () => void
   onSaved: (patch: Partial<Lead>) => void
 }
@@ -21,6 +24,8 @@ function buildFullAddress(c: Customer): string {
 export default function LeadEditInfoModal({
   lead,
   customers,
+  assignees = [],
+  isAdmin = true,
   onClose,
   onSaved,
 }: LeadEditInfoModalProps) {
@@ -31,6 +36,7 @@ export default function LeadEditInfoModal({
   const [customerPhone, setCustomerPhone] = useState(lead.customer_phone ?? '')
   const [address, setAddress] = useState(lead.address ?? '')
   const [date, setDate] = useState(lead.date ?? '')
+  const [assignedTo, setAssignedTo] = useState<string>(lead.assigned_to ?? '')
 
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -97,6 +103,7 @@ export default function LeadEditInfoModal({
       customer_phone: finalPhone,
       address: address.trim() || null,
       date: date || null,
+      assigned_to: assignedTo || null,
     }
 
     const supabase = createClient()
@@ -264,6 +271,23 @@ export default function LeadEditInfoModal({
                   onChange={(e) => setDate(e.target.value)}
                   className={inputCls}
                 />
+              </div>
+
+              <div>
+                <label className={labelCls}>Assigned to</label>
+                <select
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  disabled={!isAdmin}
+                  className={`${inputCls} ${!isAdmin ? 'bg-gray-50 text-gray-500' : ''}`}
+                >
+                  <option value="">— Unassigned —</option>
+                  {assignees.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.display_name || a.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 

@@ -28,8 +28,10 @@ export default async function LeadsPage() {
     return redirect('/my-work')
   }
 
+  const leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false })
+  if (userRole !== 'admin') leadsQuery.eq('assigned_to', user.id)
   const [leadsRes, categoriesRes] = await Promise.all([
-    supabase.from('leads').select('*').order('created_at', { ascending: false }),
+    leadsQuery,
     supabase.from('lead_categories').select('*').order('name', { ascending: true }),
   ])
 

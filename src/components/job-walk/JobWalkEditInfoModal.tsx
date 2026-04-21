@@ -5,11 +5,14 @@ import { createClient } from '@/lib/supabase/client'
 import { XIcon, UserIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { Customer } from '@/components/estimates/types'
+import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import type { JobWalk } from './JobWalkClient'
 
 interface JobWalkEditInfoModalProps {
   walk: JobWalk
   customers: Customer[]
+  assignees?: AppointmentAssigneeOption[]
+  isAdmin?: boolean
   onClose: () => void
   onSaved: (patch: Partial<JobWalk>) => void
 }
@@ -21,6 +24,8 @@ function buildFullAddress(c: Customer): string {
 export default function JobWalkEditInfoModal({
   walk,
   customers,
+  assignees = [],
+  isAdmin = true,
   onClose,
   onSaved,
 }: JobWalkEditInfoModalProps) {
@@ -31,6 +36,7 @@ export default function JobWalkEditInfoModal({
   const [customerPhone, setCustomerPhone] = useState(walk.customer_phone ?? '')
   const [address, setAddress] = useState(walk.address ?? '')
   const [date, setDate] = useState(walk.date ?? '')
+  const [assignedTo, setAssignedTo] = useState<string>(walk.assigned_to ?? '')
 
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -99,6 +105,7 @@ export default function JobWalkEditInfoModal({
       customer_phone: finalPhone,
       address: address.trim() || null,
       date: date || null,
+      assigned_to: assignedTo || null,
     }
 
     const supabase = createClient()
@@ -267,6 +274,23 @@ export default function JobWalkEditInfoModal({
                   onChange={(e) => setDate(e.target.value)}
                   className={inputCls}
                 />
+              </div>
+
+              <div>
+                <label className={labelCls}>Assigned to</label>
+                <select
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  disabled={!isAdmin}
+                  className={`${inputCls} ${!isAdmin ? 'bg-gray-50 text-gray-500' : ''}`}
+                >
+                  <option value="">— Unassigned —</option>
+                  {assignees.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.display_name || a.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
