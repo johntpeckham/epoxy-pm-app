@@ -95,6 +95,7 @@ export default function ConvertCompanyToLeadModal({
         date: new Date().toISOString().slice(0, 10),
         status: 'in_progress',
         category: category || null,
+        assigned_to: userId,
         created_by: userId,
       })
       .select('id')

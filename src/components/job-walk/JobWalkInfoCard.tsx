@@ -3,12 +3,15 @@
 import { useState } from 'react'
 import { SettingsIcon, PencilIcon } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
+import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import type { JobWalk } from './JobWalkClient'
 import JobWalkEditInfoModal from './JobWalkEditInfoModal'
 
 interface JobWalkInfoCardProps {
   walk: JobWalk
   customers: Customer[]
+  assignees?: AppointmentAssigneeOption[]
+  isAdmin?: boolean
   onPatch: (patch: Partial<JobWalk>) => void
 }
 
@@ -25,6 +28,8 @@ function formatDate(dateStr?: string | null) {
 export default function JobWalkInfoCard({
   walk,
   customers,
+  assignees = [],
+  isAdmin = true,
   onPatch,
 }: JobWalkInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false)
@@ -129,6 +134,8 @@ export default function JobWalkInfoCard({
         <JobWalkEditInfoModal
           walk={walk}
           customers={customers}
+          assignees={assignees}
+          isAdmin={isAdmin}
           onClose={() => setEditOpen(false)}
           onSaved={(patch) => onPatch(patch)}
         />

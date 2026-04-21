@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { assignNextProjectNumber } from '@/lib/nextProjectNumber'
+import type { UserRole } from '@/types'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import NewAppointmentModal, {
@@ -45,6 +46,7 @@ interface AppointmentRow {
 
 interface AppointmentsClientProps {
   userId: string
+  userRole: UserRole
 }
 
 type TabKey = 'upcoming' | 'completed' | 'all'
@@ -90,7 +92,8 @@ function isTodayOrFuture(iso: string): boolean {
   return d.getTime() >= now.getTime()
 }
 
-export default function AppointmentsClient({ userId }: AppointmentsClientProps) {
+export default function AppointmentsClient({ userId, userRole }: AppointmentsClientProps) {
+  const isAdmin = userRole === 'admin'
   const supabase = useMemo(() => createClient(), [])
 
   const [loading, setLoading] = useState(true)
@@ -128,13 +131,15 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
+    const apptQuery = supabase.from('crm_appointments').select('*').order('date', { ascending: false })
+    if (!isAdmin) apptQuery.eq('assigned_to', userId)
     const [
       { data: apptData },
       { data: compData },
       { data: contactData },
       { data: profileData },
     ] = await Promise.all([
-      supabase.from('crm_appointments').select('*').order('date', { ascending: false }),
+      apptQuery,
       supabase
         .from('companies')
         .select('id, name, city, state')
@@ -178,6 +183,12 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
     return m
   }, [contacts])
 
+  const assigneeMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const a of assignees) m.set(a.id, a.display_name || a.id.slice(0, 8))
+    return m
+  }, [assignees])
+
   // Filter + sort appointments per tab + search
   const visibleAppointments = useMemo(() => {
     let list = appointments
@@ -216,6 +227,30 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
     return list
   }, [appointments, tab, debouncedSearch, companyMap, contactMap])
 
+  const myAppointments = useMemo(
+    () => (isAdmin ? visibleAppointments.filter((a) => a.assigned_to === userId) : visibleAppointments),
+    [isAdmin, visibleAppointments, userId]
+  )
+
+  const otherUserSections = useMemo(() => {
+    if (!isAdmin) return []
+    const others = visibleAppointments.filter((a) => a.assigned_to !== userId)
+    const grouped = new Map<string, AppointmentRow[]>()
+    for (const a of others) {
+      const key = a.assigned_to ?? '__unassigned__'
+      const arr = grouped.get(key) ?? []
+      arr.push(a)
+      grouped.set(key, arr)
+    }
+    return Array.from(grouped.entries())
+      .map(([uid, items]) => ({
+        userId: uid,
+        name: uid === '__unassigned__' ? 'Unassigned' : (assigneeMap.get(uid) ?? uid.slice(0, 8)),
+        appointments: items,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [isAdmin, visibleAppointments, userId, assigneeMap])
+
   // ─── Push-to-job-walk ──────────────────────────────────────────────────
   async function handlePushToJobWalk(appt: AppointmentRow) {
     setPushing(true)
@@ -245,6 +280,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
         date: appt.date ? appt.date.slice(0, 10) : null,
         notes: appt.notes ?? null,
         status: 'in_progress',
+        assigned_to: appt.assigned_to ?? userId,
         created_by: userId,
       })
       .select('id')
@@ -442,7 +478,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
           </div>
         ) : (
           <div className="space-y-3">
-            {visibleAppointments.map((appt) => {
+            {myAppointments.map((appt) => {
               const company = companyMap.get(appt.company_id)
               const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
               const isDimmed = appt.status === 'completed'
@@ -618,6 +654,201 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
                 </div>
               )
             })}
+
+            {/* Admin: other users' sections */}
+            {isAdmin && otherUserSections.length > 0 && (
+              <>
+                <div className="pt-4 pb-2">
+                  <div className="border-t border-gray-200 dark:border-[#2a2a2a]" />
+                </div>
+                {otherUserSections.map((section) => (
+                  <div key={section.userId}>
+                    <div className="flex items-baseline gap-2 pb-2 pt-1">
+                      <span className="text-[16px] font-medium text-gray-900 dark:text-white">
+                        {section.name}
+                      </span>
+                      <span className="text-[13px] text-gray-400">
+                        ({section.appointments.length})
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {section.appointments.map((appt) => {
+                        const company = companyMap.get(appt.company_id)
+                        const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
+                        const isDimmed = appt.status === 'completed'
+                        return (
+                          <div
+                            key={appt.id}
+                            className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl px-6 py-5 transition-opacity ${
+                              isDimmed ? 'opacity-70' : ''
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4 flex-wrap">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Link
+                                    href={`/sales/crm/${appt.company_id}`}
+                                    className="text-[15px] font-medium text-gray-900 hover:text-amber-600"
+                                  >
+                                    {company?.name ?? 'Unknown company'}
+                                  </Link>
+                                  <span className={`text-xs ${STATUS_TEXT_COLOR[appt.status]}`}>
+                                    {STATUS_LABELS[appt.status]}
+                                  </span>
+                                </div>
+                                <div className="mt-1.5 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <CalendarIcon className="w-4 h-4 text-gray-400" />
+                                    {formatDateTime(appt.date)}
+                                  </span>
+                                  {contact && (
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <UserIcon className="w-4 h-4 text-gray-400" />
+                                      {contact.first_name} {contact.last_name}
+                                    </span>
+                                  )}
+                                </div>
+                                {(appt.address || contact?.phone) && (
+                                  <div className="mt-1 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
+                                    {appt.address && (
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <MapPinIcon className="w-4 h-4 text-gray-400" />
+                                        {appt.address}
+                                      </span>
+                                    )}
+                                    {contact?.phone && (
+                                      <a
+                                        href={`tel:${contact.phone}`}
+                                        className="inline-flex items-center gap-1.5 hover:text-amber-600"
+                                      >
+                                        <PhoneIcon className="w-4 h-4 text-gray-400" />
+                                        {contact.phone}
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                                {appt.notes && (
+                                  <p
+                                    className="mt-2 text-[12px] text-gray-400 whitespace-pre-wrap"
+                                    style={{ lineHeight: 1.6 }}
+                                  >
+                                    {appt.notes}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                {appt.status === 'scheduled' && !appt.pushed_to ? (
+                                  <div className="relative">
+                                    <button
+                                      onClick={() =>
+                                        setOpenPushMenuFor(
+                                          openPushMenuFor === appt.id ? null : appt.id
+                                        )
+                                      }
+                                      className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+                                    >
+                                      Push to…
+                                      <ChevronDownIcon className="w-4 h-4" />
+                                    </button>
+                                    {openPushMenuFor === appt.id && (
+                                      <>
+                                        <div
+                                          className="fixed inset-0 z-30"
+                                          onClick={() => setOpenPushMenuFor(null)}
+                                        />
+                                        <div className="absolute right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]">
+                                          <button
+                                            onClick={() => {
+                                              setOpenPushMenuFor(null)
+                                              setPushTargetAppt(appt)
+                                            }}
+                                            className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                          >
+                                            Push to job walk
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setOpenPushMenuFor(null)
+                                              setPushEstimatingAppt(appt)
+                                            }}
+                                            className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                          >
+                                            Push to estimating
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setOpenPushMenuFor(null)
+                                              showToast('Coming soon')
+                                            }}
+                                            className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
+                                          >
+                                            Push to estimate
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setOpenPushMenuFor(null)
+                                              showToast('Coming soon')
+                                            }}
+                                            className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
+                                          >
+                                            Push to job
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : appt.pushed_to ? (
+                                  appt.pushed_to === 'job_walk' && appt.pushed_ref_id ? (
+                                    <Link
+                                      href={`/job-walk?walk=${appt.pushed_ref_id}`}
+                                      className="text-xs text-gray-400 hover:text-amber-600"
+                                    >
+                                      {PUSHED_TO_LABELS[appt.pushed_to]} →
+                                    </Link>
+                                  ) : appt.pushed_to === 'estimating' && appt.pushed_ref_id ? (
+                                    <Link
+                                      href={`/sales/estimating?project=${appt.pushed_ref_id}`}
+                                      className="text-xs text-gray-400 hover:text-amber-600"
+                                    >
+                                      {PUSHED_TO_LABELS[appt.pushed_to]} →
+                                    </Link>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">
+                                      {PUSHED_TO_LABELS[appt.pushed_to]}
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="text-xs text-gray-400">
+                                    {STATUS_LABELS[appt.status]}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() =>
+                                    setEditDraft({
+                                      id: appt.id,
+                                      company_id: appt.company_id,
+                                      contact_id: appt.contact_id,
+                                      date: appt.date,
+                                      address: appt.address,
+                                      notes: appt.notes,
+                                      assigned_to: appt.assigned_to,
+                                      status: appt.status,
+                                    })
+                                  }
+                                  className="text-xs text-gray-400 hover:text-gray-600"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -626,6 +857,7 @@ export default function AppointmentsClient({ userId }: AppointmentsClientProps) 
       {(showNewModal || editDraft) && (
         <NewAppointmentModal
           userId={userId}
+          isAdmin={isAdmin}
           existing={editDraft ?? undefined}
           companies={companies}
           contacts={contacts}

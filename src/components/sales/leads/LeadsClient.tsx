@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
 import type { UserRole } from '@/types'
+import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import LeadInfoCard from './LeadInfoCard'
 import LeadCategoryCard from './LeadCategoryCard'
@@ -48,6 +49,7 @@ export interface Lead {
   measurements: string | null
   pushed_to: LeadPushedTo | null
   pushed_ref_id: string | null
+  assigned_to: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -106,6 +108,7 @@ export default function LeadsClient({
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [assignees, setAssignees] = useState<AppointmentAssigneeOption[]>([])
   const [completedExpanded, setCompletedExpanded] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null)
@@ -126,16 +129,29 @@ export default function LeadsClient({
   }, [])
 
   useEffect(() => {
-    async function fetchCustomers() {
+    async function fetchCustomersAndAssignees() {
       const supabase = createClient()
-      const { data } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('archived', false)
-        .order('name', { ascending: true })
-      if (data) setCustomers(data as Customer[])
+      const [{ data: custData }, { data: profData }] = await Promise.all([
+        supabase
+          .from('companies')
+          .select('*')
+          .eq('archived', false)
+          .order('name', { ascending: true }),
+        supabase
+          .from('profiles')
+          .select('id, display_name, role')
+          .in('role', ['admin', 'office_manager', 'salesman'])
+          .order('display_name', { ascending: true }),
+      ])
+      if (custData) setCustomers(custData as Customer[])
+      setAssignees(
+        ((profData ?? []) as { id: string; display_name: string | null }[]).map((p) => ({
+          id: p.id,
+          display_name: p.display_name,
+        }))
+      )
     }
-    fetchCustomers()
+    fetchCustomersAndAssignees()
   }, [userId])
 
   function toggleExpand(id: string) {
@@ -207,13 +223,46 @@ export default function LeadsClient({
     })
   }, [leads, search])
 
-  const activeLeads = useMemo(
-    () => filtered.filter((l) => l.status !== 'disqualified'),
-    [filtered]
+  const isAdmin = userRole === 'admin'
+
+  const assigneeMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const a of assignees) m.set(a.id, a.display_name || a.id.slice(0, 8))
+    return m
+  }, [assignees])
+
+  const myFiltered = useMemo(
+    () => (isAdmin ? filtered.filter((l) => l.assigned_to === userId) : filtered),
+    [isAdmin, filtered, userId]
   )
+
+  const activeLeads = useMemo(
+    () => myFiltered.filter((l) => l.status !== 'disqualified'),
+    [myFiltered]
+  )
+
+  const otherUserSections = useMemo(() => {
+    if (!isAdmin) return []
+    const others = filtered.filter((l) => l.assigned_to !== userId && l.status !== 'disqualified')
+    const grouped = new Map<string, Lead[]>()
+    for (const l of others) {
+      const key = l.assigned_to ?? '__unassigned__'
+      const arr = grouped.get(key) ?? []
+      arr.push(l)
+      grouped.set(key, arr)
+    }
+    return Array.from(grouped.entries())
+      .map(([uid, items]) => ({
+        userId: uid,
+        name: uid === '__unassigned__' ? 'Unassigned' : (assigneeMap.get(uid) ?? uid.slice(0, 8)),
+        leads: items,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [isAdmin, filtered, userId, assigneeMap])
+
   const disqualifiedLeads = useMemo(
-    () => filtered.filter((l) => l.status === 'disqualified'),
-    [filtered]
+    () => (isAdmin ? filtered.filter((l) => l.status === 'disqualified') : filtered.filter((l) => l.status === 'disqualified')),
+    [filtered, isAdmin]
   )
 
   function handleLeadCreated(lead: Lead, newCustomer?: Customer | null) {
@@ -353,6 +402,8 @@ export default function LeadsClient({
                 key={`info-${lead.id}`}
                 lead={lead}
                 customers={customers}
+                assignees={assignees}
+                isAdmin={isAdmin}
                 onPatch={(patch) => handleUpdate(lead.id, patch)}
               />
               <LeadCategoryCard
@@ -429,6 +480,30 @@ export default function LeadsClient({
           <div className="space-y-3">
             {activeLeads.map((lead) => renderCard(lead))}
 
+            {/* Admin: other users' sections */}
+            {isAdmin && otherUserSections.length > 0 && (
+              <>
+                <div className="pt-4 pb-2">
+                  <div className="border-t border-gray-200 dark:border-[#2a2a2a]" />
+                </div>
+                {otherUserSections.map((section) => (
+                  <div key={section.userId}>
+                    <div className="flex items-baseline gap-2 pb-2 pt-1">
+                      <span className="text-[16px] font-medium text-gray-900 dark:text-white">
+                        {section.name}
+                      </span>
+                      <span className="text-[13px] text-gray-400">
+                        ({section.leads.length})
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {section.leads.map((lead) => renderCard(lead))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
             {disqualifiedLeads.length > 0 && (
               <>
                 <button
@@ -455,8 +530,10 @@ export default function LeadsClient({
       {showAddModal && (
         <AddLeadModal
           userId={userId}
+          isAdmin={isAdmin}
           customers={customers}
           categories={categories}
+          assignees={assignees}
           onClose={() => setShowAddModal(false)}
           onCreated={handleLeadCreated}
         />

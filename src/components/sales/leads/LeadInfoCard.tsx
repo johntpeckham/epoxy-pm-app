@@ -3,12 +3,15 @@
 import { useState } from 'react'
 import { SettingsIcon, PencilIcon } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
+import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
 import type { Lead } from './LeadsClient'
 import LeadEditInfoModal from './LeadEditInfoModal'
 
 interface LeadInfoCardProps {
   lead: Lead
   customers: Customer[]
+  assignees?: AppointmentAssigneeOption[]
+  isAdmin?: boolean
   onPatch: (patch: Partial<Lead>) => void
 }
 
@@ -22,7 +25,7 @@ function formatDate(dateStr?: string | null) {
   })
 }
 
-export default function LeadInfoCard({ lead, customers, onPatch }: LeadInfoCardProps) {
+export default function LeadInfoCard({ lead, customers, assignees = [], isAdmin = true, onPatch }: LeadInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false)
 
   const emptyValue = <span className="text-sm text-gray-300">—</span>
@@ -125,6 +128,8 @@ export default function LeadInfoCard({ lead, customers, onPatch }: LeadInfoCardP
         <LeadEditInfoModal
           lead={lead}
           customers={customers}
+          assignees={assignees}
+          isAdmin={isAdmin}
           onClose={() => setEditOpen(false)}
           onSaved={(patch) => onPatch(patch)}
         />

@@ -259,6 +259,7 @@ function PushToJobWalkModal({
         status: 'in_progress',
         notes: includeProjectDetails ? lead.project_details : null,
         measurements: includeMeasurements ? lead.measurements : null,
+        assigned_to: lead.assigned_to ?? userId,
         created_by: userId,
       })
       .select('id')

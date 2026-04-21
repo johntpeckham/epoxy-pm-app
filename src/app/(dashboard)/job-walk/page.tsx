@@ -28,16 +28,16 @@ export default async function JobWalkPage() {
     return redirect('/my-work')
   }
 
-  const { data: jobWalks } = await supabase
-    .from('job_walks')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const jwQuery = supabase.from('job_walks').select('*').order('created_at', { ascending: false })
+  if (userRole !== 'admin') jwQuery.eq('assigned_to', user.id)
+  const { data: jobWalks } = await jwQuery
 
   return (
     <Suspense>
       <JobWalkClient
         initialJobWalks={(jobWalks as JobWalk[]) ?? []}
         userId={user.id}
+        userRole={userRole}
       />
     </Suspense>
   )

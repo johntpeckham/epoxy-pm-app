@@ -27,5 +27,5 @@ export default async function SalesAppointmentsPage() {
     return redirect('/my-work')
   }
 
-  return <AppointmentsClient userId={user.id} />
+  return <AppointmentsClient userId={user.id} userRole={userRole} />
 }

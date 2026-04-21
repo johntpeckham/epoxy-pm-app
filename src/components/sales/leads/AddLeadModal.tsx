@@ -5,12 +5,15 @@ import { createClient } from '@/lib/supabase/client'
 import { XIcon, UserIcon, PlusIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { Customer } from '@/components/estimates/types'
+import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
 import type { Lead, LeadCategory } from './LeadsClient'
 
 interface AddLeadModalProps {
   userId: string
+  isAdmin?: boolean
   customers: Customer[]
   categories: LeadCategory[]
+  assignees?: AppointmentAssigneeOption[]
   onClose: () => void
   onCreated: (lead: Lead, newCustomer?: Customer | null) => void
 }
@@ -27,8 +30,10 @@ function todayISO(): string {
 
 export default function AddLeadModal({
   userId,
+  isAdmin = true,
   customers,
   categories,
+  assignees = [],
   onClose,
   onCreated,
 }: AddLeadModalProps) {
@@ -41,6 +46,7 @@ export default function AddLeadModal({
   const [newCustomerPhone, setNewCustomerPhone] = useState('')
   const [newCustomerAddress, setNewCustomerAddress] = useState('')
   const [category, setCategory] = useState<string>('')
+  const [assignedTo, setAssignedTo] = useState<string>(userId)
   const [date, setDate] = useState<string>(todayISO())
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -145,6 +151,7 @@ export default function AddLeadModal({
         date: date || null,
         category: category || null,
         status: 'new',
+        assigned_to: assignedTo || null,
         created_by: userId,
       })
       .select('*')
@@ -354,6 +361,23 @@ export default function AddLeadModal({
                     className={inputCls}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Assigned to</label>
+                <select
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  disabled={!isAdmin}
+                  className={`${inputCls} ${!isAdmin ? 'bg-gray-50 text-gray-500' : ''}`}
+                >
+                  <option value="">— Unassigned —</option>
+                  {assignees.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.display_name || a.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
