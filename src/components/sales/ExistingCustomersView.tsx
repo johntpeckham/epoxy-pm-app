@@ -7,6 +7,8 @@ import {
   SearchIcon,
   XIcon,
   DownloadIcon,
+  UploadIcon,
+  PlusIcon,
   ArrowUpIcon,
   ArrowDownIcon,
   AlertTriangleIcon,
@@ -21,6 +23,8 @@ interface ExistingCustomersViewProps {
   userId?: string
   viewMode: ViewMode
   setViewMode: (m: ViewMode) => void
+  onNewCompany?: () => void
+  onImportCsv?: () => void
 }
 
 interface CustomerRow {
@@ -76,6 +80,8 @@ function currentMs(): number {
 export default function ExistingCustomersView({
   viewMode,
   setViewMode,
+  onNewCompany,
+  onImportCsv,
 }: ExistingCustomersViewProps) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -704,7 +710,7 @@ export default function ExistingCustomersView({
             : 'text-gray-500 hover:text-gray-700'
         }`}
       >
-        New customers
+        Prospects
       </button>
       <button
         onClick={() => setViewMode('existing')}
@@ -714,7 +720,7 @@ export default function ExistingCustomersView({
             : 'text-gray-500 hover:text-gray-700'
         }`}
       >
-        Existing customers
+        Customers
       </button>
     </div>
   )
@@ -722,9 +728,11 @@ export default function ExistingCustomersView({
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       {/* ── Header ── */}
-      <div className="px-7 pt-8 pb-4 flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0 flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900 leading-tight">CRM</h1>
+      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">CRM</h1>
+          </div>
           {ViewToggle}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -734,7 +742,7 @@ export default function ExistingCustomersView({
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search name, contact, industry, location..."
+              placeholder="Search companies or contacts..."
               className="w-full pl-9 pr-9 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
             {searchInput && (
@@ -755,12 +763,26 @@ export default function ExistingCustomersView({
             <DownloadIcon className="w-4 h-4" />
             Export
           </button>
+          <button
+            onClick={() => onImportCsv?.()}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <UploadIcon className="w-4 h-4" />
+            Import CSV
+          </button>
+          <button
+            onClick={() => onNewCompany?.()}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            New company
+          </button>
         </div>
       </div>
 
       {/* ── Warning banner (wired in a later pass) ── */}
       {staleCount > 0 && (
-        <div className="mx-7 mb-3 flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs">
+        <div className="mx-4 sm:mx-6 mb-3 flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs">
           <AlertTriangleIcon className="w-4 h-4 flex-shrink-0" />
           <span>
             {staleCount} customer{staleCount === 1 ? '' : 's'} not contacted in 60+ days
@@ -775,7 +797,7 @@ export default function ExistingCustomersView({
       )}
 
       {/* ── Filter bar ── */}
-      <div className="px-7 pb-4 flex items-center gap-2 flex-wrap">
+      <div className="px-4 sm:px-6 py-3 flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-400 mr-1">Filter:</span>
 
         <FilterChip
@@ -908,7 +930,7 @@ export default function ExistingCustomersView({
       ) : totalCount === 0 ? (
         <div className="px-7 py-20 flex flex-col items-center justify-center text-center">
           <p className="text-sm text-gray-500 mb-1">
-            No existing customers yet.
+            No customers yet.
           </p>
           <p className="text-xs text-gray-400">
             Customers appear here once they have a completed job or accepted
