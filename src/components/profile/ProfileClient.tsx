@@ -19,7 +19,6 @@ import ProjectNumbersEditor from './ProjectNumbersEditor'
 import EstimateFormSettingsEditor from './EstimateFormSettingsEditor'
 import TakeoffTemplatesEditor from './TakeoffTemplatesEditor'
 import TakeoffDefaultsEditor from './TakeoffDefaultsEditor'
-import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
 import VendorManagementModal from '@/components/ui/VendorManagementModal'
 import WarrantyManagement from '@/components/warranty/WarrantyManagement'
 import PreLienManagement from '@/components/prelien/PreLienManagement'
@@ -41,8 +40,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const isOfficeManager = role === 'office_manager'
   const isCrew = role === 'crew'
 
-  // Customer management modal
-  const [showCustomerManagement, setShowCustomerManagement] = useState(false)
   // Vendor management modal
   const [showVendorManagement, setShowVendorManagement] = useState(false)
   // Warranty management modal
@@ -69,7 +66,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
     if (section === 'company-info') setShowCompanyInfo(true)
     if (section === 'user-management') setShowUserManagement(true)
     if (section === 'employee-management') setShowEmployeeManagement(true)
-    if (section === 'customer-management') setShowCustomerManagement(true)
     if (section === 'vendor-management') setShowVendorManagement(true)
     if (section || edit) {
       window.history.replaceState({}, '', '/profile')
@@ -476,14 +472,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
               />
               {(isAdmin || isOfficeManager) && (
                 <SettingsTile
-                  icon={UsersIcon}
-                  title="Customer management"
-                  subtitle="Manage customers across jobs"
-                  onClick={() => setShowCustomerManagement(true)}
-                />
-              )}
-              {(isAdmin || isOfficeManager) && (
-                <SettingsTile
                   icon={Building2Icon}
                   title="Vendor management"
                   subtitle="Vendors and their contacts"
@@ -602,14 +590,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         )}
 
         {/* Customer / Sales / Vendor modals (rendered when open) */}
-        {showCustomerManagement && (
-          <CustomerManagementModal
-            open={showCustomerManagement}
-            userId={userId}
-            onClose={() => setShowCustomerManagement(false)}
-            onCustomersChanged={() => {}}
-          />
-        )}
         {showSalesManagement && (
           <SalesManagementModal
             isAdmin={isAdmin}

@@ -132,10 +132,7 @@ export default async function OfficePage() {
   ])
   const supplierCount = supplierCountRaw ?? 0
   const productCount = productCountRaw ?? 0
-  // The same customers table backs both the Contacts directory and the
-  // Customers card, so the two counts are identical.
   const contactCount = customerCountRaw ?? 0
-  const customerCount = customerCountRaw ?? 0
   const vendorCount = vendorCountRaw ?? 0
   const sopCount = sopCountRaw ?? 0
 
@@ -153,7 +150,6 @@ export default async function OfficePage() {
       supplierCount={supplierCount}
       productCount={productCount}
       contactCount={contactCount}
-      customerCount={customerCount}
       vendorCount={vendorCount}
       sopCount={sopCount}
     />

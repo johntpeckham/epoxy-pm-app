@@ -146,7 +146,6 @@ interface Props {
   supplierCount: number
   productCount: number
   contactCount: number
-  customerCount: number
   vendorCount: number
   sopCount: number
 }
@@ -174,7 +173,6 @@ export default function OfficeTasksPageClient({
   supplierCount,
   productCount,
   contactCount,
-  customerCount,
   vendorCount,
   sopCount,
 }: Props) {
@@ -691,15 +689,6 @@ export default function OfficeTasksPageClient({
             <ContactIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Contacts</span>
             <span className="text-[12px] text-gray-400 mr-2">{contactCount}</span>
-            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-          </Link>
-          <Link
-            href="/office/customers"
-            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
-          >
-            <UsersIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Customers</span>
-            <span className="text-[12px] text-gray-400 mr-2">{customerCount}</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
         </div>
