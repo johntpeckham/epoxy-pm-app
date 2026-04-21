@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   SearchIcon,
@@ -9,13 +10,20 @@ import {
   DownloadIcon,
   UploadIcon,
   PlusIcon,
+  ArrowLeftIcon,
   ArrowUpIcon,
   ArrowDownIcon,
   AlertTriangleIcon,
+  Building2Icon,
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { toCsv, downloadCsv } from '@/lib/csv'
+import { useUserRole } from '@/lib/useUserRole'
 import CustomerDetailModal from './CustomerDetailModal'
+import { DEFAULT_VISIBLE_IDS, getVisibleColumns } from './crmColumns'
+import type { CrmColumn, BuiltInColumn, CustomColumn } from './crmColumns'
+import CrmColumnPicker from './CrmColumnPicker'
+import CrmCustomFieldCell from './CrmCustomFieldCell'
 
 type ViewMode = 'new' | 'existing'
 
@@ -78,6 +86,7 @@ function currentMs(): number {
 }
 
 export default function ExistingCustomersView({
+  userId,
   viewMode,
   setViewMode,
   onNewCompany,
@@ -120,6 +129,124 @@ export default function ExistingCustomersView({
   const [detailCustomer, setDetailCustomer] = useState<CustomerRow | null>(null)
 
   const [page, setPage] = useState(1)
+
+  const { role } = useUserRole()
+  const isAdmin = role === 'admin'
+
+  // ─── Custom columns & column prefs (shared with Prospects tab) ──────
+  const EXISTING_BUILT_IN: BuiltInColumn[] = useMemo(() => [
+    { id: 'customer', label: 'Customer', type: 'built-in', sortField: 'name', defaultVisible: true, alwaysVisible: true, width: '20%' },
+    { id: 'ex_industry', label: 'Industry', type: 'built-in', sortField: 'industry', defaultVisible: true, width: '11%' },
+    { id: 'ex_location', label: 'Location', type: 'built-in', sortField: 'location', defaultVisible: true, width: '11%' },
+    { id: 'ex_jobs', label: 'Jobs', type: 'built-in', sortField: 'jobs_completed', defaultVisible: true, width: '8%' },
+    { id: 'ex_revenue', label: 'Total revenue', type: 'built-in', sortField: 'total_revenue', defaultVisible: true, width: '10%' },
+    { id: 'ex_last_contact', label: 'Last contact', type: 'built-in', sortField: 'last_contact', defaultVisible: true, width: '10%' },
+    { id: 'ex_last_job', label: 'Last job', type: 'built-in', sortField: 'last_job', defaultVisible: true, width: '10%' },
+    { id: 'ex_assigned', label: 'Assigned', type: 'built-in', sortField: 'assigned_name', defaultVisible: true, width: '10%' },
+  ], [])
+
+  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
+  const [fieldValues, setFieldValues] = useState<Map<string, Map<string, string>>>(new Map())
+  const [visibleColumnIds, setVisibleColumnIds] = useState<string[]>(() => EXISTING_BUILT_IN.map((c) => c.id))
+  const prefsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const allColumns: CrmColumn[] = useMemo(
+    () => [...EXISTING_BUILT_IN, ...customColumns],
+    [EXISTING_BUILT_IN, customColumns]
+  )
+  const visibleColumns = useMemo(
+    () => getVisibleColumns(allColumns, visibleColumnIds),
+    [allColumns, visibleColumnIds]
+  )
+
+  function saveColumnPrefs(ids: string[]) {
+    if (prefsSaveTimer.current) clearTimeout(prefsSaveTimer.current)
+    prefsSaveTimer.current = setTimeout(async () => {
+      await supabase.from('crm_user_column_preferences').upsert(
+        { user_id: userId, company_id: '00000000-0000-0000-0000-000000000001', visible_columns: ids, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,company_id' }
+      )
+    }, 600)
+  }
+
+  function handleToggleColumn(columnId: string) {
+    setVisibleColumnIds((prev) => {
+      const next = prev.includes(columnId)
+        ? prev.filter((id) => id !== columnId)
+        : [...prev, columnId]
+      saveColumnPrefs(next)
+      return next
+    })
+  }
+
+  async function handleCreateCustomColumn(col: {
+    name: string
+    column_type: 'text' | 'number' | 'date' | 'select'
+    select_options: string[] | null
+  }) {
+    const { data, error } = await supabase
+      .from('crm_custom_columns')
+      .insert({
+        company_id: '00000000-0000-0000-0000-000000000000',
+        name: col.name,
+        column_type: col.column_type,
+        select_options: col.select_options,
+        sort_order: customColumns.length,
+        created_by: userId,
+      })
+      .select('*')
+      .single()
+    if (error || !data) return
+    const newCol: CustomColumn = {
+      id: `custom_${data.id}`,
+      label: data.name,
+      type: 'custom',
+      columnType: data.column_type,
+      selectOptions: data.select_options,
+      sortField: null,
+      defaultVisible: false,
+      width: '10%',
+      dbId: data.id,
+    }
+    setCustomColumns((prev) => [...prev, newCol])
+    setVisibleColumnIds((prev) => {
+      const next = [...prev, newCol.id]
+      saveColumnPrefs(next)
+      return next
+    })
+  }
+
+  async function handleSaveFieldValue(recordId: string, columnDbId: string, value: string | null) {
+    if (value) {
+      await supabase.from('crm_custom_field_values').upsert(
+        {
+          company_id: '00000000-0000-0000-0000-000000000000',
+          record_id: recordId,
+          column_id: columnDbId,
+          value,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'record_id,column_id' }
+      )
+    } else {
+      await supabase
+        .from('crm_custom_field_values')
+        .delete()
+        .eq('record_id', recordId)
+        .eq('column_id', columnDbId)
+    }
+    setFieldValues((prev) => {
+      const next = new Map(prev)
+      const recordMap = new Map(next.get(recordId) ?? [])
+      if (value) {
+        recordMap.set(columnDbId, value)
+      } else {
+        recordMap.delete(columnDbId)
+      }
+      next.set(recordId, recordMap)
+      return next
+    })
+  }
 
   const [toast, setToast] = useState<string | null>(null)
   const showToast = useCallback((msg: string) => {
@@ -428,8 +555,63 @@ export default function ExistingCustomersView({
     }
 
     setCustomers(rows)
+
+    // Custom columns (shared pool)
+    const { data: ccData } = await supabase
+      .from('crm_custom_columns')
+      .select('*')
+      .order('sort_order', { ascending: true })
+    const ccRows = (ccData ?? []) as Array<{
+      id: string
+      name: string
+      column_type: 'text' | 'number' | 'date' | 'select'
+      select_options: string[] | null
+      sort_order: number
+    }>
+    const customCols: CustomColumn[] = ccRows.map((cc) => ({
+      id: `custom_${cc.id}`,
+      label: cc.name,
+      type: 'custom' as const,
+      columnType: cc.column_type,
+      selectOptions: cc.select_options,
+      sortField: null,
+      defaultVisible: false,
+      width: '10%',
+      dbId: cc.id,
+    }))
+    setCustomColumns(customCols)
+
+    // Custom field values for visible customers
+    const customerIds = rows.map((r) => r.id)
+    if (customerIds.length > 0) {
+      const { data: fvData } = await supabase
+        .from('crm_custom_field_values')
+        .select('record_id, column_id, value')
+        .in('record_id', customerIds)
+      const fvMap = new Map<string, Map<string, string>>()
+      for (const row of (fvData ?? []) as { record_id: string; column_id: string; value: string | null }[]) {
+        if (!row.value) continue
+        if (!fvMap.has(row.record_id)) fvMap.set(row.record_id, new Map())
+        fvMap.get(row.record_id)!.set(row.column_id, row.value)
+      }
+      setFieldValues(fvMap)
+    }
+
+    // Column preferences for this tab
+    if (userId) {
+      const { data: prefData } = await supabase
+        .from('crm_user_column_preferences')
+        .select('visible_columns')
+        .eq('user_id', userId)
+        .eq('company_id', '00000000-0000-0000-0000-000000000001')
+        .maybeSingle()
+      if (prefData?.visible_columns && Array.isArray(prefData.visible_columns)) {
+        setVisibleColumnIds(prefData.visible_columns as string[])
+      }
+    }
+
     setLoading(false)
-  }, [supabase])
+  }, [supabase, userId])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -680,26 +862,6 @@ export default function ExistingCustomersView({
     })}`
   }
 
-  const headerCell = (label: string, field: SortField | null, extraClass = '') => (
-    <th
-      onClick={field ? () => toggleSort(field) : undefined}
-      className={`text-[11px] font-normal text-gray-400 text-left ${
-        field ? 'cursor-pointer select-none hover:text-gray-600' : ''
-      } ${extraClass}`}
-      style={{ paddingTop: 14, paddingBottom: 14 }}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {field && sortField === field &&
-          (sortAsc ? (
-            <ArrowUpIcon className="w-3 h-3" />
-          ) : (
-            <ArrowDownIcon className="w-3 h-3" />
-          ))}
-      </span>
-    </th>
-  )
-
   const ViewToggle = (
     <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-xs">
       <button
@@ -730,7 +892,9 @@ export default function ExistingCustomersView({
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
         <div className="flex items-center gap-3">
+          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <div className="flex items-center gap-2">
+            <Building2Icon className="w-5 h-5 text-gray-400" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">CRM</h1>
           </div>
           {ViewToggle}
@@ -942,26 +1106,45 @@ export default function ExistingCustomersView({
           <table className="w-full table-fixed">
             <colgroup>
               <col style={{ width: '3%' }} />
-              <col style={{ width: '20%' }} />
-              <col style={{ width: '11%' }} />
-              <col style={{ width: '11%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
+              {visibleColumns.map((col) => (
+                <col key={col.id} style={{ width: col.width }} />
+              ))}
+              <col style={{ width: '36px' }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200" style={{ borderBottomWidth: '0.5px' }}>
                 <th className="pl-7 pr-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
-                {headerCell('Customer', 'name', 'pl-2 pr-2')}
-                {headerCell('Industry', 'industry', 'px-2')}
-                {headerCell('Location', 'location', 'px-2')}
-                {headerCell('Jobs', 'jobs_completed', 'px-2 text-center')}
-                {headerCell('Total revenue', 'total_revenue', 'px-2')}
-                {headerCell('Last contact', 'last_contact', 'px-2')}
-                {headerCell('Last job', 'last_job', 'px-2')}
-                {headerCell('Assigned', 'assigned_name', 'pl-2 pr-7')}
+                {visibleColumns.map((col, i) => {
+                  const isFirst = i === 0
+                  const isLast = i === visibleColumns.length - 1
+                  const cls = isFirst ? 'pl-2 pr-2' : isLast ? 'pl-2 pr-2' : 'px-2'
+                  return (
+                    <th
+                      key={col.id}
+                      onClick={col.sortField ? () => toggleSort(col.sortField as SortField) : undefined}
+                      className={`text-[11px] font-normal text-gray-400 text-left ${
+                        col.sortField ? 'cursor-pointer select-none hover:text-gray-600' : ''
+                      } ${cls} ${col.id === 'ex_jobs' ? 'text-center' : ''}`}
+                      style={{ paddingTop: 14, paddingBottom: 14 }}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        {col.sortField && sortField === col.sortField && (
+                          sortAsc ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />
+                        )}
+                      </span>
+                    </th>
+                  )
+                })}
+                <th className="px-1" style={{ paddingTop: 10, paddingBottom: 10 }}>
+                  <CrmColumnPicker
+                    allColumns={allColumns}
+                    visibleIds={visibleColumnIds}
+                    isAdmin={isAdmin}
+                    onToggle={handleToggleColumn}
+                    onCustomColumnCreated={handleCreateCustomColumn}
+                  />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -989,61 +1172,49 @@ export default function ExistingCustomersView({
                         aria-label={`Select ${c.name}`}
                       />
                     </td>
-                    <td
-                      className="pl-2 pr-2"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      <div className="text-sm font-medium text-gray-900 truncate">
-                        {c.name}
-                      </div>
-                      <div className="text-[11px] text-gray-500 truncate">
-                        {c.email || c.phone || c.company || '—'}
-                      </div>
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600 truncate"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      {c.industry || '—'}
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600 truncate"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      {cityState || '—'}
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600 text-center"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      {c.jobs_completed}
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      {c.total_revenue > 0 ? formatCurrency(c.total_revenue) : '—'}
-                    </td>
-                    <td
-                      className={`px-2 text-sm ${
-                        last.stale ? 'text-amber-600' : 'text-gray-600'
-                      }`}
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      {last.text}
-                    </td>
-                    <td
-                      className="px-2 text-sm text-gray-600"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      {lastJob.text}
-                    </td>
-                    <td
-                      className="pl-2 pr-7 text-sm text-gray-600 truncate"
-                      style={{ paddingTop: 14, paddingBottom: 14 }}
-                    >
-                      {formatAssigned(c.assigned_name)}
-                    </td>
+                    {visibleColumns.map((col) => {
+                      const cellPad = { paddingTop: 14, paddingBottom: 14 }
+                      if (col.type === 'custom') {
+                        const fv = fieldValues.get(c.id)?.get(col.dbId) ?? null
+                        return (
+                          <td key={col.id} className="px-2 text-sm" style={cellPad} onClick={(e) => e.stopPropagation()}>
+                            <CrmCustomFieldCell
+                              value={fv}
+                              columnType={col.columnType}
+                              selectOptions={col.selectOptions}
+                              canEdit={isAdmin || role === 'office_manager'}
+                              onSave={(v) => handleSaveFieldValue(c.id, col.dbId, v)}
+                            />
+                          </td>
+                        )
+                      }
+                      switch (col.id) {
+                        case 'customer':
+                          return (
+                            <td key={col.id} className="pl-2 pr-2" style={cellPad}>
+                              <div className="text-sm font-medium text-gray-900 truncate">{c.name}</div>
+                              <div className="text-[11px] text-gray-500 truncate">{c.email || c.phone || c.company || '—'}</div>
+                            </td>
+                          )
+                        case 'ex_industry':
+                          return <td key={col.id} className="px-2 text-sm text-gray-600 truncate" style={cellPad}>{c.industry || '—'}</td>
+                        case 'ex_location':
+                          return <td key={col.id} className="px-2 text-sm text-gray-600 truncate" style={cellPad}>{cityState || '—'}</td>
+                        case 'ex_jobs':
+                          return <td key={col.id} className="px-2 text-sm text-gray-600 text-center" style={cellPad}>{c.jobs_completed}</td>
+                        case 'ex_revenue':
+                          return <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad}>{c.total_revenue > 0 ? formatCurrency(c.total_revenue) : '—'}</td>
+                        case 'ex_last_contact':
+                          return <td key={col.id} className={`px-2 text-sm ${last.stale ? 'text-amber-600' : 'text-gray-600'}`} style={cellPad}>{last.text}</td>
+                        case 'ex_last_job':
+                          return <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad}>{lastJob.text}</td>
+                        case 'ex_assigned':
+                          return <td key={col.id} className="pl-2 pr-2 text-sm text-gray-600 truncate" style={cellPad}>{formatAssigned(c.assigned_name)}</td>
+                        default:
+                          return <td key={col.id} className="px-2 text-sm text-gray-400" style={cellPad}>—</td>
+                      }
+                    })}
+                    <td style={{ paddingTop: 14, paddingBottom: 14 }} />
                   </tr>
                 )
               })}
