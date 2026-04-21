@@ -29,6 +29,10 @@ import MergeCompaniesModal from './MergeCompaniesModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import ExistingCustomersView from './ExistingCustomersView'
 import { toCsv, downloadCsv } from '@/lib/csv'
+import { BUILT_IN_COLUMNS, DEFAULT_VISIBLE_IDS, getVisibleColumns } from './crmColumns'
+import type { CrmColumn, CustomColumn } from './crmColumns'
+import CrmColumnPicker from './CrmColumnPicker'
+import CrmCustomFieldCell from './CrmCustomFieldCell'
 
 type CrmViewMode = 'new' | 'existing'
 
@@ -229,6 +233,21 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       return next
     })
   }
+
+  // ─── Custom columns & column prefs ──────────────────────────────────
+  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
+  const [fieldValues, setFieldValues] = useState<Map<string, Map<string, string>>>(new Map())
+  const [visibleColumnIds, setVisibleColumnIds] = useState<string[]>(DEFAULT_VISIBLE_IDS)
+  const prefsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const allColumns: CrmColumn[] = useMemo(
+    () => [...BUILT_IN_COLUMNS, ...customColumns],
+    [customColumns]
+  )
+  const visibleColumns = useMemo(
+    () => getVisibleColumns(allColumns, visibleColumnIds),
+    [allColumns, visibleColumnIds]
+  )
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   function toggleExpanded(id: string) {
@@ -601,8 +620,61 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     searchBlobRef.current = contactNameBlob
 
     setCompanies(merged)
+
+    // Custom columns
+    const { data: ccData } = await supabase
+      .from('crm_custom_columns')
+      .select('*')
+      .order('sort_order', { ascending: true })
+    const ccRows = (ccData ?? []) as Array<{
+      id: string
+      name: string
+      column_type: 'text' | 'number' | 'date' | 'select'
+      select_options: string[] | null
+      sort_order: number
+    }>
+    const customCols: CustomColumn[] = ccRows.map((cc) => ({
+      id: `custom_${cc.id}`,
+      label: cc.name,
+      type: 'custom' as const,
+      columnType: cc.column_type,
+      selectOptions: cc.select_options,
+      sortField: null,
+      defaultVisible: false,
+      width: '10%',
+      dbId: cc.id,
+    }))
+    setCustomColumns(customCols)
+
+    // Custom field values
+    if (companyIds.length > 0) {
+      const { data: fvData } = await supabase
+        .from('crm_custom_field_values')
+        .select('record_id, column_id, value')
+        .in('record_id', companyIds)
+      const fvMap = new Map<string, Map<string, string>>()
+      for (const row of (fvData ?? []) as { record_id: string; column_id: string; value: string | null }[]) {
+        if (!row.value) continue
+        if (!fvMap.has(row.record_id)) fvMap.set(row.record_id, new Map())
+        fvMap.get(row.record_id)!.set(row.column_id, row.value)
+      }
+      setFieldValues(fvMap)
+    }
+
+    // User column preferences
+    const { data: prefData } = await supabase
+      .from('crm_user_column_preferences')
+      .select('visible_columns')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (prefData?.visible_columns && Array.isArray(prefData.visible_columns)) {
+      setVisibleColumnIds(prefData.visible_columns as string[])
+    } else {
+      setVisibleColumnIds(DEFAULT_VISIBLE_IDS)
+    }
+
     setLoading(false)
-  }, [supabase, includeArchived])
+  }, [supabase, includeArchived, userId])
 
   // Contact-names search blob (kept in ref so state deps stay minimal).
   const searchBlobRef = useRef<Map<string, string>>(new Map())
@@ -610,6 +682,96 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   useEffect(() => {
     fetchAll()
   }, [fetchAll])
+
+  // ─── Column preference helpers ────────────────────────────────────────────
+  function saveColumnPrefs(ids: string[]) {
+    if (prefsSaveTimer.current) clearTimeout(prefsSaveTimer.current)
+    prefsSaveTimer.current = setTimeout(async () => {
+      await supabase.from('crm_user_column_preferences').upsert(
+        { user_id: userId, company_id: '00000000-0000-0000-0000-000000000000', visible_columns: ids, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,company_id' }
+      )
+    }, 600)
+  }
+
+  function handleToggleColumn(columnId: string) {
+    setVisibleColumnIds((prev) => {
+      const next = prev.includes(columnId)
+        ? prev.filter((id) => id !== columnId)
+        : [...prev, columnId]
+      saveColumnPrefs(next)
+      return next
+    })
+  }
+
+  async function handleCreateCustomColumn(col: {
+    name: string
+    column_type: 'text' | 'number' | 'date' | 'select'
+    select_options: string[] | null
+  }) {
+    const { data, error } = await supabase
+      .from('crm_custom_columns')
+      .insert({
+        company_id: '00000000-0000-0000-0000-000000000000',
+        name: col.name,
+        column_type: col.column_type,
+        select_options: col.select_options,
+        sort_order: customColumns.length,
+        created_by: userId,
+      })
+      .select('*')
+      .single()
+    if (error || !data) return
+    const newCol: CustomColumn = {
+      id: `custom_${data.id}`,
+      label: data.name,
+      type: 'custom',
+      columnType: data.column_type,
+      selectOptions: data.select_options,
+      sortField: null,
+      defaultVisible: false,
+      width: '10%',
+      dbId: data.id,
+    }
+    setCustomColumns((prev) => [...prev, newCol])
+    setVisibleColumnIds((prev) => {
+      const next = [...prev, newCol.id]
+      saveColumnPrefs(next)
+      return next
+    })
+  }
+
+  async function handleSaveFieldValue(recordId: string, columnDbId: string, value: string | null) {
+    if (value) {
+      await supabase.from('crm_custom_field_values').upsert(
+        {
+          company_id: '00000000-0000-0000-0000-000000000000',
+          record_id: recordId,
+          column_id: columnDbId,
+          value,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'record_id,column_id' }
+      )
+    } else {
+      await supabase
+        .from('crm_custom_field_values')
+        .delete()
+        .eq('record_id', recordId)
+        .eq('column_id', columnDbId)
+    }
+    setFieldValues((prev) => {
+      const next = new Map(prev)
+      const recordMap = new Map(next.get(recordId) ?? [])
+      if (value) {
+        recordMap.set(columnDbId, value)
+      } else {
+        recordMap.delete(columnDbId)
+      }
+      next.set(recordId, recordMap)
+      return next
+    })
+  }
 
   // ─── Filter options (from actual data) ───────────────────────────────────
   const filterOptions = useMemo((): Record<FilterField, { value: string; label: string }[]> => {
@@ -828,30 +990,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   }, [safePage, totalPages])
 
   // ─── Render ──────────────────────────────────────────────────────────────
-  const headerCell = (
-    label: string,
-    field: SortField | null,
-    extraClass = ''
-  ) => (
-    <th
-      onClick={field ? () => toggleSort(field) : undefined}
-      className={`text-[11px] font-normal text-gray-400 text-left ${
-        field ? 'cursor-pointer select-none hover:text-gray-600' : ''
-      } ${extraClass}`}
-      style={{ paddingTop: 14, paddingBottom: 14 }}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {field && sortField === field && (
-          sortAsc ? (
-            <ArrowUpIcon className="w-3 h-3" />
-          ) : (
-            <ArrowDownIcon className="w-3 h-3" />
-          )
-        )}
-      </span>
-    </th>
-  )
 
   if (viewMode === 'existing') {
     return (
@@ -1143,31 +1281,46 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             <colgroup>
               <col style={{ width: '3%' }} />
               <col style={{ width: '3%' }} />
-              <col style={{ width: '17%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '7%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '7%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '12%' }} />
+              {visibleColumns.map((col) => (
+                <col key={col.id} style={{ width: col.width }} />
+              ))}
+              <col style={{ width: '36px' }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200" style={{ borderBottomWidth: '0.5px' }}>
                 <th className="pl-5 pr-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
                 <th className="px-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
-                {headerCell('Company', 'name', 'pl-2 pr-2')}
-                {headerCell('Industry', 'industry', 'px-2')}
-                {headerCell('Zone', 'zone', 'px-2')}
-                {headerCell('Location', 'location', 'px-2')}
-                {headerCell('Status', 'status', 'px-2')}
-                {headerCell('Priority', 'priority', 'px-2')}
-                {headerCell('Contacts', 'contact_count', 'px-2')}
-                {headerCell('Last activity', 'last_activity', 'px-2')}
-                {headerCell('Assigned', 'assigned_name', 'px-2')}
-                {headerCell('Last note', 'last_note', 'pl-2 pr-7')}
+                {visibleColumns.map((col, i) => {
+                  const isFirst = i === 0
+                  const isLast = i === visibleColumns.length - 1
+                  const cls = isFirst ? 'pl-2 pr-2' : isLast ? 'pl-2 pr-2' : 'px-2'
+                  return (
+                    <th
+                      key={col.id}
+                      onClick={col.sortField ? () => toggleSort(col.sortField as SortField) : undefined}
+                      className={`text-[11px] font-normal text-gray-400 text-left ${
+                        col.sortField ? 'cursor-pointer select-none hover:text-gray-600' : ''
+                      } ${cls}`}
+                      style={{ paddingTop: 14, paddingBottom: 14 }}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        {col.sortField && sortField === col.sortField && (
+                          sortAsc ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />
+                        )}
+                      </span>
+                    </th>
+                  )
+                })}
+                <th className="px-1" style={{ paddingTop: 10, paddingBottom: 10 }}>
+                  <CrmColumnPicker
+                    allColumns={allColumns}
+                    visibleIds={visibleColumnIds}
+                    isAdmin={isAdmin}
+                    onToggle={handleToggleColumn}
+                    onCustomColumnCreated={handleCreateCustomColumn}
+                  />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -1219,153 +1372,122 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                           aria-label={`Select ${c.name}`}
                         />
                       </td>
-                      <td
-                        className="pl-2 pr-2 text-sm font-medium text-gray-900"
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                      >
-                        <span className="flex items-center gap-1.5 truncate" title={c.name}>
-                          {c.name}
-                          {c.archived && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 text-gray-500 rounded">
-                              Archived
-                            </span>
-                          )}
-                        </span>
-                      </td>
-                      <td
-                        className="px-2 text-sm text-gray-600"
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                      >
-                        <span className="block truncate">{c.industry || '—'}</span>
-                      </td>
-                      <td
-                        className="px-2 text-sm text-gray-600"
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                      >
-                        <span className="block truncate">{c.zone || '—'}</span>
-                      </td>
-                      <td
-                        className="px-2 text-sm text-gray-600"
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                      >
-                        <span className="block truncate">{cityState || '—'}</span>
-                      </td>
-                      <td
-                        className={`px-2 text-sm ${STATUS_TEXT_COLOR[c.status]}`}
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <EditableSelectCell
-                          value={c.status}
-                          showHoverChevron
-                          options={(
-                            ['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'] as CompanyStatus[]
-                          ).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
-                          displayClassName={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
-                          className={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
-                          onSave={(v) =>
-                            updateCompanyField(c.id, 'status', (v ?? 'prospect') as CompanyStatus)
-                          }
-                        />
-                      </td>
-                      <td
-                        className={`px-2 text-sm ${
-                          c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
-                        }`}
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <EditableSelectCell
-                          value={c.priority}
-                          allowEmpty
-                          showHoverChevron
-                          emptyLabel="—"
-                          options={(['high', 'medium', 'low'] as CompanyPriority[]).map((p) => ({
-                            value: p,
-                            label: PRIORITY_LABELS[p],
-                          }))}
-                          displayClassName={`text-sm ${
-                            c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
-                          }`}
-                          className={`text-sm ${
-                            c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'
-                          }`}
-                          onSave={(v) =>
-                            updateCompanyField(c.id, 'priority', (v as CompanyPriority | null) ?? null)
-                          }
-                        />
-                      </td>
-                      <td
-                        className="px-2 text-sm text-gray-600"
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {hasContacts ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleExpanded(c.id)}
-                            className="text-sm text-gray-600 hover:text-amber-700 hover:underline cursor-pointer"
-                          >
-                            {c.contact_count} {c.contact_count === 1 ? 'contact' : 'contacts'}
-                          </button>
-                        ) : (
-                          <span className="text-gray-400">0 contacts</span>
-                        )}
-                      </td>
-                      <td
-                        className={`px-2 text-sm ${last.stale ? 'text-amber-600' : 'text-gray-600'}`}
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                      >
-                        {last.text}
-                      </td>
-                      <td
-                        className="px-2 text-sm text-gray-600"
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <EditableSelectCell
-                          value={c.assigned_to}
-                          allowEmpty
-                          showHoverChevron
-                          emptyLabel="—"
-                          options={profiles
-                            .filter((p) => p.display_name)
-                            .map((p) => ({ value: p.id, label: p.display_name ?? '' }))
-                            .sort((a, b) => a.label.localeCompare(b.label))}
-                          displayLabel={formatAssigned(c.assigned_name)}
-                          displayClassName="text-sm text-gray-600"
-                          className="text-sm text-gray-600"
-                          onSave={(v) => updateCompanyField(c.id, 'assigned_to', v)}
-                        />
-                      </td>
-                      <td
-                        className="pl-2 pr-2 text-sm text-gray-500"
-                        style={{ paddingTop: 14, paddingBottom: 14 }}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span className="truncate flex-1" title={c.last_note ?? ''}>
-                            {c.last_note || '—'}
-                          </span>
-                          {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleArchiveToggle(c.id, c.name, !c.archived)
-                              }}
-                              disabled={archivingId === c.id}
-                              className="opacity-0 group-hover:opacity-100 shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-opacity"
-                              title={c.archived ? 'Restore company' : 'Archive company'}
-                            >
-                              {c.archived ? (
-                                <ArchiveRestoreIcon className="w-3.5 h-3.5" />
-                              ) : (
-                                <ArchiveIcon className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                      {visibleColumns.map((col) => {
+                        const cellPad = { paddingTop: 14, paddingBottom: 14 }
+                        if (col.type === 'custom') {
+                          const fv = fieldValues.get(c.id)?.get(col.dbId) ?? null
+                          return (
+                            <td key={col.id} className="px-2 text-sm" style={cellPad} onClick={(e) => e.stopPropagation()}>
+                              <CrmCustomFieldCell
+                                value={fv}
+                                columnType={col.columnType}
+                                selectOptions={col.selectOptions}
+                                canEdit={isAdmin || role === 'office_manager'}
+                                onSave={(v) => handleSaveFieldValue(c.id, col.dbId, v)}
+                              />
+                            </td>
+                          )
+                        }
+                        switch (col.id) {
+                          case 'company':
+                            return (
+                              <td key={col.id} className="pl-2 pr-2 text-sm font-medium text-gray-900" style={cellPad}>
+                                <span className="flex items-center gap-1.5 truncate" title={c.name}>
+                                  {c.name}
+                                  {c.archived && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 text-gray-500 rounded">Archived</span>
+                                  )}
+                                </span>
+                              </td>
+                            )
+                          case 'industry':
+                            return <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad}><span className="block truncate">{c.industry || '—'}</span></td>
+                          case 'zone':
+                            return <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad}><span className="block truncate">{c.zone || '—'}</span></td>
+                          case 'location':
+                            return <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad}><span className="block truncate">{cityState || '—'}</span></td>
+                          case 'status':
+                            return (
+                              <td key={col.id} className={`px-2 text-sm ${STATUS_TEXT_COLOR[c.status]}`} style={cellPad} onClick={(e) => e.stopPropagation()}>
+                                <EditableSelectCell
+                                  value={c.status}
+                                  showHoverChevron
+                                  options={(['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'] as CompanyStatus[]).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+                                  displayClassName={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
+                                  className={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
+                                  onSave={(v) => updateCompanyField(c.id, 'status', (v ?? 'prospect') as CompanyStatus)}
+                                />
+                              </td>
+                            )
+                          case 'priority':
+                            return (
+                              <td key={col.id} className={`px-2 text-sm ${c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'}`} style={cellPad} onClick={(e) => e.stopPropagation()}>
+                                <EditableSelectCell
+                                  value={c.priority}
+                                  allowEmpty
+                                  showHoverChevron
+                                  emptyLabel="—"
+                                  options={(['high', 'medium', 'low'] as CompanyPriority[]).map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
+                                  displayClassName={`text-sm ${c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'}`}
+                                  className={`text-sm ${c.priority ? PRIORITY_TEXT_COLOR[c.priority] : 'text-gray-400'}`}
+                                  onSave={(v) => updateCompanyField(c.id, 'priority', (v as CompanyPriority | null) ?? null)}
+                                />
+                              </td>
+                            )
+                          case 'contacts':
+                            return (
+                              <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad} onClick={(e) => e.stopPropagation()}>
+                                {hasContacts ? (
+                                  <button type="button" onClick={() => toggleExpanded(c.id)} className="text-sm text-gray-600 hover:text-amber-700 hover:underline cursor-pointer">
+                                    {c.contact_count} {c.contact_count === 1 ? 'contact' : 'contacts'}
+                                  </button>
+                                ) : (
+                                  <span className="text-gray-400">0 contacts</span>
+                                )}
+                              </td>
+                            )
+                          case 'last_activity':
+                            return <td key={col.id} className={`px-2 text-sm ${last.stale ? 'text-amber-600' : 'text-gray-600'}`} style={cellPad}>{last.text}</td>
+                          case 'assigned':
+                            return (
+                              <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad} onClick={(e) => e.stopPropagation()}>
+                                <EditableSelectCell
+                                  value={c.assigned_to}
+                                  allowEmpty
+                                  showHoverChevron
+                                  emptyLabel="—"
+                                  options={profiles.filter((p) => p.display_name).map((p) => ({ value: p.id, label: p.display_name ?? '' })).sort((a, b) => a.label.localeCompare(b.label))}
+                                  displayLabel={formatAssigned(c.assigned_name)}
+                                  displayClassName="text-sm text-gray-600"
+                                  className="text-sm text-gray-600"
+                                  onSave={(v) => updateCompanyField(c.id, 'assigned_to', v)}
+                                />
+                              </td>
+                            )
+                          case 'last_note':
+                            return (
+                              <td key={col.id} className="pl-2 pr-2 text-sm text-gray-500" style={cellPad}>
+                                <div className="flex items-center gap-1">
+                                  <span className="truncate flex-1" title={c.last_note ?? ''}>{c.last_note || '—'}</span>
+                                  {isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleArchiveToggle(c.id, c.name, !c.archived) }}
+                                      disabled={archivingId === c.id}
+                                      className="opacity-0 group-hover:opacity-100 shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-opacity"
+                                      title={c.archived ? 'Restore company' : 'Archive company'}
+                                    >
+                                      {c.archived ? <ArchiveRestoreIcon className="w-3.5 h-3.5" /> : <ArchiveIcon className="w-3.5 h-3.5" />}
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            )
+                          default:
+                            return <td key={col.id} className="px-2 text-sm text-gray-400" style={cellPad}>—</td>
+                        }
+                      })}
+                      <td style={{ paddingTop: 14, paddingBottom: 14 }} />
                     </tr>
                     {expanded &&
                       c.contacts.map((k) => {
@@ -1402,7 +1524,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                               </div>
                             </td>
                             <td
-                              colSpan={3}
+                              colSpan={Math.max(1, Math.floor((visibleColumns.length - 1) / 2))}
                               className="px-2 text-sm text-gray-600"
                               style={{ paddingTop: 10, paddingBottom: 10 }}
                               onClick={(e) => e.stopPropagation()}
@@ -1420,7 +1542,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                               )}
                             </td>
                             <td
-                              colSpan={5}
+                              colSpan={Math.max(1, visibleColumns.length - 1 - Math.floor((visibleColumns.length - 1) / 2)) + 1}
                               className="px-2 text-sm text-gray-600 truncate"
                               style={{ paddingTop: 10, paddingBottom: 10 }}
                               onClick={(e) => e.stopPropagation()}
@@ -1437,10 +1559,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                 <span className="text-gray-400">—</span>
                               )}
                             </td>
-                            <td
-                              className="pl-2 pr-7"
-                              style={{ paddingTop: 10, paddingBottom: 10 }}
-                            />
                           </tr>
                         )
                       })}
