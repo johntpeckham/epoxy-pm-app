@@ -285,14 +285,6 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
               </button>
               <button
                 role="menuitem"
-                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=customer-management') }}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
-              >
-                <UsersIcon className="w-4 h-4 flex-shrink-0" />
-                Customer management
-              </button>
-              <button
-                role="menuitem"
                 onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=vendor-management') }}
                 className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
               >

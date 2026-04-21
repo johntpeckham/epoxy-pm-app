@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { PlusIcon, SearchIcon, Settings2Icon, UserIcon, LayoutDashboardIcon, FileTextIcon, ClipboardListIcon, DollarSignIcon } from 'lucide-react'
 import type { Customer } from './types'
-import CustomerManagementModal from '@/components/ui/CustomerManagementModal'
+import NewCompanyModal from '@/components/sales/NewCompanyModal'
 
 interface BillingClientsPanelProps {
   customers: Customer[]
@@ -160,12 +160,16 @@ export default function BillingClientsPanel({
         </div>
       </div>
 
-      <CustomerManagementModal
-        open={showCustomerManagement}
-        userId={userId}
-        onClose={() => setShowCustomerManagement(false)}
-        onCustomersChanged={onCustomerAdded}
-      />
+      {showCustomerManagement && (
+        <NewCompanyModal
+          userId={userId}
+          onClose={() => setShowCustomerManagement(false)}
+          onSaved={() => {
+            setShowCustomerManagement(false)
+            onCustomerAdded()
+          }}
+        />
+      )}
     </>
   )
 }

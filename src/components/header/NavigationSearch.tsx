@@ -80,7 +80,6 @@ const NAV_PAGES: NavPage[] = [
   { name: 'Manage Playbook', route: '/my-work/manage-playbook', icon: ClipboardCheckIcon, description: 'My Work', keywords: [], access: { type: 'all' } },
   { name: 'Office', route: '/office', icon: BriefcaseIcon, description: 'Office', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
   { name: 'Contacts', route: '/office/contacts', icon: UsersIcon, description: 'Office', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Customers', route: '/office/customers', icon: UsersIcon, description: 'Office', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
   { name: 'Vendors', route: '/office/vendors', icon: UsersIcon, description: 'Office', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
   { name: 'Sales Dashboard', route: '/sales', icon: TrendingUpIcon, description: 'Sales', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
   { name: 'CRM', route: '/sales/crm', icon: UsersIcon, description: 'Sales', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
