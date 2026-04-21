@@ -29,6 +29,7 @@ import JobWalkPhotosCard from './JobWalkPhotosCard'
 import JobWalkMeasurementsCard from './JobWalkMeasurementsCard'
 import JobWalkCamToPlanCard from './JobWalkCamToPlanCard'
 import JobWalkPushMenu from './JobWalkPushMenu'
+import NewJobWalkModal from './NewJobWalkModal'
 
 export type JobWalkStatus = 'in_progress' | 'completed' | 'sent_to_estimating'
 export type JobWalkPushedTo = 'estimating' | 'estimate' | 'job'
@@ -98,6 +99,7 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
   const [customers, setCustomers] = useState<Customer[]>([])
   const [assignees, setAssignees] = useState<AppointmentAssigneeOption[]>([])
   const [creating, setCreating] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [confirmDeleteWalk, setConfirmDeleteWalk] = useState<JobWalk | null>(null)
   const [deletingWalk, setDeletingWalk] = useState(false)
   const [completedExpanded, setCompletedExpanded] = useState(false)
@@ -149,33 +151,17 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
     router.replace(qs ? `/job-walk?${qs}` : '/job-walk', { scroll: false })
   }
 
-  const handleCreate = useCallback(async () => {
-    if (creating) return
-    setCreating(true)
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('job_walks')
-      .insert({
-        project_name: 'New Job Walk',
-        status: 'in_progress',
-        assigned_to: userId,
-        created_by: userId,
-      })
-      .select('*')
-      .single()
-    setCreating(false)
-    if (error || !data) {
-      console.error('[JobWalk] Create failed:', error)
-      return
+  const handleCreateFromModal = useCallback((walk: JobWalk, newCustomer?: import('@/components/estimates/types').Customer | null) => {
+    setJobWalks((prev) => [walk, ...prev])
+    if (newCustomer) {
+      setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)))
     }
-    const created = data as JobWalk
-    setJobWalks((prev) => [created, ...prev])
-    setExpandedId(created.id)
+    setExpandedId(walk.id)
+    setShowCreateModal(false)
     const params = new URLSearchParams(searchParams.toString())
-    params.set('walk', created.id)
+    params.set('walk', walk.id)
     router.replace(`/job-walk?${params.toString()}`, { scroll: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creating, userId, router, searchParams])
+  }, [router, searchParams])
 
   const handleUpdate = useCallback((id: string, patch: Partial<JobWalk>) => {
     setJobWalks((prev) =>
@@ -446,8 +432,7 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
             />
           </div>
           <button
-            onClick={handleCreate}
-            disabled={creating}
+            onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-60 rounded-lg transition-colors"
           >
             <PlusIcon className="w-4 h-4" />
@@ -515,6 +500,17 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
           </div>
         )}
       </div>
+
+      {showCreateModal && (
+        <NewJobWalkModal
+          userId={userId}
+          isAdmin={isAdmin}
+          customers={customers}
+          assignees={assignees}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={handleCreateFromModal}
+        />
+      )}
 
       {confirmDeleteWalk && (
         <ConfirmDialog

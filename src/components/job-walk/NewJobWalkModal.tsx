@@ -5,17 +5,16 @@ import { createClient } from '@/lib/supabase/client'
 import { XIcon, UserIcon, PlusIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import type { Customer } from '@/components/estimates/types'
-import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
-import type { Lead, LeadCategory } from './LeadsClient'
+import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
+import type { JobWalk } from './JobWalkClient'
 
-interface AddLeadModalProps {
+interface NewJobWalkModalProps {
   userId: string
   isAdmin?: boolean
   customers: Customer[]
-  categories: LeadCategory[]
   assignees?: AppointmentAssigneeOption[]
   onClose: () => void
-  onCreated: (lead: Lead, newCustomer?: Customer | null) => void
+  onCreated: (walk: JobWalk, newCustomer?: Customer | null) => void
 }
 
 function buildFullAddress(c: Customer): string {
@@ -28,15 +27,14 @@ function todayISO(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-export default function AddLeadModal({
+export default function NewJobWalkModal({
   userId,
   isAdmin = true,
   customers,
-  categories,
   assignees = [],
   onClose,
   onCreated,
-}: AddLeadModalProps) {
+}: NewJobWalkModalProps) {
   const [projectName, setProjectName] = useState('')
   const [customerQuery, setCustomerQuery] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -45,9 +43,12 @@ export default function AddLeadModal({
   const [newCustomerEmail, setNewCustomerEmail] = useState('')
   const [newCustomerPhone, setNewCustomerPhone] = useState('')
   const [newCustomerAddress, setNewCustomerAddress] = useState('')
-  const [category, setCategory] = useState<string>('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [address, setAddress] = useState('')
+  const [date, setDate] = useState(todayISO())
+  const [notes, setNotes] = useState('')
   const [assignedTo, setAssignedTo] = useState<string>(userId)
-  const [date, setDate] = useState<string>(todayISO())
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -77,6 +78,10 @@ export default function AddLeadModal({
     setSelectedCustomer(c)
     setCreatingNewCustomer(false)
     setCustomerQuery(c.name)
+    setCustomerEmail(c.email ?? '')
+    setCustomerPhone(c.phone ?? '')
+    const fullAddr = buildFullAddress(c)
+    if (fullAddr) setAddress(fullAddr)
     setDropdownOpen(false)
   }
 
@@ -98,10 +103,10 @@ export default function AddLeadModal({
     const supabase = createClient()
 
     let customerId: string | null = selectedCustomer?.id ?? null
-    let customerName = selectedCustomer?.name ?? null
-    let customerEmail = selectedCustomer?.email ?? null
-    let customerPhone = selectedCustomer?.phone ?? null
-    let address = selectedCustomer ? buildFullAddress(selectedCustomer) : null
+    let customerName = selectedCustomer?.name ?? (customerQuery.trim() || null)
+    let finalEmail: string | null = customerEmail || null
+    let finalPhone: string | null = customerPhone || null
+    let finalAddress: string | null = address.trim() || null
     let createdCustomer: Customer | null = null
 
     if (creatingNewCustomer) {
@@ -134,23 +139,23 @@ export default function AddLeadModal({
       createdCustomer = newCust as Customer
       customerId = createdCustomer.id
       customerName = createdCustomer.name
-      customerEmail = createdCustomer.email
-      customerPhone = createdCustomer.phone
-      address = buildFullAddress(createdCustomer) || null
+      finalEmail = createdCustomer.email
+      finalPhone = createdCustomer.phone
+      finalAddress = buildFullAddress(createdCustomer) || finalAddress
     }
 
-    const { data: newLead, error: leadErr } = await supabase
-      .from('leads')
+    const { data: newWalk, error: walkErr } = await supabase
+      .from('job_walks')
       .insert({
         project_name: projectName.trim(),
         company_id: customerId,
         customer_name: customerName,
-        customer_email: customerEmail,
-        customer_phone: customerPhone,
-        address: address || null,
+        customer_email: finalEmail,
+        customer_phone: finalPhone,
+        address: finalAddress,
         date: date || null,
-        category: category || null,
-        status: 'new',
+        notes: notes.trim() || null,
+        status: 'in_progress',
         assigned_to: assignedTo || null,
         created_by: userId,
       })
@@ -158,11 +163,11 @@ export default function AddLeadModal({
       .single()
 
     setSaving(false)
-    if (leadErr || !newLead) {
-      setError(`Failed to create lead: ${leadErr?.message ?? 'unknown error'}`)
+    if (walkErr || !newWalk) {
+      setError(`Failed to create job walk: ${walkErr?.message ?? 'unknown error'}`)
       return
     }
-    onCreated(newLead as Lead, createdCustomer)
+    onCreated(newWalk as JobWalk, createdCustomer)
   }
 
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1.5'
@@ -183,7 +188,7 @@ export default function AddLeadModal({
             className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h2 className="text-lg font-semibold text-gray-900">Add Lead</h2>
+            <h2 className="text-lg font-semibold text-gray-900">New Job Walk</h2>
             <button
               onClick={onClose}
               disabled={saving}
@@ -336,31 +341,63 @@ export default function AddLeadModal({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Lead source</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">— Select —</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+              {!creatingNewCustomer && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Email</label>
+                    <input
+                      type="email"
+                      value={customerEmail}
+                      readOnly={Boolean(selectedCustomer)}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      placeholder="—"
+                      className={`${inputCls} ${selectedCustomer ? 'bg-gray-50 text-gray-600' : ''}`}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Phone</label>
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      readOnly={Boolean(selectedCustomer)}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="—"
+                      className={`${inputCls} ${selectedCustomer ? 'bg-gray-50 text-gray-600' : ''}`}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className={labelCls}>Date</label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
+              )}
+
+              <div>
+                <label className={labelCls}>Address</label>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Street, City, State, Zip"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Notes</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Purpose of the visit, what to bring, etc."
+                  className={inputCls}
+                />
               </div>
 
               <div>
@@ -398,7 +435,7 @@ export default function AddLeadModal({
                 disabled={saving || !projectName.trim()}
                 className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-semibold transition"
               >
-                {saving ? 'Saving…' : 'Create Lead'}
+                {saving ? 'Creating…' : 'Create Job Walk'}
               </button>
             </div>
           </form>

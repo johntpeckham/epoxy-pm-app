@@ -9,6 +9,7 @@ import {
   MapPinIcon,
   PhoneIcon,
   ChevronDownIcon,
+  ChevronUpIcon,
   SearchIcon,
   ArrowLeftIcon,
   CalendarCheckIcon,
@@ -106,6 +107,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showNewModal, setShowNewModal] = useState(false)
   const [editDraft, setEditDraft] = useState<AppointmentDraft | null>(null)
   const [openPushMenuFor, setOpenPushMenuFor] = useState<string | null>(null)
@@ -405,6 +407,197 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
 
   // ─── Render ────────────────────────────────────────────────────────────
 
+  function toggleExpand(id: string) {
+    setExpandedId(expandedId === id ? null : id)
+  }
+
+  function renderCard(appt: AppointmentRow) {
+    const isExpanded = expandedId === appt.id
+    const company = companyMap.get(appt.company_id)
+    const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
+    const isDimmed = appt.status === 'completed'
+
+    return (
+      <div
+        key={appt.id}
+        className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl transition-opacity ${
+          isDimmed ? 'opacity-70' : ''
+        }`}
+      >
+        {/* Collapsed summary */}
+        <div
+          onClick={() => toggleExpand(appt.id)}
+          className="w-full text-left px-6 py-5 cursor-pointer"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link
+                  href={`/sales/crm/${appt.company_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[15px] font-medium text-gray-900 hover:text-amber-600"
+                >
+                  {company?.name ?? 'Unknown company'}
+                </Link>
+                <span className={`text-xs ${STATUS_TEXT_COLOR[appt.status]}`}>
+                  {STATUS_LABELS[appt.status]}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarIcon className="w-4 h-4 text-gray-400" />
+                  {formatDateTime(appt.date)}
+                </span>
+                {contact && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <UserIcon className="w-4 h-4 text-gray-400" />
+                    {contact.first_name} {contact.last_name}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 flex-shrink-0 mt-0.5">
+              {appt.pushed_to && (
+                appt.pushed_to === 'job_walk' && appt.pushed_ref_id ? (
+                  <Link
+                    href={`/job-walk?walk=${appt.pushed_ref_id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs text-gray-400 hover:text-amber-600"
+                  >
+                    {PUSHED_TO_LABELS[appt.pushed_to]} →
+                  </Link>
+                ) : appt.pushed_to === 'estimating' && appt.pushed_ref_id ? (
+                  <Link
+                    href={`/sales/estimating?project=${appt.pushed_ref_id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs text-gray-400 hover:text-amber-600"
+                  >
+                    {PUSHED_TO_LABELS[appt.pushed_to]} →
+                  </Link>
+                ) : (
+                  <span className="text-xs text-gray-400">
+                    {PUSHED_TO_LABELS[appt.pushed_to]}
+                  </span>
+                )
+              )}
+              <span className="inline-flex items-center gap-1 text-[13px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors select-none">
+                {isExpanded ? 'Close' : 'View'}
+                {isExpanded ? (
+                  <ChevronUpIcon className="w-4 h-4" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4" />
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Expanded detail */}
+        {isExpanded && (
+          <div className="border-t border-gray-100 dark:border-[#2a2a2a]">
+            <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 dark:bg-[#1e1e1e] flex-wrap">
+              {appt.status === 'scheduled' && !appt.pushed_to && (
+                <div className="relative">
+                  <button
+                    onClick={() =>
+                      setOpenPushMenuFor(openPushMenuFor === appt.id ? null : appt.id)
+                    }
+                    className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+                  >
+                    Push to…
+                    <ChevronDownIcon className="w-4 h-4" />
+                  </button>
+                  {openPushMenuFor === appt.id && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-30"
+                        onClick={() => setOpenPushMenuFor(null)}
+                      />
+                      <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]">
+                        <button
+                          onClick={() => { setOpenPushMenuFor(null); setPushTargetAppt(appt) }}
+                          className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          Push to job walk
+                        </button>
+                        <button
+                          onClick={() => { setOpenPushMenuFor(null); setPushEstimatingAppt(appt) }}
+                          className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          Push to estimating
+                        </button>
+                        <button
+                          onClick={() => { setOpenPushMenuFor(null); showToast('Coming soon') }}
+                          className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
+                        >
+                          Push to estimate
+                        </button>
+                        <button
+                          onClick={() => { setOpenPushMenuFor(null); showToast('Coming soon') }}
+                          className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
+                        >
+                          Push to job
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              <div className="flex-1" />
+              <button
+                onClick={() =>
+                  setEditDraft({
+                    id: appt.id,
+                    company_id: appt.company_id,
+                    contact_id: appt.contact_id,
+                    date: appt.date,
+                    address: appt.address,
+                    notes: appt.notes,
+                    assigned_to: appt.assigned_to,
+                    status: appt.status,
+                  })
+                }
+                className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition"
+              >
+                Edit
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-2">
+              {(appt.address || contact?.phone) && (
+                <div className="flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
+                  {appt.address && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPinIcon className="w-4 h-4 text-gray-400" />
+                      {appt.address}
+                    </span>
+                  )}
+                  {contact?.phone && (
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className="inline-flex items-center gap-1.5 hover:text-amber-600"
+                    >
+                      <PhoneIcon className="w-4 h-4 text-gray-400" />
+                      {contact.phone}
+                    </a>
+                  )}
+                </div>
+              )}
+              {appt.notes && (
+                <p
+                  className="text-[12px] text-gray-400 whitespace-pre-wrap"
+                  style={{ lineHeight: 1.6 }}
+                >
+                  {appt.notes}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       {/* Header */}
@@ -478,182 +671,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
           </div>
         ) : (
           <div className="space-y-3">
-            {myAppointments.map((appt) => {
-              const company = companyMap.get(appt.company_id)
-              const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
-              const isDimmed = appt.status === 'completed'
-              return (
-                <div
-                  key={appt.id}
-                  className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl px-6 py-5 transition-opacity ${
-                    isDimmed ? 'opacity-70' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    {/* Left side */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          href={`/sales/crm/${appt.company_id}`}
-                          className="text-[15px] font-medium text-gray-900 hover:text-amber-600"
-                        >
-                          {company?.name ?? 'Unknown company'}
-                        </Link>
-                        <span className={`text-xs ${STATUS_TEXT_COLOR[appt.status]}`}>
-                          {STATUS_LABELS[appt.status]}
-                        </span>
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
-                        <span className="inline-flex items-center gap-1.5">
-                          <CalendarIcon className="w-4 h-4 text-gray-400" />
-                          {formatDateTime(appt.date)}
-                        </span>
-                        {contact && (
-                          <span className="inline-flex items-center gap-1.5">
-                            <UserIcon className="w-4 h-4 text-gray-400" />
-                            {contact.first_name} {contact.last_name}
-                          </span>
-                        )}
-                      </div>
-                      {(appt.address || contact?.phone) && (
-                        <div className="mt-1 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
-                          {appt.address && (
-                            <span className="inline-flex items-center gap-1.5">
-                              <MapPinIcon className="w-4 h-4 text-gray-400" />
-                              {appt.address}
-                            </span>
-                          )}
-                          {contact?.phone && (
-                            <a
-                              href={`tel:${contact.phone}`}
-                              className="inline-flex items-center gap-1.5 hover:text-amber-600"
-                            >
-                              <PhoneIcon className="w-4 h-4 text-gray-400" />
-                              {contact.phone}
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      {appt.notes && (
-                        <p
-                          className="mt-2 text-[12px] text-gray-400 whitespace-pre-wrap"
-                          style={{ lineHeight: 1.6 }}
-                        >
-                          {appt.notes}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Right side: push button or pushed label */}
-                    <div className="flex flex-col items-end gap-1">
-                      {appt.status === 'scheduled' && !appt.pushed_to ? (
-                        <div className="relative">
-                          <button
-                            onClick={() =>
-                              setOpenPushMenuFor(
-                                openPushMenuFor === appt.id ? null : appt.id
-                              )
-                            }
-                            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
-                          >
-                            Push to…
-                            <ChevronDownIcon className="w-4 h-4" />
-                          </button>
-                          {openPushMenuFor === appt.id && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-30"
-                                onClick={() => setOpenPushMenuFor(null)}
-                              />
-                              <div className="absolute right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]">
-                                <button
-                                  onClick={() => {
-                                    setOpenPushMenuFor(null)
-                                    setPushTargetAppt(appt)
-                                  }}
-                                  className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                  Push to job walk
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setOpenPushMenuFor(null)
-                                    setPushEstimatingAppt(appt)
-                                  }}
-                                  className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                  Push to estimating
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setOpenPushMenuFor(null)
-                                    showToast('Coming soon')
-                                  }}
-                                  className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
-                                >
-                                  Push to estimate
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setOpenPushMenuFor(null)
-                                    showToast('Coming soon')
-                                  }}
-                                  className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
-                                >
-                                  Push to job
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ) : appt.pushed_to ? (
-                        appt.pushed_to === 'job_walk' && appt.pushed_ref_id ? (
-                          <Link
-                            href={`/job-walk?walk=${appt.pushed_ref_id}`}
-                            className="text-xs text-gray-400 hover:text-amber-600"
-                          >
-                            {PUSHED_TO_LABELS[appt.pushed_to]} →
-                          </Link>
-                        ) : appt.pushed_to === 'estimating' && appt.pushed_ref_id ? (
-                          <Link
-                            href={`/sales/estimating?project=${appt.pushed_ref_id}`}
-                            className="text-xs text-gray-400 hover:text-amber-600"
-                          >
-                            {PUSHED_TO_LABELS[appt.pushed_to]} →
-                          </Link>
-                        ) : (
-                          <span className="text-xs text-gray-400">
-                            {PUSHED_TO_LABELS[appt.pushed_to]}
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-xs text-gray-400">
-                          {STATUS_LABELS[appt.status]}
-                        </span>
-                      )}
-                      <button
-                        onClick={() =>
-                          setEditDraft({
-                            id: appt.id,
-                            company_id: appt.company_id,
-                            contact_id: appt.contact_id,
-                            date: appt.date,
-                            address: appt.address,
-                            notes: appt.notes,
-                            assigned_to: appt.assigned_to,
-                            status: appt.status,
-                          })
-                        }
-                        className="text-xs text-gray-400 hover:text-gray-600"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </div>
-
-                </div>
-              )
-            })}
+            {myAppointments.map((appt) => renderCard(appt))}
 
             {/* Admin: other users' sections */}
             {isAdmin && otherUserSections.length > 0 && (
@@ -672,178 +690,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
                       </span>
                     </div>
                     <div className="space-y-3">
-                      {section.appointments.map((appt) => {
-                        const company = companyMap.get(appt.company_id)
-                        const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
-                        const isDimmed = appt.status === 'completed'
-                        return (
-                          <div
-                            key={appt.id}
-                            className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl px-6 py-5 transition-opacity ${
-                              isDimmed ? 'opacity-70' : ''
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-4 flex-wrap">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Link
-                                    href={`/sales/crm/${appt.company_id}`}
-                                    className="text-[15px] font-medium text-gray-900 hover:text-amber-600"
-                                  >
-                                    {company?.name ?? 'Unknown company'}
-                                  </Link>
-                                  <span className={`text-xs ${STATUS_TEXT_COLOR[appt.status]}`}>
-                                    {STATUS_LABELS[appt.status]}
-                                  </span>
-                                </div>
-                                <div className="mt-1.5 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <CalendarIcon className="w-4 h-4 text-gray-400" />
-                                    {formatDateTime(appt.date)}
-                                  </span>
-                                  {contact && (
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <UserIcon className="w-4 h-4 text-gray-400" />
-                                      {contact.first_name} {contact.last_name}
-                                    </span>
-                                  )}
-                                </div>
-                                {(appt.address || contact?.phone) && (
-                                  <div className="mt-1 flex items-center gap-4 text-[13px] text-gray-500 flex-wrap">
-                                    {appt.address && (
-                                      <span className="inline-flex items-center gap-1.5">
-                                        <MapPinIcon className="w-4 h-4 text-gray-400" />
-                                        {appt.address}
-                                      </span>
-                                    )}
-                                    {contact?.phone && (
-                                      <a
-                                        href={`tel:${contact.phone}`}
-                                        className="inline-flex items-center gap-1.5 hover:text-amber-600"
-                                      >
-                                        <PhoneIcon className="w-4 h-4 text-gray-400" />
-                                        {contact.phone}
-                                      </a>
-                                    )}
-                                  </div>
-                                )}
-                                {appt.notes && (
-                                  <p
-                                    className="mt-2 text-[12px] text-gray-400 whitespace-pre-wrap"
-                                    style={{ lineHeight: 1.6 }}
-                                  >
-                                    {appt.notes}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex flex-col items-end gap-1">
-                                {appt.status === 'scheduled' && !appt.pushed_to ? (
-                                  <div className="relative">
-                                    <button
-                                      onClick={() =>
-                                        setOpenPushMenuFor(
-                                          openPushMenuFor === appt.id ? null : appt.id
-                                        )
-                                      }
-                                      className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
-                                    >
-                                      Push to…
-                                      <ChevronDownIcon className="w-4 h-4" />
-                                    </button>
-                                    {openPushMenuFor === appt.id && (
-                                      <>
-                                        <div
-                                          className="fixed inset-0 z-30"
-                                          onClick={() => setOpenPushMenuFor(null)}
-                                        />
-                                        <div className="absolute right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]">
-                                          <button
-                                            onClick={() => {
-                                              setOpenPushMenuFor(null)
-                                              setPushTargetAppt(appt)
-                                            }}
-                                            className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                          >
-                                            Push to job walk
-                                          </button>
-                                          <button
-                                            onClick={() => {
-                                              setOpenPushMenuFor(null)
-                                              setPushEstimatingAppt(appt)
-                                            }}
-                                            className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                          >
-                                            Push to estimating
-                                          </button>
-                                          <button
-                                            onClick={() => {
-                                              setOpenPushMenuFor(null)
-                                              showToast('Coming soon')
-                                            }}
-                                            className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
-                                          >
-                                            Push to estimate
-                                          </button>
-                                          <button
-                                            onClick={() => {
-                                              setOpenPushMenuFor(null)
-                                              showToast('Coming soon')
-                                            }}
-                                            className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
-                                          >
-                                            Push to job
-                                          </button>
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                ) : appt.pushed_to ? (
-                                  appt.pushed_to === 'job_walk' && appt.pushed_ref_id ? (
-                                    <Link
-                                      href={`/job-walk?walk=${appt.pushed_ref_id}`}
-                                      className="text-xs text-gray-400 hover:text-amber-600"
-                                    >
-                                      {PUSHED_TO_LABELS[appt.pushed_to]} →
-                                    </Link>
-                                  ) : appt.pushed_to === 'estimating' && appt.pushed_ref_id ? (
-                                    <Link
-                                      href={`/sales/estimating?project=${appt.pushed_ref_id}`}
-                                      className="text-xs text-gray-400 hover:text-amber-600"
-                                    >
-                                      {PUSHED_TO_LABELS[appt.pushed_to]} →
-                                    </Link>
-                                  ) : (
-                                    <span className="text-xs text-gray-400">
-                                      {PUSHED_TO_LABELS[appt.pushed_to]}
-                                    </span>
-                                  )
-                                ) : (
-                                  <span className="text-xs text-gray-400">
-                                    {STATUS_LABELS[appt.status]}
-                                  </span>
-                                )}
-                                <button
-                                  onClick={() =>
-                                    setEditDraft({
-                                      id: appt.id,
-                                      company_id: appt.company_id,
-                                      contact_id: appt.contact_id,
-                                      date: appt.date,
-                                      address: appt.address,
-                                      notes: appt.notes,
-                                      assigned_to: appt.assigned_to,
-                                      status: appt.status,
-                                    })
-                                  }
-                                  className="text-xs text-gray-400 hover:text-gray-600"
-                                >
-                                  Edit
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
+                      {section.appointments.map((appt) => renderCard(appt))}
                     </div>
                   </div>
                 ))}
@@ -875,6 +722,9 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
             setShowNewModal(false)
             setEditDraft(null)
             fetchAll()
+          }}
+          onCompanyCreated={(company) => {
+            setCompanies((prev) => [...prev, company].sort((a, b) => a.name.localeCompare(b.name)))
           }}
         />
       )}

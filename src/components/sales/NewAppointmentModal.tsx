@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { XIcon, SearchIcon, CheckIcon, Trash2Icon } from 'lucide-react'
+import { XIcon, SearchIcon, CheckIcon, Trash2Icon, PlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -50,6 +50,7 @@ interface NewAppointmentModalProps {
   onClose: () => void
   onSaved: () => void
   onDeleted?: () => void
+  onCompanyCreated?: (company: AppointmentCompanyOption) => void
 }
 
 function toLocalInput(iso: string): string {
@@ -71,6 +72,7 @@ export default function NewAppointmentModal({
   onClose,
   onSaved,
   onDeleted,
+  onCompanyCreated,
 }: NewAppointmentModalProps) {
   const isEdit = !!existing?.id
 
@@ -99,6 +101,12 @@ export default function NewAppointmentModal({
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [creatingNewCustomer, setCreatingNewCustomer] = useState(false)
+  const [newCustomerName, setNewCustomerName] = useState('')
+  const [newCustomerEmail, setNewCustomerEmail] = useState('')
+  const [newCustomerPhone, setNewCustomerPhone] = useState('')
+  const [newCustomerAddress, setNewCustomerAddress] = useState('')
+  const [savingCustomer, setSavingCustomer] = useState(false)
 
   const selectedCompany = useMemo(
     () => companies.find((c) => c.id === companyId) ?? null,
@@ -225,6 +233,47 @@ export default function NewAppointmentModal({
     if (onDeleted) onDeleted()
   }
 
+  async function handleCreateCustomer() {
+    const trimmedName = newCustomerName.trim()
+    if (!trimmedName) {
+      setError('Customer name is required.')
+      return
+    }
+    setSavingCustomer(true)
+    setError(null)
+    const supabase = createClient()
+    const { data: newCust, error: custErr } = await supabase
+      .from('companies')
+      .insert({
+        name: trimmedName,
+        company: null,
+        email: newCustomerEmail.trim() || null,
+        phone: newCustomerPhone.trim() || null,
+        address: newCustomerAddress.trim() || null,
+        city: null,
+        state: null,
+        zip: null,
+        archived: false,
+      })
+      .select('id, name, city, state')
+      .single()
+    setSavingCustomer(false)
+    if (custErr || !newCust) {
+      setError(`Failed to create customer: ${custErr?.message ?? 'unknown error'}`)
+      return
+    }
+    const created = newCust as AppointmentCompanyOption
+    setCompanyId(created.id)
+    setContactId('')
+    setAddress('')
+    setCreatingNewCustomer(false)
+    setNewCustomerName('')
+    setNewCustomerEmail('')
+    setNewCustomerPhone('')
+    setNewCustomerAddress('')
+    if (onCompanyCreated) onCompanyCreated(created)
+  }
+
   const inputClass =
     'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500'
 
@@ -290,6 +339,19 @@ export default function NewAppointmentModal({
                         />
                       </div>
                       <div className="max-h-[220px] overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCreatingNewCustomer(true)
+                            setNewCustomerName(companySearch)
+                            setShowCompanyDropdown(false)
+                            setCompanySearch('')
+                          }}
+                          className="w-full text-left px-3 py-2 border-b border-gray-100 flex items-center gap-2 text-sm text-amber-600 hover:bg-amber-50 transition"
+                        >
+                          <PlusIcon className="w-4 h-4" />
+                          Create new customer
+                        </button>
                         {filteredCompanies.length === 0 ? (
                           <div className="px-3 py-2 text-xs text-gray-400">
                             No matches
@@ -333,6 +395,78 @@ export default function NewAppointmentModal({
                 )}
               </div>
             </div>
+
+            {creatingNewCustomer && (
+              <div className="relative border border-gray-200 rounded-lg p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-gray-700">New customer details</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatingNewCustomer(false)
+                      setNewCustomerName('')
+                      setNewCustomerEmail('')
+                      setNewCustomerPhone('')
+                      setNewCustomerAddress('')
+                    }}
+                    aria-label="Close new customer details"
+                    className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Customer Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerName}
+                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    placeholder="Company / customer name"
+                    className={inputClass}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={newCustomerEmail}
+                      onChange={(e) => setNewCustomerEmail(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={newCustomerPhone}
+                      onChange={(e) => setNewCustomerPhone(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Address</label>
+                  <input
+                    type="text"
+                    value={newCustomerAddress}
+                    onChange={(e) => setNewCustomerAddress(e.target.value)}
+                    placeholder="Street, City, State, Zip"
+                    className={inputClass}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCreateCustomer}
+                  disabled={!newCustomerName.trim() || savingCustomer}
+                  className="w-full px-3 py-2 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition-colors"
+                >
+                  {savingCustomer ? 'Creating…' : 'Create Customer'}
+                </button>
+              </div>
+            )}
 
             {/* Contact */}
             <div>
