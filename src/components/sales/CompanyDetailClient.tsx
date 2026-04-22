@@ -686,7 +686,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const priorityDropdownOptions: CompanyPriority[] = ['high', 'medium', 'low']
 
   return (
-    <div className="flex-1 overflow-y-auto bg-white">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-wrap">
