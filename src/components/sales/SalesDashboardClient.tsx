@@ -1,7 +1,17 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { TrendingUpIcon } from 'lucide-react'
+import {
+  TrendingUpIcon,
+  UsersIcon,
+  PhoneIcon,
+  MailIcon,
+  CalendarIcon,
+  TargetIcon,
+  FootprintsIcon,
+  CalculatorIcon,
+} from 'lucide-react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   fetchTeamOverview,
@@ -15,6 +25,16 @@ interface Props {
   initialRange: TimeRange
   initialOverview: TeamOverview
 }
+
+const NAV_BUTTONS = [
+  { label: 'CRM', href: '/sales/crm', icon: UsersIcon },
+  { label: 'Dialer', href: '/sales/dialer', icon: PhoneIcon },
+  { label: 'Emailer', href: '/sales/emailer', icon: MailIcon },
+  { label: 'Appointments', href: '/sales/appointments', icon: CalendarIcon },
+  { label: 'Leads', href: '/sales/leads', icon: TargetIcon },
+  { label: 'Job Walk', href: '/sales/job-walk', icon: FootprintsIcon },
+  { label: 'Estimating', href: '/sales/estimating', icon: CalculatorIcon },
+]
 
 const RANGES: { value: TimeRange; label: string }[] = [
   { value: 'weekly', label: 'Weekly' },
@@ -49,6 +69,20 @@ export default function SalesDashboardClient({
       <div className="flex items-center px-4 sm:px-6 pt-4 pb-2">
         <TrendingUpIcon className="w-5 h-5 text-gray-400" />
         <h1 className="ml-2 text-2xl font-bold text-gray-900">Sales</h1>
+      </div>
+
+      {/* Navigation buttons */}
+      <div className="px-4 sm:px-6 pb-2 flex flex-wrap gap-2">
+        {NAV_BUTTONS.map((btn) => (
+          <Link
+            key={btn.href}
+            href={btn.href}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            <btn.icon className="w-4 h-4" />
+            {btn.label}
+          </Link>
+        ))}
       </div>
 
       {/* Time range toggle + date range */}

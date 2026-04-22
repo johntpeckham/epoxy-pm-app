@@ -667,11 +667,11 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   if (!company) return null
 
   const assignedName = company.assigned_to ? profileMap.get(company.assigned_to) ?? null : null
-  const locationParts = [company.address, company.city, company.state].filter(Boolean)
+  const cityState = [company.city, company.state].filter(Boolean).join(', ') || null
   const subtitleParts = [
     company.industry,
     company.zone,
-    locationParts.join(', ') || null,
+    cityState,
     assignedName ? `Assigned to ${formatAssigned(assignedName)}` : null,
   ].filter((p): p is string => !!p && p !== '')
 
