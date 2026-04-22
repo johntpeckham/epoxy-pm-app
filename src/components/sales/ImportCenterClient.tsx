@@ -164,14 +164,18 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     setLoading(false)
   }
 
-  async function deleteImport(id: string) {
-    const supabase = createClient()
-    await supabase.from('crm_imports').delete().eq('id', id)
-    fetchImports()
-  }
-
   // ── Import flow state ──
   const supabase = useMemo(() => createClient(), [])
+
+  async function deleteImport(id: string) {
+    const { error } = await supabase.from('crm_imports').delete().eq('id', id)
+    if (error) {
+      console.error('Failed to delete import:', error)
+      return
+    }
+    setImports((prev) => prev.filter((imp) => imp.id !== id))
+  }
+
   const [step, setStep] = useState<Step>('upload')
   const [fileName, setFileName] = useState<string | null>(null)
   const [fileSize, setFileSize] = useState(0)

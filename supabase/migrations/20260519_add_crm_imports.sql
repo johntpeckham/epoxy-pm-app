@@ -32,3 +32,6 @@ CREATE POLICY "Authenticated users can view crm_imports"
 
 CREATE POLICY "Authenticated users can insert crm_imports"
   ON crm_imports FOR INSERT TO authenticated WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete crm_imports"
+  ON crm_imports FOR DELETE TO authenticated USING (true);
