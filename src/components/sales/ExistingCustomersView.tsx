@@ -148,15 +148,27 @@ export default function ExistingCustomersView({
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
   const [fieldValues, setFieldValues] = useState<Map<string, Map<string, string>>>(new Map())
   const [visibleColumnIds, setVisibleColumnIds] = useState<string[]>(() => EXISTING_BUILT_IN.map((c) => c.id))
+  const [columnOrder, setColumnOrder] = useState<string[]>([])
   const prefsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const allColumns: CrmColumn[] = useMemo(
     () => [...EXISTING_BUILT_IN, ...customColumns],
     [EXISTING_BUILT_IN, customColumns]
   )
+
+  const orderedColumns: CrmColumn[] = useMemo(() => {
+    if (columnOrder.length === 0) return allColumns
+    const orderMap = new Map(columnOrder.map((id, idx) => [id, idx]))
+    return [...allColumns].sort((a, b) => {
+      const ai = orderMap.get(a.id) ?? 9999
+      const bi = orderMap.get(b.id) ?? 9999
+      return ai - bi
+    })
+  }, [allColumns, columnOrder])
+
   const visibleColumns = useMemo(
-    () => getVisibleColumns(allColumns, visibleColumnIds),
-    [allColumns, visibleColumnIds]
+    () => getVisibleColumns(orderedColumns, visibleColumnIds),
+    [orderedColumns, visibleColumnIds]
   )
 
   function saveColumnPrefs(ids: string[]) {
@@ -608,6 +620,16 @@ export default function ExistingCustomersView({
       if (prefData?.visible_columns && Array.isArray(prefData.visible_columns)) {
         setVisibleColumnIds(prefData.visible_columns as string[])
       }
+    }
+
+    // Company-wide column order
+    const { data: orderData } = await supabase
+      .from('crm_column_order')
+      .select('column_order')
+      .eq('company_id', '00000000-0000-0000-0000-000000000000')
+      .maybeSingle()
+    if (orderData?.column_order && Array.isArray(orderData.column_order)) {
+      setColumnOrder(orderData.column_order as string[])
     }
 
     setLoading(false)
@@ -1140,9 +1162,7 @@ export default function ExistingCustomersView({
                   <CrmColumnPicker
                     allColumns={allColumns}
                     visibleIds={visibleColumnIds}
-                    isAdmin={isAdmin}
                     onToggle={handleToggleColumn}
-                    onCustomColumnCreated={handleCreateCustomColumn}
                   />
                 </th>
               </tr>

@@ -20,6 +20,7 @@ import {
   ArchiveRestoreIcon,
   ArrowLeftIcon,
   Building2Icon,
+  SettingsIcon,
 } from 'lucide-react'
 import { useUserRole } from '@/lib/useUserRole'
 import Portal from '@/components/ui/Portal'
@@ -33,6 +34,7 @@ import { BUILT_IN_COLUMNS, DEFAULT_VISIBLE_IDS, getVisibleColumns } from './crmC
 import type { CrmColumn, CustomColumn } from './crmColumns'
 import CrmColumnPicker from './CrmColumnPicker'
 import CrmCustomFieldCell from './CrmCustomFieldCell'
+import ColumnSettingsModal from './ColumnSettingsModal'
 
 type CrmViewMode = 'new' | 'existing'
 
@@ -224,6 +226,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showColumnSettings, setShowColumnSettings] = useState(false)
 
   function toggleRowSelected(id: string) {
     setSelectedIds((prev) => {
@@ -238,15 +241,28 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
   const [fieldValues, setFieldValues] = useState<Map<string, Map<string, string>>>(new Map())
   const [visibleColumnIds, setVisibleColumnIds] = useState<string[]>(DEFAULT_VISIBLE_IDS)
+  const [columnOrder, setColumnOrder] = useState<string[]>([])
   const prefsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const allColumns: CrmColumn[] = useMemo(
     () => [...BUILT_IN_COLUMNS, ...customColumns],
     [customColumns]
   )
+
+  const orderedColumns: CrmColumn[] = useMemo(() => {
+    if (columnOrder.length === 0) return allColumns
+    const orderMap = new Map(columnOrder.map((id, idx) => [id, idx]))
+    const ordered = [...allColumns].sort((a, b) => {
+      const ai = orderMap.get(a.id) ?? 9999
+      const bi = orderMap.get(b.id) ?? 9999
+      return ai - bi
+    })
+    return ordered
+  }, [allColumns, columnOrder])
+
   const visibleColumns = useMemo(
-    () => getVisibleColumns(allColumns, visibleColumnIds),
-    [allColumns, visibleColumnIds]
+    () => getVisibleColumns(orderedColumns, visibleColumnIds),
+    [orderedColumns, visibleColumnIds]
   )
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -673,6 +689,16 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       setVisibleColumnIds(DEFAULT_VISIBLE_IDS)
     }
 
+    // Company-wide column order
+    const { data: orderData } = await supabase
+      .from('crm_column_order')
+      .select('column_order')
+      .eq('company_id', '00000000-0000-0000-0000-000000000000')
+      .maybeSingle()
+    if (orderData?.column_order && Array.isArray(orderData.column_order)) {
+      setColumnOrder(orderData.column_order as string[])
+    }
+
     setLoading(false)
   }, [supabase, includeArchived, userId])
 
@@ -739,6 +765,22 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       saveColumnPrefs(next)
       return next
     })
+  }
+
+  async function handleDeleteCustomColumn(dbId: string) {
+    await supabase.from('crm_custom_columns').delete().eq('id', dbId)
+    const colId = `custom_${dbId}`
+    setCustomColumns((prev) => prev.filter((c) => c.dbId !== dbId))
+    setVisibleColumnIds((prev) => {
+      const next = prev.filter((id) => id !== colId)
+      saveColumnPrefs(next)
+      return next
+    })
+    setColumnOrder((prev) => prev.filter((id) => id !== colId))
+  }
+
+  function handleColumnOrderSaved(order: string[]) {
+    setColumnOrder(order)
   }
 
   async function handleSaveFieldValue(recordId: string, columnDbId: string, value: string | null) {
@@ -1313,13 +1355,23 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                   )
                 })}
                 <th className="px-1" style={{ paddingTop: 10, paddingBottom: 10 }}>
-                  <CrmColumnPicker
-                    allColumns={allColumns}
-                    visibleIds={visibleColumnIds}
-                    isAdmin={isAdmin}
-                    onToggle={handleToggleColumn}
-                    onCustomColumnCreated={handleCreateCustomColumn}
-                  />
+                  <div className="flex items-center gap-0.5">
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setShowColumnSettings(true)}
+                        className="inline-flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                        title="Column settings"
+                      >
+                        <SettingsIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                    <CrmColumnPicker
+                      allColumns={allColumns}
+                      visibleIds={visibleColumnIds}
+                      onToggle={handleToggleColumn}
+                    />
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -1683,6 +1735,18 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             showToast('Companies merged')
             fetchAll()
           }}
+        />
+      )}
+
+      {/* ── Column settings modal (admin) ── */}
+      {showColumnSettings && (
+        <ColumnSettingsModal
+          allColumns={allColumns}
+          onClose={() => setShowColumnSettings(false)}
+          onColumnCreated={handleCreateCustomColumn}
+          onColumnDeleted={handleDeleteCustomColumn}
+          onOrderSaved={handleColumnOrderSaved}
+          columnOrder={columnOrder}
         />
       )}
     </div>
