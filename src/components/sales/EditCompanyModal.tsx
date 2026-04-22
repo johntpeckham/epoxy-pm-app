@@ -67,7 +67,6 @@ export default function EditCompanyModal({
   const [industry, setIndustry] = useState(company.industry ?? '')
   const [zone, setZone] = useState(company.zone ?? '')
   const [streetAddress, setStreetAddress] = useState(company.address ?? '')
-  const [region, setRegion] = useState(company.region ?? '')
   const [state, setState] = useState(company.state ?? '')
   const [county, setCounty] = useState(company.county ?? '')
   const [city, setCity] = useState(company.city ?? '')
@@ -108,7 +107,6 @@ export default function EditCompanyModal({
         industry: industry.trim() || null,
         zone: zone.trim() || null,
         address: streetAddress.trim() || null,
-        region: region.trim() || null,
         state: state.trim() || null,
         county: county.trim() || null,
         city: city.trim() || null,
@@ -176,15 +174,9 @@ export default function EditCompanyModal({
               <label className="block text-xs font-medium text-gray-600 mb-1">Street address</label>
               <input type="text" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} className={inputClass} placeholder="123 Main St" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Zone</label>
-                <input type="text" value={zone} onChange={(e) => setZone(e.target.value)} className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Region</label>
-                <input type="text" value={region} onChange={(e) => setRegion(e.target.value)} className={inputClass} />
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Zone</label>
+              <input type="text" value={zone} onChange={(e) => setZone(e.target.value)} className={inputClass} />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>

@@ -5,6 +5,7 @@ import { XIcon, UploadCloudIcon, FileTextIcon, AlertTriangleIcon } from 'lucide-
 import Portal from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase/client'
 import { parseCsv, findSimilarNames } from '@/lib/csv'
+import * as XLSX from 'xlsx'
 
 interface ImportCsvModalProps {
   userId: string
@@ -138,6 +139,7 @@ export default function ImportCsvModal({
   const [headers, setHeaders] = useState<string[]>([])
   const [rows, setRows] = useState<string[][]>([])
   const [parseError, setParseError] = useState<string | null>(null)
+  const [detectedFormat, setDetectedFormat] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -417,16 +419,11 @@ export default function ImportCsvModal({
 
   const handleFile = useCallback(async (file: File) => {
     setParseError(null)
+    setDetectedFormat(null)
     setFileName(file.name)
     const name = file.name.toLowerCase()
-    if (!name.endsWith('.csv') && !name.endsWith('.tsv') && !name.endsWith('.txt')) {
-      setParseError('Please upload a .csv or .tsv file.')
-      return
-    }
-    try {
-      const text = await file.text()
-      const delim = name.endsWith('.tsv') ? '\t' : undefined
-      const parsed = parseCsv(text, delim)
+
+    const applyParsed = (parsed: string[][]) => {
       if (parsed.length < 2) {
         setParseError('File has no data rows.')
         return
@@ -434,6 +431,63 @@ export default function ImportCsvModal({
       const [head, ...rest] = parsed
       setHeaders(head.map((h) => h.trim()))
       setRows(rest)
+    }
+
+    try {
+      if (name.endsWith('.csv') || name.endsWith('.tsv') || name.endsWith('.txt')) {
+        setDetectedFormat(name.endsWith('.tsv') ? 'TSV' : 'CSV')
+        const text = await file.text()
+        const delim = name.endsWith('.tsv') ? '\t' : undefined
+        applyParsed(parseCsv(text, delim))
+      } else if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.numbers')) {
+        const ext = name.endsWith('.numbers') ? 'Numbers' : name.endsWith('.xlsx') ? 'Excel (.xlsx)' : 'Excel (.xls)'
+        setDetectedFormat(ext)
+        const buf = await file.arrayBuffer()
+        const wb = XLSX.read(buf, { type: 'array' })
+        const sheetName = wb.SheetNames[0]
+        if (!sheetName) { setParseError('No sheets found in the file.'); return }
+        const sheet = wb.Sheets[sheetName]
+        const data: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+        applyParsed(data.map((row) => row.map((cell) => String(cell ?? ''))))
+      } else if (name.endsWith('.pdf')) {
+        setDetectedFormat('PDF')
+        const buf = await file.arrayBuffer()
+        const pdfjsLib = await import('pdfjs-dist')
+        pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+        const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf), useWorkerFetch: false, isEvalSupported: false, useSystemFonts: true }).promise
+        const lines: string[] = []
+        for (let p = 1; p <= doc.numPages; p++) {
+          const page = await doc.getPage(p)
+          const content = await page.getTextContent()
+          let currentLine = ''
+          let lastY: number | null = null
+          for (const item of content.items) {
+            if (!('str' in item)) continue
+            const y = Math.round((item as { transform: number[] }).transform[5])
+            if (lastY !== null && Math.abs(y - lastY) > 3) {
+              if (currentLine.trim()) lines.push(currentLine.trim())
+              currentLine = ''
+            }
+            currentLine += (currentLine ? '\t' : '') + item.str
+            lastY = y
+          }
+          if (currentLine.trim()) lines.push(currentLine.trim())
+        }
+        if (lines.length < 2) {
+          setParseError("This PDF doesn't appear to contain tabular data. Please use CSV, Excel, or Numbers format for best results.")
+          return
+        }
+        const tabCounts = lines.map((l) => (l.match(/\t/g) ?? []).length)
+        const medianTabs = tabCounts.sort((a, b) => a - b)[Math.floor(tabCounts.length / 2)]
+        if (medianTabs < 1) {
+          setParseError("This PDF doesn't appear to contain tabular data. Please use CSV, Excel, or Numbers format for best results.")
+          return
+        }
+        const tabular = lines.filter((l) => (l.match(/\t/g) ?? []).length >= medianTabs - 1)
+        applyParsed(tabular.map((l) => l.split('\t')))
+      } else {
+        setParseError('Unsupported file format. Please use CSV, Excel (.xlsx/.xls), Numbers, or PDF.')
+      }
     } catch {
       setParseError('Could not read the file.')
     }
@@ -471,7 +525,7 @@ export default function ImportCsvModal({
             style={{ minHeight: '56px' }}
           >
             <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold text-gray-900">Import CSV</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Import Data</h3>
               <StepIndicator step={step} />
             </div>
             <button
@@ -501,15 +555,15 @@ export default function ImportCsvModal({
                 >
                   <UploadCloudIcon className="w-10 h-10 text-gray-300" />
                   <div className="text-sm text-gray-700 font-medium">
-                    Drop a CSV or TSV file here, or click to browse
+                    Drop a file here, or click to browse
                   </div>
                   <p className="text-xs text-gray-400">
-                    Accepts .csv or .tsv · first row should be headers
+                    Accepts CSV, Excel (.xlsx/.xls), Numbers, or PDF · first row should be headers
                   </p>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.tsv,text/csv,text/tab-separated-values"
+                    accept=".csv,.tsv,.xlsx,.xls,.numbers,.pdf,text/csv,text/tab-separated-values"
                     className="hidden"
                     onChange={onPickFile}
                   />
@@ -528,6 +582,11 @@ export default function ImportCsvModal({
                         · {rows.length} row{rows.length === 1 ? '' : 's'}, {headers.length}{' '}
                         column{headers.length === 1 ? '' : 's'}
                       </span>
+                      {detectedFormat && (
+                        <span className="inline-flex px-2 py-0.5 text-[11px] font-medium bg-blue-50 text-blue-600 rounded-full">
+                          {detectedFormat}
+                        </span>
+                      )}
                     </div>
                     <div className="border border-gray-200 rounded-lg overflow-x-auto">
                       <table className="w-full text-xs">
@@ -568,14 +627,14 @@ export default function ImportCsvModal({
             {step === 'mapping' && (
               <div>
                 <p className="text-xs text-gray-500 mb-4">
-                  Match each column in your CSV to a CRM field. Columns set to{' '}
+                  Match each column in your file to a CRM field. Columns set to{' '}
                   <em>Skip</em> will be saved as additional data, viewable on the
                   company detail page.
                 </p>
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="grid grid-cols-[1fr_auto_1fr] gap-0 text-xs bg-gray-50 border-b border-gray-200">
                     <div className="px-3 py-2 font-medium text-gray-600">
-                      CSV column
+                      Source column
                     </div>
                     <div className="px-3 py-2 text-gray-400" />
                     <div className="px-3 py-2 font-medium text-gray-600">

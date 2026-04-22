@@ -136,7 +136,7 @@ const PAGE_SIZE = 50
 
 const FILTER_CONFIG: { field: FilterField; label: string }[] = [
   { field: 'status', label: 'Status' },
-  { field: 'region', label: 'Region' },
+  { field: 'region', label: 'Location' },
   { field: 'industry', label: 'Industry' },
   { field: 'priority', label: 'Priority' },
   { field: 'assigned_to', label: 'Assigned to' },
@@ -146,7 +146,6 @@ const FILTER_CONFIG: { field: FilterField; label: string }[] = [
 
 // Sub-fields grouped under the Region filter chip
 const REGION_GROUP_FIELDS: { field: FilterField; label: string }[] = [
-  { field: 'region', label: 'Region' },
   { field: 'zone', label: 'Zone' },
   { field: 'state', label: 'State' },
   { field: 'county', label: 'County' },
@@ -223,7 +222,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     setTimeout(() => setToast(null), 2500)
   }
 
-  const [includeArchived, setIncludeArchived] = useState(false)
+  const [viewArchived, setViewArchived] = useState(false)
   const { role } = useUserRole()
   const isAdmin = role === 'admin'
 
@@ -520,7 +519,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       .select(
         'id, name, industry, zone, region, state, county, city, status, priority, assigned_to, created_at, updated_at, archived'
       )
-    if (!includeArchived) companyQuery = companyQuery.eq('archived', false)
+    companyQuery = companyQuery.eq('archived', viewArchived)
     const { data: companyData } = await companyQuery
     const companyRows = (companyData ?? []) as Array<{
       id: string
@@ -712,7 +711,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     }
 
     setLoading(false)
-  }, [supabase, includeArchived, userId])
+  }, [supabase, viewArchived, userId])
 
   // Contact-names search blob (kept in ref so state deps stay minimal).
   const searchBlobRef = useRef<Map<string, string>>(new Map())
@@ -1214,7 +1213,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <UploadIcon className="w-4 h-4" />
-            Import CSV
+            Import
           </button>
           <button
             onClick={() => setShowFindDuplicates(true)}
@@ -1222,6 +1221,17 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           >
             <CopyIcon className="w-4 h-4" />
             Find Duplicates
+          </button>
+          <button
+            onClick={() => setViewArchived((v) => !v)}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+              viewArchived
+                ? 'text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100'
+                : 'text-gray-600 border border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            {viewArchived ? <ArchiveRestoreIcon className="w-4 h-4" /> : <ArchiveIcon className="w-4 h-4" />}
+            {viewArchived ? 'View Active' : 'View Archived'}
           </button>
           <button
             onClick={() => setShowNewModal(true)}
@@ -1373,17 +1383,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             </div>
           )
         })}
-        {isAdmin && (
-          <label className="flex items-center gap-1.5 text-xs text-gray-500 ml-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={includeArchived}
-              onChange={(e) => setIncludeArchived(e.target.checked)}
-              className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-3.5 w-3.5"
-            />
-            Include archived
-          </label>
-        )}
         {activeFilterCount > 0 && (
           <button
             onClick={() =>
@@ -1407,6 +1406,14 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           </button>
         )}
       </div>
+
+      {/* ── Archived banner ── */}
+      {viewArchived && (
+        <div className="mx-4 sm:mx-6 mt-2 mb-1 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-xs text-amber-700">
+          <ArchiveIcon className="w-3.5 h-3.5" />
+          Showing archived companies
+        </div>
+      )}
 
       {/* ── Table ── */}
       {loading ? (

@@ -977,7 +977,7 @@ export default function ExistingCustomersView({
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <UploadIcon className="w-4 h-4" />
-            Import CSV
+            Import
           </button>
           <button
             onClick={() => onNewCompany?.()}
