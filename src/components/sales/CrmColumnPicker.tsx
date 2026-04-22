@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { PlusIcon } from 'lucide-react'
 import type { CrmColumn } from './crmColumns'
 
@@ -16,26 +17,43 @@ export default function CrmColumnPicker({
   onToggle,
 }: CrmColumnPickerProps) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  const updatePos = useCallback(() => {
+    if (!btnRef.current) return
+    const r = btnRef.current.getBoundingClientRect()
+    setPos({ top: r.bottom + 4, left: r.right - 256 })
+  }, [])
 
   useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    if (!open) return
+    updatePos()
+    function handleClick(e: MouseEvent) {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) {
         setOpen(false)
       }
     }
-    if (open) {
-      document.addEventListener('mousedown', handler)
-      return () => document.removeEventListener('mousedown', handler)
+    function handleScroll() { updatePos() }
+    document.addEventListener('mousedown', handleClick)
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('scroll', handleScroll, true)
     }
-  }, [open])
+  }, [open, updatePos])
 
   const builtIn = allColumns.filter((c) => c.type === 'built-in')
   const custom = allColumns.filter((c) => c.type === 'custom')
 
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
@@ -44,8 +62,12 @@ export default function CrmColumnPicker({
         <PlusIcon className="w-4 h-4" />
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1 max-h-[420px] overflow-y-auto">
+      {open && pos && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-[420px] overflow-y-auto"
+          style={{ top: pos.top, left: Math.max(8, pos.left), zIndex: 50 }}
+        >
           <div className="px-3 py-2 border-b border-gray-100">
             <p className="text-xs font-medium text-gray-500">Show columns</p>
           </div>
@@ -98,9 +120,10 @@ export default function CrmColumnPicker({
             </>
           )}
 
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
 
