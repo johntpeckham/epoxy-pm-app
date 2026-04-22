@@ -72,7 +72,6 @@ export default function EditCompanyModal({
   const [status, setStatus] = useState(company.status)
   const [priority, setPriority] = useState(company.priority ?? 'medium')
   const [leadSource, setLeadSource] = useState(company.lead_source ?? '')
-  const [dealValue, setDealValue] = useState(String(company.deal_value ?? 0))
   const [assignedTo, setAssignedTo] = useState(company.assigned_to ?? '')
   const [users, setUsers] = useState<AssignableUser[]>([])
   const [saving, setSaving] = useState(false)
@@ -113,7 +112,6 @@ export default function EditCompanyModal({
         status,
         priority,
         lead_source: leadSource || null,
-        deal_value: Number(dealValue) || 0,
         assigned_to: assignedTo || null,
       })
       .eq('id', company.id)
@@ -233,17 +231,6 @@ export default function EditCompanyModal({
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Deal value ($)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={dealValue}
-                  onChange={(e) => setDealValue(e.target.value)}
-                  className={inputClass}
-                />
               </div>
             </div>
             <div>

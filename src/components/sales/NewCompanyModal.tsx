@@ -47,7 +47,6 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
   const [status, setStatus] = useState<'prospect' | 'contacted' | 'hot_lead' | 'lost'>('prospect')
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium')
   const [leadSource, setLeadSource] = useState('')
-  const [dealValue, setDealValue] = useState('0')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dupes, setDupes] = useState<Array<{ id: string; name: string; score: number }>>([])
@@ -90,7 +89,6 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
       status,
       priority,
       lead_source: leadSource || null,
-      deal_value: Number(dealValue) || 0,
       created_by: userId,
       archived: false,
     })
@@ -244,17 +242,6 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Deal value ($)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={dealValue}
-                  onChange={(e) => setDealValue(e.target.value)}
-                  className={inputClass}
-                />
               </div>
             </div>
             {error && <p className="text-xs text-red-600">{error}</p>}
