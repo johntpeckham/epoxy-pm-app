@@ -95,6 +95,7 @@ type FilterField =
   | 'priority'
   | 'assigned_to'
   | 'tags'
+  | 'job_title'
 
 const STATUS_LABELS: Record<CompanyStatus, string> = {
   prospect: 'Prospect',
@@ -137,6 +138,7 @@ const FILTER_CONFIG: { field: FilterField; label: string }[] = [
   { field: 'priority', label: 'Priority' },
   { field: 'assigned_to', label: 'Assigned to' },
   { field: 'tags', label: 'Tags' },
+  { field: 'job_title', label: 'Job title' },
 ]
 
 // Sub-fields grouped under the Region filter chip
@@ -200,9 +202,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     priority: new Set(),
     assigned_to: new Set(),
     tags: new Set(),
+    job_title: new Set(),
   })
-
-  const [jobTitleFilter, setJobTitleFilter] = useState('')
 
   const [sortField, setSortField] = useState<SortField>('last_activity')
   const [sortAsc, setSortAsc] = useState<boolean>(false)
@@ -225,7 +226,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null)
   const [openFilter, setOpenFilter] = useState<FilterField | null>(null)
-  const [showJobTitleFilter, setShowJobTitleFilter] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -857,6 +857,15 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       })),
       assigned_to: assignedList,
       tags: allTags.map((t) => ({ value: t.id, label: t.name })),
+      job_title: (() => {
+        const set = new Set<string>()
+        for (const c of companies) {
+          for (const ct of c.contacts) {
+            if (ct.job_title?.trim()) set.add(ct.job_title.trim())
+          }
+        }
+        return Array.from(set).sort((a, b) => a.localeCompare(b)).map((v) => ({ value: v, label: v }))
+      })(),
     }
   }, [companies, profiles, allTags])
 
@@ -887,11 +896,9 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       rows = rows.filter((r) => r.tag_ids.some((t) => filters.tags.has(t)))
     }
 
-    // Job title filter (case-insensitive partial match on contacts' job_title)
-    if (jobTitleFilter.trim()) {
-      const jt = jobTitleFilter.trim().toLowerCase()
+    if (filters.job_title.size > 0) {
       rows = rows.filter((r) =>
-        r.contacts.some((c) => c.job_title?.toLowerCase().includes(jt))
+        r.contacts.some((c) => c.job_title != null && filters.job_title.has(c.job_title.trim()))
       )
     }
 
@@ -947,7 +954,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       }
     })
     return sorted
-  }, [companies, filters, search, jobTitleFilter, sortField, sortAsc])
+  }, [companies, filters, search, sortField, sortAsc])
 
   const totalCount = filteredSorted.length
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
@@ -1274,50 +1281,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             </div>
           )
         })}
-        {/* Job title text filter */}
-        <div className="relative">
-          <button
-            onClick={() => setShowJobTitleFilter((v) => !v)}
-            className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border transition-colors ${
-              jobTitleFilter
-                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-            }`}
-            style={{ borderRadius: 20 }}
-          >
-            Job title
-            {jobTitleFilter ? (
-              <XIcon
-                className="w-3 h-3 ml-0.5 hover:text-blue-900"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setJobTitleFilter('')
-                  setShowJobTitleFilter(false)
-                }}
-              />
-            ) : (
-              <ChevronDownIcon className="w-3 h-3" />
-            )}
-          </button>
-          {showJobTitleFilter && (
-            <>
-              <div
-                className="fixed inset-0 z-30"
-                onClick={() => setShowJobTitleFilter(false)}
-              />
-              <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-[220px]">
-                <input
-                  type="text"
-                  value={jobTitleFilter}
-                  onChange={(e) => setJobTitleFilter(e.target.value)}
-                  placeholder="e.g. Harbor Master, CEO…"
-                  className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                  autoFocus
-                />
-              </div>
-            </>
-          )}
-        </div>
         {isAdmin && (
           <label className="flex items-center gap-1.5 text-xs text-gray-500 ml-2 cursor-pointer select-none">
             <input
@@ -1329,9 +1292,9 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             Include archived
           </label>
         )}
-        {(activeFilterCount > 0 || jobTitleFilter) && (
+        {activeFilterCount > 0 && (
           <button
-            onClick={() => {
+            onClick={() =>
               setFilters({
                 status: new Set(),
                 zone: new Set(),
@@ -1343,9 +1306,9 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 priority: new Set(),
                 assigned_to: new Set(),
                 tags: new Set(),
+                job_title: new Set(),
               })
-              setJobTitleFilter('')
-            }}
+            }
             className="text-xs text-gray-400 hover:text-gray-600 ml-1"
           >
             Clear all
