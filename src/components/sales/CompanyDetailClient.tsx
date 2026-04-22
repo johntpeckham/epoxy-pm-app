@@ -1817,7 +1817,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       {confirmDelete && (
         <ConfirmDialog
           title="Delete company?"
-          message={`This will permanently delete ${company.name} and all associated contacts, calls, and notes. This cannot be undone.`}
+          message={`This will permanently delete ${company.name} and all associated contacts, addresses, appointments, leads, job walks, call logs, notes, files, reminders, and activity history. This cannot be undone.`}
           confirmLabel="Delete"
           onConfirm={handleDeleteCompany}
           onCancel={() => setConfirmDelete(false)}
