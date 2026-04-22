@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeftIcon, PlusIcon, UploadCloudIcon, FileTextIcon, AlertTriangleIcon, CheckIcon, XIcon, Trash2Icon, UserIcon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, UploadCloudIcon, FileTextIcon, AlertTriangleIcon, CheckIcon, XIcon, Trash2Icon, UserIcon, PhoneIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { parseCsv, findSimilarNames } from '@/lib/csv'
 import * as XLSX from 'xlsx'
@@ -33,6 +33,7 @@ interface StagingRecord {
   address: string | null; address_label: string | null
   number_of_locations: string | null; revenue_range: string | null; employee_range: string | null
   prospect_status: string | null; last_call_status: string | null; last_call_date: string | null
+  contact_phones: Array<{ type: string; number: string }> | null
   extras: Record<string, string> | null
   duplicate_of: string | null; duplicate_score: number | null
   merge_decision: 'import' | 'merge' | 'skip' | 'rejected'
@@ -46,7 +47,7 @@ type TargetField =
   | 'skip' | 'company_name' | 'industry' | 'zone' | 'region' | 'state'
   | 'county' | 'city' | 'status' | 'priority' | 'lead_source' | 'deal_value'
   | 'contact_first_name' | 'contact_last_name' | 'contact_job_title'
-  | 'contact_email' | 'contact_phone' | 'address' | 'address_label'
+  | 'contact_email' | 'contact_phone' | 'contact_mobile' | 'address' | 'address_label'
   | 'number_of_locations' | 'revenue_range' | 'employee_range'
   | 'prospect_status' | 'last_call_status' | 'last_call_date'
 
@@ -56,7 +57,7 @@ const TARGET_LABELS: Record<TargetField, string> = {
   status: 'Status', priority: 'Priority', lead_source: 'Lead source', deal_value: 'Deal value',
   contact_first_name: 'Contact first name', contact_last_name: 'Contact last name',
   contact_job_title: 'Contact job title', contact_email: 'Contact email',
-  contact_phone: 'Contact phone', address: 'Address', address_label: 'Address label',
+  contact_phone: 'Contact phone (office)', contact_mobile: 'Contact mobile', address: 'Address', address_label: 'Address label',
   number_of_locations: 'Number of Locations', revenue_range: 'Revenue Range',
   employee_range: 'Employee Range', prospect_status: 'Prospect Status',
   last_call_status: 'Last Call Status', last_call_date: 'Last Call Date',
@@ -82,7 +83,8 @@ function guessMapping(header: string): TargetField {
   if (/last\s*name|^lname$|surname|family/.test(h)) return 'contact_last_name'
   if (/job\s*title|^title$|position|role/.test(h)) return 'contact_job_title'
   if (/email|^e-?mail$/.test(h)) return 'contact_email'
-  if (/phone|mobile|cell|telephone/.test(h)) return 'contact_phone'
+  if (/mobile|cell/.test(h)) return 'contact_mobile'
+  if (/phone|telephone/.test(h)) return 'contact_phone'
   if (/^address$|street|address\s*1/.test(h)) return 'address'
   if (/address\s*(label|type)/.test(h)) return 'address_label'
   if (/loc(ation)?s?\s*(count|number|#|num)?$|number\s*of\s*loc/.test(h)) return 'number_of_locations'
@@ -102,6 +104,7 @@ interface MappedRow {
   deal_value: number | null
   contact_first_name: string | null; contact_last_name: string | null
   contact_job_title: string | null; contact_email: string | null; contact_phone: string | null
+  contact_mobile: string | null
   address: string | null; address_label: string | null
   number_of_locations: string | null; revenue_range: string | null; employee_range: string | null
   prospect_status: string | null; last_call_status: string | null; last_call_date: string | null
@@ -115,6 +118,7 @@ function buildMappedRow(headers: string[], row: string[], mapping: TargetField[]
     lead_source: null, deal_value: null,
     contact_first_name: null, contact_last_name: null,
     contact_job_title: null, contact_email: null, contact_phone: null,
+    contact_mobile: null,
     address: null, address_label: null,
     number_of_locations: null, revenue_range: null, employee_range: null,
     prospect_status: null, last_call_status: null, last_call_date: null,
@@ -188,6 +192,13 @@ function mapCallOutcome(raw: string | null): string {
   if (/email/.test(v)) return 'email_sent'
   if (/text|sms/.test(v)) return 'text_sent'
   return 'connected'
+}
+
+function buildContactPhonesJson(phone: string | null, mobile: string | null): Array<{ type: string; number: string }> | null {
+  const phones: Array<{ type: string; number: string }> = []
+  if (phone?.trim()) phones.push({ type: 'office', number: phone.trim() })
+  if (mobile?.trim()) phones.push({ type: 'mobile', number: mobile.trim() })
+  return phones.length > 0 ? phones : null
 }
 
 type View = 'history' | 'new-import' | 'staging'
@@ -362,6 +373,12 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     setFinalStats({ companies: 0, contacts: 0, skipped: 0, merged: 0 })
   }
 
+  async function updateStagingPhones(id: string, phones: Array<{ type: string; number: string }>) {
+    const contactPhone = phones[0]?.number || null
+    const { error } = await supabase.from('crm_import_records').update({ contact_phones: phones.length > 0 ? phones : null, contact_phone: contactPhone }).eq('id', id)
+    if (!error) setStagingRecords((prev) => prev.map((r) => r.id === id ? { ...r, contact_phones: phones.length > 0 ? phones : null, contact_phone: contactPhone } : r))
+  }
+
   async function updateStagingField(id: string, field: string, value: string | number | null) {
     const { error } = await supabase.from('crm_import_records').update({ [field]: value }).eq('id', id)
     if (!error) setStagingRecords((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r))
@@ -416,18 +433,35 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
         const insertedRows = (inserted ?? []) as { id: string; name: string }[]
 
         const contactPayload: Array<Record<string, unknown>> = []
+        const contactPhoneMap: Map<number, { companyId: string; phones: Array<{ type: string; number: string }> }> = new Map()
         const addressPayload: Array<Record<string, unknown>> = []
         for (let i = 0; i < chunk.length; i++) {
           const row = chunk[i], co = insertedRows[i]
           if (!co) continue
           if (row.contact_first_name || row.contact_last_name) {
+            const cpIdx = contactPayload.length
             contactPayload.push({ company_id: co.id, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: row.contact_phone, is_primary: true, import_batch_id: batchId })
+            const phones = row.contact_phones ?? buildContactPhonesJson(row.contact_phone, null) ?? []
+            if (phones.length > 0) contactPhoneMap.set(cpIdx, { companyId: co.id, phones })
           }
           if (row.address) {
             addressPayload.push({ company_id: co.id, label: row.address_label || 'Primary', address: row.address, city: row.city, state: row.state, is_primary: true })
           }
         }
-        if (contactPayload.length > 0) { const { error: cerr } = await supabase.from('contacts').insert(contactPayload); if (cerr) throw cerr }
+        if (contactPayload.length > 0) {
+          const { data: insertedContacts, error: cerr } = await supabase.from('contacts').insert(contactPayload).select('id, company_id')
+          if (cerr) throw cerr
+          const phonePayload: Array<Record<string, unknown>> = []
+          const ic = (insertedContacts ?? []) as Array<{ id: string; company_id: string }>
+          for (const [idx, entry] of contactPhoneMap.entries()) {
+            const contact = ic[idx]
+            if (!contact) continue
+            entry.phones.forEach((p, pi) => {
+              phonePayload.push({ contact_id: contact.id, company_id: entry.companyId, phone_number: p.number, phone_type: p.type, is_primary: pi === 0 })
+            })
+          }
+          if (phonePayload.length > 0) await supabase.from('contact_phone_numbers').insert(phonePayload)
+        }
         if (addressPayload.length > 0) { const { error: aerr } = await supabase.from('crm_company_addresses').insert(addressPayload); if (aerr) throw aerr }
 
         const callLogPayload: Array<Record<string, unknown>> = []
@@ -464,7 +498,13 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       for (const row of mergeRows) {
         const targetId = row.duplicate_of!
         if (row.contact_first_name || row.contact_last_name) {
-          await supabase.from('contacts').insert({ company_id: targetId, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: row.contact_phone, is_primary: false, import_batch_id: batchId })
+          const { data: mergeContact } = await supabase.from('contacts').insert({ company_id: targetId, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: row.contact_phone, is_primary: false, import_batch_id: batchId }).select('id').single()
+          if (mergeContact) {
+            const phones = row.contact_phones ?? buildContactPhonesJson(row.contact_phone, null) ?? []
+            if (phones.length > 0) {
+              await supabase.from('contact_phone_numbers').insert(phones.map((p, pi) => ({ contact_id: mergeContact.id, company_id: targetId, phone_number: p.number, phone_type: p.type, is_primary: pi === 0 })))
+            }
+          }
         }
         if (row.address) {
           await supabase.from('crm_company_addresses').insert({ company_id: targetId, label: row.address_label || 'Imported', address: row.address, city: row.city, state: row.state, is_primary: false })
@@ -620,6 +660,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                       editingCell={editingCell}
                       onStartEdit={(field) => setEditingCell({ id: rec.id, field })}
                       onSave={(field, value) => updateStagingField(rec.id, field, value)}
+                      onSavePhones={(phones) => updateStagingPhones(rec.id, phones)}
                       onDecisionChange={(d) => setStagingDecision([rec.id], d)}
                       dimmed={false}
                     />
@@ -646,6 +687,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                           editingCell={null}
                           onStartEdit={() => {}}
                           onSave={() => {}}
+                          onSavePhones={() => {}}
                           onDecisionChange={(d) => setStagingDecision([rec.id], d)}
                           dimmed
                         />
@@ -674,6 +716,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                           editingCell={null}
                           onStartEdit={() => {}}
                           onSave={() => {}}
+                          onSavePhones={() => {}}
                           onDecisionChange={() => {}}
                           dimmed
                           approved
@@ -984,6 +1027,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           contact_first_name: r.mapped.contact_first_name, contact_last_name: r.mapped.contact_last_name,
           contact_job_title: r.mapped.contact_job_title, contact_email: r.mapped.contact_email,
           contact_phone: r.mapped.contact_phone,
+          contact_phones: buildContactPhonesJson(r.mapped.contact_phone, r.mapped.contact_mobile),
           address: r.mapped.address, address_label: r.mapped.address_label,
           number_of_locations: r.mapped.number_of_locations,
           revenue_range: r.mapped.revenue_range, employee_range: r.mapped.employee_range,
@@ -1139,7 +1183,16 @@ function StatBadge({ label, value, accent }: { label: string; value: number; acc
   )
 }
 
-function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatuses, selected, onSelect, editingCell, onStartEdit, onSave, onDecisionChange, dimmed, approved }: {
+const FIELD_PLACEHOLDERS: Record<string, string> = {
+  company_name: 'Company name', industry: 'Industry', city: 'City', state: 'State',
+  zone: 'Zone', number_of_locations: 'Locations', revenue_range: 'Revenue',
+  employee_range: 'Employees', prospect_status: 'Prospect status', status: 'Status',
+  priority: 'Priority', contact_first_name: 'First name', contact_last_name: 'Last name',
+  contact_job_title: 'Job title', contact_email: 'Email address', contact_phone: 'Phone number',
+  last_call_status: 'Call status', last_call_date: 'Call date',
+}
+
+function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatuses, selected, onSelect, editingCell, onStartEdit, onSave, onSavePhones, onDecisionChange, dimmed, approved }: {
   rec: StagingRecord
   companyFields: { key: keyof StagingRecord; label: string; width: string }[]
   contactFields: { key: keyof StagingRecord; label: string; width: string }[]
@@ -1149,6 +1202,7 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
   editingCell: { id: string; field: string } | null
   onStartEdit: (field: string) => void
   onSave: (field: string, value: string | null) => void
+  onSavePhones: (phones: Array<{ type: string; number: string }>) => void
   onDecisionChange: (d: StagingRecord['merge_decision']) => void
   dimmed: boolean
   approved?: boolean
@@ -1179,6 +1233,8 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
       )
     }
 
+    const placeholder = FIELD_PLACEHOLDERS[f.key] ?? '—'
+
     if (approved) {
       return (
         <td key={f.key} className={`px-3 py-2 text-gray-500 ${f.width}`}>{display || '—'}</td>
@@ -1191,6 +1247,7 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
           <input
             autoFocus
             defaultValue={display}
+            placeholder={placeholder}
             onBlur={(e) => onSave(f.key, e.target.value.trim() || null)}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { onSave(f.key, display || null) } }}
             className={`w-full px-2 py-1 text-xs border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400 ${isContact ? 'text-gray-600' : ''}`}
@@ -1205,7 +1262,7 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
         onClick={() => { if (!dimmed) onStartEdit(f.key) }}
         title={!dimmed ? 'Click to edit' : undefined}
       >
-        {display || <span className="text-gray-300">—</span>}
+        {display || <span className="text-gray-300 italic text-[10px]">{placeholder}</span>}
       </td>
     )
   }
@@ -1252,10 +1309,11 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
               <table className="text-[11px]">
                 <tbody>
                   <tr>
-                    {contactFields.map((f) => {
+                    {contactFields.filter((f) => f.key !== 'contact_phone').map((f) => {
                       const isEditing = editingCell?.id === rec.id && editingCell?.field === f.key
                       const value = rec[f.key]
                       const display = value != null ? String(value) : ''
+                      const placeholder = FIELD_PLACEHOLDERS[f.key] ?? '—'
 
                       if (approved) {
                         return (
@@ -1269,6 +1327,7 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
                             <input
                               autoFocus
                               defaultValue={display}
+                              placeholder={placeholder}
                               onBlur={(e) => onSave(f.key, e.target.value.trim() || null)}
                               onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { onSave(f.key, display || null) } }}
                               className="w-full px-2 py-0.5 text-[11px] border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
@@ -1283,10 +1342,16 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
                           onClick={() => { if (!dimmed) onStartEdit(f.key) }}
                           title={!dimmed ? 'Click to edit' : undefined}
                         >
-                          {display || <span className="text-gray-300">—</span>}
+                          {display || <span className="text-gray-300 italic text-[10px]">{placeholder}</span>}
                         </td>
                       )
                     })}
+                    <StagingPhoneCell
+                      rec={rec}
+                      approved={!!approved}
+                      dimmed={dimmed}
+                      onSavePhones={onSavePhones}
+                    />
                   </tr>
                 </tbody>
               </table>
@@ -1295,5 +1360,98 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
         </td>
       </tr>
     </>
+  )
+}
+
+const PHONE_TYPE_LABELS: Record<string, string> = { office: 'Office', mobile: 'Mobile', fax: 'Fax', other: 'Other' }
+
+function StagingPhoneCell({ rec, approved, dimmed, onSavePhones }: {
+  rec: StagingRecord
+  approved: boolean
+  dimmed: boolean
+  onSavePhones: (phones: Array<{ type: string; number: string }>) => void
+}) {
+  const phones: Array<{ type: string; number: string }> = rec.contact_phones && rec.contact_phones.length > 0
+    ? rec.contact_phones
+    : rec.contact_phone ? [{ type: 'office', number: rec.contact_phone }] : []
+  const [editing, setEditing] = useState<number | null>(null)
+
+  function updatePhone(idx: number, field: 'type' | 'number', val: string) {
+    const next = phones.map((p, i) => i === idx ? { ...p, [field]: val } : p)
+    onSavePhones(next)
+  }
+
+  function addPhone() {
+    onSavePhones([...phones, { type: 'office', number: '' }])
+  }
+
+  function removePhone(idx: number) {
+    const next = phones.filter((_, i) => i !== idx)
+    onSavePhones(next)
+  }
+
+  if (approved) {
+    return (
+      <td className="px-2 py-0.5 text-gray-400 min-w-[160px]">
+        {phones.length > 0 ? phones.map((p, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <span className="text-gray-300 text-[10px]">{PHONE_TYPE_LABELS[p.type] ?? p.type}:</span>
+            <span>{p.number}</span>
+          </div>
+        )) : '—'}
+      </td>
+    )
+  }
+
+  return (
+    <td className="px-2 py-0.5 min-w-[200px] align-top">
+      <div className="flex flex-col gap-0.5">
+        {phones.map((p, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <select
+              value={p.type}
+              onChange={(e) => updatePhone(i, 'type', e.target.value)}
+              disabled={dimmed}
+              className="px-1 py-0 text-[10px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white text-gray-500"
+            >
+              <option value="office">Office</option>
+              <option value="mobile">Mobile</option>
+              <option value="fax">Fax</option>
+              <option value="other">Other</option>
+            </select>
+            {editing === i && !dimmed ? (
+              <input
+                autoFocus
+                defaultValue={p.number}
+                placeholder="Phone number"
+                onBlur={(e) => { updatePhone(i, 'number', e.target.value.trim()); setEditing(null) }}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                className="flex-1 px-1 py-0 text-[11px] border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+            ) : (
+              <span
+                className={`flex-1 text-[11px] text-gray-500 ${!dimmed ? 'cursor-pointer hover:bg-amber-50/50' : ''} px-1 rounded`}
+                onClick={() => { if (!dimmed) setEditing(i) }}
+              >
+                {p.number || <span className="text-gray-300 italic text-[10px]">Phone number</span>}
+              </span>
+            )}
+            {!dimmed && phones.length > 1 && (
+              <button onClick={() => removePhone(i)} className="text-gray-300 hover:text-red-400 p-0">
+                <XIcon className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        ))}
+        {phones.length === 0 && !dimmed && (
+          <span className="text-gray-300 italic text-[10px]">Phone number</span>
+        )}
+        {!dimmed && (
+          <button onClick={addPhone} className="text-[10px] text-amber-500 hover:text-amber-600 mt-0.5 self-start">
+            + Add number
+          </button>
+        )}
+      </div>
+    </td>
   )
 }

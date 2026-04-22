@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { XIcon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { XIcon, PlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 
@@ -32,10 +32,33 @@ export default function NewContactModal({
   const [lastName, setLastName] = useState(existing?.last_name ?? '')
   const [jobTitle, setJobTitle] = useState(existing?.job_title ?? '')
   const [email, setEmail] = useState(existing?.email ?? '')
-  const [phone, setPhone] = useState(existing?.phone ?? '')
+  const [phoneNumbers, setPhoneNumbers] = useState<Array<{ type: string; number: string }>>([])
+  const [phonesLoaded, setPhonesLoaded] = useState(false)
   const [isPrimary, setIsPrimary] = useState(existing?.is_primary ?? false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Load existing phone numbers from contact_phone_numbers table
+  useEffect(() => {
+    if (existing?.id) {
+      const supabase = createClient()
+      supabase.from('contact_phone_numbers').select('phone_number, phone_type, is_primary').eq('contact_id', existing.id).order('is_primary', { ascending: false }).then(({ data }) => {
+        const rows = (data ?? []) as Array<{ phone_number: string; phone_type: string; is_primary: boolean }>
+        if (rows.length > 0) {
+          setPhoneNumbers(rows.map((r) => ({ type: r.phone_type, number: r.phone_number })))
+        } else if (existing?.phone) {
+          setPhoneNumbers([{ type: 'office', number: existing.phone }])
+        } else {
+          setPhoneNumbers([{ type: 'office', number: '' }])
+        }
+        setPhonesLoaded(true)
+      })
+    } else {
+      setPhoneNumbers([{ type: 'office', number: '' }])
+      setPhonesLoaded(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const isEdit = !!existing?.id
 
@@ -53,15 +76,19 @@ export default function NewContactModal({
         .eq('company_id', companyId)
     }
 
+    const validPhones = phoneNumbers.filter((p) => p.number.trim())
+    const primaryPhone = validPhones[0]?.number || null
+
     const payload = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       job_title: jobTitle.trim() || null,
       email: email.trim() || null,
-      phone: phone.trim() || null,
+      phone: primaryPhone,
       is_primary: isPrimary,
     }
 
+    let contactId = existing?.id
     if (isEdit && existing?.id) {
       const { error: err } = await supabase
         .from('contacts')
@@ -73,13 +100,31 @@ export default function NewContactModal({
         return
       }
     } else {
-      const { error: err } = await supabase
+      const { data: inserted, error: err } = await supabase
         .from('contacts')
         .insert({ ...payload, company_id: companyId })
+        .select('id')
+        .single()
       if (err) {
         setError(err.message)
         setSaving(false)
         return
+      }
+      contactId = inserted?.id
+    }
+
+    if (contactId) {
+      await supabase.from('contact_phone_numbers').delete().eq('contact_id', contactId)
+      if (validPhones.length > 0) {
+        await supabase.from('contact_phone_numbers').insert(
+          validPhones.map((p, i) => ({
+            contact_id: contactId,
+            company_id: companyId,
+            phone_number: p.number.trim(),
+            phone_type: p.type,
+            is_primary: i === 0,
+          }))
+        )
       }
     }
     setSaving(false)
@@ -154,13 +199,47 @@ export default function NewContactModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className={inputClass}
-              />
+              <label className="block text-xs font-medium text-gray-600 mb-1">Phone numbers</label>
+              <div className="space-y-2">
+                {phoneNumbers.map((p, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <select
+                      value={p.type}
+                      onChange={(e) => setPhoneNumbers((prev) => prev.map((ph, j) => j === i ? { ...ph, type: e.target.value } : ph))}
+                      className="px-2 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 w-24 shrink-0"
+                    >
+                      <option value="office">Office</option>
+                      <option value="mobile">Mobile</option>
+                      <option value="fax">Fax</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <input
+                      type="tel"
+                      value={p.number}
+                      onChange={(e) => setPhoneNumbers((prev) => prev.map((ph, j) => j === i ? { ...ph, number: e.target.value } : ph))}
+                      placeholder="Phone number"
+                      className={`${inputClass} flex-1`}
+                    />
+                    {phoneNumbers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setPhoneNumbers((prev) => prev.filter((_, j) => j !== i))}
+                        className="p-1.5 text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                      >
+                        <XIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPhoneNumbers((prev) => [...prev, { type: 'office', number: '' }])}
+                className="inline-flex items-center gap-1 text-xs text-amber-500 hover:text-amber-600 mt-1.5"
+              >
+                <PlusIcon className="w-3 h-3" />
+                Add number
+              </button>
             </div>
             <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
               <input
