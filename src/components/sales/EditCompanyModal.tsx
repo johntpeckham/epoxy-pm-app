@@ -116,11 +116,37 @@ export default function EditCompanyModal({
         assigned_to: assignedTo || null,
       })
       .eq('id', company.id)
-    setSaving(false)
     if (err) {
+      setSaving(false)
       setError(err.message)
       return
     }
+    if (streetAddress.trim() || city.trim() || state.trim()) {
+      const { data: existing } = await supabase
+        .from('crm_company_addresses')
+        .select('id')
+        .eq('company_id', company.id)
+        .eq('is_primary', true)
+        .limit(1)
+        .maybeSingle()
+      if (existing) {
+        await supabase.from('crm_company_addresses').update({
+          address: streetAddress.trim() || '',
+          city: city.trim() || null,
+          state: state.trim() || null,
+        }).eq('id', existing.id)
+      } else {
+        await supabase.from('crm_company_addresses').insert({
+          company_id: company.id,
+          label: 'Main',
+          address: streetAddress.trim() || '',
+          city: city.trim() || null,
+          state: state.trim() || null,
+          is_primary: true,
+        })
+      }
+    }
+    setSaving(false)
     onSaved()
   }
 
@@ -171,12 +197,12 @@ export default function EditCompanyModal({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Street address</label>
-              <input type="text" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} className={inputClass} placeholder="123 Main St" />
+              <label className="block text-xs font-medium text-gray-600 mb-1">Zone</label>
+              <input type="text" value={zone} onChange={(e) => setZone(e.target.value)} className={inputClass} placeholder="e.g. North" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Zone</label>
-              <input type="text" value={zone} onChange={(e) => setZone(e.target.value)} className={inputClass} />
+              <label className="block text-xs font-medium text-gray-600 mb-1">Street address</label>
+              <input type="text" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} className={inputClass} placeholder="123 Main St" />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>

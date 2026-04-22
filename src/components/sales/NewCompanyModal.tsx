@@ -81,7 +81,7 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
     setSaving(true)
     setError(null)
     const supabase = createClient()
-    const { error: insertErr } = await supabase.from('companies').insert({
+    const { data: inserted, error: insertErr } = await supabase.from('companies').insert({
       name: name.trim(),
       industry: industry.trim() || null,
       zone: zone.trim() || null,
@@ -93,12 +93,23 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
       lead_source: leadSource || null,
       created_by: userId,
       archived: false,
-    })
-    setSaving(false)
+    }).select('id').single()
     if (insertErr) {
+      setSaving(false)
       setError(insertErr.message)
       return
     }
+    if (inserted && (streetAddress.trim() || city.trim() || state.trim())) {
+      await supabase.from('crm_company_addresses').insert({
+        company_id: inserted.id,
+        label: 'Main',
+        address: streetAddress.trim() || '',
+        city: city.trim() || null,
+        state: state.trim() || null,
+        is_primary: true,
+      })
+    }
+    setSaving(false)
     onSaved()
   }
 
@@ -171,6 +182,16 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
               </select>
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Zone</label>
+              <input
+                type="text"
+                value={zone}
+                onChange={(e) => setZone(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. North"
+              />
+            </div>
+            <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Street address</label>
               <input
                 type="text"
@@ -182,16 +203,6 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Zone</label>
-                <input
-                  type="text"
-                  value={zone}
-                  onChange={(e) => setZone(e.target.value)}
-                  className={inputClass}
-                  placeholder="e.g. North"
-                />
-              </div>
-              <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">City</label>
                 <input
                   type="text"
@@ -200,17 +211,17 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
                   className={inputClass}
                 />
               </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">State</label>
-              <select value={state} onChange={(e) => setState(e.target.value)} className={inputClass}>
-                <option value="">— Select —</option>
-                {US_STATES.map((s) => (
-                  <option key={s.code} value={s.code}>
-                    {s.code} — {s.name}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">State</label>
+                <select value={state} onChange={(e) => setState(e.target.value)} className={inputClass}>
+                  <option value="">— Select —</option>
+                  {US_STATES.map((s) => (
+                    <option key={s.code} value={s.code}>
+                      {s.code} — {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
