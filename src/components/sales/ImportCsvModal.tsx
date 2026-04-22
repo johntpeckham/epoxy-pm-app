@@ -21,42 +21,34 @@ type TargetField =
   | 'company_name'
   | 'industry'
   | 'zone'
-  | 'region'
   | 'state'
-  | 'county'
   | 'city'
   | 'status'
   | 'priority'
   | 'lead_source'
-  | 'deal_value'
   | 'contact_first_name'
   | 'contact_last_name'
   | 'contact_job_title'
   | 'contact_email'
   | 'contact_phone'
   | 'address'
-  | 'address_label'
 
 const TARGET_FIELD_LABELS: Record<TargetField, string> = {
   skip: '— Skip this column —',
   company_name: 'Company name',
   industry: 'Industry',
   zone: 'Zone',
-  region: 'Region',
   state: 'State',
-  county: 'County',
   city: 'City',
   status: 'Status',
   priority: 'Priority',
   lead_source: 'Lead source',
-  deal_value: 'Deal value',
   contact_first_name: 'Contact first name',
   contact_last_name: 'Contact last name',
   contact_job_title: 'Contact job title',
   contact_email: 'Contact email',
   contact_phone: 'Contact phone',
   address: 'Address',
-  address_label: 'Address label',
 }
 
 const TARGET_FIELD_OPTIONS: TargetField[] = [
@@ -64,21 +56,17 @@ const TARGET_FIELD_OPTIONS: TargetField[] = [
   'company_name',
   'industry',
   'zone',
-  'region',
   'state',
-  'county',
   'city',
   'status',
   'priority',
   'lead_source',
-  'deal_value',
   'contact_first_name',
   'contact_last_name',
   'contact_job_title',
   'contact_email',
   'contact_phone',
   'address',
-  'address_label',
 ]
 
 // Coerce a free-text status into one of the allowed values.
@@ -110,21 +98,17 @@ function guessMapping(header: string): TargetField {
   if (/(company|business|account)\s*(name)?/.test(h)) return 'company_name'
   if (/^industry$/.test(h) || /sector|vertical/.test(h)) return 'industry'
   if (/^zone$/.test(h) || /territory/.test(h)) return 'zone'
-  if (/^region$/.test(h)) return 'region'
   if (/^state$|province/.test(h)) return 'state'
-  if (/^county$/.test(h)) return 'county'
   if (/^city$|town/.test(h)) return 'city'
   if (/^status$/.test(h)) return 'status'
   if (/priority/.test(h)) return 'priority'
   if (/(lead|referr?al)\s*source|source/.test(h)) return 'lead_source'
-  if (/deal\s*value|revenue|amount/.test(h)) return 'deal_value'
   if (/first\s*name|^fname$|^given/.test(h)) return 'contact_first_name'
   if (/last\s*name|^lname$|surname|family/.test(h)) return 'contact_last_name'
   if (/job\s*title|^title$|position|role/.test(h)) return 'contact_job_title'
   if (/email|^e-?mail$/.test(h)) return 'contact_email'
   if (/phone|mobile|cell|telephone/.test(h)) return 'contact_phone'
   if (/^address$|street|address\s*1/.test(h)) return 'address'
-  if (/address\s*(label|type)/.test(h)) return 'address_label'
   return 'skip'
 }
 
@@ -282,14 +266,12 @@ export default function ImportCsvModal({
             name: r.mapped.company_name,
             industry: r.mapped.industry,
             zone: r.mapped.zone,
-            region: r.mapped.region,
+            address: r.mapped.address,
             state: r.mapped.state,
-            county: r.mapped.county,
             city: r.mapped.city,
             status: normalizeStatus(r.mapped.status) ?? 'prospect',
             priority: normalizePriority(r.mapped.priority) ?? 'medium',
             lead_source: r.mapped.lead_source,
-            deal_value: r.mapped.deal_value ?? 0,
             import_metadata:
               Object.keys(r.mapped.extras).length > 0 ? r.mapped.extras : null,
             import_batch_id: batchId,
@@ -304,9 +286,8 @@ export default function ImportCsvModal({
           const insertedRows = (inserted ?? []) as { id: string; name: string }[]
           createdCompanies += insertedRows.length
 
-          // For each new company, insert contact / address if present
+          // For each new company, insert contact if present
           const contactPayload: Array<Record<string, unknown>> = []
-          const addressPayload: Array<Record<string, unknown>> = []
           for (let i = 0; i < newRows.length; i++) {
             const row = newRows[i]
             const co = insertedRows[i]
@@ -323,16 +304,6 @@ export default function ImportCsvModal({
                 import_batch_id: batchId,
               })
             }
-            if (row.mapped.address) {
-              addressPayload.push({
-                company_id: co.id,
-                label: row.mapped.address_label || 'Primary',
-                address: row.mapped.address,
-                city: row.mapped.city,
-                state: row.mapped.state,
-                is_primary: true,
-              })
-            }
           }
           if (contactPayload.length > 0) {
             const { error: cerr } = await supabase
@@ -340,12 +311,6 @@ export default function ImportCsvModal({
               .insert(contactPayload)
             if (cerr) throw cerr
             createdContacts += contactPayload.length
-          }
-          if (addressPayload.length > 0) {
-            const { error: aerr } = await supabase
-              .from('crm_company_addresses')
-              .insert(addressPayload)
-            if (aerr) throw aerr
           }
         }
 
@@ -366,20 +331,6 @@ export default function ImportCsvModal({
             })
             if (cerr) throw cerr
             createdContacts += 1
-          }
-          // Address (if present)
-          if (row.mapped.address) {
-            const { error: aerr } = await supabase
-              .from('crm_company_addresses')
-              .insert({
-                company_id: targetId,
-                label: row.mapped.address_label || 'Imported',
-                address: row.mapped.address,
-                city: row.mapped.city,
-                state: row.mapped.state,
-                is_primary: false,
-              })
-            if (aerr) throw aerr
           }
           // Merge extras into existing import_metadata
           if (Object.keys(row.mapped.extras).length > 0) {
@@ -910,22 +861,17 @@ interface MappedRow {
   company_name: string
   industry: string | null
   zone: string | null
-  region: string | null
   state: string | null
-  county: string | null
   city: string | null
   status: string | null
   priority: string | null
   lead_source: string | null
-  deal_value: number | null
   contact_first_name: string | null
   contact_last_name: string | null
   contact_job_title: string | null
   contact_email: string | null
   contact_phone: string | null
   address: string | null
-  address_label: string | null
-  // Unmapped columns preserved by original header name.
   extras: Record<string, string>
 }
 
@@ -938,21 +884,17 @@ function buildMappedRow(
     company_name: '',
     industry: null,
     zone: null,
-    region: null,
     state: null,
-    county: null,
     city: null,
     status: null,
     priority: null,
     lead_source: null,
-    deal_value: null,
     contact_first_name: null,
     contact_last_name: null,
     contact_job_title: null,
     contact_email: null,
     contact_phone: null,
     address: null,
-    address_label: null,
     extras: {},
   }
   for (let i = 0; i < headers.length; i++) {
@@ -964,11 +906,7 @@ function buildMappedRow(
     }
     if (!raw) continue
     if (target === 'company_name') out.company_name = raw
-    else if (target === 'deal_value') {
-      const n = Number(raw.replace(/[$,]/g, ''))
-      out.deal_value = Number.isFinite(n) ? n : null
-    } else {
-      // All other string fields
+    else {
       ;(out as unknown as Record<string, unknown>)[target] = raw
     }
   }
