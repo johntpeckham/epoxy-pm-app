@@ -33,6 +33,9 @@ export const BUILT_IN_COLUMNS: BuiltInColumn[] = [
   { id: 'last_activity', label: 'Last activity', type: 'built-in', sortField: 'last_activity', defaultVisible: true, width: '9%' },
   { id: 'assigned', label: 'Assigned', type: 'built-in', sortField: 'assigned_name', defaultVisible: true, width: '8%' },
   { id: 'last_note', label: 'Last note', type: 'built-in', sortField: 'last_note', defaultVisible: false, width: '12%' },
+  { id: 'number_of_locations', label: 'Locations', type: 'built-in', sortField: 'number_of_locations', defaultVisible: false, width: '7%' },
+  { id: 'revenue_range', label: 'Revenue Range', type: 'built-in', sortField: 'revenue_range', defaultVisible: false, width: '9%' },
+  { id: 'employee_range', label: 'Employees', type: 'built-in', sortField: 'employee_range', defaultVisible: false, width: '8%' },
 ]
 
 export const DEFAULT_VISIBLE_IDS = BUILT_IN_COLUMNS

@@ -76,6 +76,9 @@ interface CompanyRow {
   created_at: string
   updated_at: string
   archived: boolean
+  number_of_locations: number | null
+  revenue_range: string | null
+  employee_range: string | null
 }
 
 interface ProfileMini {
@@ -520,7 +523,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     let companyQuery = supabase
       .from('companies')
       .select(
-        'id, name, industry, zone, region, state, county, city, status, priority, assigned_to, created_at, updated_at, archived'
+        'id, name, industry, zone, region, state, county, city, status, priority, assigned_to, created_at, updated_at, archived, number_of_locations, revenue_range, employee_range'
       )
     companyQuery = companyQuery.eq('archived', viewArchived)
     const { data: companyData } = await companyQuery
@@ -539,6 +542,9 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       created_at: string
       updated_at: string
       archived: boolean
+      number_of_locations: number | null
+      revenue_range: string | null
+      employee_range: string | null
     }>
     const companyIds = companyRows.map((c) => c.id)
 
@@ -1691,6 +1697,12 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                 </div>
                               </td>
                             )
+                          case 'number_of_locations':
+                            return <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad}><span className="block truncate">{c.number_of_locations != null ? String(c.number_of_locations) : '—'}</span></td>
+                          case 'revenue_range':
+                            return <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad}><span className="block truncate">{c.revenue_range || '—'}</span></td>
+                          case 'employee_range':
+                            return <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad}><span className="block truncate">{c.employee_range || '—'}</span></td>
                           default:
                             return <td key={col.id} className="px-2 text-sm text-gray-400" style={cellPad}>—</td>
                         }

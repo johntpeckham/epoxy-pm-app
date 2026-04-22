@@ -21,6 +21,9 @@ export interface EditableCompany {
   lead_source: string | null
   deal_value: number | null
   assigned_to: string | null
+  number_of_locations: number | null
+  revenue_range: string | null
+  employee_range: string | null
 }
 
 export interface AssignableUser {
@@ -74,6 +77,9 @@ export default function EditCompanyModal({
   const [priority, setPriority] = useState(company.priority ?? 'medium')
   const [leadSource, setLeadSource] = useState(company.lead_source ?? '')
   const [assignedTo, setAssignedTo] = useState(company.assigned_to ?? '')
+  const [numberOfLocations, setNumberOfLocations] = useState<string>(company.number_of_locations != null ? String(company.number_of_locations) : '')
+  const [revenueRange, setRevenueRange] = useState(company.revenue_range ?? '')
+  const [employeeRange, setEmployeeRange] = useState(company.employee_range ?? '')
   const [users, setUsers] = useState<AssignableUser[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -114,6 +120,9 @@ export default function EditCompanyModal({
         priority,
         lead_source: leadSource || null,
         assigned_to: assignedTo || null,
+        number_of_locations: numberOfLocations.trim() ? parseInt(numberOfLocations.trim(), 10) || null : null,
+        revenue_range: revenueRange || null,
+        employee_range: employeeRange || null,
       })
       .eq('id', company.id)
     if (err) {
@@ -255,6 +264,36 @@ export default function EditCompanyModal({
                       {o.label}
                     </option>
                   ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Locations</label>
+                <input type="number" value={numberOfLocations} onChange={(e) => setNumberOfLocations(e.target.value)} className={inputClass} placeholder="e.g. 3" min="0" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Revenue Range</label>
+                <select value={revenueRange} onChange={(e) => setRevenueRange(e.target.value)} className={inputClass}>
+                  <option value="">— Select —</option>
+                  <option value="Under $1M">Under $1M</option>
+                  <option value="$1M-$5M">$1M-$5M</option>
+                  <option value="$5M-$10M">$5M-$10M</option>
+                  <option value="$10M-$50M">$10M-$50M</option>
+                  <option value="$50M-$100M">$50M-$100M</option>
+                  <option value="$100M+">$100M+</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Employees</label>
+                <select value={employeeRange} onChange={(e) => setEmployeeRange(e.target.value)} className={inputClass}>
+                  <option value="">— Select —</option>
+                  <option value="1-10">1-10</option>
+                  <option value="11-50">11-50</option>
+                  <option value="51-200">51-200</option>
+                  <option value="201-500">201-500</option>
+                  <option value="501-1000">501-1000</option>
+                  <option value="1000+">1000+</option>
                 </select>
               </div>
             </div>
