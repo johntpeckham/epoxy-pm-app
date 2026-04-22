@@ -1327,6 +1327,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 <col key={col.id} style={{ width: col.width }} />
               ))}
               <col style={{ width: '36px' }} />
+              {isAdmin && <col style={{ width: '36px' }} />}
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200" style={{ borderBottomWidth: '0.5px' }}>
@@ -1355,24 +1356,24 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                   )
                 })}
                 <th className="px-1" style={{ paddingTop: 10, paddingBottom: 10 }}>
-                  <div className="flex items-center gap-0.5">
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => setShowColumnSettings(true)}
-                        className="inline-flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                        title="Column settings"
-                      >
-                        <SettingsIcon className="w-4 h-4" />
-                      </button>
-                    )}
-                    <CrmColumnPicker
-                      allColumns={allColumns}
-                      visibleIds={visibleColumnIds}
-                      onToggle={handleToggleColumn}
-                    />
-                  </div>
+                  <CrmColumnPicker
+                    allColumns={allColumns}
+                    visibleIds={visibleColumnIds}
+                    onToggle={handleToggleColumn}
+                  />
                 </th>
+                {isAdmin && (
+                  <th className="px-1" style={{ paddingTop: 10, paddingBottom: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowColumnSettings(true)}
+                      className="inline-flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                      title="Column settings"
+                    >
+                      <SettingsIcon className="w-4 h-4" />
+                    </button>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -1540,6 +1541,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                         }
                       })}
                       <td style={{ paddingTop: 14, paddingBottom: 14 }} />
+                      {isAdmin && <td />}
                     </tr>
                     {expanded &&
                       c.contacts.map((k) => {
@@ -1594,7 +1596,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                               )}
                             </td>
                             <td
-                              colSpan={Math.max(1, visibleColumns.length - 1 - Math.floor((visibleColumns.length - 1) / 2)) + 1}
+                              colSpan={Math.max(1, visibleColumns.length - 1 - Math.floor((visibleColumns.length - 1) / 2)) + 1 + (isAdmin ? 1 : 0)}
                               className="px-2 text-sm text-gray-600 truncate"
                               style={{ paddingTop: 10, paddingBottom: 10 }}
                               onClick={(e) => e.stopPropagation()}
