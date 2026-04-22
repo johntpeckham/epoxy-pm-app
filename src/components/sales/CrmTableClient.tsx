@@ -1817,7 +1817,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           title="Delete selected companies"
           message={`Delete ${selectedIds.size} selected ${
             selectedIds.size === 1 ? 'company' : 'companies'
-          }? This will also delete all their contacts, call logs, comments, and files. This cannot be undone.`}
+          }? This will also delete all their contacts, addresses, appointments, leads, job walks, call logs, notes, files, reminders, and activity history. This cannot be undone.`}
           confirmLabel="Delete"
           variant="destructive"
           loading={deleting}
