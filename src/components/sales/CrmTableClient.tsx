@@ -45,6 +45,11 @@ type CrmViewMode = 'new' | 'existing'
 type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
+interface ContactPhoneRow {
+  phone_number: string
+  phone_type: string
+}
+
 interface ContactRow {
   id: string
   first_name: string
@@ -53,6 +58,7 @@ interface ContactRow {
   email: string | null
   phone: string | null
   is_primary: boolean
+  phone_numbers: ContactPhoneRow[]
 }
 
 interface CompanyRow {
@@ -578,8 +584,30 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           email: row.email,
           phone: row.phone,
           is_primary: row.is_primary,
+          phone_numbers: [],
         })
         contactsByCompany.set(row.company_id, list)
+      }
+
+      // Fetch phone numbers for all contacts
+      const allContactIds = (contactsForCount ?? []).map((c: { id: string }) => c.id)
+      if (allContactIds.length > 0) {
+        const { data: phoneRows } = await supabase
+          .from('contact_phone_numbers')
+          .select('contact_id, phone_number, phone_type')
+          .in('contact_id', allContactIds)
+          .order('is_primary', { ascending: false })
+        const phoneMap = new Map<string, ContactPhoneRow[]>()
+        for (const pr of (phoneRows ?? []) as Array<{ contact_id: string; phone_number: string; phone_type: string }>) {
+          const arr = phoneMap.get(pr.contact_id) ?? []
+          arr.push({ phone_number: pr.phone_number, phone_type: pr.phone_type })
+          phoneMap.set(pr.contact_id, arr)
+        }
+        for (const contacts of contactsByCompany.values()) {
+          for (const c of contacts) {
+            c.phone_numbers = phoneMap.get(c.id) ?? []
+          }
+        }
       }
     }
 
@@ -1750,7 +1778,22 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                               style={{ paddingTop: 10, paddingBottom: 10 }}
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {k.phone ? (
+                              {k.phone_numbers.length > 0 ? (
+                                <div className="flex flex-col gap-0.5">
+                                  {k.phone_numbers.map((pn, pi) => (
+                                    <div key={pi} className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-gray-400 uppercase w-10 shrink-0">{pn.phone_type}</span>
+                                      <a
+                                        href={`tel:${pn.phone_number}`}
+                                        className="text-sm text-gray-700 hover:text-amber-700 hover:underline"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {pn.phone_number}
+                                      </a>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : k.phone ? (
                                 <a
                                   href={`tel:${k.phone}`}
                                   className="text-sm text-gray-700 hover:text-amber-700 hover:underline"

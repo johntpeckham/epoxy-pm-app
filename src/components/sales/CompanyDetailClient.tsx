@@ -67,6 +67,13 @@ interface Company {
   updated_at: string
 }
 
+interface PhoneNumber {
+  id: string
+  phone_number: string
+  phone_type: string
+  is_primary: boolean
+}
+
 interface Contact {
   id: string
   first_name: string
@@ -75,6 +82,7 @@ interface Contact {
   email: string | null
   phone: string | null
   is_primary: boolean
+  phone_numbers: PhoneNumber[]
 }
 
 interface Address {
@@ -376,7 +384,20 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         .order('reminder_date', { ascending: true }),
     ])
 
-    setContacts((contactData ?? []) as Contact[])
+    const rawContacts = (contactData ?? []) as Array<Omit<Contact, 'phone_numbers'>>
+    const contactIds = rawContacts.map((c) => c.id)
+    let phoneRows: Array<{ id: string; contact_id: string; phone_number: string; phone_type: string; is_primary: boolean }> = []
+    if (contactIds.length > 0) {
+      const { data: phoneData } = await supabase.from('contact_phone_numbers').select('id, contact_id, phone_number, phone_type, is_primary').in('contact_id', contactIds).order('is_primary', { ascending: false })
+      phoneRows = (phoneData ?? []) as typeof phoneRows
+    }
+    const phonesByContact = new Map<string, PhoneNumber[]>()
+    for (const p of phoneRows) {
+      const list = phonesByContact.get(p.contact_id) ?? []
+      list.push(p)
+      phonesByContact.set(p.contact_id, list)
+    }
+    setContacts(rawContacts.map((c) => ({ ...c, phone_numbers: phonesByContact.get(c.id) ?? [] })))
     setAddresses((addressData ?? []) as Address[])
     const allTagsList = (allTagsData ?? []) as Tag[]
     setAllTags(allTagsList)
@@ -1054,7 +1075,17 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                           <div className="text-xs text-gray-500 mt-0.5">{c.job_title}</div>
                         )}
                         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                          {c.phone && (
+                          {c.phone_numbers.length > 0 ? c.phone_numbers.map((pn) => (
+                            <a
+                              key={pn.id}
+                              href={`tel:${pn.phone_number}`}
+                              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-amber-600"
+                            >
+                              <PhoneIcon className="w-3 h-3" />
+                              <span className="text-gray-400">{pn.phone_type === 'office' ? 'Office' : pn.phone_type === 'mobile' ? 'Mobile' : pn.phone_type === 'fax' ? 'Fax' : 'Other'}:</span>
+                              {pn.phone_number}
+                            </a>
+                          )) : c.phone ? (
                             <a
                               href={`tel:${c.phone}`}
                               className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-amber-600"
@@ -1062,7 +1093,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                               <PhoneIcon className="w-3 h-3" />
                               {c.phone}
                             </a>
-                          )}
+                          ) : null}
                           {c.email && (
                             <a
                               href={`mailto:${c.email}`}
