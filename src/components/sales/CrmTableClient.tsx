@@ -148,9 +148,9 @@ const FILTER_CONFIG: { field: FilterField; label: string }[] = [
 // Sub-fields grouped under the Region filter chip
 const REGION_GROUP_FIELDS: { field: FilterField; label: string }[] = [
   { field: 'zone', label: 'Zone' },
-  { field: 'state', label: 'State' },
-  { field: 'county', label: 'County' },
   { field: 'city', label: 'City' },
+  { field: 'county', label: 'County' },
+  { field: 'state', label: 'State' },
 ]
 
 type SortField =
@@ -214,6 +214,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [radiusMiles, setRadiusMiles] = useState(0)
   const [radiusCities, setRadiusCities] = useState<Set<string> | null>(null)
   const [radiusLoading, setRadiusLoading] = useState(false)
+  const [radiusError, setRadiusError] = useState(false)
 
   const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
 
@@ -888,6 +889,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     }
     let cancelled = false
     setRadiusLoading(true)
+    setRadiusError(false)
     const allCityValues = filterOptions.city.map((o) => o.value)
     const selectedCity = [...selectedCities][0]
     const cityWithState = (() => {
@@ -915,6 +917,10 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       }
       setRadiusCities(matchingCities)
       setRadiusLoading(false)
+    }).catch(() => {
+      if (cancelled) return
+      setRadiusLoading(false)
+      setRadiusError(true)
     })
     return () => { cancelled = true }
   }, [filters.city, radiusMiles, filterOptions.city, companies])
@@ -1310,58 +1316,74 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                         const gOptions = filterOptions[g.field]
                         const gSelected = filters[g.field]
                         return (
-                          <div key={g.field} className={gi > 0 ? 'mt-2 pt-2 border-t border-gray-100' : ''}>
-                            <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
-                              {g.label}
-                            </div>
-                            {gOptions.length === 0 ? (
-                              <div className="px-3 py-1.5 text-xs text-gray-300">No values</div>
-                            ) : (
-                              gOptions.map((opt) => {
-                                const checked = gSelected.has(opt.value)
-                                return (
-                                  <label
-                                    key={opt.value}
-                                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={() => toggleFilterValue(g.field, opt.value)}
-                                      className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
-                                    />
-                                    <span className="truncate">{opt.label}</span>
-                                  </label>
-                                )
-                              })
+                          <Fragment key={g.field}>
+                            {gi === 1 && (
+                              <div className="mt-2 pt-2 border-t border-gray-100 px-3 pb-2">
+                                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                                  Radius search
+                                </div>
+                                {filters.city.size > 0 ? (
+                                  <>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="range"
+                                        min={0}
+                                        max={100}
+                                        step={5}
+                                        value={radiusMiles}
+                                        onChange={(e) => setRadiusMiles(Number(e.target.value))}
+                                        className="flex-1 h-1.5 accent-amber-500"
+                                      />
+                                      <span className="text-xs text-gray-600 w-14 text-right">
+                                        {radiusMiles === 0 ? 'Exact' : `${radiusMiles} mi`}
+                                      </span>
+                                    </div>
+                                    {radiusLoading && (
+                                      <div className="text-[10px] text-gray-400 mt-1">Calculating...</div>
+                                    )}
+                                    {radiusError && (
+                                      <div className="text-[10px] text-red-500 mt-1">Radius search unavailable</div>
+                                    )}
+                                    {!radiusLoading && !radiusError && radiusMiles > 0 && radiusCities && (
+                                      <div className="text-[10px] text-gray-400 mt-1">
+                                        {radiusCities.size} {radiusCities.size === 1 ? 'city' : 'cities'} within {radiusMiles} mi
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className="text-[10px] text-gray-300">Select a city first</div>
+                                )}
+                              </div>
                             )}
-                          </div>
+                            <div className={gi > 0 ? 'mt-2 pt-2 border-t border-gray-100' : ''}>
+                              <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                                {g.label}
+                              </div>
+                              {gOptions.length === 0 ? (
+                                <div className="px-3 py-1.5 text-xs text-gray-300">No values</div>
+                              ) : (
+                                gOptions.map((opt) => {
+                                  const checked = gSelected.has(opt.value)
+                                  return (
+                                    <label
+                                      key={opt.value}
+                                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => toggleFilterValue(g.field, opt.value)}
+                                        className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
+                                      />
+                                      <span className="truncate">{opt.label}</span>
+                                    </label>
+                                  )
+                                })
+                              )}
+                            </div>
+                          </Fragment>
                         )
                       })}
-                      {filters.city.size > 0 && (
-                        <div className="mt-2 pt-2 border-t border-gray-100 px-3 pb-2">
-                          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                            Radius search
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="range"
-                              min={0}
-                              max={100}
-                              step={5}
-                              value={radiusMiles}
-                              onChange={(e) => setRadiusMiles(Number(e.target.value))}
-                              className="flex-1 h-1.5 accent-amber-500"
-                            />
-                            <span className="text-xs text-gray-600 w-14 text-right">
-                              {radiusMiles === 0 ? 'Exact' : `${radiusMiles} mi`}
-                            </span>
-                          </div>
-                          {radiusLoading && (
-                            <div className="text-[10px] text-gray-400 mt-1">Geocoding...</div>
-                          )}
-                        </div>
-                      )}
                       </>
                     ) : options.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-gray-400">No values</div>

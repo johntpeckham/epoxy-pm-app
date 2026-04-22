@@ -1,23 +1,9 @@
-const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org/search'
-const USER_AGENT = 'EpoxyPM/1.0'
-
 interface GeoResult {
   latitude: number
   longitude: number
 }
 
 const memoryCache = new Map<string, GeoResult>()
-
-let lastRequestTime = 0
-
-async function throttle() {
-  const now = Date.now()
-  const elapsed = now - lastRequestTime
-  if (elapsed < 1100) {
-    await new Promise((r) => setTimeout(r, 1100 - elapsed))
-  }
-  lastRequestTime = Date.now()
-}
 
 export async function geocodeLocation(locationName: string): Promise<GeoResult | null> {
   const key = locationName.trim().toLowerCase()
@@ -35,22 +21,18 @@ export async function geocodeLocation(locationName: string): Promise<GeoResult |
     }
   } catch {}
 
-  await throttle()
-
   try {
-    const url = `${NOMINATIM_BASE}?q=${encodeURIComponent(locationName)}&format=json&limit=1`
-    const res = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT },
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    const res = await fetch(`/api/geocode?q=${encodeURIComponent(locationName)}`, {
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
     if (!res.ok) return null
     const data = await res.json()
-    if (!data || data.length === 0) return null
+    if (!data.result) return null
 
-    const result: GeoResult = {
-      latitude: parseFloat(data[0].lat),
-      longitude: parseFloat(data[0].lon),
-    }
-
+    const result: GeoResult = data.result
     memoryCache.set(key, result)
     try {
       localStorage.setItem(`geocode:${key}`, JSON.stringify(result))
@@ -68,7 +50,7 @@ export function haversineDistance(
   lat2: number,
   lon2: number
 ): number {
-  const R = 3958.8 // Earth radius in miles
+  const R = 3958.8
   const dLat = ((lat2 - lat1) * Math.PI) / 180
   const dLon = ((lon2 - lon1) * Math.PI) / 180
   const a =
