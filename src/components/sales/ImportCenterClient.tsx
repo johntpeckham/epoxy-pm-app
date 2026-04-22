@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeftIcon, PlusIcon, UploadCloudIcon, FileTextIcon, AlertTriangleIcon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, UploadCloudIcon, FileTextIcon, AlertTriangleIcon, CheckIcon, XIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { parseCsv, findSimilarNames } from '@/lib/csv'
 import * as XLSX from 'xlsx'
@@ -18,6 +18,24 @@ interface ImportRecord {
   error_message: string | null
   imported_by: string
   created_at: string
+}
+
+interface StagingRecord {
+  id: string
+  import_id: string
+  company_name: string
+  industry: string | null; zone: string | null; region: string | null
+  state: string | null; county: string | null; city: string | null
+  status: string | null; priority: string | null; lead_source: string | null
+  deal_value: number | null
+  contact_first_name: string | null; contact_last_name: string | null
+  contact_job_title: string | null; contact_email: string | null; contact_phone: string | null
+  address: string | null; address_label: string | null
+  extras: Record<string, string> | null
+  duplicate_of: string | null; duplicate_score: number | null
+  merge_decision: 'import' | 'merge' | 'skip' | 'rejected'
+  approved: boolean; approved_at: string | null; approved_by: string | null
+  row_index: number; created_at: string
 }
 
 type Step = 'upload' | 'mapping' | 'review' | 'importing' | 'done'
@@ -124,7 +142,7 @@ function normalizePriority(p: string | null): 'high' | 'medium' | 'low' | null {
   return null
 }
 
-type View = 'history' | 'new-import'
+type View = 'history' | 'new-import' | 'staging'
 
 export default function ImportCenterClient({ userId }: { userId: string }) {
   const [view, setView] = useState<View>('history')
@@ -168,6 +186,33 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
   const [importTotal, setImportTotal] = useState(0)
   const [importError, setImportError] = useState<string | null>(null)
   const [finalStats, setFinalStats] = useState({ companies: 0, contacts: 0, skipped: 0, merged: 0 })
+
+  // ── Staging view state ──
+  const [stagingImportId, setStagingImportId] = useState<string | null>(null)
+  const [stagingRecords, setStagingRecords] = useState<StagingRecord[]>([])
+  const [stagingLoading, setStagingLoading] = useState(false)
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null)
+  const [approveProgress, setApproveProgress] = useState<{ running: boolean; current: number; total: number }>({ running: false, current: 0, total: 0 })
+
+  async function fetchStagingRecords(importId: string) {
+    setStagingLoading(true)
+    const { data } = await supabase
+      .from('crm_import_records')
+      .select('*')
+      .eq('import_id', importId)
+      .order('row_index', { ascending: true })
+    setStagingRecords((data ?? []) as StagingRecord[])
+    setSelectedRows(new Set())
+    setStagingLoading(false)
+  }
+
+  function openStagingView(importId: string) {
+    setStagingImportId(importId)
+    fetchStagingRecords(importId)
+    resetImportFlow()
+    setView('staging')
+  }
 
   const mappedTargets = useMemo(() => new Set(mapping.filter((m) => m !== 'skip')), [mapping])
   const companyNameMapped = mappedTargets.has('company_name')
@@ -259,6 +304,236 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     setFinalStats({ companies: 0, contacts: 0, skipped: 0, merged: 0 })
   }
 
+  async function updateStagingField(id: string, field: string, value: string | number | null) {
+    const { error } = await supabase.from('crm_import_records').update({ [field]: value }).eq('id', id)
+    if (!error) setStagingRecords((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r))
+    setEditingCell(null)
+  }
+
+  async function setStagingDecision(ids: string[], decision: StagingRecord['merge_decision']) {
+    const { error } = await supabase.from('crm_import_records').update({ merge_decision: decision }).in('id', ids)
+    if (!error) setStagingRecords((prev) => prev.map((r) => ids.includes(r.id) ? { ...r, merge_decision: decision } : r))
+    setSelectedRows(new Set())
+  }
+
+  async function deleteStagingRows(ids: string[]) {
+    const { error } = await supabase.from('crm_import_records').delete().in('id', ids)
+    if (!error) setStagingRecords((prev) => prev.filter((r) => !ids.includes(r.id)))
+    setSelectedRows(new Set())
+  }
+
+  async function approveAndImport(ids: string[]) {
+    setApproveProgress({ running: true, current: 0, total: ids.length })
+    const toApprove = stagingRecords.filter((r) => ids.includes(r.id) && r.merge_decision !== 'skip' && r.merge_decision !== 'rejected')
+    const batchId = `import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    let done = 0
+
+    try {
+      const newRows = toApprove.filter((r) => r.merge_decision === 'import')
+      const mergeRows = toApprove.filter((r) => r.merge_decision === 'merge' && r.duplicate_of)
+
+      const BATCH = 50
+      for (let start = 0; start < newRows.length; start += BATCH) {
+        const chunk = newRows.slice(start, start + BATCH)
+        const payload = chunk.map((r) => ({
+          name: r.company_name, industry: r.industry, zone: r.zone, region: r.region,
+          state: r.state, county: r.county, city: r.city,
+          status: normalizeStatus(r.status) ?? 'prospect', priority: normalizePriority(r.priority) ?? 'medium',
+          lead_source: r.lead_source, deal_value: r.deal_value ?? 0,
+          import_metadata: r.extras && Object.keys(r.extras).length > 0 ? r.extras : null,
+          import_batch_id: batchId, created_by: userId, archived: false,
+        }))
+        const { data: inserted, error: insertErr } = await supabase.from('companies').insert(payload).select('id, name')
+        if (insertErr) throw insertErr
+        const insertedRows = (inserted ?? []) as { id: string; name: string }[]
+
+        const contactPayload: Array<Record<string, unknown>> = []
+        const addressPayload: Array<Record<string, unknown>> = []
+        for (let i = 0; i < chunk.length; i++) {
+          const row = chunk[i], co = insertedRows[i]
+          if (!co) continue
+          if (row.contact_first_name || row.contact_last_name) {
+            contactPayload.push({ company_id: co.id, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: row.contact_phone, is_primary: true, import_batch_id: batchId })
+          }
+          if (row.address) {
+            addressPayload.push({ company_id: co.id, label: row.address_label || 'Primary', address: row.address, city: row.city, state: row.state, is_primary: true })
+          }
+        }
+        if (contactPayload.length > 0) { const { error: cerr } = await supabase.from('contacts').insert(contactPayload); if (cerr) throw cerr }
+        if (addressPayload.length > 0) { const { error: aerr } = await supabase.from('crm_company_addresses').insert(addressPayload); if (aerr) throw aerr }
+
+        done += chunk.length
+        setApproveProgress((p) => ({ ...p, current: done }))
+      }
+
+      for (const row of mergeRows) {
+        const targetId = row.duplicate_of!
+        if (row.contact_first_name || row.contact_last_name) {
+          await supabase.from('contacts').insert({ company_id: targetId, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: row.contact_phone, is_primary: false, import_batch_id: batchId })
+        }
+        if (row.address) {
+          await supabase.from('crm_company_addresses').insert({ company_id: targetId, label: row.address_label || 'Imported', address: row.address, city: row.city, state: row.state, is_primary: false })
+        }
+        done += 1
+        setApproveProgress((p) => ({ ...p, current: done }))
+      }
+
+      // Mark approved rows
+      const approvedIds = toApprove.map((r) => r.id)
+      await supabase.from('crm_import_records').update({ approved: true, approved_at: new Date().toISOString(), approved_by: userId }).in('id', approvedIds)
+      setStagingRecords((prev) => prev.map((r) => approvedIds.includes(r.id) ? { ...r, approved: true, approved_at: new Date().toISOString(), approved_by: userId } : r))
+
+      // Check if all rows are now approved or rejected — update import status
+      const remaining = stagingRecords.filter((r) => !approvedIds.includes(r.id) && !r.approved && r.merge_decision !== 'rejected' && r.merge_decision !== 'skip')
+      if (remaining.length === 0 && stagingImportId) {
+        await supabase.from('crm_imports').update({ status: 'completed', record_count: toApprove.length }).eq('id', stagingImportId)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Approve failed'
+      alert(msg)
+    } finally {
+      setApproveProgress({ running: false, current: 0, total: 0 })
+      setSelectedRows(new Set())
+    }
+  }
+
+  if (view === 'staging') {
+    const activeRecords = stagingRecords.filter((r) => r.merge_decision !== 'rejected' && !r.approved)
+    const rejectedRecords = stagingRecords.filter((r) => r.merge_decision === 'rejected' && !r.approved)
+    const approvedRecords = stagingRecords.filter((r) => r.approved)
+    const allActiveSelected = activeRecords.length > 0 && activeRecords.every((r) => selectedRows.has(r.id))
+    const EDITABLE_FIELDS: { key: keyof StagingRecord; label: string; width: string }[] = [
+      { key: 'company_name', label: 'Company', width: 'min-w-[180px]' },
+      { key: 'industry', label: 'Industry', width: 'min-w-[120px]' },
+      { key: 'city', label: 'City', width: 'min-w-[100px]' },
+      { key: 'state', label: 'State', width: 'min-w-[80px]' },
+      { key: 'zone', label: 'Zone', width: 'min-w-[80px]' },
+      { key: 'contact_first_name', label: 'First name', width: 'min-w-[100px]' },
+      { key: 'contact_last_name', label: 'Last name', width: 'min-w-[100px]' },
+      { key: 'contact_email', label: 'Email', width: 'min-w-[140px]' },
+      { key: 'contact_phone', label: 'Phone', width: 'min-w-[110px]' },
+      { key: 'status', label: 'Status', width: 'min-w-[90px]' },
+      { key: 'priority', label: 'Priority', width: 'min-w-[80px]' },
+    ]
+
+    return (
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        <div className="px-4 sm:px-6 pt-4 pb-2">
+          <button onClick={() => { fetchImports(); setView('history') }} className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600">
+            <ArrowLeftIcon className="w-4 h-4" />
+            Back to Import Center
+          </button>
+        </div>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 flex-wrap gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Review Import</h1>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500">{activeRecords.length} pending</span>
+            {approvedRecords.length > 0 && <span className="text-green-600">· {approvedRecords.length} approved</span>}
+            {rejectedRecords.length > 0 && <span className="text-red-500">· {rejectedRecords.length} rejected</span>}
+          </div>
+        </div>
+
+        {approveProgress.running && (
+          <div className="px-4 sm:px-6 mb-3">
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-700 mb-2">Approving… {approveProgress.current} of {approveProgress.total}</p>
+              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${approveProgress.total === 0 ? 0 : Math.round((approveProgress.current / approveProgress.total) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk actions */}
+        <div className="px-4 sm:px-6 mb-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => approveAndImport(selectedRows.size > 0 ? Array.from(selectedRows) : activeRecords.map((r) => r.id))} disabled={approveProgress.running || activeRecords.length === 0} className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-500 disabled:opacity-40 transition-colors">
+              <CheckIcon className="w-3 h-3 inline mr-1" />
+              {selectedRows.size > 0 ? `Approve Selected (${selectedRows.size})` : `Approve All (${activeRecords.length})`}
+            </button>
+            {selectedRows.size > 0 && (
+              <>
+                <button onClick={() => setStagingDecision(Array.from(selectedRows), 'rejected')} className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50 transition-colors">
+                  <XIcon className="w-3 h-3 inline mr-1" />
+                  Reject ({selectedRows.size})
+                </button>
+                <button onClick={() => deleteStagingRows(Array.from(selectedRows))} className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
+                  <Trash2Icon className="w-3 h-3 inline mr-1" />
+                  Delete ({selectedRows.size})
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="px-4 sm:px-6 pb-6">
+          {stagingLoading ? (
+            <p className="text-sm text-gray-400 italic py-8 text-center">Loading staged records…</p>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-3 py-2 text-left w-8">
+                      <input type="checkbox" checked={allActiveSelected} onChange={(e) => { if (e.target.checked) setSelectedRows(new Set(activeRecords.map((r) => r.id))); else setSelectedRows(new Set()) }} className="w-3.5 h-3.5 text-amber-500 rounded" />
+                    </th>
+                    <th className="px-3 py-2 text-left w-8">#</th>
+                    {EDITABLE_FIELDS.map((f) => (
+                      <th key={f.key} className={`px-3 py-2 text-left font-medium text-gray-600 ${f.width}`}>{f.label}</th>
+                    ))}
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 min-w-[80px]">Decision</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeRecords.map((rec) => (
+                    <StagingRow key={rec.id} rec={rec} fields={EDITABLE_FIELDS} selected={selectedRows.has(rec.id)} onSelect={(sel) => { setSelectedRows((prev) => { const next = new Set(prev); if (sel) next.add(rec.id); else next.delete(rec.id); return next }) }} editingCell={editingCell} onStartEdit={(field) => setEditingCell({ id: rec.id, field })} onSave={(field, value) => updateStagingField(rec.id, field, value)} onDecisionChange={(d) => setStagingDecision([rec.id], d)} dimmed={false} />
+                  ))}
+                </tbody>
+              </table>
+
+              {rejectedRecords.length > 0 && (
+                <>
+                  <div className="px-3 py-2 bg-red-50 border-t border-b border-red-100 text-xs font-medium text-red-600">
+                    Rejected ({rejectedRecords.length})
+                  </div>
+                  <table className="w-full text-xs">
+                    <tbody>
+                      {rejectedRecords.map((rec) => (
+                        <StagingRow key={rec.id} rec={rec} fields={EDITABLE_FIELDS} selected={false} onSelect={() => {}} editingCell={null} onStartEdit={() => {}} onSave={() => {}} onDecisionChange={(d) => setStagingDecision([rec.id], d)} dimmed />
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+
+              {approvedRecords.length > 0 && (
+                <>
+                  <div className="px-3 py-2 bg-green-50 border-t border-b border-green-100 text-xs font-medium text-green-600">
+                    Approved ({approvedRecords.length})
+                  </div>
+                  <table className="w-full text-xs">
+                    <tbody>
+                      {approvedRecords.map((rec) => (
+                        <tr key={rec.id} className="border-b border-gray-100 last:border-b-0 opacity-50">
+                          <td className="px-3 py-2 w-8" />
+                          <td className="px-3 py-2 text-gray-400 w-8">{rec.row_index + 1}</td>
+                          {EDITABLE_FIELDS.map((f) => (
+                            <td key={f.key} className={`px-3 py-2 text-gray-500 ${f.width}`}>{String(rec[f.key] ?? '')}</td>
+                          ))}
+                          <td className="px-3 py-2 text-green-600 font-medium">✓</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (view === 'history') {
     return (
       <div className="flex-1 overflow-y-auto bg-gray-50">
@@ -291,7 +566,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           ) : (
             <div className="space-y-2">
               {imports.map((imp) => (
-                <ImportHistoryCard key={imp.id} imp={imp} />
+                <ImportHistoryCard key={imp.id} imp={imp} onReview={openStagingView} />
               ))}
             </div>
           )}
@@ -517,106 +792,70 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     setStep('importing')
     setImportError(null)
     setImportProgress(0)
-    const batchId = `import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    const toImport = reviewedRows.filter((r) => r.decision !== 'skip')
-    setImportTotal(toImport.length)
-    let createdCompanies = 0, createdContacts = 0, mergedCount = 0
-    const skippedCount = reviewedRows.filter((r) => r.decision === 'skip').length
+    const allRows = reviewedRows
+    setImportTotal(allRows.length)
 
     try {
-      const BATCH = 50
-      for (let start = 0; start < toImport.length; start += BATCH) {
-        const chunk = toImport.slice(start, start + BATCH)
-        const newRows = chunk.filter((r) => r.decision === 'import')
-        const mergeRows = chunk.filter((r) => r.decision === 'merge' && r.mergeTargetId)
-
-        if (newRows.length > 0) {
-          const payload = newRows.map((r) => ({
-            name: r.mapped.company_name, industry: r.mapped.industry, zone: r.mapped.zone, region: r.mapped.region,
-            state: r.mapped.state, county: r.mapped.county, city: r.mapped.city,
-            status: normalizeStatus(r.mapped.status) ?? 'prospect', priority: normalizePriority(r.mapped.priority) ?? 'medium',
-            lead_source: r.mapped.lead_source, deal_value: r.mapped.deal_value ?? 0,
-            import_metadata: Object.keys(r.mapped.extras).length > 0 ? r.mapped.extras : null,
-            import_batch_id: batchId, created_by: userId, archived: false,
-          }))
-          const { data: inserted, error: insertErr } = await supabase.from('companies').insert(payload).select('id, name')
-          if (insertErr) throw insertErr
-          const insertedRows = (inserted ?? []) as { id: string; name: string }[]
-          createdCompanies += insertedRows.length
-
-          const contactPayload: Array<Record<string, unknown>> = []
-          const addressPayload: Array<Record<string, unknown>> = []
-          for (let i = 0; i < newRows.length; i++) {
-            const row = newRows[i], co = insertedRows[i]
-            if (!co) continue
-            if (row.mapped.contact_first_name || row.mapped.contact_last_name) {
-              contactPayload.push({ company_id: co.id, first_name: row.mapped.contact_first_name || '', last_name: row.mapped.contact_last_name || '', job_title: row.mapped.contact_job_title, email: row.mapped.contact_email, phone: row.mapped.contact_phone, is_primary: true, import_batch_id: batchId })
-            }
-            if (row.mapped.address) {
-              addressPayload.push({ company_id: co.id, label: row.mapped.address_label || 'Primary', address: row.mapped.address, city: row.mapped.city, state: row.mapped.state, is_primary: true })
-            }
-          }
-          if (contactPayload.length > 0) { const { error: cerr } = await supabase.from('contacts').insert(contactPayload); if (cerr) throw cerr; createdContacts += contactPayload.length }
-          if (addressPayload.length > 0) { const { error: aerr } = await supabase.from('crm_company_addresses').insert(addressPayload); if (aerr) throw aerr }
-        }
-
-        for (const row of mergeRows) {
-          const targetId = row.mergeTargetId!
-          if (row.mapped.contact_first_name || row.mapped.contact_last_name) {
-            const { error: cerr } = await supabase.from('contacts').insert({ company_id: targetId, first_name: row.mapped.contact_first_name || '', last_name: row.mapped.contact_last_name || '', job_title: row.mapped.contact_job_title, email: row.mapped.contact_email, phone: row.mapped.contact_phone, is_primary: false, import_batch_id: batchId })
-            if (cerr) throw cerr; createdContacts += 1
-          }
-          if (row.mapped.address) {
-            const { error: aerr } = await supabase.from('crm_company_addresses').insert({ company_id: targetId, label: row.mapped.address_label || 'Imported', address: row.mapped.address, city: row.mapped.city, state: row.mapped.state, is_primary: false })
-            if (aerr) throw aerr
-          }
-          mergedCount += 1
-        }
-        setImportProgress(Math.min(toImport.length, start + chunk.length))
-      }
-      setFinalStats({ companies: createdCompanies, contacts: createdContacts, skipped: skippedCount, merged: mergedCount })
-
-      // Save import record
+      // 1. Create the import record with 'staged' status
       const fileExt = (fileName ?? '').split('.').pop()?.toLowerCase() ?? 'csv'
       const validTypes = ['csv', 'xlsx', 'xls', 'numbers', 'pdf']
       const mappingObj: Record<string, string> = {}
       headers.forEach((h, i) => { if (mapping[i] && mapping[i] !== 'skip') mappingObj[h] = mapping[i] })
-      await supabase.from('crm_imports').insert({
+      const { data: importRec, error: importErr } = await supabase.from('crm_imports').insert({
         company_id: userId,
         file_name: fileName ?? 'unknown',
         file_type: validTypes.includes(fileExt) ? fileExt : 'csv',
-        record_count: createdCompanies + mergedCount,
+        record_count: 0,
         total_rows: rows.length,
-        status: 'completed',
+        status: 'staged',
         column_mapping: mappingObj,
         imported_by: userId,
-      })
+      }).select('id').single()
+      if (importErr || !importRec) throw importErr ?? new Error('Failed to create import record')
+      const importId = importRec.id
 
+      // 2. Insert all rows into crm_import_records staging table
+      const BATCH = 50
+      for (let start = 0; start < allRows.length; start += BATCH) {
+        const chunk = allRows.slice(start, start + BATCH)
+        const payload = chunk.map((r) => ({
+          import_id: importId,
+          company_name: r.mapped.company_name,
+          industry: r.mapped.industry, zone: r.mapped.zone, region: r.mapped.region,
+          state: r.mapped.state, county: r.mapped.county, city: r.mapped.city,
+          status: r.mapped.status, priority: r.mapped.priority,
+          lead_source: r.mapped.lead_source, deal_value: r.mapped.deal_value,
+          contact_first_name: r.mapped.contact_first_name, contact_last_name: r.mapped.contact_last_name,
+          contact_job_title: r.mapped.contact_job_title, contact_email: r.mapped.contact_email,
+          contact_phone: r.mapped.contact_phone,
+          address: r.mapped.address, address_label: r.mapped.address_label,
+          extras: Object.keys(r.mapped.extras).length > 0 ? r.mapped.extras : null,
+          duplicate_of: r.duplicates[0]?.id ?? null,
+          duplicate_score: r.duplicates[0]?.score ?? null,
+          merge_decision: r.decision === 'skip' ? 'skip' : r.decision,
+          row_index: r.index,
+        }))
+        const { error: batchErr } = await supabase.from('crm_import_records').insert(payload)
+        if (batchErr) throw batchErr
+        setImportProgress(Math.min(allRows.length, start + chunk.length))
+      }
+
+      // 3. Update import record count
+      await supabase.from('crm_imports').update({ record_count: allRows.length }).eq('id', importId)
+
+      setFinalStats({ companies: allRows.filter((r) => r.decision === 'import').length, contacts: 0, skipped: allRows.filter((r) => r.decision === 'skip').length, merged: allRows.filter((r) => r.decision === 'merge').length })
+      setStagingImportId(importId)
       setStep('done')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Import failed'
       setImportError(msg)
-
-      const fileExt = (fileName ?? '').split('.').pop()?.toLowerCase() ?? 'csv'
-      const validTypes = ['csv', 'xlsx', 'xls', 'numbers', 'pdf']
-      await supabase.from('crm_imports').insert({
-        company_id: userId,
-        file_name: fileName ?? 'unknown',
-        file_type: validTypes.includes(fileExt) ? fileExt : 'csv',
-        record_count: createdCompanies + mergedCount,
-        total_rows: rows.length,
-        status: createdCompanies + mergedCount > 0 ? 'partial' : 'failed',
-        column_mapping: null,
-        error_message: msg,
-        imported_by: userId,
-      })
     }
   }
 
   function ImportingStep() {
     return (
       <div className="py-10 text-center">
-        <p className="text-sm text-gray-700 mb-4">Importing… {importProgress} of {importTotal}</p>
+        <p className="text-sm text-gray-700 mb-4">Staging records… {importProgress} of {importTotal}</p>
         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-md mx-auto">
           <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${importTotal === 0 ? 0 : Math.round((importProgress / importTotal) * 100)}%` }} />
         </div>
@@ -629,22 +868,23 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     return (
       <div className="py-8 text-center">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-50 text-amber-500 mb-4 text-lg">✓</div>
-        <h4 className="text-base font-medium text-gray-900 mb-1">Import complete</h4>
+        <h4 className="text-base font-medium text-gray-900 mb-1">Records staged for review</h4>
         <p className="text-sm text-gray-500">
-          Successfully imported {finalStats.companies} compan{finalStats.companies === 1 ? 'y' : 'ies'} and {finalStats.contacts} contact{finalStats.contacts === 1 ? '' : 's'}.
-          {finalStats.merged > 0 && ` Merged ${finalStats.merged} into existing.`}
-          {finalStats.skipped > 0 && ` Skipped ${finalStats.skipped}.`}
+          {finalStats.companies} record{finalStats.companies === 1 ? '' : 's'} ready to review.
+          {finalStats.merged > 0 && ` ${finalStats.merged} flagged for merge.`}
+          {finalStats.skipped > 0 && ` ${finalStats.skipped} skipped.`}
         </p>
+        <p className="text-xs text-gray-400 mt-1">Review and edit records before approving them into the live CRM.</p>
         <div className="mt-6 flex justify-center gap-3">
           <button onClick={() => { resetImportFlow(); fetchImports(); setView('history') }} className="px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg">Back to Import Center</button>
-          <Link href="/sales/crm" className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 transition-colors">View in CRM</Link>
+          <button onClick={() => { if (stagingImportId) openStagingView(stagingImportId) }} className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 transition-colors">Review & Edit</button>
         </div>
       </div>
     )
   }
 }
 
-function ImportHistoryCard({ imp }: { imp: ImportRecord }) {
+function ImportHistoryCard({ imp, onReview }: { imp: ImportRecord; onReview?: (id: string) => void }) {
   const date = new Date(imp.created_at)
   const formatted = date.toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', year: 'numeric',
@@ -665,6 +905,14 @@ function ImportHistoryCard({ imp }: { imp: ImportRecord }) {
     completed: 'text-green-600',
     failed: 'text-red-600',
     partial: 'text-amber-600',
+    staged: 'text-blue-600',
+  }
+
+  const statusLabel: Record<string, string> = {
+    completed: 'Completed',
+    failed: 'Failed',
+    partial: 'Partial',
+    staged: 'Pending review',
   }
 
   return (
@@ -676,12 +924,19 @@ function ImportHistoryCard({ imp }: { imp: ImportRecord }) {
             {imp.file_type.toUpperCase()}
           </span>
         </div>
-        <span className={`text-xs font-medium capitalize ${statusColor[imp.status] ?? 'text-gray-500'}`}>
-          {imp.status}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium ${statusColor[imp.status] ?? 'text-gray-500'}`}>
+            {statusLabel[imp.status] ?? imp.status}
+          </span>
+          {imp.status === 'staged' && onReview && (
+            <button onClick={() => onReview(imp.id)} className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-500 transition-colors">
+              Review & Edit
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-        <span>{imp.record_count} of {imp.total_rows} records imported</span>
+        <span>{imp.status === 'staged' ? `${imp.record_count} records staged` : `${imp.record_count} of ${imp.total_rows} records imported`}</span>
         <span>·</span>
         <span>{formatted}</span>
       </div>
@@ -698,5 +953,70 @@ function StatBadge({ label, value, accent }: { label: string; value: number; acc
       <span className={`text-sm font-semibold tabular-nums ${accent ? 'text-amber-600' : 'text-gray-900'}`}>{value}</span>
       <span className="text-gray-500">{label}</span>
     </div>
+  )
+}
+
+function StagingRow({ rec, fields, selected, onSelect, editingCell, onStartEdit, onSave, onDecisionChange, dimmed }: {
+  rec: StagingRecord
+  fields: { key: keyof StagingRecord; label: string; width: string }[]
+  selected: boolean
+  onSelect: (sel: boolean) => void
+  editingCell: { id: string; field: string } | null
+  onStartEdit: (field: string) => void
+  onSave: (field: string, value: string | null) => void
+  onDecisionChange: (d: StagingRecord['merge_decision']) => void
+  dimmed: boolean
+}) {
+  return (
+    <tr className={`border-b border-gray-100 last:border-b-0 ${dimmed ? 'opacity-40' : ''}`}>
+      <td className="px-3 py-2 w-8">
+        {!dimmed && <input type="checkbox" checked={selected} onChange={(e) => onSelect(e.target.checked)} className="w-3.5 h-3.5 text-amber-500 rounded" />}
+      </td>
+      <td className="px-3 py-2 text-gray-400 w-8">{rec.row_index + 1}</td>
+      {fields.map((f) => {
+        const isEditing = editingCell?.id === rec.id && editingCell?.field === f.key
+        const value = rec[f.key]
+        const display = value != null ? String(value) : ''
+        if (isEditing && !dimmed) {
+          return (
+            <td key={f.key} className={`px-1 py-1 ${f.width}`}>
+              <input
+                autoFocus
+                defaultValue={display}
+                onBlur={(e) => onSave(f.key, e.target.value.trim() || null)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { onSave(f.key, display || null) } }}
+                className="w-full px-2 py-1 text-xs border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+            </td>
+          )
+        }
+        return (
+          <td
+            key={f.key}
+            className={`px-3 py-2 text-gray-700 cursor-pointer hover:bg-amber-50/50 ${f.width}`}
+            onClick={() => { if (!dimmed) onStartEdit(f.key) }}
+            title="Click to edit"
+          >
+            {display || <span className="text-gray-300">—</span>}
+          </td>
+        )
+      })}
+      <td className="px-3 py-2">
+        {dimmed ? (
+          <button onClick={() => onDecisionChange('import')} className="text-[10px] text-blue-600 hover:underline">Restore</button>
+        ) : (
+          <select
+            value={rec.merge_decision}
+            onChange={(e) => onDecisionChange(e.target.value as StagingRecord['merge_decision'])}
+            className="px-1.5 py-1 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+          >
+            <option value="import">Import</option>
+            <option value="merge">Merge</option>
+            <option value="skip">Skip</option>
+            <option value="rejected">Reject</option>
+          </select>
+        )}
+      </td>
+    </tr>
   )
 }
