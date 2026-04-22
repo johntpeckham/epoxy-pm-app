@@ -56,6 +56,9 @@ interface Company {
   deal_value: number | null
   assigned_to: string | null
   notes: string | null
+  number_of_locations: number | null
+  revenue_range: string | null
+  employee_range: string | null
   import_metadata: Record<string, string> | null
   archived: boolean
   archived_at: string | null
@@ -1589,6 +1592,9 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               lead_source: company.lead_source,
               deal_value: company.deal_value,
               assigned_to: company.assigned_to,
+              number_of_locations: company.number_of_locations ?? null,
+              revenue_range: company.revenue_range ?? null,
+              employee_range: company.employee_range ?? null,
             } as EditableCompany
           }
           onClose={() => setShowEditCompany(false)}

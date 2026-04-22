@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeftIcon, PlusIcon, UploadCloudIcon, FileTextIcon, AlertTriangleIcon, CheckIcon, XIcon, Trash2Icon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, UploadCloudIcon, FileTextIcon, AlertTriangleIcon, CheckIcon, XIcon, Trash2Icon, UserIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { parseCsv, findSimilarNames } from '@/lib/csv'
 import * as XLSX from 'xlsx'
@@ -31,6 +31,8 @@ interface StagingRecord {
   contact_first_name: string | null; contact_last_name: string | null
   contact_job_title: string | null; contact_email: string | null; contact_phone: string | null
   address: string | null; address_label: string | null
+  number_of_locations: string | null; revenue_range: string | null; employee_range: string | null
+  prospect_status: string | null; last_call_status: string | null; last_call_date: string | null
   extras: Record<string, string> | null
   duplicate_of: string | null; duplicate_score: number | null
   merge_decision: 'import' | 'merge' | 'skip' | 'rejected'
@@ -45,6 +47,8 @@ type TargetField =
   | 'county' | 'city' | 'status' | 'priority' | 'lead_source' | 'deal_value'
   | 'contact_first_name' | 'contact_last_name' | 'contact_job_title'
   | 'contact_email' | 'contact_phone' | 'address' | 'address_label'
+  | 'number_of_locations' | 'revenue_range' | 'employee_range'
+  | 'prospect_status' | 'last_call_status' | 'last_call_date'
 
 const TARGET_LABELS: Record<TargetField, string> = {
   skip: '— Skip this column —', company_name: 'Company name', industry: 'Industry',
@@ -53,6 +57,9 @@ const TARGET_LABELS: Record<TargetField, string> = {
   contact_first_name: 'Contact first name', contact_last_name: 'Contact last name',
   contact_job_title: 'Contact job title', contact_email: 'Contact email',
   contact_phone: 'Contact phone', address: 'Address', address_label: 'Address label',
+  number_of_locations: 'Number of Locations', revenue_range: 'Revenue Range',
+  employee_range: 'Employee Range', prospect_status: 'Prospect Status',
+  last_call_status: 'Last Call Status', last_call_date: 'Last Call Date',
 }
 
 const TARGET_OPTIONS: TargetField[] = Object.keys(TARGET_LABELS) as TargetField[]
@@ -78,6 +85,12 @@ function guessMapping(header: string): TargetField {
   if (/phone|mobile|cell|telephone/.test(h)) return 'contact_phone'
   if (/^address$|street|address\s*1/.test(h)) return 'address'
   if (/address\s*(label|type)/.test(h)) return 'address_label'
+  if (/loc(ation)?s?\s*(count|number|#|num)?$|number\s*of\s*loc/.test(h)) return 'number_of_locations'
+  if (/revenue\s*(range)?|annual\s*rev/.test(h)) return 'revenue_range'
+  if (/employee\s*(range|count|size)?|head\s*count|company\s*size/.test(h)) return 'employee_range'
+  if (/prospect\s*status|lead\s*status/.test(h)) return 'prospect_status'
+  if (/last\s*call\s*status|call\s*(outcome|result|disposition)/.test(h)) return 'last_call_status'
+  if (/last\s*call\s*date|call\s*date/.test(h)) return 'last_call_date'
   return 'skip'
 }
 
@@ -90,6 +103,8 @@ interface MappedRow {
   contact_first_name: string | null; contact_last_name: string | null
   contact_job_title: string | null; contact_email: string | null; contact_phone: string | null
   address: string | null; address_label: string | null
+  number_of_locations: string | null; revenue_range: string | null; employee_range: string | null
+  prospect_status: string | null; last_call_status: string | null; last_call_date: string | null
   extras: Record<string, string>
 }
 
@@ -100,7 +115,10 @@ function buildMappedRow(headers: string[], row: string[], mapping: TargetField[]
     lead_source: null, deal_value: null,
     contact_first_name: null, contact_last_name: null,
     contact_job_title: null, contact_email: null, contact_phone: null,
-    address: null, address_label: null, extras: {},
+    address: null, address_label: null,
+    number_of_locations: null, revenue_range: null, employee_range: null,
+    prospect_status: null, last_call_status: null, last_call_date: null,
+    extras: {},
   }
   for (let i = 0; i < headers.length; i++) {
     const target = mapping[i] ?? 'skip'
@@ -140,6 +158,36 @@ function normalizePriority(p: string | null): 'high' | 'medium' | 'low' | null {
   if (v.startsWith('m')) return 'medium'
   if (v.startsWith('l')) return 'low'
   return null
+}
+
+const CRM_STATUS_LIST = ['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted', 'active', 'inactive'] as const
+
+function mapProspectStatusToCrm(raw: string | null): string | null {
+  if (!raw) return null
+  const v = raw.toLowerCase().trim().replace(/[\s-]/g, '_')
+  for (const s of CRM_STATUS_LIST) {
+    if (v === s) return s
+  }
+  if (/hot/.test(v)) return 'hot_lead'
+  if (/contact/.test(v)) return 'contacted'
+  if (/black/.test(v)) return 'blacklisted'
+  if (/lost|dead/.test(v)) return 'lost'
+  if (/prospect|new/.test(v)) return 'prospect'
+  if (/active/.test(v) && !/inactive/.test(v)) return 'active'
+  return null
+}
+
+function mapCallOutcome(raw: string | null): string {
+  if (!raw) return 'connected'
+  const v = raw.toLowerCase().trim()
+  if (/connect|spoke|reach/.test(v)) return 'connected'
+  if (/voicemail|vm|left\s*message/.test(v)) return 'voicemail'
+  if (/no\s*answer|n\/a|did\s*not/.test(v)) return 'no_answer'
+  if (/busy/.test(v)) return 'busy'
+  if (/wrong/.test(v)) return 'wrong_number'
+  if (/email/.test(v)) return 'email_sent'
+  if (/text|sms/.test(v)) return 'text_sent'
+  return 'connected'
 }
 
 type View = 'history' | 'new-import' | 'staging'
@@ -345,14 +393,24 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       const BATCH = 50
       for (let start = 0; start < newRows.length; start += BATCH) {
         const chunk = newRows.slice(start, start + BATCH)
-        const payload = chunk.map((r) => ({
-          name: r.company_name, industry: r.industry, zone: r.zone, region: r.region,
-          state: r.state, county: r.county, city: r.city,
-          status: normalizeStatus(r.status) ?? 'prospect', priority: normalizePriority(r.priority) ?? 'medium',
-          lead_source: r.lead_source, deal_value: r.deal_value ?? 0,
-          import_metadata: r.extras && Object.keys(r.extras).length > 0 ? r.extras : null,
-          import_batch_id: batchId, created_by: userId, archived: false,
-        }))
+        const payload = chunk.map((r) => {
+          let companyStatus = normalizeStatus(r.status) ?? 'prospect'
+          if (r.prospect_status) {
+            const matched = mapProspectStatusToCrm(r.prospect_status)
+            if (matched) companyStatus = matched
+          }
+          return {
+            name: r.company_name, industry: r.industry, zone: r.zone, region: r.region,
+            state: r.state, county: r.county, city: r.city,
+            status: companyStatus, priority: normalizePriority(r.priority) ?? 'medium',
+            lead_source: r.lead_source, deal_value: r.deal_value ?? 0,
+            number_of_locations: r.number_of_locations ? parseInt(r.number_of_locations, 10) || null : null,
+            revenue_range: r.revenue_range || null,
+            employee_range: r.employee_range || null,
+            import_metadata: r.extras && Object.keys(r.extras).length > 0 ? r.extras : null,
+            import_batch_id: batchId, created_by: userId, archived: false,
+          }
+        })
         const { data: inserted, error: insertErr } = await supabase.from('companies').insert(payload).select('id, name')
         if (insertErr) throw insertErr
         const insertedRows = (inserted ?? []) as { id: string; name: string }[]
@@ -372,6 +430,33 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
         if (contactPayload.length > 0) { const { error: cerr } = await supabase.from('contacts').insert(contactPayload); if (cerr) throw cerr }
         if (addressPayload.length > 0) { const { error: aerr } = await supabase.from('crm_company_addresses').insert(addressPayload); if (aerr) throw aerr }
 
+        const callLogPayload: Array<Record<string, unknown>> = []
+        const commentPayload: Array<Record<string, unknown>> = []
+        for (let i = 0; i < chunk.length; i++) {
+          const row = chunk[i], co = insertedRows[i]
+          if (!co) continue
+          if (row.last_call_status || row.last_call_date) {
+            const callDate = row.last_call_date ? new Date(row.last_call_date) : new Date()
+            const validDate = !isNaN(callDate.getTime()) ? callDate.toISOString() : new Date().toISOString()
+            callLogPayload.push({
+              company_id: co.id,
+              outcome: mapCallOutcome(row.last_call_status),
+              notes: `Imported from ${stagingImportId ? 'import' : 'file'} — Original status: ${row.last_call_status || 'N/A'}`,
+              call_date: validDate,
+              created_by: userId,
+            })
+          }
+          if (row.prospect_status && !mapProspectStatusToCrm(row.prospect_status)) {
+            commentPayload.push({
+              company_id: co.id,
+              content: `Imported status: ${row.prospect_status}`,
+              created_by: userId,
+            })
+          }
+        }
+        if (callLogPayload.length > 0) { await supabase.from('crm_call_log').insert(callLogPayload) }
+        if (commentPayload.length > 0) { await supabase.from('crm_comments').insert(commentPayload) }
+
         done += chunk.length
         setApproveProgress((p) => ({ ...p, current: done }))
       }
@@ -383,6 +468,24 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
         }
         if (row.address) {
           await supabase.from('crm_company_addresses').insert({ company_id: targetId, label: row.address_label || 'Imported', address: row.address, city: row.city, state: row.state, is_primary: false })
+        }
+        if (row.last_call_status || row.last_call_date) {
+          const callDate = row.last_call_date ? new Date(row.last_call_date) : new Date()
+          const validDate = !isNaN(callDate.getTime()) ? callDate.toISOString() : new Date().toISOString()
+          await supabase.from('crm_call_log').insert({
+            company_id: targetId,
+            outcome: mapCallOutcome(row.last_call_status),
+            notes: `Imported from import — Original status: ${row.last_call_status || 'N/A'}`,
+            call_date: validDate,
+            created_by: userId,
+          })
+        }
+        if (row.prospect_status && !mapProspectStatusToCrm(row.prospect_status)) {
+          await supabase.from('crm_comments').insert({
+            company_id: targetId,
+            content: `Imported status: ${row.prospect_status}`,
+            created_by: userId,
+          })
         }
         done += 1
         setApproveProgress((p) => ({ ...p, current: done }))
@@ -412,19 +515,29 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     const rejectedRecords = stagingRecords.filter((r) => r.merge_decision === 'rejected' && !r.approved)
     const approvedRecords = stagingRecords.filter((r) => r.approved)
     const allActiveSelected = activeRecords.length > 0 && activeRecords.every((r) => selectedRows.has(r.id))
-    const EDITABLE_FIELDS: { key: keyof StagingRecord; label: string; width: string }[] = [
+    const COMPANY_FIELDS: { key: keyof StagingRecord; label: string; width: string }[] = [
       { key: 'company_name', label: 'Company', width: 'min-w-[180px]' },
       { key: 'industry', label: 'Industry', width: 'min-w-[120px]' },
       { key: 'city', label: 'City', width: 'min-w-[100px]' },
       { key: 'state', label: 'State', width: 'min-w-[80px]' },
       { key: 'zone', label: 'Zone', width: 'min-w-[80px]' },
-      { key: 'contact_first_name', label: 'First name', width: 'min-w-[100px]' },
-      { key: 'contact_last_name', label: 'Last name', width: 'min-w-[100px]' },
-      { key: 'contact_email', label: 'Email', width: 'min-w-[140px]' },
-      { key: 'contact_phone', label: 'Phone', width: 'min-w-[110px]' },
-      { key: 'status', label: 'Status', width: 'min-w-[90px]' },
+      { key: 'number_of_locations', label: 'Locations', width: 'min-w-[80px]' },
+      { key: 'revenue_range', label: 'Revenue', width: 'min-w-[100px]' },
+      { key: 'employee_range', label: 'Employees', width: 'min-w-[90px]' },
+      { key: 'prospect_status', label: 'Prospect Status', width: 'min-w-[120px]' },
+      { key: 'status', label: 'CRM Status', width: 'min-w-[110px]' },
       { key: 'priority', label: 'Priority', width: 'min-w-[80px]' },
     ]
+    const CONTACT_FIELDS: { key: keyof StagingRecord; label: string; width: string }[] = [
+      { key: 'contact_first_name', label: 'First name', width: 'min-w-[100px]' },
+      { key: 'contact_last_name', label: 'Last name', width: 'min-w-[100px]' },
+      { key: 'contact_job_title', label: 'Title', width: 'min-w-[100px]' },
+      { key: 'contact_email', label: 'Email', width: 'min-w-[140px]' },
+      { key: 'contact_phone', label: 'Phone', width: 'min-w-[110px]' },
+      { key: 'last_call_status', label: 'Last call status', width: 'min-w-[110px]' },
+      { key: 'last_call_date', label: 'Last call date', width: 'min-w-[100px]' },
+    ]
+    const CRM_STATUSES = ['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'] as const
 
     return (
       <div className="flex-1 overflow-y-auto bg-gray-50">
@@ -488,7 +601,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                       <input type="checkbox" checked={allActiveSelected} onChange={(e) => { if (e.target.checked) setSelectedRows(new Set(activeRecords.map((r) => r.id))); else setSelectedRows(new Set()) }} className="w-3.5 h-3.5 text-amber-500 rounded" />
                     </th>
                     <th className="px-3 py-2 text-left w-8">#</th>
-                    {EDITABLE_FIELDS.map((f) => (
+                    {COMPANY_FIELDS.map((f) => (
                       <th key={f.key} className={`px-3 py-2 text-left font-medium text-gray-600 ${f.width}`}>{f.label}</th>
                     ))}
                     <th className="px-3 py-2 text-left font-medium text-gray-600 min-w-[80px]">Decision</th>
@@ -496,7 +609,20 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                 </thead>
                 <tbody>
                   {activeRecords.map((rec) => (
-                    <StagingRow key={rec.id} rec={rec} fields={EDITABLE_FIELDS} selected={selectedRows.has(rec.id)} onSelect={(sel) => { setSelectedRows((prev) => { const next = new Set(prev); if (sel) next.add(rec.id); else next.delete(rec.id); return next }) }} editingCell={editingCell} onStartEdit={(field) => setEditingCell({ id: rec.id, field })} onSave={(field, value) => updateStagingField(rec.id, field, value)} onDecisionChange={(d) => setStagingDecision([rec.id], d)} dimmed={false} />
+                    <StagingCompanyWithContact
+                      key={rec.id}
+                      rec={rec}
+                      companyFields={COMPANY_FIELDS}
+                      contactFields={CONTACT_FIELDS}
+                      crmStatuses={CRM_STATUSES}
+                      selected={selectedRows.has(rec.id)}
+                      onSelect={(sel) => { setSelectedRows((prev) => { const next = new Set(prev); if (sel) next.add(rec.id); else next.delete(rec.id); return next }) }}
+                      editingCell={editingCell}
+                      onStartEdit={(field) => setEditingCell({ id: rec.id, field })}
+                      onSave={(field, value) => updateStagingField(rec.id, field, value)}
+                      onDecisionChange={(d) => setStagingDecision([rec.id], d)}
+                      dimmed={false}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -509,7 +635,20 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                   <table className="w-full text-xs">
                     <tbody>
                       {rejectedRecords.map((rec) => (
-                        <StagingRow key={rec.id} rec={rec} fields={EDITABLE_FIELDS} selected={false} onSelect={() => {}} editingCell={null} onStartEdit={() => {}} onSave={() => {}} onDecisionChange={(d) => setStagingDecision([rec.id], d)} dimmed />
+                        <StagingCompanyWithContact
+                          key={rec.id}
+                          rec={rec}
+                          companyFields={COMPANY_FIELDS}
+                          contactFields={CONTACT_FIELDS}
+                          crmStatuses={CRM_STATUSES}
+                          selected={false}
+                          onSelect={() => {}}
+                          editingCell={null}
+                          onStartEdit={() => {}}
+                          onSave={() => {}}
+                          onDecisionChange={(d) => setStagingDecision([rec.id], d)}
+                          dimmed
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -524,14 +663,21 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                   <table className="w-full text-xs">
                     <tbody>
                       {approvedRecords.map((rec) => (
-                        <tr key={rec.id} className="border-b border-gray-100 last:border-b-0 opacity-50">
-                          <td className="px-3 py-2 w-8" />
-                          <td className="px-3 py-2 text-gray-400 w-8">{rec.row_index + 1}</td>
-                          {EDITABLE_FIELDS.map((f) => (
-                            <td key={f.key} className={`px-3 py-2 text-gray-500 ${f.width}`}>{String(rec[f.key] ?? '')}</td>
-                          ))}
-                          <td className="px-3 py-2 text-green-600 font-medium">✓</td>
-                        </tr>
+                        <StagingCompanyWithContact
+                          key={rec.id}
+                          rec={rec}
+                          companyFields={COMPANY_FIELDS}
+                          contactFields={CONTACT_FIELDS}
+                          crmStatuses={CRM_STATUSES}
+                          selected={false}
+                          onSelect={() => {}}
+                          editingCell={null}
+                          onStartEdit={() => {}}
+                          onSave={() => {}}
+                          onDecisionChange={() => {}}
+                          dimmed
+                          approved
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -839,6 +985,10 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           contact_job_title: r.mapped.contact_job_title, contact_email: r.mapped.contact_email,
           contact_phone: r.mapped.contact_phone,
           address: r.mapped.address, address_label: r.mapped.address_label,
+          number_of_locations: r.mapped.number_of_locations,
+          revenue_range: r.mapped.revenue_range, employee_range: r.mapped.employee_range,
+          prospect_status: r.mapped.prospect_status,
+          last_call_status: r.mapped.last_call_status, last_call_date: r.mapped.last_call_date,
           extras: Object.keys(r.mapped.extras).length > 0 ? r.mapped.extras : null,
           duplicate_of: r.duplicates[0]?.id ?? null,
           duplicate_score: r.duplicates[0]?.score ?? null,
@@ -989,9 +1139,11 @@ function StatBadge({ label, value, accent }: { label: string; value: number; acc
   )
 }
 
-function StagingRow({ rec, fields, selected, onSelect, editingCell, onStartEdit, onSave, onDecisionChange, dimmed }: {
+function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatuses, selected, onSelect, editingCell, onStartEdit, onSave, onDecisionChange, dimmed, approved }: {
   rec: StagingRecord
-  fields: { key: keyof StagingRecord; label: string; width: string }[]
+  companyFields: { key: keyof StagingRecord; label: string; width: string }[]
+  contactFields: { key: keyof StagingRecord; label: string; width: string }[]
+  crmStatuses: readonly string[]
   selected: boolean
   onSelect: (sel: boolean) => void
   editingCell: { id: string; field: string } | null
@@ -999,57 +1151,149 @@ function StagingRow({ rec, fields, selected, onSelect, editingCell, onStartEdit,
   onSave: (field: string, value: string | null) => void
   onDecisionChange: (d: StagingRecord['merge_decision']) => void
   dimmed: boolean
+  approved?: boolean
 }) {
+  function renderEditableCell(f: { key: keyof StagingRecord; label: string; width: string }, isContact?: boolean) {
+    const isEditing = editingCell?.id === rec.id && editingCell?.field === f.key
+    const value = rec[f.key]
+    const display = value != null ? String(value) : ''
+
+    if (f.key === 'status' && !approved) {
+      return (
+        <td key={f.key} className={`px-3 py-2 ${f.width}`}>
+          {dimmed && !approved ? (
+            <span className="text-gray-500">{display || <span className="text-gray-300">—</span>}</span>
+          ) : (
+            <select
+              value={display || 'prospect'}
+              onChange={(e) => onSave(f.key, e.target.value)}
+              className="px-1.5 py-1 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+              disabled={approved}
+            >
+              {crmStatuses.map((s) => (
+                <option key={s} value={s}>{s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+              ))}
+            </select>
+          )}
+        </td>
+      )
+    }
+
+    if (approved) {
+      return (
+        <td key={f.key} className={`px-3 py-2 text-gray-500 ${f.width}`}>{display || '—'}</td>
+      )
+    }
+
+    if (isEditing && !dimmed) {
+      return (
+        <td key={f.key} className={`px-1 py-1 ${f.width}`}>
+          <input
+            autoFocus
+            defaultValue={display}
+            onBlur={(e) => onSave(f.key, e.target.value.trim() || null)}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { onSave(f.key, display || null) } }}
+            className={`w-full px-2 py-1 text-xs border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400 ${isContact ? 'text-gray-600' : ''}`}
+          />
+        </td>
+      )
+    }
+    return (
+      <td
+        key={f.key}
+        className={`px-3 py-2 ${isContact ? 'text-gray-500' : 'text-gray-700'} ${!dimmed ? 'cursor-pointer hover:bg-amber-50/50' : ''} ${f.width}`}
+        onClick={() => { if (!dimmed) onStartEdit(f.key) }}
+        title={!dimmed ? 'Click to edit' : undefined}
+      >
+        {display || <span className="text-gray-300">—</span>}
+      </td>
+    )
+  }
+
   return (
-    <tr className={`border-b border-gray-100 last:border-b-0 ${dimmed ? 'opacity-40' : ''}`}>
-      <td className="px-3 py-2 w-8">
-        {!dimmed && <input type="checkbox" checked={selected} onChange={(e) => onSelect(e.target.checked)} className="w-3.5 h-3.5 text-amber-500 rounded" />}
-      </td>
-      <td className="px-3 py-2 text-gray-400 w-8">{rec.row_index + 1}</td>
-      {fields.map((f) => {
-        const isEditing = editingCell?.id === rec.id && editingCell?.field === f.key
-        const value = rec[f.key]
-        const display = value != null ? String(value) : ''
-        if (isEditing && !dimmed) {
-          return (
-            <td key={f.key} className={`px-1 py-1 ${f.width}`}>
-              <input
-                autoFocus
-                defaultValue={display}
-                onBlur={(e) => onSave(f.key, e.target.value.trim() || null)}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { onSave(f.key, display || null) } }}
-                className="w-full px-2 py-1 text-xs border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
-              />
-            </td>
-          )
-        }
-        return (
-          <td
-            key={f.key}
-            className={`px-3 py-2 text-gray-700 cursor-pointer hover:bg-amber-50/50 ${f.width}`}
-            onClick={() => { if (!dimmed) onStartEdit(f.key) }}
-            title="Click to edit"
-          >
-            {display || <span className="text-gray-300">—</span>}
-          </td>
-        )
-      })}
-      <td className="px-3 py-2">
-        {dimmed ? (
-          <button onClick={() => onDecisionChange('import')} className="text-[10px] text-blue-600 hover:underline">Restore</button>
-        ) : (
-          <select
-            value={rec.merge_decision}
-            onChange={(e) => onDecisionChange(e.target.value as StagingRecord['merge_decision'])}
-            className="px-1.5 py-1 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
-          >
-            <option value="import">Import</option>
-            <option value="merge">Merge</option>
-            <option value="skip">Skip</option>
-            <option value="rejected">Reject</option>
-          </select>
-        )}
-      </td>
-    </tr>
+    <>
+      {/* Company row */}
+      <tr className={`border-b border-gray-50 ${dimmed ? 'opacity-40' : ''} ${approved ? 'opacity-50' : ''}`}>
+        <td className="px-3 py-2 w-8">
+          {!dimmed && !approved && <input type="checkbox" checked={selected} onChange={(e) => onSelect(e.target.checked)} className="w-3.5 h-3.5 text-amber-500 rounded" />}
+        </td>
+        <td className="px-3 py-2 text-gray-400 w-8">{rec.row_index + 1}</td>
+        {companyFields.map((f) => renderEditableCell(f))}
+        <td className="px-3 py-2">
+          {approved ? (
+            <span className="text-green-600 font-medium">✓</span>
+          ) : dimmed ? (
+            <button onClick={() => onDecisionChange('import')} className="text-[10px] text-blue-600 hover:underline">Restore</button>
+          ) : (
+            <select
+              value={rec.merge_decision}
+              onChange={(e) => onDecisionChange(e.target.value as StagingRecord['merge_decision'])}
+              className="px-1.5 py-1 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+            >
+              <option value="import">Import</option>
+              <option value="merge">Merge</option>
+              <option value="skip">Skip</option>
+              <option value="rejected">Reject</option>
+            </select>
+          )}
+        </td>
+      </tr>
+      {/* Contact sub-row — always visible */}
+      <tr className={`border-b border-gray-100 ${dimmed ? 'opacity-40' : ''} ${approved ? 'opacity-50' : ''}`}>
+        <td className="w-8" />
+        <td className="w-8" />
+        <td colSpan={companyFields.length + 1} className="py-1.5">
+          <div className="flex items-center gap-0 text-[11px]" style={{ paddingLeft: 28 }}>
+            <span className="inline-flex items-center gap-1 text-gray-400 mr-3 shrink-0">
+              <UserIcon className="w-3 h-3" />
+              <span className="text-[10px] uppercase tracking-wide font-medium">Contact</span>
+            </span>
+            <div className="flex items-center gap-0 flex-1 overflow-x-auto">
+              <table className="text-[11px]">
+                <tbody>
+                  <tr>
+                    {contactFields.map((f) => {
+                      const isEditing = editingCell?.id === rec.id && editingCell?.field === f.key
+                      const value = rec[f.key]
+                      const display = value != null ? String(value) : ''
+
+                      if (approved) {
+                        return (
+                          <td key={f.key} className={`px-2 py-0.5 text-gray-400 ${f.width}`}>{display || '—'}</td>
+                        )
+                      }
+
+                      if (isEditing && !dimmed) {
+                        return (
+                          <td key={f.key} className={`px-1 py-0.5 ${f.width}`}>
+                            <input
+                              autoFocus
+                              defaultValue={display}
+                              onBlur={(e) => onSave(f.key, e.target.value.trim() || null)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { onSave(f.key, display || null) } }}
+                              className="w-full px-2 py-0.5 text-[11px] border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            />
+                          </td>
+                        )
+                      }
+                      return (
+                        <td
+                          key={f.key}
+                          className={`px-2 py-0.5 text-gray-500 ${!dimmed ? 'cursor-pointer hover:bg-amber-50/50' : ''} ${f.width}`}
+                          onClick={() => { if (!dimmed) onStartEdit(f.key) }}
+                          title={!dimmed ? 'Click to edit' : undefined}
+                        >
+                          {display || <span className="text-gray-300">—</span>}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </>
   )
 }

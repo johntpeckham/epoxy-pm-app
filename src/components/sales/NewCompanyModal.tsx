@@ -48,6 +48,9 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
   const [status, setStatus] = useState<'prospect' | 'contacted' | 'hot_lead' | 'lost'>('prospect')
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium')
   const [leadSource, setLeadSource] = useState('')
+  const [numberOfLocations, setNumberOfLocations] = useState('')
+  const [revenueRange, setRevenueRange] = useState('')
+  const [employeeRange, setEmployeeRange] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dupes, setDupes] = useState<Array<{ id: string; name: string; score: number }>>([])
@@ -91,6 +94,9 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
       status,
       priority,
       lead_source: leadSource || null,
+      number_of_locations: numberOfLocations.trim() ? parseInt(numberOfLocations.trim(), 10) || null : null,
+      revenue_range: revenueRange || null,
+      employee_range: employeeRange || null,
       created_by: userId,
       archived: false,
     }).select('id').single()
@@ -247,6 +253,36 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Locations</label>
+                <input type="number" value={numberOfLocations} onChange={(e) => setNumberOfLocations(e.target.value)} className={inputClass} placeholder="e.g. 3" min="0" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Revenue Range</label>
+                <select value={revenueRange} onChange={(e) => setRevenueRange(e.target.value)} className={inputClass}>
+                  <option value="">— Select —</option>
+                  <option value="Under $1M">Under $1M</option>
+                  <option value="$1M-$5M">$1M-$5M</option>
+                  <option value="$5M-$10M">$5M-$10M</option>
+                  <option value="$10M-$50M">$10M-$50M</option>
+                  <option value="$50M-$100M">$50M-$100M</option>
+                  <option value="$100M+">$100M+</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Employees</label>
+                <select value={employeeRange} onChange={(e) => setEmployeeRange(e.target.value)} className={inputClass}>
+                  <option value="">— Select —</option>
+                  <option value="1-10">1-10</option>
+                  <option value="11-50">11-50</option>
+                  <option value="51-200">51-200</option>
+                  <option value="201-500">201-500</option>
+                  <option value="501-1000">501-1000</option>
+                  <option value="1000+">1000+</option>
                 </select>
               </div>
             </div>
