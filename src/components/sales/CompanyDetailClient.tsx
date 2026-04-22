@@ -762,11 +762,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         ) : (
           <span className="italic">No details yet</span>
         )}
-        {company.deal_value && company.deal_value > 0 ? (
-          <span className="text-amber-600">
-            · ${company.deal_value.toLocaleString()} deal
-          </span>
-        ) : null}
       </div>
 
       {/* ── Tags ── */}
@@ -937,13 +932,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           <div className="text-sm font-medium text-gray-900 mt-0.5">{formatDate(lastActivity)}</div>
         </div>
 
-        {/* Deal value */}
-        <div className="bg-gray-50 rounded-lg px-4 py-3 min-w-[140px]">
-          <div className="text-[11px] text-gray-400">Deal value</div>
-          <div className="text-sm font-medium text-gray-900 mt-0.5">
-            ${(company.deal_value ?? 0).toLocaleString()}
-          </div>
-        </div>
       </div>
 
       {/* ── Two-column layout ── */}
@@ -1119,6 +1107,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               </div>
             )}
           </section>
+
+          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
 
           {/* Activity timeline */}
           <section>
@@ -1331,6 +1321,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             )}
           </section>
 
+          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
+
           {/* Reminders */}
           <section>
             <div className="flex items-center justify-between mb-3">
@@ -1415,6 +1407,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             )}
           </section>
 
+          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
+
           {/* Notes */}
           <section>
             <h2 className="text-sm font-medium text-gray-900 mb-3">Notes</h2>
@@ -1429,6 +1423,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
           </section>
+
+          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
 
           {/* Files */}
           <section>
@@ -1496,6 +1492,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               </div>
             )}
           </section>
+
+          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
 
           {/* Lead source */}
           <section>

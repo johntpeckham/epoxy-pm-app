@@ -54,6 +54,7 @@ interface CustomerRow {
   total_revenue: number
   last_contact: string | null
   last_job: string | null
+  contactJobTitles: string[]
 }
 
 interface ProfileMini {
@@ -120,6 +121,7 @@ export default function ExistingCustomersView({
   const [filterTags, setFilterTags] = useState<Set<string>>(new Set())
   const [filterLastContact, setFilterLastContact] =
     useState<LastContactFilter>('all')
+  const [jobTitleFilter, setJobTitleFilter] = useState('')
   const [openFilter, setOpenFilter] = useState<string | null>(null)
 
   const [sortField, setSortField] = useState<SortField>('last_contact')
@@ -288,6 +290,7 @@ export default function ExistingCustomersView({
       { data: profileRows },
       { data: tagRows },
       { data: companyTagRows },
+      { data: contactRows },
     ] = await Promise.all([
       supabase
         .from('companies')
@@ -318,6 +321,9 @@ export default function ExistingCustomersView({
       supabase
         .from('crm_company_tags')
         .select('company_id, tag_id'),
+      supabase
+        .from('contacts')
+        .select('company_id, job_title'),
     ])
 
     setProfiles((profileRows as ProfileMini[] | null) ?? [])
@@ -365,6 +371,14 @@ export default function ExistingCustomersView({
       const list = tagsByCompany.get(row.company_id) ?? []
       list.push(row.tag_id)
       tagsByCompany.set(row.company_id, list)
+    }
+
+    const jobTitlesByCompany = new Map<string, string[]>()
+    for (const row of (contactRows ?? []) as Array<{ company_id: string; job_title: string | null }>) {
+      if (!row.job_title) continue
+      const list = jobTitlesByCompany.get(row.company_id) ?? []
+      list.push(row.job_title)
+      jobTitlesByCompany.set(row.company_id, list)
     }
 
     // Aggregate estimates per customer: accepted count + revenue + latest.
@@ -559,6 +573,7 @@ export default function ExistingCustomersView({
         assigned_to: assignedId,
         assigned_name: assignedId ? profileMap.get(assignedId) ?? null : null,
         tag_ids: crm ? tagsByCompany.get(crm.id) ?? [] : [],
+        contactJobTitles: crm ? jobTitlesByCompany.get(crm.id) ?? [] : [],
         jobs_completed: jobsCompleted,
         total_revenue: totalRevenue,
         last_contact: lastContact,
@@ -713,6 +728,11 @@ export default function ExistingCustomersView({
         if (Number.isNaN(t) || t < lastContactCutoff) return false
       }
 
+      if (jobTitleFilter.trim()) {
+        const jt = jobTitleFilter.trim().toLowerCase()
+        if (!c.contactJobTitles.some((t) => t.toLowerCase().includes(jt))) return false
+      }
+
       if (search) {
         const blob = [
           c.name,
@@ -782,6 +802,7 @@ export default function ExistingCustomersView({
   }, [
     customers,
     search,
+    jobTitleFilter,
     filterIndustry,
     filterRegion,
     filterAssigned,
@@ -1032,6 +1053,43 @@ export default function ExistingCustomersView({
           }))}
         />
 
+        {/* Job title text filter */}
+        <div className="relative">
+          <button
+            onClick={() => setOpenFilter((f) => (f === 'job_title' ? null : 'job_title'))}
+            className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border transition-colors ${
+              jobTitleFilter
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}
+            style={{ borderRadius: 20 }}
+          >
+            Job title
+            {jobTitleFilter && (
+              <XIcon
+                className="w-3 h-3 ml-0.5 hover:text-blue-900"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setJobTitleFilter('')
+                  setOpenFilter(null)
+                }}
+              />
+            )}
+          </button>
+          {openFilter === 'job_title' && (
+            <div className="absolute z-20 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+              <input
+                type="text"
+                value={jobTitleFilter}
+                onChange={(e) => setJobTitleFilter(e.target.value)}
+                placeholder="e.g. Harbor Master, CEO…"
+                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                autoFocus
+              />
+            </div>
+          )}
+        </div>
+
         {/* Last contact — single-select */}
         <div className="relative">
           <button
@@ -1094,6 +1152,7 @@ export default function ExistingCustomersView({
           filterRegion.size > 0 ||
           filterAssigned.size > 0 ||
           filterTags.size > 0 ||
+          jobTitleFilter ||
           filterLastContact !== 'all') && (
           <button
             onClick={() => {
@@ -1101,6 +1160,7 @@ export default function ExistingCustomersView({
               setFilterRegion(new Set())
               setFilterAssigned(new Set())
               setFilterTags(new Set())
+              setJobTitleFilter('')
               setFilterLastContact('all')
             }}
             className="text-xs text-gray-500 hover:text-gray-700 underline ml-1"
