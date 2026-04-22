@@ -42,6 +42,7 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
   const [name, setName] = useState('')
   const [industry, setIndustry] = useState('')
   const [zone, setZone] = useState('')
+  const [streetAddress, setStreetAddress] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [status, setStatus] = useState<'prospect' | 'contacted' | 'hot_lead' | 'lost'>('prospect')
@@ -84,6 +85,7 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
       name: name.trim(),
       industry: industry.trim() || null,
       zone: zone.trim() || null,
+      address: streetAddress.trim() || null,
       city: city.trim() || null,
       state: state.trim() || null,
       status,
@@ -167,6 +169,16 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Street address</label>
+              <input
+                type="text"
+                value={streetAddress}
+                onChange={(e) => setStreetAddress(e.target.value)}
+                className={inputClass}
+                placeholder="123 Main St"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

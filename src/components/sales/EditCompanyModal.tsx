@@ -15,6 +15,7 @@ export interface EditableCompany {
   state: string | null
   county: string | null
   city: string | null
+  address: string | null
   status: 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
   priority: 'high' | 'medium' | 'low' | null
   lead_source: string | null
@@ -65,6 +66,7 @@ export default function EditCompanyModal({
   const [name, setName] = useState(company.name)
   const [industry, setIndustry] = useState(company.industry ?? '')
   const [zone, setZone] = useState(company.zone ?? '')
+  const [streetAddress, setStreetAddress] = useState(company.address ?? '')
   const [region, setRegion] = useState(company.region ?? '')
   const [state, setState] = useState(company.state ?? '')
   const [county, setCounty] = useState(company.county ?? '')
@@ -105,6 +107,7 @@ export default function EditCompanyModal({
         name: name.trim(),
         industry: industry.trim() || null,
         zone: zone.trim() || null,
+        address: streetAddress.trim() || null,
         region: region.trim() || null,
         state: state.trim() || null,
         county: county.trim() || null,
@@ -168,6 +171,10 @@ export default function EditCompanyModal({
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Street address</label>
+              <input type="text" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} className={inputClass} placeholder="123 Main St" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

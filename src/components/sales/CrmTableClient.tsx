@@ -21,15 +21,18 @@ import {
   ArrowLeftIcon,
   Building2Icon,
   SettingsIcon,
+  CopyIcon,
 } from 'lucide-react'
 import { useUserRole } from '@/lib/useUserRole'
 import Portal from '@/components/ui/Portal'
 import NewCompanyModal from './NewCompanyModal'
 import ImportCsvModal from './ImportCsvModal'
 import MergeCompaniesModal from './MergeCompaniesModal'
+import FindDuplicatesModal from './FindDuplicatesModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import ExistingCustomersView from './ExistingCustomersView'
 import { toCsv, downloadCsv } from '@/lib/csv'
+import { findLocationsWithinRadius } from '@/lib/geocode'
 import { BUILT_IN_COLUMNS, DEFAULT_VISIBLE_IDS, getVisibleColumns } from './crmColumns'
 import type { CrmColumn, CustomColumn } from './crmColumns'
 import CrmColumnPicker from './CrmColumnPicker'
@@ -205,8 +208,12 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     job_title: new Set(),
   })
 
-  const [sortField, setSortField] = useState<SortField>('last_activity')
-  const [sortAsc, setSortAsc] = useState<boolean>(false)
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortAsc, setSortAsc] = useState<boolean>(true)
+
+  const [radiusMiles, setRadiusMiles] = useState(0)
+  const [radiusCities, setRadiusCities] = useState<Set<string> | null>(null)
+  const [radiusLoading, setRadiusLoading] = useState(false)
 
   const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
 
@@ -223,6 +230,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [showNewModal, setShowNewModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [showMergeModal, setShowMergeModal] = useState(false)
+  const [showFindDuplicates, setShowFindDuplicates] = useState(false)
+  const [dupMergeIds, setDupMergeIds] = useState<[string, string] | null>(null)
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null)
   const [openFilter, setOpenFilter] = useState<FilterField | null>(null)
@@ -869,7 +878,47 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     }
   }, [companies, profiles, allTags])
 
-  // ─── Filter + search + sort ──────────────────────────────────────────────
+  // ─── Radius geocoding effect ───────���─────────────────────────────────────
+  useEffect(() => {
+    const selectedCities = filters.city
+    if (selectedCities.size === 0 || radiusMiles <= 0) {
+      setRadiusCities(null)
+      return
+    }
+    let cancelled = false
+    setRadiusLoading(true)
+    const allCityValues = filterOptions.city.map((o) => o.value)
+    const selectedCity = [...selectedCities][0]
+    const cityWithState = (() => {
+      const statesForCity = companies
+        .filter((c) => c.city === selectedCity && c.state)
+        .map((c) => c.state!)
+      const st = statesForCity[0]
+      return st ? `${selectedCity}, ${st}` : selectedCity
+    })()
+    const allCitiesWithState = allCityValues.map((city) => {
+      const st = companies.find((c) => c.city === city && c.state)?.state
+      return { city, label: st ? `${city}, ${st}` : city }
+    })
+
+    findLocationsWithinRadius(
+      cityWithState,
+      allCitiesWithState.map((c) => c.label),
+      radiusMiles
+    ).then((matchingLabels) => {
+      if (cancelled) return
+      const matchingCities = new Set<string>()
+      for (const lbl of matchingLabels) {
+        const match = allCitiesWithState.find((c) => c.label === lbl)
+        if (match) matchingCities.add(match.city)
+      }
+      setRadiusCities(matchingCities)
+      setRadiusLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [filters.city, radiusMiles, filterOptions.city, companies])
+
+  // ─── Filter + search + sort ─────────────────────��────────────────────────
   const filteredSorted = useMemo(() => {
     let rows = companies
 
@@ -886,7 +935,11 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     applySetFilter('region', filters.region)
     applySetFilter('state', filters.state)
     applySetFilter('county', filters.county)
-    applySetFilter('city', filters.city)
+    if (radiusCities && radiusCities.size > 0 && filters.city.size > 0) {
+      rows = rows.filter((r) => typeof r.city === 'string' && radiusCities.has(r.city))
+    } else {
+      applySetFilter('city', filters.city)
+    }
     applySetFilter('industry', filters.industry)
     applySetFilter('priority', filters.priority)
     if (filters.assigned_to.size > 0) {
@@ -954,7 +1007,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       }
     })
     return sorted
-  }, [companies, filters, search, sortField, sortAsc])
+  }, [companies, filters, search, sortField, sortAsc, radiusCities])
 
   const totalCount = filteredSorted.length
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
@@ -1164,6 +1217,13 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             Import CSV
           </button>
           <button
+            onClick={() => setShowFindDuplicates(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <CopyIcon className="w-4 h-4" />
+            Find Duplicates
+          </button>
+          <button
             onClick={() => setShowNewModal(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
           >
@@ -1195,7 +1255,11 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 style={{ borderRadius: 20 }}
               >
                 {label}
-                {active && <span className="text-[10px] text-blue-500">({activeCount})</span>}
+                {active && (
+                  <span className="text-[10px] text-blue-500">
+                    ({activeCount}){isRegionGroup && radiusMiles > 0 && filters.city.size > 0 ? ` +${radiusMiles}mi` : ''}
+                  </span>
+                )}
                 {active ? (
                   <XIcon
                     className="w-3 h-3 ml-0.5 hover:text-blue-900"
@@ -1203,6 +1267,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                       e.stopPropagation()
                       if (isRegionGroup) {
                         for (const g of groupFields) clearFilter(g.field)
+                        setRadiusMiles(0)
+                        setRadiusCities(null)
                       } else {
                         clearFilter(field)
                       }
@@ -1222,7 +1288,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                     className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[220px] max-h-[380px] overflow-y-auto"
                   >
                     {isRegionGroup ? (
-                      groupFields.map((g, gi) => {
+                      <>
+                      {groupFields.map((g, gi) => {
                         const gOptions = filterOptions[g.field]
                         const gSelected = filters[g.field]
                         return (
@@ -1253,7 +1320,32 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                             )}
                           </div>
                         )
-                      })
+                      })}
+                      {filters.city.size > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-100 px-3 pb-2">
+                          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                            Radius search
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={5}
+                              value={radiusMiles}
+                              onChange={(e) => setRadiusMiles(Number(e.target.value))}
+                              className="flex-1 h-1.5 accent-amber-500"
+                            />
+                            <span className="text-xs text-gray-600 w-14 text-right">
+                              {radiusMiles === 0 ? 'Exact' : `${radiusMiles} mi`}
+                            </span>
+                          </div>
+                          {radiusLoading && (
+                            <div className="text-[10px] text-gray-400 mt-1">Geocoding...</div>
+                          )}
+                        </div>
+                      )}
+                      </>
                     ) : options.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-gray-400">No values</div>
                     ) : (
@@ -1753,6 +1845,30 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           onMerged={() => {
             setShowMergeModal(false)
             setSelectedIds(new Set())
+            showToast('Companies merged')
+            fetchAll()
+          }}
+        />
+      )}
+
+      {/* ── Find duplicates modal ── */}
+      {showFindDuplicates && (
+        <FindDuplicatesModal
+          companies={companies}
+          onClose={() => { setShowFindDuplicates(false); setDupMergeIds(null) }}
+          onMerge={(idA, idB) => {
+            setDupMergeIds([idA, idB])
+            setShowFindDuplicates(false)
+          }}
+        />
+      )}
+      {dupMergeIds && (
+        <MergeCompaniesModal
+          companyIdA={dupMergeIds[0]}
+          companyIdB={dupMergeIds[1]}
+          onClose={() => setDupMergeIds(null)}
+          onMerged={() => {
+            setDupMergeIds(null)
             showToast('Companies merged')
             fetchAll()
           }}
