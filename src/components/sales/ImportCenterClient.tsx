@@ -24,15 +24,14 @@ interface StagingRecord {
   id: string
   import_id: string
   company_name: string
-  industry: string | null; zone: string | null; region: string | null
-  state: string | null; county: string | null; city: string | null
+  industry: string | null; zone: string | null
+  state: string | null; city: string | null
   status: string | null; priority: string | null; lead_source: string | null
-  deal_value: number | null
   contact_first_name: string | null; contact_last_name: string | null
   contact_job_title: string | null; contact_email: string | null; contact_phone: string | null
-  address: string | null; address_label: string | null
+  address: string | null
   number_of_locations: string | null; revenue_range: string | null; employee_range: string | null
-  prospect_status: string | null; last_call_status: string | null; last_call_date: string | null
+  last_call_status: string | null; last_call_date: string | null
   contact_phones: Array<{ type: string; number: string }> | null
   extras: Record<string, string> | null
   duplicate_of: string | null; duplicate_score: number | null
@@ -57,22 +56,22 @@ interface ImportContact {
 type Step = 'upload' | 'mapping' | 'review' | 'importing' | 'done'
 
 type TargetField =
-  | 'skip' | 'company_name' | 'industry' | 'zone' | 'region' | 'state'
-  | 'county' | 'city' | 'status' | 'priority' | 'lead_source' | 'deal_value'
+  | 'skip' | 'company_name' | 'industry' | 'zone' | 'state'
+  | 'city' | 'status' | 'priority' | 'lead_source'
   | 'contact_first_name' | 'contact_last_name' | 'contact_job_title'
-  | 'contact_email' | 'contact_phone' | 'contact_mobile' | 'address' | 'address_label'
+  | 'contact_email' | 'contact_phone' | 'contact_mobile' | 'address'
   | 'number_of_locations' | 'revenue_range' | 'employee_range'
-  | 'prospect_status' | 'last_call_status' | 'last_call_date'
+  | 'last_call_status' | 'last_call_date'
 
 const TARGET_LABELS: Record<TargetField, string> = {
   skip: '— Skip this column —', company_name: 'Company name', industry: 'Industry',
-  zone: 'Zone', region: 'Region', state: 'State', county: 'County', city: 'City',
-  status: 'Status', priority: 'Priority', lead_source: 'Lead source', deal_value: 'Deal value',
+  zone: 'Zone', state: 'State', city: 'City',
+  status: 'Status', priority: 'Priority', lead_source: 'Lead source',
   contact_first_name: 'Contact first name', contact_last_name: 'Contact last name',
   contact_job_title: 'Contact job title', contact_email: 'Contact email',
-  contact_phone: 'Contact phone (office)', contact_mobile: 'Contact mobile', address: 'Address', address_label: 'Address label',
+  contact_phone: 'Contact phone (office)', contact_mobile: 'Contact mobile', address: 'Address',
   number_of_locations: 'Number of Locations', revenue_range: 'Revenue Range',
-  employee_range: 'Employee Range', prospect_status: 'Prospect Status',
+  employee_range: 'Employee Range',
   last_call_status: 'Last Call Status', last_call_date: 'Last Call Date',
 }
 
@@ -83,14 +82,11 @@ function guessMapping(header: string): TargetField {
   if (/(company|business|account)\s*(name)?/.test(h)) return 'company_name'
   if (/^industry$|sector|vertical/.test(h)) return 'industry'
   if (/^zone$|territory/.test(h)) return 'zone'
-  if (/^region$/.test(h)) return 'region'
   if (/^state$|^st$|province/.test(h)) return 'state'
-  if (/^county$/.test(h)) return 'county'
   if (/^city$|town/.test(h)) return 'city'
   if (/^status$/.test(h)) return 'status'
   if (/priority/.test(h)) return 'priority'
   if (/(lead|referr?al)\s*source|source/.test(h)) return 'lead_source'
-  if (/deal\s*value|revenue|amount/.test(h)) return 'deal_value'
   if (/first\s*name|^fname$|^given/.test(h)) return 'contact_first_name'
   if (/last\s*name|^lname$|surname|family/.test(h)) return 'contact_last_name'
   if (/job\s*title|^title$|position|role/.test(h)) return 'contact_job_title'
@@ -98,11 +94,9 @@ function guessMapping(header: string): TargetField {
   if (/mobile|cell/.test(h)) return 'contact_mobile'
   if (/phone|telephone/.test(h)) return 'contact_phone'
   if (/street\s*addr|^address$|^addr$|address\s*(line\s*)?1/.test(h)) return 'address'
-  if (/address\s*(label|type)/.test(h)) return 'address_label'
   if (/loc(ation)?s?\s*(count|number|#|num)?$|number\s*of\s*loc/.test(h)) return 'number_of_locations'
   if (/revenue\s*(range)?|annual\s*rev/.test(h)) return 'revenue_range'
   if (/employee\s*(range|count|size)?|head\s*count|company\s*size/.test(h)) return 'employee_range'
-  if (/prospect\s*status|lead\s*status/.test(h)) return 'prospect_status'
   if (/last\s*call\s*status|call\s*(outcome|result|disposition)/.test(h)) return 'last_call_status'
   if (/last\s*call\s*date|call\s*date/.test(h)) return 'last_call_date'
   return 'skip'
@@ -110,30 +104,29 @@ function guessMapping(header: string): TargetField {
 
 interface MappedRow {
   company_name: string
-  industry: string | null; zone: string | null; region: string | null
-  state: string | null; county: string | null; city: string | null
+  industry: string | null; zone: string | null
+  state: string | null; city: string | null
   status: string | null; priority: string | null; lead_source: string | null
-  deal_value: number | null
   contact_first_name: string | null; contact_last_name: string | null
   contact_job_title: string | null; contact_email: string | null; contact_phone: string | null
   contact_mobile: string | null
-  address: string | null; address_label: string | null
+  address: string | null
   number_of_locations: string | null; revenue_range: string | null; employee_range: string | null
-  prospect_status: string | null; last_call_status: string | null; last_call_date: string | null
+  last_call_status: string | null; last_call_date: string | null
   extras: Record<string, string>
 }
 
 function buildMappedRow(headers: string[], row: string[], mapping: TargetField[]): MappedRow {
   const out: MappedRow = {
-    company_name: '', industry: null, zone: null, region: null,
-    state: null, county: null, city: null, status: null, priority: null,
-    lead_source: null, deal_value: null,
+    company_name: '', industry: null, zone: null,
+    state: null, city: null, status: null, priority: null,
+    lead_source: null,
     contact_first_name: null, contact_last_name: null,
     contact_job_title: null, contact_email: null, contact_phone: null,
     contact_mobile: null,
-    address: null, address_label: null,
+    address: null,
     number_of_locations: null, revenue_range: null, employee_range: null,
-    prospect_status: null, last_call_status: null, last_call_date: null,
+    last_call_status: null, last_call_date: null,
     extras: {},
   }
   for (let i = 0; i < headers.length; i++) {
@@ -145,10 +138,7 @@ function buildMappedRow(headers: string[], row: string[], mapping: TargetField[]
     }
     if (!raw) continue
     if (target === 'company_name') out.company_name = raw
-    else if (target === 'deal_value') {
-      const n = Number(raw.replace(/[$,]/g, ''))
-      out.deal_value = Number.isFinite(n) ? n : null
-    } else {
+    else {
       ;(out as unknown as Record<string, unknown>)[target] = raw
     }
   }
@@ -173,23 +163,6 @@ function normalizePriority(p: string | null): 'high' | 'medium' | 'low' | null {
   if (v.startsWith('h')) return 'high'
   if (v.startsWith('m')) return 'medium'
   if (v.startsWith('l')) return 'low'
-  return null
-}
-
-const CRM_STATUS_LIST = ['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted', 'active', 'inactive'] as const
-
-function mapProspectStatusToCrm(raw: string | null): string | null {
-  if (!raw) return null
-  const v = raw.toLowerCase().trim().replace(/[\s-]/g, '_')
-  for (const s of CRM_STATUS_LIST) {
-    if (v === s) return s
-  }
-  if (/hot/.test(v)) return 'hot_lead'
-  if (/contact/.test(v)) return 'contacted'
-  if (/black/.test(v)) return 'blacklisted'
-  if (/lost|dead/.test(v)) return 'lost'
-  if (/prospect|new/.test(v)) return 'prospect'
-  if (/active/.test(v) && !/inactive/.test(v)) return 'active'
   return null
 }
 
@@ -490,24 +463,18 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       const BATCH = 50
       for (let start = 0; start < newRows.length; start += BATCH) {
         const chunk = newRows.slice(start, start + BATCH)
-        const payload = chunk.map((r) => {
-          let companyStatus = normalizeStatus(r.status) ?? 'prospect'
-          if (r.prospect_status) {
-            const matched = mapProspectStatusToCrm(r.prospect_status)
-            if (matched) companyStatus = matched
-          }
-          return {
-            name: r.company_name, industry: r.industry, zone: r.zone, region: r.region,
-            state: r.state, county: r.county, city: r.city,
-            status: companyStatus, priority: normalizePriority(r.priority) ?? 'medium',
-            lead_source: r.lead_source, deal_value: r.deal_value ?? 0,
+        const payload = chunk.map((r) => ({
+            name: r.company_name, industry: r.industry, zone: r.zone,
+            address: r.address, state: r.state, city: r.city,
+            status: normalizeStatus(r.status) ?? 'prospect',
+            priority: normalizePriority(r.priority) ?? 'medium',
+            lead_source: r.lead_source,
             number_of_locations: r.number_of_locations ? parseInt(r.number_of_locations, 10) || null : null,
             revenue_range: r.revenue_range || null,
             employee_range: r.employee_range || null,
             import_metadata: r.extras && Object.keys(r.extras).length > 0 ? r.extras : null,
             import_batch_id: batchId, created_by: userId, archived: false,
-          }
-        })
+          }))
         const { data: inserted, error: insertErr } = await supabase.from('companies').insert(payload).select('id, name')
         if (insertErr) throw insertErr
         const insertedRows = (inserted ?? []) as { id: string; name: string }[]
@@ -515,7 +482,6 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
         const contactPayload: Array<Record<string, unknown>> = []
         const contactPhoneMap: Map<number, { companyId: string; phones: Array<{ type: string; number: string }> }> = new Map()
         const contactCallData: Map<number, { callStatus: string | null; callDate: string | null }> = new Map()
-        const addressPayload: Array<Record<string, unknown>> = []
         for (let i = 0; i < chunk.length; i++) {
           const row = chunk[i], co = insertedRows[i]
           if (!co) continue
@@ -537,9 +503,6 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
             if (phones.length > 0) contactPhoneMap.set(cpIdx, { companyId: co.id, phones })
             if (row.last_call_status || row.last_call_date) contactCallData.set(cpIdx, { callStatus: row.last_call_status, callDate: row.last_call_date })
           }
-          if (row.address) {
-            addressPayload.push({ company_id: co.id, label: row.address_label || 'Primary', address: row.address, city: row.city, state: row.state, is_primary: true })
-          }
         }
         let allInsertedContacts: Array<{ id: string; company_id: string }> = []
         if (contactPayload.length > 0) {
@@ -556,10 +519,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           }
           if (phonePayload.length > 0) await supabase.from('contact_phone_numbers').insert(phonePayload)
         }
-        if (addressPayload.length > 0) { const { error: aerr } = await supabase.from('crm_company_addresses').insert(addressPayload); if (aerr) throw aerr }
-
         const callLogPayload: Array<Record<string, unknown>> = []
-        const commentPayload: Array<Record<string, unknown>> = []
         for (let i = 0; i < chunk.length; i++) {
           const row = chunk[i], co = insertedRows[i]
           if (!co) continue
@@ -588,16 +548,8 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
               })
             }
           }
-          if (row.prospect_status && !mapProspectStatusToCrm(row.prospect_status)) {
-            commentPayload.push({
-              company_id: co.id,
-              content: `Imported status: ${row.prospect_status}`,
-              created_by: userId,
-            })
-          }
         }
         if (callLogPayload.length > 0) { await supabase.from('crm_call_log').insert(callLogPayload) }
-        if (commentPayload.length > 0) { await supabase.from('crm_comments').insert(commentPayload) }
 
         done += chunk.length
         setApproveProgress((p) => ({ ...p, current: done }))
@@ -629,9 +581,6 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
             }
           }
         }
-        if (row.address) {
-          await supabase.from('crm_company_addresses').insert({ company_id: targetId, label: row.address_label || 'Imported', address: row.address, city: row.city, state: row.state, is_primary: false })
-        }
         if (row.last_call_status || row.last_call_date) {
           const callDate = row.last_call_date ? new Date(row.last_call_date) : new Date()
           const validDate = !isNaN(callDate.getTime()) ? callDate.toISOString() : new Date().toISOString()
@@ -640,13 +589,6 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
             outcome: mapCallOutcome(row.last_call_status),
             notes: `Imported from import — Original status: ${row.last_call_status || 'N/A'}`,
             call_date: validDate,
-            created_by: userId,
-          })
-        }
-        if (row.prospect_status && !mapProspectStatusToCrm(row.prospect_status)) {
-          await supabase.from('crm_comments').insert({
-            company_id: targetId,
-            content: `Imported status: ${row.prospect_status}`,
             created_by: userId,
           })
         }
@@ -687,7 +629,6 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       { key: 'number_of_locations', label: 'Locations', width: 'min-w-[80px]' },
       { key: 'revenue_range', label: 'Revenue', width: 'min-w-[100px]' },
       { key: 'employee_range', label: 'Employees', width: 'min-w-[90px]' },
-      { key: 'prospect_status', label: 'Prospect Status', width: 'min-w-[120px]' },
       { key: 'status', label: 'CRM Status', width: 'min-w-[110px]' },
       { key: 'priority', label: 'Priority', width: 'min-w-[80px]' },
     ]
@@ -1002,20 +943,15 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       { target: 'company_name', label: 'Company Name' },
       { target: 'industry', label: 'Industry' },
       { target: 'zone', label: 'Zone' },
-      { target: 'region', label: 'Region' },
       { target: 'address', label: 'Street Address' },
-      { target: 'address_label', label: 'Address Label' },
       { target: 'city', label: 'City' },
       { target: 'state', label: 'State' },
-      { target: 'county', label: 'County' },
       { target: 'number_of_locations', label: 'Number of Locations' },
       { target: 'revenue_range', label: 'Revenue Range' },
       { target: 'employee_range', label: 'Employee Range' },
       { target: 'status', label: 'Status' },
       { target: 'priority', label: 'Priority' },
       { target: 'lead_source', label: 'Lead Source' },
-      { target: 'deal_value', label: 'Deal Value' },
-      { target: 'prospect_status', label: 'Prospect Status' },
     ]
     const CONTACT_FIELDS: { target: TargetField; label: string }[] = [
       { target: 'contact_first_name', label: 'First Name' },
@@ -1289,18 +1225,17 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
         const payload = chunk.map((r) => ({
           import_id: importId,
           company_name: r.mapped.company_name,
-          industry: r.mapped.industry, zone: r.mapped.zone, region: r.mapped.region,
-          state: r.mapped.state, county: r.mapped.county, city: r.mapped.city,
+          industry: r.mapped.industry, zone: r.mapped.zone,
+          state: r.mapped.state, city: r.mapped.city,
           status: r.mapped.status, priority: r.mapped.priority,
-          lead_source: r.mapped.lead_source, deal_value: r.mapped.deal_value,
+          lead_source: r.mapped.lead_source,
           contact_first_name: r.mapped.contact_first_name, contact_last_name: r.mapped.contact_last_name,
           contact_job_title: r.mapped.contact_job_title, contact_email: r.mapped.contact_email,
           contact_phone: r.mapped.contact_phone,
           contact_phones: buildContactPhonesJson(r.mapped.contact_phone, r.mapped.contact_mobile),
-          address: r.mapped.address, address_label: r.mapped.address_label,
+          address: r.mapped.address,
           number_of_locations: r.mapped.number_of_locations,
           revenue_range: r.mapped.revenue_range, employee_range: r.mapped.employee_range,
-          prospect_status: r.mapped.prospect_status,
           last_call_status: r.mapped.last_call_status, last_call_date: r.mapped.last_call_date,
           extras: Object.keys(r.mapped.extras).length > 0 ? r.mapped.extras : null,
           duplicate_of: r.duplicates[0]?.id ?? null,
@@ -1480,7 +1415,7 @@ function StatBadge({ label, value, accent }: { label: string; value: number; acc
 const FIELD_PLACEHOLDERS: Record<string, string> = {
   company_name: 'Company name', industry: 'Industry', city: 'City', state: 'State',
   zone: 'Zone', number_of_locations: 'Locations', revenue_range: 'Revenue',
-  employee_range: 'Employees', prospect_status: 'Prospect status', status: 'Status',
+  employee_range: 'Employees', status: 'Status',
   priority: 'Priority', contact_first_name: 'First name', contact_last_name: 'Last name',
   contact_job_title: 'Job title', contact_email: 'Email address', contact_phone: 'Phone number',
   last_call_status: 'Call status', last_call_date: 'Call date',
@@ -1523,29 +1458,6 @@ function StagingCompanyWithContact({ rec, groupIndex, contacts, companyFields, c
               className="px-1.5 py-1 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
               disabled={approved}
             >
-              {crmStatuses.map((s) => (
-                <option key={s} value={s}>{s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
-              ))}
-            </select>
-          )}
-        </td>
-      )
-    }
-
-    if (f.key === 'prospect_status' && !approved) {
-      const hasCustom = display && !crmStatuses.includes(display as typeof crmStatuses[number])
-      return (
-        <td key={f.key} className={`px-3 py-2 ${f.width}`}>
-          {dimmed ? (
-            <span className="text-gray-500">{display || <span className="text-gray-300">—</span>}</span>
-          ) : (
-            <select
-              value={display || ''}
-              onChange={(e) => onSave(f.key, e.target.value || null)}
-              className="px-1.5 py-1 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
-            >
-              <option value="">— None —</option>
-              {hasCustom && <option value={display}>Custom: {display}</option>}
               {crmStatuses.map((s) => (
                 <option key={s} value={s}>{s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
               ))}
