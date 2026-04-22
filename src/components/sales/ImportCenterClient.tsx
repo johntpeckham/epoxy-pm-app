@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeftIcon, PlusIcon, UploadCloudIcon, FileTextIcon, AlertTriangleIcon, CheckIcon, XIcon, Trash2Icon, UserIcon, PhoneIcon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, UploadCloudIcon, FileTextIcon, AlertTriangleIcon, CheckIcon, XIcon, Trash2Icon, UserIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { parseCsv, findSimilarNames } from '@/lib/csv'
 import * as XLSX from 'xlsx'
@@ -39,6 +39,19 @@ interface StagingRecord {
   merge_decision: 'import' | 'merge' | 'skip' | 'rejected'
   approved: boolean; approved_at: string | null; approved_by: string | null
   row_index: number; created_at: string
+}
+
+interface ImportContact {
+  id: string
+  import_record_id: string
+  contact_order: number
+  first_name: string | null
+  last_name: string | null
+  title: string | null
+  email: string | null
+  phones: Array<{ type: string; number: string }> | null
+  call_status: string | null
+  call_date: string | null
 }
 
 type Step = 'upload' | 'mapping' | 'review' | 'importing' | 'done'
@@ -263,6 +276,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null)
   const [approveProgress, setApproveProgress] = useState<{ running: boolean; current: number; total: number }>({ running: false, current: 0, total: 0 })
+  const [importContacts, setImportContacts] = useState<Map<string, ImportContact[]>>(new Map())
 
   async function fetchStagingRecords(importId: string) {
     setStagingLoading(true)
@@ -271,8 +285,27 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       .select('*')
       .eq('import_id', importId)
       .order('row_index', { ascending: true })
-    setStagingRecords((data ?? []) as StagingRecord[])
+    const records = (data ?? []) as StagingRecord[]
+    setStagingRecords(records)
     setSelectedRows(new Set())
+
+    const recordIds = records.map((r) => r.id)
+    if (recordIds.length > 0) {
+      const { data: contactRows } = await supabase
+        .from('crm_import_contacts')
+        .select('*')
+        .in('import_record_id', recordIds)
+        .order('contact_order', { ascending: true })
+      const cMap = new Map<string, ImportContact[]>()
+      for (const c of (contactRows ?? []) as ImportContact[]) {
+        const arr = cMap.get(c.import_record_id) ?? []
+        arr.push(c)
+        cMap.set(c.import_record_id, arr)
+      }
+      setImportContacts(cMap)
+    } else {
+      setImportContacts(new Map())
+    }
     setStagingLoading(false)
   }
 
@@ -373,10 +406,56 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     setFinalStats({ companies: 0, contacts: 0, skipped: 0, merged: 0 })
   }
 
-  async function updateStagingPhones(id: string, phones: Array<{ type: string; number: string }>) {
-    const contactPhone = phones[0]?.number || null
-    const { error } = await supabase.from('crm_import_records').update({ contact_phones: phones.length > 0 ? phones : null, contact_phone: contactPhone }).eq('id', id)
-    if (!error) setStagingRecords((prev) => prev.map((r) => r.id === id ? { ...r, contact_phones: phones.length > 0 ? phones : null, contact_phone: contactPhone } : r))
+  async function addImportContact(importRecordId: string) {
+    const existing = importContacts.get(importRecordId) ?? []
+    const nextOrder = existing.length > 0 ? Math.max(...existing.map((c) => c.contact_order)) + 1 : 1
+    const { data, error } = await supabase.from('crm_import_contacts').insert({
+      import_record_id: importRecordId, contact_order: nextOrder,
+    }).select('*').single()
+    if (!error && data) {
+      setImportContacts((prev) => {
+        const next = new Map(prev)
+        const arr = [...(next.get(importRecordId) ?? []), data as ImportContact]
+        next.set(importRecordId, arr)
+        return next
+      })
+    }
+  }
+
+  async function deleteImportContact(contactId: string, importRecordId: string) {
+    const { error } = await supabase.from('crm_import_contacts').delete().eq('id', contactId)
+    if (!error) {
+      setImportContacts((prev) => {
+        const next = new Map(prev)
+        const arr = (next.get(importRecordId) ?? []).filter((c) => c.id !== contactId)
+        next.set(importRecordId, arr)
+        return next
+      })
+    }
+  }
+
+  async function updateImportContactField(contactId: string, importRecordId: string, field: string, value: unknown) {
+    const { error } = await supabase.from('crm_import_contacts').update({ [field]: value }).eq('id', contactId)
+    if (!error) {
+      setImportContacts((prev) => {
+        const next = new Map(prev)
+        const arr = (next.get(importRecordId) ?? []).map((c) => c.id === contactId ? { ...c, [field]: value } : c)
+        next.set(importRecordId, arr)
+        return next
+      })
+    }
+  }
+
+  async function updateImportContactPhones(contactId: string, importRecordId: string, phones: Array<{ type: string; number: string }>) {
+    const { error } = await supabase.from('crm_import_contacts').update({ phones: phones.length > 0 ? phones : null }).eq('id', contactId)
+    if (!error) {
+      setImportContacts((prev) => {
+        const next = new Map(prev)
+        const arr = (next.get(importRecordId) ?? []).map((c) => c.id === contactId ? { ...c, phones: phones.length > 0 ? phones : null } : c)
+        next.set(importRecordId, arr)
+        return next
+      })
+    }
   }
 
   async function updateStagingField(id: string, field: string, value: string | number | null) {
@@ -434,27 +513,41 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
 
         const contactPayload: Array<Record<string, unknown>> = []
         const contactPhoneMap: Map<number, { companyId: string; phones: Array<{ type: string; number: string }> }> = new Map()
+        const contactCallData: Map<number, { callStatus: string | null; callDate: string | null }> = new Map()
         const addressPayload: Array<Record<string, unknown>> = []
         for (let i = 0; i < chunk.length; i++) {
           const row = chunk[i], co = insertedRows[i]
           if (!co) continue
-          if (row.contact_first_name || row.contact_last_name) {
+          const contacts = importContacts.get(row.id) ?? []
+          if (contacts.length > 0) {
+            for (let ci = 0; ci < contacts.length; ci++) {
+              const ic = contacts[ci]
+              if (!ic.first_name && !ic.last_name) continue
+              const cpIdx = contactPayload.length
+              const primaryPhone = ic.phones?.[0]?.number || null
+              contactPayload.push({ company_id: co.id, first_name: ic.first_name || '', last_name: ic.last_name || '', job_title: ic.title, email: ic.email, phone: primaryPhone, is_primary: ci === 0, import_batch_id: batchId })
+              if (ic.phones && ic.phones.length > 0) contactPhoneMap.set(cpIdx, { companyId: co.id, phones: ic.phones })
+              if (ic.call_status || ic.call_date) contactCallData.set(cpIdx, { callStatus: ic.call_status, callDate: ic.call_date })
+            }
+          } else if (row.contact_first_name || row.contact_last_name) {
             const cpIdx = contactPayload.length
             contactPayload.push({ company_id: co.id, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: row.contact_phone, is_primary: true, import_batch_id: batchId })
             const phones = row.contact_phones ?? buildContactPhonesJson(row.contact_phone, null) ?? []
             if (phones.length > 0) contactPhoneMap.set(cpIdx, { companyId: co.id, phones })
+            if (row.last_call_status || row.last_call_date) contactCallData.set(cpIdx, { callStatus: row.last_call_status, callDate: row.last_call_date })
           }
           if (row.address) {
             addressPayload.push({ company_id: co.id, label: row.address_label || 'Primary', address: row.address, city: row.city, state: row.state, is_primary: true })
           }
         }
+        let allInsertedContacts: Array<{ id: string; company_id: string }> = []
         if (contactPayload.length > 0) {
           const { data: insertedContacts, error: cerr } = await supabase.from('contacts').insert(contactPayload).select('id, company_id')
           if (cerr) throw cerr
+          allInsertedContacts = (insertedContacts ?? []) as Array<{ id: string; company_id: string }>
           const phonePayload: Array<Record<string, unknown>> = []
-          const ic = (insertedContacts ?? []) as Array<{ id: string; company_id: string }>
           for (const [idx, entry] of contactPhoneMap.entries()) {
-            const contact = ic[idx]
+            const contact = allInsertedContacts[idx]
             if (!contact) continue
             entry.phones.forEach((p, pi) => {
               phonePayload.push({ contact_id: contact.id, company_id: entry.companyId, phone_number: p.number, phone_type: p.type, is_primary: pi === 0 })
@@ -480,6 +573,20 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
               created_by: userId,
             })
           }
+          for (const [cpIdx, cd] of contactCallData.entries()) {
+            const contact = allInsertedContacts[cpIdx]
+            if (contact && (cd.callStatus || cd.callDate)) {
+              const callDate = cd.callDate ? new Date(cd.callDate) : new Date()
+              const validDate = !isNaN(callDate.getTime()) ? callDate.toISOString() : new Date().toISOString()
+              callLogPayload.push({
+                company_id: contact.company_id,
+                outcome: mapCallOutcome(cd.callStatus),
+                notes: `Imported — Original status: ${cd.callStatus || 'N/A'}`,
+                call_date: validDate,
+                created_by: userId,
+              })
+            }
+          }
           if (row.prospect_status && !mapProspectStatusToCrm(row.prospect_status)) {
             commentPayload.push({
               company_id: co.id,
@@ -497,7 +604,22 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
 
       for (const row of mergeRows) {
         const targetId = row.duplicate_of!
-        if (row.contact_first_name || row.contact_last_name) {
+        const contacts = importContacts.get(row.id) ?? []
+        if (contacts.length > 0) {
+          for (const ic of contacts) {
+            if (!ic.first_name && !ic.last_name) continue
+            const primaryPhone = ic.phones?.[0]?.number || null
+            const { data: mergeContact } = await supabase.from('contacts').insert({ company_id: targetId, first_name: ic.first_name || '', last_name: ic.last_name || '', job_title: ic.title, email: ic.email, phone: primaryPhone, is_primary: false, import_batch_id: batchId }).select('id').single()
+            if (mergeContact && ic.phones && ic.phones.length > 0) {
+              await supabase.from('contact_phone_numbers').insert(ic.phones.map((p, pi) => ({ contact_id: mergeContact.id, company_id: targetId, phone_number: p.number, phone_type: p.type, is_primary: pi === 0 })))
+            }
+            if (ic.call_status || ic.call_date) {
+              const callDate = ic.call_date ? new Date(ic.call_date) : new Date()
+              const validDate = !isNaN(callDate.getTime()) ? callDate.toISOString() : new Date().toISOString()
+              await supabase.from('crm_call_log').insert({ company_id: targetId, outcome: mapCallOutcome(ic.call_status), notes: `Imported — Original status: ${ic.call_status || 'N/A'}`, call_date: validDate, created_by: userId })
+            }
+          }
+        } else if (row.contact_first_name || row.contact_last_name) {
           const { data: mergeContact } = await supabase.from('contacts').insert({ company_id: targetId, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: row.contact_phone, is_primary: false, import_batch_id: batchId }).select('id').single()
           if (mergeContact) {
             const phones = row.contact_phones ?? buildContactPhonesJson(row.contact_phone, null) ?? []
@@ -567,15 +689,6 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       { key: 'prospect_status', label: 'Prospect Status', width: 'min-w-[120px]' },
       { key: 'status', label: 'CRM Status', width: 'min-w-[110px]' },
       { key: 'priority', label: 'Priority', width: 'min-w-[80px]' },
-    ]
-    const CONTACT_FIELDS: { key: keyof StagingRecord; label: string; width: string }[] = [
-      { key: 'contact_first_name', label: 'First name', width: 'min-w-[100px]' },
-      { key: 'contact_last_name', label: 'Last name', width: 'min-w-[100px]' },
-      { key: 'contact_job_title', label: 'Title', width: 'min-w-[100px]' },
-      { key: 'contact_email', label: 'Email', width: 'min-w-[140px]' },
-      { key: 'contact_phone', label: 'Phone', width: 'min-w-[110px]' },
-      { key: 'last_call_status', label: 'Last call status', width: 'min-w-[110px]' },
-      { key: 'last_call_date', label: 'Last call date', width: 'min-w-[100px]' },
     ]
     const CRM_STATUSES = ['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'] as const
 
@@ -648,20 +761,24 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {activeRecords.map((rec) => (
+                  {activeRecords.map((rec, gi) => (
                     <StagingCompanyWithContact
                       key={rec.id}
                       rec={rec}
+                      groupIndex={gi}
+                      contacts={importContacts.get(rec.id) ?? []}
                       companyFields={COMPANY_FIELDS}
-                      contactFields={CONTACT_FIELDS}
                       crmStatuses={CRM_STATUSES}
                       selected={selectedRows.has(rec.id)}
                       onSelect={(sel) => { setSelectedRows((prev) => { const next = new Set(prev); if (sel) next.add(rec.id); else next.delete(rec.id); return next }) }}
                       editingCell={editingCell}
                       onStartEdit={(field) => setEditingCell({ id: rec.id, field })}
                       onSave={(field, value) => updateStagingField(rec.id, field, value)}
-                      onSavePhones={(phones) => updateStagingPhones(rec.id, phones)}
                       onDecisionChange={(d) => setStagingDecision([rec.id], d)}
+                      onAddContact={() => addImportContact(rec.id)}
+                      onDeleteContact={(cid) => deleteImportContact(cid, rec.id)}
+                      onUpdateContactField={(cid, field, val) => updateImportContactField(cid, rec.id, field, val)}
+                      onUpdateContactPhones={(cid, phones) => updateImportContactPhones(cid, rec.id, phones)}
                       dimmed={false}
                     />
                   ))}
@@ -675,20 +792,24 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                   </div>
                   <table className="w-full text-xs">
                     <tbody>
-                      {rejectedRecords.map((rec) => (
+                      {rejectedRecords.map((rec, gi) => (
                         <StagingCompanyWithContact
                           key={rec.id}
                           rec={rec}
+                          groupIndex={gi}
+                          contacts={importContacts.get(rec.id) ?? []}
                           companyFields={COMPANY_FIELDS}
-                          contactFields={CONTACT_FIELDS}
                           crmStatuses={CRM_STATUSES}
                           selected={false}
                           onSelect={() => {}}
                           editingCell={null}
                           onStartEdit={() => {}}
                           onSave={() => {}}
-                          onSavePhones={() => {}}
                           onDecisionChange={(d) => setStagingDecision([rec.id], d)}
+                          onAddContact={() => {}}
+                          onDeleteContact={() => {}}
+                          onUpdateContactField={() => {}}
+                          onUpdateContactPhones={() => {}}
                           dimmed
                         />
                       ))}
@@ -704,20 +825,24 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
                   </div>
                   <table className="w-full text-xs">
                     <tbody>
-                      {approvedRecords.map((rec) => (
+                      {approvedRecords.map((rec, gi) => (
                         <StagingCompanyWithContact
                           key={rec.id}
                           rec={rec}
+                          groupIndex={gi}
+                          contacts={importContacts.get(rec.id) ?? []}
                           companyFields={COMPANY_FIELDS}
-                          contactFields={CONTACT_FIELDS}
                           crmStatuses={CRM_STATUSES}
                           selected={false}
                           onSelect={() => {}}
                           editingCell={null}
                           onStartEdit={() => {}}
                           onSave={() => {}}
-                          onSavePhones={() => {}}
                           onDecisionChange={() => {}}
+                          onAddContact={() => {}}
+                          onDeleteContact={() => {}}
+                          onUpdateContactField={() => {}}
+                          onUpdateContactPhones={() => {}}
                           dimmed
                           approved
                         />
@@ -1039,8 +1164,33 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           merge_decision: r.decision === 'skip' ? 'skip' : r.decision,
           row_index: r.index,
         }))
-        const { error: batchErr } = await supabase.from('crm_import_records').insert(payload)
+        const { data: insertedStaging, error: batchErr } = await supabase.from('crm_import_records').insert(payload).select('id')
         if (batchErr) throw batchErr
+
+        const insertedIds = (insertedStaging ?? []) as { id: string }[]
+        const contactInserts: Array<Record<string, unknown>> = []
+        for (let i = 0; i < chunk.length; i++) {
+          const r = chunk[i]
+          const stagingId = insertedIds[i]?.id
+          if (!stagingId) continue
+          if (r.mapped.contact_first_name || r.mapped.contact_last_name || r.mapped.contact_email || r.mapped.contact_phone) {
+            contactInserts.push({
+              import_record_id: stagingId,
+              contact_order: 1,
+              first_name: r.mapped.contact_first_name,
+              last_name: r.mapped.contact_last_name,
+              title: r.mapped.contact_job_title,
+              email: r.mapped.contact_email,
+              phones: buildContactPhonesJson(r.mapped.contact_phone, r.mapped.contact_mobile),
+              call_status: r.mapped.last_call_status,
+              call_date: r.mapped.last_call_date,
+            })
+          }
+        }
+        if (contactInserts.length > 0) {
+          await supabase.from('crm_import_contacts').insert(contactInserts)
+        }
+
         setImportProgress(Math.min(allRows.length, start + chunk.length))
       }
 
@@ -1192,21 +1342,26 @@ const FIELD_PLACEHOLDERS: Record<string, string> = {
   last_call_status: 'Call status', last_call_date: 'Call date',
 }
 
-function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatuses, selected, onSelect, editingCell, onStartEdit, onSave, onSavePhones, onDecisionChange, dimmed, approved }: {
+function StagingCompanyWithContact({ rec, groupIndex, contacts, companyFields, crmStatuses, selected, onSelect, editingCell, onStartEdit, onSave, onDecisionChange, onAddContact, onDeleteContact, onUpdateContactField, onUpdateContactPhones, dimmed, approved }: {
   rec: StagingRecord
+  groupIndex: number
+  contacts: ImportContact[]
   companyFields: { key: keyof StagingRecord; label: string; width: string }[]
-  contactFields: { key: keyof StagingRecord; label: string; width: string }[]
   crmStatuses: readonly string[]
   selected: boolean
   onSelect: (sel: boolean) => void
   editingCell: { id: string; field: string } | null
   onStartEdit: (field: string) => void
   onSave: (field: string, value: string | null) => void
-  onSavePhones: (phones: Array<{ type: string; number: string }>) => void
   onDecisionChange: (d: StagingRecord['merge_decision']) => void
+  onAddContact: () => void
+  onDeleteContact: (contactId: string) => void
+  onUpdateContactField: (contactId: string, field: string, value: unknown) => void
+  onUpdateContactPhones: (contactId: string, phones: Array<{ type: string; number: string }>) => void
   dimmed: boolean
   approved?: boolean
 }) {
+  const stripeBg = groupIndex % 2 === 1 ? 'bg-gray-50/60' : ''
   function renderEditableCell(f: { key: keyof StagingRecord; label: string; width: string }, isContact?: boolean) {
     const isEditing = editingCell?.id === rec.id && editingCell?.field === f.key
     const value = rec[f.key]
@@ -1227,6 +1382,49 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
               {crmStatuses.map((s) => (
                 <option key={s} value={s}>{s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
               ))}
+            </select>
+          )}
+        </td>
+      )
+    }
+
+    if (f.key === 'prospect_status' && !approved) {
+      const hasCustom = display && !crmStatuses.includes(display as typeof crmStatuses[number])
+      return (
+        <td key={f.key} className={`px-3 py-2 ${f.width}`}>
+          {dimmed ? (
+            <span className="text-gray-500">{display || <span className="text-gray-300">—</span>}</span>
+          ) : (
+            <select
+              value={display || ''}
+              onChange={(e) => onSave(f.key, e.target.value || null)}
+              className="px-1.5 py-1 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+            >
+              <option value="">— None —</option>
+              {hasCustom && <option value={display}>Custom: {display}</option>}
+              {crmStatuses.map((s) => (
+                <option key={s} value={s}>{s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+              ))}
+            </select>
+          )}
+        </td>
+      )
+    }
+
+    if (f.key === 'priority' && !approved) {
+      return (
+        <td key={f.key} className={`px-3 py-2 ${f.width}`}>
+          {dimmed ? (
+            <span className="text-gray-500">{display || <span className="text-gray-300">—</span>}</span>
+          ) : (
+            <select
+              value={display || 'medium'}
+              onChange={(e) => onSave(f.key, e.target.value)}
+              className="px-1.5 py-1 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
             </select>
           )}
         </td>
@@ -1270,7 +1468,7 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
   return (
     <>
       {/* Company row */}
-      <tr className={`border-b border-gray-50 ${dimmed ? 'opacity-40' : ''} ${approved ? 'opacity-50' : ''}`}>
+      <tr className={`border-b border-gray-50 ${stripeBg} ${dimmed ? 'opacity-40' : ''} ${approved ? 'opacity-50' : ''}`}>
         <td className="px-3 py-2 w-8">
           {!dimmed && !approved && <input type="checkbox" checked={selected} onChange={(e) => onSelect(e.target.checked)} className="w-3.5 h-3.5 text-amber-500 rounded" />}
         </td>
@@ -1295,100 +1493,157 @@ function StagingCompanyWithContact({ rec, companyFields, contactFields, crmStatu
           )}
         </td>
       </tr>
-      {/* Contact sub-row — always visible */}
-      <tr className={`border-b border-gray-100 ${dimmed ? 'opacity-40' : ''} ${approved ? 'opacity-50' : ''}`}>
-        <td className="w-8" />
-        <td className="w-8" />
-        <td colSpan={companyFields.length + 1} className="py-1.5">
-          <div className="flex items-center gap-0 text-[11px]" style={{ paddingLeft: 28 }}>
-            <span className="inline-flex items-center gap-1 text-gray-400 mr-3 shrink-0">
-              <UserIcon className="w-3 h-3" />
-              <span className="text-[10px] uppercase tracking-wide font-medium">Contact</span>
-            </span>
-            <div className="flex items-center gap-0 flex-1 overflow-x-auto">
-              <table className="text-[11px]">
-                <tbody>
-                  <tr>
-                    {contactFields.filter((f) => f.key !== 'contact_phone').map((f) => {
-                      const isEditing = editingCell?.id === rec.id && editingCell?.field === f.key
-                      const value = rec[f.key]
-                      const display = value != null ? String(value) : ''
-                      const placeholder = FIELD_PLACEHOLDERS[f.key] ?? '—'
-
-                      if (approved) {
-                        return (
-                          <td key={f.key} className={`px-2 py-0.5 text-gray-400 ${f.width}`}>{display || '—'}</td>
-                        )
-                      }
-
-                      if (isEditing && !dimmed) {
-                        return (
-                          <td key={f.key} className={`px-1 py-0.5 ${f.width}`}>
-                            <input
-                              autoFocus
-                              defaultValue={display}
-                              placeholder={placeholder}
-                              onBlur={(e) => onSave(f.key, e.target.value.trim() || null)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { onSave(f.key, display || null) } }}
-                              className="w-full px-2 py-0.5 text-[11px] border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
-                            />
-                          </td>
-                        )
-                      }
-                      return (
-                        <td
-                          key={f.key}
-                          className={`px-2 py-0.5 text-gray-500 ${!dimmed ? 'cursor-pointer hover:bg-amber-50/50' : ''} ${f.width}`}
-                          onClick={() => { if (!dimmed) onStartEdit(f.key) }}
-                          title={!dimmed ? 'Click to edit' : undefined}
-                        >
-                          {display || <span className="text-gray-300 italic text-[10px]">{placeholder}</span>}
-                        </td>
-                      )
-                    })}
-                    <StagingPhoneCell
-                      rec={rec}
-                      approved={!!approved}
-                      dimmed={dimmed}
-                      onSavePhones={onSavePhones}
-                    />
-                  </tr>
-                </tbody>
-              </table>
+      {/* Contact sub-rows */}
+      {contacts.map((ct, ci) => (
+        <tr key={ct.id} className={`border-b border-gray-100 ${stripeBg} ${dimmed ? 'opacity-40' : ''} ${approved ? 'opacity-50' : ''}`}>
+          <td className="w-8" />
+          <td className="w-8" />
+          <td colSpan={companyFields.length + 1} className="py-1.5">
+            <div className="flex items-center gap-0 text-[11px]" style={{ paddingLeft: 28 }}>
+              <span className="inline-flex items-center gap-1 text-gray-400 mr-3 shrink-0">
+                <UserIcon className="w-3 h-3" />
+                <span className="text-[10px] uppercase tracking-wide font-medium">Contact{contacts.length > 1 ? ` ${ci + 1}` : ''}</span>
+              </span>
+              <div className="flex items-center gap-0 flex-1 overflow-x-auto">
+                <ImportContactRow
+                  contact={ct}
+                  approved={!!approved}
+                  dimmed={dimmed}
+                  onUpdateField={(field, val) => onUpdateContactField(ct.id, field, val)}
+                  onUpdatePhones={(phones) => onUpdateContactPhones(ct.id, phones)}
+                />
+              </div>
+              {!dimmed && !approved && contacts.length > 1 && (
+                <button onClick={() => onDeleteContact(ct.id)} className="ml-1 p-0.5 text-gray-300 hover:text-red-400 shrink-0" title="Remove contact">
+                  <XIcon className="w-3 h-3" />
+                </button>
+              )}
             </div>
-          </div>
-        </td>
-      </tr>
+          </td>
+        </tr>
+      ))}
+      {/* Empty contact placeholder when no contacts exist */}
+      {contacts.length === 0 && (
+        <tr className={`border-b border-gray-100 ${stripeBg} ${dimmed ? 'opacity-40' : ''} ${approved ? 'opacity-50' : ''}`}>
+          <td className="w-8" />
+          <td className="w-8" />
+          <td colSpan={companyFields.length + 1} className="py-1.5">
+            <div className="flex items-center gap-0 text-[11px]" style={{ paddingLeft: 28 }}>
+              <span className="inline-flex items-center gap-1 text-gray-400 mr-3 shrink-0">
+                <UserIcon className="w-3 h-3" />
+                <span className="text-[10px] uppercase tracking-wide font-medium">Contact</span>
+              </span>
+              <span className="text-gray-300 italic text-[10px]">No contacts</span>
+            </div>
+          </td>
+        </tr>
+      )}
+      {/* + Add contact button */}
+      {!dimmed && !approved && (
+        <tr className={`border-b border-gray-100 ${stripeBg}`}>
+          <td className="w-8" />
+          <td className="w-8" />
+          <td colSpan={companyFields.length + 1} className="py-1">
+            <button
+              onClick={onAddContact}
+              className="inline-flex items-center gap-1 text-[10px] text-amber-500 hover:text-amber-600 transition-colors"
+              style={{ marginLeft: 56 }}
+            >
+              <PlusIcon className="w-3 h-3" />
+              Add contact
+            </button>
+          </td>
+        </tr>
+      )}
     </>
+  )
+}
+
+const IMPORT_CONTACT_FIELDS: { key: keyof ImportContact; label: string; placeholder: string; width: string }[] = [
+  { key: 'first_name', label: 'First name', placeholder: 'First name', width: 'min-w-[100px]' },
+  { key: 'last_name', label: 'Last name', placeholder: 'Last name', width: 'min-w-[100px]' },
+  { key: 'title', label: 'Title', placeholder: 'Job title', width: 'min-w-[100px]' },
+  { key: 'email', label: 'Email', placeholder: 'Email address', width: 'min-w-[140px]' },
+  { key: 'call_status', label: 'Last call status', placeholder: 'Call status', width: 'min-w-[110px]' },
+  { key: 'call_date', label: 'Last call date', placeholder: 'Call date', width: 'min-w-[100px]' },
+]
+
+function ImportContactRow({ contact, approved, dimmed, onUpdateField, onUpdatePhones }: {
+  contact: ImportContact
+  approved: boolean
+  dimmed: boolean
+  onUpdateField: (field: string, value: unknown) => void
+  onUpdatePhones: (phones: Array<{ type: string; number: string }>) => void
+}) {
+  const [editingField, setEditingField] = useState<string | null>(null)
+  return (
+    <table className="text-[11px]">
+      <tbody>
+        <tr>
+          {IMPORT_CONTACT_FIELDS.map((f) => {
+            const cellKey = `${contact.id}_${f.key}`
+            const isEditing = editingField === f.key
+            const value = contact[f.key]
+            const display = value != null ? String(value) : ''
+
+            if (approved) {
+              return <td key={cellKey} className={`px-2 py-0.5 text-gray-400 ${f.width}`}>{display || '—'}</td>
+            }
+            if (isEditing && !dimmed) {
+              return (
+                <td key={cellKey} className={`px-1 py-0.5 ${f.width}`}>
+                  <input
+                    autoFocus
+                    defaultValue={display}
+                    placeholder={f.placeholder}
+                    onBlur={(e) => { onUpdateField(f.key, e.target.value.trim() || null); setEditingField(null) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditingField(null) }}
+                    className="w-full px-2 py-0.5 text-[11px] border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  />
+                </td>
+              )
+            }
+            return (
+              <td
+                key={cellKey}
+                className={`px-2 py-0.5 text-gray-500 ${!dimmed ? 'cursor-pointer hover:bg-amber-50/50' : ''} ${f.width}`}
+                onClick={() => { if (!dimmed) setEditingField(f.key) }}
+                title={!dimmed ? 'Click to edit' : undefined}
+              >
+                {display || <span className="text-gray-300 italic text-[10px]">{f.placeholder}</span>}
+              </td>
+            )
+          })}
+          <ImportContactPhoneCell
+            contact={contact}
+            approved={approved}
+            dimmed={dimmed}
+            onSavePhones={onUpdatePhones}
+          />
+        </tr>
+      </tbody>
+    </table>
   )
 }
 
 const PHONE_TYPE_LABELS: Record<string, string> = { office: 'Office', mobile: 'Mobile', fax: 'Fax', other: 'Other' }
 
-function StagingPhoneCell({ rec, approved, dimmed, onSavePhones }: {
-  rec: StagingRecord
+function ImportContactPhoneCell({ contact, approved, dimmed, onSavePhones }: {
+  contact: ImportContact
   approved: boolean
   dimmed: boolean
   onSavePhones: (phones: Array<{ type: string; number: string }>) => void
 }) {
-  const phones: Array<{ type: string; number: string }> = rec.contact_phones && rec.contact_phones.length > 0
-    ? rec.contact_phones
-    : rec.contact_phone ? [{ type: 'office', number: rec.contact_phone }] : []
+  const phones: Array<{ type: string; number: string }> = contact.phones && contact.phones.length > 0
+    ? contact.phones : []
   const [editing, setEditing] = useState<number | null>(null)
 
   function updatePhone(idx: number, field: 'type' | 'number', val: string) {
     const next = phones.map((p, i) => i === idx ? { ...p, [field]: val } : p)
     onSavePhones(next)
   }
-
-  function addPhone() {
-    onSavePhones([...phones, { type: 'office', number: '' }])
-  }
-
-  function removePhone(idx: number) {
-    const next = phones.filter((_, i) => i !== idx)
-    onSavePhones(next)
-  }
+  function addPhone() { onSavePhones([...phones, { type: 'office', number: '' }]) }
+  function removePhone(idx: number) { onSavePhones(phones.filter((_, i) => i !== idx)) }
 
   if (approved) {
     return (
@@ -1408,38 +1663,21 @@ function StagingPhoneCell({ rec, approved, dimmed, onSavePhones }: {
       <div className="flex flex-col gap-0.5">
         {phones.map((p, i) => (
           <div key={i} className="flex items-center gap-1">
-            <select
-              value={p.type}
-              onChange={(e) => updatePhone(i, 'type', e.target.value)}
-              disabled={dimmed}
-              className="px-1 py-0 text-[10px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white text-gray-500"
-            >
+            <select value={p.type} onChange={(e) => updatePhone(i, 'type', e.target.value)} disabled={dimmed} className="px-1 py-0 text-[10px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white text-gray-500">
               <option value="office">Office</option>
               <option value="mobile">Mobile</option>
               <option value="fax">Fax</option>
               <option value="other">Other</option>
             </select>
             {editing === i && !dimmed ? (
-              <input
-                autoFocus
-                defaultValue={p.number}
-                placeholder="Phone number"
-                onBlur={(e) => { updatePhone(i, 'number', e.target.value.trim()); setEditing(null) }}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                className="flex-1 px-1 py-0 text-[11px] border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
-              />
+              <input autoFocus defaultValue={p.number} placeholder="Phone number" onBlur={(e) => { updatePhone(i, 'number', e.target.value.trim()); setEditing(null) }} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} className="flex-1 px-1 py-0 text-[11px] border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-400" />
             ) : (
-              <span
-                className={`flex-1 text-[11px] text-gray-500 ${!dimmed ? 'cursor-pointer hover:bg-amber-50/50' : ''} px-1 rounded`}
-                onClick={() => { if (!dimmed) setEditing(i) }}
-              >
+              <span className={`flex-1 text-[11px] text-gray-500 ${!dimmed ? 'cursor-pointer hover:bg-amber-50/50' : ''} px-1 rounded`} onClick={() => { if (!dimmed) setEditing(i) }}>
                 {p.number || <span className="text-gray-300 italic text-[10px]">Phone number</span>}
               </span>
             )}
             {!dimmed && phones.length > 1 && (
-              <button onClick={() => removePhone(i)} className="text-gray-300 hover:text-red-400 p-0">
-                <XIcon className="w-3 h-3" />
-              </button>
+              <button onClick={() => removePhone(i)} className="text-gray-300 hover:text-red-400 p-0"><XIcon className="w-3 h-3" /></button>
             )}
           </div>
         ))}
@@ -1447,11 +1685,10 @@ function StagingPhoneCell({ rec, approved, dimmed, onSavePhones }: {
           <span className="text-gray-300 italic text-[10px]">Phone number</span>
         )}
         {!dimmed && (
-          <button onClick={addPhone} className="text-[10px] text-amber-500 hover:text-amber-600 mt-0.5 self-start">
-            + Add number
-          </button>
+          <button onClick={addPhone} className="text-[10px] text-amber-500 hover:text-amber-600 mt-0.5 self-start">+ Add number</button>
         )}
       </div>
     </td>
   )
 }
+
