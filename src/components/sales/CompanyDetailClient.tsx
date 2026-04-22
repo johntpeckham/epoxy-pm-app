@@ -937,8 +937,9 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       {/* ── Two-column layout ── */}
       <div className="px-7 pb-10 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* LEFT COLUMN: Contacts + Activity */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-4">
           {/* Contacts */}
+          <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-gray-900">Contacts</h2>
@@ -1107,10 +1108,10 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               </div>
             )}
           </section>
-
-          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
+          </div>
 
           {/* Activity timeline */}
+          <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-gray-900">Activity</h2>
@@ -1248,11 +1249,13 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               )
             })()}
           </section>
+          </div>
         </div>
 
         {/* RIGHT COLUMN: Addresses + Notes + Files + Lead source */}
-        <div className="space-y-8">
+        <div className="space-y-4">
           {/* Addresses */}
+          <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-gray-900">Addresses</h2>
@@ -1320,10 +1323,10 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               </div>
             )}
           </section>
-
-          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
+          </div>
 
           {/* Reminders */}
+          <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-gray-900">Reminders</h2>
@@ -1406,10 +1409,10 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               </div>
             )}
           </section>
-
-          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
+          </div>
 
           {/* Notes */}
+          <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
           <section>
             <h2 className="text-sm font-medium text-gray-900 mb-3">Notes</h2>
             <textarea
@@ -1423,10 +1426,10 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
           </section>
-
-          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
+          </div>
 
           {/* Files */}
+          <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-gray-900">Files &amp; Links</h2>
@@ -1492,10 +1495,10 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               </div>
             )}
           </section>
-
-          <div className="border-t border-gray-200" style={{ marginTop: 20, paddingTop: 20 }} />
+          </div>
 
           {/* Lead source */}
+          <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
           <section>
             <h2 className="text-sm font-medium text-gray-900 mb-3">Lead source</h2>
             <div className="relative inline-block">
@@ -1546,6 +1549,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               )}
             </div>
           </section>
+          </div>
 
           {/* Imported data */}
           {company.import_metadata && Object.keys(company.import_metadata).length > 0 && (
