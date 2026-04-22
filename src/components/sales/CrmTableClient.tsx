@@ -529,7 +529,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     let companyQuery = supabase
       .from('companies')
       .select(
-        'id, name, industry, zone, region, state, county, city, status, priority, assigned_to, created_at, updated_at, archived, number_of_locations, revenue_range, employee_range'
+        'id, name, industry, zone, state, city, status, priority, assigned_to, created_at, updated_at, archived, number_of_locations, revenue_range, employee_range'
       )
     companyQuery = companyQuery.eq('archived', viewArchived)
     const { data: companyData } = await companyQuery
