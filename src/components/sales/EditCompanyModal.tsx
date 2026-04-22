@@ -11,15 +11,12 @@ export interface EditableCompany {
   name: string
   industry: string | null
   zone: string | null
-  region: string | null
   state: string | null
-  county: string | null
   city: string | null
   address: string | null
   status: 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
   priority: 'high' | 'medium' | 'low' | null
   lead_source: string | null
-  deal_value: number | null
   assigned_to: string | null
   number_of_locations: number | null
   revenue_range: string | null
@@ -71,7 +68,6 @@ export default function EditCompanyModal({
   const [zone, setZone] = useState(company.zone ?? '')
   const [streetAddress, setStreetAddress] = useState(company.address ?? '')
   const [state, setState] = useState(company.state ?? '')
-  const [county, setCounty] = useState(company.county ?? '')
   const [city, setCity] = useState(company.city ?? '')
   const [status, setStatus] = useState(company.status)
   const [priority, setPriority] = useState(company.priority ?? 'medium')
@@ -114,7 +110,6 @@ export default function EditCompanyModal({
         zone: zone.trim() || null,
         address: streetAddress.trim() || null,
         state: state.trim() || null,
-        county: county.trim() || null,
         city: city.trim() || null,
         status,
         priority,
@@ -129,31 +124,6 @@ export default function EditCompanyModal({
       setSaving(false)
       setError(err.message)
       return
-    }
-    if (streetAddress.trim() || city.trim() || state.trim()) {
-      const { data: existing } = await supabase
-        .from('crm_company_addresses')
-        .select('id')
-        .eq('company_id', company.id)
-        .eq('is_primary', true)
-        .limit(1)
-        .maybeSingle()
-      if (existing) {
-        await supabase.from('crm_company_addresses').update({
-          address: streetAddress.trim() || '',
-          city: city.trim() || null,
-          state: state.trim() || null,
-        }).eq('id', existing.id)
-      } else {
-        await supabase.from('crm_company_addresses').insert({
-          company_id: company.id,
-          label: 'Main',
-          address: streetAddress.trim() || '',
-          city: city.trim() || null,
-          state: state.trim() || null,
-          is_primary: true,
-        })
-      }
     }
     setSaving(false)
     onSaved()
@@ -213,14 +183,10 @@ export default function EditCompanyModal({
               <label className="block text-xs font-medium text-gray-600 mb-1">Street address</label>
               <input type="text" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} className={inputClass} placeholder="123 Main St" />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">City</label>
                 <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">County</label>
-                <input type="text" value={county} onChange={(e) => setCounty(e.target.value)} className={inputClass} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">State</label>

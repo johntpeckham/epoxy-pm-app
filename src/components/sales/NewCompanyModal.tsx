@@ -51,9 +51,28 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
   const [numberOfLocations, setNumberOfLocations] = useState('')
   const [revenueRange, setRevenueRange] = useState('')
   const [employeeRange, setEmployeeRange] = useState('')
+  const [assignedTo, setAssignedTo] = useState('')
+  const [users, setUsers] = useState<Array<{ id: string; display_name: string | null }>>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dupes, setDupes] = useState<Array<{ id: string; name: string; score: number }>>([])
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('profiles')
+      .select('id, display_name, role')
+      .in('role', ['admin', 'office_manager', 'salesman'])
+      .order('display_name', { ascending: true })
+      .then(({ data }) => {
+        setUsers(
+          ((data ?? []) as { id: string; display_name: string | null }[]).map((u) => ({
+            id: u.id,
+            display_name: u.display_name,
+          }))
+        )
+      })
+  }, [])
 
   // Debounced duplicate check when the user types a name.
   useEffect(() => {
@@ -94,6 +113,7 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
       status,
       priority,
       lead_source: leadSource || null,
+      assigned_to: assignedTo || null,
       number_of_locations: numberOfLocations.trim() ? parseInt(numberOfLocations.trim(), 10) || null : null,
       revenue_range: revenueRange || null,
       employee_range: employeeRange || null,
@@ -104,16 +124,6 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
       setSaving(false)
       setError(insertErr.message)
       return
-    }
-    if (inserted && (streetAddress.trim() || city.trim() || state.trim())) {
-      await supabase.from('crm_company_addresses').insert({
-        company_id: inserted.id,
-        label: 'Main',
-        address: streetAddress.trim() || '',
-        city: city.trim() || null,
-        state: state.trim() || null,
-        is_primary: true,
-      })
     }
     setSaving(false)
     onSaved()
@@ -253,6 +263,19 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Assigned to</label>
+                <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className={inputClass}>
+                  <option value="">— Unassigned —</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.display_name || u.id.slice(0, 8)}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
