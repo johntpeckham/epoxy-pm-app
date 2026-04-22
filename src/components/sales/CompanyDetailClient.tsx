@@ -49,6 +49,7 @@ interface Company {
   state: string | null
   county: string | null
   city: string | null
+  address: string | null
   status: CompanyStatus
   priority: CompanyPriority | null
   lead_source: string | null
@@ -666,10 +667,11 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   if (!company) return null
 
   const assignedName = company.assigned_to ? profileMap.get(company.assigned_to) ?? null : null
+  const locationParts = [company.address, company.city, company.state].filter(Boolean)
   const subtitleParts = [
     company.industry,
     company.zone,
-    [company.city, company.state].filter(Boolean).join(', ') || null,
+    locationParts.join(', ') || null,
     assignedName ? `Assigned to ${formatAssigned(assignedName)}` : null,
   ].filter((p): p is string => !!p && p !== '')
 
@@ -687,10 +689,19 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
+      {/* ── Back link ── */}
+      <div className="px-4 sm:px-6 pt-4 pb-2">
+        <Link href="/sales/crm" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600">
+          <ArrowLeftIcon className="w-4 h-4" />
+          <span>Back to CRM</span>
+        </Link>
+      </div>
+
+      {/* ── Header card ── */}
+      <div className="mx-4 sm:mx-6 mb-4 bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl p-5">
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-wrap">
-          <Link href="/sales/crm" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight truncate">
             {company.name}
           </h1>
@@ -756,7 +767,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       </div>
 
       {/* ── Subtitle ── */}
-      <div className="px-4 sm:px-6 py-3 text-sm text-gray-400 flex items-center gap-2 flex-wrap">
+      <div className="py-3 text-sm text-gray-400 flex items-center gap-2 flex-wrap">
         {subtitleParts.length > 0 ? (
           <span>{subtitleParts.join(' · ')}</span>
         ) : (
@@ -765,7 +776,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       </div>
 
       {/* ── Tags ── */}
-      <div className="px-7 pb-4 flex items-center gap-2 flex-wrap">
+      <div className="pb-4 flex items-center gap-2 flex-wrap">
         {tags.map((t) => (
           <span
             key={t.id}
@@ -849,7 +860,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       </div>
 
       {/* ── Summary cards ── */}
-      <div className="px-7 pb-6 flex gap-3 flex-wrap">
+      <div className="pb-2 flex gap-3 flex-wrap">
         {/* Status */}
         <div className="relative">
           <button
@@ -933,6 +944,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         </div>
 
       </div>
+      </div>{/* end header card */}
 
       {/* ── Two-column layout ── */}
       <div className="px-7 pb-10 grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1571,6 +1583,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               state: company.state,
               county: company.county,
               city: company.city,
+              address: company.address,
               status: company.status,
               priority: company.priority,
               lead_source: company.lead_source,

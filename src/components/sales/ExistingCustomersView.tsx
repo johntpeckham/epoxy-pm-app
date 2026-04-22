@@ -124,8 +124,8 @@ export default function ExistingCustomersView({
   const [filterJobTitle, setFilterJobTitle] = useState<Set<string>>(new Set())
   const [openFilter, setOpenFilter] = useState<string | null>(null)
 
-  const [sortField, setSortField] = useState<SortField>('last_contact')
-  const [sortAsc, setSortAsc] = useState<boolean>(false)
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortAsc, setSortAsc] = useState<boolean>(true)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [detailCustomer, setDetailCustomer] = useState<CustomerRow | null>(null)
