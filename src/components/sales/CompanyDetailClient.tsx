@@ -29,7 +29,6 @@ import { useUserRole } from '@/lib/useUserRole'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import NewContactModal, { type ContactForModal } from './NewContactModal'
-import AddressModal, { type AddressForModal } from './AddressModal'
 import LogCallModal from './LogCallModal'
 import EditCompanyModal, { type EditableCompany } from './EditCompanyModal'
 import NewAppointmentModal from './NewAppointmentModal'
@@ -45,15 +44,13 @@ interface Company {
   name: string
   industry: string | null
   zone: string | null
-  region: string | null
   state: string | null
-  county: string | null
   city: string | null
   address: string | null
+  zip: string | null
   status: CompanyStatus
   priority: CompanyPriority | null
   lead_source: string | null
-  deal_value: number | null
   assigned_to: string | null
   notes: string | null
   number_of_locations: number | null
@@ -83,16 +80,6 @@ interface Contact {
   phone: string | null
   is_primary: boolean
   phone_numbers: PhoneNumber[]
-}
-
-interface Address {
-  id: string
-  label: string | null
-  address: string
-  city: string | null
-  state: string | null
-  zip: string | null
-  is_primary: boolean
 }
 
 interface Tag {
@@ -256,7 +243,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [notFound, setNotFound] = useState(false)
   const [company, setCompany] = useState<Company | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
-  const [addresses, setAddresses] = useState<Address[]>([])
   const [tags, setTags] = useState<Tag[]>([])
   const [allTags, setAllTags] = useState<Tag[]>([])
   const [callLog, setCallLog] = useState<CallLogEntry[]>([])
@@ -277,9 +263,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [showNewContact, setShowNewContact] = useState(false)
   const [editContact, setEditContact] = useState<ContactForModal | null>(null)
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null)
-  const [showNewAddress, setShowNewAddress] = useState(false)
-  const [editAddress, setEditAddress] = useState<AddressForModal | null>(null)
-  const [deleteAddressId, setDeleteAddressId] = useState<string | null>(null)
   const [showLogCall, setShowLogCall] = useState(false)
   const [showNewAppointment, setShowNewAppointment] = useState(false)
   const [appointmentContactPrefill, setAppointmentContactPrefill] = useState<
@@ -338,7 +321,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
 
     const [
       { data: contactData },
-      { data: addressData },
       { data: tagLinkData },
       { data: allTagsData },
       { data: callData },
@@ -353,12 +335,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         .eq('company_id', companyId)
         .order('is_primary', { ascending: false })
         .order('last_name', { ascending: true }),
-      supabase
-        .from('crm_company_addresses')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('is_primary', { ascending: false })
-        .order('created_at', { ascending: true }),
       supabase.from('crm_company_tags').select('tag_id').eq('company_id', companyId),
       supabase.from('crm_tags').select('id, name').order('name', { ascending: true }),
       supabase
@@ -398,7 +374,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       phonesByContact.set(p.contact_id, list)
     }
     setContacts(rawContacts.map((c) => ({ ...c, phone_numbers: phonesByContact.get(c.id) ?? [] })))
-    setAddresses((addressData ?? []) as Address[])
     const allTagsList = (allTagsData ?? []) as Tag[]
     setAllTags(allTagsList)
     const tagIds = new Set(
@@ -476,20 +451,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   async function handleConvertToCustomer() {
     if (!company) return
     setConverting(true)
-    const primary = contacts.find((c) => c.is_primary) ?? contacts[0] ?? null
-    const primaryAddr = addresses.find((a) => a.is_primary) ?? addresses[0] ?? null
-    const contactName = primary
-      ? `${primary.first_name} ${primary.last_name}`.trim()
-      : company.name
     const { error } = await supabase.from('companies').update({
-      name: contactName,
-      company: company.name,
-      email: primary?.email ?? null,
-      phone: primary?.phone ?? null,
-      address: primaryAddr?.address ?? null,
-      city: primaryAddr?.city ?? company.city ?? null,
-      state: primaryAddr?.state ?? company.state ?? null,
-      zip: primaryAddr?.zip ?? null,
+      status: 'active' as CompanyStatus,
     }).eq('id', company.id)
     setConverting(false)
     setConfirmConvert(false)
@@ -497,6 +460,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       showToast(`Convert failed: ${error.message}`)
       return
     }
+    setCompany((prev) => prev ? { ...prev, status: 'active' as CompanyStatus } : prev)
     showToast('Company updated with customer details')
   }
 
@@ -508,16 +472,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     }
     setContacts((prev) => prev.filter((c) => c.id !== id))
     setDeleteContactId(null)
-  }
-
-  async function handleDeleteAddress(id: string) {
-    const { error } = await supabase.from('crm_company_addresses').delete().eq('id', id)
-    if (error) {
-      showToast(`Delete failed: ${error.message}`)
-      return
-    }
-    setAddresses((prev) => prev.filter((a) => a.id !== id))
-    setDeleteAddressId(null)
   }
 
   async function handleAddTag(name: string) {
@@ -1300,73 +1254,21 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
 
         {/* RIGHT COLUMN: Addresses + Notes + Files + Lead source */}
         <div className="space-y-4">
-          {/* Addresses */}
+          {/* Address */}
           <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
           <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-gray-900">Addresses</h2>
-              <button
-                onClick={() => setShowNewAddress(true)}
-                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Add
-              </button>
-            </div>
-            {addresses.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">No addresses yet</p>
-            ) : (
-              <div className="space-y-2">
-                {addresses.map((a) => (
-                  <div
-                    key={a.id}
-                    className="group flex items-start justify-between gap-2 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {a.label && (
-                          <span className="text-xs font-medium text-gray-700">{a.label}</span>
-                        )}
-                        {a.is_primary && (
-                          <span className="text-[10px] uppercase tracking-wide text-amber-500">
-                            Primary
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-900 mt-0.5">{a.address}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {[a.city, a.state, a.zip].filter(Boolean).join(', ') || '—'}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() =>
-                          setEditAddress({
-                            id: a.id,
-                            label: a.label,
-                            address: a.address,
-                            city: a.city,
-                            state: a.state,
-                            zip: a.zip,
-                            is_primary: a.is_primary,
-                          })
-                        }
-                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-white rounded transition-colors"
-                        title="Edit"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteAddressId(a.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2Icon className="w-4 h-4" />
-                      </button>
-                    </div>
+            <h2 className="text-sm font-medium text-gray-900 mb-3">Address</h2>
+            {company.address || company.city || company.state || company.zip ? (
+              <div>
+                {company.address && <div className="text-sm text-gray-900">{company.address}</div>}
+                {(company.city || company.state || company.zip) && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {[company.city, company.state].filter(Boolean).join(', ')}{company.zip ? ` ${company.zip}` : ''}
                   </div>
-                ))}
+                )}
               </div>
+            ) : (
+              <p className="text-xs text-gray-400 italic">No address set</p>
             )}
           </section>
           </div>
@@ -1460,7 +1362,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           {/* Notes */}
           <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
           <section>
-            <h2 className="text-sm font-medium text-gray-900 mb-3">Notes</h2>
+            <h2 className="text-sm font-medium text-gray-900 mb-3">Additional Info</h2>
             <textarea
               value={company.notes ?? ''}
               onChange={(e) =>
@@ -1613,15 +1515,12 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               name: company.name,
               industry: company.industry,
               zone: company.zone,
-              region: company.region,
               state: company.state,
-              county: company.county,
               city: company.city,
               address: company.address,
               status: company.status,
               priority: company.priority,
               lead_source: company.lead_source,
-              deal_value: company.deal_value,
               assigned_to: company.assigned_to,
               number_of_locations: company.number_of_locations ?? null,
               revenue_range: company.revenue_range ?? null,
@@ -1647,22 +1546,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           onSaved={() => {
             setShowNewContact(false)
             setEditContact(null)
-            fetchAll()
-          }}
-        />
-      )}
-
-      {(showNewAddress || editAddress) && (
-        <AddressModal
-          companyId={companyId}
-          existing={editAddress ?? undefined}
-          onClose={() => {
-            setShowNewAddress(false)
-            setEditAddress(null)
-          }}
-          onSaved={() => {
-            setShowNewAddress(false)
-            setEditAddress(null)
             fetchAll()
           }}
         />
@@ -1896,16 +1779,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         />
       )}
 
-      {deleteAddressId && (
-        <ConfirmDialog
-          title="Delete address?"
-          message="This will permanently delete this address."
-          onConfirm={() => handleDeleteAddress(deleteAddressId)}
-          onCancel={() => setDeleteAddressId(null)}
-          variant="destructive"
-        />
-      )}
-
       {deleteFileId && (
         <ConfirmDialog
           title="Delete file?"
@@ -1934,16 +1807,12 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
               phone: p.phone,
             }
           })()}
-          primaryAddress={(() => {
-            const a = addresses.find((x) => x.is_primary) ?? addresses[0] ?? null
-            if (!a) return null
-            return {
-              address: a.address,
-              city: a.city,
-              state: a.state,
-              zip: a.zip,
-            }
-          })()}
+          primaryAddress={company.address ? {
+            address: company.address,
+            city: company.city,
+            state: company.state,
+            zip: company.zip,
+          } : null}
           onClose={() => setShowConvertToLead(false)}
           onConverted={(leadId) => {
             setShowConvertToLead(false)
