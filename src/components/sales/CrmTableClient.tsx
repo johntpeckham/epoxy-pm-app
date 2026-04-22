@@ -1319,7 +1319,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                           <Fragment key={g.field}>
                             {gi === 1 && (
                               <div className="mt-2 pt-2 border-t border-gray-100 px-3 pb-2">
-                                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                                <div className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: '#EF9F27' }}>
                                   Radius search
                                 </div>
                                 {filters.city.size > 0 ? (
@@ -1339,19 +1339,19 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                       </span>
                                     </div>
                                     {radiusLoading && (
-                                      <div className="text-[10px] text-gray-400 mt-1">Calculating...</div>
+                                      <div className="text-[10px] mt-1" style={{ color: 'rgba(239,159,39,0.6)' }}>Calculating...</div>
                                     )}
                                     {radiusError && (
                                       <div className="text-[10px] text-red-500 mt-1">Radius search unavailable</div>
                                     )}
                                     {!radiusLoading && !radiusError && radiusMiles > 0 && radiusCities && (
-                                      <div className="text-[10px] text-gray-400 mt-1">
+                                      <div className="text-[10px] mt-1" style={{ color: 'rgba(239,159,39,0.7)' }}>
                                         {radiusCities.size} {radiusCities.size === 1 ? 'city' : 'cities'} within {radiusMiles} mi
                                       </div>
                                     )}
                                   </>
                                 ) : (
-                                  <div className="text-[10px] text-gray-300">Select a city first</div>
+                                  <div className="text-[10px]" style={{ color: 'rgba(239,159,39,0.55)' }}>Select a city first</div>
                                 )}
                               </div>
                             )}
