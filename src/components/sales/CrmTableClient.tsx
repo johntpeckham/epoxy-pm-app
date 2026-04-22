@@ -66,14 +66,14 @@ interface CompanyRow {
   name: string
   industry: string | null
   zone: string | null
-  region: string | null
   state: string | null
-  county: string | null
   city: string | null
+  address: string | null
   status: CompanyStatus
   priority: CompanyPriority | null
   assigned_to: string | null
   assigned_name: string | null
+  lead_source: string | null
   contact_count: number
   contacts: ContactRow[]
   last_activity: string | null
@@ -100,9 +100,7 @@ interface TagRow {
 type FilterField =
   | 'status'
   | 'zone'
-  | 'region'
   | 'state'
-  | 'county'
   | 'city'
   | 'industry'
   | 'priority'
@@ -146,7 +144,7 @@ const PAGE_SIZE = 50
 
 const FILTER_CONFIG: { field: FilterField; label: string }[] = [
   { field: 'status', label: 'Status' },
-  { field: 'region', label: 'Location' },
+  { field: 'zone', label: 'Location' },
   { field: 'industry', label: 'Industry' },
   { field: 'priority', label: 'Priority' },
   { field: 'assigned_to', label: 'Assigned to' },
@@ -154,11 +152,10 @@ const FILTER_CONFIG: { field: FilterField; label: string }[] = [
   { field: 'job_title', label: 'Job title' },
 ]
 
-// Sub-fields grouped under the Region filter chip
-const REGION_GROUP_FIELDS: { field: FilterField; label: string }[] = [
+// Sub-fields grouped under the Location filter chip
+const LOCATION_GROUP_FIELDS: { field: FilterField; label: string }[] = [
   { field: 'zone', label: 'Zone' },
   { field: 'city', label: 'City' },
-  { field: 'county', label: 'County' },
   { field: 'state', label: 'State' },
 ]
 
@@ -206,9 +203,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [filters, setFilters] = useState<Record<FilterField, Set<string>>>({
     status: new Set(),
     zone: new Set(),
-    region: new Set(),
     state: new Set(),
-    county: new Set(),
     city: new Set(),
     industry: new Set(),
     priority: new Set(),
@@ -379,22 +374,11 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     if (rowsToExport.length === 0) return
     const ids = rowsToExport.map((r) => r.id)
 
-    // Pull primary contact + address for each company in one round-trip.
-    const [{ data: contactRows }, { data: addressRows }, { data: companyExtras }] =
-      await Promise.all([
-        supabase
-          .from('contacts')
-          .select('company_id, first_name, last_name, email, phone, is_primary')
-          .in('company_id', ids),
-        supabase
-          .from('crm_company_addresses')
-          .select('company_id, address, city, state, is_primary')
-          .in('company_id', ids),
-        supabase
-          .from('companies')
-          .select('id, lead_source, deal_value')
-          .in('id', ids),
-      ])
+    // Pull primary contact for each company.
+    const { data: contactRows } = await supabase
+      .from('contacts')
+      .select('company_id, first_name, last_name, email, phone, is_primary')
+      .in('company_id', ids)
 
     const primaryContactByCompany = new Map<
       string,
@@ -409,9 +393,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       is_primary: boolean
     }>) {
       const existing = primaryContactByCompany.get(row.company_id)
-      if (!existing || (row.is_primary && !existing)) {
-        // If no existing, assign. If one exists but this one is primary and it isn't, prefer.
-      }
       if (!existing || row.is_primary) {
         primaryContactByCompany.set(row.company_id, {
           name: `${row.first_name} ${row.last_name}`.trim(),
@@ -421,79 +402,42 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       }
     }
 
-    const primaryAddressByCompany = new Map<string, string>()
-    for (const row of (addressRows ?? []) as Array<{
-      company_id: string
-      address: string
-      city: string | null
-      state: string | null
-      is_primary: boolean
-    }>) {
-      const current = primaryAddressByCompany.get(row.company_id)
-      if (!current || row.is_primary) {
-        primaryAddressByCompany.set(
-          row.company_id,
-          [row.address, row.city, row.state].filter(Boolean).join(', ')
-        )
-      }
-    }
-
-    const extrasMap = new Map<
-      string,
-      { lead_source: string | null; deal_value: number | null }
-    >()
-    for (const row of (companyExtras ?? []) as Array<{
-      id: string
-      lead_source: string | null
-      deal_value: number | null
-    }>) {
-      extrasMap.set(row.id, { lead_source: row.lead_source, deal_value: row.deal_value })
-    }
-
     const header = [
       'Company name',
       'Industry',
       'Zone',
-      'Region',
       'State',
-      'County',
       'City',
+      'Address',
       'Status',
       'Priority',
       'Lead source',
-      'Deal value',
       'Assigned to',
       'Contact count',
       'Last activity',
       'Primary contact name',
       'Primary contact email',
       'Primary contact phone',
-      'Primary address',
     ]
     const csvRows: (string | number | null)[][] = [header]
     for (const r of rowsToExport) {
       const c = primaryContactByCompany.get(r.id)
-      const addr = primaryAddressByCompany.get(r.id) ?? ''
-      const extras = extrasMap.get(r.id)
       csvRows.push([
         r.name,
         r.industry,
         r.zone,
-        r.region,
         r.state,
-        r.county,
         r.city,
+        r.address ?? '',
         r.status,
         r.priority,
-        extras?.lead_source ?? '',
-        extras?.deal_value ?? '',
+        r.lead_source ?? '',
         r.assigned_name ?? '',
         r.contact_count,
         r.last_activity ?? '',
         c?.name ?? '',
         c?.email ?? '',
         c?.phone ?? '',
-        addr,
       ])
     }
     const today = new Date().toISOString().slice(0, 10)
@@ -529,7 +473,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     let companyQuery = supabase
       .from('companies')
       .select(
-        'id, name, industry, zone, state, city, status, priority, assigned_to, created_at, updated_at, archived, number_of_locations, revenue_range, employee_range'
+        'id, name, industry, zone, state, city, address, status, priority, assigned_to, lead_source, created_at, updated_at, archived, number_of_locations, revenue_range, employee_range'
       )
     companyQuery = companyQuery.eq('archived', viewArchived)
     const { data: companyData } = await companyQuery
@@ -538,13 +482,13 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       name: string
       industry: string | null
       zone: string | null
-      region: string | null
       state: string | null
-      county: string | null
       city: string | null
+      address: string | null
       status: CompanyStatus
       priority: CompanyPriority | null
       assigned_to: string | null
+      lead_source: string | null
       created_at: string
       updated_at: string
       archived: boolean
@@ -891,9 +835,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
         (s) => ({ value: s, label: STATUS_LABELS[s] })
       ),
       zone: uniqueField('zone').map((v) => ({ value: v, label: v })),
-      region: uniqueField('region').map((v) => ({ value: v, label: v })),
       state: uniqueField('state').map((v) => ({ value: v, label: v })),
-      county: uniqueField('county').map((v) => ({ value: v, label: v })),
       city: uniqueField('city').map((v) => ({ value: v, label: v })),
       industry: uniqueField('industry').map((v) => ({ value: v, label: v })),
       priority: (['high', 'medium', 'low'] as CompanyPriority[]).map((p) => ({
@@ -973,9 +915,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     }
     applySetFilter('status', filters.status)
     applySetFilter('zone', filters.zone)
-    applySetFilter('region', filters.region)
     applySetFilter('state', filters.state)
-    applySetFilter('county', filters.county)
     if (radiusCities && radiusCities.size > 0 && filters.city.size > 0) {
       rows = rows.filter((r) => typeof r.city === 'string' && radiusCities.has(r.city))
     } else {
@@ -1279,8 +1219,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       <div className="px-4 sm:px-6 py-3 flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-400 mr-1">Filter:</span>
         {FILTER_CONFIG.map(({ field, label }) => {
-          const isRegionGroup = field === 'region'
-          const groupFields = isRegionGroup ? REGION_GROUP_FIELDS : [{ field, label }]
+          const isLocationGroup = field === 'zone'
+          const groupFields = isLocationGroup ? LOCATION_GROUP_FIELDS : [{ field, label }]
           const activeCount = groupFields.reduce((n, g) => n + filters[g.field].size, 0)
           const selected = filters[field]
           const options = filterOptions[field]
@@ -1303,7 +1243,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 {label}
                 {active && (
                   <span className="text-[10px] text-blue-500">
-                    ({activeCount}){isRegionGroup && radiusMiles > 0 && filters.city.size > 0 ? ` +${radiusMiles}mi` : ''}
+                    ({activeCount}){isLocationGroup && radiusMiles > 0 && filters.city.size > 0 ? ` +${radiusMiles}mi` : ''}
                   </span>
                 )}
                 {active ? (
@@ -1311,7 +1251,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                     className="w-3 h-3 ml-0.5 hover:text-blue-900"
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (isRegionGroup) {
+                      if (isLocationGroup) {
                         for (const g of groupFields) clearFilter(g.field)
                         setRadiusMiles(0)
                         setRadiusCities(null)
@@ -1334,7 +1274,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                     className="fixed z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[220px] max-h-[380px] overflow-y-auto"
                     style={{ top: dropdownRect.bottom + 4, left: dropdownRect.left }}
                   >
-                    {isRegionGroup ? (
+                    {isLocationGroup ? (
                       <>
                       {groupFields.map((g, gi) => {
                         const gOptions = filterOptions[g.field]
@@ -1443,9 +1383,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
               setFilters({
                 status: new Set(),
                 zone: new Set(),
-                region: new Set(),
                 state: new Set(),
-                county: new Set(),
                 city: new Set(),
                 industry: new Set(),
                 priority: new Set(),
