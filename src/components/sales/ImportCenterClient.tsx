@@ -164,6 +164,12 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     setLoading(false)
   }
 
+  async function deleteImport(id: string) {
+    const supabase = createClient()
+    await supabase.from('crm_imports').delete().eq('id', id)
+    fetchImports()
+  }
+
   // ── Import flow state ──
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>('upload')
@@ -566,7 +572,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           ) : (
             <div className="space-y-2">
               {imports.map((imp) => (
-                <ImportHistoryCard key={imp.id} imp={imp} onReview={openStagingView} />
+                <ImportHistoryCard key={imp.id} imp={imp} onReview={openStagingView} onDelete={deleteImport} />
               ))}
             </div>
           )}
@@ -884,7 +890,8 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
   }
 }
 
-function ImportHistoryCard({ imp, onReview }: { imp: ImportRecord; onReview?: (id: string) => void }) {
+function ImportHistoryCard({ imp, onReview, onDelete }: { imp: ImportRecord; onReview?: (id: string) => void; onDelete?: (id: string) => void }) {
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const date = new Date(imp.created_at)
   const formatted = date.toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', year: 'numeric',
@@ -933,6 +940,11 @@ function ImportHistoryCard({ imp, onReview }: { imp: ImportRecord; onReview?: (i
               Review & Edit
             </button>
           )}
+          {onDelete && (
+            <button onClick={() => setConfirmOpen(true)} className="p-1 text-gray-300 hover:text-red-500 transition-colors" title="Delete import">
+              <Trash2Icon className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
@@ -942,6 +954,23 @@ function ImportHistoryCard({ imp, onReview }: { imp: ImportRecord; onReview?: (i
       </div>
       {imp.error_message && (
         <p className="text-xs text-red-500 mt-1">{imp.error_message}</p>
+      )}
+      {confirmOpen && (
+        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-xs text-red-800 mb-2">
+            {imp.status === 'staged'
+              ? `Delete this import? This will permanently remove all ${imp.record_count} staged records. This cannot be undone.`
+              : 'Delete this import record? The companies already imported to the CRM will NOT be affected.'}
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setConfirmOpen(false); onDelete?.(imp.id) }} className="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-500 transition-colors">
+              Delete
+            </button>
+            <button onClick={() => setConfirmOpen(false)} className="px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
