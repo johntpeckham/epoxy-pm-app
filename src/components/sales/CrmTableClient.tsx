@@ -1531,7 +1531,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                       style={{ borderBottomWidth: '0.5px' }}
                     >
                       <td
-                        className="pl-5 pr-0 align-middle"
+                        className="pl-5 pr-2 align-middle"
                         style={{ paddingTop: 14, paddingBottom: 14 }}
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -1548,7 +1548,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                               <ChevronRightIcon className="w-4 h-4" />
                             )}
                           </button>
-                        ) : null}
+                        ) : <div className="w-5" />}
                       </td>
                       <td
                         className="px-0 align-middle"
