@@ -1470,7 +1470,24 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             <thead>
               <tr className="border-b border-gray-200" style={{ borderBottomWidth: '0.5px' }}>
                 <th className="pl-5 pr-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
-                <th className="px-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
+                <th className="px-0" style={{ paddingTop: 10, paddingBottom: 10 }}>
+                  <input
+                    type="checkbox"
+                    ref={(el) => { if (el) { const ct = pageRows.filter((r) => selectedIds.has(r.id)).length; el.indeterminate = ct > 0 && ct < pageRows.length } }}
+                    checked={pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id))}
+                    onChange={() => {
+                      const allPageIds = pageRows.map((r) => r.id)
+                      const allSelected = allPageIds.length > 0 && allPageIds.every((id) => selectedIds.has(id))
+                      if (allSelected) {
+                        setSelectedIds(new Set())
+                      } else {
+                        setSelectedIds(new Set(allPageIds))
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
+                    aria-label="Select all rows"
+                  />
+                </th>
                 {visibleColumns.map((col, i) => {
                   const isFirst = i === 0
                   const isLast = i === visibleColumns.length - 1
