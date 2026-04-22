@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -234,6 +235,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null)
   const [openFilter, setOpenFilter] = useState<FilterField | null>(null)
+  const [dropdownRect, setDropdownRect] = useState<DOMRect | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -1256,7 +1258,11 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           return (
             <div key={field} className="relative">
               <button
-                onClick={() => setOpenFilter((f) => (f === field ? null : field))}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setDropdownRect(rect)
+                  setOpenFilter((f) => (f === field ? null : field))
+                }}
                 className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border transition-colors ${
                   active
                     ? 'bg-blue-50 text-blue-700 border-blue-200'
@@ -1288,14 +1294,15 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                   <ChevronDownIcon className="w-3 h-3" />
                 )}
               </button>
-              {openFilter === field && (
+              {openFilter === field && dropdownRect && createPortal(
                 <>
                   <div
                     className="fixed inset-0 z-30"
                     onClick={() => setOpenFilter(null)}
                   />
                   <div
-                    className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[220px] max-h-[380px] overflow-y-auto"
+                    className="fixed z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[220px] max-h-[380px] overflow-y-auto"
+                    style={{ top: dropdownRect.bottom + 4, left: dropdownRect.left }}
                   >
                     {isRegionGroup ? (
                       <>
@@ -1378,7 +1385,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                       })
                     )}
                   </div>
-                </>
+                </>,
+                document.body
               )}
             </div>
           )
