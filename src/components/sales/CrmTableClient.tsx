@@ -27,7 +27,7 @@ import {
 import { useUserRole } from '@/lib/useUserRole'
 import Portal from '@/components/ui/Portal'
 import NewCompanyModal from './NewCompanyModal'
-import ImportCsvModal from './ImportCsvModal'
+
 import MergeCompaniesModal from './MergeCompaniesModal'
 import FindDuplicatesModal from './FindDuplicatesModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -229,7 +229,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const isAdmin = role === 'admin'
 
   const [showNewModal, setShowNewModal] = useState(false)
-  const [showImportModal, setShowImportModal] = useState(false)
+
   const [showMergeModal, setShowMergeModal] = useState(false)
   const [showFindDuplicates, setShowFindDuplicates] = useState(false)
   const [dupMergeIds, setDupMergeIds] = useState<[string, string] | null>(null)
@@ -1119,7 +1119,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           viewMode={viewMode}
           setViewMode={setViewMode}
           onNewCompany={() => setShowNewModal(true)}
-          onImportCsv={() => setShowImportModal(true)}
+          onImportCsv={() => router.push('/sales/crm/import')}
         />
         {showNewModal && (
           <NewCompanyModal
@@ -1127,16 +1127,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             onClose={() => setShowNewModal(false)}
             onSaved={() => {
               setShowNewModal(false)
-              fetchAll()
-            }}
-          />
-        )}
-        {showImportModal && (
-          <ImportCsvModal
-            userId={userId}
-            onClose={() => setShowImportModal(false)}
-            onImported={() => {
-              setShowImportModal(false)
               fetchAll()
             }}
           />
@@ -1217,11 +1207,11 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             Export
           </button>
           <button
-            onClick={() => setShowImportModal(true)}
+            onClick={() => router.push('/sales/crm/import')}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <UploadIcon className="w-4 h-4" />
-            Import
+            Import Center
           </button>
           <button
             onClick={() => setShowFindDuplicates(true)}
@@ -1830,17 +1820,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       )}
 
       {/* ── Import CSV modal ── */}
-      {showImportModal && (
-        <ImportCsvModal
-          userId={userId}
-          onClose={() => setShowImportModal(false)}
-          onImported={() => {
-            setShowImportModal(false)
-            fetchAll()
-          }}
-        />
-      )}
-
       {/* ── Delete confirmation ── */}
       {showDeleteConfirm && (
         <ConfirmDialog
