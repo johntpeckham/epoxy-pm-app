@@ -258,6 +258,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [mapping, setMapping] = useState<TargetField[]>([])
   const [previewRowIdx, setPreviewRowIdx] = useState(0)
+  const [editingField, setEditingField] = useState<TargetField | null>(null)
 
   type DupeMatch = { id: string; name: string; score: number }
   type RowDecision = 'import' | 'skip' | 'merge'
@@ -401,7 +402,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
 
   function resetImportFlow() {
     setStep('upload'); setFileName(null); setFileSize(0); setHeaders([]); setRows([])
-    setParseError(null); setDetectedFormat(null); setMapping([]); setPreviewRowIdx(0); setReviewedRows([])
+    setParseError(null); setDetectedFormat(null); setMapping([]); setPreviewRowIdx(0); setEditingField(null); setReviewedRows([])
     setImportProgress(0); setImportTotal(0); setImportError(null)
     setFinalStats({ companies: 0, contacts: 0, skipped: 0, merged: 0 })
   }
@@ -997,107 +998,110 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
   }
 
   function MappingStep() {
-    const COMPANY_PREVIEW: { target: TargetField; label: string }[] = [
-      { target: 'company_name', label: 'Company name' },
+    const COMPANY_FIELDS: { target: TargetField; label: string }[] = [
+      { target: 'company_name', label: 'Company Name' },
       { target: 'industry', label: 'Industry' },
       { target: 'zone', label: 'Zone' },
       { target: 'region', label: 'Region' },
-      { target: 'address', label: 'Street address' },
-      { target: 'address_label', label: 'Address label' },
+      { target: 'address', label: 'Street Address' },
+      { target: 'address_label', label: 'Address Label' },
       { target: 'city', label: 'City' },
       { target: 'state', label: 'State' },
       { target: 'county', label: 'County' },
-      { target: 'number_of_locations', label: 'Number of locations' },
-      { target: 'revenue_range', label: 'Revenue range' },
-      { target: 'employee_range', label: 'Employee range' },
+      { target: 'number_of_locations', label: 'Number of Locations' },
+      { target: 'revenue_range', label: 'Revenue Range' },
+      { target: 'employee_range', label: 'Employee Range' },
       { target: 'status', label: 'Status' },
       { target: 'priority', label: 'Priority' },
-      { target: 'lead_source', label: 'Lead source' },
-      { target: 'deal_value', label: 'Deal value' },
-      { target: 'prospect_status', label: 'Prospect status' },
+      { target: 'lead_source', label: 'Lead Source' },
+      { target: 'deal_value', label: 'Deal Value' },
+      { target: 'prospect_status', label: 'Prospect Status' },
     ]
-    const CONTACT_PREVIEW: { target: TargetField; label: string }[] = [
-      { target: 'contact_first_name', label: 'First name' },
-      { target: 'contact_last_name', label: 'Last name' },
-      { target: 'contact_job_title', label: 'Job title' },
+    const CONTACT_FIELDS: { target: TargetField; label: string }[] = [
+      { target: 'contact_first_name', label: 'First Name' },
+      { target: 'contact_last_name', label: 'Last Name' },
+      { target: 'contact_job_title', label: 'Job Title' },
       { target: 'contact_email', label: 'Email' },
-      { target: 'contact_phone', label: 'Office phone' },
-      { target: 'contact_mobile', label: 'Mobile phone' },
-      { target: 'last_call_status', label: 'Last call status' },
-      { target: 'last_call_date', label: 'Last call date' },
+      { target: 'contact_phone', label: 'Office Phone' },
+      { target: 'contact_mobile', label: 'Mobile Phone' },
+      { target: 'last_call_status', label: 'Last Call Status' },
+      { target: 'last_call_date', label: 'Last Call Date' },
     ]
 
     const reverseMap = new Map<TargetField, number>()
     mapping.forEach((target, idx) => { if (target !== 'skip') reverseMap.set(target, idx) })
     const mappedCount = reverseMap.size
-    const totalFields = COMPANY_PREVIEW.length + CONTACT_PREVIEW.length
+    const totalFields = COMPANY_FIELDS.length + CONTACT_FIELDS.length
     const previewRow = rows[previewRowIdx] ?? []
     const unmappedCols = headers.map((h, i) => ({ header: h, index: i, sample: previewRow[i] ?? '' })).filter((c) => (mapping[c.index] ?? 'skip') === 'skip' && c.header)
 
-    function getValueForTarget(target: TargetField): string | null {
-      const srcIdx = reverseMap.get(target)
-      if (srcIdx === undefined) return null
-      return (previewRow[srcIdx] ?? '').trim() || null
-    }
-
-    function getSourceLabel(target: TargetField): string | null {
-      const srcIdx = reverseMap.get(target)
-      if (srcIdx === undefined) return null
-      return headers[srcIdx] || `Column ${srcIdx + 1}`
-    }
-
-    function renderField(f: { target: TargetField; label: string }) {
-      const value = getValueForTarget(f.target)
-      const sourceLabel = getSourceLabel(f.target)
-      const isMapped = sourceLabel !== null
+    function renderFieldCard(f: { target: TargetField; label: string }) {
+      const srcIdx = reverseMap.get(f.target)
+      const isMapped = srcIdx !== undefined
+      const value = isMapped ? (previewRow[srcIdx] ?? '').trim() || null : null
+      const sourceColName = isMapped ? (headers[srcIdx] || `Column ${srcIdx + 1}`) : null
       const isRequired = f.target === 'company_name'
-      return (
-        <div key={f.target} className="flex items-center gap-2 py-1.5 px-3 rounded-md hover:bg-gray-50 group">
-          <div className="w-[140px] shrink-0">
-            <span className={`text-xs font-medium ${isRequired ? 'text-gray-900' : 'text-gray-600'}`}>
-              {f.label}{isRequired ? ' *' : ''}
-            </span>
-          </div>
-          <div className="shrink-0">
+      const isEditing = editingField === f.target
+
+      if (isEditing) {
+        return (
+          <div key={f.target} className="border border-amber-400 rounded-lg p-3 bg-amber-50/50 ring-2 ring-amber-400/20">
+            <div className="text-[12px] font-medium text-gray-500 mb-1.5">{f.label}{isRequired ? ' *' : ''}</div>
             <select
-              value={isMapped ? String(reverseMap.get(f.target)) : '__none__'}
+              autoFocus
+              value={isMapped ? String(srcIdx) : '__none__'}
               onChange={(e) => {
                 const val = e.target.value
                 setFieldSource(f.target, val === '__none__' ? null : Number(val))
+                setEditingField(null)
               }}
-              className="px-2 py-1 text-[11px] border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white text-gray-500 max-w-[200px]"
+              onBlur={() => setEditingField(null)}
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
             >
-              <option value="__none__">— Skip / None —</option>
+              <option value="__none__">— None (skip this field) —</option>
               {headers.map((h, i) => {
+                const sample = (previewRow[i] ?? '').trim()
                 const alreadyUsed = mapping[i] !== 'skip' && mapping[i] !== f.target
                 return (
                   <option key={i} value={String(i)} disabled={alreadyUsed}>
-                    {h || `Column ${i + 1}`}{alreadyUsed ? ` (→ ${TARGET_LABELS[mapping[i]]})` : ''}
+                    {h || `Column ${i + 1}`}{sample ? ` → ${sample}` : ''}{alreadyUsed ? ` (used by ${TARGET_LABELS[mapping[i]]})` : ''}
                   </option>
                 )
               })}
             </select>
           </div>
-          <div className="flex-1 min-w-0">
-            {isMapped ? (
-              value ? (
-                <span className="text-sm text-gray-900 truncate block">{value}</span>
-              ) : (
-                <span className="text-sm text-gray-300">—</span>
-              )
-            ) : (
-              <span className="text-xs text-red-400 italic">— Unmapped —</span>
-            )}
-          </div>
+        )
+      }
+
+      return (
+        <div
+          key={f.target}
+          onClick={() => setEditingField(f.target)}
+          className={`border rounded-lg p-3 cursor-pointer transition-all hover:border-amber-300 hover:shadow-sm ${
+            isMapped ? 'border-gray-200 bg-white' : 'border-dashed border-gray-300 bg-gray-50/50'
+          }`}
+        >
+          <div className="text-[12px] font-medium text-gray-400 mb-0.5">{f.label}{isRequired ? ' *' : ''}</div>
+          {isMapped ? (
+            <>
+              <div className="text-[14px] text-gray-900 truncate">{value || <span className="text-gray-300">—</span>}</div>
+              <div className="text-[11px] text-gray-400 mt-0.5 truncate">← {sourceColName}</div>
+            </>
+          ) : (
+            <>
+              <div className="text-[14px] text-red-400 italic">— Unmapped —</div>
+              <div className="text-[11px] text-gray-300 mt-0.5">Click to map a column</div>
+            </>
+          )}
         </div>
       )
     }
 
     return (
       <div>
-        {/* Row navigation */}
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs text-gray-500">Preview how your data maps to CRM fields. Click any field to change which source column feeds it.</p>
+        {/* Header with row navigation */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <p className="text-xs text-gray-500">Click any field to change which source column maps to it.</p>
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setPreviewRowIdx((i) => Math.max(0, i - 1))}
@@ -1119,30 +1123,32 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           </div>
         </div>
 
-        {/* Preview card */}
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          {/* Company section */}
-          <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-            <span className="text-[10px] uppercase tracking-wide font-semibold text-gray-500">Company</span>
+        {/* Company card */}
+        <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
+          <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-500">Company</span>
           </div>
-          <div className="divide-y divide-gray-50">
-            {COMPANY_PREVIEW.map(renderField)}
-          </div>
-
-          {/* Contact section */}
-          <div className="bg-gray-50 px-3 py-2 border-t border-b border-gray-200">
-            <span className="text-[10px] uppercase tracking-wide font-semibold text-gray-500">Contact</span>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {CONTACT_PREVIEW.map(renderField)}
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {COMPANY_FIELDS.map(renderFieldCard)}
           </div>
         </div>
 
-        {/* Unmapped columns */}
+        {/* Contact card */}
+        <div className="border border-gray-200 rounded-xl overflow-hidden">
+          <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
+            <UserIcon className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-500">Contact</span>
+          </div>
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {CONTACT_FIELDS.map(renderFieldCard)}
+          </div>
+        </div>
+
+        {/* Unmapped source columns */}
         {unmappedCols.length > 0 && (
           <div className="mt-4">
-            <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400 mb-2">
-              Unmapped columns ({unmappedCols.length})
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 mb-2">
+              Unmapped source columns ({unmappedCols.length})
             </p>
             <div className="flex flex-wrap gap-2">
               {unmappedCols.map((c) => (
