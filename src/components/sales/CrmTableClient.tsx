@@ -35,7 +35,10 @@ import FindDuplicatesModal from './FindDuplicatesModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import ExistingCustomersView from './ExistingCustomersView'
 import { toCsv, downloadCsv } from '@/lib/csv'
-import { findLocationsWithinRadius } from '@/lib/geocode'
+import LocationFilter, {
+  applyLocationFilter,
+  type LocationFilterValue,
+} from '@/components/ui/LocationFilter'
 import { BUILT_IN_COLUMNS, DEFAULT_VISIBLE_IDS, getVisibleColumns } from './crmColumns'
 import type { CrmColumn, CustomColumn } from './crmColumns'
 import CrmColumnPicker from './CrmColumnPicker'
@@ -161,19 +164,11 @@ function readStoredPageSize(viewMode: CrmViewMode): PageSize {
 
 const FILTER_CONFIG: { field: FilterField; label: string }[] = [
   { field: 'status', label: 'Status' },
-  { field: 'zone', label: 'Location' },
   { field: 'industry', label: 'Industry' },
   { field: 'priority', label: 'Priority' },
   { field: 'assigned_to', label: 'Assigned to' },
   { field: 'tags', label: 'Tags' },
   { field: 'job_title', label: 'Job title' },
-]
-
-// Sub-fields grouped under the Location filter chip
-const LOCATION_GROUP_FIELDS: { field: FilterField; label: string }[] = [
-  { field: 'zone', label: 'Zone' },
-  { field: 'city', label: 'City' },
-  { field: 'state', label: 'State' },
 ]
 
 type SortField =
@@ -230,10 +225,9 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortAsc, setSortAsc] = useState<boolean>(true)
 
-  const [radiusMiles, setRadiusMiles] = useState(0)
+  const [radiusCity, setRadiusCity] = useState<string | null>(null)
+  const [radiusMiles, setRadiusMiles] = useState<number | null>(null)
   const [radiusCities, setRadiusCities] = useState<Set<string> | null>(null)
-  const [radiusLoading, setRadiusLoading] = useState(false)
-  const [radiusError, setRadiusError] = useState(false)
 
   const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
 
@@ -930,50 +924,38 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     }
   }, [companies, profiles, allTags])
 
-  // ─── Radius geocoding effect ───────���─────────────────────────────────────
-  useEffect(() => {
-    const selectedCities = filters.city
-    if (selectedCities.size === 0 || radiusMiles <= 0) {
-      setRadiusCities(null)
-      return
-    }
-    let cancelled = false
-    setRadiusLoading(true)
-    setRadiusError(false)
-    const allCityValues = filterOptions.city.map((o) => o.value)
-    const selectedCity = [...selectedCities][0]
-    const cityWithState = (() => {
-      const statesForCity = companies
-        .filter((c) => c.city === selectedCity && c.state)
-        .map((c) => c.state!)
-      const st = statesForCity[0]
-      return st ? `${selectedCity}, ${st}` : selectedCity
-    })()
-    const allCitiesWithState = allCityValues.map((city) => {
-      const st = companies.find((c) => c.city === city && c.state)?.state
-      return { city, label: st ? `${city}, ${st}` : city }
-    })
+  // Derived value for the shared <LocationFilter> component.
+  const locationValue: LocationFilterValue = useMemo(
+    () => ({
+      zones: [...filters.zone],
+      cities: [...filters.city],
+      states: [...filters.state],
+      radiusCity,
+      radiusMiles,
+    }),
+    [filters.zone, filters.city, filters.state, radiusCity, radiusMiles],
+  )
 
-    findLocationsWithinRadius(
-      cityWithState,
-      allCitiesWithState.map((c) => c.label),
-      radiusMiles
-    ).then((matchingLabels) => {
-      if (cancelled) return
-      const matchingCities = new Set<string>()
-      for (const lbl of matchingLabels) {
-        const match = allCitiesWithState.find((c) => c.label === lbl)
-        if (match) matchingCities.add(match.city)
+  const cityStatePairs = useMemo(() => {
+    const m = new Map<string, string | null>()
+    for (const c of companies) {
+      if (typeof c.city === 'string' && c.city && !m.has(c.city)) {
+        m.set(c.city, typeof c.state === 'string' ? c.state : null)
       }
-      setRadiusCities(matchingCities)
-      setRadiusLoading(false)
-    }).catch(() => {
-      if (cancelled) return
-      setRadiusLoading(false)
-      setRadiusError(true)
-    })
-    return () => { cancelled = true }
-  }, [filters.city, radiusMiles, filterOptions.city, companies])
+    }
+    return [...m.entries()].map(([city, state]) => ({ city, state }))
+  }, [companies])
+
+  const handleLocationChange = useCallback((next: LocationFilterValue) => {
+    setFilters((prev) => ({
+      ...prev,
+      zone: new Set(next.zones),
+      city: new Set(next.cities),
+      state: new Set(next.states),
+    }))
+    setRadiusCity(next.radiusCity)
+    setRadiusMiles(next.radiusMiles)
+  }, [])
 
   // ─── Filter + search + sort ─────────────────────��────────────────────────
   const filteredSorted = useMemo(() => {
@@ -988,13 +970,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       })
     }
     applySetFilter('status', filters.status)
-    applySetFilter('zone', filters.zone)
-    applySetFilter('state', filters.state)
-    if (radiusCities && radiusCities.size > 0 && filters.city.size > 0) {
-      rows = rows.filter((r) => typeof r.city === 'string' && radiusCities.has(r.city))
-    } else {
-      applySetFilter('city', filters.city)
-    }
+    rows = rows.filter((r) => applyLocationFilter(r, locationValue, radiusCities))
     applySetFilter('industry', filters.industry)
     applySetFilter('priority', filters.priority)
     if (filters.assigned_to.size > 0) {
@@ -1057,7 +1033,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       }
     })
     return sorted
-  }, [companies, filters, search, sortField, sortAsc, radiusCities])
+  }, [companies, filters, search, sortField, sortAsc, radiusCities, locationValue])
 
   const totalCount = filteredSorted.length
   const showAll = pageSize === 'all'
@@ -1343,168 +1319,97 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       {/* ── Filter bar ── */}
       <div className="px-4 sm:px-6 py-3 flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-400 mr-1">Filter:</span>
-        {FILTER_CONFIG.map(({ field, label }) => {
-          const isLocationGroup = field === 'zone'
-          const groupFields = isLocationGroup ? LOCATION_GROUP_FIELDS : [{ field, label }]
-          const activeCount = groupFields.reduce((n, g) => n + filters[g.field].size, 0)
+        {FILTER_CONFIG.map(({ field, label }, idx) => {
           const selected = filters[field]
           const options = filterOptions[field]
-          const active = activeCount > 0
+          const active = selected.size > 0
           return (
-            <div key={field} className="relative">
-              <button
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  setDropdownRect(rect)
-                  setOpenFilter((f) => (f === field ? null : field))
-                }}
-                className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border transition-colors ${
-                  active
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                }`}
-                style={{ borderRadius: 20 }}
-              >
-                {label}
-                {active && (
-                  <span className="text-[10px] text-blue-500">
-                    ({activeCount}){isLocationGroup && radiusMiles > 0 && filters.city.size > 0 ? ` +${radiusMiles}mi` : ''}
-                  </span>
-                )}
-                {active ? (
-                  <XIcon
-                    className="w-3 h-3 ml-0.5 hover:text-blue-900"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (isLocationGroup) {
-                        for (const g of groupFields) clearFilter(g.field)
-                        setRadiusMiles(0)
-                        setRadiusCities(null)
-                      } else {
-                        clearFilter(field)
-                      }
-                    }}
-                  />
-                ) : (
-                  <ChevronDownIcon className="w-3 h-3" />
-                )}
-              </button>
-              {openFilter === field && dropdownRect && createPortal(
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    onClick={() => setOpenFilter(null)}
-                  />
-                  <div
-                    className="fixed z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[220px] max-h-[380px] overflow-y-auto"
-                    style={{ top: dropdownRect.bottom + 4, left: dropdownRect.left }}
-                  >
-                    {isLocationGroup ? (
-                      <>
-                      {groupFields.map((g, gi) => {
-                        const gOptions = filterOptions[g.field]
-                        const gSelected = filters[g.field]
-                        return (
-                          <Fragment key={g.field}>
-                            {gi === 1 && (
-                              <div className="mt-2 pt-2 border-t border-gray-100 px-3 pb-2">
-                                <div className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: '#EF9F27' }}>
-                                  Radius search
-                                </div>
-                                {filters.city.size > 0 ? (
-                                  <>
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="range"
-                                        min={0}
-                                        max={100}
-                                        step={5}
-                                        value={radiusMiles}
-                                        onChange={(e) => setRadiusMiles(Number(e.target.value))}
-                                        className="flex-1 h-1.5 accent-amber-500"
-                                      />
-                                      <span className="text-xs text-gray-600 w-14 text-right">
-                                        {radiusMiles === 0 ? 'Exact' : `${radiusMiles} mi`}
-                                      </span>
-                                    </div>
-                                    {radiusLoading && (
-                                      <div className="text-[10px] mt-1" style={{ color: 'rgba(239,159,39,0.6)' }}>Calculating...</div>
-                                    )}
-                                    {radiusError && (
-                                      <div className="text-[10px] text-red-500 mt-1">Radius search unavailable</div>
-                                    )}
-                                    {!radiusLoading && !radiusError && radiusMiles > 0 && radiusCities && (
-                                      <div className="text-[10px] mt-1" style={{ color: 'rgba(239,159,39,0.7)' }}>
-                                        {radiusCities.size} {radiusCities.size === 1 ? 'city' : 'cities'} within {radiusMiles} mi
-                                      </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  <div className="text-[10px]" style={{ color: 'rgba(239,159,39,0.55)' }}>Select a city first</div>
-                                )}
-                              </div>
-                            )}
-                            <div className={gi > 0 ? 'mt-2 pt-2 border-t border-gray-100' : ''}>
-                              <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
-                                {g.label}
-                              </div>
-                              {gOptions.length === 0 ? (
-                                <div className="px-3 py-1.5 text-xs text-gray-300">No values</div>
-                              ) : (
-                                gOptions.map((opt) => {
-                                  const checked = gSelected.has(opt.value)
-                                  return (
-                                    <label
-                                      key={opt.value}
-                                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={() => toggleFilterValue(g.field, opt.value)}
-                                        className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
-                                      />
-                                      <span className="truncate">{opt.label}</span>
-                                    </label>
-                                  )
-                                })
-                              )}
-                            </div>
-                          </Fragment>
-                        )
-                      })}
-                      </>
-                    ) : options.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-gray-400">No values</div>
-                    ) : (
-                      options.map((opt) => {
-                        const checked = selected.has(opt.value)
-                        return (
-                          <label
-                            key={opt.value}
-                            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleFilterValue(field, opt.value)}
-                              className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
-                            />
-                            <span className="truncate">{opt.label}</span>
-                          </label>
-                        )
-                      })
-                    )}
-                  </div>
-                </>,
-                document.body
+            <Fragment key={field}>
+              {idx === 1 && (
+                <LocationFilter
+                  value={locationValue}
+                  onChange={handleLocationChange}
+                  availableZones={filterOptions.zone.map((o) => o.value)}
+                  availableCities={filterOptions.city.map((o) => o.value)}
+                  availableStates={filterOptions.state.map((o) => o.value)}
+                  cityStatePairs={cityStatePairs}
+                  onRadiusCitiesChange={setRadiusCities}
+                />
               )}
-            </div>
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    setDropdownRect(rect)
+                    setOpenFilter((f) => (f === field ? null : field))
+                  }}
+                  className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border transition-colors ${
+                    active
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}
+                  style={{ borderRadius: 20 }}
+                >
+                  {label}
+                  {active && (
+                    <span className="text-[10px] text-blue-500">
+                      ({selected.size})
+                    </span>
+                  )}
+                  {active ? (
+                    <XIcon
+                      className="w-3 h-3 ml-0.5 hover:text-blue-900"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        clearFilter(field)
+                      }}
+                    />
+                  ) : (
+                    <ChevronDownIcon className="w-3 h-3" />
+                  )}
+                </button>
+                {openFilter === field && dropdownRect && createPortal(
+                  <>
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setOpenFilter(null)}
+                    />
+                    <div
+                      className="fixed z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[220px] max-h-[380px] overflow-y-auto"
+                      style={{ top: dropdownRect.bottom + 4, left: dropdownRect.left }}
+                    >
+                      {options.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-gray-400">No values</div>
+                      ) : (
+                        options.map((opt) => {
+                          const checked = selected.has(opt.value)
+                          return (
+                            <label
+                              key={opt.value}
+                              className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleFilterValue(field, opt.value)}
+                                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20"
+                              />
+                              <span className="truncate">{opt.label}</span>
+                            </label>
+                          )
+                        })
+                      )}
+                    </div>
+                  </>,
+                  document.body
+                )}
+              </div>
+            </Fragment>
           )
         })}
         {activeFilterCount > 0 && (
           <button
-            onClick={() =>
+            onClick={() => {
               setFilters({
                 status: new Set(),
                 zone: new Set(),
@@ -1516,7 +1421,9 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 tags: new Set(),
                 job_title: new Set(),
               })
-            }
+              setRadiusCity(null)
+              setRadiusMiles(null)
+            }}
             className="text-xs text-gray-400 hover:text-gray-600 ml-1"
           >
             Clear all
