@@ -16,6 +16,7 @@ import NewSalesmanExpenseModal from '@/components/salesman-expenses/NewSalesmanE
 import EditSalesmanExpenseModal from '@/components/salesman-expenses/EditSalesmanExpenseModal'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
+import { usePermissions } from '@/lib/usePermissions'
 
 interface ExpensesWorkspaceProps {
   userId: string
@@ -42,7 +43,10 @@ export default function ExpensesWorkspace({
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
 
-  const isAdminOrOM = userRole === 'admin' || userRole === 'office_manager'
+  // "See everyone's expenses" was admin+OM; office view is the cleanest
+  // mapping in the default template.
+  const { canView } = usePermissions()
+  const isAdminOrOM = canView('office')
 
   const fetchExpenses = useCallback(async () => {
     const supabase = createClient()

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { SettingsIcon, LogOutIcon, MenuIcon, BugIcon, PencilIcon, BuildingIcon, UsersIcon, Building2Icon, DownloadIcon, MoonIcon, BarChart3Icon } from 'lucide-react'
 import { useCompanySettings } from '@/lib/useCompanySettings'
-import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import { MonitorIcon } from 'lucide-react'
 import NotificationBell from '@/components/ui/NotificationBell'
 import NavigationSearch from '@/components/header/NavigationSearch'
@@ -35,7 +35,7 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
   const notificationRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const { settings: companySettings } = useCompanySettings()
-  const { role } = useUserRole()
+  const { canView } = usePermissions()
   const { theme, toggleTheme } = useTheme()
   const isDarkMode = theme === 'dark'
 
@@ -143,7 +143,7 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
 
       <div className="relative flex items-center gap-2">
         <NavigationSearch />
-        {role === 'admin' && (
+        {canView('command_center') && (
           <div ref={commandCenterRef}>
             <button
               onClick={() => {
@@ -190,7 +190,7 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
         <div ref={reportDropdownRef}>
           <button
             onClick={() => {
-              if (role === 'admin') {
+              if (canView('bug_reports')) {
                 if (showReportDropdown) {
                   setShowReportDropdown(false)
                 } else {
@@ -208,7 +208,7 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
           >
             <BugIcon className="w-[18px] h-[18px]" />
           </button>
-          {showReportDropdown && role === 'admin' && (
+          {showReportDropdown && canView('bug_reports') && (
             <div className="absolute right-0 top-full mt-1.5 w-48 bg-[#242424] border border-[#3a3a3a] rounded-lg shadow-xl overflow-hidden z-50">
               <button
                 onClick={() => { setShowReportDropdown(false); setShowReportModal(true) }}

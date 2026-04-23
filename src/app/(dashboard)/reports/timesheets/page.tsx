@@ -1,26 +1,11 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { requirePermission } from '@/lib/requirePermission'
 import { Project } from '@/types'
 import TimesheetReportClient from '@/components/reports/TimesheetReportClient'
 
 export default async function TimesheetReportPage() {
-  const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-
-  if (!session) return null
-  const user = session.user
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin' && profile?.role !== 'office_manager') {
-    redirect('/my-work')
-  }
+  const { supabase } = await requirePermission('reports', 'view')
 
   const { data: projects } = await supabase
     .from('projects')

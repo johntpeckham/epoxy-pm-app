@@ -11,7 +11,6 @@ import DocumentUploadModal from '@/components/documents/DocumentUploadModal'
 import ProjectReportModal from '@/components/reports/ProjectReportModal'
 import ProjectPhotosModal from '@/components/photos/ProjectPhotosModal'
 import { FeedPost, Project } from '@/types'
-import { useUserRole } from '@/lib/useUserRole'
 
 interface ProjectFeedClientProps {
   project: Project
@@ -31,7 +30,6 @@ export default function ProjectFeedClient({
   onEdit,
 }: ProjectFeedClientProps) {
   const inPanel = onBack !== undefined
-  const { role: userRole } = useUserRole()
   const [posts, setPosts] = useState<FeedPost[]>(initialPosts)
   const [showPlansModal, setShowPlansModal] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
@@ -273,7 +271,6 @@ export default function ProjectFeedClient({
           address={project.address}
           estimateNumber={project.estimate_number ?? ''}
           userId={userId}
-          userRole={userRole}
           onClose={() => setShowReportModal(false)}
         />
       )}

@@ -30,6 +30,7 @@ import JobWalkMeasurementsCard from './JobWalkMeasurementsCard'
 import JobWalkCamToPlanCard from './JobWalkCamToPlanCard'
 import JobWalkPushMenu from './JobWalkPushMenu'
 import NewJobWalkModal from './NewJobWalkModal'
+import { usePermissions } from '@/lib/usePermissions'
 
 export type JobWalkStatus = 'in_progress' | 'completed' | 'sent_to_estimating'
 export type JobWalkPushedTo = 'estimating' | 'estimate' | 'job'
@@ -90,7 +91,10 @@ function formatDate(iso: string | null): string {
 }
 
 export default function JobWalkClient({ initialJobWalks, userId, userRole }: JobWalkClientProps) {
-  const isAdmin = userRole === 'admin'
+  const { canEdit } = usePermissions()
+  // The "All/Mine" filter was previously admin-only. Use user_management as
+  // an admin-only proxy so the behaviour lines up with the default template.
+  const isAdmin = canEdit('user_management')
   const router = useRouter()
   const searchParams = useSearchParams()
   const [jobWalks, setJobWalks] = useState<JobWalk[]>(initialJobWalks)

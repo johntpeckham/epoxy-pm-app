@@ -25,7 +25,7 @@ import {
   ArchiveRestoreIcon,
   ArrowLeftIcon,
 } from 'lucide-react'
-import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import NewContactModal, { type ContactForModal } from './NewContactModal'
@@ -285,8 +285,9 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [showAddLink, setShowAddLink] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [archiving, setArchiving] = useState(false)
-  const { role } = useUserRole()
-  const isAdmin = role === 'admin'
+  const { canEdit } = usePermissions()
+  // Archive/restore was admin-only; now driven by CRM edit access.
+  const canArchive = canEdit('crm')
   const [linkUrl, setLinkUrl] = useState('')
   const [linkLabel, setLinkLabel] = useState('')
   const [tagInput, setTagInput] = useState('')
@@ -426,8 +427,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
 
   async function handleArchiveToggle() {
     if (!company) return
-    if (!isAdmin) {
-      showToast('Only admins can archive or restore companies. Contact your admin.')
+    if (!canArchive) {
+      showToast('You do not have permission to archive or restore companies. Contact your admin.')
       return
     }
     setArchiving(true)
@@ -717,7 +718,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           >
             Convert to customer
           </button>
-          {isAdmin && (
+          {canArchive && (
             <button
               onClick={() => setShowArchiveConfirm(true)}
               disabled={archiving}

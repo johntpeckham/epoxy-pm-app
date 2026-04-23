@@ -30,6 +30,7 @@ import LeadPhotosCard from './LeadPhotosCard'
 import LeadMeasurementsCard from './LeadMeasurementsCard'
 import LeadPushMenu from './LeadPushMenu'
 import AddLeadModal from './AddLeadModal'
+import { usePermissions } from '@/lib/usePermissions'
 
 export type LeadStatus = 'new' | 'appointment_set' | 'sent_to_estimating' | 'unable_to_reach' | 'disqualified'
 export type LeadPushedTo = 'appointment' | 'job_walk' | 'estimating' | 'estimate' | 'job'
@@ -223,7 +224,10 @@ export default function LeadsClient({
     })
   }, [leads, search])
 
-  const isAdmin = userRole === 'admin'
+  // "All vs. mine" lead visibility was admin-only. Using user_management as
+  // an admin-only proxy mirrors the default template (admin via shortcut).
+  const { canEdit } = usePermissions()
+  const isAdmin = canEdit('user_management')
 
   const assigneeMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -410,7 +414,7 @@ export default function LeadsClient({
                 key={`cat-${lead.id}`}
                 lead={lead}
                 categories={categories}
-                isAdmin={userRole === 'admin'}
+                isAdmin={isAdmin}
                 onPatch={(patch) => handleUpdate(lead.id, patch)}
                 onCategoriesChanged={handleCategoriesChanged}
               />

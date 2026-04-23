@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { toCsv, downloadCsv } from '@/lib/csv'
-import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import CustomerDetailModal from './CustomerDetailModal'
 import { DEFAULT_VISIBLE_IDS, getVisibleColumns } from './crmColumns'
 import type { CrmColumn, BuiltInColumn, CustomColumn } from './crmColumns'
@@ -132,8 +132,8 @@ export default function ExistingCustomersView({
 
   const [page, setPage] = useState(1)
 
-  const { role } = useUserRole()
-  const isAdmin = role === 'admin'
+  const { canEdit } = usePermissions()
+  const canEditCrm = canEdit('crm')
 
   // ─── Custom columns & column prefs (shared with Prospects tab) ──────
   const EXISTING_BUILT_IN: BuiltInColumn[] = useMemo(() => [
@@ -1237,7 +1237,7 @@ export default function ExistingCustomersView({
                               value={fv}
                               columnType={col.columnType}
                               selectOptions={col.selectOptions}
-                              canEdit={isAdmin || role === 'office_manager'}
+                              canEdit={canEditCrm}
                               onSave={(v) => handleSaveFieldValue(c.id, col.dbId, v)}
                             />
                           </td>

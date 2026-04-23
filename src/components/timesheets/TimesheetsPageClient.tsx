@@ -8,7 +8,6 @@ import { Project, TimecardContent, DynamicFieldEntry } from '@/types'
 import TimecardCard from './TimecardCard'
 import ManageEmployeesModal from './ManageEmployeesModal'
 import NewTimecardModal from './NewTimecardModal'
-import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { calculateCaliforniaOvertime } from '@/lib/overtimeCalculator'
@@ -411,10 +410,12 @@ export default function TimesheetsPageClient({
   userId,
 }: TimesheetsPageClientProps) {
   const router = useRouter()
-  const { role } = useUserRole()
-  const { canCreate } = usePermissions(role)
+  const { canCreate, canEdit } = usePermissions()
   const { settings: companySettings } = useCompanySettings()
-  const canDownloadPdf = role === 'admin' || role === 'office_manager'
+  // PDF download was previously admin+OM. `canEdit('timesheets')` keeps
+  // admins covered via the hook's shortcut and lets admins grant it to
+  // specific users via the /permissions template matrix.
+  const canDownloadPdf = canEdit('timesheets')
   const [showManageEmployees, setShowManageEmployees] = useState(false)
   const [downloadingWeek, setDownloadingWeek] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)

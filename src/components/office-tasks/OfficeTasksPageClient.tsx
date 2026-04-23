@@ -27,6 +27,7 @@ import {
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
 import EquipmentDetailLoader from '@/components/equipment/EquipmentDetailLoader'
+import { usePermissions } from '@/lib/usePermissions'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
 import ExecutiveTasksCard from '@/components/office-tasks/ExecutiveTasksCard'
@@ -195,9 +196,13 @@ export default function OfficeTasksPageClient({
     upcomingScheduledServices
   )
 
-  const canManageEmployees = userRole === 'admin' || userRole === 'office_manager'
+  const { canView } = usePermissions()
+  // Employees card and the embedded EmployeeManagement modal were
+  // admin+OM-only; now driven by the employee_management feature key.
+  const canManageEmployees = canView('employee_management')
   // Foreman gets an Equipment-only view of the Office dashboard (Tasks,
-  // Employees, Material Inventory cards are hidden).
+  // Employees, Material Inventory cards are hidden). This is role-shaped
+  // UI with no clean feature mapping, so it stays as a direct role check.
   const isForeman = userRole === 'foreman'
 
   // Build a preview list of upcoming scheduled services enriched with the
@@ -780,8 +785,8 @@ export default function OfficeTasksPageClient({
         </div>
       </div>
 
-      {/* ── Executive Area ── admin-only */}
-      {userRole === 'admin' && (
+      {/* ── Executive Area ── admin-only (mapped to command_center). */}
+      {canView('command_center') && (
       <div className="mt-8 pb-6">
         <div className="border-t border-gray-200/60" />
         <div className="mt-4">

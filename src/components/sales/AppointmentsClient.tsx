@@ -19,6 +19,7 @@ import { assignNextProjectNumber } from '@/lib/nextProjectNumber'
 import type { UserRole } from '@/types'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { usePermissions } from '@/lib/usePermissions'
 import NewAppointmentModal, {
   type AppointmentCompanyOption,
   type AppointmentContactOption,
@@ -94,7 +95,10 @@ function isTodayOrFuture(iso: string): boolean {
 }
 
 export default function AppointmentsClient({ userId, userRole }: AppointmentsClientProps) {
-  const isAdmin = userRole === 'admin'
+  // The "all vs. mine" appointments view was admin-only. Using
+  // user_management as an admin-only proxy matches the default template.
+  const { canEdit } = usePermissions()
+  const isAdmin = canEdit('user_management')
   const supabase = useMemo(() => createClient(), [])
 
   const [loading, setLoading] = useState(true)

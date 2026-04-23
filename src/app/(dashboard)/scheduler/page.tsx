@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { requirePermission } from '@/lib/requirePermission'
 import SchedulerClient from '@/components/scheduler/SchedulerClient'
 import type {
   Crew,
@@ -50,22 +49,7 @@ export interface SchedulerAssignmentRow {
 }
 
 export default async function SchedulerPage() {
-  const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-
-  if (!session) return redirect('/login')
-  const user = session.user
-
-  // Access check: admin OR scheduler_access=true
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, scheduler_access')
-    .eq('id', user.id)
-    .single()
-
-  const role = (profile?.role ?? 'crew') as string
-  const hasAccess = role === 'admin' || Boolean((profile as { scheduler_access?: boolean } | null)?.scheduler_access)
-  if (!hasAccess) return redirect('/my-work')
+  const { supabase, user } = await requirePermission('scheduler', 'view')
 
   // Compute the three visible week Monday ISOs
   const thisWeekISO = startOfWeekMondayISO(new Date())

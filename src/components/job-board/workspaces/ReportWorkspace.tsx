@@ -5,8 +5,8 @@ import Image from 'next/image'
 import { ClipboardListIcon, Loader2Icon, PrinterIcon, FileDownIcon, PlusIcon, XIcon, BookOpenIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Project, ProjectReportData, FormField } from '@/types'
-import type { UserRole } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { usePermissions } from '@/lib/usePermissions'
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, getKnownContentKeys, buildDynamicFields } from '@/lib/formFieldMaps'
 import { useMaterialSystems } from '@/lib/useMaterialSystems'
@@ -32,7 +32,6 @@ export interface ChecklistInstanceRow {
 interface ReportWorkspaceProps {
   project: Project
   userId: string
-  userRole?: UserRole
   onBack: () => void
 }
 
@@ -94,8 +93,12 @@ const emptyReport: ProjectReportData = {
 const FORM_KEY = 'project_report'
 const KNOWN_KEYS = getKnownContentKeys(FORM_KEY)
 
-export default function ReportWorkspace({ project, userId, userRole = 'crew', onBack }: ReportWorkspaceProps) {
-  const readOnly = userRole === 'foreman'
+export default function ReportWorkspace({ project, userId, onBack }: ReportWorkspaceProps) {
+  const { canEdit } = usePermissions()
+  // Edits to the project report require job_reports full access. Admin gets
+  // it via the hook shortcut; other roles get read-only by default
+  // (foreman previously hit this branch).
+  const readOnly = !canEdit('job_reports')
   const projectId = project.id
   const projectName = project.name
   const { settings: companySettings } = useCompanySettings()

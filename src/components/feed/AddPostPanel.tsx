@@ -21,7 +21,6 @@ import {
 } from 'lucide-react'
 import { Project, TaskStatus, Profile, JsaTaskTemplate, JsaTaskEntry, JsaSignatureEntry, ReceiptCategory, ExpenseCategory, EmployeeProfile, TimecardEntry } from '@/types'
 import { fetchWeatherForAddress } from '@/lib/fetchWeather'
-import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import JsaTemplateManagerModal from '@/components/jsa-reports/JsaTemplateManagerModal'
 import JsaSignatureSection from '@/components/jsa-reports/JsaSignatureSection'
@@ -59,8 +58,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
   const [uploadDone, setUploadDone] = useState(false)
 
   // ── Permissions ──────────────────────────────────────────────────────────────
-  const { role } = useUserRole()
-  const { canCreate } = usePermissions(role)
+  const { canCreate } = usePermissions()
 
   // ── Text post ──────────────────────────────────────────────────────────────
   const [message, setMessage] = useState('')

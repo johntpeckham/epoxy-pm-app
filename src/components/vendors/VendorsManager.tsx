@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import Portal from '@/components/ui/Portal'
-import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import type { Vendor, VendorContact, VendorType } from '@/types/vendor'
 
 const PRESET_COLORS = [
@@ -63,8 +63,10 @@ interface Props {
 
 export default function VendorsManager({ userId }: Props) {
   const supabase = createClient()
-  const { role } = useUserRole()
-  const isAdmin = role === 'admin'
+  const { canEdit } = usePermissions()
+  // Vendor edit surfaces (add/edit/manage types) were admin-only; now driven
+  // by edit access on vendor_management. Admin via hook shortcut.
+  const isAdmin = canEdit('vendor_management')
 
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [contactCounts, setContactCounts] = useState<Record<string, number>>({})

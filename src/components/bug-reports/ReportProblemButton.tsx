@@ -4,19 +4,22 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { BugIcon } from 'lucide-react'
 import ReportProblemModal from './ReportProblemModal'
+import { usePermissions } from '@/lib/usePermissions'
 
 interface ReportProblemButtonProps {
-  role: string
+  /** Retained for back-compat; now ignored — permissions come from the hook. */
+  role?: string
   userId: string
 }
 
-export default function ReportProblemButton({ role, userId }: ReportProblemButtonProps) {
+export default function ReportProblemButton({ userId }: ReportProblemButtonProps) {
   const router = useRouter()
   const [showModal, setShowModal] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const { canView } = usePermissions()
 
-  const isAdmin = role === 'admin'
+  const isAdmin = canView('bug_reports')
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

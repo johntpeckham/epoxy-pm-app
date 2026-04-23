@@ -43,6 +43,7 @@ import MasterAddKitModal, { type MasterAddKitFormData } from './MasterAddKitModa
 import MasterPriceCheckRequestModal from './MasterPriceCheckRequestModal'
 import MasterSettingsModal from './MasterSettingsModal'
 import DocumentUploadModal from './DocumentUploadModal'
+import { usePermissions } from '@/lib/usePermissions'
 import type {
   MasterKitGroup,
   MasterProduct,
@@ -310,6 +311,7 @@ export default function MaterialManagementClient({
   initialPendingPriceChecks,
 }: Props) {
   const supabase = createClient()
+  const { canCreate, canEdit } = usePermissions()
 
   const [suppliers, setSuppliers] = useState<MasterSupplier[]>(initialSuppliers)
   const [products, setProducts] = useState<MasterProduct[]>(initialProducts)
@@ -322,7 +324,7 @@ export default function MaterialManagementClient({
 
   const [collapsedSuppliers, setCollapsedSuppliers] = useState<Set<string>>(new Set())
   const [reorderModeRaw, setReorderMode] = useState(false)
-  const reorderMode = reorderModeRaw && userRole === 'admin'
+  const reorderMode = reorderModeRaw && canEdit('user_management')
 
   // Settings modal
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
@@ -362,9 +364,11 @@ export default function MaterialManagementClient({
   const [deleteDocTarget, setDeleteDocTarget] = useState<MasterProductDocument | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const canManage = userRole === 'admin' || userRole === 'office_manager' || userRole === 'salesman'
-  const canDelete = userRole === 'admin' || userRole === 'office_manager'
-  const canReorder = userRole === 'admin'
+  // material_management maps: any create access lets you manage, edit lets
+  // you delete, and reorder stays admin-only (via user_management proxy).
+  const canManage = canCreate('material_management')
+  const canDelete = canEdit('material_management')
+  const canReorder = canEdit('user_management')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

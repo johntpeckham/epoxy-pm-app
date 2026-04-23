@@ -278,8 +278,10 @@ interface CalendarPageClientProps {
   userRole?: UserRole
 }
 
-export default function CalendarPageClient({ initialEvents, initialProjects, userId, userRole = 'crew' }: CalendarPageClientProps) {
-  const { canCreate: canCreatePerm, canEdit: canEditPerm } = usePermissions(userRole)
+export default function CalendarPageClient({ initialEvents, initialProjects, userId }: CalendarPageClientProps) {
+  // The `userRole` prop is retained in the component interface for caller
+  // back-compat, but permissions are now sourced from the hook.
+  const { canCreate: canCreatePerm, canEdit: canEditPerm } = usePermissions()
   const canCreateCalendar = canCreatePerm('calendar')
   const canEditCalendar = canEditPerm('calendar')
   const router = useRouter()
@@ -496,7 +498,9 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectShowCustomCrew(false)
   }
 
-  const canDownloadPdf = userRole === 'admin' || userRole === 'office_manager'
+  // PDF download of the calendar was admin+OM-only; now driven by edit
+  // access on the calendar feature.
+  const canDownloadPdf = canEditCalendar
 
   // Map DB events + linked projects to FullCalendar events
   const fcEvents = useMemo(() => {

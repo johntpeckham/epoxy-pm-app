@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { OfficeTask, OfficePriority, Profile, UserRole } from '@/types'
 import { toggleOfficeTaskCompletion } from '@/lib/officeTaskCompletion'
+import { usePermissions } from '@/lib/usePermissions'
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -69,7 +70,9 @@ type ProjectOption = { id: string; name: string }
 
 interface Props {
   userId: string
-  role: UserRole
+  /** Retained for back-compat; the component now reads permissions via the
+   *  usePermissions hook. */
+  role?: UserRole
   initialOfficeTasks: OfficeTask[]
   onCountChange?: (incomplete: number) => void
   showCreateModal?: boolean
@@ -83,7 +86,6 @@ interface Props {
 
 export default function OfficeTasksWorkspace({
   userId,
-  role,
   initialOfficeTasks,
   onCountChange,
   showCreateModal = false,
@@ -91,7 +93,10 @@ export default function OfficeTasksWorkspace({
   hideAllToggle = false,
 }: Props) {
   const supabase = createClient()
-  const isAdminOrOM = role === 'admin' || role === 'office_manager'
+  const { canView } = usePermissions()
+  // Office-area edit (all-tasks visibility, the "All tasks" toggle) was
+  // admin+OM. Now driven by canView('office').
+  const isAdminOrOM = canView('office')
 
   /* ---- State ---- */
   const [tasks, setTasks] = useState<OfficeTask[]>(initialOfficeTasks)

@@ -28,7 +28,6 @@ import {
   ScrollTextIcon,
 } from 'lucide-react'
 import { Project, Task, FeedPost, TaskStatus } from '@/types'
-import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useProjectPins } from '@/lib/useProjectPins'
 import { softDeleteProject } from '@/lib/trashBin'
@@ -108,8 +107,7 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; bg: string; text: strin
 export default function JobBoardClient({ initialProjects, userId }: JobBoardClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { role } = useUserRole()
-  const { canCreate } = usePermissions(role)
+  const { canCreate, canEdit } = usePermissions()
   const { pinnedProjectIds, isPinned, togglePin } = useProjectPins(userId)
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
@@ -492,7 +490,6 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
             key={selectedProject.id}
             project={selectedProject}
             userId={userId}
-            userRole={role ?? undefined}
             onBack={backToDashboard}
           />
         )
@@ -510,7 +507,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
             project={selectedProject}
             userId={userId}
             onBack={backToDashboard}
-            isAdmin={role === 'admin'}
+            isAdmin={canEdit('job_board')}
           />
         )
       case 'material_orders':
@@ -848,7 +845,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                         project={selectedProject}
                         userId={userId}
                         onExpand={() => openWorkspace('checklist')}
-                        isAdmin={role === 'admin'}
+                        isAdmin={canEdit('job_board')}
                       />
 
                       {/* 3. Plans */}

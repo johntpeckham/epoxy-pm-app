@@ -13,6 +13,7 @@ import DocumentUploadModal from './DocumentUploadModal'
 import QrPreviewModal from './QrPreviewModal'
 import ScheduledServiceModal from './ScheduledServiceModal'
 import ServiceManualModal from './ServiceManualModal'
+import { usePermissions } from '@/lib/usePermissions'
 
 const CATEGORY_LABEL: Record<string, string> = {
   vehicle: 'Vehicle',
@@ -91,7 +92,11 @@ export default function EquipmentDetailClient({
   onBack,
 }: Props) {
   const router = useRouter()
-  const canManage = userRole === 'admin' || userRole === 'foreman'
+  const { canView } = usePermissions()
+  // Equipment management was admin+foreman. With default templates, this
+  // maps to canView('office'), which covers admin and OM — foremen lose
+  // access unless an admin grants `office` view to them or their template.
+  const canManage = canView('office')
 
   const [equipment, setEquipment] = useState(initialEquipment)
   const [logs, setLogs] = useState(initialLogs)

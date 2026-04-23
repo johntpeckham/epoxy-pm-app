@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { getUserPermissions } from '@/lib/getUserPermissions'
 import MyWorkClient from '@/components/my-work/MyWorkClient'
 import type { UserRole } from '@/types'
 
@@ -12,14 +13,13 @@ export default async function MyWorkPage() {
   if (!session) return null
   const user = session.user
 
-  // Fetch user role for expense visibility
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  const userRole = (profile?.role ?? 'crew') as UserRole
-  const isAdminOrOM = userRole === 'admin' || userRole === 'office_manager'
+  // Permissions power two gates on this page: `canView('office')` expands
+  // the expense scope to everyone on the team, and `canEdit('daily_reports')`
+  // drives the admin-style count on the daily-reports tile. The resolved
+  // role is still surfaced via userRole for role-shaped UI in MyWorkClient.
+  const permissions = await getUserPermissions(supabase, user.id)
+  const userRole = (permissions.role ?? 'crew') as UserRole
+  const canSeeAllExpenses = permissions.canView('office')
 
   // Fetch tasks assigned to current user with project names
   const { data: assignedTasks } = await supabase
@@ -48,7 +48,7 @@ export default async function MyWorkPage() {
     .select('*')
     .order('date', { ascending: false })
 
-  if (!isAdminOrOM) {
+  if (!canSeeAllExpenses) {
     expenseQuery = expenseQuery.eq('user_id', user.id)
   }
 
@@ -68,7 +68,7 @@ export default async function MyWorkPage() {
     user_display_name?: string
   }>
 
-  if (isAdminOrOM && expenses.length > 0) {
+  if (canSeeAllExpenses && expenses.length > 0) {
     const userIds = [...new Set(expenses.map((e) => e.user_id))]
     const { data: expenseProfiles } = await supabase
       .from('profiles')
@@ -121,9 +121,16 @@ export default async function MyWorkPage() {
       : null,
   }))
 
-  // Sales activity stats (only meaningful for sales-eligible roles)
+  // Sales activity stats are meaningful only for users with any sales
+  // sub-feature access (admin shortcut handles the admin case).
   const isSalesRole =
-    userRole === 'admin' || userRole === 'office_manager' || userRole === 'salesman'
+    permissions.canView('crm') ||
+    permissions.canView('dialer') ||
+    permissions.canView('emailer') ||
+    permissions.canView('leads') ||
+    permissions.canView('appointments') ||
+    permissions.canView('estimating') ||
+    permissions.canView('job_walk')
   let salesActivity: {
     callsToday: number
     callsWeek: number
@@ -225,7 +232,9 @@ export default async function MyWorkPage() {
     myTodayReport = myReport ?? null
   }
 
-  if (userRole === 'admin') {
+  // Admin-level daily-reports count — previously admin-only; now driven by
+  // edit access on daily_reports (admins continue to get it via shortcut).
+  if (permissions.canEdit('daily_reports')) {
     const { count } = await supabase
       .from('office_daily_reports')
       .select('id', { count: 'exact', head: true })

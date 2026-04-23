@@ -1,37 +1,21 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { requirePermission } from '@/lib/requirePermission'
 import type { UserRole } from '@/types'
 import OfficeTasksPageClient from '@/components/office-tasks/OfficeTasksPageClient'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 
 export default async function OfficePage() {
-  const supabase = await createClient()
+  const { supabase, user, permissions } = await requirePermission('office', 'view')
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return redirect('/login')
-  const user = session.user
-
-  // Check role — admin, office_manager, salesman get the full dashboard.
-  // Foreman is allowed on this page but sees an Equipment-only view
-  // (card visibility is gated client-side in OfficeTasksPageClient).
-  const { data: profile } = await supabase
+  // Fetch display name (role already resolved by requirePermission).
+  const { data: profileRow } = await supabase
     .from('profiles')
-    .select('role, display_name')
+    .select('display_name')
     .eq('id', user.id)
     .single()
-  const userRole = (profile?.role ?? 'crew') as UserRole
-  const userDisplayName = (profile?.display_name as string | null) ?? ''
-
-  if (
-    userRole !== 'admin' &&
-    userRole !== 'office_manager' &&
-    userRole !== 'salesman' &&
-    userRole !== 'foreman'
-  ) {
-    return redirect('/my-work')
-  }
+  const userRole = (permissions.role ?? 'crew') as UserRole
+  const userDisplayName = (profileRow?.display_name as string | null) ?? ''
 
   // Fetch ALL office tasks
   const { data: tasks } = await supabase
@@ -101,9 +85,10 @@ export default async function OfficePage() {
     }
   })
 
-  // Fetch employee count for the Employees dashboard card (only for admin/office_manager)
+  // Fetch employee count for the Employees dashboard card (only for users
+  // with employee_management view access).
   let employeeCount = 0
-  if (userRole === 'admin' || userRole === 'office_manager') {
+  if (permissions.canView('employee_management')) {
     const { count } = await supabase
       .from('employee_profiles')
       .select('id', { count: 'exact', head: true })
