@@ -141,7 +141,7 @@ function Header() {
         </p>
         <div className="flex items-center gap-2 flex-shrink-0">
           <Link
-            href="/permissions"
+            href="/settings/users/permissions"
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-lg hover:bg-gray-50 dark:hover:bg-[#2e2e2e] transition"
           >
             <ShieldIcon className="w-4 h-4" />

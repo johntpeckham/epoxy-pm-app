@@ -117,7 +117,7 @@ const NAV_PAGES: NavPage[] = [
   { name: 'Settings', route: '/profile', icon: SettingsIcon, description: 'Settings & Admin', keywords: ['company info', 'profile'], access: { type: 'all' } },
   // Permissions is admin-only — gated by user_management (which only admins
   // have in default templates, matching the route's server-side admin gate).
-  { name: 'Permissions', route: '/permissions', icon: LockIcon, description: 'Settings & Admin', keywords: ['roles', 'access'], access: { type: 'permission', feature: 'user_management' } },
+  { name: 'User permissions', route: '/settings/users/permissions', icon: LockIcon, description: 'Settings & Admin', keywords: ['roles', 'access', 'permissions'], access: { type: 'permission', feature: 'user_management' } },
   { name: 'Form Management', route: '/form-management', icon: FileTextIcon, description: 'Settings & Admin', keywords: ['templates', 'custom forms'], access: { type: 'permission', feature: 'job_feed_forms' } },
   { name: 'Checklist Templates', route: '/checklist-templates', icon: ListChecksIcon, description: 'Settings & Admin', keywords: ['project checklists'], access: { type: 'permission', feature: 'checklist_templates' } },
   { name: 'Job Report Management', route: '/job-report-management', icon: BookOpenIcon, description: 'Settings & Admin', keywords: ['field guides', 'report checklists'], access: { type: 'permission', feature: 'job_reports' } },
