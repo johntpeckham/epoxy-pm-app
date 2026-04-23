@@ -414,7 +414,7 @@ export default function TimesheetsPageClient({
   const { settings: companySettings } = useCompanySettings()
   // PDF download was previously admin+OM. `canEdit('timesheets')` keeps
   // admins covered via the hook's shortcut and lets admins grant it to
-  // specific users via the /permissions template matrix.
+  // specific users via the /settings/users/permissions template matrix.
   const canDownloadPdf = canEdit('timesheets')
   const [showManageEmployees, setShowManageEmployees] = useState(false)
   const [downloadingWeek, setDownloadingWeek] = useState<string | null>(null)
