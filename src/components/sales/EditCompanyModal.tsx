@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import { US_STATES } from '@/lib/usStates'
+import { useAssignableUsers } from '@/lib/useAssignableUsers'
 
 export interface EditableCompany {
   id: string
@@ -21,11 +22,6 @@ export interface EditableCompany {
   number_of_locations: number | null
   revenue_range: string | null
   employee_range: string | null
-}
-
-export interface AssignableUser {
-  id: string
-  display_name: string | null
 }
 
 interface EditCompanyModalProps {
@@ -76,26 +72,9 @@ export default function EditCompanyModal({
   const [numberOfLocations, setNumberOfLocations] = useState<string>(company.number_of_locations != null ? String(company.number_of_locations) : '')
   const [revenueRange, setRevenueRange] = useState(company.revenue_range ?? '')
   const [employeeRange, setEmployeeRange] = useState(company.employee_range ?? '')
-  const [users, setUsers] = useState<AssignableUser[]>([])
+  const { users } = useAssignableUsers()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const supabase = createClient()
-    supabase
-      .from('profiles')
-      .select('id, display_name, role')
-      .in('role', ['admin', 'office_manager', 'salesman'])
-      .order('display_name', { ascending: true })
-      .then(({ data }) => {
-        setUsers(
-          ((data ?? []) as { id: string; display_name: string | null }[]).map((u) => ({
-            id: u.id,
-            display_name: u.display_name,
-          }))
-        )
-      })
-  }, [])
 
   async function handleSave() {
     if (!name.trim()) return

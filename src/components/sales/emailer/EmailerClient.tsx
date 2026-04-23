@@ -25,21 +25,30 @@ import {
   ArrowRightIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import MultiSelectDropdown from '../MultiSelectDropdown'
+import { useAssignableUsers } from '@/lib/useAssignableUsers'
 
-type StatusFilter = 'prospect_contacted' | 'hot_lead' | 'all'
 type PriorityFilter = 'all' | 'high' | 'high_medium'
+
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: 'prospect', label: 'Prospect' },
+  { value: 'contacted', label: 'Contacted' },
+  { value: 'hot_lead', label: 'Hot lead' },
+  { value: 'lost', label: 'Lost' },
+]
+
+const UNASSIGNED_SENTINEL = '__unassigned__'
 
 interface CompanyRow {
   id: string
   name: string
   industry: string | null
   zone: string | null
-  region: string | null
-  county: string | null
   city: string | null
   state: string | null
   status: string
   priority: 'high' | 'medium' | 'low' | null
+  assigned_to: string | null
 }
 
 interface ContactRow {
@@ -64,8 +73,6 @@ interface EmailQueueContact {
   company_name: string
   company_industry: string | null
   company_zone: string | null
-  company_region: string | null
-  company_county: string | null
   company_city: string | null
   company_state: string | null
   company_status: string
@@ -117,11 +124,14 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
 
   const [howMany, setHowMany] = useState<number>(25)
   const [zone, setZone] = useState<string>('')
-  const [regionCounty, setRegionCounty] = useState<string>('')
   const [industry, setIndustry] = useState<string>('')
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>('prospect_contacted')
+  const [statusFilter, setStatusFilter] = useState<string[]>([
+    'prospect',
+    'contacted',
+  ])
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
+  const [assignedToIds, setAssignedToIds] = useState<string[]>([])
+  const { users: assignableUsers } = useAssignableUsers()
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -245,7 +255,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     ] = await Promise.all([
       supabase
         .from('companies')
-        .select('id, name, industry, zone, region, county, city, state, status, priority')
+        .select('id, name, industry, zone, city, state, status, priority, assigned_to')
         .eq('archived', false)
         .order('name', { ascending: true }),
       supabase
@@ -278,15 +288,6 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     return [...s].sort()
   }, [companies])
 
-  const regionsOrCounties = useMemo(() => {
-    const s = new Set<string>()
-    for (const c of companies) {
-      if (c.region) s.add(c.region)
-      if (c.county) s.add(c.county)
-    }
-    return [...s].sort()
-  }, [companies])
-
   const industries = useMemo(() => {
     const s = new Set<string>()
     for (const c of companies) if (c.industry) s.add(c.industry)
@@ -300,14 +301,14 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
   }, [companies])
 
   const autoQueue = useMemo<EmailQueueContact[]>(() => {
+    const statusSet = statusFilter.length > 0 ? new Set(statusFilter) : null
+    const assignedSet =
+      assignedToIds.length > 0 ? new Set(assignedToIds) : null
+
     const eligibleCompanies = companies.filter((c) => {
       if (c.status === 'blacklisted') return false
-      if (statusFilter === 'prospect_contacted' &&
-          c.status !== 'prospect' && c.status !== 'contacted') return false
-      if (statusFilter === 'hot_lead' && c.status !== 'hot_lead') return false
+      if (statusSet && !statusSet.has(c.status)) return false
       if (zone && c.zone !== zone) return false
-      if (regionCounty && c.region !== regionCounty && c.county !== regionCounty)
-        return false
       if (industry && c.industry !== industry) return false
       if (priorityFilter === 'high' && c.priority !== 'high') return false
       if (
@@ -316,6 +317,14 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         c.priority !== 'medium'
       )
         return false
+      if (assignedSet) {
+        const isUnassigned = c.assigned_to == null
+        const matchesUnassigned =
+          isUnassigned && assignedSet.has(UNASSIGNED_SENTINEL)
+        const matchesUser =
+          c.assigned_to != null && assignedSet.has(c.assigned_to)
+        if (!matchesUnassigned && !matchesUser) return false
+      }
       return true
     })
     const eligibleIds = new Set(eligibleCompanies.map((c) => c.id))
@@ -334,6 +343,8 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
 
     const out: EmailQueueContact[] = []
     for (const c of picked.values()) {
+      // Reachability: skip contacts without an email address
+      if (!c.email || !c.email.trim()) continue
       const comp = companyMap.get(c.company_id)
       if (!comp) continue
       out.push({
@@ -347,8 +358,6 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         company_name: comp.name,
         company_industry: comp.industry,
         company_zone: comp.zone,
-        company_region: comp.region,
-        company_county: comp.county,
         company_city: comp.city,
         company_state: comp.state,
         company_status: comp.status,
@@ -372,10 +381,10 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     companyMap,
     lastCallMap,
     zone,
-    regionCounty,
     industry,
     statusFilter,
     priorityFilter,
+    assignedToIds,
     howMany,
   ])
 
@@ -397,8 +406,6 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         company_name: comp.name,
         company_industry: comp.industry,
         company_zone: comp.zone,
-        company_region: comp.region,
-        company_county: comp.county,
         company_city: comp.city,
         company_state: comp.state,
         company_status: comp.status,
@@ -408,6 +415,36 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     }
     return out
   }, [manualQueue, contacts, companyMap, lastCallMap])
+
+  const assignedToOptions = useMemo(() => {
+    const userOpts = assignableUsers
+      .map((u) => ({
+        value: u.id,
+        label: u.display_name || u.id.slice(0, 8),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+    return [{ value: UNASSIGNED_SENTINEL, label: 'Unassigned' }, ...userOpts]
+  }, [assignableUsers])
+
+  const statusTriggerLabel = useMemo(() => {
+    if (statusFilter.length === 0) return 'All'
+    if (statusFilter.length === 1) {
+      const opt = STATUS_OPTIONS.find((o) => o.value === statusFilter[0])
+      return opt?.label ?? '1 status'
+    }
+    return `${statusFilter.length} statuses`
+  }, [statusFilter])
+
+  const assignedToTriggerLabel = useMemo(() => {
+    if (assignedToIds.length === 0) return 'All'
+    if (assignedToIds.length === 1) {
+      const only = assignedToIds[0]
+      if (only === UNASSIGNED_SENTINEL) return 'Unassigned'
+      const opt = assignedToOptions.find((o) => o.value === only)
+      return opt?.label ?? only.slice(0, 8)
+    }
+    return `${assignedToIds.length} assigned`
+  }, [assignedToIds, assignedToOptions])
 
   const searchResults = useMemo(() => {
     if (!debouncedSearch) return []
@@ -467,7 +504,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
               </div>
               <p className="text-xs text-gray-400 mb-4 leading-relaxed">
                 Set parameters and we&rsquo;ll build a prioritized queue. Contacts
-                who haven&rsquo;t been emailed recently come first.
+                who haven&rsquo;t been contacted recently come first.
               </p>
               <div className="space-y-3 flex-1">
                 <div>
@@ -500,23 +537,6 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                 </div>
                 <div>
                   <label className="block text-[11px] text-gray-400 mb-1">
-                    Region / County
-                  </label>
-                  <select
-                    value={regionCounty}
-                    onChange={(e) => setRegionCounty(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                  >
-                    <option value="">All regions</option>
-                    {regionsOrCounties.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-gray-400 mb-1">
                     Industry
                   </label>
                   <select
@@ -534,15 +554,13 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                 </div>
                 <div>
                   <label className="block text-[11px] text-gray-400 mb-1">Status</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                  >
-                    <option value="prospect_contacted">Prospect + Contacted</option>
-                    <option value="hot_lead">Hot leads only</option>
-                    <option value="all">All statuses</option>
-                  </select>
+                  <MultiSelectDropdown
+                    ariaLabel="Status"
+                    options={STATUS_OPTIONS}
+                    selected={statusFilter}
+                    onChange={setStatusFilter}
+                    triggerLabel={statusTriggerLabel}
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] text-gray-400 mb-1">
@@ -557,6 +575,18 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                     <option value="high">High only</option>
                     <option value="high_medium">High + Medium</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] text-gray-400 mb-1">
+                    Assigned to
+                  </label>
+                  <MultiSelectDropdown
+                    ariaLabel="Assigned to"
+                    options={assignedToOptions}
+                    selected={assignedToIds}
+                    onChange={setAssignedToIds}
+                    triggerLabel={assignedToTriggerLabel}
+                  />
                 </div>
               </div>
               <button
@@ -738,7 +768,6 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         const current = sessionQueue[currentIndex]
         const progressPct = Math.round((currentIndex / Math.max(1, sessionQueue.length)) * 100)
         const location = [current.company_city, current.company_state].filter(Boolean).join(', ')
-        const regionInfo = [current.company_zone, current.company_region || current.company_county].filter(Boolean).join(' · ')
 
         return (
           <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#1a1a1a] min-h-0">
