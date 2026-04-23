@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { useUserRole } from '@/lib/useUserRole'
 import Portal from '@/components/ui/Portal'
+import Tooltip from '@/components/ui/Tooltip'
 import NewCompanyModal from './NewCompanyModal'
 
 import MergeCompaniesModal from './MergeCompaniesModal'
@@ -1148,43 +1149,51 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
               Merge selected
             </button>
           )}
-          <button
-            onClick={handleExport}
-            disabled={filteredSorted.length === 0}
-            className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            title="Export"
-            aria-label="Export"
-          >
-            <DownloadIcon className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => router.push('/sales/crm/import')}
-            className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            title="Import Center"
-            aria-label="Import Center"
-          >
-            <UploadIcon className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setShowFindDuplicates(true)}
-            className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            title="Find Duplicates"
-            aria-label="Find Duplicates"
-          >
-            <CopyIcon className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setViewArchived((v) => !v)}
-            className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
-              viewArchived
-                ? 'text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100'
-                : 'text-gray-600 border border-gray-200 hover:bg-gray-50'
-            }`}
-            title={viewArchived ? 'View Active' : 'View Archived'}
-            aria-label={viewArchived ? 'View Active' : 'View Archived'}
-          >
-            {viewArchived ? <ArchiveRestoreIcon className="w-4 h-4" /> : <ArchiveIcon className="w-4 h-4" />}
-          </button>
+          <Tooltip label="Export">
+            <button
+              onClick={handleExport}
+              disabled={filteredSorted.length === 0}
+              className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              title="Export"
+              aria-label="Export"
+            >
+              <DownloadIcon className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Import Center">
+            <button
+              onClick={() => router.push('/sales/crm/import')}
+              className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              title="Import Center"
+              aria-label="Import Center"
+            >
+              <UploadIcon className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Find Duplicates">
+            <button
+              onClick={() => setShowFindDuplicates(true)}
+              className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              title="Find Duplicates"
+              aria-label="Find Duplicates"
+            >
+              <CopyIcon className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label={viewArchived ? 'View Active' : 'View Archived'}>
+            <button
+              onClick={() => setViewArchived((v) => !v)}
+              className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
+                viewArchived
+                  ? 'text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100'
+                  : 'text-gray-600 border border-gray-200 hover:bg-gray-50'
+              }`}
+              title={viewArchived ? 'View Active' : 'View Archived'}
+              aria-label={viewArchived ? 'View Active' : 'View Archived'}
+            >
+              {viewArchived ? <ArchiveRestoreIcon className="w-4 h-4" /> : <ArchiveIcon className="w-4 h-4" />}
+            </button>
+          </Tooltip>
           <button
             onClick={() => setShowNewModal(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
