@@ -23,6 +23,11 @@ import CallTemplateModal, {
   TEMPLATE_TYPE_LABELS,
 } from '../CallTemplateModal'
 import MultiSelectDropdown from '../MultiSelectDropdown'
+import LocationFilter, {
+  applyLocationFilter,
+  EMPTY_LOCATION_VALUE,
+  type LocationFilterValue,
+} from '@/components/ui/LocationFilter'
 import { useAssignableUsers } from '@/lib/useAssignableUsers'
 import type { QueuedContact } from './dialerTypes'
 import {
@@ -80,7 +85,10 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
 
   // Auto-select filter state
   const [howMany, setHowMany] = useState<number>(25)
-  const [zone, setZone] = useState<string>('')
+  const [locationValue, setLocationValue] =
+    useState<LocationFilterValue>(EMPTY_LOCATION_VALUE)
+  const [locationRadiusCities, setLocationRadiusCities] =
+    useState<Set<string> | null>(null)
   const [industry, setIndustry] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<string[]>([
     'prospect',
@@ -209,6 +217,26 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     return [...s].sort()
   }, [companies])
 
+  const cities = useMemo(() => {
+    const s = new Set<string>()
+    for (const c of companies) if (c.city) s.add(c.city)
+    return [...s].sort()
+  }, [companies])
+
+  const states = useMemo(() => {
+    const s = new Set<string>()
+    for (const c of companies) if (c.state) s.add(c.state)
+    return [...s].sort()
+  }, [companies])
+
+  const cityStatePairs = useMemo(() => {
+    const m = new Map<string, string | null>()
+    for (const c of companies) {
+      if (c.city && !m.has(c.city)) m.set(c.city, c.state ?? null)
+    }
+    return [...m.entries()].map(([city, state]) => ({ city, state }))
+  }, [companies])
+
   const industries = useMemo(() => {
     const s = new Set<string>()
     for (const c of companies) if (c.industry) s.add(c.industry)
@@ -231,7 +259,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     const eligibleCompanies = companies.filter((c) => {
       if (c.status === 'blacklisted') return false
       if (statusSet && !statusSet.has(c.status)) return false
-      if (zone && c.zone !== zone) return false
+      if (!applyLocationFilter(c, locationValue, locationRadiusCities)) return false
       if (industry && c.industry !== industry) return false
       if (priorityFilter === 'high' && c.priority !== 'high') return false
       if (
@@ -305,7 +333,8 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     contacts,
     companyMap,
     lastCallMap,
-    zone,
+    locationValue,
+    locationRadiusCities,
     industry,
     statusFilter,
     priorityFilter,
@@ -444,19 +473,16 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-gray-400 mb-1">Zone</label>
-                <select
-                  value={zone}
-                  onChange={(e) => setZone(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                >
-                  <option value="">All zones</option>
-                  {zones.map((z) => (
-                    <option key={z} value={z}>
-                      {z}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-[11px] text-gray-400 mb-1">Location</label>
+                <LocationFilter
+                  value={locationValue}
+                  onChange={setLocationValue}
+                  availableZones={zones}
+                  availableCities={cities}
+                  availableStates={states}
+                  cityStatePairs={cityStatePairs}
+                  onRadiusCitiesChange={setLocationRadiusCities}
+                />
               </div>
               <div>
                 <label className="block text-[11px] text-gray-400 mb-1">
