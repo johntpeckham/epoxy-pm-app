@@ -49,6 +49,12 @@ interface LocationFilterProps {
    */
   onRadiusCitiesChange?: (cities: Set<string> | null) => void
   triggerLabel?: string
+  /**
+   * Trigger style:
+   *  - 'chip' (default): compact pill, for filter bars like the CRM table.
+   *  - 'input': full-width dropdown input, for forms like Dialer/Emailer auto-select.
+   */
+  variant?: 'chip' | 'input'
   className?: string
 }
 
@@ -120,6 +126,7 @@ export default function LocationFilter({
   cityStatePairs,
   onRadiusCitiesChange,
   triggerLabel = 'Location',
+  variant = 'chip',
   className = '',
 }: LocationFilterProps) {
   const [open, setOpen] = useState(false)
@@ -310,38 +317,60 @@ export default function LocationFilter({
   const sectionHeaderStyle = { color: '#EF9F27' }
   const mutedOrange = 'rgba(239,159,39,0.6)'
 
+  const radiusSuffix = radiusDisplayActive ? ` +${value.radiusMiles}mi` : ''
+
   return (
     <div className={`relative ${className}`}>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={handleTriggerClick}
-        className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border transition-colors ${
-          activeCount > 0
-            ? 'bg-blue-50 text-blue-700 border-blue-200'
-            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-        }`}
-        style={{ borderRadius: 20 }}
-      >
-        {triggerLabel}
-        {activeCount > 0 && (
-          <span className="text-[10px] text-blue-500">
-            ({activeCount})
-            {radiusDisplayActive ? ` +${value.radiusMiles}mi` : ''}
+      {variant === 'input' ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={handleTriggerClick}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          className="w-full px-3 py-2 text-sm text-left border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 flex items-center justify-between"
+        >
+          <span className="truncate">
+            {triggerLabel}
+            {activeCount > 0 && (
+              <span className="text-[10px] text-blue-500 ml-1">
+                ({activeCount}){radiusSuffix}
+              </span>
+            )}
           </span>
-        )}
-        {activeCount > 0 ? (
-          <XIcon
-            className="w-3 h-3 ml-0.5 hover:text-blue-900"
-            onClick={(e) => {
-              e.stopPropagation()
-              clearAll()
-            }}
-          />
-        ) : (
-          <ChevronDownIcon className="w-3 h-3" />
-        )}
-      </button>
+          <ChevronDownIcon className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
+        </button>
+      ) : (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={handleTriggerClick}
+          className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border transition-colors ${
+            activeCount > 0
+              ? 'bg-blue-50 text-blue-700 border-blue-200'
+              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+          }`}
+          style={{ borderRadius: 20 }}
+        >
+          {triggerLabel}
+          {activeCount > 0 && (
+            <span className="text-[10px] text-blue-500">
+              ({activeCount}){radiusSuffix}
+            </span>
+          )}
+          {activeCount > 0 ? (
+            <XIcon
+              className="w-3 h-3 ml-0.5 hover:text-blue-900"
+              onClick={(e) => {
+                e.stopPropagation()
+                clearAll()
+              }}
+            />
+          ) : (
+            <ChevronDownIcon className="w-3 h-3" />
+          )}
+        </button>
+      )}
 
       {open &&
         dropdownRect &&
