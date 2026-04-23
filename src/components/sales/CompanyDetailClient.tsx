@@ -653,7 +653,11 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     assignedName ? `Assigned to ${formatAssigned(assignedName)}` : null,
   ].filter((p): p is string => !!p && p !== '')
 
-  const lastActivity = callLog[0]?.call_date ?? null
+  const latestCallDate = callLog[0]?.call_date ?? null
+  const latestCommentDate = comments[0]?.created_at ?? null
+  const lastActivity = latestCallDate && latestCommentDate
+    ? (latestCallDate > latestCommentDate ? latestCallDate : latestCommentDate)
+    : (latestCallDate ?? latestCommentDate ?? null)
   const visibleCallLog = callLog.slice(0, callLogLimit)
 
   const statusDropdownOptions: CompanyStatus[] = [
