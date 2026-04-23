@@ -1151,35 +1151,39 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           <button
             onClick={handleExport}
             disabled={filteredSorted.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            title="Export"
+            aria-label="Export"
           >
             <DownloadIcon className="w-4 h-4" />
-            Export
           </button>
           <button
             onClick={() => router.push('/sales/crm/import')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            title="Import Center"
+            aria-label="Import Center"
           >
             <UploadIcon className="w-4 h-4" />
-            Import Center
           </button>
           <button
             onClick={() => setShowFindDuplicates(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            title="Find Duplicates"
+            aria-label="Find Duplicates"
           >
             <CopyIcon className="w-4 h-4" />
-            Find Duplicates
           </button>
           <button
             onClick={() => setViewArchived((v) => !v)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+            className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
               viewArchived
                 ? 'text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100'
                 : 'text-gray-600 border border-gray-200 hover:bg-gray-50'
             }`}
+            title={viewArchived ? 'View Active' : 'View Archived'}
+            aria-label={viewArchived ? 'View Active' : 'View Archived'}
           >
             {viewArchived ? <ArchiveRestoreIcon className="w-4 h-4" /> : <ArchiveIcon className="w-4 h-4" />}
-            {viewArchived ? 'View Active' : 'View Archived'}
           </button>
           <button
             onClick={() => setShowNewModal(true)}
