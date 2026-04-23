@@ -475,6 +475,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
               <div>
                 <label className="block text-[11px] text-gray-400 mb-1">Location</label>
                 <LocationFilter
+                  variant="input"
                   value={locationValue}
                   onChange={setLocationValue}
                   availableZones={zones}
