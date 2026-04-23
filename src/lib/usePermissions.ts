@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import type { UserRole, FeatureKey, AccessLevel, RolePermission } from '@/types'
+import { useCallback } from 'react'
+import type { UserRole, AccessLevel, RolePermission } from '@/types'
+import type { FeatureKey } from '@/lib/featureKeys'
+import { usePermissionsContext } from '@/components/permissions/PermissionsProvider'
 
 interface UsePermissionsReturn {
   /** Check access level for a feature. Admin always returns 'full'. */
@@ -13,44 +14,31 @@ interface UsePermissionsReturn {
   canCreate: (feature: FeatureKey) => boolean
   /** True if the user has full (edit/delete) access. */
   canEdit: (feature: FeatureKey) => boolean
-  /** All permission rows (for admin UI). */
+  /** Legacy field — used to return all role_permissions rows for the admin
+   *  matrix. Now always an empty array; the new UI reads from
+   *  permission_templates / user_permissions directly in Phase 2b. */
   permissions: RolePermission[]
   /** Reload permissions from the database. */
   refetch: () => Promise<void>
   loading: boolean
 }
 
-export function usePermissions(role: UserRole): UsePermissionsReturn {
-  const [permissions, setPermissions] = useState<RolePermission[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const fetchPermissions = useCallback(async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('role_permissions')
-      .select('*')
-      .order('role')
-      .order('feature')
-
-    setPermissions((data as RolePermission[]) ?? [])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    fetchPermissions()
-  }, [fetchPermissions])
+/**
+ * Reads the current user's permissions from PermissionsProvider context.
+ *
+ * The optional `_role` argument is accepted for backwards compatibility with
+ * the pre-Phase-2a signature (`usePermissions(role)`) and is ignored — the
+ * authoritative role comes from the provider, not the caller.
+ */
+export function usePermissions(_role?: UserRole): UsePermissionsReturn {
+  const { role, permissionsMap, loading, refetch } = usePermissionsContext()
 
   const access = useCallback(
     (feature: FeatureKey): AccessLevel => {
-      // Admin always has full access
       if (role === 'admin') return 'full'
-
-      const perm = permissions.find(
-        (p) => p.role === role && p.feature === feature
-      )
-      return perm?.access_level ?? 'full' // default to full if not found
+      return permissionsMap.get(feature) ?? 'off'
     },
-    [role, permissions]
+    [role, permissionsMap]
   )
 
   const canView = useCallback(
@@ -70,11 +58,9 @@ export function usePermissions(role: UserRole): UsePermissionsReturn {
   )
 
   const canEdit = useCallback(
-    (feature: FeatureKey): boolean => {
-      return access(feature) === 'full'
-    },
+    (feature: FeatureKey): boolean => access(feature) === 'full',
     [access]
   )
 
-  return { access, canView, canCreate, canEdit, permissions, refetch: fetchPermissions, loading }
+  return { access, canView, canCreate, canEdit, permissions: [], refetch, loading }
 }

@@ -464,7 +464,11 @@ export interface EmployeeCustomFieldDefinition {
   created_at: string
 }
 
-export type FeatureKey = 'jobs' | 'job_board' | 'daily_reports' | 'jsa_reports' | 'photos' | 'tasks' | 'calendar' | 'project_reports' | 'receipts' | 'timesheets' | 'salesman_expenses'
+// FeatureKey is defined in src/lib/featureKeys.ts (the canonical 35-key list
+// that matches the feature_keys DB table). Re-exported here so existing
+// `import type { FeatureKey } from '@/types'` sites keep working.
+import type { FeatureKey } from '@/lib/featureKeys'
+export type { FeatureKey }
 
 export interface ProjectPin {
   id: string

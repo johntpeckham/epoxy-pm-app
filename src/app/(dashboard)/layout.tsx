@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import Sidebar from '@/components/ui/Sidebar'
 import GlobalHeader from '@/components/layout/GlobalHeader'
 import AuthProvider from '@/components/auth/AuthProvider'
+import PermissionsProvider from '@/components/permissions/PermissionsProvider'
 
 export default async function DashboardLayout({
   children,
@@ -32,27 +33,29 @@ export default async function DashboardLayout({
 
   return (
     <AuthProvider>
-      <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-gray-50 dark:bg-[#1a1a1a] overflow-hidden">
-        <Suspense>
-          <GlobalHeader
-            userId={user?.id ?? ''}
-            userEmail={user?.email}
-            displayName={profile?.display_name ?? undefined}
-            avatarUrl={profile?.avatar_url ?? undefined}
-          />
-          <Sidebar
-            userId={user?.id ?? ''}
-            userEmail={user?.email}
-            displayName={profile?.display_name ?? undefined}
-            avatarUrl={profile?.avatar_url ?? undefined}
-          />
-        </Suspense>
-        <div className="flex-1 min-h-0 safe-top lg:pl-56 overflow-hidden">
-          <main className="h-full overflow-y-auto">
-            {children}
-          </main>
+      <PermissionsProvider>
+        <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-gray-50 dark:bg-[#1a1a1a] overflow-hidden">
+          <Suspense>
+            <GlobalHeader
+              userId={user?.id ?? ''}
+              userEmail={user?.email}
+              displayName={profile?.display_name ?? undefined}
+              avatarUrl={profile?.avatar_url ?? undefined}
+            />
+            <Sidebar
+              userId={user?.id ?? ''}
+              userEmail={user?.email}
+              displayName={profile?.display_name ?? undefined}
+              avatarUrl={profile?.avatar_url ?? undefined}
+            />
+          </Suspense>
+          <div className="flex-1 min-h-0 safe-top lg:pl-56 overflow-hidden">
+            <main className="h-full overflow-y-auto">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </PermissionsProvider>
     </AuthProvider>
   )
 }
