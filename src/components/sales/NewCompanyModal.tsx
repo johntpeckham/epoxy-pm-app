@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import { US_STATES } from '@/lib/usStates'
 import { findSimilarNames } from '@/lib/csv'
+import { useAssignableUsers } from '@/lib/useAssignableUsers'
 
 interface NewCompanyModalProps {
   userId: string
@@ -52,27 +53,10 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
   const [revenueRange, setRevenueRange] = useState('')
   const [employeeRange, setEmployeeRange] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
-  const [users, setUsers] = useState<Array<{ id: string; display_name: string | null }>>([])
+  const { users } = useAssignableUsers()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dupes, setDupes] = useState<Array<{ id: string; name: string; score: number }>>([])
-
-  useEffect(() => {
-    const supabase = createClient()
-    supabase
-      .from('profiles')
-      .select('id, display_name, role')
-      .in('role', ['admin', 'office_manager', 'salesman'])
-      .order('display_name', { ascending: true })
-      .then(({ data }) => {
-        setUsers(
-          ((data ?? []) as { id: string; display_name: string | null }[]).map((u) => ({
-            id: u.id,
-            display_name: u.display_name,
-          }))
-        )
-      })
-  }, [])
 
   // Debounced duplicate check when the user types a name.
   useEffect(() => {

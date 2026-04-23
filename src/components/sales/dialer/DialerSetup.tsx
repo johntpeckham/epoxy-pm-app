@@ -22,14 +22,24 @@ import CallTemplateModal, {
   type CallTemplateRow,
   TEMPLATE_TYPE_LABELS,
 } from '../CallTemplateModal'
+import MultiSelectDropdown from '../MultiSelectDropdown'
+import { useAssignableUsers } from '@/lib/useAssignableUsers'
 import type { QueuedContact } from './dialerTypes'
 import {
   type SmartListFilters,
   EMPTY_SMART_FILTERS,
 } from '../zone-map/zoneMapTypes'
 
-type StatusFilter = 'prospect_contacted' | 'hot_lead' | 'all'
 type PriorityFilter = 'all' | 'high' | 'high_medium'
+
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: 'prospect', label: 'Prospect' },
+  { value: 'contacted', label: 'Contacted' },
+  { value: 'hot_lead', label: 'Hot lead' },
+  { value: 'lost', label: 'Lost' },
+]
+
+const UNASSIGNED_SENTINEL = '__unassigned__'
 
 interface DialerSetupProps {
   userId: string
@@ -41,12 +51,11 @@ interface CompanyRow {
   name: string
   industry: string | null
   zone: string | null
-  region: string | null
-  county: string | null
   city: string | null
   state: string | null
   status: string
   priority: 'high' | 'medium' | 'low' | null
+  assigned_to: string | null
 }
 
 interface ContactRow {
@@ -72,11 +81,14 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
   // Auto-select filter state
   const [howMany, setHowMany] = useState<number>(25)
   const [zone, setZone] = useState<string>('')
-  const [regionCounty, setRegionCounty] = useState<string>('')
   const [industry, setIndustry] = useState<string>('')
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>('prospect_contacted')
+  const [statusFilter, setStatusFilter] = useState<string[]>([
+    'prospect',
+    'contacted',
+  ])
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
+  const [assignedToIds, setAssignedToIds] = useState<string[]>([])
+  const { users: assignableUsers } = useAssignableUsers()
 
   // Manual pick state
   const [search, setSearch] = useState('')
@@ -108,7 +120,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     ] = await Promise.all([
       supabase
         .from('companies')
-        .select('id, name, industry, zone, region, county, city, state, status, priority')
+        .select('id, name, industry, zone, city, state, status, priority, assigned_to')
         .eq('archived', false)
         .order('name', { ascending: true }),
       supabase
@@ -197,15 +209,6 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     return [...s].sort()
   }, [companies])
 
-  const regionsOrCounties = useMemo(() => {
-    const s = new Set<string>()
-    for (const c of companies) {
-      if (c.region) s.add(c.region)
-      if (c.county) s.add(c.county)
-    }
-    return [...s].sort()
-  }, [companies])
-
   const industries = useMemo(() => {
     const s = new Set<string>()
     for (const c of companies) if (c.industry) s.add(c.industry)
@@ -220,15 +223,15 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
 
   // Build auto queue based on filters
   const autoQueue = useMemo<QueuedContact[]>(() => {
+    const statusSet = statusFilter.length > 0 ? new Set(statusFilter) : null
+    const assignedSet =
+      assignedToIds.length > 0 ? new Set(assignedToIds) : null
+
     // Eligible companies
     const eligibleCompanies = companies.filter((c) => {
       if (c.status === 'blacklisted') return false
-      if (statusFilter === 'prospect_contacted' &&
-          c.status !== 'prospect' && c.status !== 'contacted') return false
-      if (statusFilter === 'hot_lead' && c.status !== 'hot_lead') return false
+      if (statusSet && !statusSet.has(c.status)) return false
       if (zone && c.zone !== zone) return false
-      if (regionCounty && c.region !== regionCounty && c.county !== regionCounty)
-        return false
       if (industry && c.industry !== industry) return false
       if (priorityFilter === 'high' && c.priority !== 'high') return false
       if (
@@ -237,6 +240,14 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
         c.priority !== 'medium'
       )
         return false
+      if (assignedSet) {
+        const isUnassigned = c.assigned_to == null
+        const matchesUnassigned =
+          isUnassigned && assignedSet.has(UNASSIGNED_SENTINEL)
+        const matchesUser =
+          c.assigned_to != null && assignedSet.has(c.assigned_to)
+        if (!matchesUnassigned && !matchesUser) return false
+      }
       return true
     })
     const eligibleIds = new Set(eligibleCompanies.map((c) => c.id))
@@ -256,6 +267,8 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
 
     const out: QueuedContact[] = []
     for (const c of picked.values()) {
+      // Reachability: skip contacts without a phone number
+      if (!c.phone || !c.phone.trim()) continue
       const comp = companyMap.get(c.company_id)
       if (!comp) continue
       const lastCall = lastCallMap.get(c.company_id) ?? null
@@ -270,8 +283,6 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
         company_name: comp.name,
         company_industry: comp.industry,
         company_zone: comp.zone,
-        company_region: comp.region,
-        company_county: comp.county,
         company_city: comp.city,
         company_state: comp.state,
         company_priority: comp.priority,
@@ -295,10 +306,10 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     companyMap,
     lastCallMap,
     zone,
-    regionCounty,
     industry,
     statusFilter,
     priorityFilter,
+    assignedToIds,
     howMany,
   ])
 
@@ -321,8 +332,6 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
         company_name: comp.name,
         company_industry: comp.industry,
         company_zone: comp.zone,
-        company_region: comp.region,
-        company_county: comp.county,
         company_city: comp.city,
         company_state: comp.state,
         company_priority: comp.priority,
@@ -331,6 +340,37 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     }
     return out
   }, [manualQueue, contacts, companyMap, lastCallMap])
+
+  // ─── Multi-select option/label helpers ────────────────────────────────
+  const assignedToOptions = useMemo(() => {
+    const userOpts = assignableUsers
+      .map((u) => ({
+        value: u.id,
+        label: u.display_name || u.id.slice(0, 8),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+    return [{ value: UNASSIGNED_SENTINEL, label: 'Unassigned' }, ...userOpts]
+  }, [assignableUsers])
+
+  const statusTriggerLabel = useMemo(() => {
+    if (statusFilter.length === 0) return 'All'
+    if (statusFilter.length === 1) {
+      const opt = STATUS_OPTIONS.find((o) => o.value === statusFilter[0])
+      return opt?.label ?? '1 status'
+    }
+    return `${statusFilter.length} statuses`
+  }, [statusFilter])
+
+  const assignedToTriggerLabel = useMemo(() => {
+    if (assignedToIds.length === 0) return 'All'
+    if (assignedToIds.length === 1) {
+      const only = assignedToIds[0]
+      if (only === UNASSIGNED_SENTINEL) return 'Unassigned'
+      const opt = assignedToOptions.find((o) => o.value === only)
+      return opt?.label ?? only.slice(0, 8)
+    }
+    return `${assignedToIds.length} assigned`
+  }, [assignedToIds, assignedToOptions])
 
   // Manual pick search results
   const searchResults = useMemo(() => {
@@ -420,23 +460,6 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
               </div>
               <div>
                 <label className="block text-[11px] text-gray-400 mb-1">
-                  Region / County
-                </label>
-                <select
-                  value={regionCounty}
-                  onChange={(e) => setRegionCounty(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                >
-                  <option value="">All regions</option>
-                  {regionsOrCounties.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] text-gray-400 mb-1">
                   Industry
                 </label>
                 <select
@@ -454,15 +477,13 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
               </div>
               <div>
                 <label className="block text-[11px] text-gray-400 mb-1">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                >
-                  <option value="prospect_contacted">Prospect + Contacted</option>
-                  <option value="hot_lead">Hot leads only</option>
-                  <option value="all">All statuses</option>
-                </select>
+                <MultiSelectDropdown
+                  ariaLabel="Status"
+                  options={STATUS_OPTIONS}
+                  selected={statusFilter}
+                  onChange={setStatusFilter}
+                  triggerLabel={statusTriggerLabel}
+                />
               </div>
               <div>
                 <label className="block text-[11px] text-gray-400 mb-1">
@@ -477,6 +498,18 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
                   <option value="high">High only</option>
                   <option value="high_medium">High + Medium</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">
+                  Assigned to
+                </label>
+                <MultiSelectDropdown
+                  ariaLabel="Assigned to"
+                  options={assignedToOptions}
+                  selected={assignedToIds}
+                  onChange={setAssignedToIds}
+                  triggerLabel={assignedToTriggerLabel}
+                />
               </div>
             </div>
             <button
@@ -771,18 +804,8 @@ function buildSmartListQueue(input: {
     if (filters.zone.length > 0 && (!c.zone || !filters.zone.includes(c.zone)))
       return false
     if (
-      filters.region.length > 0 &&
-      (!c.region || !filters.region.includes(c.region))
-    )
-      return false
-    if (
       filters.state.length > 0 &&
       (!c.state || !filters.state.includes(c.state))
-    )
-      return false
-    if (
-      filters.county.length > 0 &&
-      (!c.county || !filters.county.includes(c.county))
     )
       return false
     if (filters.city.length > 0 && (!c.city || !filters.city.includes(c.city)))
@@ -816,6 +839,7 @@ function buildSmartListQueue(input: {
 
   const out: QueuedContact[] = []
   for (const c of picked.values()) {
+    if (!c.phone || !c.phone.trim()) continue
     const comp = companyMap.get(c.company_id)
     if (!comp) continue
     out.push({
@@ -829,8 +853,6 @@ function buildSmartListQueue(input: {
       company_name: comp.name,
       company_industry: comp.industry,
       company_zone: comp.zone,
-      company_region: comp.region,
-      company_county: comp.county,
       company_city: comp.city,
       company_state: comp.state,
       company_priority: comp.priority,

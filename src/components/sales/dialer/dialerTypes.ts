@@ -9,8 +9,6 @@ export interface QueuedContact {
   company_name: string
   company_industry: string | null
   company_zone: string | null
-  company_region: string | null
-  company_county: string | null
   company_city: string | null
   company_state: string | null
   company_priority: 'high' | 'medium' | 'low' | null
