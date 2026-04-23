@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
+  AlertTriangleIcon,
   ArrowLeftIcon,
   CameraIcon,
   CheckIcon,
@@ -17,6 +18,12 @@ import Portal from '@/components/ui/Portal'
 import Tooltip from '@/components/ui/Tooltip'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { createClient } from '@/lib/supabase/client'
+import {
+  FEATURE_KEYS,
+  FEATURE_METADATA,
+  type FeatureCategory,
+  type FeatureKey,
+} from '@/lib/featureKeys'
 import type { AccessLevel, UserRole } from '@/types'
 
 interface UserRow {
@@ -30,6 +37,16 @@ interface UserRow {
 
 interface ProfileExtras {
   created_at: string | null
+}
+
+interface RoleChangeRequest {
+  oldRole: UserRole
+  newRole: UserRole
+  displayName: string
+  /** Count of user_permissions rows the user had at dialog-open time.
+   *  Used to show the "no saved permissions" warning in the admin → non-admin
+   *  case. */
+  existingPermissionCount: number
 }
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
@@ -56,6 +73,56 @@ const ROLE_BADGE: Record<UserRole, string> = {
   crew: 'bg-gray-100 text-gray-600',
 }
 
+// Mirror of PermissionsClient's level palette so the per-user editor reads
+// identically to the template editor.
+const ACCESS_OPTIONS: { value: AccessLevel; label: string; activeColor: string }[] = [
+  { value: 'full',      label: 'Full',      activeColor: 'border-green-500 bg-green-500 text-white' },
+  { value: 'create',    label: 'Create',    activeColor: 'border-blue-500 bg-blue-500 text-white' },
+  { value: 'view_only', label: 'View only', activeColor: 'border-amber-500 bg-amber-500 text-white' },
+  { value: 'off',       label: 'Off',       activeColor: 'border-gray-500 bg-gray-500 text-white' },
+]
+
+const CATEGORY_LABEL: Record<FeatureCategory, string> = {
+  core:      'Core',
+  job_board: 'Job Board',
+  sales:     'Sales',
+  office:    'Office',
+  settings:  'Settings',
+  other:     'Other',
+}
+
+const ORDERED_FEATURES: { feature: FeatureKey; displayName: string; category: FeatureCategory; sortOrder: number }[] =
+  FEATURE_KEYS.map((feature) => ({ feature, ...FEATURE_METADATA[feature] })).sort(
+    (a, b) => a.sortOrder - b.sortOrder,
+  )
+
+const CATEGORY_ORDER: FeatureCategory[] = (() => {
+  const seen = new Set<FeatureCategory>()
+  const order: FeatureCategory[] = []
+  for (const f of ORDERED_FEATURES) {
+    if (!seen.has(f.category)) {
+      seen.add(f.category)
+      order.push(f.category)
+    }
+  }
+  return order
+})()
+
+const FEATURES_BY_CATEGORY: Record<FeatureCategory, typeof ORDERED_FEATURES> = (() => {
+  const grouped = { core: [], job_board: [], sales: [], office: [], settings: [], other: [] } as Record<
+    FeatureCategory,
+    typeof ORDERED_FEATURES
+  >
+  for (const f of ORDERED_FEATURES) grouped[f.category].push(f)
+  return grouped
+})()
+
+// Maps the new role to its system template name (seeded by Phase 2a).
+function templateNameForRole(role: UserRole): string | null {
+  if (role === 'admin') return null
+  return `${ROLE_LABEL[role]} default`
+}
+
 interface UserDetailPageClientProps {
   userId: string
 }
@@ -71,11 +138,20 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Per-user permissions for the editor section. Empty for admins by design.
+  const [permissionsMap, setPermissionsMap] = useState<Map<FeatureKey, AccessLevel>>(new Map())
+  const [savingFeature, setSavingFeature] = useState<FeatureKey | null>(null)
+
   const [editInfoOpen, setEditInfoOpen] = useState(false)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  // Pending role-change dialog. Populated when the admin clicks Save in the
+  // Edit Info modal and the role has actually changed; cleared on Cancel /
+  // success / error.
+  const [roleChange, setRoleChange] = useState<RoleChangeRequest | null>(null)
 
   const [toast, setToast] = useState<string | null>(null)
   const showToast = useCallback((msg: string) => {
@@ -123,18 +199,26 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
       // when profiles.created_at does not exist on this schema.
       setProfileExtras({ created_at: (profileRow as { updated_at?: string } | null)?.updated_at ?? null })
 
-      // Scheduler access: admin shortcut OR user_permissions.scheduler !== 'off'
+      // Per-user permissions + scheduler badge come from the same table.
+      // Admins skip the query — they have no rows by design and the editor
+      // renders the read-only notice instead.
       if (target.role === 'admin') {
         setHasScheduler(true)
+        setPermissionsMap(new Map())
       } else {
-        const { data: schedRow } = await supabase
+        const { data: permRows } = await supabase
           .from('user_permissions')
-          .select('access_level')
+          .select('feature, access_level')
           .eq('user_id', userId)
-          .eq('feature', 'scheduler')
-          .maybeSingle()
-        const level = (schedRow as { access_level?: AccessLevel } | null)?.access_level
-        setHasScheduler(level != null && level !== 'off')
+
+        const next = new Map<FeatureKey, AccessLevel>()
+        let schedulerLevel: AccessLevel | undefined
+        for (const row of (permRows ?? []) as { feature: string; access_level: AccessLevel }[]) {
+          next.set(row.feature as FeatureKey, row.access_level)
+          if (row.feature === 'scheduler') schedulerLevel = row.access_level
+        }
+        setPermissionsMap(next)
+        setHasScheduler(schedulerLevel != null && schedulerLevel !== 'off')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load user')
@@ -166,6 +250,196 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
       setDeleting(false)
     }
   }
+
+  // Optimistic per-feature level change. Upserts the user_permissions row;
+  // on error reverts the local map and toasts. The caller's onChange below
+  // also keeps the scheduler badge in sync without a full refetch.
+  const handleLevelChange = useCallback(
+    async (feature: FeatureKey, nextLevel: AccessLevel) => {
+      const previous = permissionsMap.get(feature)
+      setPermissionsMap((prev) => {
+        const next = new Map(prev)
+        next.set(feature, nextLevel)
+        return next
+      })
+      if (feature === 'scheduler') {
+        setHasScheduler(nextLevel !== 'off')
+      }
+      setSavingFeature(feature)
+
+      const { error: upsertError } = await supabase
+        .from('user_permissions')
+        .upsert(
+          {
+            user_id: userId,
+            feature,
+            access_level: nextLevel,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,feature' },
+        )
+
+      setSavingFeature(null)
+
+      if (upsertError) {
+        // Revert the optimistic update.
+        setPermissionsMap((prev) => {
+          const next = new Map(prev)
+          if (previous == null) next.delete(feature)
+          else next.set(feature, previous)
+          return next
+        })
+        if (feature === 'scheduler') {
+          setHasScheduler(previous != null && previous !== 'off')
+        }
+        showToast('Failed to update — try again')
+        // eslint-disable-next-line no-console
+        console.error('[UserDetail] Failed to upsert user_permissions:', upsertError)
+      }
+    },
+    [permissionsMap, showToast, supabase, userId],
+  )
+
+  // Triggered from the Edit Info modal. Splits non-role saves (always run
+  // immediately) from role changes (which open the role-change dialog).
+  const handleEditSubmit = useCallback(
+    async ({
+      displayName,
+      avatarUrl,
+      role,
+    }: {
+      displayName: string
+      avatarUrl: string | null
+      role: UserRole
+    }): Promise<{ ok: true } | { ok: false; error: string }> => {
+      if (!user) return { ok: false, error: 'User not loaded' }
+      const trimmed = displayName.trim()
+      if (!trimmed) return { ok: false, error: 'Display name is required' }
+
+      const roleChanged = role !== user.role
+      const nonRoleChanged =
+        trimmed !== (user.display_name ?? '') || avatarUrl !== user.avatar_url
+
+      // Save non-role fields first so they persist even if the dialog is
+      // cancelled. We deliberately omit `role` from this upsert.
+      if (nonRoleChanged) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            display_name: trimmed,
+            avatar_url: avatarUrl,
+            updated_at: new Date().toISOString(),
+          })
+        if (updateError) {
+          return { ok: false, error: updateError.message || 'Failed to update user' }
+        }
+      }
+
+      if (!roleChanged) {
+        // No dialog needed.
+        if (nonRoleChanged) {
+          showToast('Updated')
+          await loadData()
+        }
+        setEditInfoOpen(false)
+        return { ok: true }
+      }
+
+      // Role changed — open the dialog. Profile non-role fields are already
+      // persisted; the dialog handles the role + permission side effects.
+      setEditInfoOpen(false)
+      if (nonRoleChanged) {
+        // Reflect the saved non-role fields in the header before the dialog
+        // resolves, without waiting on a full reload.
+        setUser({ ...user, display_name: trimmed, avatar_url: avatarUrl })
+      }
+      setRoleChange({
+        oldRole: user.role,
+        newRole: role,
+        displayName: trimmed || displayNameOrEmail(user),
+        existingPermissionCount: permissionsMap.size,
+      })
+      return { ok: true }
+    },
+    [loadData, permissionsMap.size, showToast, supabase, user],
+  )
+
+  // Resolves a role-change dialog choice (or cancels). Updates profiles.role
+  // and optionally wipes/reseeds or clears user_permissions, then refetches.
+  const handleRoleChangeChoice = useCallback(
+    async (choice: 'keep' | 'reset' | 'clear'): Promise<{ ok: true } | { ok: false; error: string }> => {
+      if (!roleChange || !user) return { ok: false, error: 'No pending role change' }
+      const newRole = roleChange.newRole
+
+      try {
+        if (choice === 'reset') {
+          const tplName = templateNameForRole(newRole)
+          if (!tplName) {
+            return { ok: false, error: 'No template exists for this role.' }
+          }
+          const { data: template, error: tplErr } = await supabase
+            .from('permission_templates')
+            .select('id')
+            .eq('name', tplName)
+            .single()
+          if (tplErr || !template) {
+            return { ok: false, error: tplErr?.message || `Template "${tplName}" not found` }
+          }
+          const { data: tplRows, error: tplRowsErr } = await supabase
+            .from('template_permissions')
+            .select('feature, access_level')
+            .eq('template_id', (template as { id: string }).id)
+          if (tplRowsErr) return { ok: false, error: tplRowsErr.message }
+
+          const { error: deleteErr } = await supabase
+            .from('user_permissions')
+            .delete()
+            .eq('user_id', user.id)
+          if (deleteErr) return { ok: false, error: deleteErr.message }
+
+          if ((tplRows ?? []).length > 0) {
+            const insertRows = (tplRows as { feature: string; access_level: AccessLevel }[]).map((r) => ({
+              user_id: user.id,
+              feature: r.feature,
+              access_level: r.access_level,
+            }))
+            const { error: insertErr } = await supabase
+              .from('user_permissions')
+              .insert(insertRows)
+            if (insertErr) return { ok: false, error: insertErr.message }
+          }
+        } else if (choice === 'clear') {
+          const { error: deleteErr } = await supabase
+            .from('user_permissions')
+            .delete()
+            .eq('user_id', user.id)
+          if (deleteErr) return { ok: false, error: deleteErr.message }
+        }
+        // choice === 'keep' touches no permission rows.
+
+        const { error: roleErr } = await supabase
+          .from('profiles')
+          .upsert({ id: user.id, role: newRole, updated_at: new Date().toISOString() })
+        if (roleErr) return { ok: false, error: roleErr.message }
+
+        const successCopy =
+          choice === 'reset'
+            ? `Role changed and permissions reset to ${ROLE_LABEL[newRole]} default`
+            : choice === 'clear'
+              ? 'Made admin and cleared saved permissions'
+              : 'Role updated'
+        setRoleChange(null)
+        showToast(successCopy)
+        await loadData()
+        return { ok: true }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Role change failed'
+        return { ok: false, error: message }
+      }
+    },
+    [loadData, roleChange, showToast, supabase, user],
+  )
 
   if (loading) return <PageSkeleton />
 
@@ -216,18 +490,27 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
           createdAt={profileExtras.created_at}
         />
 
-        <PermissionsPlaceholder />
+        <PermissionsSection
+          user={user}
+          permissionsMap={permissionsMap}
+          savingFeature={savingFeature}
+          onLevelChange={handleLevelChange}
+        />
       </div>
 
       {editInfoOpen && (
         <EditInfoModal
           user={user}
           onClose={() => setEditInfoOpen(false)}
-          onSaved={async () => {
-            setEditInfoOpen(false)
-            showToast('Updated')
-            await loadData()
-          }}
+          onSubmit={handleEditSubmit}
+        />
+      )}
+
+      {roleChange && (
+        <RoleChangeDialog
+          request={roleChange}
+          onCancel={() => setRoleChange(null)}
+          onChoose={handleRoleChangeChoice}
         />
       )}
 
@@ -382,27 +665,119 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function PermissionsPlaceholder() {
+function PermissionsSection({
+  user,
+  permissionsMap,
+  savingFeature,
+  onLevelChange,
+}: {
+  user: UserRow
+  permissionsMap: Map<FeatureKey, AccessLevel>
+  savingFeature: FeatureKey | null
+  onLevelChange: (feature: FeatureKey, next: AccessLevel) => void
+}) {
+  if (user.role === 'admin') {
+    return (
+      <section>
+        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+          Permissions
+        </h2>
+        <div className="bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl p-5">
+          <p className="text-sm text-gray-700 dark:text-gray-200">
+            Admin has full access to all features.
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            To restrict this user, change their role from Admin first.
+          </p>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section>
       <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
         Permissions
       </h2>
-      <div className="bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl p-6 text-center">
-        <p className="text-sm text-gray-500 dark:text-gray-400">Permissions editor coming next.</p>
+      <div className="bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl overflow-hidden">
+        {CATEGORY_ORDER.map((category, ci) => (
+          <div key={category} className={ci > 0 ? 'border-t border-gray-100 dark:border-[#2a2a2a]' : ''}>
+            <div className="px-4 py-2 bg-gray-50 dark:bg-[#1f1f1f] text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {CATEGORY_LABEL[category]}
+            </div>
+            {FEATURES_BY_CATEGORY[category].map((feature) => {
+              const current = permissionsMap.get(feature.feature) ?? 'off'
+              return (
+                <div
+                  key={feature.feature}
+                  className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 dark:border-[#2a2a2a] gap-3"
+                >
+                  <span className="text-sm text-gray-900 dark:text-white truncate">
+                    {feature.displayName}
+                  </span>
+                  <AccessLevelSelect
+                    value={current}
+                    disabled={savingFeature === feature.feature}
+                    onChange={(next) => onLevelChange(feature.feature, next)}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        ))}
       </div>
     </section>
+  )
+}
+
+function AccessLevelSelect({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: AccessLevel
+  disabled: boolean
+  onChange: (next: AccessLevel) => void
+}) {
+  const option = ACCESS_OPTIONS.find((o) => o.value === value) ?? ACCESS_OPTIONS[3]
+  return (
+    <div className="relative inline-flex items-center">
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value as AccessLevel)}
+        className={`appearance-none pl-3 pr-7 py-1 rounded-md border text-xs font-medium transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500/30 ${option.activeColor} ${disabled ? 'opacity-50 cursor-wait' : ''}`}
+      >
+        {ACCESS_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value} className="text-gray-900 bg-white">
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <span className="pointer-events-none absolute right-2 text-white/90">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+          <path d="M1 3l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    </div>
   )
 }
 
 function EditInfoModal({
   user,
   onClose,
-  onSaved,
+  onSubmit,
 }: {
   user: UserRow
   onClose: () => void
-  onSaved: () => void | Promise<void>
+  /** Returns { ok: true } on success — the parent owns closing the modal
+   *  for non-role saves and for opening the role-change dialog when role
+   *  changes. On error, the modal stays open and surfaces the message. */
+  onSubmit: (payload: {
+    displayName: string
+    avatarUrl: string | null
+    role: UserRole
+  }) => Promise<{ ok: true } | { ok: false; error: string }>
 }) {
   const supabase = useMemo(() => createClient(), [])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -443,22 +818,13 @@ function EditInfoModal({
     }
     setSaving(true)
     setErr(null)
-    try {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          display_name: displayName.trim(),
-          role,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
-      if (updateError) throw updateError
-      await onSaved()
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Failed to update user')
+    const result = await onSubmit({ displayName, avatarUrl, role })
+    if (!result.ok) {
+      setErr(result.error)
       setSaving(false)
     }
+    // On success the parent closes the modal (or opens the role-change
+    // dialog), so we leave `saving` set — the modal will unmount.
   }
 
   return (
@@ -774,6 +1140,156 @@ function PageSkeleton() {
         </div>
       </div>
     </div>
+  )
+}
+
+// 4-case role-change dialog. Renders 2 primary options + Cancel.
+// The parent owns the actual save; this component exposes the choice and
+// surfaces inline errors when the save fails.
+function RoleChangeDialog({
+  request,
+  onCancel,
+  onChoose,
+}: {
+  request: RoleChangeRequest
+  onCancel: () => void
+  onChoose: (choice: 'keep' | 'reset' | 'clear') => Promise<{ ok: true } | { ok: false; error: string }>
+}) {
+  const { oldRole, newRole, displayName, existingPermissionCount } = request
+  const oldLabel = ROLE_LABEL[oldRole]
+  const newLabel = ROLE_LABEL[newRole]
+
+  const [pending, setPending] = useState<'keep' | 'reset' | 'clear' | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+
+  const isToAdmin = oldRole !== 'admin' && newRole === 'admin'
+  const isFromAdmin = oldRole === 'admin' && newRole !== 'admin'
+
+  let title: string
+  let body: string
+  let primary1: { value: 'keep'; label: string; warning?: string }
+  let primary2: { value: 'reset' | 'clear'; label: string }
+
+  if (isToAdmin) {
+    title = `Make ${displayName} an admin?`
+    body =
+      'Admins have full access to all features. Their current per-feature permissions will no longer apply while they are admin. What should happen to their saved permissions?'
+    primary1 = { value: 'keep', label: 'Make admin (keep permissions on file)' }
+    primary2 = { value: 'clear', label: 'Make admin and clear permissions' }
+  } else if (isFromAdmin) {
+    title = 'Remove admin access?'
+    body = `${displayName} is becoming ${newLabel}. What should happen to their permissions?`
+    primary1 = {
+      value: 'keep',
+      label: 'Keep current permissions (if any)',
+      warning:
+        existingPermissionCount === 0
+          ? 'This user has no saved permissions. Keeping current permissions will leave them with no access until you set permissions manually.'
+          : undefined,
+    }
+    primary2 = { value: 'reset', label: `Reset to ${newLabel} default` }
+  } else {
+    title = 'Change role?'
+    body = `${displayName} is changing from ${oldLabel} to ${newLabel}. What should happen to their permissions?`
+    primary1 = { value: 'keep', label: 'Keep current permissions' }
+    primary2 = { value: 'reset', label: `Reset to ${newLabel} default` }
+  }
+
+  async function pickChoice(choice: 'keep' | 'reset' | 'clear') {
+    setPending(choice)
+    setErr(null)
+    const result = await onChoose(choice)
+    if (!result.ok) {
+      setErr(result.error)
+      setPending(null)
+    }
+    // On success the parent closes the dialog.
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape' && pending == null) onCancel()
+  }
+
+  return (
+    <Portal>
+      <div
+        className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header"
+        onClick={() => {
+          if (pending == null) onCancel()
+        }}
+        onKeyDown={handleKeyDown}
+      >
+        <div
+          className="mt-auto md:my-auto md:mx-auto w-full md:max-w-md bg-white md:rounded-xl flex flex-col overflow-hidden max-h-[90vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
+            style={{ minHeight: '56px' }}
+          >
+            <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
+                <AlertTriangleIcon className="w-4 h-4 text-amber-600" />
+              </div>
+              <p className="text-sm text-gray-600 mt-1.5">{body}</p>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => pickChoice(primary1.value)}
+                disabled={pending != null}
+                className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 hover:border-amber-300 hover:bg-amber-50 transition disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              >
+                <span className="inline-flex items-center gap-2">
+                  {primary1.label}
+                  {pending === primary1.value && <Spinner />}
+                </span>
+                {primary1.warning && (
+                  <p className="text-xs text-amber-700 mt-1.5">{primary1.warning}</p>
+                )}
+              </button>
+              <button
+                onClick={() => pickChoice(primary2.value)}
+                disabled={pending != null}
+                className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 hover:border-amber-300 hover:bg-amber-50 transition disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              >
+                <span className="inline-flex items-center gap-2">
+                  {primary2.label}
+                  {pending === primary2.value && <Spinner />}
+                </span>
+              </button>
+            </div>
+
+            {err && <p className="text-xs text-red-600">{err}</p>}
+          </div>
+
+          <div
+            className="flex-none flex justify-end p-4 border-t border-gray-200"
+            style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}
+          >
+            <button
+              onClick={() => {
+                if (pending == null) onCancel()
+              }}
+              disabled={pending != null}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  )
+}
+
+function Spinner() {
+  return (
+    <span className="inline-block w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
   )
 }
 
