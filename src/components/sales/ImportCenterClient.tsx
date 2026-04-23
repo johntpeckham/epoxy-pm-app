@@ -59,17 +59,18 @@ type TargetField =
   | 'skip' | 'company_name' | 'industry' | 'zone' | 'state'
   | 'city' | 'status' | 'priority' | 'lead_source'
   | 'contact_first_name' | 'contact_last_name' | 'contact_job_title'
-  | 'contact_email' | 'contact_phone' | 'contact_mobile' | 'address'
+  | 'contact_email' | 'address'
   | 'number_of_locations' | 'revenue_range' | 'employee_range'
   | 'last_call_status' | 'last_call_date'
+
+interface PhoneMapping { csvColumnIndex: number | null; type: string }
 
 const TARGET_LABELS: Record<TargetField, string> = {
   skip: '— Skip this column —', company_name: 'Company name', industry: 'Industry',
   zone: 'Zone', state: 'State', city: 'City',
   status: 'Status', priority: 'Priority', lead_source: 'Lead source',
   contact_first_name: 'Contact first name', contact_last_name: 'Contact last name',
-  contact_job_title: 'Contact job title', contact_email: 'Contact email',
-  contact_phone: 'Contact phone (office)', contact_mobile: 'Contact mobile', address: 'Address',
+  contact_job_title: 'Contact job title', contact_email: 'Contact email', address: 'Address',
   number_of_locations: 'Number of Locations', revenue_range: 'Revenue Range',
   employee_range: 'Employee Range',
   last_call_status: 'Last Call Status', last_call_date: 'Last Call Date',
@@ -91,8 +92,7 @@ function guessMapping(header: string): TargetField {
   if (/last\s*name|^lname$|surname|family/.test(h)) return 'contact_last_name'
   if (/job\s*title|^title$|position|role/.test(h)) return 'contact_job_title'
   if (/email|^e-?mail$/.test(h)) return 'contact_email'
-  if (/mobile|cell/.test(h)) return 'contact_mobile'
-  if (/phone|telephone/.test(h)) return 'contact_phone'
+  if (/mobile|cell|phone|telephone/.test(h)) return 'skip'
   if (/street\s*addr|^address$|^addr$|address\s*(line\s*)?1/.test(h)) return 'address'
   if (/loc(ation)?s?\s*(count|number|#|num)?$|number\s*of\s*loc/.test(h)) return 'number_of_locations'
   if (/revenue\s*(range)?|annual\s*rev/.test(h)) return 'revenue_range'
@@ -108,32 +108,33 @@ interface MappedRow {
   state: string | null; city: string | null
   status: string | null; priority: string | null; lead_source: string | null
   contact_first_name: string | null; contact_last_name: string | null
-  contact_job_title: string | null; contact_email: string | null; contact_phone: string | null
-  contact_mobile: string | null
+  contact_job_title: string | null; contact_email: string | null
+  phones: Array<{ type: string; number: string }>
   address: string | null
   number_of_locations: string | null; revenue_range: string | null; employee_range: string | null
   last_call_status: string | null; last_call_date: string | null
   extras: Record<string, string>
 }
 
-function buildMappedRow(headers: string[], row: string[], mapping: TargetField[]): MappedRow {
+function buildMappedRow(headers: string[], row: string[], mapping: TargetField[], phoneMappings: PhoneMapping[]): MappedRow {
   const out: MappedRow = {
     company_name: '', industry: null, zone: null,
     state: null, city: null, status: null, priority: null,
     lead_source: null,
     contact_first_name: null, contact_last_name: null,
-    contact_job_title: null, contact_email: null, contact_phone: null,
-    contact_mobile: null,
+    contact_job_title: null, contact_email: null,
+    phones: [],
     address: null,
     number_of_locations: null, revenue_range: null, employee_range: null,
     last_call_status: null, last_call_date: null,
     extras: {},
   }
+  const phoneColIndexes = new Set(phoneMappings.filter((pm) => pm.csvColumnIndex !== null).map((pm) => pm.csvColumnIndex!))
   for (let i = 0; i < headers.length; i++) {
     const target = mapping[i] ?? 'skip'
     const raw = (row[i] ?? '').trim()
     if (target === 'skip') {
-      if (raw && headers[i]) out.extras[headers[i]] = raw
+      if (raw && headers[i] && !phoneColIndexes.has(i)) out.extras[headers[i]] = raw
       continue
     }
     if (!raw) continue
@@ -141,6 +142,11 @@ function buildMappedRow(headers: string[], row: string[], mapping: TargetField[]
     else {
       ;(out as unknown as Record<string, unknown>)[target] = raw
     }
+  }
+  for (const pm of phoneMappings) {
+    if (pm.csvColumnIndex === null) continue
+    const num = (row[pm.csvColumnIndex] ?? '').trim()
+    if (num) out.phones.push({ type: pm.type, number: num })
   }
   return out
 }
@@ -177,13 +183,6 @@ function mapCallOutcome(raw: string | null): string {
   if (/email/.test(v)) return 'email_sent'
   if (/text|sms/.test(v)) return 'text_sent'
   return 'connected'
-}
-
-function buildContactPhonesJson(phone: string | null, mobile: string | null): Array<{ type: string; number: string }> | null {
-  const phones: Array<{ type: string; number: string }> = []
-  if (phone?.trim()) phones.push({ type: 'office', number: phone.trim() })
-  if (mobile?.trim()) phones.push({ type: 'mobile', number: mobile.trim() })
-  return phones.length > 0 ? phones : null
 }
 
 type View = 'history' | 'new-import' | 'staging'
@@ -230,6 +229,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [mapping, setMapping] = useState<TargetField[]>([])
+  const [phoneMappings, setPhoneMappings] = useState<PhoneMapping[]>([])
   const [previewRowIdx, setPreviewRowIdx] = useState(0)
   const [editingField, setEditingField] = useState<TargetField | null>(null)
 
@@ -295,14 +295,29 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
 
   // Auto-guess mapping when headers change
   useEffect(() => {
-    if (headers.length === 0) { setMapping([]); return }
+    if (headers.length === 0) { setMapping([]); setPhoneMappings([]); return }
     const used = new Set<TargetField>()
-    setMapping(headers.map((h) => {
+    const guessedPhones: PhoneMapping[] = []
+    setMapping(headers.map((h, idx) => {
+      const hLower = h.toLowerCase().trim()
+      if (/mobile|cell/.test(hLower)) {
+        guessedPhones.push({ csvColumnIndex: idx, type: 'mobile' })
+        return 'skip' as TargetField
+      }
+      if (/phone|telephone/.test(hLower)) {
+        guessedPhones.push({ csvColumnIndex: idx, type: 'office' })
+        return 'skip' as TargetField
+      }
+      if (/\bfax\b/.test(hLower)) {
+        guessedPhones.push({ csvColumnIndex: idx, type: 'fax' })
+        return 'skip' as TargetField
+      }
       const guess = guessMapping(h)
       if (guess !== 'skip' && used.has(guess)) return 'skip' as TargetField
       if (guess !== 'skip') used.add(guess)
       return guess
     }))
+    setPhoneMappings(guessedPhones.length > 0 ? guessedPhones : [{ csvColumnIndex: null, type: 'office' }])
   }, [headers])
 
   function setFieldSource(target: TargetField, sourceIdx: number | null) {
@@ -375,7 +390,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
 
   function resetImportFlow() {
     setStep('upload'); setFileName(null); setFileSize(0); setHeaders([]); setRows([])
-    setParseError(null); setDetectedFormat(null); setMapping([]); setPreviewRowIdx(0); setEditingField(null); setReviewedRows([])
+    setParseError(null); setDetectedFormat(null); setMapping([]); setPhoneMappings([]); setPreviewRowIdx(0); setEditingField(null); setReviewedRows([])
     setImportProgress(0); setImportTotal(0); setImportError(null)
     setFinalStats({ companies: 0, contacts: 0, skipped: 0, merged: 0 })
   }
@@ -498,9 +513,10 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
             }
           } else if (row.contact_first_name || row.contact_last_name) {
             const cpIdx = contactPayload.length
-            contactPayload.push({ company_id: co.id, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: row.contact_phone, is_primary: true, import_batch_id: batchId })
-            const phones = row.contact_phones ?? buildContactPhonesJson(row.contact_phone, null) ?? []
-            if (phones.length > 0) contactPhoneMap.set(cpIdx, { companyId: co.id, phones })
+            const fallbackPhones = row.contact_phones ?? []
+            const primaryPhone = fallbackPhones[0]?.number || row.contact_phone || null
+            contactPayload.push({ company_id: co.id, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: primaryPhone, is_primary: true, import_batch_id: batchId })
+            if (fallbackPhones.length > 0) contactPhoneMap.set(cpIdx, { companyId: co.id, phones: fallbackPhones })
             if (row.last_call_status || row.last_call_date) contactCallData.set(cpIdx, { callStatus: row.last_call_status, callDate: row.last_call_date })
           }
         }
@@ -541,6 +557,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
               const validDate = !isNaN(callDate.getTime()) ? callDate.toISOString() : new Date().toISOString()
               callLogPayload.push({
                 company_id: contact.company_id,
+                contact_id: contact.id,
                 outcome: mapCallOutcome(cd.callStatus),
                 notes: `Imported — Original status: ${cd.callStatus || 'N/A'}`,
                 call_date: validDate,
@@ -558,6 +575,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       for (const row of mergeRows) {
         const targetId = row.duplicate_of!
         const contacts = importContacts.get(row.id) ?? []
+        let mergeContactIds: string[] = []
         if (contacts.length > 0) {
           for (const ic of contacts) {
             if (!ic.first_name && !ic.last_name) continue
@@ -566,26 +584,28 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
             if (mergeContact && ic.phones && ic.phones.length > 0) {
               await supabase.from('contact_phone_numbers').insert(ic.phones.map((p, pi) => ({ contact_id: mergeContact.id, company_id: targetId, phone_number: p.number, phone_type: p.type, is_primary: pi === 0 })))
             }
-            if (ic.call_status || ic.call_date) {
+            if (mergeContact && (ic.call_status || ic.call_date)) {
               const callDate = ic.call_date ? new Date(ic.call_date) : new Date()
               const validDate = !isNaN(callDate.getTime()) ? callDate.toISOString() : new Date().toISOString()
-              await supabase.from('crm_call_log').insert({ company_id: targetId, outcome: mapCallOutcome(ic.call_status), notes: `Imported — Original status: ${ic.call_status || 'N/A'}`, call_date: validDate, created_by: userId })
+              await supabase.from('crm_call_log').insert({ company_id: targetId, contact_id: mergeContact.id, outcome: mapCallOutcome(ic.call_status), notes: `Imported — Original status: ${ic.call_status || 'N/A'}`, call_date: validDate, created_by: userId })
             }
+            if (mergeContact) mergeContactIds.push(mergeContact.id)
           }
         } else if (row.contact_first_name || row.contact_last_name) {
-          const { data: mergeContact } = await supabase.from('contacts').insert({ company_id: targetId, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: row.contact_phone, is_primary: false, import_batch_id: batchId }).select('id').single()
-          if (mergeContact) {
-            const phones = row.contact_phones ?? buildContactPhonesJson(row.contact_phone, null) ?? []
-            if (phones.length > 0) {
-              await supabase.from('contact_phone_numbers').insert(phones.map((p, pi) => ({ contact_id: mergeContact.id, company_id: targetId, phone_number: p.number, phone_type: p.type, is_primary: pi === 0 })))
-            }
+          const fallbackPhones = row.contact_phones ?? []
+          const primaryPhone = fallbackPhones[0]?.number || row.contact_phone || null
+          const { data: mergeContact } = await supabase.from('contacts').insert({ company_id: targetId, first_name: row.contact_first_name || '', last_name: row.contact_last_name || '', job_title: row.contact_job_title, email: row.contact_email, phone: primaryPhone, is_primary: false, import_batch_id: batchId }).select('id').single()
+          if (mergeContact && fallbackPhones.length > 0) {
+            await supabase.from('contact_phone_numbers').insert(fallbackPhones.map((p, pi) => ({ contact_id: mergeContact.id, company_id: targetId, phone_number: p.number, phone_type: p.type, is_primary: pi === 0 })))
           }
+          if (mergeContact) mergeContactIds.push(mergeContact.id)
         }
         if (row.last_call_status || row.last_call_date) {
           const callDate = row.last_call_date ? new Date(row.last_call_date) : new Date()
           const validDate = !isNaN(callDate.getTime()) ? callDate.toISOString() : new Date().toISOString()
           await supabase.from('crm_call_log').insert({
             company_id: targetId,
+            contact_id: mergeContactIds[0] ?? null,
             outcome: mapCallOutcome(row.last_call_status),
             notes: `Imported from import — Original status: ${row.last_call_status || 'N/A'}`,
             call_date: validDate,
@@ -958,18 +978,18 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       { target: 'contact_last_name', label: 'Last Name' },
       { target: 'contact_job_title', label: 'Job Title' },
       { target: 'contact_email', label: 'Email' },
-      { target: 'contact_phone', label: 'Office Phone' },
-      { target: 'contact_mobile', label: 'Mobile Phone' },
       { target: 'last_call_status', label: 'Last Call Status' },
       { target: 'last_call_date', label: 'Last Call Date' },
     ]
 
     const reverseMap = new Map<TargetField, number>()
     mapping.forEach((target, idx) => { if (target !== 'skip') reverseMap.set(target, idx) })
-    const mappedCount = reverseMap.size
+    const phoneMappedCount = phoneMappings.filter((pm) => pm.csvColumnIndex !== null).length
+    const mappedCount = reverseMap.size + phoneMappedCount
     const totalFields = COMPANY_FIELDS.length + CONTACT_FIELDS.length
     const previewRow = rows[previewRowIdx] ?? []
-    const unmappedCols = headers.map((h, i) => ({ header: h, index: i, sample: previewRow[i] ?? '' })).filter((c) => (mapping[c.index] ?? 'skip') === 'skip' && c.header)
+    const phoneColIndexes = new Set(phoneMappings.filter((pm) => pm.csvColumnIndex !== null).map((pm) => pm.csvColumnIndex!))
+    const unmappedCols = headers.map((h, i) => ({ header: h, index: i, sample: previewRow[i] ?? '' })).filter((c) => (mapping[c.index] ?? 'skip') === 'skip' && !phoneColIndexes.has(c.index) && c.header)
 
     function renderFieldCard(f: { target: TargetField; label: string }) {
       const srcIdx = reverseMap.get(f.target)
@@ -1078,6 +1098,65 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {CONTACT_FIELDS.map(renderFieldCard)}
           </div>
+          {/* Phone numbers sub-section */}
+          <div className="border-t border-gray-100 px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Phone numbers</span>
+              <button
+                onClick={() => setPhoneMappings((prev) => [...prev, { csvColumnIndex: null, type: 'office' }])}
+                className="inline-flex items-center gap-1 text-[11px] text-amber-500 hover:text-amber-600"
+              >
+                <PlusIcon className="w-3 h-3" /> Add phone
+              </button>
+            </div>
+            <div className="space-y-2">
+              {phoneMappings.map((pm, pmIdx) => {
+                const value = pm.csvColumnIndex !== null ? (previewRow[pm.csvColumnIndex] ?? '').trim() || null : null
+                const sourceColName = pm.csvColumnIndex !== null ? (headers[pm.csvColumnIndex] || `Column ${pm.csvColumnIndex + 1}`) : null
+                return (
+                  <div key={pmIdx} className="flex items-center gap-2">
+                    <select
+                      value={pm.type}
+                      onChange={(e) => setPhoneMappings((prev) => prev.map((p, i) => i === pmIdx ? { ...p, type: e.target.value } : p))}
+                      className="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white w-24"
+                    >
+                      <option value="office">Office</option>
+                      <option value="mobile">Mobile</option>
+                      <option value="fax">Fax</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <select
+                      value={pm.csvColumnIndex !== null ? String(pm.csvColumnIndex) : '__none__'}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setPhoneMappings((prev) => prev.map((p, i) => i === pmIdx ? { ...p, csvColumnIndex: val === '__none__' ? null : Number(val) } : p))
+                      }}
+                      className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
+                    >
+                      <option value="__none__">— Select CSV column —</option>
+                      {headers.map((h, i) => {
+                        const sample = (previewRow[i] ?? '').trim()
+                        return (
+                          <option key={i} value={String(i)}>
+                            {h || `Column ${i + 1}`}{sample ? ` → ${sample}` : ''}
+                          </option>
+                        )
+                      })}
+                    </select>
+                    {value && <span className="text-[11px] text-gray-500 truncate max-w-[120px]">{value}</span>}
+                    {phoneMappings.length > 1 && (
+                      <button
+                        onClick={() => setPhoneMappings((prev) => prev.filter((_, i) => i !== pmIdx))}
+                        className="text-gray-300 hover:text-red-400 p-0.5"
+                      >
+                        <XIcon className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Unmapped source columns */}
@@ -1114,7 +1193,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     setReviewLoading(true)
     const built: { mapped: MappedRow; index: number }[] = []
     for (let i = 0; i < rows.length; i++) {
-      const m = buildMappedRow(headers, rows[i], mapping)
+      const m = buildMappedRow(headers, rows[i], mapping, phoneMappings)
       if (m.company_name.trim()) built.push({ mapped: m, index: i })
     }
     const { data: existingCompanies } = await supabase.from('companies').select('id, name').order('name', { ascending: true })
@@ -1231,8 +1310,8 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           lead_source: r.mapped.lead_source,
           contact_first_name: r.mapped.contact_first_name, contact_last_name: r.mapped.contact_last_name,
           contact_job_title: r.mapped.contact_job_title, contact_email: r.mapped.contact_email,
-          contact_phone: r.mapped.contact_phone,
-          contact_phones: buildContactPhonesJson(r.mapped.contact_phone, r.mapped.contact_mobile),
+          contact_phone: r.mapped.phones[0]?.number ?? null,
+          contact_phones: r.mapped.phones.length > 0 ? r.mapped.phones : null,
           address: r.mapped.address,
           number_of_locations: r.mapped.number_of_locations,
           revenue_range: r.mapped.revenue_range, employee_range: r.mapped.employee_range,
@@ -1252,7 +1331,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           const r = chunk[i]
           const stagingId = insertedIds[i]?.id
           if (!stagingId) continue
-          if (r.mapped.contact_first_name || r.mapped.contact_last_name || r.mapped.contact_email || r.mapped.contact_phone) {
+          if (r.mapped.contact_first_name || r.mapped.contact_last_name || r.mapped.contact_email || r.mapped.phones.length > 0) {
             contactInserts.push({
               import_record_id: stagingId,
               contact_order: 1,
@@ -1260,7 +1339,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
               last_name: r.mapped.contact_last_name,
               title: r.mapped.contact_job_title,
               email: r.mapped.contact_email,
-              phones: buildContactPhonesJson(r.mapped.contact_phone, r.mapped.contact_mobile),
+              phones: r.mapped.phones.length > 0 ? r.mapped.phones : null,
               call_status: r.mapped.last_call_status,
               call_date: r.mapped.last_call_date,
             })
@@ -1417,7 +1496,7 @@ const FIELD_PLACEHOLDERS: Record<string, string> = {
   zone: 'Zone', number_of_locations: 'Locations', revenue_range: 'Revenue',
   employee_range: 'Employees', status: 'Status',
   priority: 'Priority', contact_first_name: 'First name', contact_last_name: 'Last name',
-  contact_job_title: 'Job title', contact_email: 'Email address', contact_phone: 'Phone number',
+  contact_job_title: 'Job title', contact_email: 'Email address',
   last_call_status: 'Call status', last_call_date: 'Call date',
 }
 

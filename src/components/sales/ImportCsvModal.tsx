@@ -30,7 +30,6 @@ type TargetField =
   | 'contact_last_name'
   | 'contact_job_title'
   | 'contact_email'
-  | 'contact_phone'
   | 'address'
 
 const TARGET_FIELD_LABELS: Record<TargetField, string> = {
@@ -47,7 +46,6 @@ const TARGET_FIELD_LABELS: Record<TargetField, string> = {
   contact_last_name: 'Contact last name',
   contact_job_title: 'Contact job title',
   contact_email: 'Contact email',
-  contact_phone: 'Contact phone',
   address: 'Address',
 }
 
@@ -65,7 +63,6 @@ const TARGET_FIELD_OPTIONS: TargetField[] = [
   'contact_last_name',
   'contact_job_title',
   'contact_email',
-  'contact_phone',
   'address',
 ]
 
@@ -107,7 +104,6 @@ function guessMapping(header: string): TargetField {
   if (/last\s*name|^lname$|surname|family/.test(h)) return 'contact_last_name'
   if (/job\s*title|^title$|position|role/.test(h)) return 'contact_job_title'
   if (/email|^e-?mail$/.test(h)) return 'contact_email'
-  if (/phone|mobile|cell|telephone/.test(h)) return 'contact_phone'
   if (/^address$|street|address\s*1/.test(h)) return 'address'
   return 'skip'
 }
@@ -299,7 +295,7 @@ export default function ImportCsvModal({
                 last_name: row.mapped.contact_last_name || '',
                 job_title: row.mapped.contact_job_title,
                 email: row.mapped.contact_email,
-                phone: row.mapped.contact_phone,
+                phone: null,
                 is_primary: true,
                 import_batch_id: batchId,
               })
@@ -325,7 +321,7 @@ export default function ImportCsvModal({
               last_name: row.mapped.contact_last_name || '',
               job_title: row.mapped.contact_job_title,
               email: row.mapped.contact_email,
-              phone: row.mapped.contact_phone,
+              phone: null,
               is_primary: false,
               import_batch_id: batchId,
             })
@@ -870,7 +866,6 @@ interface MappedRow {
   contact_last_name: string | null
   contact_job_title: string | null
   contact_email: string | null
-  contact_phone: string | null
   address: string | null
   extras: Record<string, string>
 }
@@ -893,7 +888,6 @@ function buildMappedRow(
     contact_last_name: null,
     contact_job_title: null,
     contact_email: null,
-    contact_phone: null,
     address: null,
     extras: {},
   }
