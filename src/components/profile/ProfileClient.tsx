@@ -12,7 +12,6 @@ import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useTheme } from '@/components/theme/ThemeProvider'
-import UserManagement from './UserManagement'
 import EmployeeManagement from './EmployeeManagement'
 import PipelineStagesEditor from './PipelineStagesEditor'
 import ReminderRulesEditor from './ReminderRulesEditor'
@@ -51,8 +50,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const [showPreLienManagement, setShowPreLienManagement] = useState(false)
   // Sales management modal
   const [showSalesManagement, setShowSalesManagement] = useState(false)
-  // User management modal (controlled from tile)
-  const [showUserManagement, setShowUserManagement] = useState(false)
   // Employee management modal (controlled from tile)
   const [showEmployeeManagement, setShowEmployeeManagement] = useState(false)
   // Edit profile modal
@@ -66,7 +63,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
     const edit = searchParams.get('edit')
     if (edit === '1') setShowEditProfile(true)
     if (section === 'company-info') setShowCompanyInfo(true)
-    if (section === 'user-management') setShowUserManagement(true)
     if (section === 'employee-management') setShowEmployeeManagement(true)
     if (section === 'vendor-management') setShowVendorManagement(true)
     if (section || edit) {
@@ -585,16 +581,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
               )}
             </div>
           </div>
-        )}
-
-        {/* Controlled UserManagement (triggered from tile) */}
-        {canView('user_management') && (
-          <UserManagement
-            currentUserId={userId}
-            hideTrigger
-            open={showUserManagement}
-            onOpenChange={setShowUserManagement}
-          />
         )}
 
         {/* Controlled EmployeeManagement (triggered from tile) */}
