@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Task, TaskStatus, OfficeTask, OfficePriority, UserRole } from '@/types'
+import { usePermissions } from '@/lib/usePermissions'
 import OfficeTasksWorkspace from '@/components/my-work/OfficeTasksWorkspace'
 import ExpensesWorkspace from '@/components/my-work/ExpensesWorkspace'
 import OfficeDailyReportsWorkspace from '@/components/my-work/OfficeDailyReportsWorkspace'
@@ -275,9 +276,18 @@ export default function MyWorkClient({
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const isAdmin = userRole === 'admin'
+  const { canView, canEdit } = usePermissions()
+  // Checklist-item completion and the "view all reports" daily-reports tile
+  // were admin-only. They now follow edit-level permissions on the relevant
+  // features; admin retains access via the hook's shortcut.
+  const canEditChecklists = canEdit('tasks')
+  const canSeeAllReports = canEdit('daily_reports')
+  // Employee Expenses vs. Personal Expenses: previously admin+OM.
+  const canSeeAllExpenses = canView('office')
+  // Foreman gets a role-specific "Assigned Field Tasks" card on their own
+  // My Work dashboard; this is role-shaped UI that does not map cleanly to
+  // a feature gate, so it remains a direct role check.
   const isForeman = userRole === 'foreman'
-  const isAdminOrOM = userRole === 'admin' || userRole === 'office_manager'
 
   /* ---- Workspace state ---- */
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceType>(null)
@@ -386,7 +396,7 @@ export default function MyWorkClient({
   const completedChecklist = assignedChecklist.filter((c) => c.is_complete)
 
   async function toggleChecklistItem(item: AssignedChecklist) {
-    if (!isAdmin) return
+    if (!canEditChecklists) return
     const newVal = !item.is_complete
     setAssignedChecklist((prev) =>
       prev.map((c) =>
@@ -580,9 +590,9 @@ export default function MyWorkClient({
                 >
                   <button
                     onClick={() => toggleChecklistItem(item)}
-                    disabled={!isAdmin}
+                    disabled={!canEditChecklists}
                     className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                      isAdmin
+                      canEditChecklists
                         ? 'border-gray-300 hover:border-amber-500 cursor-pointer'
                         : 'border-gray-200 cursor-default'
                     }`}
@@ -615,7 +625,7 @@ export default function MyWorkClient({
                           )}
                         </span>
                       )}
-                      {!isAdmin && (
+                      {!canEditChecklists && (
                         <span className="text-xs text-gray-400 italic">Read-only</span>
                       )}
                     </div>
@@ -645,7 +655,7 @@ export default function MyWorkClient({
                       >
                         <button
                           onClick={() => toggleChecklistItem(item)}
-                          disabled={!isAdmin}
+                          disabled={!canEditChecklists}
                           className="mt-0.5 w-5 h-5 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center"
                         >
                           <CheckIcon className="w-3 h-3 text-amber-500" />
@@ -703,7 +713,7 @@ export default function MyWorkClient({
   }
 
   if (activeWorkspace === 'expenses') {
-    const expenseTitle = isAdminOrOM ? 'Employee Expenses' : 'Personal Expenses'
+    const expenseTitle = canSeeAllExpenses ? 'Employee Expenses' : 'Personal Expenses'
     return (
       <MyWorkspaceShell
         title={expenseTitle}
@@ -808,9 +818,9 @@ export default function MyWorkClient({
                       <div key={item.id} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors">
                         <button
                           onClick={() => toggleChecklistItem(item)}
-                          disabled={!isAdmin}
+                          disabled={!canEditChecklists}
                           className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                            isAdmin ? 'border-gray-300 hover:border-amber-500 cursor-pointer' : 'border-gray-200 cursor-default'
+                            canEditChecklists ? 'border-gray-300 hover:border-amber-500 cursor-pointer' : 'border-gray-200 cursor-default'
                           }`}
                         >
                           {item.is_complete && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
@@ -847,7 +857,7 @@ export default function MyWorkClient({
                     <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden opacity-60">
                       {completedChecklist.map((item) => (
                         <div key={item.id} className="flex items-start gap-2.5 px-3 py-2.5">
-                          <button onClick={() => toggleChecklistItem(item)} disabled={!isAdmin} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
+                          <button onClick={() => toggleChecklistItem(item)} disabled={!canEditChecklists} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
                             <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
                           </button>
                           <p className="text-xs text-gray-500 line-through truncate flex-1">{item.name}</p>
@@ -1141,11 +1151,11 @@ export default function MyWorkClient({
             onClick={() => openWorkspace('office_daily_reports')}
             action={
               <span className="text-xs font-medium text-amber-600 hover:text-amber-700">
-                {isAdmin ? 'View all' : 'Open report'}
+                {canSeeAllReports ? 'View all' : 'Open report'}
               </span>
             }
           >
-            {isAdmin ? (
+            {canSeeAllReports ? (
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[20px] font-medium tabular-nums text-gray-900 leading-none">
                   {initialTodayReportsCount ?? 0}

@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { Project, ReceiptContent, DynamicFieldEntry } from '@/types'
 import ReceiptCard from './ReceiptCard'
 import NewReceiptModal from './NewReceiptModal'
-import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
@@ -103,8 +102,7 @@ export default function ReceiptsPageClient({
   userId,
 }: ReceiptsPageClientProps) {
   const router = useRouter()
-  const { role } = useUserRole()
-  const { canCreate } = usePermissions(role)
+  const { canCreate } = usePermissions()
   const { settings: companySettings } = useCompanySettings()
   const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -313,7 +311,7 @@ export default function ReceiptsPageClient({
                           </div>
                           <div className="divide-y divide-gray-100">
                             {receipts.map((receipt) => (
-                              <ReceiptCard key={receipt.id} receipt={receipt} role={role} />
+                              <ReceiptCard key={receipt.id} receipt={receipt} />
                             ))}
                           </div>
                         </div>
@@ -375,7 +373,7 @@ export default function ReceiptsPageClient({
                             </div>
                             <div className="divide-y divide-gray-100">
                               {receipts.map((receipt) => (
-                                <ReceiptCard key={receipt.id} receipt={receipt} role={role} />
+                                <ReceiptCard key={receipt.id} receipt={receipt} />
                               ))}
                             </div>
                           </div>

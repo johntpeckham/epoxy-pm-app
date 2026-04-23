@@ -40,6 +40,7 @@ import AddKitModal, { type AddKitFormData } from './AddKitModal'
 import InventorySettingsModal from './InventorySettingsModal'
 import StockCheckRequestModal from './StockCheckRequestModal'
 import PriceCheckRequestModal from './PriceCheckRequestModal'
+import { usePermissions } from '@/lib/usePermissions'
 import type {
   InventoryKitGroup,
   InventoryProduct,
@@ -659,6 +660,7 @@ export default function InventoryPageClient({
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>(initialSuppliers)
   const [products, setProducts] = useState<InventoryProduct[]>(initialProducts)
   const [kitGroups, setKitGroups] = useState<InventoryKitGroup[]>(initialKitGroups)
+  const { canCreate, canEdit } = usePermissions()
   const [unitTypes, setUnitTypes] = useState<UnitType[]>(initialUnitTypes)
   const [masterSuppliers, setMasterSuppliers] = useState<MasterSupplier[]>(initialMasterSuppliers)
   const [masterProducts, setMasterProducts] = useState<MasterProduct[]>(initialMasterProducts)
@@ -693,7 +695,10 @@ export default function InventoryPageClient({
 
   // Reorder mode (admin only)
   const [reorderModeRaw, setReorderMode] = useState(false)
-  const reorderMode = reorderModeRaw && (userRole === 'admin')
+  // Inventory reorder mode was admin-only. canEdit on user_management is the
+  // cleanest admin-only proxy (OM/salesman/foreman/crew have it 'off' by
+  // default; admin retains it via the hook shortcut).
+  const reorderMode = reorderModeRaw && canEdit('user_management')
 
   // Settings modal state
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
@@ -744,10 +749,11 @@ export default function InventoryPageClient({
   const [deleteKitGroupTarget, setDeleteKitGroupTarget] = useState<InventoryKitGroup | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const canManage =
-    userRole === 'admin' || userRole === 'office_manager' || userRole === 'salesman'
-  const canDelete = userRole === 'admin' || userRole === 'office_manager'
-  const canReorder = userRole === 'admin'
+  // Inventory permissions: manage/delete/reorder were keyed on role tiers.
+  // Now driven by material_management feature levels.
+  const canManage = canCreate('material_management')
+  const canDelete = canEdit('material_management')
+  const canReorder = canEdit('user_management')
 
   // dnd-kit sensors: 5px distance before drag starts to avoid accidental drags.
   const sensors = useSensors(

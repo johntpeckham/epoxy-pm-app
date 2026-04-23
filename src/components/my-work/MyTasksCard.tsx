@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import type { AssignedTask, AssignedTaskCompletion, UserRole } from '@/types'
 import TeamTasksSection from './TeamTasksSection'
+import { usePermissions } from '@/lib/usePermissions'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -84,7 +85,10 @@ interface Props {
 
 export default function MyTasksCard({ userId, userRole }: Props) {
   const supabase = useMemo(() => createClient(), [])
-  const isAdmin = userRole === 'admin'
+  // Admin-only MyTasksCard sections (team list toggle, admin create actions).
+  // Using user_management preserves the admin-only default from templates.
+  const { canEdit } = usePermissions()
+  const isAdmin = canEdit('user_management')
 
   const [viewDate, setViewDate] = useState<Date>(() => startOfToday())
   const [tasks, setTasks] = useState<AssignedTask[]>([])

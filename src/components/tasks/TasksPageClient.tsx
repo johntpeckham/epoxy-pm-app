@@ -19,7 +19,6 @@ import {
   LoaderIcon,
 } from 'lucide-react'
 import { Task, TaskStatus, Profile, Project, FormField } from '@/types'
-import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useFormTemplate } from '@/lib/useFormTemplate'
 import { getContentKey, buildDynamicFields } from '@/lib/formFieldMaps'
@@ -177,8 +176,7 @@ export default function TasksPageClient({
 }: TasksPageClientProps) {
   const router = useRouter()
   const supabase = createClient()
-  const { role } = useUserRole()
-  const { canCreate } = usePermissions(role)
+  const { canCreate } = usePermissions()
   const { fields: taskTemplateFields, loading: taskTemplateLoading } = useFormTemplate('task')
 
   const TASK_FORM_KEY = 'task'

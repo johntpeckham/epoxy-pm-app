@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { Project, DailyReportContent, DynamicFieldEntry } from '@/types'
 import DailyReportCard from './DailyReportCard'
 import NewDailyReportModal from './NewDailyReportModal'
-import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 
 interface DailyReportRow {
@@ -88,8 +87,7 @@ export default function DailyReportsPageClient({
   userId,
 }: DailyReportsPageClientProps) {
   const router = useRouter()
-  const { role } = useUserRole()
-  const { canCreate } = usePermissions(role)
+  const { canCreate } = usePermissions()
   const [showModal, setShowModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')

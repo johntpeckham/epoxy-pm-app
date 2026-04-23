@@ -25,7 +25,7 @@ import {
   SettingsIcon,
   CopyIcon,
 } from 'lucide-react'
-import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import Portal from '@/components/ui/Portal'
 import Tooltip from '@/components/ui/Tooltip'
 import NewCompanyModal from './NewCompanyModal'
@@ -301,8 +301,10 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   }
 
   const [viewArchived, setViewArchived] = useState(false)
-  const { role } = useUserRole()
-  const isAdmin = role === 'admin'
+  const { canEdit } = usePermissions()
+  // Archive/restore actions were previously admin-only. Now driven by edit
+  // access on CRM; admin still gets it via the hook shortcut.
+  const canArchive = canEdit('crm')
 
   const [showNewModal, setShowNewModal] = useState(false)
 
@@ -414,8 +416,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   }
 
   async function handleArchiveToggle(id: string, name: string, archive: boolean) {
-    if (!isAdmin) {
-      showToast('Only admins can archive or restore companies. Contact your admin.')
+    if (!canArchive) {
+      showToast('You do not have permission to archive or restore companies. Contact your admin.')
       return
     }
     setShowArchiveConfirm({ id, name, archive })
@@ -1468,7 +1470,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
               {visibleColumns.map((col) => (
                 <col key={col.id} style={{ width: col.width }} />
               ))}
-              <col style={{ width: isAdmin ? '72px' : '36px' }} />
+              <col style={{ width: canArchive ? '72px' : '36px' }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200" style={{ borderBottomWidth: '0.5px' }}>
@@ -1515,7 +1517,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 })}
                 <th className="px-1" style={{ paddingTop: 10, paddingBottom: 10 }}>
                   <div className="inline-flex items-center gap-0.5">
-                    {isAdmin && (
+                    {canEdit('crm') && (
                       <button
                         type="button"
                         onClick={() => setShowColumnSettings(true)}
@@ -1593,7 +1595,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                 value={fv}
                                 columnType={col.columnType}
                                 selectOptions={col.selectOptions}
-                                canEdit={isAdmin || role === 'office_manager'}
+                                canEdit={canEdit('crm')}
                                 onSave={(v) => handleSaveFieldValue(c.id, col.dbId, v)}
                               />
                             </td>
@@ -1650,7 +1652,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                               <td key={col.id} className={`px-2 text-sm ${last.stale ? 'text-amber-600' : 'text-gray-600'}`} style={cellPad}>
                                 <div className="flex items-center gap-1">
                                   <span className="flex-1">{last.text}</span>
-                                  {isAdmin && (
+                                  {canArchive && (
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); handleArchiveToggle(c.id, c.name, !c.archived) }}

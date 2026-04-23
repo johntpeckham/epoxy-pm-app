@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/types'
+import { usePermissions } from '@/lib/usePermissions'
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -140,7 +141,10 @@ async function fetchSalesMetricsForUserOnDate(
 
 export default function OfficeDailyReportsWorkspace({ userId, userRole }: Props) {
   const supabase = useMemo(() => createClient(), [])
-  const isAdmin = userRole === 'admin'
+  // Admin-only "view all reports" was this role check; daily_reports edit
+  // is the closest mapping and keeps admins covered via the hook shortcut.
+  const { canEdit } = usePermissions()
+  const isAdmin = canEdit('daily_reports')
 
   /* ---- My report form state ---- */
   const [selectedDate, setSelectedDate] = useState<string>(todayStr())

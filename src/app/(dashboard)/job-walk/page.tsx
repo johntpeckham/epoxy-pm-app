@@ -1,35 +1,17 @@
 export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { requirePermission } from '@/lib/requirePermission'
 import type { UserRole } from '@/types'
 import JobWalkClient, { JobWalk } from '@/components/job-walk/JobWalkClient'
 
 export default async function JobWalkPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return redirect('/login')
-  const user = session.user
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  const userRole = (profile?.role ?? 'crew') as UserRole
-
-  if (
-    userRole !== 'admin' &&
-    userRole !== 'office_manager' &&
-    userRole !== 'salesman'
-  ) {
-    return redirect('/my-work')
-  }
+  const { supabase, user, permissions } = await requirePermission('job_walk', 'view')
+  const userRole = (permissions.role ?? 'crew') as UserRole
 
   const jwQuery = supabase.from('job_walks').select('*').order('created_at', { ascending: false })
-  if (userRole !== 'admin') jwQuery.eq('assigned_to', user.id)
+  // Non-admins only see job walks assigned to them.
+  if (!permissions.isAdmin) jwQuery.eq('assigned_to', user.id)
   const { data: jobWalks } = await jwQuery
 
   return (

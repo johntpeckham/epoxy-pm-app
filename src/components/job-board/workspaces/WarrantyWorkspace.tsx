@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useCompanySettings } from '@/lib/useCompanySettings'
-import { useUserRole } from '@/lib/useUserRole'
 import { Project, WarrantyTemplate, ManufacturerWarranty, ProjectWarranty } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
 import ReportPreviewModal, { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
@@ -52,9 +51,6 @@ function parseBlocks(bodyText: string): TemplateBlock[] | null {
 export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
   const supabase = createClient()
   const { settings: companySettings } = useCompanySettings()
-  const { role } = useUserRole()
-  const isAdmin = role === 'admin'
-
   // List state
   const [warranties, setWarranties] = useState<ProjectWarranty[]>([])
   const [loading, setLoading] = useState(true)

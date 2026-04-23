@@ -10,6 +10,7 @@ import Portal from '@/components/ui/Portal'
 import { Profile, CslbLicense } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
 import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import UserManagement from './UserManagement'
 import EmployeeManagement from './EmployeeManagement'
@@ -35,10 +36,12 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { theme, toggleTheme } = useTheme()
   const isDarkMode = theme === 'dark'
+  // useUserRole is retained for the role badge at the top of the page and
+  // for the crew-specific edit-profile layout — it is not used for any
+  // permission gate below this line.
   const { role } = useUserRole()
-  const isAdmin = role === 'admin'
-  const isOfficeManager = role === 'office_manager'
   const isCrew = role === 'crew'
+  const { canView } = usePermissions()
 
   // Vendor management modal
   const [showVendorManagement, setShowVendorManagement] = useState(false)
@@ -56,7 +59,6 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
   const [showEditProfile, setShowEditProfile] = useState(false)
   // Company info modal
   const [showCompanyInfo, setShowCompanyInfo] = useState(false)
-  const isSalesman = role === 'salesman'
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -431,17 +433,19 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         </div>
 
         {/* Section: Company */}
-        {(isAdmin || isOfficeManager) && (
+        {(canView('company_info') || canView('user_management') || canView('employee_management')) && (
           <div className="mt-1 mb-5">
             <p className="text-[13px] font-medium text-gray-500 dark:text-[#a0a0a0] tracking-wide mb-2">Company</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <SettingsTile
-                icon={BuildingIcon}
-                title="Company info"
-                subtitle="Name, address, logo, appearance"
-                onClick={() => setShowCompanyInfo(true)}
-              />
-              {isAdmin && (
+              {canView('company_info') && (
+                <SettingsTile
+                  icon={BuildingIcon}
+                  title="Company info"
+                  subtitle="Name, address, logo, appearance"
+                  onClick={() => setShowCompanyInfo(true)}
+                />
+              )}
+              {canView('user_management') && (
                 <SettingsTile
                   icon={UsersIcon}
                   title="User management"
@@ -449,28 +453,32 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   onClick={() => setShowUserManagement(true)}
                 />
               )}
-              <SettingsTile
-                icon={UsersIcon}
-                title="Employee management"
-                subtitle="Profiles, roles, custom fields"
-                onClick={() => setShowEmployeeManagement(true)}
-              />
+              {canView('employee_management') && (
+                <SettingsTile
+                  icon={UsersIcon}
+                  title="Employee management"
+                  subtitle="Profiles, roles, custom fields"
+                  onClick={() => setShowEmployeeManagement(true)}
+                />
+              )}
             </div>
           </div>
         )}
 
         {/* Section: Sales */}
-        {(isAdmin || isOfficeManager || isSalesman) && (
+        {(canView('sales_management') || canView('vendor_management')) && (
           <div className="mb-5">
             <p className="text-[13px] font-medium text-gray-500 dark:text-[#a0a0a0] tracking-wide mb-2">Sales</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <SettingsTile
-                icon={TargetIcon}
-                title="Sales management"
-                subtitle="Pipeline, estimates, notifications"
-                onClick={() => setShowSalesManagement(true)}
-              />
-              {(isAdmin || isOfficeManager) && (
+              {canView('sales_management') && (
+                <SettingsTile
+                  icon={TargetIcon}
+                  title="Sales management"
+                  subtitle="Pipeline, estimates, notifications"
+                  onClick={() => setShowSalesManagement(true)}
+                />
+              )}
+              {canView('vendor_management') && (
                 <SettingsTile
                   icon={Building2Icon}
                   title="Vendor management"
@@ -483,11 +491,18 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         )}
 
         {/* Section: Operations */}
-        {(isAdmin || isOfficeManager || isSalesman) && (
+        {(
+          canView('job_feed_forms') ||
+          canView('job_reports') ||
+          canView('checklist_templates') ||
+          canView('warranty_management') ||
+          canView('prelien_management') ||
+          canView('material_management')
+        ) && (
           <div className="mb-5">
             <p className="text-[13px] font-medium text-gray-500 dark:text-[#a0a0a0] tracking-wide mb-2">Operations</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(isAdmin || isOfficeManager) && (
+              {canView('job_feed_forms') && (
                 <SettingsTile
                   icon={SlidersHorizontalIcon}
                   title="Job feed forms"
@@ -495,7 +510,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   onClick={() => router.push('/form-management')}
                 />
               )}
-              {(isAdmin || isOfficeManager) && (
+              {canView('job_reports') && (
                 <SettingsTile
                   icon={FileTextIcon}
                   title="Job reports"
@@ -503,7 +518,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   onClick={() => router.push('/job-report-management')}
                 />
               )}
-              {(isAdmin || isOfficeManager) && (
+              {canView('checklist_templates') && (
                 <SettingsTile
                   icon={ClipboardCheckIcon}
                   title="Checklist templates"
@@ -511,7 +526,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   onClick={() => router.push('/checklist-templates')}
                 />
               )}
-              {(isAdmin || isOfficeManager || isSalesman) && (
+              {canView('warranty_management') && (
                 <SettingsTile
                   icon={ShieldCheckIcon}
                   title="Warranty management"
@@ -519,7 +534,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   onClick={() => setShowWarrantyManagement(true)}
                 />
               )}
-              {(isAdmin || isOfficeManager || isSalesman) && (
+              {canView('prelien_management') && (
                 <SettingsTile
                   icon={ScrollTextIcon}
                   title="Pre-lien management"
@@ -527,7 +542,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   onClick={() => setShowPreLienManagement(true)}
                 />
               )}
-              {(isAdmin || isOfficeManager) && (
+              {canView('material_management') && (
                 <SettingsTile
                   icon={PackageIcon}
                   title="Material management"
@@ -540,11 +555,11 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         )}
 
         {/* Section: Data */}
-        {(isAdmin || isOfficeManager) && (
+        {(canView('data_export') || canView('reports') || canView('trash_bin')) && (
           <div className="mb-5">
             <p className="text-[13px] font-medium text-gray-500 dark:text-[#a0a0a0] tracking-wide mb-2">Data</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(isAdmin || isOfficeManager) && (
+              {canView('data_export') && (
                 <SettingsTile
                   icon={DownloadIcon}
                   title="Data export"
@@ -552,13 +567,15 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   onClick={() => router.push('/data-export')}
                 />
               )}
-              <SettingsTile
-                icon={BarChart3Icon}
-                title="Reports"
-                subtitle="Timesheets, sales, expenses"
-                onClick={() => router.push('/reports')}
-              />
-              {isAdmin && (
+              {canView('reports') && (
+                <SettingsTile
+                  icon={BarChart3Icon}
+                  title="Reports"
+                  subtitle="Timesheets, sales, expenses"
+                  onClick={() => router.push('/reports')}
+                />
+              )}
+              {canView('trash_bin') && (
                 <SettingsTile
                   icon={Trash2Icon}
                   title="Trash bin"
@@ -571,7 +588,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         )}
 
         {/* Controlled UserManagement (triggered from tile) */}
-        {isAdmin && (
+        {canView('user_management') && (
           <UserManagement
             currentUserId={userId}
             hideTrigger
@@ -581,7 +598,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         )}
 
         {/* Controlled EmployeeManagement (triggered from tile) */}
-        {(isAdmin || isOfficeManager) && (
+        {canView('employee_management') && (
           <EmployeeManagement
             hideTrigger
             open={showEmployeeManagement}
@@ -592,7 +609,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
         {/* Customer / Sales / Vendor modals (rendered when open) */}
         {showSalesManagement && (
           <SalesManagementModal
-            isAdmin={isAdmin}
+            canEditAdminSettings={canView('user_management')}
             onClose={() => setShowSalesManagement(false)}
           />
         )}
@@ -826,8 +843,8 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-5 space-y-6">
-                  {/* Company Logo (admin only) */}
-                  {isAdmin && (
+                  {/* Company Logo — requires edit on company_info */}
+                  {canView('company_info') && (
                     <div>
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Company logo</h4>
                       <p className="text-xs text-gray-400 mb-3">This logo will appear in the sidebar and on printed reports.</p>
@@ -873,7 +890,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Company information</h4>
-                      {(isAdmin || isOfficeManager) && !companyInfoEditing && (
+                      {canView('company_info') && !companyInfoEditing && (
                         <button
                           onClick={startEditCompanyInfo}
                           className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
@@ -884,7 +901,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                       )}
                     </div>
 
-                    {(isAdmin || isOfficeManager) && companyInfoEditing ? (
+                    {canView('company_info') && companyInfoEditing ? (
                       <div className="space-y-4">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Legal Company Name</label>
@@ -1010,7 +1027,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                             <p className="text-xs text-gray-400">DBA</p>
                             <p className="text-gray-900">{companySettings?.dba || <span className="text-gray-300 italic">Not set</span>}</p>
                           </div>
-                          {(isAdmin || isOfficeManager) && (
+                          {canView('company_info') && (
                             <>
                               <div>
                                 <p className="text-xs text-gray-400">Company Address</p>
@@ -1031,7 +1048,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                             <p className="text-gray-900">{companySettings?.email || <span className="text-gray-300 italic">Not set</span>}</p>
                           </div>
                         </div>
-                        {(isAdmin || isOfficeManager) && (
+                        {canView('company_info') && (
                           <div>
                             <p className="text-xs text-gray-400 mb-1">CSLB Licenses</p>
                             {companySettings?.cslb_licenses && companySettings.cslb_licenses.length > 0 ? (
@@ -1074,10 +1091,12 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
 }
 
 function SalesManagementModal({
-  isAdmin,
+  canEditAdminSettings,
   onClose,
 }: {
-  isAdmin: boolean
+  /** Show admin-only cards like Project Numbers. Derived from
+   *  `canView('user_management')` by the caller. */
+  canEditAdminSettings: boolean
   onClose: () => void
 }) {
   const [showPipelineEditor, setShowPipelineEditor] = useState(false)
@@ -1111,7 +1130,7 @@ function SalesManagementModal({
       description: 'Configure reminders and follow-up cadences for leads.',
       onClick: () => setShowRuleEditor(true),
     },
-    ...(isAdmin
+    ...(canEditAdminSettings
       ? [
           {
             icon: <HashIcon className="w-5 h-5" />,

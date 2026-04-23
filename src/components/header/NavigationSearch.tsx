@@ -43,16 +43,16 @@ import {
   LoaderIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import type { FeatureKey } from '@/types'
 
 type AccessRule =
   | { type: 'all' }
-  | { type: 'roles'; roles: string[] }
   | { type: 'permission'; feature: FeatureKey }
-  | { type: 'admin' }
-  | { type: 'scheduler' }
+  // `anyPermission` lets a nav page show when the user can view ANY of the
+  // listed feature keys — used for landing pages that sit above multiple
+  // sub-features (e.g. Office, Sales Dashboard).
+  | { type: 'anyPermission'; features: FeatureKey[] }
 
 interface NavPage {
   name: string
@@ -72,22 +72,32 @@ interface SearchResult {
   category: string
 }
 
-const SALES_ROLES = ['admin', 'office_manager', 'salesman']
+// Every Sales sub-feature — used as the access gate for Sales landing pages
+// that sit above the individual Sales sub-sections.
+const SALES_FEATURES: FeatureKey[] = [
+  'crm',
+  'dialer',
+  'emailer',
+  'leads',
+  'appointments',
+  'estimating',
+  'job_walk',
+]
 
 const NAV_PAGES: NavPage[] = [
   { name: 'My Work', route: '/my-work', icon: ClipboardCheckIcon, description: 'Home', keywords: [], access: { type: 'all' } },
-  { name: 'Employee Summary', route: '/my-work/employee-summary', icon: ClipboardCheckIcon, description: 'My Work', keywords: [], access: { type: 'all' } },
+  { name: 'Employee Summary', route: '/my-work/employee-summary', icon: ClipboardCheckIcon, description: 'My Work', keywords: [], access: { type: 'permission', feature: 'employee_management' } },
   { name: 'Manage Playbook', route: '/my-work/manage-playbook', icon: ClipboardCheckIcon, description: 'My Work', keywords: [], access: { type: 'all' } },
-  { name: 'Office', route: '/office', icon: BriefcaseIcon, description: 'Office', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Contacts', route: '/office/contacts', icon: UsersIcon, description: 'Office', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Vendors', route: '/office/vendors', icon: UsersIcon, description: 'Office', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Sales Dashboard', route: '/sales', icon: TrendingUpIcon, description: 'Sales', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'CRM', route: '/sales/crm', icon: UsersIcon, description: 'Sales', keywords: [], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Dialer', route: '/sales/dialer', icon: PhoneIcon, description: 'Sales', keywords: ['phone', 'calls', 'cold call'], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Appointments', route: '/sales/appointments', icon: CalendarIcon, description: 'Sales', keywords: ['meetings', 'schedule'], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Leads', route: '/sales/leads', icon: TargetIcon, description: 'Sales', keywords: ['prospects', 'pipeline'], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Job Walk', route: '/job-walk', icon: FootprintsIcon, description: 'Sales', keywords: ['site visit', 'pre-construction'], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Estimating', route: '/sales/estimating', icon: CalculatorIcon, description: 'Sales', keywords: ['takeoff', 'bid', 'proposal'], access: { type: 'roles', roles: SALES_ROLES } },
+  { name: 'Office', route: '/office', icon: BriefcaseIcon, description: 'Office', keywords: [], access: { type: 'permission', feature: 'office' } },
+  { name: 'Contacts', route: '/office/contacts', icon: UsersIcon, description: 'Office', keywords: [], access: { type: 'permission', feature: 'office' } },
+  { name: 'Vendors', route: '/office/vendors', icon: UsersIcon, description: 'Office', keywords: [], access: { type: 'permission', feature: 'vendor_management' } },
+  { name: 'Sales Dashboard', route: '/sales', icon: TrendingUpIcon, description: 'Sales', keywords: [], access: { type: 'anyPermission', features: SALES_FEATURES } },
+  { name: 'CRM', route: '/sales/crm', icon: UsersIcon, description: 'Sales', keywords: [], access: { type: 'permission', feature: 'crm' } },
+  { name: 'Dialer', route: '/sales/dialer', icon: PhoneIcon, description: 'Sales', keywords: ['phone', 'calls', 'cold call'], access: { type: 'permission', feature: 'dialer' } },
+  { name: 'Appointments', route: '/sales/appointments', icon: CalendarIcon, description: 'Sales', keywords: ['meetings', 'schedule'], access: { type: 'permission', feature: 'appointments' } },
+  { name: 'Leads', route: '/sales/leads', icon: TargetIcon, description: 'Sales', keywords: ['prospects', 'pipeline'], access: { type: 'permission', feature: 'leads' } },
+  { name: 'Job Walk', route: '/job-walk', icon: FootprintsIcon, description: 'Sales', keywords: ['site visit', 'pre-construction'], access: { type: 'permission', feature: 'job_walk' } },
+  { name: 'Estimating', route: '/sales/estimating', icon: CalculatorIcon, description: 'Sales', keywords: ['takeoff', 'bid', 'proposal'], access: { type: 'permission', feature: 'estimating' } },
   { name: 'Job Board', route: '/job-board', icon: LayoutDashboardIcon, description: 'Job Board', keywords: [], access: { type: 'permission', feature: 'job_board' } },
   { name: 'Job Feed', route: '/jobs', icon: BriefcaseIcon, description: 'Job Board', keywords: [], access: { type: 'permission', feature: 'jobs' } },
   { name: 'Daily Reports', route: '/daily-reports', icon: ClipboardListIcon, description: 'Job Board', keywords: ['field report'], access: { type: 'permission', feature: 'daily_reports' } },
@@ -96,25 +106,27 @@ const NAV_PAGES: NavPage[] = [
   { name: 'Timesheets', route: '/timesheets', icon: ClockIcon, description: 'Job Board', keywords: ['timecard', 'hours', 'clock'], access: { type: 'permission', feature: 'timesheets' } },
   { name: 'Photos', route: '/photos', icon: ImageIcon, description: 'Job Board', keywords: [], access: { type: 'permission', feature: 'photos' } },
   { name: 'Field Tasks', route: '/tasks', icon: CheckSquareIcon, description: 'Job Board', keywords: [], access: { type: 'permission', feature: 'tasks' } },
-  { name: 'Billing', route: '/billing', icon: DollarSignIcon, description: 'Billing', keywords: ['invoices', 'change orders'], access: { type: 'all' } },
+  { name: 'Billing', route: '/billing', icon: DollarSignIcon, description: 'Billing', keywords: ['invoices', 'change orders'], access: { type: 'permission', feature: 'billing' } },
   { name: 'Calendar', route: '/calendar', icon: CalendarIcon, description: 'Calendar', keywords: ['events', 'schedule'], access: { type: 'permission', feature: 'calendar' } },
-  { name: 'Scheduler', route: '/scheduler', icon: CalendarRangeIcon, description: 'Scheduler', keywords: ['crew schedule', 'weekly schedule'], access: { type: 'scheduler' } },
-  { name: 'SOPs & Forms', route: '/sops', icon: FileTextIcon, description: 'Office', keywords: ['standard operating procedures', 'processes', 'documentation'], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Equipment', route: '/equipment', icon: WrenchIcon, description: 'Equipment', keywords: ['tools', 'maintenance', 'inventory'], access: { type: 'roles', roles: SALES_ROLES } },
-  { name: 'Material Management', route: '/material-management', icon: PackageIcon, description: 'Materials', keywords: ['products', 'suppliers', 'catalog'], access: { type: 'roles', roles: ['admin', 'office_manager'] } },
-  { name: 'Material Systems', route: '/material-systems', icon: BoxesIcon, description: 'Materials', keywords: ['system templates'], access: { type: 'roles', roles: ['admin', 'office_manager'] } },
-  { name: 'Inventory', route: '/inventory', icon: WarehouseIcon, description: 'Materials', keywords: ['job materials', 'products'], access: { type: 'roles', roles: ['admin', 'office_manager'] } },
+  { name: 'Scheduler', route: '/scheduler', icon: CalendarRangeIcon, description: 'Scheduler', keywords: ['crew schedule', 'weekly schedule'], access: { type: 'permission', feature: 'scheduler' } },
+  { name: 'SOPs & Forms', route: '/sops', icon: FileTextIcon, description: 'Office', keywords: ['standard operating procedures', 'processes', 'documentation'], access: { type: 'permission', feature: 'sops' } },
+  { name: 'Equipment', route: '/equipment', icon: WrenchIcon, description: 'Equipment', keywords: ['tools', 'maintenance', 'inventory'], access: { type: 'permission', feature: 'office' } },
+  { name: 'Material Management', route: '/material-management', icon: PackageIcon, description: 'Materials', keywords: ['products', 'suppliers', 'catalog'], access: { type: 'permission', feature: 'material_management' } },
+  { name: 'Material Systems', route: '/material-systems', icon: BoxesIcon, description: 'Materials', keywords: ['system templates'], access: { type: 'permission', feature: 'material_management' } },
+  { name: 'Inventory', route: '/inventory', icon: WarehouseIcon, description: 'Materials', keywords: ['job materials', 'products'], access: { type: 'permission', feature: 'material_management' } },
   { name: 'Settings', route: '/profile', icon: SettingsIcon, description: 'Settings & Admin', keywords: ['company info', 'profile'], access: { type: 'all' } },
-  { name: 'Permissions', route: '/permissions', icon: LockIcon, description: 'Settings & Admin', keywords: ['roles', 'access'], access: { type: 'admin' } },
-  { name: 'Form Management', route: '/form-management', icon: FileTextIcon, description: 'Settings & Admin', keywords: ['templates', 'custom forms'], access: { type: 'admin' } },
-  { name: 'Checklist Templates', route: '/checklist-templates', icon: ListChecksIcon, description: 'Settings & Admin', keywords: ['project checklists'], access: { type: 'admin' } },
-  { name: 'Job Report Management', route: '/job-report-management', icon: BookOpenIcon, description: 'Settings & Admin', keywords: ['field guides', 'report checklists'], access: { type: 'admin' } },
-  { name: 'Data Export', route: '/data-export', icon: DownloadIcon, description: 'Settings & Admin', keywords: ['download', 'zip', 'backup'], access: { type: 'roles', roles: ['admin', 'office_manager'] } },
-  { name: 'Reports', route: '/reports', icon: BarChart3Icon, description: 'Reports', keywords: ['timesheet reports'], access: { type: 'roles', roles: ['admin', 'office_manager'] } },
-  { name: 'Timesheet Reports', route: '/reports/timesheets', icon: BarChart3Icon, description: 'Reports', keywords: ['hours report', 'payroll'], access: { type: 'roles', roles: ['admin', 'office_manager'] } },
-  { name: 'Trash Bin', route: '/trash-bin', icon: Trash2Icon, description: 'Settings & Admin', keywords: ['deleted', 'recover', 'restore'], access: { type: 'admin' } },
-  { name: 'Bug Reports', route: '/bug-reports', icon: BugIcon, description: 'Settings & Admin', keywords: ['issues', 'problems'], access: { type: 'admin' } },
-  { name: 'Command Center', route: '/admin/command-center', icon: MonitorIcon, description: 'Settings & Admin', keywords: ['dashboard', 'metrics', 'admin'], access: { type: 'admin' } },
+  // Permissions is admin-only — gated by user_management (which only admins
+  // have in default templates, matching the route's server-side admin gate).
+  { name: 'Permissions', route: '/permissions', icon: LockIcon, description: 'Settings & Admin', keywords: ['roles', 'access'], access: { type: 'permission', feature: 'user_management' } },
+  { name: 'Form Management', route: '/form-management', icon: FileTextIcon, description: 'Settings & Admin', keywords: ['templates', 'custom forms'], access: { type: 'permission', feature: 'job_feed_forms' } },
+  { name: 'Checklist Templates', route: '/checklist-templates', icon: ListChecksIcon, description: 'Settings & Admin', keywords: ['project checklists'], access: { type: 'permission', feature: 'checklist_templates' } },
+  { name: 'Job Report Management', route: '/job-report-management', icon: BookOpenIcon, description: 'Settings & Admin', keywords: ['field guides', 'report checklists'], access: { type: 'permission', feature: 'job_reports' } },
+  { name: 'Data Export', route: '/data-export', icon: DownloadIcon, description: 'Settings & Admin', keywords: ['download', 'zip', 'backup'], access: { type: 'permission', feature: 'data_export' } },
+  { name: 'Reports', route: '/reports', icon: BarChart3Icon, description: 'Reports', keywords: ['timesheet reports'], access: { type: 'permission', feature: 'reports' } },
+  { name: 'Timesheet Reports', route: '/reports/timesheets', icon: BarChart3Icon, description: 'Reports', keywords: ['hours report', 'payroll'], access: { type: 'permission', feature: 'reports' } },
+  { name: 'Trash Bin', route: '/trash-bin', icon: Trash2Icon, description: 'Settings & Admin', keywords: ['deleted', 'recover', 'restore'], access: { type: 'permission', feature: 'trash_bin' } },
+  { name: 'Bug Reports', route: '/bug-reports', icon: BugIcon, description: 'Settings & Admin', keywords: ['issues', 'problems'], access: { type: 'permission', feature: 'bug_reports' } },
+  { name: 'Command Center', route: '/admin/command-center', icon: MonitorIcon, description: 'Settings & Admin', keywords: ['dashboard', 'metrics', 'admin'], access: { type: 'permission', feature: 'command_center' } },
 ]
 
 export default function NavigationSearch() {
@@ -128,28 +140,25 @@ export default function NavigationSearch() {
   const listRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const router = useRouter()
-  const { role, schedulerAccess } = useUserRole()
-  const { canView } = usePermissions(role)
+  const { canView } = usePermissions()
   const supabaseRef = useRef(createClient())
 
-  const isSalesRole = SALES_ROLES.includes(role)
+  // Surfaced sales/estimate search results for any user who can view at
+  // least one sales sub-feature.
+  const isSalesRole = SALES_FEATURES.some((f) => canView(f))
 
   const hasAccess = useCallback(
     (access: AccessRule): boolean => {
       switch (access.type) {
         case 'all':
           return true
-        case 'roles':
-          return access.roles.includes(role)
         case 'permission':
           return canView(access.feature)
-        case 'admin':
-          return role === 'admin'
-        case 'scheduler':
-          return role === 'admin' || schedulerAccess
+        case 'anyPermission':
+          return access.features.some((f) => canView(f))
       }
     },
-    [role, schedulerAccess, canView]
+    [canView]
   )
 
   const accessiblePages = useMemo(
@@ -383,7 +392,7 @@ export default function NavigationSearch() {
           )
         }
 
-        if (role === 'admin') {
+        if (canView('billing')) {
           queries.push(
             Promise.resolve(supabase
               .from('check_deposits')
@@ -418,7 +427,7 @@ export default function NavigationSearch() {
         setDataLoading(false)
       }
     },
-    [isSalesRole, role]
+    [isSalesRole, canView]
   )
 
   useEffect(() => {

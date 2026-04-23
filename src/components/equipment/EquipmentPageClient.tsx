@@ -30,11 +30,13 @@ import { CSS } from '@dnd-kit/utilities'
 import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 import type { EquipmentCategory } from '@/types'
 import EquipmentModal from './EquipmentModal'
+import { usePermissions } from '@/lib/usePermissions'
 
 interface Props {
   initialEquipment: EquipmentRow[]
   userId: string
-  userRole: string
+  /** Retained for back-compat; permissions now come from the hook. */
+  userRole?: string
   /** When provided, clicking "View" calls this instead of navigating to /equipment/[id]. */
   onViewItem?: (id: string) => void
   /**
@@ -150,7 +152,9 @@ function SortableCategoryRow({
   )
 }
 
-export default function EquipmentPageClient({ initialEquipment, userId, userRole, onViewItem, onBack }: Props) {
+export default function EquipmentPageClient({ initialEquipment, userId, onViewItem, onBack }: Props) {
+  const { canView } = usePermissions()
+  const canViewOffice = canView('office')
   const router = useRouter()
   const [equipment, setEquipment] = useState(initialEquipment)
   const [categoryFilter, setCategoryFilter] = useState('')
@@ -176,7 +180,10 @@ export default function EquipmentPageClient({ initialEquipment, userId, userRole
     useSensor(KeyboardSensor)
   )
 
-  const canManage = userRole === 'admin' || userRole === 'foreman' || userRole === 'office_manager'
+  // Equipment management was granted to admin/foreman/OM. With default
+  // templates, `canView('office')` covers admin+OM — foremen lose access
+  // unless an admin grants `office` access to their user or template.
+  const canManage = canViewOffice
 
   const fetchCategories = useCallback(async () => {
     const supabase = createClient()

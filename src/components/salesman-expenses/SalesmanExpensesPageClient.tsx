@@ -17,6 +17,7 @@ import NewSalesmanExpenseModal from './NewSalesmanExpenseModal'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 import EditSalesmanExpenseModal from './EditSalesmanExpenseModal'
+import { usePermissions } from '@/lib/usePermissions'
 
 interface SalesmanExpensesPageClientProps {
   initialExpenses: SalesmanExpenseRow[]
@@ -38,7 +39,9 @@ export default function SalesmanExpensesPageClient({
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
 
-  const isAdminOrOM = userRole === 'admin' || userRole === 'office_manager'
+  // "See everyone's expenses" was admin+OM; mapped to office view.
+  const { canView } = usePermissions()
+  const isAdminOrOM = canView('office')
 
   const fetchExpenses = useCallback(async () => {
     const supabase = createClient()

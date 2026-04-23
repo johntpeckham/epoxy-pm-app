@@ -10,7 +10,6 @@ import type { PhotoEntry, PhotoItem } from '@/app/(dashboard)/photos/page'
 import { Project } from '@/types'
 import NewPhotoModal from './NewPhotoModal'
 import PhotoLightbox from './PhotoLightbox'
-import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 
 interface PhotosPageClientProps {
@@ -76,8 +75,7 @@ function formatDate(dateStr: string) {
 export default function PhotosPageClient({ entries, projects, allProjects, userId }: PhotosPageClientProps) {
   const router = useRouter()
   const supabase = createClient()
-  const { role } = useUserRole()
-  const { canCreate } = usePermissions(role)
+  const { canCreate } = usePermissions()
   const [showModal, setShowModal] = useState(false)
   const [previewPhotos, setPreviewPhotos] = useState<string[] | null>(null)
   const [previewIndex, setPreviewIndex] = useState(0)

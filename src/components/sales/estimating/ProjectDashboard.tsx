@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { PencilIcon } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
-import { useUserRole } from '@/lib/useUserRole'
+import { usePermissions } from '@/lib/usePermissions'
 import ProjectTakeoffSheetsCard from './ProjectTakeoffSheetsCard'
 import ProjectMeasurementsCard from './ProjectMeasurementsCard'
 import ProjectEstimatesCard from './ProjectEstimatesCard'
@@ -25,8 +25,10 @@ export default function ProjectDashboard({
   userId,
   onPatch,
 }: ProjectDashboardProps) {
-  const { role } = useUserRole()
-  const isAdmin = role === 'admin'
+  const { canEdit } = usePermissions()
+  // Project number override was previously admin-only. Now surfaces for any
+  // user with edit access to estimating (admin retains it via shortcut).
+  const canOverrideProjectNumber = canEdit('estimating')
   const [showOverride, setShowOverride] = useState(false)
 
   return (
@@ -34,7 +36,7 @@ export default function ProjectDashboard({
       <div className="px-4 py-4 border-b border-gray-200 bg-white">
         {project.project_number && (
           <div className="mb-1">
-            {isAdmin ? (
+            {canOverrideProjectNumber ? (
               <button
                 type="button"
                 onClick={() => setShowOverride(true)}

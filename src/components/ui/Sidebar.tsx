@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, DollarSignIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, MailIcon, TargetIcon, CalculatorIcon } from 'lucide-react'
-import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 
 interface SidebarProps {
@@ -35,9 +34,16 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     localStorage.setItem('sidebar-sales-expanded', String(salesExpanded))
   }, [salesExpanded])
 
-  const { role, schedulerAccess } = useUserRole()
-  const { canView } = usePermissions(role)
-  const canSeeScheduler = role === 'admin' || schedulerAccess
+  const { canView } = usePermissions()
+  // Sales section is shown when the user can view any sales sub-feature.
+  const canViewSales =
+    canView('crm') ||
+    canView('dialer') ||
+    canView('emailer') ||
+    canView('leads') ||
+    canView('appointments') ||
+    canView('estimating') ||
+    canView('job_walk')
 
   useEffect(() => {
     const handler = () => setMobileOpen(true)
@@ -139,7 +145,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           <ClipboardCheckIcon className="w-5 h-5 flex-shrink-0" />
           My Work
         </Link>
-        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
+        {canView('office') && (
           <Link
             href="/office"
             onClick={() => setMobileOpen(false)}
@@ -156,7 +162,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         {/* Soft divider */}
         <div className="mx-3 my-2 border-t border-gray-800/60" />
 
-        {(role === 'admin' || role === 'office_manager' || role === 'salesman') && (
+        {canViewSales && (
           <div>
             <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
               isSalesActive
@@ -186,90 +192,104 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 opacity: salesExpanded ? 1 : 0,
               }}
             >
-              <Link
-                href="/sales/crm"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesCrmActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <UsersIcon className="w-4 h-4 flex-shrink-0" />
-                CRM
-              </Link>
-              <Link
-                href="/sales/dialer"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesDialerActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <PhoneIcon className="w-4 h-4 flex-shrink-0" />
-                Dialer
-              </Link>
-              <Link
-                href="/sales/emailer"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesEmailerActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <MailIcon className="w-4 h-4 flex-shrink-0" />
-                Emailer
-              </Link>
-              <Link
-                href="/sales/appointments"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesAppointmentsActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <CalendarIcon className="w-4 h-4 flex-shrink-0" />
-                Appointments
-              </Link>
-              <Link
-                href="/sales/leads"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesLeadsActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <TargetIcon className="w-4 h-4 flex-shrink-0" />
-                Leads
-              </Link>
-              <Link
-                href="/job-walk"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isJobWalkActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <FootprintsIcon className="w-4 h-4 flex-shrink-0" />
-                Job Walk
-              </Link>
-              <Link
-                href="/sales/estimating"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSalesEstimatingActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <CalculatorIcon className="w-4 h-4 flex-shrink-0" />
-                Estimating
-              </Link>
+              {canView('crm') && (
+                <Link
+                  href="/sales/crm"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isSalesCrmActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <UsersIcon className="w-4 h-4 flex-shrink-0" />
+                  CRM
+                </Link>
+              )}
+              {canView('dialer') && (
+                <Link
+                  href="/sales/dialer"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isSalesDialerActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <PhoneIcon className="w-4 h-4 flex-shrink-0" />
+                  Dialer
+                </Link>
+              )}
+              {canView('emailer') && (
+                <Link
+                  href="/sales/emailer"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isSalesEmailerActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <MailIcon className="w-4 h-4 flex-shrink-0" />
+                  Emailer
+                </Link>
+              )}
+              {canView('appointments') && (
+                <Link
+                  href="/sales/appointments"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isSalesAppointmentsActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <CalendarIcon className="w-4 h-4 flex-shrink-0" />
+                  Appointments
+                </Link>
+              )}
+              {canView('leads') && (
+                <Link
+                  href="/sales/leads"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isSalesLeadsActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <TargetIcon className="w-4 h-4 flex-shrink-0" />
+                  Leads
+                </Link>
+              )}
+              {canView('job_walk') && (
+                <Link
+                  href="/job-walk"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isJobWalkActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <FootprintsIcon className="w-4 h-4 flex-shrink-0" />
+                  Job Walk
+                </Link>
+              )}
+              {canView('estimating') && (
+                <Link
+                  href="/sales/estimating"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isSalesEstimatingActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <CalculatorIcon className="w-4 h-4 flex-shrink-0" />
+                  Estimating
+                </Link>
+              )}
             </div>
           </div>
         )}
@@ -409,18 +429,20 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           </div>
         )}
 
-        <Link
-          href="/billing"
-          onClick={() => setMobileOpen(false)}
-          className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isBillingActive
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
-        >
-          <DollarSignIcon className="w-5 h-5 flex-shrink-0" />
-          Billing
-        </Link>
+        {canView('billing') && (
+          <Link
+            href="/billing"
+            onClick={() => setMobileOpen(false)}
+            className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isBillingActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <DollarSignIcon className="w-5 h-5 flex-shrink-0" />
+            Billing
+          </Link>
+        )}
 
         {/* Soft divider */}
         <div className="mx-3 my-2 border-t border-gray-800/60" />
@@ -440,7 +462,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           </Link>
         )}
 
-        {canSeeScheduler && (
+        {canView('scheduler') && (
           <Link
             href="/scheduler"
             onClick={() => setMobileOpen(false)}

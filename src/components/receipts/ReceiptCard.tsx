@@ -21,6 +21,7 @@ import { groupDynamicFieldsBySection } from '@/lib/formFieldMaps'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import EditReceiptModal from '@/components/feed/EditReceiptModal'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { usePermissions } from '@/lib/usePermissions'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 import { moveToTrash } from '@/lib/trashBin'
@@ -38,7 +39,9 @@ interface ReceiptRow {
 
 interface ReceiptCardProps {
   receipt: ReceiptRow
-  role: UserRole
+  /** Retained for back-compat; the component now reads permissions via the
+   *  usePermissions hook. Callers may continue to pass `role` or omit it. */
+  role?: UserRole
 }
 
 function formatReceiptDate(dateStr: string) {
@@ -50,10 +53,11 @@ function formatReceiptDate(dateStr: string) {
   })
 }
 
-export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
+export default memo(function ReceiptCard({ receipt }: ReceiptCardProps) {
   const router = useRouter()
   const supabase = createClient()
   const { settings: companySettings } = useCompanySettings()
+  const { canEdit } = usePermissions()
   const [expanded, setExpanded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -61,7 +65,9 @@ export default memo(function ReceiptCard({ receipt, role }: ReceiptCardProps) {
   const [pdfLoading, setPdfLoading] = useState(false)
   const [confirmed, setConfirmed] = useState(receipt.confirmed)
 
-  const canConfirm = role === 'admin' || role === 'office_manager'
+  // Admin and office_manager historically saw the confirm toggle; now it
+  // follows edit-level access on receipts so admins can grant it to others.
+  const canConfirm = canEdit('receipts')
 
   async function handleToggleConfirmed(e: React.MouseEvent) {
     e.stopPropagation()
