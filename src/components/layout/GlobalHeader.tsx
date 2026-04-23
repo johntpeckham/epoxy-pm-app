@@ -39,6 +39,22 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
   const { theme, toggleTheme } = useTheme()
   const isDarkMode = theme === 'dark'
 
+  const hasAnySettingsAccess =
+    canView('company_info') ||
+    canView('user_management') ||
+    canView('employee_management') ||
+    canView('sales_management') ||
+    canView('vendor_management') ||
+    canView('warranty_management') ||
+    canView('prelien_management') ||
+    canView('material_management') ||
+    canView('job_feed_forms') ||
+    canView('job_reports') ||
+    canView('checklist_templates') ||
+    canView('data_export') ||
+    canView('reports') ||
+    canView('trash_bin')
+
   const initials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : 'U'
 
   async function handleSignOut() {
@@ -259,54 +275,66 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
                 <PencilIcon className="w-4 h-4 flex-shrink-0" />
                 Edit profile
               </button>
-              <button
-                role="menuitem"
-                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=company-info') }}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
-              >
-                <BuildingIcon className="w-4 h-4 flex-shrink-0" />
-                Company info
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => { setSettingsDropdownOpen(false); router.push('/settings/users') }}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
-              >
-                <UsersIcon className="w-4 h-4 flex-shrink-0" />
-                User management
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=employee-management') }}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
-              >
-                <UsersIcon className="w-4 h-4 flex-shrink-0" />
-                Employee management
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=vendor-management') }}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
-              >
-                <Building2Icon className="w-4 h-4 flex-shrink-0" />
-                Vendor management
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => { setSettingsDropdownOpen(false); router.push('/data-export') }}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
-              >
-                <DownloadIcon className="w-4 h-4 flex-shrink-0" />
-                Data export
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => { setSettingsDropdownOpen(false); router.push('/reports') }}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
-              >
-                <BarChart3Icon className="w-4 h-4 flex-shrink-0" />
-                Reports
-              </button>
+              {canView('company_info') && (
+                <button
+                  role="menuitem"
+                  onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=company-info') }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+                >
+                  <BuildingIcon className="w-4 h-4 flex-shrink-0" />
+                  Company info
+                </button>
+              )}
+              {canView('user_management') && (
+                <button
+                  role="menuitem"
+                  onClick={() => { setSettingsDropdownOpen(false); router.push('/settings/users') }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+                >
+                  <UsersIcon className="w-4 h-4 flex-shrink-0" />
+                  User management
+                </button>
+              )}
+              {canView('employee_management') && (
+                <button
+                  role="menuitem"
+                  onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=employee-management') }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+                >
+                  <UsersIcon className="w-4 h-4 flex-shrink-0" />
+                  Employee management
+                </button>
+              )}
+              {canView('vendor_management') && (
+                <button
+                  role="menuitem"
+                  onClick={() => { setSettingsDropdownOpen(false); router.push('/profile?section=vendor-management') }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+                >
+                  <Building2Icon className="w-4 h-4 flex-shrink-0" />
+                  Vendor management
+                </button>
+              )}
+              {canView('data_export') && (
+                <button
+                  role="menuitem"
+                  onClick={() => { setSettingsDropdownOpen(false); router.push('/data-export') }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+                >
+                  <DownloadIcon className="w-4 h-4 flex-shrink-0" />
+                  Data export
+                </button>
+              )}
+              {canView('reports') && (
+                <button
+                  role="menuitem"
+                  onClick={() => { setSettingsDropdownOpen(false); router.push('/reports') }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+                >
+                  <BarChart3Icon className="w-4 h-4 flex-shrink-0" />
+                  Reports
+                </button>
+              )}
               <div
                 role="menuitem"
                 className="flex items-center justify-between w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
@@ -326,14 +354,18 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
                   <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
               </div>
-              <div className="border-t border-[#3a3a3a]" />
-              <button
-                role="menuitem"
-                onClick={() => { setSettingsDropdownOpen(false); router.push('/profile') }}
-                className="flex items-center justify-center w-full px-3 py-2.5 text-sm text-gray-400 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
-              >
-                View all settings
-              </button>
+              {hasAnySettingsAccess && (
+                <>
+                  <div className="border-t border-[#3a3a3a]" />
+                  <button
+                    role="menuitem"
+                    onClick={() => { setSettingsDropdownOpen(false); router.push('/profile') }}
+                    className="flex items-center justify-center w-full px-3 py-2.5 text-sm text-gray-400 hover:bg-white/10 hover:text-white transition-colors min-h-[44px]"
+                  >
+                    View all settings
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
