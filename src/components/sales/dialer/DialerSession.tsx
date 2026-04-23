@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
-  PhoneIcon,
   MessageSquareIcon,
   MailIcon,
   FileTextIcon,
@@ -12,6 +11,7 @@ import {
   ChevronDownIcon,
   CopyIcon,
   CheckIcon,
+  UsersIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
@@ -22,13 +22,16 @@ import NewAppointmentModal, {
   type AppointmentAssigneeOption,
 } from '../NewAppointmentModal'
 import {
-  type QueuedContact,
+  type QueuedCompany,
   type SessionStats,
   type OutcomeValue,
   OUTCOME_OPTIONS,
   outcomeToCallLog,
   initials,
   formatDate,
+  getActiveContact,
+  sortPhones,
+  PHONE_TYPE_LABEL,
 } from './dialerTypes'
 import {
   type CallTemplateRow,
@@ -37,7 +40,7 @@ import {
 
 interface DialerSessionProps {
   userId: string
-  queue: QueuedContact[]
+  queue: QueuedCompany[]
   onEnd: () => void
   onComplete: (stats: SessionStats) => void
 }
@@ -75,6 +78,12 @@ export default function DialerSession({
   const supabase = useMemo(() => createClient(), [])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
+  // Per-company override: which contact the rep has switched to mid-session.
+  // Keyed by company_id; value is the selected contact_id. Falls back to each
+  // entry's initial `activeContactId` when not present.
+  const [activeOverrides, setActiveOverrides] = useState<Map<string, string>>(
+    new Map()
+  )
   const [outcome, setOutcome] = useState<OutcomeValue | null>(null)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -104,6 +113,34 @@ export default function DialerSession({
 
   const current = queue[currentIndex]
   const isLast = currentIndex === queue.length - 1
+  // Resolve active contact: rep's override first, otherwise the entry's initial
+  // activeContactId, otherwise the first contact in the list.
+  const activeContact = useMemo(() => {
+    if (!current) return null
+    const overrideId = activeOverrides.get(current.company_id)
+    if (overrideId) {
+      const hit = current.contacts.find((c) => c.id === overrideId)
+      if (hit) return hit
+    }
+    return getActiveContact(current)
+  }, [current, activeOverrides])
+  const activePhones = useMemo(
+    () => (activeContact ? sortPhones(activeContact.phones) : []),
+    [activeContact]
+  )
+  const otherContacts = useMemo(() => {
+    if (!current || !activeContact) return []
+    return current.contacts.filter((c) => c.id !== activeContact.id)
+  }, [current, activeContact])
+
+  function switchActiveContact(contactId: string) {
+    if (!current) return
+    setActiveOverrides((prev) => {
+      const next = new Map(prev)
+      next.set(current.company_id, contactId)
+      return next
+    })
+  }
 
   // Transient toast
   useEffect(() => {
@@ -203,7 +240,7 @@ export default function DialerSession({
   }
 
   async function saveAndAdvance() {
-    if (!current) return
+    if (!current || !activeContact) return
     if (!outcome) {
       setShowOutcomePrompt(true)
       return
@@ -212,7 +249,7 @@ export default function DialerSession({
     const loggedOutcome = outcomeToCallLog(outcome)
     const { error } = await supabase.from('crm_call_log').insert({
       company_id: current.company_id,
-      contact_id: current.contact_id,
+      contact_id: activeContact.id,
       outcome: loggedOutcome,
       notes: notes.trim() || null,
       call_date: new Date().toISOString(),
@@ -231,7 +268,7 @@ export default function DialerSession({
       if (outcome === 'appointment') next.connected += 1
       return next
     })
-    setCompletedIds((prev) => new Set(prev).add(current.contact_id))
+    setCompletedIds((prev) => new Set(prev).add(current.company_id))
 
     // If appointment selected, open the appointment modal after saving the call.
     if (outcome === 'appointment') {
@@ -316,35 +353,47 @@ export default function DialerSession({
             {/* Avatar */}
             <div className="flex flex-col items-center text-center">
               <div className="w-14 h-14 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 text-base font-medium mb-4">
-                {initials(current.contact_first_name, current.contact_last_name)}
+                {activeContact ? initials(activeContact.first_name, activeContact.last_name) : ''}
               </div>
               <h2 className="text-[22px] font-medium text-gray-900 leading-tight">
-                {current.contact_first_name} {current.contact_last_name}
+                {activeContact?.first_name} {activeContact?.last_name}
               </h2>
-              {current.contact_job_title && (
+              {activeContact?.job_title && (
                 <p className="text-sm text-gray-500 mt-0.5">
-                  {current.contact_job_title}
+                  {activeContact.job_title}
                 </p>
               )}
               <p className="text-[13px] text-gray-400 mt-0.5">
                 {current.company_name}
               </p>
-              <div className="mt-4 space-y-0.5 text-[13px] text-gray-500">
-                {current.contact_phone && (
-                  <div className="tabular-nums">{current.contact_phone}</div>
-                )}
-                {current.contact_email && <div>{current.contact_email}</div>}
-              </div>
+              {activeContact?.email && (
+                <p className="text-[13px] text-gray-500 mt-2">
+                  {activeContact.email}
+                </p>
+              )}
+
+              {/* Phone list */}
+              {activePhones.length > 0 && (
+                <div className="mt-3 w-full max-w-[340px] space-y-1.5">
+                  {activePhones.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setToast(`Calling ${p.phone_number} — coming soon`)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 text-[13px] border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="tabular-nums text-gray-700">
+                        {p.phone_number}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wide text-gray-500 px-2 py-0.5 bg-gray-50 rounded-full">
+                        {PHONE_TYPE_LABEL[p.phone_type]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Action buttons */}
               <div className="mt-5 flex items-center justify-center gap-2">
-                <button
-                  onClick={() => setToast('Calling — coming soon')}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-700 border border-gray-200 rounded-full hover:bg-gray-50 transition-colors"
-                >
-                  <PhoneIcon className="w-3.5 h-3.5" />
-                  Call
-                </button>
                 <button
                   onClick={() => setToast('Text — coming soon')}
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-700 border border-gray-200 rounded-full hover:bg-gray-50 transition-colors"
@@ -417,6 +466,41 @@ export default function DialerSession({
 
             {/* Right column */}
             <div className="space-y-4">
+              {/* Other contacts at this company */}
+              {otherContacts.length > 0 && (
+                <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2.5 flex items-center gap-1.5">
+                    <UsersIcon className="w-3 h-3" />
+                    Other contacts at this company
+                  </p>
+                  <ul className="space-y-2">
+                    {otherContacts.map((oc) => (
+                      <li
+                        key={oc.id}
+                        className="flex items-start justify-between gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium text-gray-900 truncate">
+                            {oc.first_name} {oc.last_name}
+                          </div>
+                          {oc.job_title && (
+                            <div className="text-[11px] text-gray-400 truncate">
+                              {oc.job_title}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => switchActiveContact(oc.id)}
+                          className="flex-shrink-0 text-[11px] text-teal-700 hover:text-teal-900 border border-teal-100 hover:border-teal-300 px-2 py-1 rounded-full transition-colors"
+                        >
+                          Use this contact
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* Company card */}
               <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
                 <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1.5">
@@ -513,10 +597,15 @@ export default function DialerSession({
                 <ul className="space-y-1">
                   {queue.map((q, idx) => {
                     const isCurrent = idx === currentIndex
-                    const isDone = completedIds.has(q.contact_id)
+                    const isDone = completedIds.has(q.company_id)
+                    const overrideId = activeOverrides.get(q.company_id)
+                    const ac =
+                      (overrideId && q.contacts.find((c) => c.id === overrideId)) ||
+                      q.contacts.find((c) => c.id === q.activeContactId) ||
+                      q.contacts[0]
                     return (
                       <li
-                        key={q.contact_id}
+                        key={q.company_id}
                         className={`text-xs flex items-center gap-2 px-2 py-1 rounded ${
                           isDone
                             ? 'text-gray-300 line-through'
@@ -529,8 +618,11 @@ export default function DialerSession({
                           <ChevronRightIcon className="w-3 h-3 text-amber-500 flex-none" />
                         )}
                         <span className="truncate flex-1">
-                          {q.contact_first_name} {q.contact_last_name}
+                          {ac?.first_name} {ac?.last_name}
                         </span>
+                        {q.contacts.length > 1 && (
+                          <UsersIcon className="w-3 h-3 text-gray-300 flex-none" />
+                        )}
                       </li>
                     )
                   })}
@@ -630,7 +722,7 @@ export default function DialerSession({
           assignees={apptAssignees}
           prefill={{
             companyId: current.company_id,
-            contactId: current.contact_id,
+            contactId: activeContact?.id ?? null,
           }}
           onClose={() => {
             setShowAppointmentModal(false)

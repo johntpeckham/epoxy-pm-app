@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { CheckCircle2Icon, RotateCcwIcon, ArrowLeftIcon, PhoneIcon } from 'lucide-react'
 import DialerSetup from './DialerSetup'
 import DialerSession from './DialerSession'
-import { type QueuedContact, type SessionStats } from './dialerTypes'
+import { type QueuedCompany, type SessionStats } from './dialerTypes'
 
 interface DialerClientProps {
   userId: string
@@ -26,10 +26,10 @@ const EMPTY_STATS: SessionStats = {
 
 export default function DialerClient({ userId }: DialerClientProps) {
   const [mode, setMode] = useState<Mode>('setup')
-  const [queue, setQueue] = useState<QueuedContact[]>([])
+  const [queue, setQueue] = useState<QueuedCompany[]>([])
   const [finalStats, setFinalStats] = useState<SessionStats>(EMPTY_STATS)
 
-  function startSession(q: QueuedContact[]) {
+  function startSession(q: QueuedCompany[]) {
     if (q.length === 0) return
     setQueue(q)
     setFinalStats({ ...EMPTY_STATS, total: q.length })
