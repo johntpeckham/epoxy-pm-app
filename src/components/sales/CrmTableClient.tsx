@@ -74,10 +74,8 @@ interface CompanyRow {
   assigned_to: string | null
   assigned_name: string | null
   lead_source: string | null
-  contact_count: number
   contacts: ContactRow[]
   last_activity: string | null
-  last_note: string | null
   tag_ids: string[]
   created_at: string
   updated_at: string
@@ -166,10 +164,8 @@ type SortField =
   | 'location'
   | 'status'
   | 'priority'
-  | 'contact_count'
   | 'last_activity'
   | 'assigned_name'
-  | 'last_note'
 
 interface CrmTableClientProps {
   userId: string
@@ -413,7 +409,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       'Priority',
       'Lead source',
       'Assigned to',
-      'Contact count',
       'Last activity',
       'Primary contact name',
       'Primary contact email',
@@ -433,7 +428,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
         r.priority,
         r.lead_source ?? '',
         r.assigned_name ?? '',
-        r.contact_count,
         r.last_activity ?? '',
         c?.name ?? '',
         c?.email ?? '',
@@ -500,7 +494,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
 
     // Contacts per company (full details for expandable sub-rows)
     const contactsByCompany = new Map<string, ContactRow[]>()
-    const contactCounts = new Map<string, number>()
     if (companyIds.length > 0) {
       const { data: contactsForCount } = await supabase
         .from('contacts')
@@ -518,7 +511,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
         phone: string | null
         is_primary: boolean
       }>) {
-        contactCounts.set(row.company_id, (contactCounts.get(row.company_id) ?? 0) + 1)
         const list = contactsByCompany.get(row.company_id) ?? []
         list.push({
           id: row.id,
@@ -555,37 +547,28 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       }
     }
 
-    // Last call date per company
+    // Last activity per company — MAX(latest call date, latest comment created_at)
     const lastActivity = new Map<string, string>()
     if (companyIds.length > 0) {
-      const { data: callRows } = await supabase
-        .from('crm_call_log')
-        .select('company_id, call_date')
-        .in('company_id', companyIds)
-        .order('call_date', { ascending: false })
+      const [{ data: callRows }, { data: commentRows }] = await Promise.all([
+        supabase
+          .from('crm_call_log')
+          .select('company_id, call_date')
+          .in('company_id', companyIds)
+          .order('call_date', { ascending: false }),
+        supabase
+          .from('crm_comments')
+          .select('company_id, created_at')
+          .in('company_id', companyIds)
+          .order('created_at', { ascending: false }),
+      ])
       for (const row of (callRows ?? []) as { company_id: string; call_date: string }[]) {
-        if (!lastActivity.has(row.company_id)) {
-          lastActivity.set(row.company_id, row.call_date)
-        }
+        const current = lastActivity.get(row.company_id)
+        if (!current || row.call_date > current) lastActivity.set(row.company_id, row.call_date)
       }
-    }
-
-    // Most recent comment content per company
-    const lastNote = new Map<string, string>()
-    if (companyIds.length > 0) {
-      const { data: commentRows } = await supabase
-        .from('crm_comments')
-        .select('company_id, content, created_at')
-        .in('company_id', companyIds)
-        .order('created_at', { ascending: false })
-      for (const row of (commentRows ?? []) as {
-        company_id: string
-        content: string
-        created_at: string
-      }[]) {
-        if (!lastNote.has(row.company_id)) {
-          lastNote.set(row.company_id, row.content)
-        }
+      for (const row of (commentRows ?? []) as { company_id: string; created_at: string }[]) {
+        const current = lastActivity.get(row.company_id)
+        if (!current || row.created_at > current) lastActivity.set(row.company_id, row.created_at)
       }
     }
 
@@ -618,10 +601,8 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     const merged: CompanyRow[] = companyRows.map((c) => ({
       ...c,
       assigned_name: c.assigned_to ? profileMap.get(c.assigned_to) ?? null : null,
-      contact_count: contactCounts.get(c.id) ?? 0,
       contacts: contactsByCompany.get(c.id) ?? [],
       last_activity: lastActivity.get(c.id) ?? null,
-      last_note: lastNote.get(c.id) ?? null,
       tag_ids: tagsByCompany.get(c.id) ?? [],
     }))
     // attach the search blob under a non-enumerable key via Map in state
@@ -957,7 +938,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       if (bv === '') return -1
       return av < bv ? -asc : asc
     }
-    const cmpNum = (a: number, b: number) => (a === b ? 0 : a < b ? -asc : asc)
     const sorted = [...rows].sort((a, b) => {
       switch (sortField) {
         case 'name':
@@ -975,14 +955,10 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           return cmpStr(a.status, b.status)
         case 'priority':
           return cmpStr(a.priority, b.priority)
-        case 'contact_count':
-          return cmpNum(a.contact_count, b.contact_count)
         case 'last_activity':
           return cmpStr(a.last_activity, b.last_activity)
         case 'assigned_name':
           return cmpStr(a.assigned_name, b.assigned_name)
-        case 'last_note':
-          return cmpStr(a.last_note, b.last_note)
         default:
           return 0
       }
@@ -1436,13 +1412,12 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
               {visibleColumns.map((col) => (
                 <col key={col.id} style={{ width: col.width }} />
               ))}
-              <col style={{ width: '36px' }} />
-              {isAdmin && <col style={{ width: '36px' }} />}
+              <col style={{ width: isAdmin ? '72px' : '36px' }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200" style={{ borderBottomWidth: '0.5px' }}>
                 <th className="pl-5 pr-0" style={{ paddingTop: 10, paddingBottom: 10 }}></th>
-                <th className="px-0" style={{ paddingTop: 10, paddingBottom: 10 }}>
+                <th className="px-0 text-left align-middle" style={{ paddingTop: 14, paddingBottom: 14 }}>
                   <input
                     type="checkbox"
                     ref={(el) => { if (el) { const ct = pageRows.filter((r) => selectedIds.has(r.id)).length; el.indeterminate = ct > 0 && ct < pageRows.length } }}
@@ -1483,24 +1458,24 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                   )
                 })}
                 <th className="px-1" style={{ paddingTop: 10, paddingBottom: 10 }}>
-                  <CrmColumnPicker
-                    allColumns={allColumns}
-                    visibleIds={visibleColumnIds}
-                    onToggle={handleToggleColumn}
-                  />
+                  <div className="inline-flex items-center gap-0.5">
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setShowColumnSettings(true)}
+                        className="inline-flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                        title="Column settings"
+                      >
+                        <SettingsIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                    <CrmColumnPicker
+                      allColumns={allColumns}
+                      visibleIds={visibleColumnIds}
+                      onToggle={handleToggleColumn}
+                    />
+                  </div>
                 </th>
-                {isAdmin && (
-                  <th className="px-1" style={{ paddingTop: 10, paddingBottom: 10 }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowColumnSettings(true)}
-                      className="inline-flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                      title="Column settings"
-                    >
-                      <SettingsIcon className="w-4 h-4" />
-                    </button>
-                  </th>
-                )}
               </tr>
             </thead>
             <tbody>
@@ -1614,20 +1589,25 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                 />
                               </td>
                             )
-                          case 'contacts':
+                          case 'last_activity':
                             return (
-                              <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad} onClick={(e) => e.stopPropagation()}>
-                                {hasContacts ? (
-                                  <button type="button" onClick={() => toggleExpanded(c.id)} className="text-sm text-gray-600 hover:text-amber-700 hover:underline cursor-pointer">
-                                    {c.contact_count} {c.contact_count === 1 ? 'contact' : 'contacts'}
-                                  </button>
-                                ) : (
-                                  <span className="text-gray-400">0 contacts</span>
-                                )}
+                              <td key={col.id} className={`px-2 text-sm ${last.stale ? 'text-amber-600' : 'text-gray-600'}`} style={cellPad}>
+                                <div className="flex items-center gap-1">
+                                  <span className="flex-1">{last.text}</span>
+                                  {isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleArchiveToggle(c.id, c.name, !c.archived) }}
+                                      disabled={archivingId === c.id}
+                                      className="opacity-0 group-hover:opacity-100 shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-opacity"
+                                      title={c.archived ? 'Restore company' : 'Archive company'}
+                                    >
+                                      {c.archived ? <ArchiveRestoreIcon className="w-3.5 h-3.5" /> : <ArchiveIcon className="w-3.5 h-3.5" />}
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             )
-                          case 'last_activity':
-                            return <td key={col.id} className={`px-2 text-sm ${last.stale ? 'text-amber-600' : 'text-gray-600'}`} style={cellPad}>{last.text}</td>
                           case 'assigned':
                             return (
                               <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad} onClick={(e) => e.stopPropagation()}>
@@ -1644,25 +1624,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                 />
                               </td>
                             )
-                          case 'last_note':
-                            return (
-                              <td key={col.id} className="pl-2 pr-2 text-sm text-gray-500" style={cellPad}>
-                                <div className="flex items-center gap-1">
-                                  <span className="truncate flex-1" title={c.last_note ?? ''}>{c.last_note || '—'}</span>
-                                  {isAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); handleArchiveToggle(c.id, c.name, !c.archived) }}
-                                      disabled={archivingId === c.id}
-                                      className="opacity-0 group-hover:opacity-100 shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-opacity"
-                                      title={c.archived ? 'Restore company' : 'Archive company'}
-                                    >
-                                      {c.archived ? <ArchiveRestoreIcon className="w-3.5 h-3.5" /> : <ArchiveIcon className="w-3.5 h-3.5" />}
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            )
                           case 'number_of_locations':
                             return <td key={col.id} className="px-2 text-sm text-gray-600" style={cellPad}><span className="block truncate">{c.number_of_locations != null ? String(c.number_of_locations) : '—'}</span></td>
                           case 'revenue_range':
@@ -1674,7 +1635,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                         }
                       })}
                       <td style={{ paddingTop: 14, paddingBottom: 14 }} />
-                      {isAdmin && <td />}
                     </tr>
                     {expanded &&
                       c.contacts.map((k) => {
@@ -1744,7 +1704,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                               )}
                             </td>
                             <td
-                              colSpan={Math.max(1, visibleColumns.length - 1 - Math.floor((visibleColumns.length - 1) / 2)) + 1 + (isAdmin ? 1 : 0)}
+                              colSpan={Math.max(1, visibleColumns.length - 1 - Math.floor((visibleColumns.length - 1) / 2)) + 1}
                               className="px-2 text-sm text-gray-600 truncate"
                               style={{ paddingTop: 10, paddingBottom: 10 }}
                               onClick={(e) => e.stopPropagation()}
