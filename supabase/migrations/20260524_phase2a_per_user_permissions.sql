@@ -366,7 +366,7 @@ with
     select
       p.id              as user_id,
       p.role            as role,
-      Boolean(p.scheduler_access) as scheduler_access,
+      coalesce(p.scheduler_access, false) as scheduler_access,
       fk.feature        as feature
     from profiles p
     cross join feature_keys fk
