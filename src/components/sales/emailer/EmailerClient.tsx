@@ -20,9 +20,9 @@ import {
   CheckCircle2Icon,
   RotateCcwIcon,
   BuildingIcon,
-  PhoneIcon,
   MapPinIcon,
   ArrowRightIcon,
+  UsersIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelectDropdown from '../MultiSelectDropdown'
@@ -32,6 +32,12 @@ import LocationFilter, {
   type LocationFilterValue,
 } from '@/components/ui/LocationFilter'
 import { useAssignableUsers } from '@/lib/useAssignableUsers'
+import {
+  type QueuedCompany,
+  type QueuedContact,
+  isWithinCooldown,
+  pickInitialActiveContactId,
+} from '../dialer/dialerTypes'
 
 type PriorityFilter = 'all' | 'high' | 'high_medium'
 
@@ -65,24 +71,6 @@ interface ContactRow {
   email: string | null
   phone: string | null
   is_primary: boolean
-}
-
-interface EmailQueueContact {
-  contact_id: string
-  contact_first_name: string
-  contact_last_name: string
-  contact_job_title: string | null
-  contact_email: string | null
-  contact_phone: string | null
-  company_id: string
-  company_name: string
-  company_industry: string | null
-  company_zone: string | null
-  company_city: string | null
-  company_state: string | null
-  company_status: string
-  company_priority: 'high' | 'medium' | 'low' | null
-  last_call_date: string | null
 }
 
 interface RecentCall {
@@ -149,12 +137,16 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
   const [toast, setToast] = useState<string | null>(null)
 
   const [mode, setMode] = useState<'setup' | 'session' | 'complete'>('setup')
-  const [sessionQueue, setSessionQueue] = useState<EmailQueueContact[]>([])
+  const [sessionQueue, setSessionQueue] = useState<QueuedCompany[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [skippedCount, setSkippedCount] = useState(0)
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set())
+  // Per-company contact-switcher overrides (company_id → contact_id)
+  const [activeOverrides, setActiveOverrides] = useState<Map<string, string>>(
+    new Map()
+  )
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([])
   const [recentComment, setRecentComment] = useState<RecentComment | null>(null)
   const [sidebarLoading, setSidebarLoading] = useState(false)
@@ -207,7 +199,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     }
   }, [mode, currentIndex, sessionQueue, supabase])
 
-  function startSession(queue: EmailQueueContact[]) {
+  function startSession(queue: QueuedCompany[]) {
     if (queue.length === 0) {
       setToast('No contacts match your filters')
       return
@@ -217,13 +209,14 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     setSubject('')
     setBody('')
     setSkippedCount(0)
+    setActiveOverrides(new Map())
     setMode('session')
   }
 
   function skipContact() {
     const current = sessionQueue[currentIndex]
     if (current) {
-      setSkippedIds((prev) => new Set(prev).add(current.contact_id))
+      setSkippedIds((prev) => new Set(prev).add(current.company_id))
     }
     setSkippedCount((prev) => prev + 1)
     if (currentIndex >= sessionQueue.length - 1) {
@@ -235,6 +228,16 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     }
   }
 
+  function switchActiveContact(contactId: string) {
+    const current = sessionQueue[currentIndex]
+    if (!current) return
+    setActiveOverrides((prev) => {
+      const next = new Map(prev)
+      next.set(current.company_id, contactId)
+      return next
+    })
+  }
+
   function endSession() {
     setMode('setup')
     setSessionQueue([])
@@ -242,6 +245,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     setSubject('')
     setBody('')
     setSkippedIds(new Set())
+    setActiveOverrides(new Map())
   }
 
   function newSession() {
@@ -252,6 +256,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     setBody('')
     setSkippedCount(0)
     setSkippedIds(new Set())
+    setActiveOverrides(new Map())
   }
 
   const fetchAll = useCallback(async () => {
@@ -328,7 +333,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     return m
   }, [companies])
 
-  const autoQueue = useMemo<EmailQueueContact[]>(() => {
+  const autoQueue = useMemo<QueuedCompany[]>(() => {
     const statusSet = statusFilter.length > 0 ? new Set(statusFilter) : null
     const assignedSet =
       assignedToIds.length > 0 ? new Set(assignedToIds) : null
@@ -357,31 +362,34 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     })
     const eligibleIds = new Set(eligibleCompanies.map((c) => c.id))
 
-    const eligibleContacts = contacts.filter((c) => eligibleIds.has(c.company_id))
-
-    const picked = new Map<string, ContactRow>()
-    for (const c of eligibleContacts) {
-      const existing = picked.get(c.company_id)
-      if (!existing) {
-        picked.set(c.company_id, c)
-      } else if (!existing.is_primary && c.is_primary) {
-        picked.set(c.company_id, c)
+    // Group reachable contacts (non-empty email) by company
+    const contactsByCompany = new Map<string, QueuedContact[]>()
+    for (const c of contacts) {
+      if (!eligibleIds.has(c.company_id)) continue
+      const email = (c.email ?? '').trim()
+      if (!email) continue
+      const qc: QueuedContact = {
+        id: c.id,
+        first_name: c.first_name,
+        last_name: c.last_name,
+        job_title: c.job_title,
+        email,
+        is_primary: !!c.is_primary,
+        phones: [],
       }
+      const list = contactsByCompany.get(c.company_id) ?? []
+      list.push(qc)
+      contactsByCompany.set(c.company_id, list)
     }
 
-    const out: EmailQueueContact[] = []
-    for (const c of picked.values()) {
-      // Reachability: skip contacts without an email address
-      if (!c.email || !c.email.trim()) continue
-      const comp = companyMap.get(c.company_id)
-      if (!comp) continue
+    const now = Date.now()
+    const out: QueuedCompany[] = []
+    for (const comp of eligibleCompanies) {
+      const list = contactsByCompany.get(comp.id)
+      if (!list || list.length === 0) continue
+      const lastCall = lastCallMap.get(comp.id) ?? null
+      if (isWithinCooldown(lastCall, now)) continue
       out.push({
-        contact_id: c.id,
-        contact_first_name: c.first_name,
-        contact_last_name: c.last_name,
-        contact_job_title: c.job_title,
-        contact_email: c.email,
-        contact_phone: c.phone,
         company_id: comp.id,
         company_name: comp.name,
         company_industry: comp.industry,
@@ -390,23 +398,24 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         company_state: comp.state,
         company_status: comp.status,
         company_priority: comp.priority,
-        last_call_date: lastCallMap.get(c.company_id) ?? null,
+        contacts: list,
+        activeContactId: pickInitialActiveContactId(list),
+        lastCallDate: lastCall,
       })
     }
     out.sort((a, b) => {
-      if (!a.last_call_date && !b.last_call_date) return 0
-      if (!a.last_call_date) return -1
-      if (!b.last_call_date) return 1
+      if (!a.lastCallDate && !b.lastCallDate) return 0
+      if (!a.lastCallDate) return -1
+      if (!b.lastCallDate) return 1
       return (
-        new Date(a.last_call_date).getTime() -
-        new Date(b.last_call_date).getTime()
+        new Date(a.lastCallDate).getTime() -
+        new Date(b.lastCallDate).getTime()
       )
     })
     return out.slice(0, Math.max(1, howMany))
   }, [
     companies,
     contacts,
-    companyMap,
     lastCallMap,
     locationValue,
     locationRadiusCities,
@@ -417,20 +426,25 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
     howMany,
   ])
 
-  const manualQueueResolved = useMemo<EmailQueueContact[]>(() => {
-    const out: EmailQueueContact[] = []
+  // Manual queue — each picked contact becomes its own QueuedCompany with a
+  // single-contact `contacts` array.
+  const manualQueueResolved = useMemo<QueuedCompany[]>(() => {
+    const out: QueuedCompany[] = []
     for (const cid of manualQueue) {
       const c = contacts.find((x) => x.id === cid)
       if (!c) continue
       const comp = companyMap.get(c.company_id)
       if (!comp) continue
+      const qc: QueuedContact = {
+        id: c.id,
+        first_name: c.first_name,
+        last_name: c.last_name,
+        job_title: c.job_title,
+        email: c.email,
+        is_primary: !!c.is_primary,
+        phones: [],
+      }
       out.push({
-        contact_id: c.id,
-        contact_first_name: c.first_name,
-        contact_last_name: c.last_name,
-        contact_job_title: c.job_title,
-        contact_email: c.email,
-        contact_phone: c.phone,
         company_id: comp.id,
         company_name: comp.name,
         company_industry: comp.industry,
@@ -439,7 +453,9 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         company_state: comp.state,
         company_status: comp.status,
         company_priority: comp.priority,
-        last_call_date: lastCallMap.get(c.company_id) ?? null,
+        contacts: [qc],
+        activeContactId: qc.id,
+        lastCallDate: lastCallMap.get(c.company_id) ?? null,
       })
     }
     return out
@@ -690,9 +706,11 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                   </p>
                 ) : (
                   <div className="space-y-1.5">
-                    {manualQueueResolved.map((q, idx) => (
+                    {manualQueueResolved.map((q, idx) => {
+                      const contact = q.contacts[0]
+                      return (
                       <div
-                        key={q.contact_id}
+                        key={contact.id}
                         className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
                       >
                         <div className="flex flex-col">
@@ -729,7 +747,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm text-gray-900 dark:text-white truncate">
-                            {q.contact_first_name} {q.contact_last_name}
+                            {contact.first_name} {contact.last_name}
                           </div>
                           <div className="text-xs text-gray-400 truncate">
                             {q.company_name}
@@ -738,7 +756,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                         <button
                           onClick={() =>
                             setManualQueue((prev) =>
-                              prev.filter((id) => id !== q.contact_id)
+                              prev.filter((id) => id !== contact.id)
                             )
                           }
                           className="text-xs text-gray-400 hover:text-red-600"
@@ -746,7 +764,8 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                           remove
                         </button>
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -795,6 +814,12 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         const current = sessionQueue[currentIndex]
         const progressPct = Math.round((currentIndex / Math.max(1, sessionQueue.length)) * 100)
         const location = [current.company_city, current.company_state].filter(Boolean).join(', ')
+        const overrideId = activeOverrides.get(current.company_id)
+        const activeContact =
+          (overrideId && current.contacts.find((c) => c.id === overrideId)) ||
+          current.contacts.find((c) => c.id === current.activeContactId) ||
+          current.contacts[0]
+        const otherContacts = current.contacts.filter((c) => c.id !== activeContact.id)
 
         return (
           <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#1a1a1a] min-h-0">
@@ -848,7 +873,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                       <div className="mb-3">
                         <label className="block text-[11px] text-gray-400 mb-1">To</label>
                         <div className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg bg-gray-50 dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400">
-                          {current.contact_email || 'No email address'}
+                          {activeContact.email || 'No email address'}
                         </div>
                       </div>
 
@@ -940,13 +965,13 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                       </p>
                       <div className="flex flex-col items-center text-center">
                         <div className="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800 flex items-center justify-center text-teal-700 dark:text-teal-400 text-sm font-medium mb-3">
-                          {current.contact_first_name.charAt(0)}{current.contact_last_name.charAt(0)}
+                          {activeContact.first_name.charAt(0)}{activeContact.last_name.charAt(0)}
                         </div>
                         <h2 className="text-sm font-medium text-gray-900 dark:text-white leading-tight">
-                          {current.contact_first_name} {current.contact_last_name}
+                          {activeContact.first_name} {activeContact.last_name}
                         </h2>
-                        {current.contact_job_title && (
-                          <p className="text-xs text-gray-500 mt-0.5">{current.contact_job_title}</p>
+                        {activeContact.job_title && (
+                          <p className="text-xs text-gray-500 mt-0.5">{activeContact.job_title}</p>
                         )}
                       </div>
                       <div className="mt-3 space-y-1.5">
@@ -956,14 +981,8 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                           <MailIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="text-gray-700 dark:text-gray-300 truncate">{current.contact_email || '—'}</span>
+                          <span className="text-gray-700 dark:text-gray-300 truncate">{activeContact.email || '—'}</span>
                         </div>
-                        {current.contact_phone && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <PhoneIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                            <span className="text-gray-700 dark:text-gray-300 tabular-nums">{current.contact_phone}</span>
-                          </div>
-                        )}
                         {location && (
                           <div className="flex items-center gap-2 text-xs">
                             <MapPinIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
@@ -972,6 +991,41 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                         )}
                       </div>
                     </div>
+
+                    {/* Other contacts at this company */}
+                    {otherContacts.length > 0 && (
+                      <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                        <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2.5 flex items-center gap-1.5">
+                          <UsersIcon className="w-3 h-3" />
+                          Other contacts at this company
+                        </p>
+                        <ul className="space-y-2">
+                          {otherContacts.map((oc) => (
+                            <li
+                              key={oc.id}
+                              className="flex items-start justify-between gap-2"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-medium text-gray-900 dark:text-white truncate">
+                                  {oc.first_name} {oc.last_name}
+                                </div>
+                                {oc.job_title && (
+                                  <div className="text-[11px] text-gray-400 truncate">
+                                    {oc.job_title}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => switchActiveContact(oc.id)}
+                                className="flex-shrink-0 text-[11px] text-teal-700 dark:text-teal-400 hover:text-teal-900 border border-teal-100 dark:border-teal-800 hover:border-teal-300 px-2 py-1 rounded-full transition-colors"
+                              >
+                                Use this contact
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                     {/* Company card */}
                     <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
@@ -1061,10 +1115,15 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                       <ul className="space-y-1">
                         {sessionQueue.map((q, idx) => {
                           const isCurrent = idx === currentIndex
-                          const isDone = skippedIds.has(q.contact_id)
+                          const isDone = skippedIds.has(q.company_id)
+                          const qOverrideId = activeOverrides.get(q.company_id)
+                          const ac =
+                            (qOverrideId && q.contacts.find((c) => c.id === qOverrideId)) ||
+                            q.contacts.find((c) => c.id === q.activeContactId) ||
+                            q.contacts[0]
                           return (
                             <li
-                              key={q.contact_id}
+                              key={q.company_id}
                               className={`text-xs flex items-center gap-2 px-2 py-1 rounded ${
                                 isDone
                                   ? 'text-gray-300 dark:text-gray-600 line-through'
@@ -1077,8 +1136,11 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
                                 <ChevronRightIcon className="w-3 h-3 text-teal-500 flex-none" />
                               )}
                               <span className="truncate flex-1">
-                                {q.contact_first_name} {q.contact_last_name}
+                                {ac?.first_name} {ac?.last_name}
                               </span>
+                              {q.contacts.length > 1 && (
+                                <UsersIcon className="w-3 h-3 text-gray-300 flex-none" />
+                              )}
                             </li>
                           )
                         })}

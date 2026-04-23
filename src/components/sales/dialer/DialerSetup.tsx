@@ -29,7 +29,17 @@ import LocationFilter, {
   type LocationFilterValue,
 } from '@/components/ui/LocationFilter'
 import { useAssignableUsers } from '@/lib/useAssignableUsers'
-import type { QueuedContact } from './dialerTypes'
+import type {
+  ContactPhone,
+  ContactPhoneType,
+  QueuedCompany,
+  QueuedContact,
+} from './dialerTypes'
+import {
+  isWithinCooldown,
+  normalizePhoneType,
+  pickInitialActiveContactId,
+} from './dialerTypes'
 import {
   type SmartListFilters,
   EMPTY_SMART_FILTERS,
@@ -48,7 +58,7 @@ const UNASSIGNED_SENTINEL = '__unassigned__'
 
 interface DialerSetupProps {
   userId: string
-  onStart: (queue: QueuedContact[]) => void
+  onStart: (queue: QueuedCompany[]) => void
 }
 
 interface CompanyRow {
@@ -74,12 +84,57 @@ interface ContactRow {
   is_primary: boolean
 }
 
+interface PhoneRow {
+  id: string
+  contact_id: string
+  phone_number: string
+  phone_type: string
+  is_primary: boolean
+}
+
+// Build the phones array for a contact. Prefer contact_phone_numbers rows;
+// fall back to a synthesized "office" entry from the legacy contacts.phone
+// scalar if no rows exist. Returns an empty array when the contact is
+// unreachable (no rows AND no legacy phone).
+function buildContactPhones(
+  contact: ContactRow,
+  phonesById: Map<string, PhoneRow[]>
+): ContactPhone[] {
+  const rows = phonesById.get(contact.id) ?? []
+  const real: ContactPhone[] = []
+  for (const r of rows) {
+    const number = (r.phone_number ?? '').trim()
+    if (!number) continue
+    real.push({
+      id: r.id,
+      phone_number: number,
+      phone_type: normalizePhoneType(r.phone_type),
+      is_primary: !!r.is_primary,
+    })
+  }
+  if (real.length > 0) return real
+  const legacy = (contact.phone ?? '').trim()
+  if (!legacy) return []
+  return [
+    {
+      id: 'legacy',
+      phone_number: legacy,
+      phone_type: 'office' as ContactPhoneType,
+      is_primary: true,
+    },
+  ]
+}
+
 export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
   const supabase = useMemo(() => createClient(), [])
 
   const [loading, setLoading] = useState(true)
   const [companies, setCompanies] = useState<CompanyRow[]>([])
   const [contacts, setContacts] = useState<ContactRow[]>([])
+  // Map of contact_id → all contact_phone_numbers rows for that contact
+  const [phonesByContact, setPhonesByContact] = useState<Map<string, PhoneRow[]>>(
+    new Map()
+  )
   // Map of company_id → most recent call_date (ISO)
   const [lastCallMap, setLastCallMap] = useState<Map<string, string>>(new Map())
 
@@ -123,6 +178,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     const [
       { data: compData },
       { data: contactData },
+      { data: phoneData },
       { data: callData },
       { data: templateData },
     ] = await Promise.all([
@@ -136,6 +192,10 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
         .select('id, company_id, first_name, last_name, job_title, email, phone, is_primary')
         .order('last_name', { ascending: true }),
       supabase
+        .from('contact_phone_numbers')
+        .select('id, contact_id, phone_number, phone_type, is_primary')
+        .order('is_primary', { ascending: false }),
+      supabase
         .from('crm_call_log')
         .select('company_id, call_date')
         .order('call_date', { ascending: false }),
@@ -146,6 +206,14 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     ])
     setCompanies((compData ?? []) as CompanyRow[])
     setContacts((contactData ?? []) as ContactRow[])
+    const phoneRows = (phoneData ?? []) as PhoneRow[]
+    const phoneMap = new Map<string, PhoneRow[]>()
+    for (const p of phoneRows) {
+      const list = phoneMap.get(p.contact_id) ?? []
+      list.push(p)
+      phoneMap.set(p.contact_id, list)
+    }
+    setPhonesByContact(phoneMap)
     const calls = (callData ?? []) as { company_id: string; call_date: string }[]
     const m = new Map<string, string>()
     for (const c of calls) {
@@ -200,7 +268,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
         contactCount,
         companies,
         contacts,
-        companyMap,
+        phonesByContact,
         lastCallMap,
         tagsByCompany,
       })
@@ -249,8 +317,9 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     return m
   }, [companies])
 
-  // Build auto queue based on filters
-  const autoQueue = useMemo<QueuedContact[]>(() => {
+  // Build auto queue based on filters. One entry per company; every reachable
+  // contact at that company is carried on the entry's `contacts` array.
+  const autoQueue = useMemo<QueuedCompany[]>(() => {
     const statusSet = statusFilter.length > 0 ? new Set(statusFilter) : null
     const assignedSet =
       assignedToIds.length > 0 ? new Set(assignedToIds) : null
@@ -280,58 +349,63 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     })
     const eligibleIds = new Set(eligibleCompanies.map((c) => c.id))
 
-    const eligibleContacts = contacts.filter((c) => eligibleIds.has(c.company_id))
-
-    // Pick one contact per company — prefer primary, then first alphabetical
-    const picked = new Map<string, ContactRow>()
-    for (const c of eligibleContacts) {
-      const existing = picked.get(c.company_id)
-      if (!existing) {
-        picked.set(c.company_id, c)
-      } else if (!existing.is_primary && c.is_primary) {
-        picked.set(c.company_id, c)
+    // Group contacts by company and build reachable QueuedContact records
+    const contactsByCompany = new Map<string, QueuedContact[]>()
+    for (const c of contacts) {
+      if (!eligibleIds.has(c.company_id)) continue
+      const phones = buildContactPhones(c, phonesByContact)
+      if (phones.length === 0) continue // unreachable: no phones, no legacy
+      const qc: QueuedContact = {
+        id: c.id,
+        first_name: c.first_name,
+        last_name: c.last_name,
+        job_title: c.job_title,
+        email: c.email,
+        is_primary: !!c.is_primary,
+        phones,
       }
+      const list = contactsByCompany.get(c.company_id) ?? []
+      list.push(qc)
+      contactsByCompany.set(c.company_id, list)
     }
 
-    const out: QueuedContact[] = []
-    for (const c of picked.values()) {
-      // Reachability: skip contacts without a phone number
-      if (!c.phone || !c.phone.trim()) continue
-      const comp = companyMap.get(c.company_id)
-      if (!comp) continue
-      const lastCall = lastCallMap.get(c.company_id) ?? null
+    const now = Date.now()
+    const out: QueuedCompany[] = []
+    for (const comp of eligibleCompanies) {
+      const list = contactsByCompany.get(comp.id)
+      if (!list || list.length === 0) continue // no reachable contacts
+      const lastCall = lastCallMap.get(comp.id) ?? null
+      // 30-day company cooldown
+      if (isWithinCooldown(lastCall, now)) continue
       out.push({
-        contact_id: c.id,
-        contact_first_name: c.first_name,
-        contact_last_name: c.last_name,
-        contact_job_title: c.job_title,
-        contact_email: c.email,
-        contact_phone: c.phone,
         company_id: comp.id,
         company_name: comp.name,
         company_industry: comp.industry,
         company_zone: comp.zone,
         company_city: comp.city,
         company_state: comp.state,
+        company_status: comp.status,
         company_priority: comp.priority,
-        last_call_date: lastCall,
+        contacts: list,
+        activeContactId: pickInitialActiveContactId(list),
+        lastCallDate: lastCall,
       })
     }
     // Sort: no last_call first, then oldest last_call
     out.sort((a, b) => {
-      if (!a.last_call_date && !b.last_call_date) return 0
-      if (!a.last_call_date) return -1
-      if (!b.last_call_date) return 1
+      if (!a.lastCallDate && !b.lastCallDate) return 0
+      if (!a.lastCallDate) return -1
+      if (!b.lastCallDate) return 1
       return (
-        new Date(a.last_call_date).getTime() -
-        new Date(b.last_call_date).getTime()
+        new Date(a.lastCallDate).getTime() -
+        new Date(b.lastCallDate).getTime()
       )
     })
     return out.slice(0, Math.max(1, howMany))
   }, [
     companies,
     contacts,
-    companyMap,
+    phonesByContact,
     lastCallMap,
     locationValue,
     locationRadiusCities,
@@ -342,33 +416,42 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
     howMany,
   ])
 
-  // Manual queue resolved to full records
-  const manualQueueResolved = useMemo<QueuedContact[]>(() => {
-    const out: QueuedContact[] = []
+  // Manual queue — each picked contact becomes its own QueuedCompany with a
+  // single-contact `contacts` array. Duplicate companies produce separate
+  // queue entries on purpose so the rep's explicit ordering is preserved.
+  const manualQueueResolved = useMemo<QueuedCompany[]>(() => {
+    const out: QueuedCompany[] = []
     for (const cid of manualQueue) {
       const c = contacts.find((x) => x.id === cid)
       if (!c) continue
       const comp = companyMap.get(c.company_id)
       if (!comp) continue
+      const phones = buildContactPhones(c, phonesByContact)
+      const qc: QueuedContact = {
+        id: c.id,
+        first_name: c.first_name,
+        last_name: c.last_name,
+        job_title: c.job_title,
+        email: c.email,
+        is_primary: !!c.is_primary,
+        phones,
+      }
       out.push({
-        contact_id: c.id,
-        contact_first_name: c.first_name,
-        contact_last_name: c.last_name,
-        contact_job_title: c.job_title,
-        contact_email: c.email,
-        contact_phone: c.phone,
         company_id: comp.id,
         company_name: comp.name,
         company_industry: comp.industry,
         company_zone: comp.zone,
         company_city: comp.city,
         company_state: comp.state,
+        company_status: comp.status,
         company_priority: comp.priority,
-        last_call_date: lastCallMap.get(c.company_id) ?? null,
+        contacts: [qc],
+        activeContactId: qc.id,
+        lastCallDate: lastCallMap.get(c.company_id) ?? null,
       })
     }
     return out
-  }, [manualQueue, contacts, companyMap, lastCallMap])
+  }, [manualQueue, contacts, companyMap, lastCallMap, phonesByContact])
 
   // ─── Multi-select option/label helpers ────────────────────────────────
   const assignedToOptions = useMemo(() => {
@@ -613,9 +696,11 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
                 </p>
               ) : (
                 <div className="space-y-1.5">
-                  {manualQueueResolved.map((q, idx) => (
+                  {manualQueueResolved.map((q, idx) => {
+                    const contact = q.contacts[0]
+                    return (
                     <div
-                      key={q.contact_id}
+                      key={contact.id}
                       className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50"
                     >
                       <div className="flex flex-col">
@@ -652,7 +737,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm text-gray-900 truncate">
-                          {q.contact_first_name} {q.contact_last_name}
+                          {contact.first_name} {contact.last_name}
                         </div>
                         <div className="text-xs text-gray-400 truncate">
                           {q.company_name}
@@ -661,7 +746,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
                       <button
                         onClick={() =>
                           setManualQueue((prev) =>
-                            prev.filter((id) => id !== q.contact_id)
+                            prev.filter((id) => id !== contact.id)
                           )
                         }
                         className="text-xs text-gray-400 hover:text-red-600"
@@ -669,7 +754,8 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
                         remove
                       </button>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -800,7 +886,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
   )
 }
 
-// ─── Smart list → QueuedContact[] helper ──────────────────────────────
+// ─── Smart list → QueuedCompany[] helper ──────────────────────────────
 // Builds a call queue for the dialer using the same rules as DialerSetup's
 // auto-select logic, but driven by a saved smart list's filter parameters.
 function buildSmartListQueue(input: {
@@ -808,16 +894,16 @@ function buildSmartListQueue(input: {
   contactCount: number
   companies: CompanyRow[]
   contacts: ContactRow[]
-  companyMap: Map<string, CompanyRow>
+  phonesByContact: Map<string, PhoneRow[]>
   lastCallMap: Map<string, string>
   tagsByCompany: Map<string, string[]>
-}): QueuedContact[] {
+}): QueuedCompany[] {
   const {
     filters,
     contactCount,
     companies,
     contacts,
-    companyMap,
+    phonesByContact,
     lastCallMap,
     tagsByCompany,
   } = input
@@ -855,44 +941,53 @@ function buildSmartListQueue(input: {
   })
   const eligibleIds = new Set(eligibleCompanies.map((c) => c.id))
 
-  const picked = new Map<string, ContactRow>()
+  const contactsByCompany = new Map<string, QueuedContact[]>()
   for (const c of contacts) {
     if (!eligibleIds.has(c.company_id)) continue
-    const existing = picked.get(c.company_id)
-    if (!existing) picked.set(c.company_id, c)
-    else if (!existing.is_primary && c.is_primary)
-      picked.set(c.company_id, c)
+    const phones = buildContactPhones(c, phonesByContact)
+    if (phones.length === 0) continue
+    const qc: QueuedContact = {
+      id: c.id,
+      first_name: c.first_name,
+      last_name: c.last_name,
+      job_title: c.job_title,
+      email: c.email,
+      is_primary: !!c.is_primary,
+      phones,
+    }
+    const list = contactsByCompany.get(c.company_id) ?? []
+    list.push(qc)
+    contactsByCompany.set(c.company_id, list)
   }
 
-  const out: QueuedContact[] = []
-  for (const c of picked.values()) {
-    if (!c.phone || !c.phone.trim()) continue
-    const comp = companyMap.get(c.company_id)
-    if (!comp) continue
+  const now = Date.now()
+  const out: QueuedCompany[] = []
+  for (const comp of eligibleCompanies) {
+    const list = contactsByCompany.get(comp.id)
+    if (!list || list.length === 0) continue
+    const lastCall = lastCallMap.get(comp.id) ?? null
+    if (isWithinCooldown(lastCall, now)) continue
     out.push({
-      contact_id: c.id,
-      contact_first_name: c.first_name,
-      contact_last_name: c.last_name,
-      contact_job_title: c.job_title,
-      contact_email: c.email,
-      contact_phone: c.phone,
       company_id: comp.id,
       company_name: comp.name,
       company_industry: comp.industry,
       company_zone: comp.zone,
       company_city: comp.city,
       company_state: comp.state,
+      company_status: comp.status,
       company_priority: comp.priority,
-      last_call_date: lastCallMap.get(c.company_id) ?? null,
+      contacts: list,
+      activeContactId: pickInitialActiveContactId(list),
+      lastCallDate: lastCall,
     })
   }
   out.sort((a, b) => {
-    if (!a.last_call_date && !b.last_call_date) return 0
-    if (!a.last_call_date) return -1
-    if (!b.last_call_date) return 1
+    if (!a.lastCallDate && !b.lastCallDate) return 0
+    if (!a.lastCallDate) return -1
+    if (!b.lastCallDate) return 1
     return (
-      new Date(a.last_call_date).getTime() -
-      new Date(b.last_call_date).getTime()
+      new Date(a.lastCallDate).getTime() -
+      new Date(b.lastCallDate).getTime()
     )
   })
   return out.slice(0, Math.max(1, contactCount))
