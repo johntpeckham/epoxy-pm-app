@@ -57,23 +57,50 @@ type Step = 'upload' | 'mapping' | 'review' | 'importing' | 'done'
 
 type TargetField =
   | 'skip' | 'company_name' | 'industry' | 'zone' | 'state'
-  | 'city' | 'status' | 'priority' | 'lead_source'
-  | 'contact_first_name' | 'contact_last_name' | 'contact_job_title'
-  | 'contact_email' | 'address'
+  | 'city' | 'status' | 'priority' | 'lead_source' | 'address'
   | 'number_of_locations' | 'revenue_range' | 'employee_range'
-  | 'last_call_status' | 'last_call_date'
 
 interface PhoneMapping { csvColumnIndex: number | null; type: string }
+
+interface ContactBlockMapping {
+  nameMode: 'single' | 'combined'
+  nameColumn: number | null
+  firstNameColumn: number | null
+  lastNameColumn: number | null
+  titleColumn: number | null
+  emailColumn: number | null
+  phoneMappings: PhoneMapping[]
+  callStatusColumn: number | null
+  callDateColumn: number | null
+}
+
+function newEmptyContactBlock(): ContactBlockMapping {
+  return {
+    nameMode: 'single',
+    nameColumn: null,
+    firstNameColumn: null,
+    lastNameColumn: null,
+    titleColumn: null,
+    emailColumn: null,
+    phoneMappings: [{ csvColumnIndex: null, type: 'office' }],
+    callStatusColumn: null,
+    callDateColumn: null,
+  }
+}
+
+function parseFullName(raw: string): { first_name: string; last_name: string } {
+  const trimmed = raw.trim()
+  if (!trimmed) return { first_name: '', last_name: '' }
+  const tokens = trimmed.split(/\s+/)
+  return { first_name: tokens[0] ?? '', last_name: tokens.slice(1).join(' ') }
+}
 
 const TARGET_LABELS: Record<TargetField, string> = {
   skip: '— Skip this column —', company_name: 'Company name', industry: 'Industry',
   zone: 'Zone', state: 'State', city: 'City',
-  status: 'Status', priority: 'Priority', lead_source: 'Lead source',
-  contact_first_name: 'Contact first name', contact_last_name: 'Contact last name',
-  contact_job_title: 'Contact job title', contact_email: 'Contact email', address: 'Address',
+  status: 'Status', priority: 'Priority', lead_source: 'Lead source', address: 'Address',
   number_of_locations: 'Number of Locations', revenue_range: 'Revenue Range',
   employee_range: 'Employee Range',
-  last_call_status: 'Last Call Status', last_call_date: 'Last Call Date',
 }
 
 
@@ -88,18 +115,22 @@ function guessMapping(header: string): TargetField {
   if (/^status$/.test(h)) return 'status'
   if (/priority/.test(h)) return 'priority'
   if (/(lead|referr?al)\s*source|source/.test(h)) return 'lead_source'
-  if (/first\s*name|^fname$|^given/.test(h)) return 'contact_first_name'
-  if (/last\s*name|^lname$|surname|family/.test(h)) return 'contact_last_name'
-  if (/job\s*title|^title$|position|role/.test(h)) return 'contact_job_title'
-  if (/email|^e-?mail$/.test(h)) return 'contact_email'
-  if (/mobile|cell|phone|telephone/.test(h)) return 'skip'
   if (/street\s*addr|^address$|^addr$|address\s*(line\s*)?1/.test(h)) return 'address'
   if (/loc(ation)?s?\s*(count|number|#|num)?$|number\s*of\s*loc/.test(h)) return 'number_of_locations'
   if (/revenue\s*(range)?|annual\s*rev/.test(h)) return 'revenue_range'
   if (/employee\s*(range|count|size)?|head\s*count|company\s*size/.test(h)) return 'employee_range'
-  if (/last\s*call\s*status|call\s*(outcome|result|disposition)/.test(h)) return 'last_call_status'
-  if (/last\s*call\s*date|call\s*date/.test(h)) return 'last_call_date'
   return 'skip'
+}
+
+interface MappedContact {
+  contact_order: number
+  first_name: string
+  last_name: string
+  title: string | null
+  email: string | null
+  phones: Array<{ type: string; number: string }>
+  call_status: string | null
+  call_date: string | null
 }
 
 interface MappedRow {
@@ -107,34 +138,79 @@ interface MappedRow {
   industry: string | null; zone: string | null
   state: string | null; city: string | null
   status: string | null; priority: string | null; lead_source: string | null
-  contact_first_name: string | null; contact_last_name: string | null
-  contact_job_title: string | null; contact_email: string | null
-  phones: Array<{ type: string; number: string }>
+  contacts: MappedContact[]
   address: string | null
   number_of_locations: string | null; revenue_range: string | null; employee_range: string | null
-  last_call_status: string | null; last_call_date: string | null
   extras: Record<string, string>
 }
 
-function buildMappedRow(headers: string[], row: string[], mapping: TargetField[], phoneMappings: PhoneMapping[]): MappedRow {
+function CsvColumnSelect({ label, headers, previewRow, value, onChange }: {
+  label: string
+  headers: string[]
+  previewRow: string[]
+  value: number | null
+  onChange: (v: number | null) => void
+}) {
+  const sample = value !== null ? (previewRow[value] ?? '').trim() : ''
+  return (
+    <div>
+      <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 mb-1">{label}</label>
+      <select
+        value={value !== null ? String(value) : '__none__'}
+        onChange={(e) => {
+          const val = e.target.value
+          onChange(val === '__none__' ? null : Number(val))
+        }}
+        className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
+      >
+        <option value="__none__">— Select CSV column —</option>
+        {headers.map((h, i) => {
+          const s = (previewRow[i] ?? '').trim()
+          return (
+            <option key={i} value={String(i)}>
+              {h || `Column ${i + 1}`}{s ? ` → ${s}` : ''}
+            </option>
+          )
+        })}
+      </select>
+      {sample && <div className="text-[10px] text-gray-400 mt-0.5 truncate">← {sample}</div>}
+    </div>
+  )
+}
+
+function collectContactColumnIndexes(blocks: ContactBlockMapping[]): Set<number> {
+  const used = new Set<number>()
+  for (const b of blocks) {
+    if (b.nameMode === 'single' && b.nameColumn !== null) used.add(b.nameColumn)
+    if (b.nameMode === 'combined') {
+      if (b.firstNameColumn !== null) used.add(b.firstNameColumn)
+      if (b.lastNameColumn !== null) used.add(b.lastNameColumn)
+    }
+    if (b.titleColumn !== null) used.add(b.titleColumn)
+    if (b.emailColumn !== null) used.add(b.emailColumn)
+    if (b.callStatusColumn !== null) used.add(b.callStatusColumn)
+    if (b.callDateColumn !== null) used.add(b.callDateColumn)
+    for (const pm of b.phoneMappings) if (pm.csvColumnIndex !== null) used.add(pm.csvColumnIndex)
+  }
+  return used
+}
+
+function buildMappedRow(headers: string[], row: string[], mapping: TargetField[], contactBlocks: ContactBlockMapping[]): MappedRow {
   const out: MappedRow = {
     company_name: '', industry: null, zone: null,
     state: null, city: null, status: null, priority: null,
     lead_source: null,
-    contact_first_name: null, contact_last_name: null,
-    contact_job_title: null, contact_email: null,
-    phones: [],
+    contacts: [],
     address: null,
     number_of_locations: null, revenue_range: null, employee_range: null,
-    last_call_status: null, last_call_date: null,
     extras: {},
   }
-  const phoneColIndexes = new Set(phoneMappings.filter((pm) => pm.csvColumnIndex !== null).map((pm) => pm.csvColumnIndex!))
+  const contactColIndexes = collectContactColumnIndexes(contactBlocks)
   for (let i = 0; i < headers.length; i++) {
     const target = mapping[i] ?? 'skip'
     const raw = (row[i] ?? '').trim()
     if (target === 'skip') {
-      if (raw && headers[i] && !phoneColIndexes.has(i)) out.extras[headers[i]] = raw
+      if (raw && headers[i] && !contactColIndexes.has(i)) out.extras[headers[i]] = raw
       continue
     }
     if (!raw) continue
@@ -143,10 +219,34 @@ function buildMappedRow(headers: string[], row: string[], mapping: TargetField[]
       ;(out as unknown as Record<string, unknown>)[target] = raw
     }
   }
-  for (const pm of phoneMappings) {
-    if (pm.csvColumnIndex === null) continue
-    const num = (row[pm.csvColumnIndex] ?? '').trim()
-    if (num) out.phones.push({ type: pm.type, number: num })
+  for (let bi = 0; bi < contactBlocks.length; bi++) {
+    const block = contactBlocks[bi]
+    let fullNameRaw = ''
+    if (block.nameMode === 'single') {
+      fullNameRaw = block.nameColumn !== null ? (row[block.nameColumn] ?? '').trim() : ''
+    } else {
+      const fn = block.firstNameColumn !== null ? (row[block.firstNameColumn] ?? '').trim() : ''
+      const ln = block.lastNameColumn !== null ? (row[block.lastNameColumn] ?? '').trim() : ''
+      fullNameRaw = `${fn} ${ln}`.trim()
+    }
+    if (!fullNameRaw) continue
+    const parsed = parseFullName(fullNameRaw)
+    const phones: Array<{ type: string; number: string }> = []
+    for (const pm of block.phoneMappings) {
+      if (pm.csvColumnIndex === null) continue
+      const num = (row[pm.csvColumnIndex] ?? '').trim()
+      if (num) phones.push({ type: pm.type, number: num })
+    }
+    out.contacts.push({
+      contact_order: bi + 1,
+      first_name: parsed.first_name,
+      last_name: parsed.last_name,
+      title: block.titleColumn !== null ? ((row[block.titleColumn] ?? '').trim() || null) : null,
+      email: block.emailColumn !== null ? ((row[block.emailColumn] ?? '').trim() || null) : null,
+      phones,
+      call_status: block.callStatusColumn !== null ? ((row[block.callStatusColumn] ?? '').trim() || null) : null,
+      call_date: block.callDateColumn !== null ? ((row[block.callDateColumn] ?? '').trim() || null) : null,
+    })
   }
   return out
 }
@@ -229,7 +329,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [mapping, setMapping] = useState<TargetField[]>([])
-  const [phoneMappings, setPhoneMappings] = useState<PhoneMapping[]>([])
+  const [contactBlocks, setContactBlocks] = useState<ContactBlockMapping[]>([newEmptyContactBlock()])
   const [previewRowIdx, setPreviewRowIdx] = useState(0)
   const [editingField, setEditingField] = useState<TargetField | null>(null)
 
@@ -293,23 +393,55 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
   const mappedTargets = useMemo(() => new Set(mapping.filter((m) => m !== 'skip')), [mapping])
   const companyNameMapped = mappedTargets.has('company_name')
 
-  // Auto-guess mapping when headers change
+  // Auto-guess mapping when headers change — populates company targets plus the first contact block.
   useEffect(() => {
-    if (headers.length === 0) { setMapping([]); setPhoneMappings([]); return }
+    if (headers.length === 0) { setMapping([]); setContactBlocks([newEmptyContactBlock()]); return }
     const used = new Set<TargetField>()
-    const guessedPhones: PhoneMapping[] = []
+    const firstBlock = newEmptyContactBlock()
+    firstBlock.phoneMappings = []
+    let fullNameCol: number | null = null
+    let firstNameCol: number | null = null
+    let lastNameCol: number | null = null
     setMapping(headers.map((h, idx) => {
       const hLower = h.toLowerCase().trim()
       if (/mobile|cell/.test(hLower)) {
-        guessedPhones.push({ csvColumnIndex: idx, type: 'mobile' })
+        firstBlock.phoneMappings.push({ csvColumnIndex: idx, type: 'mobile' })
         return 'skip' as TargetField
       }
       if (/phone|telephone/.test(hLower)) {
-        guessedPhones.push({ csvColumnIndex: idx, type: 'office' })
+        firstBlock.phoneMappings.push({ csvColumnIndex: idx, type: 'office' })
         return 'skip' as TargetField
       }
       if (/\bfax\b/.test(hLower)) {
-        guessedPhones.push({ csvColumnIndex: idx, type: 'fax' })
+        firstBlock.phoneMappings.push({ csvColumnIndex: idx, type: 'fax' })
+        return 'skip' as TargetField
+      }
+      if (/^full\s*name$|^contact\s*name$|^name$/.test(hLower)) {
+        if (fullNameCol === null) fullNameCol = idx
+        return 'skip' as TargetField
+      }
+      if (/first\s*name|^fname$|^given/.test(hLower)) {
+        if (firstNameCol === null) firstNameCol = idx
+        return 'skip' as TargetField
+      }
+      if (/last\s*name|^lname$|surname|family/.test(hLower)) {
+        if (lastNameCol === null) lastNameCol = idx
+        return 'skip' as TargetField
+      }
+      if (/job\s*title|^title$|position|role/.test(hLower)) {
+        if (firstBlock.titleColumn === null) firstBlock.titleColumn = idx
+        return 'skip' as TargetField
+      }
+      if (/email|^e-?mail$/.test(hLower)) {
+        if (firstBlock.emailColumn === null) firstBlock.emailColumn = idx
+        return 'skip' as TargetField
+      }
+      if (/last\s*call\s*status|call\s*(outcome|result|disposition)/.test(hLower)) {
+        if (firstBlock.callStatusColumn === null) firstBlock.callStatusColumn = idx
+        return 'skip' as TargetField
+      }
+      if (/last\s*call\s*date|call\s*date/.test(hLower)) {
+        if (firstBlock.callDateColumn === null) firstBlock.callDateColumn = idx
         return 'skip' as TargetField
       }
       const guess = guessMapping(h)
@@ -317,7 +449,16 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       if (guess !== 'skip') used.add(guess)
       return guess
     }))
-    setPhoneMappings(guessedPhones.length > 0 ? guessedPhones : [{ csvColumnIndex: null, type: 'office' }])
+    if (fullNameCol !== null) {
+      firstBlock.nameMode = 'single'
+      firstBlock.nameColumn = fullNameCol
+    } else if (firstNameCol !== null || lastNameCol !== null) {
+      firstBlock.nameMode = 'combined'
+      firstBlock.firstNameColumn = firstNameCol
+      firstBlock.lastNameColumn = lastNameCol
+    }
+    if (firstBlock.phoneMappings.length === 0) firstBlock.phoneMappings = [{ csvColumnIndex: null, type: 'office' }]
+    setContactBlocks([firstBlock])
   }, [headers])
 
   function setFieldSource(target: TargetField, sourceIdx: number | null) {
@@ -390,7 +531,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
 
   function resetImportFlow() {
     setStep('upload'); setFileName(null); setFileSize(0); setHeaders([]); setRows([])
-    setParseError(null); setDetectedFormat(null); setMapping([]); setPhoneMappings([]); setPreviewRowIdx(0); setEditingField(null); setReviewedRows([])
+    setParseError(null); setDetectedFormat(null); setMapping([]); setContactBlocks([newEmptyContactBlock()]); setPreviewRowIdx(0); setEditingField(null); setReviewedRows([])
     setImportProgress(0); setImportTotal(0); setImportError(null)
     setFinalStats({ companies: 0, contacts: 0, skipped: 0, merged: 0 })
   }
@@ -973,23 +1114,27 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       { target: 'priority', label: 'Priority' },
       { target: 'lead_source', label: 'Lead Source' },
     ]
-    const CONTACT_FIELDS: { target: TargetField; label: string }[] = [
-      { target: 'contact_first_name', label: 'First Name' },
-      { target: 'contact_last_name', label: 'Last Name' },
-      { target: 'contact_job_title', label: 'Job Title' },
-      { target: 'contact_email', label: 'Email' },
-      { target: 'last_call_status', label: 'Last Call Status' },
-      { target: 'last_call_date', label: 'Last Call Date' },
-    ]
-
     const reverseMap = new Map<TargetField, number>()
     mapping.forEach((target, idx) => { if (target !== 'skip') reverseMap.set(target, idx) })
-    const phoneMappedCount = phoneMappings.filter((pm) => pm.csvColumnIndex !== null).length
-    const mappedCount = reverseMap.size + phoneMappedCount
-    const totalFields = COMPANY_FIELDS.length + CONTACT_FIELDS.length
+    const contactColIndexes = collectContactColumnIndexes(contactBlocks)
+    const contactMappedCount = contactColIndexes.size
+    const mappedCount = reverseMap.size + contactMappedCount
+    const totalFields = COMPANY_FIELDS.length + contactBlocks.length * 6
     const previewRow = rows[previewRowIdx] ?? []
-    const phoneColIndexes = new Set(phoneMappings.filter((pm) => pm.csvColumnIndex !== null).map((pm) => pm.csvColumnIndex!))
-    const unmappedCols = headers.map((h, i) => ({ header: h, index: i, sample: previewRow[i] ?? '' })).filter((c) => (mapping[c.index] ?? 'skip') === 'skip' && !phoneColIndexes.has(c.index) && c.header)
+    const unmappedCols = headers.map((h, i) => ({ header: h, index: i, sample: previewRow[i] ?? '' })).filter((c) => (mapping[c.index] ?? 'skip') === 'skip' && !contactColIndexes.has(c.index) && c.header)
+
+    function updateBlock(blockIdx: number, patch: Partial<ContactBlockMapping>) {
+      setContactBlocks((prev) => prev.map((b, i) => i === blockIdx ? { ...b, ...patch } : b))
+    }
+    function updateBlockPhones(blockIdx: number, phones: PhoneMapping[]) {
+      setContactBlocks((prev) => prev.map((b, i) => i === blockIdx ? { ...b, phoneMappings: phones } : b))
+    }
+    function addContactBlock() {
+      setContactBlocks((prev) => [...prev, newEmptyContactBlock()])
+    }
+    function removeContactBlock(blockIdx: number) {
+      setContactBlocks((prev) => prev.length > 1 ? prev.filter((_, i) => i !== blockIdx) : prev)
+    }
 
     function renderFieldCard(f: { target: TargetField; label: string }) {
       const srcIdx = reverseMap.get(f.target)
@@ -1089,74 +1234,175 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           </div>
         </div>
 
-        {/* Contact card */}
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
-            <UserIcon className="w-3.5 h-3.5 text-gray-400" />
-            <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-500">Contact</span>
-          </div>
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {CONTACT_FIELDS.map(renderFieldCard)}
-          </div>
-          {/* Phone numbers sub-section */}
-          <div className="border-t border-gray-100 px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Phone numbers</span>
-              <button
-                onClick={() => setPhoneMappings((prev) => [...prev, { csvColumnIndex: null, type: 'office' }])}
-                className="inline-flex items-center gap-1 text-[11px] text-amber-500 hover:text-amber-600"
-              >
-                <PlusIcon className="w-3 h-3" /> Add phone
-              </button>
+        {/* Contact blocks */}
+        {contactBlocks.map((block, bi) => (
+          <div key={bi} className="border border-gray-200 rounded-xl overflow-hidden mb-3">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <UserIcon className="w-3.5 h-3.5 text-gray-400" />
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-500">Contact {bi + 1}</span>
+              </div>
+              {contactBlocks.length > 1 && bi > 0 && (
+                <button
+                  onClick={() => removeContactBlock(bi)}
+                  className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-500"
+                >
+                  <XIcon className="w-3 h-3" /> Remove contact
+                </button>
+              )}
             </div>
-            <div className="space-y-2">
-              {phoneMappings.map((pm, pmIdx) => {
-                const value = pm.csvColumnIndex !== null ? (previewRow[pm.csvColumnIndex] ?? '').trim() || null : null
-                const sourceColName = pm.csvColumnIndex !== null ? (headers[pm.csvColumnIndex] || `Column ${pm.csvColumnIndex + 1}`) : null
-                return (
-                  <div key={pmIdx} className="flex items-center gap-2">
-                    <select
-                      value={pm.type}
-                      onChange={(e) => setPhoneMappings((prev) => prev.map((p, i) => i === pmIdx ? { ...p, type: e.target.value } : p))}
-                      className="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white w-24"
-                    >
-                      <option value="office">Office</option>
-                      <option value="mobile">Mobile</option>
-                      <option value="fax">Fax</option>
-                      <option value="other">Other</option>
-                    </select>
-                    <select
-                      value={pm.csvColumnIndex !== null ? String(pm.csvColumnIndex) : '__none__'}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setPhoneMappings((prev) => prev.map((p, i) => i === pmIdx ? { ...p, csvColumnIndex: val === '__none__' ? null : Number(val) } : p))
-                      }}
-                      className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
-                    >
-                      <option value="__none__">— Select CSV column —</option>
-                      {headers.map((h, i) => {
-                        const sample = (previewRow[i] ?? '').trim()
-                        return (
-                          <option key={i} value={String(i)}>
-                            {h || `Column ${i + 1}`}{sample ? ` → ${sample}` : ''}
-                          </option>
-                        )
-                      })}
-                    </select>
-                    {value && <span className="text-[11px] text-gray-500 truncate max-w-[120px]">{value}</span>}
-                    {phoneMappings.length > 1 && (
-                      <button
-                        onClick={() => setPhoneMappings((prev) => prev.filter((_, i) => i !== pmIdx))}
-                        className="text-gray-300 hover:text-red-400 p-0.5"
+
+            {/* Name section */}
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Full name</span>
+                <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => updateBlock(bi, { nameMode: 'single' })}
+                    className={`px-2 py-1 text-[11px] ${block.nameMode === 'single' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Single column
+                  </button>
+                  <button
+                    onClick={() => updateBlock(bi, { nameMode: 'combined' })}
+                    className={`px-2 py-1 text-[11px] ${block.nameMode === 'combined' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Combined columns
+                  </button>
+                </div>
+              </div>
+              {block.nameMode === 'single' ? (
+                <CsvColumnSelect
+                  label="Full name column"
+                  headers={headers}
+                  previewRow={previewRow}
+                  value={block.nameColumn}
+                  onChange={(v) => updateBlock(bi, { nameColumn: v })}
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <CsvColumnSelect
+                    label="First name column"
+                    headers={headers}
+                    previewRow={previewRow}
+                    value={block.firstNameColumn}
+                    onChange={(v) => updateBlock(bi, { firstNameColumn: v })}
+                  />
+                  <CsvColumnSelect
+                    label="Last name column"
+                    headers={headers}
+                    previewRow={previewRow}
+                    value={block.lastNameColumn}
+                    onChange={(v) => updateBlock(bi, { lastNameColumn: v })}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Job title / email */}
+            <div className="px-4 py-3 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <CsvColumnSelect
+                label="Job title"
+                headers={headers}
+                previewRow={previewRow}
+                value={block.titleColumn}
+                onChange={(v) => updateBlock(bi, { titleColumn: v })}
+              />
+              <CsvColumnSelect
+                label="Email"
+                headers={headers}
+                previewRow={previewRow}
+                value={block.emailColumn}
+                onChange={(v) => updateBlock(bi, { emailColumn: v })}
+              />
+            </div>
+
+            {/* Phone numbers */}
+            <div className="border-b border-gray-100 px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Phone numbers</span>
+                <button
+                  onClick={() => updateBlockPhones(bi, [...block.phoneMappings, { csvColumnIndex: null, type: 'office' }])}
+                  className="inline-flex items-center gap-1 text-[11px] text-amber-500 hover:text-amber-600"
+                >
+                  <PlusIcon className="w-3 h-3" /> Add phone
+                </button>
+              </div>
+              <div className="space-y-2">
+                {block.phoneMappings.map((pm, pmIdx) => {
+                  const value = pm.csvColumnIndex !== null ? (previewRow[pm.csvColumnIndex] ?? '').trim() || null : null
+                  return (
+                    <div key={pmIdx} className="flex items-center gap-2">
+                      <select
+                        value={pm.type}
+                        onChange={(e) => updateBlockPhones(bi, block.phoneMappings.map((p, i) => i === pmIdx ? { ...p, type: e.target.value } : p))}
+                        className="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white w-24"
                       >
-                        <XIcon className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
+                        <option value="office">Office</option>
+                        <option value="mobile">Mobile</option>
+                        <option value="fax">Fax</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <select
+                        value={pm.csvColumnIndex !== null ? String(pm.csvColumnIndex) : '__none__'}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          updateBlockPhones(bi, block.phoneMappings.map((p, i) => i === pmIdx ? { ...p, csvColumnIndex: val === '__none__' ? null : Number(val) } : p))
+                        }}
+                        className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
+                      >
+                        <option value="__none__">— Select CSV column —</option>
+                        {headers.map((h, i) => {
+                          const sample = (previewRow[i] ?? '').trim()
+                          return (
+                            <option key={i} value={String(i)}>
+                              {h || `Column ${i + 1}`}{sample ? ` → ${sample}` : ''}
+                            </option>
+                          )
+                        })}
+                      </select>
+                      {value && <span className="text-[11px] text-gray-500 truncate max-w-[120px]">{value}</span>}
+                      {block.phoneMappings.length > 1 && (
+                        <button
+                          onClick={() => updateBlockPhones(bi, block.phoneMappings.filter((_, i) => i !== pmIdx))}
+                          className="text-gray-300 hover:text-red-400 p-0.5"
+                        >
+                          <XIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Last call data */}
+            <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <CsvColumnSelect
+                label="Last call status"
+                headers={headers}
+                previewRow={previewRow}
+                value={block.callStatusColumn}
+                onChange={(v) => updateBlock(bi, { callStatusColumn: v })}
+              />
+              <CsvColumnSelect
+                label="Last call date"
+                headers={headers}
+                previewRow={previewRow}
+                value={block.callDateColumn}
+                onChange={(v) => updateBlock(bi, { callDateColumn: v })}
+              />
             </div>
           </div>
+        ))}
+
+        <div className="mb-4">
+          <button
+            onClick={addContactBlock}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-600 border border-amber-200 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors"
+          >
+            <PlusIcon className="w-3.5 h-3.5" /> Add contact
+          </button>
         </div>
 
         {/* Unmapped source columns */}
@@ -1193,7 +1439,7 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
     setReviewLoading(true)
     const built: { mapped: MappedRow; index: number }[] = []
     for (let i = 0; i < rows.length; i++) {
-      const m = buildMappedRow(headers, rows[i], mapping, phoneMappings)
+      const m = buildMappedRow(headers, rows[i], mapping, contactBlocks)
       if (m.company_name.trim()) built.push({ mapped: m, index: i })
     }
     const { data: existingCompanies } = await supabase.from('companies').select('id, name').order('name', { ascending: true })
@@ -1282,8 +1528,9 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       // 1. Create the import record with 'staged' status
       const fileExt = (fileName ?? '').split('.').pop()?.toLowerCase() ?? 'csv'
       const validTypes = ['csv', 'xlsx', 'xls', 'numbers', 'pdf']
-      const mappingObj: Record<string, string> = {}
-      headers.forEach((h, i) => { if (mapping[i] && mapping[i] !== 'skip') mappingObj[h] = mapping[i] })
+      const mappingObj: Record<string, unknown> = { __columns: {}, __contactBlocks: contactBlocks }
+      const columnsOut = mappingObj.__columns as Record<string, string>
+      headers.forEach((h, i) => { if (mapping[i] && mapping[i] !== 'skip') columnsOut[h] = mapping[i] })
       const { data: importRec, error: importErr } = await supabase.from('crm_imports').insert({
         company_id: userId,
         file_name: fileName ?? 'unknown',
@@ -1301,27 +1548,33 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
       const BATCH = 50
       for (let start = 0; start < allRows.length; start += BATCH) {
         const chunk = allRows.slice(start, start + BATCH)
-        const payload = chunk.map((r) => ({
-          import_id: importId,
-          company_name: r.mapped.company_name,
-          industry: r.mapped.industry, zone: r.mapped.zone,
-          state: r.mapped.state, city: r.mapped.city,
-          status: r.mapped.status, priority: r.mapped.priority,
-          lead_source: r.mapped.lead_source,
-          contact_first_name: r.mapped.contact_first_name, contact_last_name: r.mapped.contact_last_name,
-          contact_job_title: r.mapped.contact_job_title, contact_email: r.mapped.contact_email,
-          contact_phone: r.mapped.phones[0]?.number ?? null,
-          contact_phones: r.mapped.phones.length > 0 ? r.mapped.phones : null,
-          address: r.mapped.address,
-          number_of_locations: r.mapped.number_of_locations,
-          revenue_range: r.mapped.revenue_range, employee_range: r.mapped.employee_range,
-          last_call_status: r.mapped.last_call_status, last_call_date: r.mapped.last_call_date,
-          extras: Object.keys(r.mapped.extras).length > 0 ? r.mapped.extras : null,
-          duplicate_of: r.duplicates[0]?.id ?? null,
-          duplicate_score: r.duplicates[0]?.score ?? null,
-          merge_decision: r.decision === 'skip' ? 'skip' : r.decision,
-          row_index: r.index,
-        }))
+        const payload = chunk.map((r) => {
+          const first = r.mapped.contacts[0]
+          return {
+            import_id: importId,
+            company_name: r.mapped.company_name,
+            industry: r.mapped.industry, zone: r.mapped.zone,
+            state: r.mapped.state, city: r.mapped.city,
+            status: r.mapped.status, priority: r.mapped.priority,
+            lead_source: r.mapped.lead_source,
+            contact_first_name: first?.first_name ?? null,
+            contact_last_name: first?.last_name ?? null,
+            contact_job_title: first?.title ?? null,
+            contact_email: first?.email ?? null,
+            contact_phone: first?.phones[0]?.number ?? null,
+            contact_phones: first && first.phones.length > 0 ? first.phones : null,
+            address: r.mapped.address,
+            number_of_locations: r.mapped.number_of_locations,
+            revenue_range: r.mapped.revenue_range, employee_range: r.mapped.employee_range,
+            last_call_status: first?.call_status ?? null,
+            last_call_date: first?.call_date ?? null,
+            extras: Object.keys(r.mapped.extras).length > 0 ? r.mapped.extras : null,
+            duplicate_of: r.duplicates[0]?.id ?? null,
+            duplicate_score: r.duplicates[0]?.score ?? null,
+            merge_decision: r.decision === 'skip' ? 'skip' : r.decision,
+            row_index: r.index,
+          }
+        })
         const { data: insertedStaging, error: batchErr } = await supabase.from('crm_import_records').insert(payload).select('id')
         if (batchErr) throw batchErr
 
@@ -1331,17 +1584,17 @@ export default function ImportCenterClient({ userId }: { userId: string }) {
           const r = chunk[i]
           const stagingId = insertedIds[i]?.id
           if (!stagingId) continue
-          if (r.mapped.contact_first_name || r.mapped.contact_last_name || r.mapped.contact_email || r.mapped.phones.length > 0) {
+          for (const c of r.mapped.contacts) {
             contactInserts.push({
               import_record_id: stagingId,
-              contact_order: 1,
-              first_name: r.mapped.contact_first_name,
-              last_name: r.mapped.contact_last_name,
-              title: r.mapped.contact_job_title,
-              email: r.mapped.contact_email,
-              phones: r.mapped.phones.length > 0 ? r.mapped.phones : null,
-              call_status: r.mapped.last_call_status,
-              call_date: r.mapped.last_call_date,
+              contact_order: c.contact_order,
+              first_name: c.first_name,
+              last_name: c.last_name,
+              title: c.title,
+              email: c.email,
+              phones: c.phones.length > 0 ? c.phones : null,
+              call_status: c.call_status,
+              call_date: c.call_date,
             })
           }
         }

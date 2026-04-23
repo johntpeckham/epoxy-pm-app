@@ -28,8 +28,7 @@ export default function NewContactModal({
   onClose,
   onSaved,
 }: NewContactModalProps) {
-  const [firstName, setFirstName] = useState(existing?.first_name ?? '')
-  const [lastName, setLastName] = useState(existing?.last_name ?? '')
+  const [fullName, setFullName] = useState(`${existing?.first_name ?? ''} ${existing?.last_name ?? ''}`.trim())
   const [jobTitle, setJobTitle] = useState(existing?.job_title ?? '')
   const [email, setEmail] = useState(existing?.email ?? '')
   const [phoneNumbers, setPhoneNumbers] = useState<Array<{ type: string; number: string }>>([])
@@ -63,7 +62,14 @@ export default function NewContactModal({
   const isEdit = !!existing?.id
 
   async function handleSave() {
-    if (!firstName.trim() || !lastName.trim()) return
+    const trimmed = fullName.trim()
+    if (!trimmed) {
+      setError('Full name is required.')
+      return
+    }
+    const tokens = trimmed.split(/\s+/)
+    const parsedFirst = tokens[0] ?? ''
+    const parsedLast = tokens.slice(1).join(' ')
     setSaving(true)
     setError(null)
     const supabase = createClient()
@@ -80,8 +86,8 @@ export default function NewContactModal({
     const primaryPhone = validPhones[0]?.number || null
 
     const payload = {
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
+      first_name: parsedFirst,
+      last_name: parsedLast,
       job_title: jobTitle.trim() || null,
       email: email.trim() || null,
       phone: primaryPhone,
@@ -159,26 +165,15 @@ export default function NewContactModal({
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">First name *</label>
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className={inputClass}
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Last name *</label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Full name *</label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className={inputClass}
+                autoFocus
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Job title</label>
@@ -264,7 +259,7 @@ export default function NewContactModal({
             </button>
             <button
               onClick={handleSave}
-              disabled={!firstName.trim() || !lastName.trim() || saving}
+              disabled={!fullName.trim() || saving}
               className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition-colors"
             >
               {saving ? 'Saving...' : 'Save'}
