@@ -307,22 +307,37 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
       displayName,
       avatarUrl,
       role,
+      email,
+      schedulerAccess,
     }: {
       displayName: string
       avatarUrl: string | null
       role: UserRole
+      email: string
+      schedulerAccess: boolean
     }): Promise<{ ok: true } | { ok: false; error: string }> => {
       if (!user) return { ok: false, error: 'User not loaded' }
       const trimmed = displayName.trim()
       if (!trimmed) return { ok: false, error: 'Display name is required' }
 
+      const trimmedEmail = email.trim()
+      if (!trimmedEmail) return { ok: false, error: 'Email is required' }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        return { ok: false, error: 'Please enter a valid email address' }
+      }
+
       const roleChanged = role !== user.role
-      const nonRoleChanged =
+      const profileChanged =
         trimmed !== (user.display_name ?? '') || avatarUrl !== user.avatar_url
+      const emailChanged = trimmedEmail !== user.email
+      // Admins have no user_permissions row by design; toggle is disabled
+      // for them in the modal, so we never write scheduler for admin.
+      const schedulerChanged = user.role !== 'admin' && schedulerAccess !== hasScheduler
+      const nonRoleChanged = profileChanged || emailChanged || schedulerChanged
 
       // Save non-role fields first so they persist even if the dialog is
-      // cancelled. We deliberately omit `role` from this upsert.
-      if (nonRoleChanged) {
+      // cancelled. We deliberately omit `role` from the profiles upsert.
+      if (profileChanged) {
         const { error: updateError } = await supabase
           .from('profiles')
           .upsert({
@@ -336,6 +351,35 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
         }
       }
 
+      if (emailChanged) {
+        const res = await fetch('/api/update-user-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user.id, new_email: trimmedEmail }),
+        })
+        const payload = await res.json().catch(() => ({} as { error?: string }))
+        if (!res.ok) {
+          return { ok: false, error: payload.error || 'Failed to update email' }
+        }
+      }
+
+      if (schedulerChanged) {
+        const { error: schedErr } = await supabase
+          .from('user_permissions')
+          .upsert(
+            {
+              user_id: user.id,
+              feature: 'scheduler',
+              access_level: schedulerAccess ? 'full' : 'off',
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id,feature' },
+          )
+        if (schedErr) {
+          return { ok: false, error: schedErr.message || 'Failed to update scheduler access' }
+        }
+      }
+
       if (!roleChanged) {
         // No dialog needed.
         if (nonRoleChanged) {
@@ -346,13 +390,18 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
         return { ok: true }
       }
 
-      // Role changed — open the dialog. Profile non-role fields are already
+      // Role changed — open the dialog. Non-role fields are already
       // persisted; the dialog handles the role + permission side effects.
       setEditInfoOpen(false)
-      if (nonRoleChanged) {
+      if (profileChanged || emailChanged) {
         // Reflect the saved non-role fields in the header before the dialog
         // resolves, without waiting on a full reload.
-        setUser({ ...user, display_name: trimmed, avatar_url: avatarUrl })
+        setUser({
+          ...user,
+          display_name: trimmed,
+          avatar_url: avatarUrl,
+          email: trimmedEmail,
+        })
       }
       setRoleChange({
         oldRole: user.role,
@@ -362,7 +411,7 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
       })
       return { ok: true }
     },
-    [loadData, permissionsMap.size, showToast, supabase, user],
+    [hasScheduler, loadData, permissionsMap.size, showToast, supabase, user],
   )
 
   // Resolves a role-change dialog choice (or cancels). Updates profiles.role
@@ -501,6 +550,7 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
       {editInfoOpen && (
         <EditInfoModal
           user={user}
+          initialSchedulerAccess={hasScheduler}
           onClose={() => setEditInfoOpen(false)}
           onSubmit={handleEditSubmit}
         />
@@ -765,10 +815,12 @@ function AccessLevelSelect({
 
 function EditInfoModal({
   user,
+  initialSchedulerAccess,
   onClose,
   onSubmit,
 }: {
   user: UserRow
+  initialSchedulerAccess: boolean
   onClose: () => void
   /** Returns { ok: true } on success — the parent owns closing the modal
    *  for non-role saves and for opening the role-change dialog when role
@@ -777,6 +829,8 @@ function EditInfoModal({
     displayName: string
     avatarUrl: string | null
     role: UserRole
+    email: string
+    schedulerAccess: boolean
   }) => Promise<{ ok: true } | { ok: false; error: string }>
 }) {
   const supabase = useMemo(() => createClient(), [])
@@ -784,10 +838,27 @@ function EditInfoModal({
 
   const [displayName, setDisplayName] = useState(user.display_name ?? '')
   const [role, setRole] = useState<UserRole>(user.role)
+  const [email, setEmail] = useState(user.email)
+  const [schedulerAccess, setSchedulerAccess] = useState(initialSchedulerAccess)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatar_url)
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  // Admins implicitly have scheduler access; their toggle is disabled and
+  // their role never writes user_permissions. If the user toggles their role
+  // back to admin mid-edit, the toggle snaps back to Yes to match intent.
+  const schedulerDisabled = role === 'admin'
+  const schedulerValue = schedulerDisabled ? true : schedulerAccess
+
+  const emailTrimmed = email.trim()
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)
+  const emailErrorInline =
+    emailTrimmed.length === 0
+      ? null
+      : emailLooksValid
+        ? null
+        : 'Please enter a valid email address'
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -816,9 +887,23 @@ function EditInfoModal({
       setErr('Display name is required')
       return
     }
+    if (!emailTrimmed) {
+      setErr('Email is required')
+      return
+    }
+    if (!emailLooksValid) {
+      setErr('Please enter a valid email address')
+      return
+    }
     setSaving(true)
     setErr(null)
-    const result = await onSubmit({ displayName, avatarUrl, role })
+    const result = await onSubmit({
+      displayName,
+      avatarUrl,
+      role,
+      email: emailTrimmed,
+      schedulerAccess: schedulerValue,
+    })
     if (!result.ok) {
       setErr(result.error)
       setSaving(false)
@@ -889,6 +974,25 @@ function EditInfoModal({
             </div>
 
             <div>
+              <label htmlFor="edit-email" className="block text-xs font-medium text-gray-500 mb-1">
+                Email
+              </label>
+              <input
+                id="edit-email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+              />
+              {emailErrorInline && (
+                <p className="text-xs text-red-500 mt-1">{emailErrorInline}</p>
+              )}
+            </div>
+
+            <div>
               <label htmlFor="edit-name" className="block text-xs font-medium text-gray-500 mb-1">
                 Display name
               </label>
@@ -918,6 +1022,22 @@ function EditInfoModal({
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Scheduler access
+              </label>
+              {schedulerDisabled ? (
+                <Tooltip label="Admins always have scheduler access." placement="top">
+                  <YesNoToggle value={schedulerValue} onChange={() => {}} disabled />
+                </Tooltip>
+              ) : (
+                <YesNoToggle value={schedulerValue} onChange={setSchedulerAccess} />
+              )}
+              <p className="text-xs text-gray-400 mt-1">
+                Determines whether this user can access the Scheduler.
+              </p>
             </div>
 
             {err && <p className="text-xs text-red-500">{err}</p>}
@@ -1290,6 +1410,51 @@ function RoleChangeDialog({
 function Spinner() {
   return (
     <span className="inline-block w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+  )
+}
+
+function YesNoToggle({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: boolean
+  onChange: (next: boolean) => void
+  disabled?: boolean
+}) {
+  return (
+    <span
+      role="group"
+      className={`inline-flex border border-gray-200 rounded-lg overflow-hidden text-sm font-medium ${disabled ? 'opacity-60' : ''}`}
+    >
+      {[
+        { label: 'Yes', bool: true },
+        { label: 'No', bool: false },
+      ].map((opt, i) => {
+        const active = value === opt.bool
+        return (
+          <button
+            key={opt.label}
+            type="button"
+            disabled={disabled}
+            aria-pressed={active}
+            onClick={() => {
+              if (!disabled && value !== opt.bool) onChange(opt.bool)
+            }}
+            className={[
+              'px-4 py-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500/30',
+              i === 0 ? 'border-r border-gray-200' : '',
+              active
+                ? 'bg-amber-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50',
+              disabled ? 'cursor-not-allowed' : '',
+            ].filter(Boolean).join(' ')}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </span>
   )
 }
 
