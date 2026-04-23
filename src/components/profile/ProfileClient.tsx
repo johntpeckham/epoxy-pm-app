@@ -450,7 +450,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                   icon={UsersIcon}
                   title="User management"
                   subtitle="Roles and team members"
-                  onClick={() => setShowUserManagement(true)}
+                  onClick={() => router.push('/settings/users')}
                 />
               )}
               {canView('employee_management') && (
