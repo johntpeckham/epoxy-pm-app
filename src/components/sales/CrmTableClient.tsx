@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
@@ -139,7 +140,24 @@ const PRIORITY_TEXT_COLOR: Record<CompanyPriority, string> = {
   low: 'text-gray-400',
 }
 
-const PAGE_SIZE = 50
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 'all'] as const
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
+const DEFAULT_PAGE_SIZE: PageSize = 25
+const PAGE_SIZE_STORAGE_KEYS = {
+  new: 'crm.pageSize.prospects',
+  existing: 'crm.pageSize.customers',
+} as const
+
+function readStoredPageSize(viewMode: CrmViewMode): PageSize {
+  if (typeof window === 'undefined') return DEFAULT_PAGE_SIZE
+  try {
+    const raw = window.localStorage.getItem(PAGE_SIZE_STORAGE_KEYS[viewMode])
+    if (raw === 'all') return 'all'
+    const n = Number(raw)
+    if (PAGE_SIZE_OPTIONS.includes(n as PageSize)) return n as PageSize
+  } catch {}
+  return DEFAULT_PAGE_SIZE
+}
 
 const FILTER_CONFIG: { field: FilterField; label: string }[] = [
   { field: 'status', label: 'Status' },
@@ -218,6 +236,69 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const [radiusError, setRadiusError] = useState(false)
 
   const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+
+  const [pageSize, setPageSize] = useState<PageSize>(DEFAULT_PAGE_SIZE)
+  // Hydrate (and re-hydrate when active tab changes) from localStorage.
+  useEffect(() => {
+    setPageSize(readStoredPageSize(viewMode))
+  }, [viewMode])
+
+  function changePageSize(next: PageSize) {
+    setPageSize(next)
+    try {
+      window.localStorage.setItem(PAGE_SIZE_STORAGE_KEYS[viewMode], String(next))
+    } catch {}
+    // Reset to page 1 so we don't land beyond the new total.
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('page')
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname)
+  }
+
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const exportMenuRef = useRef<HTMLDivElement | null>(null)
+  const exportItemRefs = useRef<Array<HTMLButtonElement | null>>([])
+
+  useEffect(() => {
+    if (!exportMenuOpen) return
+    function onDocClick(e: MouseEvent) {
+      if (!exportMenuRef.current) return
+      if (!exportMenuRef.current.contains(e.target as Node)) setExportMenuOpen(false)
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setExportMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [exportMenuOpen])
+
+  // Focus first enabled item on open.
+  useEffect(() => {
+    if (!exportMenuOpen) return
+    const first = exportItemRefs.current.find((el) => el && !el.disabled)
+    first?.focus()
+  }, [exportMenuOpen])
+
+  function onExportMenuKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    const items = exportItemRefs.current.filter((el): el is HTMLButtonElement => !!el)
+    const enabled = items.filter((el) => !el.disabled)
+    if (enabled.length === 0) return
+    const active = document.activeElement as HTMLButtonElement | null
+    const idx = enabled.indexOf(active as HTMLButtonElement)
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const next = enabled[(idx + 1 + enabled.length) % enabled.length] ?? enabled[0]
+      next.focus()
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      const prev = enabled[(idx - 1 + enabled.length) % enabled.length] ?? enabled[enabled.length - 1]
+      prev.focus()
+    }
+  }
 
   const [toast, setToast] = useState<string | null>(null)
   function showToast(msg: string) {
@@ -366,8 +447,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     fetchAll()
   }
 
-  async function handleExport() {
-    const rowsToExport = filteredSorted
+  async function exportRows(rowsToExport: CompanyRow[]) {
     if (rowsToExport.length === 0) return
     const ids = rowsToExport.map((r) => r.id)
 
@@ -438,6 +518,18 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     const today = new Date().toISOString().slice(0, 10)
     downloadCsv(`crm-export-${today}.csv`, toCsv(csvRows))
     showToast(`Exported ${rowsToExport.length} companies`)
+  }
+
+  function exportVisible() {
+    void exportRows(filteredSorted)
+  }
+  function exportSelected() {
+    if (selectedIds.size === 0) return
+    const rows = companies.filter((r) => selectedIds.has(r.id))
+    void exportRows(rows)
+  }
+  function exportAll() {
+    void exportRows(companies)
   }
 
   // ─── Data fetching ──────────────────────────────────────────────────────
@@ -968,11 +1060,13 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   }, [companies, filters, search, sortField, sortAsc, radiusCities])
 
   const totalCount = filteredSorted.length
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const showAll = pageSize === 'all'
+  const effectivePageSize = showAll ? Math.max(totalCount, 1) : pageSize
+  const totalPages = showAll ? 1 : Math.max(1, Math.ceil(totalCount / effectivePageSize))
   const safePage = Math.min(currentPage, totalPages)
-  const pageStart = (safePage - 1) * PAGE_SIZE
-  const pageEnd = Math.min(pageStart + PAGE_SIZE, totalCount)
-  const pageRows = filteredSorted.slice(pageStart, pageEnd)
+  const pageStart = showAll ? 0 : (safePage - 1) * effectivePageSize
+  const pageEnd = showAll ? totalCount : Math.min(pageStart + effectivePageSize, totalCount)
+  const pageRows = showAll ? filteredSorted : filteredSorted.slice(pageStart, pageEnd)
 
   // Reset to page 1 when filters/search/sort change
   const prevKeyRef = useRef<string>('')
@@ -1149,17 +1243,59 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
               Merge selected
             </button>
           )}
-          <Tooltip label="Export">
-            <button
-              onClick={handleExport}
-              disabled={filteredSorted.length === 0}
-              className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-              title="Export"
-              aria-label="Export"
-            >
-              <DownloadIcon className="w-4 h-4" />
-            </button>
-          </Tooltip>
+          <div className="relative" ref={exportMenuRef} onKeyDown={onExportMenuKeyDown}>
+            <Tooltip label="Export">
+              <button
+                onClick={() => setExportMenuOpen((v) => !v)}
+                className="inline-flex items-center justify-center w-9 h-9 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                title="Export"
+                aria-label="Export"
+                aria-haspopup="menu"
+                aria-expanded={exportMenuOpen}
+              >
+                <DownloadIcon className="w-4 h-4" />
+              </button>
+            </Tooltip>
+            {exportMenuOpen && (
+              <div
+                role="menu"
+                className="absolute top-full mt-2 right-0 z-50 min-w-[220px] bg-white border border-gray-200 rounded-md shadow-sm py-1"
+                style={{ borderWidth: '0.5px' }}
+              >
+                <button
+                  ref={(el) => { exportItemRefs.current[0] = el }}
+                  role="menuitem"
+                  onClick={() => { exportVisible(); setExportMenuOpen(false) }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                >
+                  Export visible rows
+                </button>
+                <button
+                  ref={(el) => { exportItemRefs.current[1] = el }}
+                  role="menuitem"
+                  disabled={selectedIds.size === 0}
+                  onClick={() => {
+                    if (selectedIds.size === 0) return
+                    exportSelected()
+                    setExportMenuOpen(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none disabled:text-gray-300 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                >
+                  {selectedIds.size > 0
+                    ? `Export selected rows (${selectedIds.size})`
+                    : 'Export selected rows'}
+                </button>
+                <button
+                  ref={(el) => { exportItemRefs.current[2] = el }}
+                  role="menuitem"
+                  onClick={() => { exportAll(); setExportMenuOpen(false) }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                >
+                  Export all companies
+                </button>
+              </div>
+            )}
+          </div>
           <Tooltip label="Import Center">
             <button
               onClick={() => router.push('/sales/crm/import')}
@@ -1746,36 +1882,57 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           {/* ── Pagination footer ── */}
           <div className="px-7 py-4 flex items-center justify-between bg-gray-50 dark:bg-[#2a2a2a] border-t border-gray-200 dark:border-[#333]" style={{ borderTopWidth: '0.5px' }}>
             <p className="text-xs text-gray-400">
-              Showing {pageStart + 1}-{pageEnd} of {totalCount}
+              {showAll
+                ? `Showing ${totalCount} of ${totalCount}`
+                : `Showing ${totalCount === 0 ? 0 : pageStart + 1}-${pageEnd} of ${totalCount}`}
             </p>
-            <div className="flex items-center gap-1">
-              {pageNumbers.map((p, i) =>
-                p === 'ellipsis' ? (
-                  <span key={`e-${i}`} className="px-2 text-xs text-gray-400">
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={p}
-                    onClick={() => goToPage(p)}
-                    className={`px-2.5 py-1 text-xs rounded ${
-                      p === safePage
-                        ? 'bg-gray-900 text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                )
+            <div className="flex items-center gap-3">
+              {!showAll && (
+                <div className="flex items-center gap-1">
+                  {pageNumbers.map((p, i) =>
+                    p === 'ellipsis' ? (
+                      <span key={`e-${i}`} className="px-2 text-xs text-gray-400">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => goToPage(p)}
+                        className={`px-2.5 py-1 text-xs rounded ${
+                          p === safePage
+                            ? 'bg-gray-900 text-white'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                  {safePage < totalPages && (
+                    <button
+                      onClick={() => goToPage(safePage + 1)}
+                      className="px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded ml-1"
+                    >
+                      Next →
+                    </button>
+                  )}
+                </div>
               )}
-              {safePage < totalPages && (
-                <button
-                  onClick={() => goToPage(safePage + 1)}
-                  className="px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded ml-1"
-                >
-                  Next →
-                </button>
-              )}
+              <select
+                value={String(pageSize)}
+                onChange={(e) => {
+                  const v = e.target.value
+                  changePageSize(v === 'all' ? 'all' : (Number(v) as PageSize))
+                }}
+                aria-label="Rows per page"
+                className="text-xs text-gray-600 border border-gray-200 rounded px-2 py-1 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              >
+                {PAGE_SIZE_OPTIONS.map((opt) => (
+                  <option key={String(opt)} value={String(opt)}>
+                    {opt === 'all' ? 'All' : `${opt} per page`}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
