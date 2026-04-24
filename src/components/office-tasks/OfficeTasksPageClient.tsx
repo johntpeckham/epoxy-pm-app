@@ -587,7 +587,8 @@ export default function OfficeTasksPageClient({
         </div>
         )}
 
-        {/* ── Equipment Card (spans 2 columns) ── visible to all roles */}
+        {/* ── Equipment Card (spans 2 columns) ── gated on equipment feature */}
+        {canView('equipment') && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
           {/* Card header */}
           <div className="flex items-center gap-2 mb-3">
@@ -667,6 +668,7 @@ export default function OfficeTasksPageClient({
             View All Equipment →
           </button>
         </div>
+        )}
 
       </div>
 
@@ -687,6 +689,7 @@ export default function OfficeTasksPageClient({
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </button>
           )}
+          {canView('office') && (
           <Link
             href="/office/contacts"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
@@ -696,15 +699,17 @@ export default function OfficeTasksPageClient({
             <span className="text-[12px] text-gray-400 mr-2">{contactCount}</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
+          )}
         </div>
       </div>
       )}
 
-      {/* ── Resources Section ── hidden for foreman */}
-      {!isForeman && (
+      {/* ── Resources Section ── gated per-tile by feature */}
+      {(canView('vendor_management') || canView('material_management') || canView('scheduling')) && (
       <div className="mt-5">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Resources</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {canView('vendor_management') && (
           <Link
             href="/office/vendors"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
@@ -714,6 +719,8 @@ export default function OfficeTasksPageClient({
             <span className="text-[12px] text-gray-400 mr-2">{vendorCount}</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
+          )}
+          {canView('material_management') && (
           <Link
             href="/inventory"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
@@ -722,6 +729,8 @@ export default function OfficeTasksPageClient({
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Material inventory</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
+          )}
+          {canView('scheduling') && (
           <Link
             href="/scheduling"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
@@ -730,6 +739,7 @@ export default function OfficeTasksPageClient({
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Scheduling</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
+          )}
         </div>
       </div>
       )}
@@ -738,8 +748,8 @@ export default function OfficeTasksPageClient({
       <div className="mt-5">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Admin</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {/* Reports tile — admin/office_manager only */}
-          {canManageEmployees && (
+          {/* Reports tile — gated on reports feature */}
+          {canView('reports') && (
           <Link
             href="/reports"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
@@ -752,8 +762,8 @@ export default function OfficeTasksPageClient({
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           )}
-          {/* SOPs & Forms tile — hidden for foreman */}
-          {!isForeman && (
+          {/* SOPs & Forms tile — gated on sops feature */}
+          {canView('sops') && (
           <Link
             href="/sops"
             className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"

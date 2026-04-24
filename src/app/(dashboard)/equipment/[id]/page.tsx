@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import { notFound } from 'next/navigation'
 import EquipmentDetailClient from '@/components/equipment/EquipmentDetailClient'
 
@@ -58,17 +58,14 @@ export interface ProfileOption {
 
 export default async function EquipmentDetailPage({ params }: PageProps) {
   const { id } = await params
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
+  const { supabase, user, permissions } = await requirePermission('equipment', 'view')
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, display_name')
-    .eq('id', session.user.id)
+    .select('display_name')
+    .eq('id', user.id)
     .single()
-  const userRole = (profile?.role as string) ?? 'crew'
+  const userRole = (permissions.role as string) ?? 'crew'
   const displayName = (profile?.display_name as string) ?? ''
 
   const { data: equipment } = await supabase
@@ -124,7 +121,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
       initialDocs={(docs ?? []) as EquipmentDocumentRow[]}
       initialScheduled={(scheduled ?? []) as ScheduledServiceRow[]}
       profiles={(profileRows ?? []) as ProfileOption[]}
-      userId={session.user.id}
+      userId={user.id}
       userRole={userRole}
       userDisplayName={displayName}
     />

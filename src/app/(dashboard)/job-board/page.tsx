@@ -1,16 +1,12 @@
 export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import JobBoardClient from '@/components/job-board/JobBoardClient'
 import { Project } from '@/types'
 
 export default async function JobBoardPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const user = session.user
+  const { supabase, user } = await requirePermission('job_board', 'view')
 
   const { data: projects } = await supabase
     .from('projects')

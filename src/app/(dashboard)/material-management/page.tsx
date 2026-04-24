@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { requirePermission } from '@/lib/requirePermission'
 import type {
   UserRole,
   MasterSupplier,
@@ -16,27 +15,8 @@ import MaterialManagementClient, {
 } from '@/components/material-management/MaterialManagementClient'
 
 export default async function MaterialManagementPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return redirect('/login')
-  const user = session.user
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  const userRole = (profile?.role ?? 'crew') as UserRole
-
-  // Material Management is only accessible to admin, office_manager, salesman
-  if (
-    userRole !== 'admin' &&
-    userRole !== 'office_manager' &&
-    userRole !== 'salesman'
-  ) {
-    return redirect('/my-work')
-  }
+  const { supabase, user, permissions } = await requirePermission('material_management', 'view')
+  const userRole = (permissions.role ?? 'crew') as UserRole
 
   const [
     { data: suppliersRaw },

@@ -1,8 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import type { UserRole } from '@/types'
+import { requirePermission } from '@/lib/requirePermission'
 import SchedulingPageClient from '@/components/scheduling/SchedulingPageClient'
 
 // ── Week start (Monday) helper ──────────────────────────────────────────
@@ -29,26 +27,7 @@ function addDaysISO(iso: string, days: number): string {
 }
 
 export default async function SchedulingPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return redirect('/login')
-  const user = session.user
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, display_name')
-    .eq('id', user.id)
-    .single()
-  const userRole = (profile?.role ?? 'crew') as UserRole
-
-  if (
-    userRole !== 'admin' &&
-    userRole !== 'office_manager' &&
-    userRole !== 'salesman'
-  ) {
-    return redirect('/office')
-  }
+  const { supabase } = await requirePermission('scheduling', 'view')
 
   // Compute the three visible weeks
   const thisWeekISO = startOfWeekMondayISO(new Date())

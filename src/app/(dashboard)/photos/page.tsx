@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import { PhotoContent, DailyReportContent, Project } from '@/types'
 import PhotosPageClient from '@/components/photos/PhotosPageClient'
 
@@ -19,11 +19,7 @@ export interface PhotoEntry {
 }
 
 export default async function PhotosPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const user = session.user
+  const { supabase, user } = await requirePermission('photos', 'view')
 
   // Fetch active projects for the "New Photo" dropdown
   const { data: activeProjectRows } = await supabase

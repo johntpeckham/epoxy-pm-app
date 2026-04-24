@@ -1,15 +1,11 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import { JsaReportContent, DynamicFieldEntry, Project } from '@/types'
 import JsaReportsPageClient from '@/components/jsa-reports/JsaReportsPageClient'
 
 export default async function JsaReportsPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const user = session.user
+  const { supabase, user } = await requirePermission('jsa_reports', 'view')
 
   // Fetch active projects for the "New Report" dropdown
   const { data: projectRows } = await supabase

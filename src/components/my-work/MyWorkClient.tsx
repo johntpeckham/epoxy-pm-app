@@ -284,6 +284,16 @@ export default function MyWorkClient({
   const canSeeAllReports = canEdit('daily_reports')
   // Employee Expenses vs. Personal Expenses: previously admin+OM.
   const canSeeAllExpenses = canView('office')
+  const canViewCrm = canView('crm')
+  const canViewJobBoard = canView('job_board')
+  const canViewAnySales =
+    canView('crm') ||
+    canView('dialer') ||
+    canView('emailer') ||
+    canView('leads') ||
+    canView('appointments') ||
+    canView('estimating') ||
+    canView('job_walk')
   // Foreman gets a role-specific "Assigned Field Tasks" card on their own
   // My Work dashboard; this is role-shaped UI that does not map cleanly to
   // a feature gate, so it remains a direct role check.
@@ -489,13 +499,17 @@ export default function MyWorkClient({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <Link
-                        href={`/job-board?project=${task.project_id}`}
-                        className="text-xs text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1"
-                      >
-                        {task.project_name}
-                        <ExternalLinkIcon className="w-3 h-3" />
-                      </Link>
+                      {canViewJobBoard ? (
+                        <Link
+                          href={`/job-board?project=${task.project_id}`}
+                          className="text-xs text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1"
+                        >
+                          {task.project_name}
+                          <ExternalLinkIcon className="w-3 h-3" />
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-gray-500">{task.project_name}</span>
+                      )}
                       {task.due_date && (
                         <span
                           className={`text-xs flex items-center gap-1 ${
@@ -549,12 +563,16 @@ export default function MyWorkClient({
                           <p className="text-sm text-gray-500 line-through truncate">
                             {task.title}
                           </p>
-                          <Link
-                            href={`/job-board?project=${task.project_id}`}
-                            className="text-xs text-amber-600 hover:underline"
-                          >
-                            {task.project_name}
-                          </Link>
+                          {canViewJobBoard ? (
+                            <Link
+                              href={`/job-board?project=${task.project_id}`}
+                              className="text-xs text-amber-600 hover:underline"
+                            >
+                              {task.project_name}
+                            </Link>
+                          ) : (
+                            <span className="text-xs text-gray-500">{task.project_name}</span>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -602,13 +620,17 @@ export default function MyWorkClient({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <Link
-                        href={`/job-board?project=${item.project_id}`}
-                        className="text-xs text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1"
-                      >
-                        {item.project_name}
-                        <ExternalLinkIcon className="w-3 h-3" />
-                      </Link>
+                      {canViewJobBoard ? (
+                        <Link
+                          href={`/job-board?project=${item.project_id}`}
+                          className="text-xs text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1"
+                        >
+                          {item.project_name}
+                          <ExternalLinkIcon className="w-3 h-3" />
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-gray-500">{item.project_name}</span>
+                      )}
                       {item.group_name && (
                         <span className="text-xs text-gray-400">{item.group_name}</span>
                       )}
@@ -664,12 +686,16 @@ export default function MyWorkClient({
                           <p className="text-sm text-gray-500 line-through truncate">
                             {item.name}
                           </p>
-                          <Link
-                            href={`/job-board?project=${item.project_id}`}
-                            className="text-xs text-amber-600 hover:underline"
-                          >
-                            {item.project_name}
-                          </Link>
+                          {canViewJobBoard ? (
+                            <Link
+                              href={`/job-board?project=${item.project_id}`}
+                              className="text-xs text-amber-600 hover:underline"
+                            >
+                              {item.project_name}
+                            </Link>
+                          ) : (
+                            <span className="text-xs text-gray-500">{item.project_name}</span>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -828,10 +854,14 @@ export default function MyWorkClient({
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-900 truncate">{item.name}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                            <Link href={`/job-board?project=${item.project_id}`} className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5">
-                              {item.project_name}
-                              <ExternalLinkIcon className="w-2.5 h-2.5" />
-                            </Link>
+                            {canViewJobBoard ? (
+                              <Link href={`/job-board?project=${item.project_id}`} className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5">
+                                {item.project_name}
+                                <ExternalLinkIcon className="w-2.5 h-2.5" />
+                              </Link>
+                            ) : (
+                              <span className="text-[10px] text-gray-500">{item.project_name}</span>
+                            )}
                             {item.group_name && <span className="text-[10px] text-gray-400">{item.group_name}</span>}
                             {item.due_date && (
                               <span className={`text-[10px] flex items-center gap-0.5 ${isOverdue(item.due_date) ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
@@ -983,13 +1013,17 @@ export default function MyWorkClient({
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                            <Link
-                              href={`/job-board?project=${task.project_id}`}
-                              className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5"
-                            >
-                              {task.project_name}
-                              <ExternalLinkIcon className="w-2.5 h-2.5" />
-                            </Link>
+                            {canViewJobBoard ? (
+                              <Link
+                                href={`/job-board?project=${task.project_id}`}
+                                className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5"
+                              >
+                                {task.project_name}
+                                <ExternalLinkIcon className="w-2.5 h-2.5" />
+                              </Link>
+                            ) : (
+                              <span className="text-[10px] text-gray-500">{task.project_name}</span>
+                            )}
                             {task.due_date && (
                               <span
                                 className={`text-[10px] flex items-center gap-0.5 ${
@@ -1045,8 +1079,8 @@ export default function MyWorkClient({
           </InteractiveCard>
         )}
 
-        {/* ── Follow-up Reminders ── */}
-        {reminders.length > 0 && (
+        {/* ── Follow-up Reminders ── gated by crm */}
+        {canViewCrm && reminders.length > 0 && (
           <InteractiveCard
             icon={<BellIcon className="w-5 h-5" />}
             title="Follow-up reminders"
@@ -1216,8 +1250,8 @@ export default function MyWorkClient({
             </div>
           </QuickGlanceTile>
 
-          {/* Sales activity tile (sales-eligible roles only) */}
-          {initialSalesActivity && (
+          {/* Sales activity tile — any sales feature grants access */}
+          {canViewAnySales && initialSalesActivity && (
             <QuickGlanceTile
               icon={<PhoneIcon className="w-4 h-4" />}
               title="Sales activity"

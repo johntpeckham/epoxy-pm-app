@@ -105,7 +105,7 @@ export default function ProjectFeedClient({
                 <ArrowLeftIcon className="w-5 h-5" />
               </button>
             ) : (
-              <Link href="/jobs" className="mt-0.5 flex-shrink-0">
+              <Link href="/my-work" className="mt-0.5 flex-shrink-0">
                 <ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" />
               </Link>
             )}

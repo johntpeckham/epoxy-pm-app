@@ -1,23 +1,14 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import { ReceiptContent, DynamicFieldEntry, Project } from '@/types'
 import ReceiptsPageClient from '@/components/receipts/ReceiptsPageClient'
 
 export default async function ReceiptsPage() {
-  const supabase = await createClient()
+  const { supabase, user, permissions } = await requirePermission('receipts', 'view')
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const user = session.user
-
-  // Fetch user role for restricted-expense filtering
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  const userRole = (profile?.role as string) ?? 'crew'
+  // Role still drives restricted-expense visibility (resolved by requirePermission).
+  const userRole = (permissions.role ?? 'crew') as string
   const canSeeRestricted = ['admin', 'office_manager', 'salesman'].includes(userRole)
 
   // Fetch active projects for the "New Receipt" dropdown

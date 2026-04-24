@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
 
 export interface EquipmentRow {
@@ -21,17 +21,8 @@ export interface EquipmentRow {
 }
 
 export default async function EquipmentPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', session.user.id)
-    .single()
-  const userRole = (profile?.role as string) ?? 'crew'
+  const { supabase, user, permissions } = await requirePermission('equipment', 'view')
+  const userRole = (permissions.role as string) ?? 'crew'
 
   const { data: equipmentRows } = await supabase
     .from('equipment')
@@ -58,7 +49,7 @@ export default async function EquipmentPage() {
   return (
     <EquipmentPageClient
       initialEquipment={equipment}
-      userId={session.user.id}
+      userId={user.id}
       userRole={userRole}
     />
   )

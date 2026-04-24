@@ -1,15 +1,11 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import { TimecardContent, DynamicFieldEntry, Project } from '@/types'
 import TimesheetsPageClient from '@/components/timesheets/TimesheetsPageClient'
 
 export default async function TimesheetsPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const user = session.user
+  const { supabase, user } = await requirePermission('timesheets', 'view')
 
   // Fetch active projects for the "New Timecard" dropdown
   const { data: projectRows } = await supabase

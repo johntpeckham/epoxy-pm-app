@@ -1,15 +1,11 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import { Task, Project, Profile } from '@/types'
 import TasksPageClient from '@/components/tasks/TasksPageClient'
 
 export default async function TasksPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const user = session.user
+  const { supabase, user } = await requirePermission('tasks', 'view')
 
   // Fetch all tasks with project names
   const { data: tasks } = await supabase
