@@ -55,6 +55,7 @@ export const FEATURE_KEYS = [
   'scheduler',
   'sops',
   'bug_reports',
+  'marketing',
 ] as const
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number]
@@ -127,4 +128,5 @@ export const FEATURE_METADATA: Record<FeatureKey, FeatureMetadata> = {
   sops:                 { displayName: 'SOPs',                 category: 'other',     sortOrder: 820 },
   bug_reports:          { displayName: 'Bug Reports',          category: 'other',     sortOrder: 830 },
   calendar:             { displayName: 'Calendar',             category: 'other',     sortOrder: 840 },
+  marketing:            { displayName: 'Marketing',            category: 'other',     sortOrder: 850 },
 }
