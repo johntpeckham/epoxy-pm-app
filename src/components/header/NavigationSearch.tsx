@@ -41,6 +41,7 @@ import {
   BanknoteIcon,
   BuildingIcon,
   LoaderIcon,
+  MegaphoneIcon,
   type LucideIcon,
 } from 'lucide-react'
 import { usePermissions } from '@/lib/usePermissions'
@@ -109,6 +110,7 @@ const NAV_PAGES: NavPage[] = [
   { name: 'Billing', route: '/billing', icon: DollarSignIcon, description: 'Billing', keywords: ['invoices', 'change orders'], access: { type: 'permission', feature: 'billing' } },
   { name: 'Calendar', route: '/calendar', icon: CalendarIcon, description: 'Calendar', keywords: ['events', 'schedule'], access: { type: 'permission', feature: 'calendar' } },
   { name: 'Scheduler', route: '/scheduler', icon: CalendarRangeIcon, description: 'Scheduler', keywords: ['crew schedule', 'weekly schedule'], access: { type: 'permission', feature: 'scheduler' } },
+  { name: 'Marketing', route: '/marketing', icon: MegaphoneIcon, description: 'Marketing', keywords: ['social', 'ads', 'campaigns'], access: { type: 'permission', feature: 'marketing' } },
   { name: 'SOPs & Forms', route: '/sops', icon: FileTextIcon, description: 'Office', keywords: ['standard operating procedures', 'processes', 'documentation'], access: { type: 'permission', feature: 'sops' } },
   { name: 'Equipment', route: '/equipment', icon: WrenchIcon, description: 'Equipment', keywords: ['tools', 'maintenance', 'inventory'], access: { type: 'permission', feature: 'office' } },
   { name: 'Material Management', route: '/material-management', icon: PackageIcon, description: 'Materials', keywords: ['products', 'suppliers', 'catalog'], access: { type: 'permission', feature: 'material_management' } },

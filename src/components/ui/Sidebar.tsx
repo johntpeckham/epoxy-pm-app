@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, DollarSignIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, MailIcon, TargetIcon, CalculatorIcon } from 'lucide-react'
+import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, DollarSignIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, MailIcon, TargetIcon, CalculatorIcon, MegaphoneIcon } from 'lucide-react'
 import { usePermissions } from '@/lib/usePermissions'
 
 interface SidebarProps {
@@ -66,6 +66,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isTimesheetsActive = pathname === '/timesheets'
   const isCalendarActive = pathname === '/calendar'
   const isSchedulerActive = pathname === '/scheduler' || pathname.startsWith('/scheduler/')
+  const isMarketingActive = pathname === '/marketing' || pathname.startsWith('/marketing/')
   const isBillingActive = pathname === '/billing'
   const isMyWorkActive = pathname === '/my-work'
   const isOfficeActive = pathname === '/office' || pathname.startsWith('/office/')
@@ -575,6 +576,21 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           >
             <CalendarRangeIcon className="w-5 h-5 flex-shrink-0" />
             Scheduler
+          </Link>
+        )}
+
+        {canView('marketing') && (
+          <Link
+            href="/marketing"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isMarketingActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <MegaphoneIcon className="w-5 h-5 flex-shrink-0" />
+            Marketing
           </Link>
         )}
 
