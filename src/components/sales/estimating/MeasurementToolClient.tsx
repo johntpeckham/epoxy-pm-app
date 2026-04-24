@@ -39,6 +39,7 @@ export interface MeasurementRow {
   page_number: number
   measurements: MeasurementPageSlice | null
   scale_calibration: MeasurementScaleCalibration | null
+  hidden: boolean
   created_at: string
   updated_at: string
 }
@@ -76,6 +77,7 @@ function buildInitialState(
   markups: Markup[]
   pageScales: Record<string, number>
   pageRenderedSizes: Record<string, { w: number; h: number }>
+  hiddenPages: Record<string, boolean>
 } {
   const pdfIdToIndex = new Map<string, number>()
   pdfs.forEach((p, i) => pdfIdToIndex.set(p.id, i))
@@ -84,11 +86,14 @@ function buildInitialState(
   const markups: Markup[] = []
   const pageScales: Record<string, number> = {}
   const pageRenderedSizes: Record<string, { w: number; h: number }> = {}
+  const hiddenPages: Record<string, boolean> = {}
 
   for (const row of rows) {
     const pdfIndex = pdfIdToIndex.get(row.pdf_id)
     if (pdfIndex === undefined) continue
     const pageKey = `${pdfIndex}-${row.page_number - 1}`
+
+    if (row.hidden) hiddenPages[pageKey] = true
 
     const slice = row.measurements ?? { items: [], markups: [] }
     if (slice.items?.length) mergeItemsById(items, slice.items)
@@ -101,7 +106,7 @@ function buildInitialState(
     }
   }
 
-  return { items, markups, pageScales, pageRenderedSizes }
+  return { items, markups, pageScales, pageRenderedSizes, hiddenPages }
 }
 
 async function loadPdfPages(
@@ -177,6 +182,9 @@ export default function MeasurementToolClient({
   const [pageRenderedSizes, setPageRenderedSizes] = useState<
     Record<string, { w: number; h: number }>
   >(initial.pageRenderedSizes)
+  const [hiddenPages, setHiddenPages] = useState<Record<string, boolean>>(
+    initial.hiddenPages
+  )
 
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<'dashboard' | 'viewer'>('dashboard')
@@ -244,6 +252,7 @@ export default function MeasurementToolClient({
         page_number: number
         measurements: MeasurementPageSlice
         scale_calibration: MeasurementScaleCalibration | null
+        hidden: boolean
       }> = []
 
       for (const page of pages) {
@@ -272,6 +281,7 @@ export default function MeasurementToolClient({
             pageRenderedSize: renderedSize,
           },
           scale_calibration: pixelsPerFoot ? { pixelsPerFoot } : null,
+          hidden: hiddenPages[pageKey] ?? false,
         })
       }
 
@@ -307,6 +317,7 @@ export default function MeasurementToolClient({
     markups,
     pageScales,
     pageRenderedSizes,
+    hiddenPages,
     pages,
     project.id,
     loadingPdfs,
@@ -333,11 +344,51 @@ export default function MeasurementToolClient({
 
   const handleDeletePage = useCallback(
     (pdfIndex: number, pageIndex: number) => {
-      setPages((prev) =>
-        prev.filter((p) => !(p.pdfIndex === pdfIndex && p.pageIndex === pageIndex))
+      const page = pages.find(
+        (p) => p.pdfIndex === pdfIndex && p.pageIndex === pageIndex
       )
+      if (!page?.pdfId) return
+      const pageKey = `${pdfIndex}-${pageIndex}`
+
+      setHiddenPages((prev) => ({ ...prev, [pageKey]: true }))
+
+      const itemsForPage = items
+        .map((item) => ({
+          ...item,
+          measurements: item.measurements.filter((m) => m.pageKey === pageKey),
+        }))
+        .filter((item) => item.measurements.length > 0)
+      const markupsForPage = markups.filter((m) => m.pageKey === pageKey)
+      const renderedSize = pageRenderedSizes[pageKey] ?? null
+      const pixelsPerFoot = pageScales[pageKey]
+
+      const supabase = createClient()
+      supabase
+        .from('estimating_project_measurements')
+        .upsert(
+          [
+            {
+              project_id: project.id,
+              pdf_id: page.pdfId,
+              page_number: pageIndex + 1,
+              measurements: {
+                items: itemsForPage,
+                markups: markupsForPage,
+                pageRenderedSize: renderedSize,
+              },
+              scale_calibration: pixelsPerFoot ? { pixelsPerFoot } : null,
+              hidden: true,
+            },
+          ],
+          { onConflict: 'pdf_id,page_number' }
+        )
+        .then(({ error }) => {
+          if (error) {
+            console.error('[MeasurementTool] Hide page failed:', error)
+          }
+        })
     },
-    []
+    [pages, items, markups, pageScales, pageRenderedSizes, project.id]
   )
 
   const handleRenamePage = useCallback(
@@ -430,6 +481,10 @@ export default function MeasurementToolClient({
     )
   }
 
+  const visiblePages = pages.filter(
+    (p) => !hiddenPages[`${p.pdfIndex}-${p.pageIndex}`]
+  )
+
   let column3Content: React.ReactNode
   if (viewMode === 'viewer' && activePage) {
     const pageKey = `${activePage.pdfIndex}-${activePage.pageIndex}`
@@ -470,7 +525,7 @@ export default function MeasurementToolClient({
     column3Content = (
       <TakeoffDashboard
         projectName={project.name}
-        pages={pages}
+        pages={visiblePages}
         items={items}
         markups={markups}
         pageScales={pageScales}
