@@ -83,7 +83,7 @@ const ACCESS_OPTIONS: { value: AccessLevel; label: string; activeColor: string }
 ]
 
 const CATEGORY_LABEL: Record<FeatureCategory, string> = {
-  core:         'Core',
+  core:         'Job Feed',
   my_work_page: 'My Work Page',
   job_board:    'Job Board',
   sales:        'Sales',
@@ -141,7 +141,9 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
 
   // Per-user permissions for the editor section. Empty for admins by design.
   const [permissionsMap, setPermissionsMap] = useState<Map<FeatureKey, AccessLevel>>(new Map())
+  const [hideFromSidebarMap, setHideFromSidebarMap] = useState<Map<FeatureKey, boolean>>(new Map())
   const [savingFeature, setSavingFeature] = useState<FeatureKey | null>(null)
+  const [savingHide, setSavingHide] = useState<FeatureKey | null>(null)
 
   const [editInfoOpen, setEditInfoOpen] = useState(false)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
@@ -206,19 +208,29 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
       if (target.role === 'admin') {
         setHasScheduler(true)
         setPermissionsMap(new Map())
+        setHideFromSidebarMap(new Map())
       } else {
         const { data: permRows } = await supabase
           .from('user_permissions')
-          .select('feature, access_level')
+          .select('feature, access_level, hide_from_sidebar')
           .eq('user_id', userId)
 
         const next = new Map<FeatureKey, AccessLevel>()
+        const hide = new Map<FeatureKey, boolean>()
         let schedulerLevel: AccessLevel | undefined
-        for (const row of (permRows ?? []) as { feature: string; access_level: AccessLevel }[]) {
+        for (const row of (permRows ?? []) as {
+          feature: string
+          access_level: AccessLevel
+          hide_from_sidebar: boolean | null
+        }[]) {
           next.set(row.feature as FeatureKey, row.access_level)
+          if (row.hide_from_sidebar) {
+            hide.set(row.feature as FeatureKey, true)
+          }
           if (row.feature === 'scheduler') schedulerLevel = row.access_level
         }
         setPermissionsMap(next)
+        setHideFromSidebarMap(hide)
         setHasScheduler(schedulerLevel != null && schedulerLevel !== 'off')
       }
     } catch (err) {
@@ -299,6 +311,52 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
       }
     },
     [permissionsMap, showToast, supabase, userId],
+  )
+
+  // Optimistic toggle for the per-feature hide_from_sidebar flag. Upserts the
+  // row (keeping any existing access_level) and reverts on error. The row's
+  // access_level is carried through the upsert so the user_permissions row is
+  // not silently downgraded to the column default.
+  const handleHideFromSidebarChange = useCallback(
+    async (feature: FeatureKey, nextHidden: boolean) => {
+      const previous = hideFromSidebarMap.get(feature) === true
+      const currentLevel = permissionsMap.get(feature) ?? 'off'
+      setHideFromSidebarMap((prev) => {
+        const next = new Map(prev)
+        if (nextHidden) next.set(feature, true)
+        else next.delete(feature)
+        return next
+      })
+      setSavingHide(feature)
+
+      const { error: upsertError } = await supabase
+        .from('user_permissions')
+        .upsert(
+          {
+            user_id: userId,
+            feature,
+            access_level: currentLevel,
+            hide_from_sidebar: nextHidden,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,feature' },
+        )
+
+      setSavingHide(null)
+
+      if (upsertError) {
+        setHideFromSidebarMap((prev) => {
+          const next = new Map(prev)
+          if (previous) next.set(feature, true)
+          else next.delete(feature)
+          return next
+        })
+        showToast('Failed to update — try again')
+        // eslint-disable-next-line no-console
+        console.error('[UserDetail] Failed to upsert hide_from_sidebar:', upsertError)
+      }
+    },
+    [hideFromSidebarMap, permissionsMap, showToast, supabase, userId],
   )
 
   // Triggered from the Edit Info modal. Splits non-role saves (always run
@@ -543,8 +601,11 @@ export default function UserDetailPageClient({ userId }: UserDetailPageClientPro
         <PermissionsSection
           user={user}
           permissionsMap={permissionsMap}
+          hideFromSidebarMap={hideFromSidebarMap}
           savingFeature={savingFeature}
+          savingHide={savingHide}
           onLevelChange={handleLevelChange}
+          onHideFromSidebarChange={handleHideFromSidebarChange}
         />
       </div>
 
@@ -716,16 +777,33 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+// Features whose sidebar entry can be hidden per-user via the toggle. Keep
+// this list in sync with the equivalent gate in components/ui/Sidebar.tsx.
+const HIDE_FROM_SIDEBAR_FEATURES = new Set<FeatureKey>([
+  'daily_reports',
+  'jsa_reports',
+  'receipts',
+  'timesheets',
+  'photos',
+  'tasks',
+])
+
 function PermissionsSection({
   user,
   permissionsMap,
+  hideFromSidebarMap,
   savingFeature,
+  savingHide,
   onLevelChange,
+  onHideFromSidebarChange,
 }: {
   user: UserRow
   permissionsMap: Map<FeatureKey, AccessLevel>
+  hideFromSidebarMap: Map<FeatureKey, boolean>
   savingFeature: FeatureKey | null
+  savingHide: FeatureKey | null
   onLevelChange: (feature: FeatureKey, next: AccessLevel) => void
+  onHideFromSidebarChange: (feature: FeatureKey, next: boolean) => void
 }) {
   if (user.role === 'admin') {
     return (
@@ -758,14 +836,23 @@ function PermissionsSection({
             </div>
             {FEATURES_BY_CATEGORY[category].map((feature) => {
               const current = permissionsMap.get(feature.feature) ?? 'off'
+              const showHideToggle = HIDE_FROM_SIDEBAR_FEATURES.has(feature.feature)
+              const hidden = hideFromSidebarMap.get(feature.feature) === true
               return (
                 <div
                   key={feature.feature}
-                  className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 dark:border-[#2a2a2a] gap-3"
+                  className="flex items-center px-4 py-2.5 border-t border-gray-100 dark:border-[#2a2a2a] gap-3"
                 >
-                  <span className="text-sm text-gray-900 dark:text-white truncate">
+                  <span className="text-sm text-gray-900 dark:text-white truncate flex-1">
                     {feature.displayName}
                   </span>
+                  {showHideToggle && (
+                    <HideFromSidebarToggle
+                      checked={hidden}
+                      disabled={savingHide === feature.feature}
+                      onChange={(next) => onHideFromSidebarChange(feature.feature, next)}
+                    />
+                  )}
                   <AccessLevelSelect
                     value={current}
                     disabled={savingFeature === feature.feature}
@@ -778,6 +865,47 @@ function PermissionsSection({
         ))}
       </div>
     </section>
+  )
+}
+
+function HideFromSidebarToggle({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean
+  disabled: boolean
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <label
+      className={`inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 select-none ${
+        disabled ? 'opacity-50 cursor-wait' : 'cursor-pointer'
+      }`}
+    >
+      <span className="hidden sm:inline">Hide from sidebar</span>
+      <span className="sm:hidden">Hide</span>
+      <span className="relative inline-flex">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked)}
+          aria-label="Hide from sidebar"
+          className="peer sr-only"
+        />
+        <span
+          className={`block w-8 h-4 rounded-full transition-colors ${
+            checked ? 'bg-amber-500' : 'bg-gray-300 dark:bg-[#3a3a3a]'
+          }`}
+        />
+        <span
+          className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${
+            checked ? 'translate-x-4' : ''
+          }`}
+        />
+      </span>
+    </label>
   )
 }
 
