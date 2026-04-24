@@ -12,6 +12,12 @@ export const FEATURE_KEYS = [
   'photos',
   'tasks',
   'calendar',
+  // My Work Page (per-card gates)
+  'daily_playbook',
+  'assigned_office_work',
+  'office_daily_reports',
+  'assigned_field_tasks',
+  'expenses_summary',
   // Job Board
   'job_board',
   // Sales sub-sections
@@ -55,6 +61,7 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number]
 
 export type FeatureCategory =
   | 'core'
+  | 'my_work_page'
   | 'job_board'
   | 'sales'
   | 'office'
@@ -76,6 +83,11 @@ export const FEATURE_METADATA: Record<FeatureKey, FeatureMetadata> = {
   photos:               { displayName: 'Photos',               category: 'core',      sortOrder: 60 },
   tasks:                { displayName: 'Tasks',                category: 'core',      sortOrder: 70 },
   calendar:             { displayName: 'Calendar',             category: 'core',      sortOrder: 80 },
+  daily_playbook:       { displayName: 'Daily Playbook',       category: 'my_work_page', sortOrder: 90 },
+  assigned_office_work: { displayName: 'Assigned Office Work', category: 'my_work_page', sortOrder: 91 },
+  office_daily_reports: { displayName: 'Office Daily Report',  category: 'my_work_page', sortOrder: 92 },
+  assigned_field_tasks: { displayName: 'Assigned Field Tasks', category: 'my_work_page', sortOrder: 93 },
+  expenses_summary:     { displayName: 'Expenses Summary',     category: 'my_work_page', sortOrder: 94 },
   job_board:            { displayName: 'Job Board',            category: 'job_board', sortOrder: 100 },
   crm:                  { displayName: 'CRM',                  category: 'sales',     sortOrder: 200 },
   dialer:               { displayName: 'Dialer',               category: 'sales',     sortOrder: 210 },

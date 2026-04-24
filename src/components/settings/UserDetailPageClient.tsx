@@ -83,12 +83,13 @@ const ACCESS_OPTIONS: { value: AccessLevel; label: string; activeColor: string }
 ]
 
 const CATEGORY_LABEL: Record<FeatureCategory, string> = {
-  core:      'Core',
-  job_board: 'Job Board',
-  sales:     'Sales',
-  office:    'Office',
-  settings:  'Settings',
-  other:     'Other',
+  core:         'Core',
+  my_work_page: 'My Work Page',
+  job_board:    'Job Board',
+  sales:        'Sales',
+  office:       'Office',
+  settings:     'Settings',
+  other:        'Other',
 }
 
 const ORDERED_FEATURES: { feature: FeatureKey; displayName: string; category: FeatureCategory; sortOrder: number }[] =
@@ -109,7 +110,7 @@ const CATEGORY_ORDER: FeatureCategory[] = (() => {
 })()
 
 const FEATURES_BY_CATEGORY: Record<FeatureCategory, typeof ORDERED_FEATURES> = (() => {
-  const grouped = { core: [], job_board: [], sales: [], office: [], settings: [], other: [] } as Record<
+  const grouped = { core: [], my_work_page: [], job_board: [], sales: [], office: [], settings: [], other: [] } as Record<
     FeatureCategory,
     typeof ORDERED_FEATURES
   >

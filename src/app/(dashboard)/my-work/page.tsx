@@ -13,46 +13,60 @@ export default async function MyWorkPage() {
   if (!session) return null
   const user = session.user
 
-  // Permissions power two gates on this page: `canView('office')` expands
-  // the expense scope to everyone on the team, and `canEdit('daily_reports')`
-  // drives the admin-style count on the daily-reports tile. The resolved
-  // role is still surfaced via userRole for role-shaped UI in MyWorkClient.
+  // Permissions power several gates on this page: `canView('office')` expands
+  // the expense scope to everyone on the team, `canEdit('daily_reports')`
+  // drives the admin-style count on the daily-reports tile, and the 5 My Work
+  // card gates skip their underlying queries when the card is hidden. The
+  // resolved role is still surfaced via userRole for role-shaped UI.
   const permissions = await getUserPermissions(supabase, user.id)
   const userRole = (permissions.role ?? 'crew') as UserRole
   const canSeeAllExpenses = permissions.canView('office')
+  const canSeeAssignedFieldTasks = permissions.canView('assigned_field_tasks')
+  const canSeeAssignedOfficeWork = permissions.canView('assigned_office_work')
+  const canSeeExpensesSummary = permissions.canView('expenses_summary')
+  const canSeeOfficeDailyReport = permissions.canView('office_daily_reports')
 
-  // Fetch tasks assigned to current user with project names
-  const { data: assignedTasks } = await supabase
-    .from('tasks')
-    .select('*, projects(name)')
-    .eq('assigned_to', user.id)
-    .order('created_at', { ascending: false })
+  // Assigned Field Tasks card — fetch only when visible.
+  const assignedTasks = canSeeAssignedFieldTasks
+    ? (await supabase
+        .from('tasks')
+        .select('*, projects(name)')
+        .eq('assigned_to', user.id)
+        .order('created_at', { ascending: false })).data
+    : null
 
-  // Fetch checklist items assigned to current user with project names
-  const { data: assignedChecklistItems } = await supabase
-    .from('project_checklist_items')
-    .select('*, projects(name)')
-    .eq('assigned_to', user.id)
-    .order('sort_order', { ascending: true })
+  // Assigned Office Work card — needs both checklist items and office tasks.
+  const assignedChecklistItems = canSeeAssignedOfficeWork
+    ? (await supabase
+        .from('project_checklist_items')
+        .select('*, projects(name)')
+        .eq('assigned_to', user.id)
+        .order('sort_order', { ascending: true })).data
+    : null
 
-  // Fetch office tasks (assigned to user or created by user)
-  const { data: officeTasks } = await supabase
-    .from('office_tasks')
-    .select('*')
-    .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
-    .order('created_at', { ascending: false })
+  const officeTasks = canSeeAssignedOfficeWork
+    ? (await supabase
+        .from('office_tasks')
+        .select('*')
+        .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+        .order('created_at', { ascending: false })).data
+    : null
 
-  // Fetch expenses — all roles can now access
-  let expenseQuery = supabase
-    .from('salesman_expenses')
-    .select('*')
-    .order('date', { ascending: false })
+  // Expenses summary tile — skip the query entirely when hidden.
+  let expenseRows: unknown[] | null = null
+  if (canSeeExpensesSummary) {
+    let expenseQuery = supabase
+      .from('salesman_expenses')
+      .select('*')
+      .order('date', { ascending: false })
 
-  if (!canSeeAllExpenses) {
-    expenseQuery = expenseQuery.eq('user_id', user.id)
+    if (!canSeeAllExpenses) {
+      expenseQuery = expenseQuery.eq('user_id', user.id)
+    }
+
+    const { data } = await expenseQuery
+    expenseRows = data
   }
-
-  const { data: expenseRows } = await expenseQuery
 
   let expenses = (expenseRows ?? []) as Array<{
     id: string
@@ -213,7 +227,8 @@ export default async function MyWorkPage() {
     }
   }
 
-  // Office Daily Reports — today's snapshot for the card
+  // Office Daily Reports — today's snapshot for the card. Skip the queries
+  // entirely when the card is hidden for this user.
   const todayDateStr = new Date().toISOString().slice(0, 10)
   let myTodayReport: {
     id: string
@@ -222,7 +237,7 @@ export default async function MyWorkPage() {
   } | null = null
   let todayReportsCount = 0
 
-  {
+  if (canSeeOfficeDailyReport) {
     const { data: myReport } = await supabase
       .from('office_daily_reports')
       .select('id, clock_in, clock_out')
@@ -230,16 +245,16 @@ export default async function MyWorkPage() {
       .eq('report_date', todayDateStr)
       .maybeSingle()
     myTodayReport = myReport ?? null
-  }
 
-  // Admin-level daily-reports count — previously admin-only; now driven by
-  // edit access on daily_reports (admins continue to get it via shortcut).
-  if (permissions.canEdit('daily_reports')) {
-    const { count } = await supabase
-      .from('office_daily_reports')
-      .select('id', { count: 'exact', head: true })
-      .eq('report_date', todayDateStr)
-    todayReportsCount = count ?? 0
+    // Admin-level daily-reports count — previously admin-only; now driven by
+    // edit access on daily_reports (admins continue to get it via shortcut).
+    if (permissions.canEdit('daily_reports')) {
+      const { count } = await supabase
+        .from('office_daily_reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('report_date', todayDateStr)
+      todayReportsCount = count ?? 0
+    }
   }
 
   const tasksWithProject = (assignedTasks ?? []).map((row) => ({
