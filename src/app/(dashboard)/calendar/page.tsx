@@ -1,27 +1,18 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import { CalendarEvent, Project } from '@/types'
 import type { UserRole } from '@/types'
 import CalendarPageClient from '@/components/calendar/CalendarPageClient'
 
 export default async function CalendarPage() {
-  const supabase = await createClient()
+  const { supabase, user, permissions } = await requirePermission('calendar', 'view')
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const user = session.user
-
-  const [{ data: events }, { data: profile }, { data: projects }] = await Promise.all([
+  const [{ data: events }, { data: projects }] = await Promise.all([
     supabase
       .from('calendar_events')
       .select('*')
       .order('start_date', { ascending: true }),
-    supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single(),
     supabase
       .from('projects')
       .select('*')
@@ -33,7 +24,7 @@ export default async function CalendarPage() {
       initialEvents={(events as CalendarEvent[]) ?? []}
       initialProjects={(projects as Project[]) ?? []}
       userId={user.id}
-      userRole={(profile?.role as UserRole) ?? 'crew'}
+      userRole={(permissions.role as UserRole) ?? 'crew'}
     />
   )
 }

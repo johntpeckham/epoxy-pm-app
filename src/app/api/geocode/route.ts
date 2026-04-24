@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org/search'
 const USER_AGENT = 'EpoxyPM/1.0'
@@ -6,6 +7,13 @@ const USER_AGENT = 'EpoxyPM/1.0'
 let lastRequestTime = 0
 
 export async function GET(req: NextRequest) {
+  // Any authenticated user can use geocoding (utility endpoint, no feature key).
+  const supabase = await createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const q = req.nextUrl.searchParams.get('q')
   if (!q) return NextResponse.json({ error: 'Missing q parameter' }, { status: 400 })
 

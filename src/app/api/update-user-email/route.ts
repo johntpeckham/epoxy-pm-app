@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUserPermissions } from '@/lib/getUserPermissions'
 import { NextRequest, NextResponse } from 'next/server'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -12,14 +13,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Only admins can update user emails' }, { status: 403 })
+  const permissions = await getUserPermissions(supabase, user.id)
+  if (!permissions.canEdit('user_management')) {
+    return NextResponse.json({ error: 'Insufficient permissions to update user emails' }, { status: 403 })
   }
 
   const { user_id, new_email } = await request.json()

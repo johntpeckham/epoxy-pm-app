@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import { notFound } from 'next/navigation'
 import ProjectFeedClient from '@/components/feed/ProjectFeedClient'
 import { FeedPost, Project } from '@/types'
@@ -11,11 +11,7 @@ interface ProjectPageProps {
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
   const { id } = await params
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const user = session.user
+  const { supabase, user } = await requirePermission('jobs', 'view')
 
   const { data: project } = await supabase
     .from('projects')

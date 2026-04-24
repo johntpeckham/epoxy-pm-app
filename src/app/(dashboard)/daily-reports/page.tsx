@@ -1,15 +1,11 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/requirePermission'
 import { DailyReportContent, DynamicFieldEntry, Project } from '@/types'
 import DailyReportsPageClient from '@/components/daily-reports/DailyReportsPageClient'
 
 export default async function DailyReportsPage() {
-  const supabase = await createClient()
-
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const user = session.user
+  const { supabase, user } = await requirePermission('daily_reports', 'view')
 
   // Fetch active projects for the "New Report" dropdown
   const { data: projectRows } = await supabase

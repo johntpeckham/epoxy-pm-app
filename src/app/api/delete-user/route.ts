@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { getUserPermissions } from '@/lib/getUserPermissions'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
-  // Verify the requesting user is an admin
+  // Verify the requesting user has edit access to user_management
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -11,14 +12,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Only admins can delete users' }, { status: 403 })
+  const permissions = await getUserPermissions(supabase, user.id)
+  if (!permissions.canEdit('user_management')) {
+    return NextResponse.json({ error: 'Insufficient permissions to delete users' }, { status: 403 })
   }
 
   const { user_id } = await request.json()

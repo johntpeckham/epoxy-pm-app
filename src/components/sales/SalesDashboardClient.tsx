@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/usePermissions'
+import type { FeatureKey } from '@/lib/featureKeys'
 import {
   fetchTeamOverview,
   hasAnyActivity,
@@ -26,14 +28,14 @@ interface Props {
   initialOverview: TeamOverview
 }
 
-const NAV_BUTTONS = [
-  { label: 'CRM', href: '/sales/crm', icon: UsersIcon },
-  { label: 'Dialer', href: '/sales/dialer', icon: PhoneIcon },
-  { label: 'Emailer', href: '/sales/emailer', icon: MailIcon },
-  { label: 'Appointments', href: '/sales/appointments', icon: CalendarIcon },
-  { label: 'Leads', href: '/sales/leads', icon: TargetIcon },
-  { label: 'Job Walk', href: '/sales/job-walk', icon: FootprintsIcon },
-  { label: 'Estimating', href: '/sales/estimating', icon: CalculatorIcon },
+const NAV_BUTTONS: { label: string; href: string; icon: typeof UsersIcon; feature: FeatureKey }[] = [
+  { label: 'CRM',          href: '/sales/crm',          icon: UsersIcon,       feature: 'crm' },
+  { label: 'Dialer',       href: '/sales/dialer',       icon: PhoneIcon,       feature: 'dialer' },
+  { label: 'Emailer',      href: '/sales/emailer',      icon: MailIcon,        feature: 'emailer' },
+  { label: 'Appointments', href: '/sales/appointments', icon: CalendarIcon,    feature: 'appointments' },
+  { label: 'Leads',        href: '/sales/leads',        icon: TargetIcon,      feature: 'leads' },
+  { label: 'Job Walk',     href: '/job-walk',           icon: FootprintsIcon,  feature: 'job_walk' },
+  { label: 'Estimating',   href: '/sales/estimating',   icon: CalculatorIcon,  feature: 'estimating' },
 ]
 
 const RANGES: { value: TimeRange; label: string }[] = [
@@ -46,6 +48,8 @@ export default function SalesDashboardClient({
   initialRange,
   initialOverview,
 }: Props) {
+  const { canView } = usePermissions()
+  const visibleButtons = NAV_BUTTONS.filter((btn) => canView(btn.feature))
   const [range, setRange] = useState<TimeRange>(initialRange)
   const [overview, setOverview] = useState<TeamOverview>(initialOverview)
   const [isPending, startTransition] = useTransition()
@@ -71,19 +75,21 @@ export default function SalesDashboardClient({
         <h1 className="ml-2 text-2xl font-bold text-gray-900">Sales</h1>
       </div>
 
-      {/* Navigation buttons */}
-      <div className="px-4 sm:px-6 pb-2 flex flex-wrap gap-2">
-        {NAV_BUTTONS.map((btn) => (
-          <Link
-            key={btn.href}
-            href={btn.href}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            <btn.icon className="w-4 h-4" />
-            {btn.label}
-          </Link>
-        ))}
-      </div>
+      {/* Navigation buttons — only those the user has permission to view */}
+      {visibleButtons.length > 0 && (
+        <div className="px-4 sm:px-6 pb-2 flex flex-wrap gap-2">
+          {visibleButtons.map((btn) => (
+            <Link
+              key={btn.href}
+              href={btn.href}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <btn.icon className="w-4 h-4" />
+              {btn.label}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Time range toggle + date range */}
       <div className="p-4 flex items-center gap-3 flex-wrap">
