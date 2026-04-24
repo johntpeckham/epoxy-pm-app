@@ -24,6 +24,12 @@ interface TakeoffDashboardProps {
   pageScales: Record<string, number>
   pageRenderedSizes: Record<string, { w: number; h: number }>
   onAddPages: (pages: TakeoffPage[]) => void
+  /**
+   * When provided, the "Add PDF" card delegates the upload to this handler
+   * (which should persist the file to Supabase and update pages itself).
+   * When omitted, the card falls back to in-memory base64 (legacy path).
+   */
+  onUploadPdf?: (file: File) => Promise<void>
   onOpenPage: (page: TakeoffPage) => void
   onDeletePage: (pdfIndex: number, pageIndex: number) => void
   onRenamePage: (pdfIndex: number, pageIndex: number, displayName: string) => void
@@ -231,6 +237,7 @@ export default function TakeoffDashboard({
   pageScales,
   pageRenderedSizes,
   onAddPages,
+  onUploadPdf,
   onOpenPage,
   onDeletePage,
   onRenamePage,
@@ -293,41 +300,46 @@ export default function TakeoffDashboard({
     setUploadError(null)
 
     try {
-      const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as ArrayBuffer)
-        reader.onerror = reject
-        reader.readAsArrayBuffer(file)
-      })
+      if (onUploadPdf) {
+        await onUploadPdf(file)
+      } else {
+        const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as ArrayBuffer)
+          reader.onerror = reject
+          reader.readAsArrayBuffer(file)
+        })
 
-      const pdfBase64 = arrayBufferToBase64(arrayBuffer)
+        const pdfBase64 = arrayBufferToBase64(arrayBuffer)
 
-      const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
-      const pdfIndex = pages.length > 0 ? Math.max(...pages.map((p) => p.pdfIndex)) + 1 : 0
+        const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
+        const pdfIndex = pages.length > 0 ? Math.max(...pages.map((p) => p.pdfIndex)) + 1 : 0
 
-      const newPages: TakeoffPage[] = []
-      for (let i = 0; i < doc.numPages; i++) {
-        const pdfPage = await doc.getPage(i + 1)
-        const viewport = pdfPage.getViewport({ scale: 0.3 })
-        const canvas = document.createElement('canvas')
-        canvas.width = viewport.width
-        canvas.height = viewport.height
-        const ctx = canvas.getContext('2d')!
-        await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
-        const thumbnailDataUrl = canvas.toDataURL('image/png')
+        const newPages: TakeoffPage[] = []
+        for (let i = 0; i < doc.numPages; i++) {
+          const pdfPage = await doc.getPage(i + 1)
+          const viewport = pdfPage.getViewport({ scale: 0.3 })
+          const canvas = document.createElement('canvas')
+          canvas.width = viewport.width
+          canvas.height = viewport.height
+          const ctx = canvas.getContext('2d')!
+          await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
+          const thumbnailDataUrl = canvas.toDataURL('image/png')
 
-        newPages.push({ pdfIndex, pageIndex: i, pdfName: file.name, thumbnailDataUrl, arrayBuffer, pdfBase64 })
+          newPages.push({ pdfIndex, pageIndex: i, pdfName: file.name, thumbnailDataUrl, arrayBuffer, pdfBase64 })
+        }
+
+        onAddPages(newPages)
       }
-
-      onAddPages(newPages)
-    } catch {
+    } catch (err) {
+      console.error('[Takeoff] Upload failed:', err)
       setUploadError('Failed to load PDF. Please try a different file.')
       setTimeout(() => setUploadError(null), 4000)
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
-  }, [pages, onAddPages])
+  }, [pages, onAddPages, onUploadPdf])
 
   const handleDownloadReport = useCallback(async () => {
     setIsDownloadingReport(true)
