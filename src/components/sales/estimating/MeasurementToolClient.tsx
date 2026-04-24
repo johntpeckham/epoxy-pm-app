@@ -1,93 +1,157 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
-import { RulerIcon, MonitorIcon, ArrowLeftIcon } from 'lucide-react'
-import TakeoffProjectList from '@/components/takeoff/TakeoffProjectList'
+import {
+  RulerIcon,
+  MonitorIcon,
+  ArrowLeftIcon,
+  Loader2Icon,
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
 import TakeoffDashboard from '@/components/takeoff/TakeoffDashboard'
 import TakeoffViewer from '@/components/takeoff/TakeoffViewer'
 import type {
-  TakeoffProject,
   TakeoffItem,
   TakeoffPage,
   Markup,
-  SerializedTakeoffProject,
 } from '@/components/takeoff/types'
+import type { EstimatingProject, EstimatingProjectPdf } from './types'
+import { useUploadMeasurementPdf } from './useUploadMeasurementPdf'
 
-function genId(): string {
-  return Math.random().toString(36).slice(2, 10)
+// ─── Row type shared with the server page ──────────────────────────────
+
+export interface MeasurementPageSlice {
+  items: TakeoffItem[]
+  markups: Markup[]
+  pageRenderedSize?: { w: number; h: number } | null
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i])
-  }
-  return btoa(binary)
+export interface MeasurementScaleCalibration {
+  pixelsPerFoot: number
 }
 
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes.buffer
+export interface MeasurementRow {
+  id: string
+  project_id: string
+  pdf_id: string
+  page_number: number
+  measurements: MeasurementPageSlice | null
+  scale_calibration: MeasurementScaleCalibration | null
+  created_at: string
+  updated_at: string
 }
 
-function serializeProjects(projects: TakeoffProject[]): string {
-  const serialized: SerializedTakeoffProject[] = projects.map((p) => ({
-    id: p.id,
-    name: p.name,
-    createdAt: p.createdAt,
-    pages: p.pages.map((pg) => ({
-      pdfIndex: pg.pdfIndex,
-      pageIndex: pg.pageIndex,
-      pdfName: pg.pdfName,
-      displayName: pg.displayName,
-      thumbnailDataUrl: pg.thumbnailDataUrl,
-      pdfBase64: pg.pdfBase64 ?? (pg.arrayBuffer ? arrayBufferToBase64(pg.arrayBuffer) : null),
-    })),
-    items: p.items,
-    pageScales: p.pageScales,
-    markups: p.markups,
-    pageRenderedSizes: p.pageRenderedSizes,
-  }))
-  return JSON.stringify(serialized)
+interface MeasurementToolClientProps {
+  project: EstimatingProject
+  pdfs: EstimatingProjectPdf[]
+  measurements: MeasurementRow[]
 }
 
-function deserializeProjects(json: string): TakeoffProject[] {
-  try {
-    const parsed: SerializedTakeoffProject[] = JSON.parse(json)
-    return parsed.map((p) => ({
-      id: p.id,
-      name: p.name,
-      createdAt: p.createdAt,
-      pages: p.pages.map((pg) => ({
-        pdfIndex: pg.pdfIndex,
-        pageIndex: pg.pageIndex,
-        pdfName: pg.pdfName,
-        displayName: pg.displayName,
-        thumbnailDataUrl: pg.thumbnailDataUrl,
-        pdfBase64: pg.pdfBase64 ?? null,
-        arrayBuffer: pg.pdfBase64 ? base64ToArrayBuffer(pg.pdfBase64) : null,
-      })),
-      items: p.items,
-      pageScales: p.pageScales,
-      markups: p.markups,
-      pageRenderedSizes: p.pageRenderedSizes,
-    }))
-  } catch {
-    return []
+// ─── Helpers ───────────────────────────────────────────────────────────
+
+function mergeItemsById(target: TakeoffItem[], incoming: TakeoffItem[]) {
+  for (const incomingItem of incoming) {
+    const existing = target.find((i) => i.id === incomingItem.id)
+    if (existing) {
+      existing.measurements = [
+        ...existing.measurements,
+        ...incomingItem.measurements,
+      ]
+    } else {
+      target.push({
+        ...incomingItem,
+        measurements: [...incomingItem.measurements],
+      })
+    }
   }
 }
 
-export default function MeasurementToolClient() {
-  const params = useParams()
-  const projectId = params.id as string
-  const lsKey = `takeoff-projects-${projectId}`
+function buildInitialState(
+  pdfs: EstimatingProjectPdf[],
+  rows: MeasurementRow[]
+): {
+  items: TakeoffItem[]
+  markups: Markup[]
+  pageScales: Record<string, number>
+  pageRenderedSizes: Record<string, { w: number; h: number }>
+} {
+  const pdfIdToIndex = new Map<string, number>()
+  pdfs.forEach((p, i) => pdfIdToIndex.set(p.id, i))
+
+  const items: TakeoffItem[] = []
+  const markups: Markup[] = []
+  const pageScales: Record<string, number> = {}
+  const pageRenderedSizes: Record<string, { w: number; h: number }> = {}
+
+  for (const row of rows) {
+    const pdfIndex = pdfIdToIndex.get(row.pdf_id)
+    if (pdfIndex === undefined) continue
+    const pageKey = `${pdfIndex}-${row.page_number - 1}`
+
+    const slice = row.measurements ?? { items: [], markups: [] }
+    if (slice.items?.length) mergeItemsById(items, slice.items)
+    if (slice.markups?.length) markups.push(...slice.markups)
+    if (slice.pageRenderedSize) {
+      pageRenderedSizes[pageKey] = slice.pageRenderedSize
+    }
+    if (row.scale_calibration?.pixelsPerFoot) {
+      pageScales[pageKey] = row.scale_calibration.pixelsPerFoot
+    }
+  }
+
+  return { items, markups, pageScales, pageRenderedSizes }
+}
+
+async function loadPdfPages(
+  pdf: EstimatingProjectPdf,
+  pdfIndex: number
+): Promise<TakeoffPage[]> {
+  const pdfjsLib = await import('pdfjs-dist')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(pdfjsLib as any).GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url
+  ).toString()
+
+  const res = await fetch(pdf.file_url)
+  if (!res.ok) throw new Error(`Failed to fetch PDF: ${pdf.file_name}`)
+  const arrayBuffer = await res.arrayBuffer()
+
+  const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
+  const pages: TakeoffPage[] = []
+  for (let i = 0; i < doc.numPages; i++) {
+    const pdfPage = await doc.getPage(i + 1)
+    const viewport = pdfPage.getViewport({ scale: 0.3 })
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')!
+    await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
+    const thumbnailDataUrl = canvas.toDataURL('image/png')
+
+    pages.push({
+      pdfIndex,
+      pageIndex: i,
+      pdfName: pdf.file_name,
+      thumbnailDataUrl,
+      arrayBuffer,
+      pdfBase64: null,
+      pdfId: pdf.id,
+    })
+  }
+  return pages
+}
+
+// ─── Component ─────────────────────────────────────────────────────────
+
+export default function MeasurementToolClient({
+  project,
+  pdfs: initialPdfs,
+  measurements,
+}: MeasurementToolClientProps) {
+  const uploadPdf = useUploadMeasurementPdf(project.id)
 
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
@@ -97,113 +161,196 @@ export default function MeasurementToolClient() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  const [projects, setProjects] = useState<TakeoffProject[]>(() => {
-    if (typeof window === 'undefined') return []
-    const saved = localStorage.getItem(lsKey)
-    if (saved) return deserializeProjects(saved)
-    const legacy = localStorage.getItem('takeoff-projects')
-    return legacy ? deserializeProjects(legacy) : []
-  })
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [pdfs, setPdfs] = useState<EstimatingProjectPdf[]>(initialPdfs)
+  const [pages, setPages] = useState<TakeoffPage[]>([])
+  const [loadingPdfs, setLoadingPdfs] = useState(initialPdfs.length > 0)
+
+  const initial = useMemo(
+    () => buildInitialState(initialPdfs, measurements),
+    [initialPdfs, measurements]
+  )
+  const [items, setItems] = useState<TakeoffItem[]>(initial.items)
+  const [markups, setMarkups] = useState<Markup[]>(initial.markups)
+  const [pageScales, setPageScales] = useState<Record<string, number>>(
+    initial.pageScales
+  )
+  const [pageRenderedSizes, setPageRenderedSizes] = useState<
+    Record<string, { w: number; h: number }>
+  >(initial.pageRenderedSizes)
+
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<'dashboard' | 'viewer'>('dashboard')
   const [activePage, setActivePage] = useState<TakeoffPage | null>(null)
 
-  const selectedProject = projects.find((p) => p.id === selectedId) ?? null
-
+  const [saveState, setSaveState] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle')
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isInitialMount = useRef(true)
+
+  // Load PDF page data (arrayBuffer + thumbnails) on mount / when PDFs change
+  useEffect(() => {
+    let cancelled = false
+    if (pdfs.length === 0) {
+      setPages([])
+      setLoadingPdfs(false)
+      return
+    }
+    setLoadingPdfs(true)
+    ;(async () => {
+      try {
+        const all: TakeoffPage[] = []
+        for (let i = 0; i < pdfs.length; i++) {
+          const pdfPages = await loadPdfPages(pdfs[i], i)
+          if (cancelled) return
+          all.push(...pdfPages)
+        }
+        if (!cancelled) setPages(all)
+      } catch (err) {
+        console.error('[MeasurementTool] Failed to load PDFs:', err)
+      } finally {
+        if (!cancelled) setLoadingPdfs(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // We intentionally trigger on pdfs.length + a join of ids so newly uploaded
+    // PDFs pick up without re-downloading the existing ones in a loop. The
+    // loader itself handles the full list each time and overwrites pages.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfs.map((p) => p.id).join('|')])
+
+  // Auto-save to Supabase (debounced) whenever measurement state changes
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
     }
-    try {
-      localStorage.setItem(lsKey, serializeProjects(projects))
-    } catch {
-      // localStorage full or unavailable
+    if (loadingPdfs || pages.length === 0) return
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    if (savedIndicatorTimerRef.current)
+      clearTimeout(savedIndicatorTimerRef.current)
+
+    saveTimerRef.current = setTimeout(async () => {
+      setSaveState('saving')
+      const supabase = createClient()
+
+      const rows: Array<{
+        project_id: string
+        pdf_id: string
+        page_number: number
+        measurements: MeasurementPageSlice
+        scale_calibration: MeasurementScaleCalibration | null
+      }> = []
+
+      for (const page of pages) {
+        if (!page.pdfId) continue
+        const pageKey = `${page.pdfIndex}-${page.pageIndex}`
+
+        const itemsForPage = items
+          .map((item) => ({
+            ...item,
+            measurements: item.measurements.filter(
+              (m) => m.pageKey === pageKey
+            ),
+          }))
+          .filter((item) => item.measurements.length > 0)
+        const markupsForPage = markups.filter((m) => m.pageKey === pageKey)
+        const renderedSize = pageRenderedSizes[pageKey] ?? null
+        const pixelsPerFoot = pageScales[pageKey]
+
+        rows.push({
+          project_id: project.id,
+          pdf_id: page.pdfId,
+          page_number: page.pageIndex + 1,
+          measurements: {
+            items: itemsForPage,
+            markups: markupsForPage,
+            pageRenderedSize: renderedSize,
+          },
+          scale_calibration: pixelsPerFoot ? { pixelsPerFoot } : null,
+        })
+      }
+
+      if (rows.length === 0) {
+        setSaveState('saved')
+        savedIndicatorTimerRef.current = setTimeout(
+          () => setSaveState('idle'),
+          1500
+        )
+        return
+      }
+
+      const { error } = await supabase
+        .from('estimating_project_measurements')
+        .upsert(rows, { onConflict: 'pdf_id,page_number' })
+
+      if (error) {
+        console.error('[MeasurementTool] Save failed:', error)
+        setSaveState('error')
+      } else {
+        setSaveState('saved')
+        savedIndicatorTimerRef.current = setTimeout(
+          () => setSaveState('idle'),
+          1500
+        )
+      }
+    }, 1000)
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [projects, lsKey])
+  }, [
+    items,
+    markups,
+    pageScales,
+    pageRenderedSizes,
+    pages,
+    project.id,
+    loadingPdfs,
+  ])
 
-  function handleAddProject(name: string) {
-    const newProject: TakeoffProject = {
-      id: genId(),
-      name,
-      createdAt: new Date().toISOString(),
-      pages: [],
-      items: [],
-      pageScales: {},
-      markups: [],
-      pageRenderedSizes: {},
-    }
-    setProjects((prev) => [newProject, ...prev])
-    setSelectedId(newProject.id)
-    setViewMode('dashboard')
-    setActivePage(null)
-  }
+  // ─── Callbacks wired to TakeoffDashboard / TakeoffViewer ──────────
 
-  function handleDeleteProject(id: string) {
-    setProjects((prev) => prev.filter((p) => p.id !== id))
-    if (selectedId === id) {
-      setSelectedId(null)
-      setViewMode('dashboard')
-      setActivePage(null)
-    }
-  }
+  const handleAddPages = useCallback((newPages: TakeoffPage[]) => {
+    setPages((prev) => [...prev, ...newPages])
+  }, [])
 
-  function handleRenameProject(id: string, name: string) {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, name } : p))
-    )
-  }
-
-  function handleSelectProject(id: string) {
-    setSelectedId(id)
-    setViewMode('dashboard')
-    setActivePage(null)
-  }
-
-  const updateSelected = useCallback(
-    (updates: Partial<TakeoffProject>) => {
-      if (!selectedId) return
-      setProjects((prev) =>
-        prev.map((p) => (p.id === selectedId ? { ...p, ...updates } : p))
-      )
+  const handleUploadPdf = useCallback(
+    async (file: File) => {
+      const inserted = await uploadPdf(file)
+      const pdfIndex = pdfs.length
+      const newPages = await loadPdfPages(inserted, pdfIndex)
+      setPdfs((prev) => [...prev, inserted])
+      // loadPdfs effect will re-run and repopulate pages; to avoid flicker,
+      // also append immediately.
+      setPages((prev) => [...prev, ...newPages])
     },
-    [selectedId]
-  )
-
-  const handleAddPages = useCallback(
-    (newPages: TakeoffPage[]) => {
-      if (!selectedProject) return
-      updateSelected({ pages: [...selectedProject.pages, ...newPages] })
-    },
-    [selectedProject, updateSelected]
+    [uploadPdf, pdfs.length]
   )
 
   const handleDeletePage = useCallback(
     (pdfIndex: number, pageIndex: number) => {
-      if (!selectedProject) return
-      updateSelected({
-        pages: selectedProject.pages.filter(
-          (p) => !(p.pdfIndex === pdfIndex && p.pageIndex === pageIndex)
-        ),
-      })
+      setPages((prev) =>
+        prev.filter((p) => !(p.pdfIndex === pdfIndex && p.pageIndex === pageIndex))
+      )
     },
-    [selectedProject, updateSelected]
+    []
   )
 
   const handleRenamePage = useCallback(
     (pdfIndex: number, pageIndex: number, displayName: string) => {
-      if (!selectedProject) return
-      updateSelected({
-        pages: selectedProject.pages.map((p) =>
+      setPages((prev) =>
+        prev.map((p) =>
           p.pdfIndex === pdfIndex && p.pageIndex === pageIndex
             ? { ...p, displayName }
             : p
-        ),
-      })
+        )
+      )
     },
-    [selectedProject, updateSelected]
+    []
   )
 
   const handleOpenPage = useCallback((page: TakeoffPage) => {
@@ -218,113 +365,51 @@ export default function MeasurementToolClient() {
 
   const handlePageScaleChange = useCallback(
     (pixelsPerFoot: number) => {
-      if (!selectedProject || !activePage) return
+      if (!activePage) return
       const key = `${activePage.pdfIndex}-${activePage.pageIndex}`
-      updateSelected({
-        pageScales: { ...selectedProject.pageScales, [key]: pixelsPerFoot },
-      })
+      setPageScales((prev) => ({ ...prev, [key]: pixelsPerFoot }))
     },
-    [selectedProject, activePage, updateSelected]
+    [activePage]
   )
 
-  const handleItemsChange = useCallback(
-    (items: TakeoffItem[]) => {
-      updateSelected({ items })
-    },
-    [updateSelected]
-  )
+  const handleItemsChange = useCallback((next: TakeoffItem[]) => {
+    setItems(next)
+  }, [])
 
-  const handleMarkupsChange = useCallback(
-    (markups: Markup[]) => {
-      updateSelected({ markups })
-    },
-    [updateSelected]
-  )
+  const handleMarkupsChange = useCallback((next: Markup[]) => {
+    setMarkups(next)
+  }, [])
 
   const handleCanvasSizeChange = useCallback(
     (pageKey: string, size: { w: number; h: number }) => {
-      if (!selectedProject) return
-      const existing = selectedProject.pageRenderedSizes?.[pageKey]
-      if (existing && Math.abs(existing.w - size.w) < 1 && Math.abs(existing.h - size.h) < 1) return
-      updateSelected({
-        pageRenderedSizes: { ...(selectedProject.pageRenderedSizes || {}), [pageKey]: size },
+      setPageRenderedSizes((prev) => {
+        const existing = prev[pageKey]
+        if (
+          existing &&
+          Math.abs(existing.w - size.w) < 1 &&
+          Math.abs(existing.h - size.h) < 1
+        )
+          return prev
+        return { ...prev, [pageKey]: size }
       })
     },
-    [selectedProject, updateSelected]
+    []
   )
 
   const handleRenameItem = useCallback(
     (itemId: string, newName: string) => {
-      if (!selectedProject) return
-      updateSelected({
-        items: selectedProject.items.map((i) =>
-          i.id === itemId ? { ...i, name: newName } : i
-        ),
-      })
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, name: newName } : i))
+      )
     },
-    [selectedProject, updateSelected]
+    []
   )
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen((prev) => !prev)
   }, [])
 
-  let column3Content: React.ReactNode
-
-  if (!selectedProject) {
-    column3Content = (
-      <div className="flex items-center justify-center h-full bg-gray-50">
-        <div className="text-center">
-          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <RulerIcon className="w-7 h-7 text-gray-400" />
-          </div>
-          <p className="text-gray-400 text-sm">Select a project to view measurements</p>
-        </div>
-      </div>
-    )
-  } else if (viewMode === 'viewer' && activePage) {
-    const pageKey = `${activePage.pdfIndex}-${activePage.pageIndex}`
-    const latestPage = selectedProject.pages.find(
-      (p) => p.pdfIndex === activePage.pdfIndex && p.pageIndex === activePage.pageIndex
-    ) ?? activePage
-    column3Content = (
-      <TakeoffViewer
-        key={pageKey}
-        page={latestPage}
-        pageScale={selectedProject.pageScales[pageKey]}
-        items={selectedProject.items}
-        markups={selectedProject.markups}
-        isFullscreen={isFullscreen}
-        pageRenderedSizes={selectedProject.pageRenderedSizes || {}}
-        projectName={selectedProject.name}
-        onBack={handleBackToDashboard}
-        onPageScaleChange={handlePageScaleChange}
-        onItemsChange={handleItemsChange}
-        onMarkupsChange={handleMarkupsChange}
-        onToggleFullscreen={handleToggleFullscreen}
-        onCanvasSizeChange={handleCanvasSizeChange}
-      />
-    )
-  } else {
-    column3Content = (
-      <TakeoffDashboard
-        key={selectedProject.id}
-        projectName={selectedProject.name}
-        pages={selectedProject.pages}
-        items={selectedProject.items}
-        markups={selectedProject.markups}
-        pageScales={selectedProject.pageScales}
-        pageRenderedSizes={selectedProject.pageRenderedSizes || {}}
-        onAddPages={handleAddPages}
-        onOpenPage={handleOpenPage}
-        onDeletePage={handleDeletePage}
-        onRenamePage={handleRenamePage}
-        onRenameItem={handleRenameItem}
-      />
-    )
-  }
-
-  const showViewerOverlay = viewMode === 'viewer' && activePage && selectedProject
+  // ─── Render ────────────────────────────────────────────────────────
 
   if (isMobile) {
     return (
@@ -333,14 +418,74 @@ export default function MeasurementToolClient() {
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <MonitorIcon className="w-7 h-7 text-gray-400" />
           </div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Desktop Only Feature</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">
+            Desktop Only Feature
+          </h2>
           <p className="text-sm text-gray-500 leading-relaxed">
-            The Measurement Tool is designed for desktop use. Please open this page on a desktop or laptop for the best experience.
+            The Measurement Tool is designed for desktop use. Please open this
+            page on a desktop or laptop for the best experience.
           </p>
         </div>
       </div>
     )
   }
+
+  let column3Content: React.ReactNode
+  if (viewMode === 'viewer' && activePage) {
+    const pageKey = `${activePage.pdfIndex}-${activePage.pageIndex}`
+    const latestPage =
+      pages.find(
+        (p) =>
+          p.pdfIndex === activePage.pdfIndex &&
+          p.pageIndex === activePage.pageIndex
+      ) ?? activePage
+    column3Content = (
+      <TakeoffViewer
+        key={pageKey}
+        page={latestPage}
+        pageScale={pageScales[pageKey]}
+        items={items}
+        markups={markups}
+        isFullscreen={isFullscreen}
+        pageRenderedSizes={pageRenderedSizes}
+        projectName={project.name}
+        onBack={handleBackToDashboard}
+        onPageScaleChange={handlePageScaleChange}
+        onItemsChange={handleItemsChange}
+        onMarkupsChange={handleMarkupsChange}
+        onToggleFullscreen={handleToggleFullscreen}
+        onCanvasSizeChange={handleCanvasSizeChange}
+      />
+    )
+  } else if (loadingPdfs && pages.length === 0) {
+    column3Content = (
+      <div className="flex items-center justify-center h-full bg-gray-50">
+        <div className="text-center">
+          <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Loading plans…</p>
+        </div>
+      </div>
+    )
+  } else {
+    column3Content = (
+      <TakeoffDashboard
+        projectName={project.name}
+        pages={pages}
+        items={items}
+        markups={markups}
+        pageScales={pageScales}
+        pageRenderedSizes={pageRenderedSizes}
+        onAddPages={handleAddPages}
+        onUploadPdf={handleUploadPdf}
+        onOpenPage={handleOpenPage}
+        onDeletePage={handleDeletePage}
+        onRenamePage={handleRenamePage}
+        onRenameItem={handleRenameItem}
+      />
+    )
+  }
+
+  const showViewerOverlay = viewMode === 'viewer' && activePage
 
   if (isFullscreen && showViewerOverlay) {
     return (
@@ -353,28 +498,26 @@ export default function MeasurementToolClient() {
   return (
     <div className="flex flex-col h-full overflow-hidden w-full max-w-full">
       <div className="flex items-center gap-2 bg-white dark:bg-[#242424] border-b border-gray-200 dark:border-[#2a2a2a] flex-shrink-0 px-4 sm:px-6 py-3">
-        <Link href={`/sales/estimating?project=${projectId}`} className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
+        <Link
+          href={`/sales/estimating?project=${project.id}`}
+          className="flex-shrink-0"
+        >
+          <ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+        </Link>
         <RulerIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-        <span className="text-2xl font-bold text-gray-900 dark:text-white">Measurement Tool</span>
+        <span className="text-2xl font-bold text-gray-900 dark:text-white flex-1 truncate">
+          {project.name}
+        </span>
+        <AutoSaveIndicator isSaving={saveState === 'saving'} />
       </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <TakeoffProjectList
-          projects={projects}
-          selectedId={selectedId}
-          onSelect={handleSelectProject}
-          onAdd={handleAddProject}
-          onDelete={handleDeleteProject}
-          onRename={handleRenameProject}
-        />
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
           {!showViewerOverlay && column3Content}
         </div>
 
         {showViewerOverlay && (
-          <div
-            className="fixed top-0 bottom-0 right-0 left-0 lg:left-56 z-40 bg-white flex flex-col"
-          >
+          <div className="fixed top-0 bottom-0 right-0 left-0 z-40 bg-white flex flex-col">
             {column3Content}
           </div>
         )}

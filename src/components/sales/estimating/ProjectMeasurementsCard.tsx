@@ -12,6 +12,10 @@ import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
+import {
+  MEASUREMENT_PDF_BUCKET,
+  useUploadMeasurementPdf,
+} from './useUploadMeasurementPdf'
 import type { EstimatingProject, EstimatingProjectPdf } from './types'
 
 interface ProjectMeasurementsCardProps {
@@ -24,8 +28,6 @@ interface PendingUpload {
   tempId: string
   fileName: string
 }
-
-const BUCKET = 'estimating-project-files'
 
 export default function ProjectMeasurementsCard({
   project,
@@ -43,6 +45,8 @@ export default function ProjectMeasurementsCard({
   const [confirmDelete, setConfirmDelete] = useState<EstimatingProjectPdf | null>(null)
   const [deleting, setDeleting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const uploadPdf = useUploadMeasurementPdf(project.id)
 
   // Reset local state when project changes
   useEffect(() => {
@@ -95,7 +99,6 @@ export default function ProjectMeasurementsCard({
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return
       const files = Array.from(fileList)
-      const supabase = createClient()
 
       const pendingList: PendingUpload[] = files.map((f) => ({
         tempId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -107,33 +110,8 @@ export default function ProjectMeasurementsCard({
         files.map(async (file, idx) => {
           const placeholder = pendingList[idx]
           try {
-            const ext = (file.name.split('.').pop() || 'pdf').toLowerCase()
-            const path = `${project.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-            const { error: uploadErr } = await supabase.storage
-              .from(BUCKET)
-              .upload(path, file, {
-                contentType: file.type || 'application/pdf',
-              })
-            if (uploadErr) throw uploadErr
-
-            const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path)
-            const publicUrl = urlData.publicUrl
-
-            const { data: inserted, error: insertErr } = await supabase
-              .from('estimating_project_measurement_pdfs')
-              .insert({
-                project_id: project.id,
-                file_name: file.name,
-                file_url: publicUrl,
-                storage_path: path,
-              })
-              .select('*')
-              .single()
-            if (insertErr) throw insertErr
-
-            if (inserted) {
-              setPdfs((prev) => [...prev, inserted as EstimatingProjectPdf])
-            }
+            const inserted = await uploadPdf(file)
+            setPdfs((prev) => [...prev, inserted])
           } catch (err) {
             console.error('[ProjectMeasurements] Upload failed:', err)
           } finally {
@@ -142,14 +120,14 @@ export default function ProjectMeasurementsCard({
         })
       )
     },
-    [project.id]
+    [uploadPdf]
   )
 
   async function handleDeletePdf(pdf: EstimatingProjectPdf) {
     setDeleting(true)
     const supabase = createClient()
     try {
-      await supabase.storage.from(BUCKET).remove([pdf.storage_path])
+      await supabase.storage.from(MEASUREMENT_PDF_BUCKET).remove([pdf.storage_path])
       const { error } = await supabase
         .from('estimating_project_measurement_pdfs')
         .delete()

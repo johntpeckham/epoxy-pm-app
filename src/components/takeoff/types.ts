@@ -55,6 +55,7 @@ export interface TakeoffPage {
   thumbnailDataUrl: string | null
   arrayBuffer: ArrayBuffer | null
   pdfBase64: string | null
+  pdfId?: string
 }
 
 export interface TakeoffProject {
