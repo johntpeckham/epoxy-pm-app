@@ -294,10 +294,13 @@ export default function MyWorkClient({
     canView('appointments') ||
     canView('estimating') ||
     canView('job_walk')
-  // Foreman gets a role-specific "Assigned Field Tasks" card on their own
-  // My Work dashboard; this is role-shaped UI that does not map cleanly to
-  // a feature gate, so it remains a direct role check.
-  const isForeman = userRole === 'foreman'
+  // Per-card My Work gates. Individual cards can be hidden per user via the
+  // permission editor; defaults seeded to match role expectations.
+  const showDailyPlaybook = canView('daily_playbook')
+  const showAssignedOfficeWork = canView('assigned_office_work')
+  const showOfficeDailyReport = canView('office_daily_reports')
+  const showAssignedFieldTasks = canView('assigned_field_tasks')
+  const showExpensesSummary = canView('expenses_summary')
 
   /* ---- Workspace state ---- */
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceType>(null)
@@ -782,6 +785,13 @@ export default function MyWorkClient({
   /*  RENDER — DASHBOARD CARDS (interactive)                           */
   /* ================================================================ */
 
+  const allCardsHidden =
+    !showDailyPlaybook &&
+    !showAssignedOfficeWork &&
+    !showOfficeDailyReport &&
+    !showAssignedFieldTasks &&
+    !showExpensesSummary
+
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
@@ -790,12 +800,19 @@ export default function MyWorkClient({
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Work</h1>
         </div>
       </div>
+      {allCardsHidden && (
+        <p className="text-sm text-gray-400 text-center py-16">
+          Nothing assigned to you right now.
+        </p>
+      )}
+      {!allCardsHidden && (
       <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
 
         {/* ── Daily Playbook (left column) ── */}
-        <MyTasksCard userId={userId} userRole={userRole} />
+        {showDailyPlaybook && <MyTasksCard userId={userId} userRole={userRole} />}
 
         {/* ── Assigned Office Work (right column — combined checklist items + office tasks) ── */}
+        {showAssignedOfficeWork && (
         <InteractiveCard
           icon={<Building2Icon className="w-5 h-5" />}
           title="Assigned office work"
@@ -965,9 +982,10 @@ export default function MyWorkClient({
             )}
           </div>
         </InteractiveCard>
+        )}
 
-        {/* ── Assigned Field Tasks (foreman only) ── */}
-        {isForeman && (
+        {/* ── Assigned Field Tasks (gated by canView('assigned_field_tasks')) ── */}
+        {showAssignedFieldTasks && (
           <InteractiveCard
             icon={<ListTodoIcon className="w-5 h-5" />}
             title="Assigned Field Tasks"
@@ -1172,16 +1190,19 @@ export default function MyWorkClient({
         )}
 
       </div>
+      )}
 
       {/* ── Quick glance section ── */}
+      {!allCardsHidden && (showOfficeDailyReport || showExpensesSummary || (canViewAnySales && initialSalesActivity)) && (
       <div className="px-4 mt-2">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Quick glance</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
 
-          {/* Daily reports tile */}
+          {/* Office Daily Report tile */}
+          {showOfficeDailyReport && (
           <QuickGlanceTile
             icon={<FileTextIcon className="w-4 h-4" />}
-            title="Daily reports"
+            title="Office Daily Report"
             onClick={() => openWorkspace('office_daily_reports')}
             action={
               <span className="text-xs font-medium text-amber-600 hover:text-amber-700">
@@ -1221,8 +1242,10 @@ export default function MyWorkClient({
               })()
             )}
           </QuickGlanceTile>
+          )}
 
           {/* Expenses tile */}
+          {showExpensesSummary && (
           <QuickGlanceTile
             icon={<WalletIcon className="w-4 h-4" />}
             title="Expenses"
@@ -1249,6 +1272,7 @@ export default function MyWorkClient({
               </span>
             </div>
           </QuickGlanceTile>
+          )}
 
           {/* Sales activity tile — any sales feature grants access */}
           {canViewAnySales && initialSalesActivity && (
@@ -1286,6 +1310,7 @@ export default function MyWorkClient({
 
         </div>
       </div>
+      )}
     </div>
   )
 }
