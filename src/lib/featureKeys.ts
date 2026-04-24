@@ -35,6 +35,7 @@ export const FEATURE_KEYS = [
   'equipment',
   'scheduling',
   'manage_playbook',
+  'training_certifications',
   // Settings tiles
   'company_info',
   'user_management',
@@ -89,6 +90,7 @@ export const FEATURE_METADATA: Record<FeatureKey, FeatureMetadata> = {
   equipment:            { displayName: 'Equipment',            category: 'office',    sortOrder: 230 },
   scheduling:           { displayName: 'Scheduling',           category: 'office',    sortOrder: 240 },
   manage_playbook:      { displayName: 'Manage Playbook',      category: 'office',    sortOrder: 250 },
+  training_certifications: { displayName: 'Training & Certifications', category: 'office', sortOrder: 260 },
   // Job Feed (formerly "Core") — third
   jobs:                 { displayName: 'Job Feed',             category: 'core',      sortOrder: 300 },
   daily_reports:        { displayName: 'Daily Reports',        category: 'core',      sortOrder: 310 },

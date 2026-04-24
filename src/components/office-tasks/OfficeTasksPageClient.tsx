@@ -23,6 +23,7 @@ import {
   ContactIcon,
   BuildingIcon,
   BarChart3Icon,
+  GraduationCapIcon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
@@ -771,6 +772,17 @@ export default function OfficeTasksPageClient({
             <FileTextIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">SOPs &amp; forms</span>
             {sopCount > 0 && <span className="text-[12px] text-gray-400 mr-2">{sopCount}</span>}
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          </Link>
+          )}
+          {/* Training & Certifications tile — gated on training_certifications feature */}
+          {canView('training_certifications') && (
+          <Link
+            href="/training-certifications"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+          >
+            <GraduationCapIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Training &amp; certifications</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           )}
