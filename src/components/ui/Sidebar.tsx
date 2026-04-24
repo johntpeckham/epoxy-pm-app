@@ -34,7 +34,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     localStorage.setItem('sidebar-sales-expanded', String(salesExpanded))
   }, [salesExpanded])
 
-  const { canView } = usePermissions()
+  const { canView, isHiddenFromSidebar } = usePermissions()
   // Sales section is shown when the user can view any sales sub-feature.
   const canViewSales =
     canView('crm') ||
@@ -341,7 +341,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   Job Feed
                 </Link>
               )}
-              {canView('daily_reports') && (
+              {canView('daily_reports') && !isHiddenFromSidebar('daily_reports') && (
                 <Link
                   href="/daily-reports"
                   onClick={() => setMobileOpen(false)}
@@ -355,7 +355,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   Daily Reports
                 </Link>
               )}
-              {canView('jsa_reports') && (
+              {canView('jsa_reports') && !isHiddenFromSidebar('jsa_reports') && (
                 <Link
                   href="/jsa-reports"
                   onClick={() => setMobileOpen(false)}
@@ -369,7 +369,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   JSA Reports
                 </Link>
               )}
-              {canView('receipts') && (
+              {canView('receipts') && !isHiddenFromSidebar('receipts') && (
                 <Link
                   href="/receipts"
                   onClick={() => setMobileOpen(false)}
@@ -383,7 +383,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   Job Expenses
                 </Link>
               )}
-              {canView('timesheets') && (
+              {canView('timesheets') && !isHiddenFromSidebar('timesheets') && (
                 <Link
                   href="/timesheets"
                   onClick={() => setMobileOpen(false)}
@@ -397,7 +397,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   Timesheets
                 </Link>
               )}
-              {canView('photos') && (
+              {canView('photos') && !isHiddenFromSidebar('photos') && (
                 <Link
                   href="/photos"
                   onClick={() => setMobileOpen(false)}
@@ -411,7 +411,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   Photos
                 </Link>
               )}
-              {canView('tasks') && (
+              {canView('tasks') && !isHiddenFromSidebar('tasks') && (
                 <Link
                   href="/tasks"
                   onClick={() => setMobileOpen(false)}
@@ -443,7 +443,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 Job Feed
               </Link>
             )}
-            {canView('daily_reports') && (
+            {canView('daily_reports') && !isHiddenFromSidebar('daily_reports') && (
               <Link
                 href="/daily-reports"
                 onClick={() => setMobileOpen(false)}
@@ -457,7 +457,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 Daily Reports
               </Link>
             )}
-            {canView('jsa_reports') && (
+            {canView('jsa_reports') && !isHiddenFromSidebar('jsa_reports') && (
               <Link
                 href="/jsa-reports"
                 onClick={() => setMobileOpen(false)}
@@ -471,7 +471,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 JSA Reports
               </Link>
             )}
-            {canView('receipts') && (
+            {canView('receipts') && !isHiddenFromSidebar('receipts') && (
               <Link
                 href="/receipts"
                 onClick={() => setMobileOpen(false)}
@@ -485,7 +485,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 Job Expenses
               </Link>
             )}
-            {canView('timesheets') && (
+            {canView('timesheets') && !isHiddenFromSidebar('timesheets') && (
               <Link
                 href="/timesheets"
                 onClick={() => setMobileOpen(false)}
@@ -499,7 +499,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 Timesheets
               </Link>
             )}
-            {canView('photos') && (
+            {canView('photos') && !isHiddenFromSidebar('photos') && (
               <Link
                 href="/photos"
                 onClick={() => setMobileOpen(false)}
@@ -513,7 +513,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 Photos
               </Link>
             )}
-            {canView('tasks') && (
+            {canView('tasks') && !isHiddenFromSidebar('tasks') && (
               <Link
                 href="/tasks"
                 onClick={() => setMobileOpen(false)}

@@ -38,7 +38,7 @@ const ACCESS_OPTIONS: { value: AccessLevel; label: string; activeColor: string }
 ]
 
 const CATEGORY_LABEL: Record<FeatureCategory, string> = {
-  core:         'Core',
+  core:         'Job Feed',
   my_work_page: 'My Work Page',
   job_board:    'Job Board',
   sales:        'Sales',

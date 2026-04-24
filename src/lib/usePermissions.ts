@@ -14,6 +14,10 @@ interface UsePermissionsReturn {
   canCreate: (feature: FeatureKey) => boolean
   /** True if the user has full (edit/delete) access. */
   canEdit: (feature: FeatureKey) => boolean
+  /** True when admin has flagged the feature's sidebar item to be hidden for
+   *  this user. Admins always return false (shortcut). Pairs with canView —
+   *  the sidebar item is shown only when canView && !isHiddenFromSidebar. */
+  isHiddenFromSidebar: (feature: FeatureKey) => boolean
   /** Legacy field — used to return all role_permissions rows for the admin
    *  matrix. Now always an empty array; the new UI reads from
    *  permission_templates / user_permissions directly in Phase 2b. */
@@ -31,7 +35,7 @@ interface UsePermissionsReturn {
  * authoritative role comes from the provider, not the caller.
  */
 export function usePermissions(_role?: UserRole): UsePermissionsReturn {
-  const { role, permissionsMap, loading, refetch } = usePermissionsContext()
+  const { role, permissionsMap, hideFromSidebarMap, loading, refetch } = usePermissionsContext()
 
   const access = useCallback(
     (feature: FeatureKey): AccessLevel => {
@@ -62,5 +66,13 @@ export function usePermissions(_role?: UserRole): UsePermissionsReturn {
     [access]
   )
 
-  return { access, canView, canCreate, canEdit, permissions: [], refetch, loading }
+  const isHiddenFromSidebar = useCallback(
+    (feature: FeatureKey): boolean => {
+      if (role === 'admin') return false
+      return hideFromSidebarMap.get(feature) === true
+    },
+    [role, hideFromSidebarMap]
+  )
+
+  return { access, canView, canCreate, canEdit, isHiddenFromSidebar, permissions: [], refetch, loading }
 }
