@@ -572,7 +572,7 @@ export default function MeasurementToolClient({
         </div>
 
         {showViewerOverlay && (
-          <div className="fixed top-0 bottom-0 right-0 left-0 z-40 bg-white flex flex-col">
+          <div className="fixed top-0 bottom-0 right-0 left-0 z-50 bg-white flex flex-col">
             {column3Content}
           </div>
         )}
