@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -11,6 +11,7 @@ import {
   Trash2Icon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
 import type {
   Customer,
   Estimate,
@@ -66,6 +67,16 @@ export default function EstimateEditorClient({
   const [estimate, setEstimate] = useState<Estimate>(initialEstimate)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveState, setSaveState] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle')
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
+  // Skip the very first effect run after server hydration so we don't fire a
+  // no-op auto-save the moment the editor mounts.
+  const firstAutoSaveRunRef = useRef(true)
 
   const lineItems = estimate.line_items ?? []
   const subtotal = lineItems.reduce((sum, item) => sum + calcAmount(item), 0)
@@ -188,6 +199,75 @@ export default function EstimateEditorClient({
     router.replace(`/sales/estimating/estimates/${data.id}${projectQs}`)
   }
 
+  // Debounced auto-save for edit mode. Skips first render after hydration,
+  // skips when read-only, debounces ~1000ms (matches LeadProjectDetailsCard).
+  // Per-keystroke setEstimate calls are fine — the SAVE call is debounced via
+  // refs so we never hit Supabase on every keystroke.
+  useEffect(() => {
+    if (mode !== 'edit') return
+    if (!canEdit) return
+    if (firstAutoSaveRunRef.current) {
+      firstAutoSaveRunRef.current = false
+      return
+    }
+    if (!estimate.id) return
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    if (savedIndicatorTimerRef.current)
+      clearTimeout(savedIndicatorTimerRef.current)
+
+    saveTimerRef.current = setTimeout(async () => {
+      setSaveState('saving')
+      const supabase = createClient()
+      const items = (estimate.line_items ?? []).map((item) => ({
+        ...item,
+        amount: calcAmount(item),
+      }))
+      const sub = items.reduce((sum, item) => sum + item.amount, 0)
+      const tax = estimate.tax ?? 0
+      const tot = sub + tax
+      const { error } = await supabase
+        .from('estimates')
+        .update({
+          date: estimate.date,
+          project_name: estimate.project_name ?? '',
+          description: estimate.description ?? '',
+          salesperson: estimate.salesperson ?? '',
+          line_items: items,
+          subtotal: sub,
+          tax,
+          total: tot,
+          terms: estimate.terms ?? '',
+          notes: estimate.notes ?? '',
+          status: estimate.status,
+        })
+        .eq('id', estimate.id)
+      if (error) {
+        console.error('[EstimateEditorClient] auto-save failed:', error)
+        setSaveState('error')
+      } else {
+        setSaveState('saved')
+        savedIndicatorTimerRef.current = setTimeout(
+          () => setSaveState('idle'),
+          1500
+        )
+      }
+    }, 1000)
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [mode, canEdit, estimate])
+
+  // Final cleanup on unmount — clear any in-flight saved-indicator timer too.
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (savedIndicatorTimerRef.current)
+        clearTimeout(savedIndicatorTimerRef.current)
+    }
+  }, [])
+
   const backHref = project
     ? `/sales/estimating?project=${project.id}`
     : '/sales/estimating'
@@ -224,6 +304,12 @@ export default function EstimateEditorClient({
 
         {/* Action slot — Send / Export PDF added in follow-up prompts. */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {mode === 'edit' && canEdit && (
+            <AutoSaveIndicator isSaving={saveState === 'saving'} />
+          )}
+          {mode === 'edit' && canEdit && saveState === 'error' && (
+            <span className="text-xs text-red-600">Save failed</span>
+          )}
           {mode === 'new' && canEdit && (
             <>
               {saveError && (
