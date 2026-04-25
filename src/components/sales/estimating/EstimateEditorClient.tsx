@@ -5,13 +5,16 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeftIcon,
+  DownloadIcon,
   Loader2Icon,
   PlusIcon,
   SaveIcon,
+  SendIcon,
   Trash2Icon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
+import { exportEstimatePdf } from '@/components/estimates/pdfExport'
 import type {
   Customer,
   Estimate,
@@ -19,6 +22,10 @@ import type {
   LineItem,
 } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
+import SendEstimateModal from './SendEstimateModal'
+
+const STATUS_OPTIONS = ['Draft', 'Sent', 'Accepted', 'Declined'] as const
+type StatusOption = (typeof STATUS_OPTIONS)[number]
 
 interface EstimateEditorClientProps {
   mode: 'new' | 'edit'
@@ -70,6 +77,7 @@ export default function EstimateEditorClient({
   const [saveState, setSaveState] = useState<
     'idle' | 'saving' | 'saved' | 'error'
   >('idle')
+  const [isSendOpen, setIsSendOpen] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -199,6 +207,84 @@ export default function EstimateEditorClient({
     router.replace(`/sales/estimating/estimates/${data.id}${projectQs}`)
   }
 
+  function handleStatusChange(next: string) {
+    if (!canEdit) return
+    if (next === estimate.status) return
+    const now = new Date().toISOString()
+    setEstimate((prev) => {
+      const patch: Partial<Estimate> = { status: next as Estimate['status'] }
+      // sent_at is owned by SendEstimateModal — never set it here.
+      if (next === 'Accepted' && !prev.accepted_at) patch.accepted_at = now
+      if (next === 'Declined' && !prev.declined_at) patch.declined_at = now
+      return { ...prev, ...patch }
+    })
+  }
+
+  function handleSent(patch: Partial<Estimate>) {
+    setEstimate((prev) => ({ ...prev, ...patch }))
+    setIsSendOpen(false)
+  }
+
+  function handleExportPdf() {
+    const items = (estimate.line_items ?? []).map((item) => ({
+      description: item.description,
+      ft: item.ft,
+      rate: item.rate,
+      amount: calcAmount(item),
+    }))
+    const sub = items.reduce((sum, item) => sum + item.amount, 0)
+    const tax = estimate.tax ?? 0
+    const tot = sub + tax
+
+    const { blob, filename } = exportEstimatePdf({
+      estimateNumber: estimate.estimate_number,
+      date: estimate.date,
+      customerName: customer.name,
+      customerCompany: customer.company ?? '',
+      customerAddress: [
+        customer.address,
+        customer.city,
+        customer.state,
+        customer.zip,
+      ]
+        .filter(Boolean)
+        .join(', '),
+      projectName: estimate.project_name ?? '',
+      description: estimate.description ?? '',
+      salesperson: estimate.salesperson ?? '',
+      lineItems: items,
+      materialSystems: [],
+      subtotal: sub,
+      tax,
+      total: tot,
+      terms: estimate.terms ?? '',
+      companyName:
+        settings?.company_name ?? 'Peckham Inc. DBA Peckham Coatings',
+      companyAddress:
+        settings?.company_address ??
+        '1865 Herndon Ave K106, Clovis, CA 93611',
+      companyWebsite: settings?.company_website ?? 'www.PeckhamCoatings.com',
+      logoBase64: settings?.logo_base64 ?? null,
+    })
+
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  // Whether the current status appears in our standard option set. If not (e.g.
+  // legacy "Invoiced" rows), prepend it so the dropdown still reflects truth.
+  const dropdownOptions: string[] = STATUS_OPTIONS.includes(
+    estimate.status as StatusOption
+  )
+    ? [...STATUS_OPTIONS]
+    : [estimate.status, ...STATUS_OPTIONS]
+
   // Debounced auto-save for edit mode. Skips first render after hydration,
   // skips when read-only, debounces ~1000ms (matches LeadProjectDetailsCard).
   // Per-keystroke setEstimate calls are fine — the SAVE call is debounced via
@@ -240,6 +326,9 @@ export default function EstimateEditorClient({
           terms: estimate.terms ?? '',
           notes: estimate.notes ?? '',
           status: estimate.status,
+          sent_at: estimate.sent_at,
+          accepted_at: estimate.accepted_at,
+          declined_at: estimate.declined_at,
         })
         .eq('id', estimate.id)
       if (error) {
@@ -302,13 +391,47 @@ export default function EstimateEditorClient({
           <p className="text-xs text-gray-500 truncate">{customer.name}</p>
         </div>
 
-        {/* Action slot — Send / Export PDF added in follow-up prompts. */}
+        {/* Action slot */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {mode === 'edit' && canEdit && (
             <AutoSaveIndicator isSaving={saveState === 'saving'} />
           )}
           {mode === 'edit' && canEdit && saveState === 'error' && (
             <span className="text-xs text-red-600">Save failed</span>
+          )}
+          {mode === 'edit' && (
+            <select
+              value={estimate.status || 'Draft'}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              disabled={!canEdit}
+              className="text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2 py-1.5 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+            >
+              {dropdownOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          )}
+          {mode === 'edit' && canEdit && project && (
+            <button
+              type="button"
+              onClick={() => setIsSendOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-400 transition-colors"
+            >
+              <SendIcon className="w-4 h-4" />
+              Send
+            </button>
+          )}
+          {mode === 'edit' && (
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <DownloadIcon className="w-4 h-4" />
+              Export PDF
+            </button>
           )}
           {mode === 'new' && canEdit && (
             <>
@@ -542,6 +665,17 @@ export default function EstimateEditorClient({
           </div>
         </div>
       </div>
+
+      {isSendOpen && project && (
+        <SendEstimateModal
+          estimate={estimate}
+          customer={customer}
+          project={project}
+          userId={userId}
+          onClose={() => setIsSendOpen(false)}
+          onSent={(patch) => handleSent(patch)}
+        />
+      )}
     </div>
   )
 }
