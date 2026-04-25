@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeftIcon } from 'lucide-react'
+import { ArrowLeftIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import type {
   Customer,
   Estimate,
   EstimateSettings,
+  LineItem,
 } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
 
@@ -30,6 +31,20 @@ function statusBadgeClasses(status: string): string {
   return `${base} bg-gray-100 text-gray-600`
 }
 
+// Linear-feet pricing: when FT is empty/0 the row is a flat-fee item and the
+// rate IS the amount; otherwise amount = ft * rate. Matches the legacy editor.
+function calcAmount(item: LineItem): number {
+  if (!item.ft || item.ft === 0) return item.rate ?? 0
+  return (item.ft ?? 0) * (item.rate ?? 0)
+}
+
+function formatMoney(n: number): string {
+  return `$${n.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
 export default function EstimateEditorClient({
   mode,
   estimate: initialEstimate,
@@ -40,9 +55,49 @@ export default function EstimateEditorClient({
   settings: _settings,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userId: _userId,
-  canEdit: _canEdit,
+  canEdit,
 }: EstimateEditorClientProps) {
-  const [estimate] = useState<Estimate>(initialEstimate)
+  const [estimate, setEstimate] = useState<Estimate>(initialEstimate)
+
+  const lineItems = estimate.line_items ?? []
+  const subtotal = lineItems.reduce((sum, item) => sum + calcAmount(item), 0)
+
+  function setLineItems(next: LineItem[]) {
+    setEstimate((prev) => ({ ...prev, line_items: next }))
+  }
+
+  function addLineItem() {
+    setLineItems([
+      ...lineItems,
+      {
+        id: crypto.randomUUID(),
+        description: '',
+        ft: null,
+        rate: null,
+        amount: 0,
+      },
+    ])
+  }
+
+  function updateLineItem(id: string, patch: Partial<LineItem>) {
+    setLineItems(
+      lineItems.map((item) => {
+        if (item.id !== id) return item
+        const merged = { ...item, ...patch }
+        return { ...merged, amount: calcAmount(merged) }
+      })
+    )
+  }
+
+  function removeLineItem(id: string) {
+    setLineItems(lineItems.filter((item) => item.id !== id))
+  }
+
+  function parseNumberInput(raw: string): number | null {
+    if (raw === '') return null
+    const n = parseFloat(raw)
+    return Number.isFinite(n) ? n : null
+  }
 
   const backHref = project
     ? `/sales/estimating?project=${project.id}`
@@ -82,10 +137,130 @@ export default function EstimateEditorClient({
         <div className="flex items-center gap-2 flex-shrink-0" />
       </div>
 
-      {/* Body — replaced in 1A-2 with the full editor form. */}
+      {/* Body */}
       <div className="flex-1 p-6">
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <p className="text-sm text-gray-400">Editor body coming soon</p>
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          {/* Line items section */}
+          <div className="px-4 md:px-8 py-5">
+            <h2 className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">
+              Line Items
+            </h2>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b-2 border-amber-500">
+                  <th className="text-left text-[11px] font-semibold text-amber-700 uppercase tracking-wide py-2 pr-2">
+                    Description
+                  </th>
+                  <th className="text-right text-[11px] font-semibold text-amber-700 uppercase tracking-wide py-2 px-2 w-20">
+                    FT
+                  </th>
+                  <th className="text-right text-[11px] font-semibold text-amber-700 uppercase tracking-wide py-2 px-2 w-24">
+                    Rate
+                  </th>
+                  <th className="text-right text-[11px] font-semibold text-amber-700 uppercase tracking-wide py-2 px-2 w-28">
+                    Amount
+                  </th>
+                  {canEdit && <th className="w-8"></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={canEdit ? 5 : 4}
+                      className="py-6 text-center text-xs text-gray-400"
+                    >
+                      No line items yet.
+                    </td>
+                  </tr>
+                ) : (
+                  lineItems.map((item) => (
+                    <tr key={item.id} className="border-b border-gray-100 group">
+                      <td className="py-2 pr-2">
+                        <textarea
+                          value={item.description}
+                          onChange={(e) =>
+                            updateLineItem(item.id, {
+                              description: e.target.value,
+                            })
+                          }
+                          disabled={!canEdit}
+                          rows={2}
+                          placeholder="Description..."
+                          className="w-full text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/20 disabled:bg-transparent disabled:text-gray-700 disabled:cursor-not-allowed"
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={item.ft ?? ''}
+                          onChange={(e) =>
+                            updateLineItem(item.id, {
+                              ft: parseNumberInput(e.target.value),
+                            })
+                          }
+                          disabled={!canEdit}
+                          placeholder="0"
+                          className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 disabled:bg-transparent disabled:text-gray-700 disabled:cursor-not-allowed"
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={item.rate ?? ''}
+                          onChange={(e) =>
+                            updateLineItem(item.id, {
+                              rate: parseNumberInput(e.target.value),
+                            })
+                          }
+                          disabled={!canEdit}
+                          placeholder="0.00"
+                          className="w-full text-right text-sm text-gray-800 border border-transparent hover:border-gray-200 focus:border-amber-500 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 disabled:bg-transparent disabled:text-gray-700 disabled:cursor-not-allowed"
+                        />
+                      </td>
+                      <td className="py-2 px-2 text-right text-sm font-medium text-gray-900 tabular-nums">
+                        {formatMoney(calcAmount(item))}
+                      </td>
+                      {canEdit && (
+                        <td className="py-2">
+                          <button
+                            type="button"
+                            onClick={() => removeLineItem(item.id)}
+                            title="Remove line item"
+                            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
+                          >
+                            <Trash2Icon className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+
+            {canEdit && (
+              <button
+                type="button"
+                onClick={addLineItem}
+                className="inline-flex items-center gap-1 mt-3 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add line item
+              </button>
+            )}
+
+            <div className="flex justify-end mt-4 pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-gray-500">Subtotal</span>
+                <span className="font-semibold text-gray-900 tabular-nums">
+                  {formatMoney(subtotal)}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
