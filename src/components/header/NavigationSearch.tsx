@@ -269,7 +269,7 @@ export default function NavigationSearch() {
                   results.push({
                     id: `estimate-${e.id}`,
                     name: e.project_name || `Estimate #${e.estimate_number}`,
-                    route: `/estimates?customer=${e.company_id}&estimate=${e.id}`,
+                    route: `/sales/estimating/estimates/${e.id}`,
                     icon: CalculatorIcon,
                     secondaryLabel: `#${e.estimate_number}`,
                     category: 'Estimates',
@@ -294,7 +294,7 @@ export default function NavigationSearch() {
                         results.push({
                           id: `estimate-${e.id}`,
                           name: e.project_name || `Estimate #${e.estimate_number}`,
-                          route: `/estimates?customer=${e.company_id}&estimate=${e.id}`,
+                          route: `/sales/estimating/estimates/${e.id}`,
                           icon: CalculatorIcon,
                           secondaryLabel: `#${e.estimate_number}`,
                           category: 'Estimates',

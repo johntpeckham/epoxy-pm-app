@@ -18,7 +18,6 @@ import {
   ChevronRightIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { DEFAULT_TERMS } from '@/components/estimates/types'
 import type {
   Customer,
   Estimate,
@@ -115,8 +114,6 @@ export default function ProjectEstimatesCard({
   const [expandedFollowUps, setExpandedFollowUps] = useState<
     Record<string, boolean>
   >({})
-  const [creatingEstimate, setCreatingEstimate] = useState(false)
-
   const customerId = customer.id
 
   const fetchEstimates = useCallback(async () => {
@@ -256,76 +253,12 @@ export default function ProjectEstimatesCard({
     }))
   }
 
-  async function handleNewEstimate() {
-    if (creatingEstimate) return
-    setCreatingEstimate(true)
-    const supabase = createClient()
-
-    // Default estimate_number to numeric portion of project_number when possible.
-    let estimateNumber: number | null = null
-    if (project.project_number) {
-      const match = project.project_number.match(/(\d+)/)
-      if (match) estimateNumber = parseInt(match[1], 10)
-    }
-    if (estimateNumber == null) {
-      const { data: settings } = await supabase
-        .from('estimate_settings')
-        .select('next_estimate_number')
-        .eq('user_id', userId)
-        .maybeSingle()
-      estimateNumber = (settings as { next_estimate_number?: number } | null)?.next_estimate_number ?? 1000
-      await supabase
-        .from('estimate_settings')
-        .update({ next_estimate_number: estimateNumber + 1 })
-        .eq('user_id', userId)
-    }
-
-    // Pre-fill defaults from estimate_form_settings (admin-configured).
-    const { data: formSettings } = await supabase
-      .from('estimate_form_settings')
-      .select('default_terms, default_notes, default_tax_rate, default_salesperson_id')
-      .limit(1)
-      .maybeSingle()
-    let defaultSalespersonName = ''
-    if (formSettings?.default_salesperson_id) {
-      const { data: spProfile } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', formSettings.default_salesperson_id)
-        .maybeSingle()
-      defaultSalespersonName =
-        (spProfile as { display_name?: string | null } | null)?.display_name ??
-        ''
-    }
-
-    const { data, error } = await supabase
-      .from('estimates')
-      .insert({
-        estimate_number: estimateNumber,
-        company_id: customerId,
-        date: new Date().toISOString().split('T')[0],
-        project_name: project.name || '',
-        description: '',
-        salesperson: defaultSalespersonName,
-        line_items: [],
-        subtotal: 0,
-        tax: 0,
-        total: 0,
-        terms: formSettings?.default_terms ?? DEFAULT_TERMS,
-        notes: formSettings?.default_notes ?? '',
-        status: 'Draft',
-        user_id: userId,
-      })
-      .select('id')
-      .single()
-
-    setCreatingEstimate(false)
-    if (error || !data) {
-      console.error('[ProjectEstimatesCard] create estimate failed:', error)
-      return
-    }
+  function handleNewEstimate() {
+    // The new editor handles the insert on first save, so this navigator no
+    // longer creates a draft row on click. Pass project + customer so the
+    // editor can pre-fill context and render the back-to-project link.
     router.push(
-      `/estimates?customer=${customerId}&estimate=${data.id}&from=estimating&project=${project.id}`
+      `/sales/estimating/estimates/new?project=${project.id}&customer=${customerId}`
     )
   }
 
@@ -347,14 +280,9 @@ export default function ProjectEstimatesCard({
           <button
             type="button"
             onClick={handleNewEstimate}
-            disabled={creatingEstimate}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition disabled:opacity-60"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
           >
-            {creatingEstimate ? (
-              <Loader2Icon className="w-4 h-4 animate-spin" />
-            ) : (
-              <PlusIcon className="w-4 h-4" />
-            )}
+            <PlusIcon className="w-4 h-4" />
             New estimate
           </button>
         </div>
@@ -404,7 +332,7 @@ export default function ProjectEstimatesCard({
                 <div key={e.id} className="py-2.5">
                   <div className="flex items-center gap-3">
                     <Link
-                      href={`/estimates?customer=${customerId}&estimate=${e.id}&from=estimating&project=${project.id}`}
+                      href={`/sales/estimating/estimates/${e.id}?project=${project.id}`}
                       className="min-w-0 flex-1 group"
                     >
                       <p className="text-sm font-medium text-gray-900 truncate group-hover:text-amber-700 transition">
