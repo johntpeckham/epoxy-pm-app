@@ -399,12 +399,11 @@ export default function EstimateEditorClient({
           {mode === 'edit' && canEdit && saveState === 'error' && (
             <span className="text-xs text-red-600">Save failed</span>
           )}
-          {mode === 'edit' && (
+          {mode === 'edit' && canEdit && (
             <select
               value={estimate.status || 'Draft'}
               onChange={(e) => handleStatusChange(e.target.value)}
-              disabled={!canEdit}
-              className="text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2 py-1.5 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+              className="text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2 py-1.5 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
             >
               {dropdownOptions.map((s) => (
                 <option key={s} value={s}>
@@ -412,6 +411,11 @@ export default function EstimateEditorClient({
                 </option>
               ))}
             </select>
+          )}
+          {mode === 'edit' && !canEdit && (
+            <span className={statusBadgeClasses(estimate.status || 'Draft')}>
+              {estimate.status || 'Draft'}
+            </span>
           )}
           {mode === 'edit' && canEdit && project && (
             <button
