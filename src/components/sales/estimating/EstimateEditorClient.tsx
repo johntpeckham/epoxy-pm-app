@@ -61,6 +61,8 @@ export default function EstimateEditorClient({
 
   const lineItems = estimate.line_items ?? []
   const subtotal = lineItems.reduce((sum, item) => sum + calcAmount(item), 0)
+  const taxAmount = estimate.tax ?? 0
+  const total = subtotal + taxAmount
 
   function setLineItems(next: LineItem[]) {
     setEstimate((prev) => ({ ...prev, line_items: next }))
@@ -252,14 +254,95 @@ export default function EstimateEditorClient({
               </button>
             )}
 
+            {/* Totals */}
             <div className="flex justify-end mt-4 pt-3 border-t border-gray-100">
-              <div className="flex items-center gap-3 text-sm">
-                <span className="text-gray-500">Subtotal</span>
-                <span className="font-semibold text-gray-900 tabular-nums">
-                  {formatMoney(subtotal)}
-                </span>
+              <div className="w-64 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Subtotal</span>
+                  <span className="text-gray-900 tabular-nums">
+                    {formatMoney(subtotal)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm items-center">
+                  <span className="text-gray-500">Tax</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-400">$</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={estimate.tax ?? ''}
+                      onChange={(e) => {
+                        const n = parseNumberInput(e.target.value)
+                        setEstimate((prev) => ({ ...prev, tax: n ?? 0 }))
+                      }}
+                      disabled={!canEdit}
+                      placeholder="0.00"
+                      className="w-24 text-right text-sm text-gray-900 border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500 disabled:bg-gray-50 disabled:text-gray-700 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
+                  <span className="text-gray-900">Total</span>
+                  <span className="text-gray-900 tabular-nums">
+                    {formatMoney(total)}
+                  </span>
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* Salesperson */}
+          <div className="px-4 md:px-8 py-4 border-t border-gray-200">
+            <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">
+              Salesperson
+            </label>
+            <input
+              type="text"
+              value={estimate.salesperson ?? ''}
+              onChange={(e) =>
+                setEstimate((prev) => ({
+                  ...prev,
+                  salesperson: e.target.value,
+                }))
+              }
+              disabled={!canEdit}
+              placeholder="Salesperson name"
+              className="w-full max-w-sm text-sm text-gray-900 border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500 disabled:bg-gray-50 disabled:text-gray-700 disabled:cursor-not-allowed"
+            />
+          </div>
+
+          {/* Terms */}
+          <div className="px-4 md:px-8 py-4 border-t border-gray-200">
+            <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+              Terms
+            </label>
+            <textarea
+              value={estimate.terms ?? ''}
+              onChange={(e) =>
+                setEstimate((prev) => ({ ...prev, terms: e.target.value }))
+              }
+              disabled={!canEdit}
+              rows={10}
+              placeholder="Terms and conditions"
+              className="w-full text-xs text-gray-700 leading-relaxed border border-gray-200 rounded-lg p-3 resize-y focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500 disabled:bg-gray-50 disabled:text-gray-700 disabled:cursor-not-allowed"
+            />
+          </div>
+
+          {/* Notes */}
+          <div className="px-4 md:px-8 py-4 border-t border-gray-200">
+            <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+              Notes
+            </label>
+            <textarea
+              value={estimate.notes ?? ''}
+              onChange={(e) =>
+                setEstimate((prev) => ({ ...prev, notes: e.target.value }))
+              }
+              disabled={!canEdit}
+              rows={4}
+              placeholder="Internal notes"
+              className="w-full text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg p-3 resize-y focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500 disabled:bg-gray-50 disabled:text-gray-700 disabled:cursor-not-allowed"
+            />
           </div>
         </div>
       </div>
