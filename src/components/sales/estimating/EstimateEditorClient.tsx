@@ -2,7 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeftIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import {
+  ArrowLeftIcon,
+  Loader2Icon,
+  PlusIcon,
+  SaveIcon,
+  Trash2Icon,
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type {
   Customer,
   Estimate,
@@ -50,19 +58,25 @@ export default function EstimateEditorClient({
   estimate: initialEstimate,
   customer,
   project,
-  // settings and userId reserved for follow-up prompts (save logic, send modal)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  settings: _settings,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  userId: _userId,
+  settings,
+  userId,
   canEdit,
 }: EstimateEditorClientProps) {
+  const router = useRouter()
   const [estimate, setEstimate] = useState<Estimate>(initialEstimate)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const lineItems = estimate.line_items ?? []
   const subtotal = lineItems.reduce((sum, item) => sum + calcAmount(item), 0)
   const taxAmount = estimate.tax ?? 0
   const total = subtotal + taxAmount
+
+  // True when there is at least one line item with a description AND a
+  // non-zero amount. Soft guard before insert in `new` mode.
+  const hasValidLineItem = lineItems.some(
+    (item) => item.description.trim().length > 0 && calcAmount(item) > 0
+  )
 
   function setLineItems(next: LineItem[]) {
     setEstimate((prev) => ({ ...prev, line_items: next }))
@@ -101,6 +115,79 @@ export default function EstimateEditorClient({
     return Number.isFinite(n) ? n : null
   }
 
+  async function handleSaveNew() {
+    if (mode !== 'new' || !canEdit || isSaving) return
+    setSaveError(null)
+
+    if (!hasValidLineItem) {
+      setSaveError('Add at least one line item before saving.')
+      return
+    }
+
+    setIsSaving(true)
+    const supabase = createClient()
+
+    // Normalize line items: ensure each row's stored amount matches calcAmount.
+    const normalizedItems = lineItems.map((item) => ({
+      ...item,
+      amount: calcAmount(item),
+    }))
+
+    const payload = {
+      estimate_number: estimate.estimate_number,
+      company_id: customer.id,
+      date: estimate.date,
+      project_name: estimate.project_name ?? '',
+      description: estimate.description ?? '',
+      salesperson: estimate.salesperson ?? '',
+      line_items: normalizedItems,
+      subtotal,
+      tax: taxAmount,
+      total,
+      terms: estimate.terms ?? '',
+      notes: estimate.notes ?? '',
+      status: 'Draft' as const,
+      user_id: userId,
+    }
+
+    const { data, error } = await supabase
+      .from('estimates')
+      .insert(payload)
+      .select('id')
+      .single()
+
+    if (error || !data) {
+      console.error('[EstimateEditorClient] insert failed:', error)
+      setSaveError(error?.message || 'Failed to save estimate. Please try again.')
+      setIsSaving(false)
+      return
+    }
+
+    // Increment next_estimate_number ONLY when the saved number was drawn from
+    // settings. If the project's project_number already supplied the numeric
+    // portion (server page logic), leave settings alone — otherwise we'd
+    // double-increment when an estimate is created off a numbered project.
+    if (settings) {
+      const projectDerivedNumber = (() => {
+        if (!project?.project_number) return null
+        const m = project.project_number.match(/(\d+)/)
+        return m ? parseInt(m[1], 10) : null
+      })()
+      const fromSettings =
+        projectDerivedNumber == null ||
+        projectDerivedNumber !== estimate.estimate_number
+      if (fromSettings) {
+        await supabase
+          .from('estimate_settings')
+          .update({ next_estimate_number: estimate.estimate_number + 1 })
+          .eq('id', settings.id)
+      }
+    }
+
+    const projectQs = project ? `?project=${project.id}` : ''
+    router.replace(`/sales/estimating/estimates/${data.id}${projectQs}`)
+  }
+
   const backHref = project
     ? `/sales/estimating?project=${project.id}`
     : '/sales/estimating'
@@ -135,8 +222,31 @@ export default function EstimateEditorClient({
           <p className="text-xs text-gray-500 truncate">{customer.name}</p>
         </div>
 
-        {/* Action slot — Save / Send / Export PDF buttons added in follow-up prompts. */}
-        <div className="flex items-center gap-2 flex-shrink-0" />
+        {/* Action slot — Send / Export PDF added in follow-up prompts. */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {mode === 'new' && canEdit && (
+            <>
+              {saveError && (
+                <span className="text-xs text-red-600 max-w-[220px] truncate">
+                  {saveError}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveNew}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <Loader2Icon className="w-4 h-4 animate-spin" />
+                ) : (
+                  <SaveIcon className="w-4 h-4" />
+                )}
+                Save
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Body */}
