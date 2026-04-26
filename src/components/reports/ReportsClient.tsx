@@ -33,7 +33,7 @@ const REPORT_TYPES: ReportType[] = [
   {
     id: 'sales',
     name: 'Sales Reports',
-    description: 'Pipeline, estimates, revenue',
+    description: 'Pipeline, proposals, revenue',
     icon: DollarSignIcon,
     enabled: false,
   },

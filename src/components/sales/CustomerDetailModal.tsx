@@ -16,8 +16,9 @@ interface CustomerSummary {
   state: string | null
 }
 
-interface EstimateRow {
+interface ProposalRow {
   id: string
+  // DB column kept as estimate_number until Phase 4.
   estimate_number: number
   project_name: string | null
   total: number | null
@@ -54,7 +55,7 @@ export default function CustomerDetailModal({
   const supabase = useMemo(() => createClient(), [])
 
   const [loading, setLoading] = useState(true)
-  const [estimates, setEstimates] = useState<EstimateRow[]>([])
+  const [proposals, setProposals] = useState<ProposalRow[]>([])
   const [jobs, setJobs] = useState<ProjectRow[]>([])
   const [calls, setCalls] = useState<CallLogRow[]>([])
 
@@ -101,7 +102,7 @@ export default function CustomerDetailModal({
       }
 
       if (cancelled) return
-      setEstimates((estRes.data as EstimateRow[] | null) ?? [])
+      setProposals((estRes.data as ProposalRow[] | null) ?? [])
       const projects = (projRes.data as ProjectRow[] | null) ?? []
       const estimatingProjects = (estProjRes.data as ProjectRow[] | null) ?? []
       setJobs([...projects, ...estimatingProjects])
@@ -165,7 +166,8 @@ export default function CustomerDetailModal({
     else router.push('/sales/leads')
   }
 
-  function handleCreateEstimate() {
+  function handleCreateProposal() {
+    // Route /sales/estimating kept until Phase 3.
     router.push(`/sales/estimating?customer=${customer.id}`)
   }
 
@@ -253,16 +255,16 @@ export default function CustomerDetailModal({
                   )}
                 </section>
 
-                {/* Estimates */}
+                {/* Proposals */}
                 <section>
                   <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                    Estimate history ({estimates.length})
+                    Proposal history ({proposals.length})
                   </h3>
-                  {estimates.length === 0 ? (
-                    <p className="text-xs text-gray-400">No estimates yet.</p>
+                  {proposals.length === 0 ? (
+                    <p className="text-xs text-gray-400">No proposals yet.</p>
                   ) : (
                     <ul className="divide-y divide-gray-100 border border-gray-100 rounded-lg">
-                      {estimates.slice(0, 10).map((e) => (
+                      {proposals.slice(0, 10).map((e) => (
                         <li
                           key={e.id}
                           className="px-3 py-2 flex items-center justify-between gap-3"
@@ -335,11 +337,11 @@ export default function CustomerDetailModal({
               Create new lead
             </button>
             <button
-              onClick={handleCreateEstimate}
+              onClick={handleCreateProposal}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
             >
               <PlusIcon className="w-4 h-4" />
-              Create new estimate
+              Create new proposal
             </button>
           </div>
         </div>

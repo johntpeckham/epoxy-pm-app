@@ -70,7 +70,7 @@ const FALLBACK_FIELDS: Record<string, FormField[]> = {
   project_report: [
     { id: 'pr-01', type: 'section_header', label: 'Project Details', placeholder: '', required: false, options: [], order: 1 },
     { id: 'pr-02', type: 'short_text', label: 'Project Name', placeholder: '', required: false, options: [], order: 2 },
-    { id: 'pr-03', type: 'short_text', label: 'Estimate Number', placeholder: '', required: false, options: [], order: 3 },
+    { id: 'pr-03', type: 'short_text', label: 'Proposal Number', placeholder: '', required: false, options: [], order: 3 },
     { id: 'pr-04', type: 'short_text', label: 'Address', placeholder: '', required: false, options: [], order: 4 },
     { id: 'pr-05', type: 'short_text', label: 'Client Name', placeholder: '', required: false, options: [], order: 5 },
     { id: 'pr-06', type: 'short_text', label: 'Client Email', placeholder: '', required: false, options: [], order: 6 },

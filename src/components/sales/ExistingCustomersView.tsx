@@ -282,7 +282,7 @@ export default function ExistingCustomersView({
   const fetchAll = useCallback(async () => {
     const [
       { data: customerRows },
-      { data: estimateRows },
+      { data: proposalRows },
       { data: estimatingProjectRows },
       { data: projectRows },
       { data: invoiceRows },
@@ -381,22 +381,22 @@ export default function ExistingCustomersView({
       jobTitlesByCompany.set(row.company_id, list)
     }
 
-    // Aggregate estimates per customer: accepted count + revenue + latest.
+    // Aggregate proposals per customer: accepted count + revenue + latest.
     const acceptedByCustomer = new Map<
       string,
       { count: number; revenue: number; lastDate: string | null }
     >()
-    const lastEstimateDate = new Map<string, string>()
-    for (const row of (estimateRows ?? []) as Array<{
+    const lastProposalDate = new Map<string, string>()
+    for (const row of (proposalRows ?? []) as Array<{
       company_id: string | null
       total: number | null
       status: string | null
       created_at: string
     }>) {
       if (!row.company_id) continue
-      const existing = lastEstimateDate.get(row.company_id)
+      const existing = lastProposalDate.get(row.company_id)
       if (!existing || row.created_at > existing) {
-        lastEstimateDate.set(row.company_id, row.created_at)
+        lastProposalDate.set(row.company_id, row.created_at)
       }
       if ((row.status ?? '').toLowerCase() === 'accepted') {
         const cur =
@@ -524,10 +524,10 @@ export default function ExistingCustomersView({
       const estProj = completedEstProjByCustomer.get(c.id)
       const projByName = nameKey ? completedProjByName.get(nameKey) : undefined
 
-      const hasAcceptedEstimate = (accepted?.count ?? 0) > 0
+      const hasAcceptedProposal = (accepted?.count ?? 0) > 0
       const hasCompletedJob =
         (estProj?.count ?? 0) > 0 || (projByName?.count ?? 0) > 0
-      if (!hasAcceptedEstimate && !hasCompletedJob) continue
+      if (!hasAcceptedProposal && !hasCompletedJob) continue
 
       const jobsCompleted = (estProj?.count ?? 0) + (projByName?.count ?? 0)
 
@@ -535,13 +535,13 @@ export default function ExistingCustomersView({
       const totalRevenue =
         (accepted?.revenue ?? 0) + (invoices?.revenue ?? 0)
 
-      // Last contact: max of call_date, last estimate date, customer created_at
+      // Last contact: max of call_date, last proposal date, customer created_at
       const touches: string[] = []
       if (crm) {
         const call = lastCallByCompany.get(crm.id)
         if (call) touches.push(call)
       }
-      const estDate = lastEstimateDate.get(c.id)
+      const estDate = lastProposalDate.get(c.id)
       if (estDate) touches.push(estDate)
       if (c.created_at) touches.push(c.created_at)
       const lastContact = touches.length
@@ -1155,7 +1155,7 @@ export default function ExistingCustomersView({
           </p>
           <p className="text-xs text-gray-400">
             Customers appear here once they have a completed job or accepted
-            estimate.
+            proposal.
           </p>
         </div>
       ) : (

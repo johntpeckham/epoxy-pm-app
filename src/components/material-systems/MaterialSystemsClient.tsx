@@ -392,7 +392,7 @@ export default function MaterialSystemsClient({ embedded }: MaterialSystemsClien
         </div>
       </div>
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <p className="text-sm text-gray-500 mb-6">Manage the master list of material systems used in Project Reports and Estimates.</p>
+        <p className="text-sm text-gray-500 mb-6">Manage the master list of material systems used in Project Reports and Proposals.</p>
         {contentBlock}
       </div>
     </div>

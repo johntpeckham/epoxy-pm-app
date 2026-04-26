@@ -50,9 +50,9 @@ export default function JobInfoDashboardCard({ project, onEdit }: JobInfoDashboa
           <div className={valueCls}>{project.client_name || emptyValue}</div>
         </div>
 
-        {/* Estimate # */}
+        {/* Proposal # */}
         <div>
-          <div className={labelCls}>Estimate #</div>
+          <div className={labelCls}>Proposal #</div>
           <div className={valueCls}>{project.estimate_number || emptyValue}</div>
         </div>
 

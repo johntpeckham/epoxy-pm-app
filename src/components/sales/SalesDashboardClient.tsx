@@ -123,7 +123,7 @@ export default function SalesDashboardClient({
         <TotalCard label="Total calls" value={overview.totals.totalCalls} />
         <TotalCard label="Emails sent" value={overview.totals.emailsSent} />
         <TotalCard label="Appts set" value={overview.totals.apptsSet} />
-        <TotalCard label="Estimates sent" value={overview.totals.estimatesSent} />
+        <TotalCard label="Proposals sent" value={overview.totals.proposalsSent} />
         <TotalCard label="Projects won" value={overview.totals.projectsWon} />
         <TotalCard
           label="Revenue won"
@@ -198,12 +198,12 @@ function SalesmanCard({ s }: { s: SalesmanStats }) {
 
       <Divider />
 
-      {/* Estimates */}
+      {/* Proposals */}
       <Section>
-        <Metric label="Est. sent" value={s.estimatesSentCount} />
+        <Metric label="Proposals sent" value={s.proposalsSentCount} />
         <Metric
-          label="Est. value"
-          value={formatMoney(s.estimatesSentValue)}
+          label="Proposal value"
+          value={formatMoney(s.proposalsSentValue)}
         />
       </Section>
 

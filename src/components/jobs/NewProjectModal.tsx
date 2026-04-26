@@ -26,7 +26,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   const [name, setName] = useState('')
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null)
   const [address, setAddress] = useState('')
-  const [estimateNumber, setEstimateNumber] = useState('')
+  const [proposalNumber, setProposalNumber] = useState('')
   const [status, setStatus] = useState<'Active' | 'Completed' | 'Closed'>('Active')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -194,7 +194,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       client_name: selectedCompany?.name ?? '',
       address: address.trim(),
       status,
-      ...(estimateNumber.trim() ? { estimate_number: estimateNumber.trim() } : {}),
+      ...(proposalNumber.trim() ? { estimate_number: proposalNumber.trim() } : {}),
       ...(startDate ? { start_date: startDate } : {}),
       ...(endDate ? { end_date: endDate } : {}),
       include_weekends: includeWeekends,
@@ -424,12 +424,12 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Estimate #
+                Proposal #
               </label>
               <input
                 type="text"
-                value={estimateNumber}
-                onChange={(e) => setEstimateNumber(e.target.value)}
+                value={proposalNumber}
+                onChange={(e) => setProposalNumber(e.target.value)}
                 placeholder="e.g. EST-1042"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />

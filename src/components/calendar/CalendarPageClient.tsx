@@ -95,7 +95,7 @@ interface FCEvent {
   borderColor: string
   classNames?: string[]
   display?: string
-  extendedProps: CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string; _isDriveTime?: boolean }
+  extendedProps: CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _proposalNumber?: string | null; _status?: string; _isDriveTime?: boolean }
 }
 
 /**
@@ -180,7 +180,7 @@ function projectToFCEvents(proj: Project): FCEvent[] {
       _linkedProjectId: proj.id,
       _clientName: proj.client_name,
       _address: proj.address,
-      _estimateNumber: proj.estimate_number || null,
+      _proposalNumber: proj.estimate_number || null,
       _status: proj.status,
       _isDriveTime: false,
     },
@@ -292,7 +292,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [showNewPicker, setShowNewPicker] = useState(false)
   const [showFormModal, setShowFormModal] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
-  const [detailEvent, setDetailEvent] = useState<CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string } | null>(null)
+  const [detailEvent, setDetailEvent] = useState<CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _proposalNumber?: string | null; _status?: string } | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Form state (standalone event)
@@ -324,7 +324,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [newJobName, setNewJobName] = useState('')
   const [newJobClient, setNewJobClient] = useState('')
   const [newJobAddress, setNewJobAddress] = useState('')
-  const [newJobEstimate, setNewJobEstimate] = useState('')
+  const [newJobProposal, setNewJobProposal] = useState('')
   const [newJobStatus, setNewJobStatus] = useState<'Active' | 'Completed' | 'Closed'>('Active')
   const [newJobStartDate, setNewJobStartDate] = useState('')
   const [newJobEndDate, setNewJobEndDate] = useState('')
@@ -350,7 +350,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
   const [editProjectName, setEditProjectName] = useState('')
   const [editProjectClient, setEditProjectClient] = useState('')
   const [editProjectAddress, setEditProjectAddress] = useState('')
-  const [editProjectEstimate, setEditProjectEstimate] = useState('')
+  const [editProjectProposal, setEditProjectProposal] = useState('')
   const [editProjectStatus, setEditProjectStatus] = useState<'Active' | 'Completed' | 'Closed'>('Active')
   const [editProjectStartDate, setEditProjectStartDate] = useState('')
   const [editProjectEndDate, setEditProjectEndDate] = useState('')
@@ -579,7 +579,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setNewJobName('')
     setNewJobClient('')
     setNewJobAddress('')
-    setNewJobEstimate('')
+    setNewJobProposal('')
     setNewJobStatus('Active')
     setNewJobStartDate('')
     setNewJobEndDate('')
@@ -628,7 +628,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectName(proj.name)
     setEditProjectClient(proj.client_name)
     setEditProjectAddress(proj.address)
-    setEditProjectEstimate(proj.estimate_number ?? '')
+    setEditProjectProposal(proj.estimate_number ?? '')
     setEditProjectStatus(proj.status)
     setEditProjectStartDate(proj.start_date || '')
     setEditProjectEndDate(proj.end_date || '')
@@ -652,7 +652,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectName('')
     setEditProjectClient('')
     setEditProjectAddress('')
-    setEditProjectEstimate('')
+    setEditProjectProposal('')
     setEditProjectStatus('Active')
     setEditProjectStartDate('')
     setEditProjectEndDate('')
@@ -677,7 +677,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
 
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
-      const evt = arg.event.extendedProps as CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _estimateNumber?: string | null; _status?: string; _isDriveTime?: boolean }
+      const evt = arg.event.extendedProps as CalendarEvent & { _isStandalone?: boolean; _isLinkedProject?: boolean; _linkedProjectId?: string; _clientName?: string; _address?: string; _proposalNumber?: string | null; _status?: string; _isDriveTime?: boolean }
       // Drive time bars are display-only — ignore clicks
       if (evt._isDriveTime) return
       // Both job-linked and standalone bars open the detail view first
@@ -802,7 +802,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
         client_name: newJobClient.trim(),
         address: newJobAddress.trim(),
         status: newJobStatus,
-        ...(newJobEstimate.trim() ? { estimate_number: newJobEstimate.trim() } : {}),
+        ...(newJobProposal.trim() ? { estimate_number: newJobProposal.trim() } : {}),
         start_date: newJobStartDate,
         end_date: newJobEndDate,
         include_weekends: newJobIncludeWeekends,
@@ -855,7 +855,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
           name: editProjectName.trim(),
           client_name: editProjectClient.trim(),
           address: editProjectAddress.trim(),
-          estimate_number: editProjectEstimate.trim() || null,
+          estimate_number: editProjectProposal.trim() || null,
           status: editProjectStatus,
           start_date: editProjectStartDate,
           end_date: editProjectEndDate,
@@ -1253,11 +1253,11 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
               </div>
 
               <div>
-                <label className={labelCls}>Estimate #</label>
+                <label className={labelCls}>Proposal #</label>
                 <input
                   type="text"
-                  value={newJobEstimate}
-                  onChange={(e) => setNewJobEstimate(e.target.value)}
+                  value={newJobProposal}
+                  onChange={(e) => setNewJobProposal(e.target.value)}
                   placeholder="e.g. EST-1042"
                   className={inputCls}
                 />
@@ -1745,12 +1745,12 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Estimate #
+                  Proposal #
                 </label>
                 <input
                   type="text"
-                  value={editProjectEstimate}
-                  onChange={(e) => setEditProjectEstimate(e.target.value)}
+                  value={editProjectProposal}
+                  onChange={(e) => setEditProjectProposal(e.target.value)}
                   placeholder="e.g. EST-1042"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
@@ -2082,12 +2082,12 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                       </div>
                     </div>
                   )}
-                  {detailEvent._estimateNumber && (
+                  {detailEvent._proposalNumber && (
                     <div className="flex items-start gap-3">
                       <FileTextIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-xs text-gray-500">Estimate #</p>
-                        <p className="text-sm text-gray-700">{detailEvent._estimateNumber}</p>
+                        <p className="text-xs text-gray-500">Proposal #</p>
+                        <p className="text-sm text-gray-700">{detailEvent._proposalNumber}</p>
                       </div>
                     </div>
                   )}

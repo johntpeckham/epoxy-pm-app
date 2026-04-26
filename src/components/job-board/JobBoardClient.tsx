@@ -533,7 +533,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
           <PlaceholderWorkspace
             title="Billing"
             icon={<DollarSignIcon className="w-5 h-5" />}
-            message="Billing coming soon — Estimates, Invoices, Change Orders"
+            message="Billing coming soon — Proposals, Invoices, Change Orders"
             onBack={backToDashboard}
           />
         )
@@ -769,7 +769,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                   <div className="flex-1 min-w-0">
                     <h2 className="text-base font-bold text-gray-900 truncate">
                       {selectedProject.estimate_number
-                        ? `Est. #${selectedProject.estimate_number} - ${selectedProject.name}`
+                        ? `Proposal #${selectedProject.estimate_number} - ${selectedProject.name}`
                         : selectedProject.name}
                     </h2>
                     <p className="text-xs text-gray-500 truncate">
@@ -891,7 +891,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                         icon={<RulerIcon className="w-5 h-5" />}
                         title="Estimating"
                         onClick={() => openWorkspace('estimating')}
-                        content={<p className="text-xs text-gray-400">Measurements &amp; estimates</p>}
+                        content={<p className="text-xs text-gray-400">Measurements &amp; proposals</p>}
                       />
 
                       {/* 11. Material Orders */}
@@ -960,7 +960,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                         icon={<DollarSignIcon className="w-5 h-5" />}
                         title="Billing"
                         onClick={() => openWorkspace('billing')}
-                        content={<p className="text-xs text-gray-400">Estimates, Invoices, Change Orders</p>}
+                        content={<p className="text-xs text-gray-400">Proposals, Invoices, Change Orders</p>}
                       />
                     </div>
 

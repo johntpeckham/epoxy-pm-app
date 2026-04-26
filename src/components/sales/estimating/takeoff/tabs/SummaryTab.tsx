@@ -10,10 +10,10 @@ export default function SummaryTab() {
         <MetricCard label="Final total" value="$27,694" highlight />
       </div>
 
-      {/* Estimate calculator */}
+      {/* Proposal calculator */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h3 className="text-sm font-semibold text-gray-900 mb-3">
-          Estimate calculator
+          Proposal calculator
         </h3>
         <div className="space-y-2 text-sm">
           <LineItem label="Material cost" value="$8,240" />

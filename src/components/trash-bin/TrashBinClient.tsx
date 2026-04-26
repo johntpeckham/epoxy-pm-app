@@ -41,7 +41,8 @@ const FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'document', label: 'Documents' },
   { value: 'contract', label: 'Contracts' },
   { value: 'salesman_expense', label: 'Expenses' },
-  { value: 'estimate', label: 'Estimates' },
+  // value 'estimate' is a DB enum literal kept until Phase 4.
+  { value: 'estimate', label: 'Proposals' },
   { value: 'invoice', label: 'Invoices' },
   { value: 'checklist_template', label: 'Templates' },
   { value: 'customer', label: 'Customers' },

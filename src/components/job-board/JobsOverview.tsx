@@ -293,7 +293,7 @@ function ProjectSummaryCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             {project.estimate_number && (
-              <span className="text-xs font-medium text-gray-900 flex-shrink-0">Est. #{project.estimate_number}</span>
+              <span className="text-xs font-medium text-gray-900 flex-shrink-0">Proposal #{project.estimate_number}</span>
             )}
             {project.estimate_number && <span className="text-xs text-gray-300">-</span>}
             <span className="text-sm font-semibold text-gray-900 truncate">{project.name}</span>

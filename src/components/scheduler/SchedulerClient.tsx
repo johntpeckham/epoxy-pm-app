@@ -1461,7 +1461,7 @@ function WeekRow({
           </div>
           {bars.map((bar, idx) => {
             const barLabel = bar.project.estimate_number
-              ? `${bar.project.name} — Est #${bar.project.estimate_number}`
+              ? `${bar.project.name} — Proposal #${bar.project.estimate_number}`
               : bar.project.name
             const barColor = colorForProjectId(bar.project.id, isDark)
             return (
@@ -1534,7 +1534,7 @@ function JobBucket({
             <p className="text-xs font-semibold truncate">
               {project.estimate_number && (
                 <>
-                  <span className="text-gray-900">Est #{project.estimate_number}</span>
+                  <span className="text-gray-900">Proposal #{project.estimate_number}</span>
                   <span className="text-gray-400"> — </span>
                 </>
               )}

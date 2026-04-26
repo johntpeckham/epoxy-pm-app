@@ -558,7 +558,7 @@ export default function SchedulingPageClient({
                     </div>
                     {(job.estimate_number || job.address) && (
                       <div className="text-gray-500 mt-0.5" style={{ fontSize: 11 }}>
-                        {job.estimate_number && <>Est #{job.estimate_number}</>}
+                        {job.estimate_number && <>Proposal #{job.estimate_number}</>}
                         {job.estimate_number && job.address && <> · </>}
                         {job.address && <>{job.address}</>}
                       </div>
@@ -937,7 +937,7 @@ export default function SchedulingPageClient({
                           </div>
                           {job.estimate_number && (
                             <div className="text-xs text-gray-400 dark:text-gray-500">
-                              Est #{job.estimate_number}
+                              Proposal #{job.estimate_number}
                             </div>
                           )}
                           <div className="flex items-center gap-1.5 mt-2">

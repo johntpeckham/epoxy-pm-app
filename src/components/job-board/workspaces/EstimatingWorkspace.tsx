@@ -28,7 +28,7 @@ export default function EstimatingWorkspace({ project, onBack }: EstimatingWorks
             </div>
           </div>
           <p className="text-sm text-gray-600">
-            Use the Estimating section under Sales to manage measurements and estimates for <strong>{project.name}</strong>.
+            Use the Estimating section under Sales to manage measurements and proposals for <strong>{project.name}</strong>.
           </p>
         </div>
       </div>

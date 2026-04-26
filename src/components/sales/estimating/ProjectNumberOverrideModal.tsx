@@ -55,7 +55,7 @@ export default function ProjectNumberOverrideModal({
       if (updErr) throw updErr
 
       if (cascade && oldNumber) {
-        // Update linked estimates by current estimate_number matching old project number
+        // Update linked proposals by current estimate_number matching old project number
         const numericOld = parseInt(oldNumber.replace(/\D/g, ''), 10)
         const numericNew = parseInt(newNumber.replace(/\D/g, ''), 10)
         if (!Number.isNaN(numericOld) && !Number.isNaN(numericNew)) {
@@ -122,7 +122,7 @@ export default function ProjectNumberOverrideModal({
                 <div className="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-lg text-sm flex items-start gap-2">
                   <AlertTriangleIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <span>
-                    Changing the project number may affect linked estimates, jobs,
+                    Changing the project number may affect linked proposals, jobs,
                     and invoices. Proceed with caution.
                   </span>
                 </div>

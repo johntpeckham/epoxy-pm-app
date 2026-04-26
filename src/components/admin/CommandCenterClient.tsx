@@ -93,7 +93,7 @@ export default function CommandCenterClient() {
         callsConnected: 0,
         emails: 0,
         appointments: 0,
-        estimatesSentToday: 0,
+        proposalsSentToday: 0,
         reports: 0,
         tasksPercent: 0,
       }
@@ -103,7 +103,7 @@ export default function CommandCenterClient() {
     const emails = data.callLogsToday.filter((c) => c.outcome === 'email_sent').length
 
     const todayStr = new Date().toISOString().slice(0, 10)
-    const estimatesSentToday = data.estimatesRecent.filter((e) => {
+    const proposalsSentToday = data.proposalsRecent.filter((e) => {
       const sent = (e.status || '').toLowerCase() === 'sent'
       return sent && (e.created_at || '').slice(0, 10) === todayStr
     }).length
@@ -127,7 +127,7 @@ export default function CommandCenterClient() {
       callsConnected,
       emails,
       appointments: data.appointmentsToday.length,
-      estimatesSentToday,
+      proposalsSentToday,
       reports: data.reportsToday.length,
       tasksPercent,
     }
@@ -526,7 +526,7 @@ function FieldEstimatingColumn({ data }: { data: CommandCenterData | null }) {
     }))
   }, [data])
 
-  const estimatingItems = useMemo(() => {
+  const proposalItems = useMemo(() => {
     if (!data) return [] as {
       id: string
       title: string
@@ -535,7 +535,7 @@ function FieldEstimatingColumn({ data }: { data: CommandCenterData | null }) {
       time: string
     }[]
     const todayStr = new Date().toISOString().slice(0, 10)
-    return data.estimatesRecent
+    return data.proposalsRecent
       .filter((e) => {
         const s = (e.status || '').toLowerCase()
         if (s === 'draft') return true
@@ -546,7 +546,7 @@ function FieldEstimatingColumn({ data }: { data: CommandCenterData | null }) {
       .slice(0, 8)
       .map((e) => ({
         id: e.id,
-        title: e.project_name || `Estimate #${e.estimate_number ?? '—'}`,
+        title: e.project_name || `Proposal #${e.estimate_number ?? '—'}`,
         status: e.status || 'Draft',
         sub: e.salesperson || '',
         time: e.created_at,
@@ -628,11 +628,11 @@ function FieldEstimatingColumn({ data }: { data: CommandCenterData | null }) {
         >
           Estimating
         </div>
-        {estimatingItems.length === 0 ? (
+        {proposalItems.length === 0 ? (
           <div style={{ color: C.text4, fontSize: 11 }}>Nothing in progress.</div>
         ) : (
           <div className="space-y-1.5">
-            {estimatingItems.map((e) => {
+            {proposalItems.map((e) => {
               const s = e.status.toLowerCase()
               const color = s === 'sent' ? C.green : s === 'draft' ? C.text3 : C.gold
               return (
@@ -714,13 +714,13 @@ function LiveActivityColumn({ data }: { data: CommandCenterData | null }) {
     }
 
     const todayStr = new Date().toISOString().slice(0, 10)
-    for (const e of data.estimatesRecent) {
+    for (const e of data.proposalsRecent) {
       if ((e.status || '').toLowerCase() === 'sent' && (e.created_at || '').slice(0, 10) === todayStr) {
         out.push({
           id: `est-${e.id}`,
           time: e.created_at,
           dot: 'teal',
-          text: `Estimate sent — ${e.project_name || `#${e.estimate_number ?? ''}`}`,
+          text: `Proposal sent — ${e.project_name || `#${e.estimate_number ?? ''}`}`,
         })
       }
     }
@@ -1011,7 +1011,7 @@ interface MetricsRowProps {
     callsConnected: number
     emails: number
     appointments: number
-    estimatesSentToday: number
+    proposalsSentToday: number
     reports: number
     tasksPercent: number
   }
@@ -1022,7 +1022,7 @@ function MetricsRow({ metrics }: MetricsRowProps) {
     { label: 'Calls today', value: String(metrics.calls), sub: `${metrics.callsConnected} connected` },
     { label: 'Emails today', value: String(metrics.emails) },
     { label: 'Appointments set', value: String(metrics.appointments) },
-    { label: 'Estimates sent', value: String(metrics.estimatesSentToday) },
+    { label: 'Proposals sent', value: String(metrics.proposalsSentToday) },
     { label: 'Reports filed', value: String(metrics.reports) },
     { label: 'Work done', value: `${metrics.tasksPercent}%`, sub: 'Team average' },
   ]

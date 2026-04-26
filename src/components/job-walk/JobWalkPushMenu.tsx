@@ -80,7 +80,7 @@ export default function JobWalkPushMenu({
               }}
               className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
             >
-              Push to estimate
+              Push to proposal
             </button>
             <button
               type="button"
