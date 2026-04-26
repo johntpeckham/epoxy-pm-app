@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDownIcon, CheckIcon, TrashIcon } from 'lucide-react'
-import type { ChangeOrder } from '../estimates/types'
+import type { ChangeOrder } from '../proposals/types'
 
 interface ChangeOrdersListProps {
   changeOrders: ChangeOrder[]

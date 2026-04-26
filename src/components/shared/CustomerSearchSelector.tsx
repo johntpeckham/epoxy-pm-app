@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { SearchIcon, ChevronDownIcon, CheckIcon } from 'lucide-react'
-import type { Customer } from '../estimates/types'
+import type { Customer } from '../proposals/types'
 
 interface CustomerSearchSelectorProps {
   customers: Customer[]

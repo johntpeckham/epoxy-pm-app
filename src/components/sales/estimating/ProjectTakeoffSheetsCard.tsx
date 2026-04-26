@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { TableIcon, PlusIcon, ChevronRightIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import type { EstimatingProject, Takeoff, TAKEOFF_STATUS_STYLES } from './types'
 import NewTakeoffModal from './NewTakeoffModal'
 

@@ -2,18 +2,18 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { PlusIcon, SearchIcon, SettingsIcon, Settings2Icon, UserIcon, LayoutDashboardIcon, FileTextIcon, ClipboardListIcon } from 'lucide-react'
-import type { Customer, Estimate } from './types'
+import type { Customer, Proposal } from './types'
 import NewCompanyModal from '@/components/sales/NewCompanyModal'
 
 interface CustomersPanelProps {
   customers: Customer[]
   selectedView: string
-  estimates: Estimate[]
+  proposals: Proposal[]
   userId: string
   onSelectView: (view: 'dashboard' | string) => void
   onCustomerAdded: () => void
   onOpenSettings: () => void
-  onNewEstimate?: () => void
+  onNewProposal?: () => void
   onNewChangeOrder?: () => void
 }
 
@@ -24,7 +24,7 @@ export default function CustomersPanel({
   onSelectView,
   onCustomerAdded,
   onOpenSettings,
-  onNewEstimate,
+  onNewProposal,
   onNewChangeOrder,
 }: CustomersPanelProps) {
   const [search, setSearch] = useState('')
@@ -50,9 +50,9 @@ export default function CustomersPanel({
       (c.company && c.company.toLowerCase().includes(search.toLowerCase()))
   )
 
-  function handleNewEstimate() {
+  function handleNewProposal() {
     setShowNewDropdown(false)
-    onNewEstimate?.()
+    onNewProposal?.()
   }
 
   function handleNewChangeOrder() {
@@ -71,7 +71,7 @@ export default function CustomersPanel({
               <button
                 onClick={onOpenSettings}
                 className="p-1 text-gray-400 hover:text-gray-600 rounded"
-                title="Estimate Settings"
+                title="Proposal Settings"
               >
                 <SettingsIcon className="w-4 h-4" />
               </button>
@@ -94,11 +94,11 @@ export default function CustomersPanel({
               {showNewDropdown && (
                 <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1">
                   <button
-                    onClick={handleNewEstimate}
+                    onClick={handleNewProposal}
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors flex items-center gap-2"
                   >
                     <FileTextIcon className="w-4 h-4" />
-                    New Estimate
+                    New Proposal
                   </button>
                   <button
                     onClick={handleNewChangeOrder}

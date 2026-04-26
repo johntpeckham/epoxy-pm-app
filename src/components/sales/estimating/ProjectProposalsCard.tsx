@@ -20,14 +20,14 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import type {
   Customer,
-  Estimate,
-  EstimateFollowUp,
-} from '@/components/estimates/types'
+  Proposal,
+  ProposalFollowUp,
+} from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
-import SendEstimateModal from './SendEstimateModal'
+import SendProposalModal from './SendProposalModal'
 import LogFollowUpModal from './LogFollowUpModal'
 
-interface ProjectEstimatesCardProps {
+interface ProjectProposalsCardProps {
   project: EstimatingProject
   customer: Customer
   userId: string
@@ -51,7 +51,7 @@ function formatShortDate(d: string | null | undefined): string {
   })
 }
 
-function followUpIcon(type: EstimateFollowUp['follow_up_type']) {
+function followUpIcon(type: ProposalFollowUp['follow_up_type']) {
   switch (type) {
     case 'call':
       return <PhoneIcon className="w-4 h-4" />
@@ -64,7 +64,7 @@ function followUpIcon(type: EstimateFollowUp['follow_up_type']) {
   }
 }
 
-function statusBadge(e: Estimate) {
+function statusBadge(e: Proposal) {
   const base =
     'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap'
   if (e.status === 'Draft')
@@ -92,36 +92,36 @@ function statusBadge(e: Estimate) {
   )
 }
 
-export default function ProjectEstimatesCard({
+export default function ProjectProposalsCard({
   project,
   customer,
   userId,
-}: ProjectEstimatesCardProps) {
+}: ProjectProposalsCardProps) {
   const router = useRouter()
-  const [estimates, setEstimates] = useState<Estimate[]>([])
-  const [followUpsByEstimate, setFollowUpsByEstimate] = useState<
-    Record<string, EstimateFollowUp[]>
+  const [proposals, setProposals] = useState<Proposal[]>([])
+  const [followUpsByProposal, setFollowUpsByProposal] = useState<
+    Record<string, ProposalFollowUp[]>
   >({})
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<StatusFilter>('All')
-  const [sendingFor, setSendingFor] = useState<Estimate | null>(null)
-  const [followingUpFor, setFollowingUpFor] = useState<Estimate | null>(null)
+  const [sendingFor, setSendingFor] = useState<Proposal | null>(null)
+  const [followingUpFor, setFollowingUpFor] = useState<Proposal | null>(null)
   const [expandedFollowUps, setExpandedFollowUps] = useState<
     Record<string, boolean>
   >({})
   const customerId = customer.id
 
-  const fetchEstimates = useCallback(async () => {
+  const fetchProposals = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
     const { data } = await supabase
-      .from('estimates')
+      .from('proposals')
       .select('*')
       .eq('company_id', customerId)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-    const rows = (data as Estimate[]) ?? []
-    setEstimates(rows)
+    const rows = (data as Proposal[]) ?? []
+    setProposals(rows)
 
     if (rows.length > 0) {
       const ids = rows.map((r) => r.id)
@@ -130,38 +130,38 @@ export default function ProjectEstimatesCard({
         .select('*')
         .in('estimate_id', ids)
         .order('created_at', { ascending: false })
-      const grouped: Record<string, EstimateFollowUp[]> = {}
-      ;((fuData as EstimateFollowUp[]) ?? []).forEach((f) => {
+      const grouped: Record<string, ProposalFollowUp[]> = {}
+      ;((fuData as ProposalFollowUp[]) ?? []).forEach((f) => {
         if (!grouped[f.estimate_id]) grouped[f.estimate_id] = []
         grouped[f.estimate_id].push(f)
       })
-      setFollowUpsByEstimate(grouped)
+      setFollowUpsByProposal(grouped)
     } else {
-      setFollowUpsByEstimate({})
+      setFollowUpsByProposal({})
     }
     setLoading(false)
   }, [customerId, userId])
 
   useEffect(() => {
-    fetchEstimates()
-  }, [fetchEstimates])
+    fetchProposals()
+  }, [fetchProposals])
 
   const counts: Record<StatusFilter, number> = {
-    All: estimates.length,
-    Draft: estimates.filter((e) => e.status === 'Draft' || !e.status).length,
-    Sent: estimates.filter((e) => e.status === 'Sent').length,
-    Accepted: estimates.filter((e) => e.status === 'Accepted').length,
-    Declined: estimates.filter((e) => e.status === 'Declined').length,
+    All: proposals.length,
+    Draft: proposals.filter((e) => e.status === 'Draft' || !e.status).length,
+    Sent: proposals.filter((e) => e.status === 'Sent').length,
+    Accepted: proposals.filter((e) => e.status === 'Accepted').length,
+    Declined: proposals.filter((e) => e.status === 'Declined').length,
   }
 
-  const visible = estimates.filter((e) => {
+  const visible = proposals.filter((e) => {
     if (filter === 'All') return true
     if (filter === 'Draft') return e.status === 'Draft' || !e.status
     return e.status === filter
   })
 
-  function patchLocal(id: string, patch: Partial<Estimate>) {
-    setEstimates((prev) =>
+  function patchLocal(id: string, patch: Partial<Proposal>) {
+    setProposals((prev) =>
       prev.map((e) => (e.id === id ? { ...e, ...patch } : e))
     )
   }
@@ -175,46 +175,46 @@ export default function ProjectEstimatesCard({
       .eq('status', 'pending')
   }
 
-  async function handleMarkAccepted(e: Estimate) {
+  async function handleMarkAccepted(e: Proposal) {
     const supabase = createClient()
     const now = new Date().toISOString()
-    const patch: Partial<Estimate> = { status: 'Accepted', accepted_at: now }
-    await supabase.from('estimates').update(patch).eq('id', e.id)
+    const patch: Partial<Proposal> = { status: 'Accepted', accepted_at: now }
+    await supabase.from('proposals').update(patch).eq('id', e.id)
     patchLocal(e.id, patch)
     await completePendingReminders()
   }
 
-  async function handleMarkDeclined(e: Estimate) {
+  async function handleMarkDeclined(e: Proposal) {
     const supabase = createClient()
     const now = new Date().toISOString()
-    const patch: Partial<Estimate> = { status: 'Declined', declined_at: now }
-    await supabase.from('estimates').update(patch).eq('id', e.id)
+    const patch: Partial<Proposal> = { status: 'Declined', declined_at: now }
+    await supabase.from('proposals').update(patch).eq('id', e.id)
     patchLocal(e.id, patch)
     await completePendingReminders()
   }
 
-  function handleSent(estimate: Estimate, patch: Partial<Estimate>) {
-    patchLocal(estimate.id, patch)
+  function handleSent(proposal: Proposal, patch: Partial<Proposal>) {
+    patchLocal(proposal.id, patch)
     setSendingFor(null)
   }
 
-  function handleFollowUpCreated(estimate: Estimate, fu: EstimateFollowUp) {
-    setFollowUpsByEstimate((prev) => ({
+  function handleFollowUpCreated(proposal: Proposal, fu: ProposalFollowUp) {
+    setFollowUpsByProposal((prev) => ({
       ...prev,
-      [estimate.id]: [fu, ...(prev[estimate.id] ?? [])],
+      [proposal.id]: [fu, ...(prev[proposal.id] ?? [])],
     }))
-    setExpandedFollowUps((prev) => ({ ...prev, [estimate.id]: true }))
+    setExpandedFollowUps((prev) => ({ ...prev, [proposal.id]: true }))
     setFollowingUpFor(null)
   }
 
-  function toggleExpanded(estimateId: string) {
+  function toggleExpanded(proposalId: string) {
     setExpandedFollowUps((prev) => ({
       ...prev,
-      [estimateId]: !prev[estimateId],
+      [proposalId]: !prev[proposalId],
     }))
   }
 
-  function handleNewEstimate() {
+  function handleNewProposal() {
     // The new editor handles the insert on first save, so this navigator no
     // longer creates a draft row on click. Pass project + customer so the
     // editor can pre-fill context and render the back-to-project link.
@@ -240,7 +240,7 @@ export default function ProjectEstimatesCard({
           </h3>
           <button
             type="button"
-            onClick={handleNewEstimate}
+            onClick={handleNewProposal}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
           >
             <PlusIcon className="w-4 h-4" />
@@ -248,7 +248,7 @@ export default function ProjectEstimatesCard({
           </button>
         </div>
 
-        {!loading && estimates.length > 0 && (
+        {!loading && proposals.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap mb-3">
             {FILTERS.map((f) => {
               const active = f === filter
@@ -274,7 +274,7 @@ export default function ProjectEstimatesCard({
           <div className="py-6 flex items-center justify-center text-gray-400">
             <Loader2Icon className="w-4 h-4 animate-spin" />
           </div>
-        ) : estimates.length === 0 ? (
+        ) : proposals.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-6">
             No proposals yet for this customer.
           </p>
@@ -285,7 +285,7 @@ export default function ProjectEstimatesCard({
         ) : (
           <div className="divide-y divide-gray-100">
             {visible.map((e) => {
-              const followUps = followUpsByEstimate[e.id] ?? []
+              const followUps = followUpsByProposal[e.id] ?? []
               const isExpanded = expandedFollowUps[e.id] ?? false
               const isDraft = !e.status || e.status === 'Draft'
               const isSent = e.status === 'Sent'
@@ -312,7 +312,7 @@ export default function ProjectEstimatesCard({
                       <button
                         type="button"
                         onClick={() => setSendingFor(e)}
-                        title="Send estimate"
+                        title="Send proposal"
                         className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition"
                       >
                         <SendIcon className="w-4 h-4" />
@@ -416,8 +416,8 @@ export default function ProjectEstimatesCard({
       </div>
 
       {sendingFor && (
-        <SendEstimateModal
-          estimate={sendingFor}
+        <SendProposalModal
+          proposal={sendingFor}
           customer={customer}
           project={project}
           userId={userId}
@@ -428,7 +428,7 @@ export default function ProjectEstimatesCard({
 
       {followingUpFor && (
         <LogFollowUpModal
-          estimate={followingUpFor}
+          proposal={followingUpFor}
           customer={customer}
           project={project}
           userId={userId}

@@ -16,9 +16,9 @@ export default function SetupPrompt({ onComplete }: SetupPromptProps) {
         <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <FileTextIcon className="w-6 h-6 text-amber-600" />
         </div>
-        <h3 className="text-lg font-bold text-gray-900 mb-2">Welcome to Estimates</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-2">Welcome to Proposals</h3>
         <p className="text-sm text-gray-500 mb-4">
-          What number would you like to start your estimates at?
+          What number would you like to start your proposals at?
         </p>
         <input
           type="number"

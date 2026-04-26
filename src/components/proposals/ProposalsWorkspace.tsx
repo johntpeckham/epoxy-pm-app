@@ -3,57 +3,57 @@
 import { useState } from 'react'
 import { ClipboardIcon, PlusIcon, FilePlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { Customer, Estimate, EstimateSettings } from './types'
+import type { Customer, Proposal, ProposalSettings } from './types'
 import { DEFAULT_TERMS } from './types'
 import type { LineItem } from './types'
-import EstimatesList from './EstimatesList'
-import EstimateEditor from './EstimateEditor'
+import ProposalsList from './ProposalsList'
+import ProposalEditor from './ProposalEditor'
 import ChangeOrderModal from '../shared/ChangeOrderModal'
 
-interface EstimatesWorkspaceProps {
+interface ProposalsWorkspaceProps {
   customer: Customer | null
-  estimates: Estimate[]
-  selectedEstimateId: string | null
-  settings: EstimateSettings | null
+  proposals: Proposal[]
+  selectedProposalId: string | null
+  settings: ProposalSettings | null
   userId: string
-  onSelectEstimate: (id: string) => void
-  onEstimateCreated: () => void
-  onEstimateUpdated: () => void
+  onSelectProposal: (id: string) => void
+  onProposalCreated: () => void
+  onProposalUpdated: () => void
   onBack: () => void
   onOpenSettings: () => void
   pendingChangeOrder?: boolean
   onChangeOrderHandled?: () => void
-  onEstimateDeleted?: () => void
+  onProposalDeleted?: () => void
   backContext?: { url: string; label: string } | null
 }
 
-export default function EstimatesWorkspace({
+export default function ProposalsWorkspace({
   customer,
-  estimates,
-  selectedEstimateId,
+  proposals,
+  selectedProposalId,
   settings,
   userId,
-  onSelectEstimate,
-  onEstimateCreated,
-  onEstimateUpdated,
+  onSelectProposal,
+  onProposalCreated,
+  onProposalUpdated,
   onBack,
   onOpenSettings,
   pendingChangeOrder,
   onChangeOrderHandled,
-  onEstimateDeleted,
+  onProposalDeleted,
   backContext,
-}: EstimatesWorkspaceProps) {
-  const selectedEstimate = estimates.find((e) => e.id === selectedEstimateId) ?? null
+}: ProposalsWorkspaceProps) {
+  const selectedProposal = proposals.find((e) => e.id === selectedProposalId) ?? null
 
-  async function handleNewEstimate() {
+  async function handleNewProposal() {
     if (!customer || !settings) return
     const supabase = createClient()
-    const estimateNumber = settings.next_estimate_number
+    const proposalNumber = settings.next_estimate_number
 
     const { data } = await supabase
       .from('estimates')
       .insert({
-        estimate_number: estimateNumber,
+        estimate_number: proposalNumber,
         company_id: customer.id,
         date: new Date().toISOString().split('T')[0],
         project_name: '',
@@ -71,15 +71,15 @@ export default function EstimatesWorkspace({
       .select()
       .single()
 
-    // Increment the next estimate number
+    // Increment the next proposal number
     await supabase
       .from('estimate_settings')
-      .update({ next_estimate_number: estimateNumber + 1 })
+      .update({ next_estimate_number: proposalNumber + 1 })
       .eq('user_id', userId)
 
     if (data) {
-      onEstimateCreated()
-      onSelectEstimate(data.id)
+      onProposalCreated()
+      onSelectProposal(data.id)
     }
   }
 
@@ -91,41 +91,41 @@ export default function EstimatesWorkspace({
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <ClipboardIcon className="w-7 h-7 text-gray-400" />
           </div>
-          <p className="text-gray-400 text-sm">Select a customer to view estimates</p>
+          <p className="text-gray-400 text-sm">Select a customer to view proposals</p>
         </div>
       </div>
     )
   }
 
-  // Sub-view C: Estimate editor
-  if (selectedEstimate) {
+  // Sub-view C: Proposal editor
+  if (selectedProposal) {
     return (
-      <EstimateEditor
-        estimate={selectedEstimate}
+      <ProposalEditor
+        proposal={selectedProposal}
         customer={customer}
         settings={settings}
         userId={userId}
         onBack={onBack}
-        onUpdated={onEstimateUpdated}
+        onUpdated={onProposalUpdated}
         onOpenSettings={onOpenSettings}
         pendingChangeOrder={pendingChangeOrder}
         onChangeOrderHandled={onChangeOrderHandled}
-        onDeleted={onEstimateDeleted}
+        onDeleted={onProposalDeleted}
         backContext={backContext ?? null}
       />
     )
   }
 
-  // Sub-view B: Customer selected, showing estimates list
+  // Sub-view B: Customer selected, showing proposals list
   return (
-    <CustomerEstimatesView
+    <CustomerProposalsView
       customer={customer}
-      estimates={estimates}
+      proposals={proposals}
       settings={settings}
       userId={userId}
-      onSelectEstimate={onSelectEstimate}
-      onNewEstimate={handleNewEstimate}
-      onEstimateCreated={onEstimateCreated}
+      onSelectProposal={onSelectProposal}
+      onNewProposal={handleNewProposal}
+      onProposalCreated={onProposalCreated}
     />
   )
 }
@@ -134,50 +134,51 @@ function formatCurrency(amount: number): string {
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function CustomerEstimatesView({
+function CustomerProposalsView({
   customer,
-  estimates,
+  proposals,
   settings: _settings,
   userId,
-  onSelectEstimate,
-  onNewEstimate,
-  onEstimateCreated,
+  onSelectProposal,
+  onNewProposal,
+  onProposalCreated,
 }: {
   customer: Customer
-  estimates: Estimate[]
-  settings: EstimateSettings | null
+  proposals: Proposal[]
+  settings: ProposalSettings | null
   userId: string
-  onSelectEstimate: (id: string) => void
-  onNewEstimate: () => void
-  onEstimateCreated: () => void
+  onSelectProposal: (id: string) => void
+  onNewProposal: () => void
+  onProposalCreated: () => void
 }) {
   const [showChangeOrderModal, setShowChangeOrderModal] = useState(false)
   const [savingCO, setSavingCO] = useState(false)
 
-  const totalValue = estimates.reduce((sum, e) => sum + (e.total ?? 0), 0)
-  const totalAccepted = estimates.filter((e) => e.status === 'Accepted' || e.status === 'Invoiced').reduce((sum, e) => sum + (e.total ?? 0), 0)
-  const estimateCount = estimates.length
+  const totalValue = proposals.reduce((sum, e) => sum + (e.total ?? 0), 0)
+  const totalAccepted = proposals.filter((e) => e.status === 'Accepted' || e.status === 'Invoiced').reduce((sum, e) => sum + (e.total ?? 0), 0)
+  const proposalCount = proposals.length
 
-  // For change orders from the customer view, use the most recent estimate
-  const latestEstimate = estimates[0] ?? null
+  // For change orders from the customer view, use the most recent proposal
+  const latestProposal = proposals[0] ?? null
 
   async function handleAddChangeOrder(coData: { description: string; lineItems: LineItem[]; notes: string }) {
-    if (!latestEstimate) return
+    if (!latestProposal) return
     setSavingCO(true)
     const supabase = createClient()
     const { count } = await supabase
       .from('change_orders')
       .select('*', { count: 'exact', head: true })
-      .eq('estimate_id', latestEstimate.id)
+      .eq('estimate_id', latestProposal.id)
     const coNumber = `CO-${(count ?? 0) + 1}`
     const sub = coData.lineItems.reduce((s, item) => {
       const amt = (!item.ft || item.ft === 0) ? (item.rate ?? 0) : (item.ft ?? 0) * (item.rate ?? 0)
       return s + amt
     }, 0)
     await supabase.from('change_orders').insert({
+      // DB enum literal kept as 'estimate' until Phase 4.
       parent_type: 'estimate',
-      parent_id: latestEstimate.id,
-      estimate_id: latestEstimate.id,
+      parent_id: latestProposal.id,
+      estimate_id: latestProposal.id,
       change_order_number: coNumber,
       description: coData.description,
       line_items: coData.lineItems,
@@ -188,7 +189,7 @@ function CustomerEstimatesView({
     })
     setSavingCO(false)
     setShowChangeOrderModal(false)
-    onEstimateCreated()
+    onProposalCreated()
   }
 
   return (
@@ -198,15 +199,15 @@ function CustomerEstimatesView({
           <h2 className="text-base font-bold text-gray-900">{customer.name}</h2>
           <div className="flex items-center gap-2">
             <button
-              onClick={onNewEstimate}
+              onClick={onNewProposal}
               className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
             >
               <PlusIcon className="w-4 h-4" />
-              New Estimate
+              New Proposal
             </button>
             <button
               onClick={() => setShowChangeOrderModal(true)}
-              disabled={!latestEstimate}
+              disabled={!latestProposal}
               className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <FilePlusIcon className="w-4 h-4" />
@@ -227,17 +228,17 @@ function CustomerEstimatesView({
           </div>
           <div className="w-px h-3 bg-gray-200" />
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-400">Estimates</span>
-            <span className="text-xs font-semibold text-gray-900">{estimateCount}</span>
+            <span className="text-xs text-gray-400">Proposals</span>
+            <span className="text-xs font-semibold text-gray-900">{proposalCount}</span>
           </div>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
-        <EstimatesList
-          estimates={estimates}
-          onSelect={onSelectEstimate}
+        <ProposalsList
+          proposals={proposals}
+          onSelect={onSelectProposal}
           userId={userId}
-          onEstimateDeleted={onEstimateCreated}
+          onProposalDeleted={onProposalCreated}
         />
       </div>
       {showChangeOrderModal && (

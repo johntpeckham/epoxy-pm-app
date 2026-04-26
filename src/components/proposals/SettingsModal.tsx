@@ -4,16 +4,17 @@ import { useState, useRef } from 'react'
 import { XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
-import type { EstimateSettings } from './types'
+import type { ProposalSettings } from './types'
 
 interface SettingsModalProps {
-  settings: EstimateSettings
+  settings: ProposalSettings
   userId: string
-  onSave: (updated: EstimateSettings) => void
+  onSave: (updated: ProposalSettings) => void
   onClose: () => void
 }
 
 export default function SettingsModal({ settings, userId, onSave, onClose }: SettingsModalProps) {
+  // DB column kept as next_estimate_number until Phase 4.
   const [nextNumber, setNextNumber] = useState(settings.next_estimate_number)
   const [companyName, setCompanyName] = useState(settings.company_name ?? '')
   const [companyAddress, setCompanyAddress] = useState(settings.company_address ?? '')
@@ -60,7 +61,7 @@ export default function SettingsModal({ settings, userId, onSave, onClose }: Set
     <div className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header" onClick={onClose}>
       <div className="mt-auto md:my-auto md:mx-auto w-full md:max-w-md h-full md:h-auto md:max-h-[85vh] bg-white md:rounded-xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex-none flex items-center justify-between px-4 border-b border-gray-200" style={{ minHeight: '56px' }}>
-          <h3 className="text-lg font-semibold text-gray-900">Estimate Settings</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Proposal Settings</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition">
             <XIcon className="w-5 h-5" />
           </button>
@@ -102,7 +103,7 @@ export default function SettingsModal({ settings, userId, onSave, onClose }: Set
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Next Estimate Number</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Next Proposal Number</label>
             <input
               type="number"
               inputMode="numeric"

@@ -10,7 +10,7 @@ import {
   MailIcon,
   ContactIcon,
 } from 'lucide-react'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import AddContactModal from './AddContactModal'
 
 interface Props {

@@ -35,7 +35,7 @@ import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
-interface EstimateFormSettingsEditorProps {
+interface ProposalFormSettingsEditorProps {
   onClose: () => void
 }
 
@@ -57,7 +57,7 @@ interface UserOption {
   email: string | null
 }
 
-interface EstimateFormSettings {
+interface ProposalFormSettings {
   id: string
   company_name: string | null
   company_address: string | null
@@ -128,10 +128,10 @@ const CUSTOM_SECTION_TYPES: { value: SectionType; label: string }[] = [
   { value: 'line_items', label: 'Line items' },
 ]
 
-export default function EstimateFormSettingsEditor({
+export default function ProposalFormSettingsEditor({
   onClose,
-}: EstimateFormSettingsEditorProps) {
-  const [settings, setSettings] = useState<EstimateFormSettings | null>(null)
+}: ProposalFormSettingsEditorProps) {
+  const [settings, setSettings] = useState<ProposalFormSettings | null>(null)
   const [users, setUsers] = useState<UserOption[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -158,7 +158,7 @@ export default function EstimateFormSettingsEditor({
         .limit(1)
         .maybeSingle()
 
-      let loaded: EstimateFormSettings
+      let loaded: ProposalFormSettings
       if (row) {
         const sections = Array.isArray(row.sections_config)
           ? (row.sections_config as SectionConfig[])
@@ -207,10 +207,10 @@ export default function EstimateFormSettingsEditor({
           setUsers(eligible)
         }
       } catch (e) {
-        console.warn('[EstimateFormSettingsEditor] list-users failed:', e)
+        console.warn('[ProposalFormSettingsEditor] list-users failed:', e)
       }
     } catch (err) {
-      console.error('[EstimateFormSettingsEditor] fetch failed:', err)
+      console.error('[ProposalFormSettingsEditor] fetch failed:', err)
       setError(err instanceof Error ? err.message : 'Failed to load settings.')
     } finally {
       setLoading(false)
@@ -221,9 +221,9 @@ export default function EstimateFormSettingsEditor({
     fetchSettings()
   }, [fetchSettings])
 
-  function update<K extends keyof EstimateFormSettings>(
+  function update<K extends keyof ProposalFormSettings>(
     key: K,
-    value: EstimateFormSettings[K]
+    value: ProposalFormSettings[K]
   ) {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
   }
@@ -308,6 +308,8 @@ export default function EstimateFormSettingsEditor({
 
     try {
       const ext = file.name.split('.').pop()
+      // Storage path prefix kept as 'estimate-form-logos/' until Phase 4 to
+      // avoid splitting existing logo objects across two prefixes mid-rename.
       const path = `estimate-form-logos/${Date.now()}.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('company-assets')
@@ -318,7 +320,7 @@ export default function EstimateFormSettingsEditor({
         .getPublicUrl(path)
       update('company_logo_url', urlData.publicUrl)
     } catch (err) {
-      console.error('[EstimateFormSettingsEditor] logo upload failed:', err)
+      console.error('[ProposalFormSettingsEditor] logo upload failed:', err)
       setError(err instanceof Error ? err.message : 'Failed to upload logo.')
     } finally {
       setLogoUploading(false)
@@ -364,7 +366,7 @@ export default function EstimateFormSettingsEditor({
       setSaving(false)
       onClose()
     } catch (err) {
-      console.error('[EstimateFormSettingsEditor] save failed:', err)
+      console.error('[ProposalFormSettingsEditor] save failed:', err)
       setError(err instanceof Error ? err.message : 'Failed to save settings.')
       setSaving(false)
     }
@@ -387,7 +389,7 @@ export default function EstimateFormSettingsEditor({
             <div className="flex items-center gap-2">
               <FileTextIcon className="w-5 h-5 text-amber-500" />
               <h3 className="text-lg font-semibold text-gray-900">
-                Edit Estimate Form
+                Edit Proposal Form
               </h3>
             </div>
             <button
@@ -463,7 +465,7 @@ export default function EstimateFormSettingsEditor({
       {confirmDeleteSection && (
         <ConfirmDialog
           title="Delete section?"
-          message={`This will remove the "${confirmDeleteSection.name}" section from every future estimate.`}
+          message={`This will remove the "${confirmDeleteSection.name}" section from every future proposal.`}
           confirmLabel="Delete"
           variant="destructive"
           onConfirm={confirmDeleteSectionNow}
@@ -481,12 +483,12 @@ function CompanyHeaderSection({
   onUpdate,
   onLogoUpload,
 }: {
-  settings: EstimateFormSettings
+  settings: ProposalFormSettings
   logoUploading: boolean
   logoInputRef: React.RefObject<HTMLInputElement | null>
-  onUpdate: <K extends keyof EstimateFormSettings>(
+  onUpdate: <K extends keyof ProposalFormSettings>(
     key: K,
-    value: EstimateFormSettings[K]
+    value: ProposalFormSettings[K]
   ) => void
   onLogoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
 }) {
@@ -567,17 +569,17 @@ function DefaultsSection({
   users,
   onUpdate,
 }: {
-  settings: EstimateFormSettings
+  settings: ProposalFormSettings
   users: UserOption[]
-  onUpdate: <K extends keyof EstimateFormSettings>(
+  onUpdate: <K extends keyof ProposalFormSettings>(
     key: K,
-    value: EstimateFormSettings[K]
+    value: ProposalFormSettings[K]
   ) => void
 }) {
   return (
     <section>
       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-        Defaults for new estimates
+        Defaults for new proposals
       </h4>
       <div className="space-y-3">
         <div>
@@ -601,7 +603,7 @@ function DefaultsSection({
             onChange={(e) => onUpdate('default_notes', e.target.value)}
             rows={3}
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-y"
-            placeholder="Notes that appear on every new estimate…"
+            placeholder="Notes that appear on every new proposal…"
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

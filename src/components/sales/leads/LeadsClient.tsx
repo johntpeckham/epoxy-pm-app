@@ -19,7 +19,7 @@ import {
   CalendarIcon,
   UserIcon,
 } from 'lucide-react'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import type { UserRole } from '@/types'
 import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'

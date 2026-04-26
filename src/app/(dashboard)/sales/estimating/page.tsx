@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
 import { requirePermission } from '@/lib/requirePermission'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import EstimatingClient from '@/components/sales/estimating/EstimatingClient'
 
 export default async function SalesEstimatingPage() {

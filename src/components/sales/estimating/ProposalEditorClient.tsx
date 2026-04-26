@@ -14,25 +14,25 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
-import { exportEstimatePdf } from '@/components/estimates/pdfExport'
+import { exportProposalPdf } from '@/components/proposals/pdfExport'
 import type {
   Customer,
-  Estimate,
-  EstimateSettings,
+  Proposal,
+  ProposalSettings,
   LineItem,
-} from '@/components/estimates/types'
+} from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
-import SendEstimateModal from './SendEstimateModal'
+import SendProposalModal from './SendProposalModal'
 
 const STATUS_OPTIONS = ['Draft', 'Sent', 'Accepted', 'Declined'] as const
 type StatusOption = (typeof STATUS_OPTIONS)[number]
 
-interface EstimateEditorClientProps {
+interface ProposalEditorClientProps {
   mode: 'new' | 'edit'
-  estimate: Estimate
+  proposal: Proposal
   customer: Customer
   project: EstimatingProject | null
-  settings: EstimateSettings | null
+  settings: ProposalSettings | null
   userId: string
   canEdit: boolean
 }
@@ -61,17 +61,17 @@ function formatMoney(n: number): string {
   })}`
 }
 
-export default function EstimateEditorClient({
+export default function ProposalEditorClient({
   mode,
-  estimate: initialEstimate,
+  proposal: initialProposal,
   customer,
   project,
   settings,
   userId,
   canEdit,
-}: EstimateEditorClientProps) {
+}: ProposalEditorClientProps) {
   const router = useRouter()
-  const [estimate, setEstimate] = useState<Estimate>(initialEstimate)
+  const [proposal, setProposal] = useState<Proposal>(initialProposal)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<
@@ -86,9 +86,9 @@ export default function EstimateEditorClient({
   // no-op auto-save the moment the editor mounts.
   const firstAutoSaveRunRef = useRef(true)
 
-  const lineItems = estimate.line_items ?? []
+  const lineItems = proposal.line_items ?? []
   const subtotal = lineItems.reduce((sum, item) => sum + calcAmount(item), 0)
-  const taxAmount = estimate.tax ?? 0
+  const taxAmount = proposal.tax ?? 0
   const total = subtotal + taxAmount
 
   // True when there is at least one line item with a description AND a
@@ -98,7 +98,7 @@ export default function EstimateEditorClient({
   )
 
   function setLineItems(next: LineItem[]) {
-    setEstimate((prev) => ({ ...prev, line_items: next }))
+    setProposal((prev) => ({ ...prev, line_items: next }))
   }
 
   function addLineItem() {
@@ -153,18 +153,18 @@ export default function EstimateEditorClient({
     }))
 
     const payload = {
-      estimate_number: estimate.estimate_number,
+      estimate_number: proposal.estimate_number,
       company_id: customer.id,
-      date: estimate.date,
-      project_name: estimate.project_name ?? '',
-      description: estimate.description ?? '',
-      salesperson: estimate.salesperson ?? '',
+      date: proposal.date,
+      project_name: proposal.project_name ?? '',
+      description: proposal.description ?? '',
+      salesperson: proposal.salesperson ?? '',
       line_items: normalizedItems,
       subtotal,
       tax: taxAmount,
       total,
-      terms: estimate.terms ?? '',
-      notes: estimate.notes ?? '',
+      terms: proposal.terms ?? '',
+      notes: proposal.notes ?? '',
       status: 'Draft' as const,
       user_id: userId,
     }
@@ -176,8 +176,8 @@ export default function EstimateEditorClient({
       .single()
 
     if (error || !data) {
-      console.error('[EstimateEditorClient] insert failed:', error)
-      setSaveError(error?.message || 'Failed to save estimate. Please try again.')
+      console.error('[ProposalEditorClient] insert failed:', error)
+      setSaveError(error?.message || 'Failed to save proposal. Please try again.')
       setIsSaving(false)
       return
     }
@@ -185,7 +185,7 @@ export default function EstimateEditorClient({
     // Increment next_estimate_number ONLY when the saved number was drawn from
     // settings. If the project's project_number already supplied the numeric
     // portion (server page logic), leave settings alone — otherwise we'd
-    // double-increment when an estimate is created off a numbered project.
+    // double-increment when a proposal is created off a numbered project.
     if (settings) {
       const projectDerivedNumber = (() => {
         if (!project?.project_number) return null
@@ -194,11 +194,11 @@ export default function EstimateEditorClient({
       })()
       const fromSettings =
         projectDerivedNumber == null ||
-        projectDerivedNumber !== estimate.estimate_number
+        projectDerivedNumber !== proposal.estimate_number
       if (fromSettings) {
         await supabase
           .from('estimate_settings')
-          .update({ next_estimate_number: estimate.estimate_number + 1 })
+          .update({ next_estimate_number: proposal.estimate_number + 1 })
           .eq('id', settings.id)
       }
     }
@@ -209,36 +209,36 @@ export default function EstimateEditorClient({
 
   function handleStatusChange(next: string) {
     if (!canEdit) return
-    if (next === estimate.status) return
+    if (next === proposal.status) return
     const now = new Date().toISOString()
-    setEstimate((prev) => {
-      const patch: Partial<Estimate> = { status: next as Estimate['status'] }
-      // sent_at is owned by SendEstimateModal — never set it here.
+    setProposal((prev) => {
+      const patch: Partial<Proposal> = { status: next as Proposal['status'] }
+      // sent_at is owned by SendProposalModal — never set it here.
       if (next === 'Accepted' && !prev.accepted_at) patch.accepted_at = now
       if (next === 'Declined' && !prev.declined_at) patch.declined_at = now
       return { ...prev, ...patch }
     })
   }
 
-  function handleSent(patch: Partial<Estimate>) {
-    setEstimate((prev) => ({ ...prev, ...patch }))
+  function handleSent(patch: Partial<Proposal>) {
+    setProposal((prev) => ({ ...prev, ...patch }))
     setIsSendOpen(false)
   }
 
   function handleExportPdf() {
-    const items = (estimate.line_items ?? []).map((item) => ({
+    const items = (proposal.line_items ?? []).map((item) => ({
       description: item.description,
       ft: item.ft,
       rate: item.rate,
       amount: calcAmount(item),
     }))
     const sub = items.reduce((sum, item) => sum + item.amount, 0)
-    const tax = estimate.tax ?? 0
+    const tax = proposal.tax ?? 0
     const tot = sub + tax
 
-    const { blob, filename } = exportEstimatePdf({
-      estimateNumber: estimate.estimate_number,
-      date: estimate.date,
+    const { blob, filename } = exportProposalPdf({
+      proposalNumber: proposal.estimate_number,
+      date: proposal.date,
       customerName: customer.name,
       customerCompany: customer.company ?? '',
       customerAddress: [
@@ -249,15 +249,15 @@ export default function EstimateEditorClient({
       ]
         .filter(Boolean)
         .join(', '),
-      projectName: estimate.project_name ?? '',
-      description: estimate.description ?? '',
-      salesperson: estimate.salesperson ?? '',
+      projectName: proposal.project_name ?? '',
+      description: proposal.description ?? '',
+      salesperson: proposal.salesperson ?? '',
       lineItems: items,
       materialSystems: [],
       subtotal: sub,
       tax,
       total: tot,
-      terms: estimate.terms ?? '',
+      terms: proposal.terms ?? '',
       companyName:
         settings?.company_name ?? 'Peckham Inc. DBA Peckham Coatings',
       companyAddress:
@@ -280,14 +280,14 @@ export default function EstimateEditorClient({
   // Whether the current status appears in our standard option set. If not (e.g.
   // legacy "Invoiced" rows), prepend it so the dropdown still reflects truth.
   const dropdownOptions: string[] = STATUS_OPTIONS.includes(
-    estimate.status as StatusOption
+    proposal.status as StatusOption
   )
     ? [...STATUS_OPTIONS]
-    : [estimate.status, ...STATUS_OPTIONS]
+    : [proposal.status, ...STATUS_OPTIONS]
 
   // Debounced auto-save for edit mode. Skips first render after hydration,
   // skips when read-only, debounces ~1000ms (matches LeadProjectDetailsCard).
-  // Per-keystroke setEstimate calls are fine — the SAVE call is debounced via
+  // Per-keystroke setProposal calls are fine — the SAVE call is debounced via
   // refs so we never hit Supabase on every keystroke.
   useEffect(() => {
     if (mode !== 'edit') return
@@ -296,7 +296,7 @@ export default function EstimateEditorClient({
       firstAutoSaveRunRef.current = false
       return
     }
-    if (!estimate.id) return
+    if (!proposal.id) return
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     if (savedIndicatorTimerRef.current)
@@ -305,34 +305,34 @@ export default function EstimateEditorClient({
     saveTimerRef.current = setTimeout(async () => {
       setSaveState('saving')
       const supabase = createClient()
-      const items = (estimate.line_items ?? []).map((item) => ({
+      const items = (proposal.line_items ?? []).map((item) => ({
         ...item,
         amount: calcAmount(item),
       }))
       const sub = items.reduce((sum, item) => sum + item.amount, 0)
-      const tax = estimate.tax ?? 0
+      const tax = proposal.tax ?? 0
       const tot = sub + tax
       const { error } = await supabase
         .from('estimates')
         .update({
-          date: estimate.date,
-          project_name: estimate.project_name ?? '',
-          description: estimate.description ?? '',
-          salesperson: estimate.salesperson ?? '',
+          date: proposal.date,
+          project_name: proposal.project_name ?? '',
+          description: proposal.description ?? '',
+          salesperson: proposal.salesperson ?? '',
           line_items: items,
           subtotal: sub,
           tax,
           total: tot,
-          terms: estimate.terms ?? '',
-          notes: estimate.notes ?? '',
-          status: estimate.status,
-          sent_at: estimate.sent_at,
-          accepted_at: estimate.accepted_at,
-          declined_at: estimate.declined_at,
+          terms: proposal.terms ?? '',
+          notes: proposal.notes ?? '',
+          status: proposal.status,
+          sent_at: proposal.sent_at,
+          accepted_at: proposal.accepted_at,
+          declined_at: proposal.declined_at,
         })
-        .eq('id', estimate.id)
+        .eq('id', proposal.id)
       if (error) {
-        console.error('[EstimateEditorClient] auto-save failed:', error)
+        console.error('[ProposalEditorClient] auto-save failed:', error)
         setSaveState('error')
       } else {
         setSaveState('saved')
@@ -346,7 +346,7 @@ export default function EstimateEditorClient({
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [mode, canEdit, estimate])
+  }, [mode, canEdit, proposal])
 
   // Final cleanup on unmount — clear any in-flight saved-indicator timer too.
   useEffect(() => {
@@ -363,9 +363,9 @@ export default function EstimateEditorClient({
   const backLabel = project ? `Back to ${project.name || 'project'}` : 'Back to Estimating'
 
   const title =
-    mode === 'new' && !estimate.estimate_number
+    mode === 'new' && !proposal.estimate_number
       ? 'New Proposal'
-      : `Proposal #${estimate.estimate_number}`
+      : `Proposal #${proposal.estimate_number}`
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">
@@ -384,8 +384,8 @@ export default function EstimateEditorClient({
             <h1 className="text-sm font-semibold text-gray-900 truncate">
               {title}
             </h1>
-            <span className={statusBadgeClasses(estimate.status || 'Draft')}>
-              {estimate.status || 'Draft'}
+            <span className={statusBadgeClasses(proposal.status || 'Draft')}>
+              {proposal.status || 'Draft'}
             </span>
           </div>
           <p className="text-xs text-gray-500 truncate">{customer.name}</p>
@@ -401,7 +401,7 @@ export default function EstimateEditorClient({
           )}
           {mode === 'edit' && canEdit && (
             <select
-              value={estimate.status || 'Draft'}
+              value={proposal.status || 'Draft'}
               onChange={(e) => handleStatusChange(e.target.value)}
               className="text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2 py-1.5 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
             >
@@ -413,8 +413,8 @@ export default function EstimateEditorClient({
             </select>
           )}
           {mode === 'edit' && !canEdit && (
-            <span className={statusBadgeClasses(estimate.status || 'Draft')}>
-              {estimate.status || 'Draft'}
+            <span className={statusBadgeClasses(proposal.status || 'Draft')}>
+              {proposal.status || 'Draft'}
             </span>
           )}
           {mode === 'edit' && canEdit && project && (
@@ -593,10 +593,10 @@ export default function EstimateEditorClient({
                     <input
                       type="number"
                       inputMode="decimal"
-                      value={estimate.tax ?? ''}
+                      value={proposal.tax ?? ''}
                       onChange={(e) => {
                         const n = parseNumberInput(e.target.value)
-                        setEstimate((prev) => ({ ...prev, tax: n ?? 0 }))
+                        setProposal((prev) => ({ ...prev, tax: n ?? 0 }))
                       }}
                       disabled={!canEdit}
                       placeholder="0.00"
@@ -621,9 +621,9 @@ export default function EstimateEditorClient({
             </label>
             <input
               type="text"
-              value={estimate.salesperson ?? ''}
+              value={proposal.salesperson ?? ''}
               onChange={(e) =>
-                setEstimate((prev) => ({
+                setProposal((prev) => ({
                   ...prev,
                   salesperson: e.target.value,
                 }))
@@ -640,9 +640,9 @@ export default function EstimateEditorClient({
               Terms
             </label>
             <textarea
-              value={estimate.terms ?? ''}
+              value={proposal.terms ?? ''}
               onChange={(e) =>
-                setEstimate((prev) => ({ ...prev, terms: e.target.value }))
+                setProposal((prev) => ({ ...prev, terms: e.target.value }))
               }
               disabled={!canEdit}
               rows={10}
@@ -657,9 +657,9 @@ export default function EstimateEditorClient({
               Notes
             </label>
             <textarea
-              value={estimate.notes ?? ''}
+              value={proposal.notes ?? ''}
               onChange={(e) =>
-                setEstimate((prev) => ({ ...prev, notes: e.target.value }))
+                setProposal((prev) => ({ ...prev, notes: e.target.value }))
               }
               disabled={!canEdit}
               rows={4}
@@ -671,8 +671,8 @@ export default function EstimateEditorClient({
       </div>
 
       {isSendOpen && project && (
-        <SendEstimateModal
-          estimate={estimate}
+        <SendProposalModal
+          proposal={proposal}
           customer={customer}
           project={project}
           userId={userId}

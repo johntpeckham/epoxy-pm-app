@@ -5,20 +5,20 @@ import { XIcon, MessageCircleIcon, Loader2Icon, AlertTriangleIcon } from 'lucide
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-import type { Customer, Estimate, EstimateFollowUp } from '@/components/estimates/types'
+import type { Customer, Proposal, ProposalFollowUp } from '@/components/proposals/types'
 import type { EstimatingProject, EstimatingReminder } from './types'
 
 interface LogFollowUpModalProps {
-  estimate: Estimate
+  proposal: Proposal
   customer: Customer
   project: EstimatingProject
   userId: string
   onClose: () => void
-  onCreated: (followUp: EstimateFollowUp) => void
+  onCreated: (followUp: ProposalFollowUp) => void
 }
 
 export default function LogFollowUpModal({
-  estimate,
+  proposal,
   customer,
   project,
   userId,
@@ -26,9 +26,9 @@ export default function LogFollowUpModal({
   onCreated,
 }: LogFollowUpModalProps) {
   const [followUpType, setFollowUpType] =
-    useState<EstimateFollowUp['follow_up_type']>('call')
+    useState<ProposalFollowUp['follow_up_type']>('call')
   const [outcome, setOutcome] =
-    useState<NonNullable<EstimateFollowUp['outcome']>>('connected')
+    useState<NonNullable<ProposalFollowUp['outcome']>>('connected')
   const [contactedName, setContactedName] = useState(customer.name ?? '')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -36,7 +36,7 @@ export default function LogFollowUpModal({
   const [pendingReminder, setPendingReminder] =
     useState<EstimatingReminder | null>(null)
   const [createdFollowUp, setCreatedFollowUp] =
-    useState<EstimateFollowUp | null>(null)
+    useState<ProposalFollowUp | null>(null)
 
   async function handleSave() {
     setSaving(true)
@@ -47,7 +47,8 @@ export default function LogFollowUpModal({
       const { data, error: insErr } = await supabase
         .from('estimate_follow_ups')
         .insert({
-          estimate_id: estimate.id,
+          // DB column kept as estimate_id until Phase 4.
+          estimate_id: proposal.id,
           project_id: project.id,
           follow_up_type: followUpType,
           notes: notes.trim() || null,
@@ -60,14 +61,16 @@ export default function LogFollowUpModal({
 
       if (insErr || !data) throw insErr ?? new Error('Insert failed')
 
-      const followUp = data as EstimateFollowUp
+      const followUp = data as ProposalFollowUp
 
-      // Log a notification so this appears in the bell
+      // Log a notification so this appears in the bell.
+      // Route /sales/estimating kept until Phase 3.
       const link = `/sales/estimating?customer=${customer.id}&project=${project.id}`
       await supabase.from('notifications').insert({
         user_id: userId,
+        // Notification type literal kept as 'estimate_follow_up' until Phase 4.
         type: 'estimate_follow_up',
-        title: `Follow-up logged · #${estimate.estimate_number}`,
+        title: `Follow-up logged · #${proposal.estimate_number}`,
         message: `${followUpType} with ${
           contactedName.trim() || customer.name || 'contact'
         } · outcome: ${outcome.replace(/_/g, ' ')}`,
@@ -156,7 +159,7 @@ export default function LogFollowUpModal({
                   value={followUpType}
                   onChange={(e) =>
                     setFollowUpType(
-                      e.target.value as EstimateFollowUp['follow_up_type']
+                      e.target.value as ProposalFollowUp['follow_up_type']
                     )
                   }
                   className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
@@ -175,7 +178,7 @@ export default function LogFollowUpModal({
                   value={outcome}
                   onChange={(e) =>
                     setOutcome(
-                      e.target.value as NonNullable<EstimateFollowUp['outcome']>
+                      e.target.value as NonNullable<ProposalFollowUp['outcome']>
                     )
                   }
                   className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"

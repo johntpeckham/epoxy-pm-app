@@ -3,13 +3,13 @@ export const dynamic = 'force-dynamic'
 import { CalculatorIcon } from 'lucide-react'
 import Link from 'next/link'
 import { requirePermission } from '@/lib/requirePermission'
-import EstimateEditorClient from '@/components/sales/estimating/EstimateEditorClient'
+import ProposalEditorClient from '@/components/sales/estimating/ProposalEditorClient'
 import {
   DEFAULT_TERMS,
   type Customer,
-  type Estimate,
-  type EstimateSettings,
-} from '@/components/estimates/types'
+  type Proposal,
+  type ProposalSettings,
+} from '@/components/proposals/types'
 import type { EstimatingProject } from '@/components/sales/estimating/types'
 
 interface PageProps {
@@ -50,7 +50,7 @@ function NotFoundState({
   )
 }
 
-export default async function EstimateEditorPage({
+export default async function ProposalEditorPage({
   params,
   searchParams,
 }: PageProps) {
@@ -81,7 +81,7 @@ export default async function EstimateEditorPage({
       .maybeSingle(),
   ])
 
-  const settings = (settingsData ?? null) as EstimateSettings | null
+  const settings = (settingsData ?? null) as ProposalSettings | null
   const formSettings = (formSettingsData ?? null) as FormSettings | null
 
   let defaultSalespersonName = ''
@@ -125,15 +125,16 @@ export default async function EstimateEditorPage({
       return <NotFoundState backHref={backHref} />
     }
 
-    let estimateNumber = settings?.next_estimate_number ?? 1000
+    // DB column kept as next_estimate_number until Phase 4.
+    let proposalNumber = settings?.next_estimate_number ?? 1000
     if (project?.project_number) {
       const m = project.project_number.match(/(\d+)/)
-      if (m) estimateNumber = parseInt(m[1], 10)
+      if (m) proposalNumber = parseInt(m[1], 10)
     }
 
-    const blank: Estimate = {
+    const blank: Proposal = {
       id: '',
-      estimate_number: estimateNumber,
+      estimate_number: proposalNumber,
       company_id: customerId,
       date: new Date().toISOString().split('T')[0],
       project_name: project?.name ?? '',
@@ -158,9 +159,9 @@ export default async function EstimateEditorPage({
     }
 
     return (
-      <EstimateEditorClient
+      <ProposalEditorClient
         mode="new"
-        estimate={blank}
+        proposal={blank}
         customer={companyData as Customer}
         project={project}
         settings={settings}
@@ -170,22 +171,22 @@ export default async function EstimateEditorPage({
     )
   }
 
-  const { data: estimateData } = await supabase
+  const { data: proposalData } = await supabase
     .from('estimates')
     .select('*')
     .eq('id', id)
     .maybeSingle()
 
-  if (!estimateData) {
+  if (!proposalData) {
     return <NotFoundState backHref={backHref} />
   }
 
-  const estimate = estimateData as Estimate
+  const proposal = proposalData as Proposal
 
   const { data: companyData } = await supabase
     .from('companies')
     .select('*')
-    .eq('id', estimate.company_id)
+    .eq('id', proposal.company_id)
     .maybeSingle()
 
   if (!companyData) {
@@ -193,9 +194,9 @@ export default async function EstimateEditorPage({
   }
 
   return (
-    <EstimateEditorClient
+    <ProposalEditorClient
       mode="edit"
-      estimate={estimate}
+      proposal={proposal}
       customer={companyData as Customer}
       project={project}
       settings={settings}

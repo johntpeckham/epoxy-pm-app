@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { requirePermission } from '@/lib/requirePermission'
 import ContactsPageClient from '@/components/office-contacts/ContactsPageClient'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 
 export default async function ContactsPage() {
   const { supabase, user } = await requirePermission('office', 'view')
