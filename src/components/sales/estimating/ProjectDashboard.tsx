@@ -83,8 +83,6 @@ export default function ProjectDashboard({
         <ProjectMeasurementsCard
           key={`measurements-${project.id}`}
           project={project}
-          userId={userId}
-          onPatch={onPatch}
         />
 
         <ProjectProposalsCard
