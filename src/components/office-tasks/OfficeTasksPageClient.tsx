@@ -618,22 +618,20 @@ export default function OfficeTasksPageClient({
             )}
 
             {activeTasks.length > 0 && (
-              <div className="rounded-lg border border-gray-100 overflow-hidden">
-                <div className="divide-y divide-gray-50">
-                  {activeTasks.map((task) => (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      getDisplayName={getDisplayName}
-                      projects={projects}
-                      onToggle={handleCheckbox}
-                      onUndo={cancelPendingComplete}
-                      pending={pendingCompleteIds.has(task.id)}
-                      onUpdateField={updateField}
-                      onEdit={(id) => setEditTaskId(id)}
-                    />
-                  ))}
-                </div>
+              <div className="space-y-2">
+                {activeTasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    getDisplayName={getDisplayName}
+                    projects={projects}
+                    onToggle={handleCheckbox}
+                    onUndo={cancelPendingComplete}
+                    pending={pendingCompleteIds.has(task.id)}
+                    onUpdateField={updateField}
+                    onEdit={(id) => setEditTaskId(id)}
+                  />
+                ))}
               </div>
             )}
 
@@ -652,7 +650,7 @@ export default function OfficeTasksPageClient({
                   Completed ({completedTasksList.length})
                 </button>
                 {completedExpanded && (
-                  <div className="border-t border-gray-100 divide-y divide-gray-50">
+                  <div className="border-t border-gray-100 p-2 space-y-2">
                     {completedTasksList.map((task) => (
                       <TaskRow
                         key={task.id}
@@ -1024,43 +1022,56 @@ function TaskRow({
     ? projects.find((p) => p.id === task.project_id)?.name
     : null
 
-  return (
-    <div className={`px-4 sm:px-5 py-3 hover:bg-gray-50 transition-colors group ${dimmed ? 'opacity-60' : ''}`}>
-      <div className="flex items-start gap-3">
-        <button
-          onClick={() => onToggle(task)}
-          className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-            task.is_completed || pending
-              ? 'border-amber-400 bg-amber-50'
-              : 'border-gray-300 hover:border-amber-500'
-          }`}
-        >
-          {(task.is_completed || pending) && <CheckIcon className="w-3 h-3 text-amber-500" />}
-        </button>
+  // Priority-colored left accent bar. Overdue (active, past-due) escalates to
+  // red regardless of priority — overdue is itself a high-urgency signal.
+  const overdue = !task.is_completed && isOverdue(task.due_date)
+  const priorityBarClass =
+    task.priority === 'High' || task.priority === 'Urgent' || overdue
+      ? 'bg-red-500'
+      : task.priority === 'Normal'
+        ? 'bg-blue-500'
+        : 'bg-gray-400'
 
-        <div className="flex-1 min-w-0">
-          {editing ? (
-            <input
-              ref={inputRef}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitTitle()
-                if (e.key === 'Escape') { setTitle(task.title); setEditing(false) }
-              }}
-              className="text-sm w-full bg-transparent outline-none border-b border-amber-400 text-gray-900 pb-0.5"
-            />
-          ) : (
-            <p
-              onClick={() => !dimmed && setEditing(true)}
-              className={`text-sm cursor-text truncate ${
-                dimmed ? 'text-gray-500 line-through' : 'text-gray-900 font-medium'
+  return (
+    <div className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group ${dimmed ? 'opacity-60' : ''}`}>
+      <div className="flex items-stretch">
+        <div className={`w-[3px] flex-shrink-0 ${priorityBarClass}`} aria-hidden />
+        <div className="flex-1 min-w-0 px-4 py-3.5">
+          <div className="flex items-start gap-3">
+            <button
+              onClick={() => onToggle(task)}
+              className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                task.is_completed || pending
+                  ? 'border-amber-400 bg-amber-50'
+                  : 'border-gray-300 hover:border-amber-500'
               }`}
             >
-              {task.title}
-            </p>
-          )}
+              {(task.is_completed || pending) && <CheckIcon className="w-3 h-3 text-amber-500" />}
+            </button>
+
+            <div className="flex-1 min-w-0">
+              {editing ? (
+                <input
+                  ref={inputRef}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onBlur={commitTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitTitle()
+                    if (e.key === 'Escape') { setTitle(task.title); setEditing(false) }
+                  }}
+                  className="text-base w-full bg-transparent outline-none border-b border-amber-400 text-gray-900 pb-0.5"
+                />
+              ) : (
+                <p
+                  onClick={() => !dimmed && setEditing(true)}
+                  className={`text-base cursor-text truncate ${
+                    dimmed ? 'text-gray-500 line-through' : 'text-gray-900 font-medium'
+                  }`}
+                >
+                  {task.title}
+                </p>
+              )}
 
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>
@@ -1116,13 +1127,13 @@ function TaskRow({
           </div>
 
           {expanded && task.description && (
-            <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap bg-gray-50 rounded-lg px-3 py-2">
+            <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap bg-white rounded-lg px-3 py-2">
               {task.description}
             </p>
           )}
         </div>
 
-        {pending ? (
+            {pending ? (
           // Undo affordance is persistently visible (not hover-gated) for the
           // full 2s pending window so it's easy to find. Replaces the Edit
           // button so the two don't fight for the same slot.
@@ -1149,6 +1160,8 @@ function TaskRow({
             </button>
           </div>
         )}
+          </div>
+        </div>
       </div>
     </div>
   )
