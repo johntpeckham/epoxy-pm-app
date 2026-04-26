@@ -355,7 +355,6 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
         status: 'active',
         source: 'appointment',
         source_ref_id: appt.id,
-        pipeline_stage: 'estimating',
         project_number: projectNumber,
         created_by: userId,
       })
@@ -368,13 +367,6 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
       return
     }
     const projectId = (newProject as { id: string }).id
-
-    await supabase.from('pipeline_history').insert({
-      project_id: projectId,
-      from_stage: null,
-      to_stage: 'estimating',
-      changed_by: userId,
-    })
 
     // Step 3: update the appointment
     const { error: updErr } = await supabase

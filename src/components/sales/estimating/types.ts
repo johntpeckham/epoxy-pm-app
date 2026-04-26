@@ -14,7 +14,6 @@ export interface EstimatingProject {
   source: EstimatingProjectSource | null
   source_ref_id: string | null
   measurements: string | null
-  pipeline_stage: string
   project_number: string | null
   created_by: string | null
   created_at: string
@@ -46,49 +45,6 @@ export const PROJECT_SOURCE_LABELS: Record<EstimatingProjectSource, string> = {
   manual: 'Created manually',
 }
 
-export interface PipelineStageAutomationRules {
-  auto_advance_trigger?:
-    | 'estimate_sent'
-    | 'estimate_accepted'
-    | 'estimate_declined'
-    | 'manual'
-  auto_reminder_enabled?: boolean
-  auto_reminder_days?: number
-}
-
-export interface PipelineStageNotificationRules {
-  notify_on_enter?: boolean
-  notify_who?: 'creator' | 'assigned' | 'admins' | 'specific'
-  notify_specific_user_id?: string | null
-  via_in_app?: boolean
-  via_email?: boolean
-  via_sms?: boolean
-}
-
-export interface PipelineStage {
-  id: string
-  slug: string
-  name: string
-  display_order: number
-  color: string
-  is_default: boolean
-  is_active: boolean
-  automation_rules?: PipelineStageAutomationRules
-  notification_rules?: PipelineStageNotificationRules
-  created_at: string
-  updated_at: string
-}
-
-export interface PipelineHistoryEntry {
-  id: string
-  project_id: string
-  from_stage: string | null
-  to_stage: string
-  changed_by: string | null
-  notes: string | null
-  created_at: string
-}
-
 export type ReminderStatus = 'pending' | 'completed' | 'snoozed' | 'dismissed'
 export type ReminderType = 'auto' | 'manual'
 
@@ -116,8 +72,6 @@ export interface ReminderRule {
   is_active: boolean
   created_at: string
 }
-
-export const SYSTEM_STAGES = ['won', 'lost'] as const
 
 // ── Takeoff types ──────────────────────────────────────────────────────
 

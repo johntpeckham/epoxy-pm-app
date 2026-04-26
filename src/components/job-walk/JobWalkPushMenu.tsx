@@ -203,7 +203,6 @@ function PushToEstimatingModal({
         source: 'job_walk',
         source_ref_id: walk.id,
         measurements: includeMeasurements ? walk.measurements : null,
-        pipeline_stage: 'job_walk',
         project_number: projectNumber,
         created_by: userId,
       })
@@ -216,13 +215,6 @@ function PushToEstimatingModal({
       return
     }
     const projectId = (newProject as { id: string }).id
-
-    await supabase.from('pipeline_history').insert({
-      project_id: projectId,
-      from_stage: null,
-      to_stage: 'job_walk',
-      changed_by: userId,
-    })
 
     if (includePdfs) {
       const { data: pdfs } = await supabase

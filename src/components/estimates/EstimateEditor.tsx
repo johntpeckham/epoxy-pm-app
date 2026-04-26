@@ -18,7 +18,7 @@ import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 import SendEstimateModal from '@/components/sales/estimating/SendEstimateModal'
-import type { EstimatingProject, PipelineStage } from '@/components/sales/estimating/types'
+import type { EstimatingProject } from '@/components/sales/estimating/types'
 
 interface EstimateEditorProps {
   estimate: Estimate
@@ -391,34 +391,6 @@ export default function EstimateEditor({
     setConverting(false)
   }
 
-  async function moveToTerminalStage(targetSlug: 'won' | 'lost') {
-    if (!project) return
-    const supabase = createClient()
-    const fromStage = project.pipeline_stage
-    if (fromStage === targetSlug) return
-    const { data: stagesData } = await supabase
-      .from('pipeline_stages')
-      .select('*')
-      .order('display_order', { ascending: true })
-    const stages = (stagesData as PipelineStage[]) ?? []
-    if (!stages.some((s) => s.slug === targetSlug)) return
-
-    const projectPatch: Partial<EstimatingProject> = { pipeline_stage: targetSlug }
-    if (targetSlug === 'won') projectPatch.status = 'completed'
-    if (targetSlug === 'lost') projectPatch.status = 'on_hold'
-    await supabase
-      .from('estimating_projects')
-      .update(projectPatch)
-      .eq('id', project.id)
-    await supabase.from('pipeline_history').insert({
-      project_id: project.id,
-      from_stage: fromStage,
-      to_stage: targetSlug,
-      changed_by: userId,
-    })
-    setProject({ ...project, ...projectPatch })
-  }
-
   async function completePendingReminders() {
     if (!project) return
     const supabase = createClient()
@@ -438,7 +410,6 @@ export default function EstimateEditor({
       .eq('id', estimateIdRef.current)
     setStatus('Accepted')
     setAcceptedAt(now)
-    await moveToTerminalStage('won')
     await completePendingReminders()
     onUpdated()
   }
@@ -452,7 +423,6 @@ export default function EstimateEditor({
       .eq('id', estimateIdRef.current)
     setStatus('Declined')
     setDeclinedAt(now)
-    await moveToTerminalStage('lost')
     await completePendingReminders()
     onUpdated()
   }
@@ -977,10 +947,9 @@ export default function EstimateEditor({
           project={project}
           userId={userId}
           onClose={() => setShowSendModal(false)}
-          onSent={(patch, pipelinePatch) => {
+          onSent={(patch) => {
             if (patch.status) setStatus(patch.status)
             if (patch.sent_at !== undefined) setSentAt(patch.sent_at ?? null)
-            if (pipelinePatch && project) setProject({ ...project, ...pipelinePatch })
             setShowSendModal(false)
             onUpdated()
           }}

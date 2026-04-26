@@ -23,10 +23,7 @@ import type {
   Estimate,
   EstimateFollowUp,
 } from '@/components/estimates/types'
-import type {
-  EstimatingProject,
-  PipelineStage,
-} from './types'
+import type { EstimatingProject } from './types'
 import SendEstimateModal from './SendEstimateModal'
 import LogFollowUpModal from './LogFollowUpModal'
 
@@ -34,7 +31,6 @@ interface ProjectEstimatesCardProps {
   project: EstimatingProject
   customer: Customer
   userId: string
-  onPatch: (patch: Partial<EstimatingProject>) => void
 }
 
 type StatusFilter = 'All' | 'Draft' | 'Sent' | 'Accepted' | 'Declined'
@@ -100,7 +96,6 @@ export default function ProjectEstimatesCard({
   project,
   customer,
   userId,
-  onPatch,
 }: ProjectEstimatesCardProps) {
   const router = useRouter()
   const [estimates, setEstimates] = useState<Estimate[]>([])
@@ -180,40 +175,12 @@ export default function ProjectEstimatesCard({
       .eq('status', 'pending')
   }
 
-  async function moveToTerminalStage(targetSlug: 'won' | 'lost') {
-    const supabase = createClient()
-    const fromStage = project.pipeline_stage
-    if (fromStage === targetSlug) return
-    const { data: stagesData } = await supabase
-      .from('pipeline_stages')
-      .select('*')
-      .order('display_order', { ascending: true })
-    const stages = (stagesData as PipelineStage[]) ?? []
-    if (!stages.some((s) => s.slug === targetSlug)) return
-
-    const projectPatch: Partial<EstimatingProject> = { pipeline_stage: targetSlug }
-    if (targetSlug === 'won') projectPatch.status = 'completed'
-    if (targetSlug === 'lost') projectPatch.status = 'on_hold'
-    await supabase
-      .from('estimating_projects')
-      .update(projectPatch)
-      .eq('id', project.id)
-    await supabase.from('pipeline_history').insert({
-      project_id: project.id,
-      from_stage: fromStage,
-      to_stage: targetSlug,
-      changed_by: userId,
-    })
-    onPatch(projectPatch)
-  }
-
   async function handleMarkAccepted(e: Estimate) {
     const supabase = createClient()
     const now = new Date().toISOString()
     const patch: Partial<Estimate> = { status: 'Accepted', accepted_at: now }
     await supabase.from('estimates').update(patch).eq('id', e.id)
     patchLocal(e.id, patch)
-    await moveToTerminalStage('won')
     await completePendingReminders()
   }
 
@@ -223,17 +190,11 @@ export default function ProjectEstimatesCard({
     const patch: Partial<Estimate> = { status: 'Declined', declined_at: now }
     await supabase.from('estimates').update(patch).eq('id', e.id)
     patchLocal(e.id, patch)
-    await moveToTerminalStage('lost')
     await completePendingReminders()
   }
 
-  function handleSent(
-    estimate: Estimate,
-    patch: Partial<Estimate>,
-    pipelinePatch?: Partial<EstimatingProject>
-  ) {
+  function handleSent(estimate: Estimate, patch: Partial<Estimate>) {
     patchLocal(estimate.id, patch)
-    if (pipelinePatch) onPatch(pipelinePatch)
     setSendingFor(null)
   }
 
@@ -461,9 +422,7 @@ export default function ProjectEstimatesCard({
           project={project}
           userId={userId}
           onClose={() => setSendingFor(null)}
-          onSent={(patch, pipelinePatch) =>
-            handleSent(sendingFor, patch, pipelinePatch)
-          }
+          onSent={(patch) => handleSent(sendingFor, patch)}
         />
       )}
 

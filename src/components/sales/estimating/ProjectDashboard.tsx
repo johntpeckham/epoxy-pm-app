@@ -8,7 +8,6 @@ import { usePermissions } from '@/lib/usePermissions'
 import ProjectTakeoffSheetsCard from './ProjectTakeoffSheetsCard'
 import ProjectMeasurementsCard from './ProjectMeasurementsCard'
 import ProjectEstimatesCard from './ProjectEstimatesCard'
-import ProjectPipelineCard from './ProjectPipelineCard'
 import ProjectRemindersCard from './ProjectRemindersCard'
 import ProjectNumberOverrideModal from './ProjectNumberOverrideModal'
 
@@ -64,13 +63,6 @@ export default function ProjectDashboard({
       </div>
 
       <div className="p-4 space-y-4">
-        <ProjectPipelineCard
-          key={`pipeline-${project.id}`}
-          project={project}
-          userId={userId}
-          onPatch={onPatch}
-        />
-
         <ProjectTakeoffSheetsCard
           key={`takeoffs-${project.id}`}
           project={project}
@@ -90,7 +82,6 @@ export default function ProjectDashboard({
           project={project}
           customer={customer}
           userId={userId}
-          onPatch={onPatch}
         />
 
         <ProjectRemindersCard
