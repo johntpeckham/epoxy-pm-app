@@ -4,30 +4,31 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { MonitorIcon } from 'lucide-react'
-import type { Customer, Estimate, EstimateSettings } from './types'
+import type { Customer, Proposal, ProposalSettings } from './types'
 import CustomersPanel from './CustomersPanel'
-import EstimatesWorkspace from './EstimatesWorkspace'
-import EstimatesDashboard from './EstimatesDashboard'
+import ProposalsWorkspace from './ProposalsWorkspace'
+import ProposalsDashboard from './ProposalsDashboard'
 import SetupPrompt from './SetupPrompt'
 import SettingsModal from './SettingsModal'
-import NewEstimateForm from './NewEstimateForm'
+import NewProposalForm from './NewProposalForm'
 
-interface EstimatesLayoutClientProps {
+interface ProposalsLayoutClientProps {
   initialCustomers: Customer[]
-  initialSettings: EstimateSettings | null
-  initialAllEstimates: Estimate[]
+  initialSettings: ProposalSettings | null
+  initialAllProposals: Proposal[]
   userId: string
 }
 
-export default function EstimatesLayoutClient({
+export default function ProposalsLayoutClient({
   initialCustomers,
   initialSettings,
-  initialAllEstimates,
+  initialAllProposals,
   userId,
-}: EstimatesLayoutClientProps) {
+}: ProposalsLayoutClientProps) {
   const searchParams = useSearchParams()
   const paramCustomerId = searchParams.get('customer')
-  const paramEstimateId = searchParams.get('estimate')
+  // URL param 'estimate' kept until Phase 3 (route rename).
+  const paramProposalId = searchParams.get('estimate')
   const paramFrom = searchParams.get('from')
   const paramProject = searchParams.get('project')
 
@@ -35,21 +36,22 @@ export default function EstimatesLayoutClient({
   const [selectedView, setSelectedView] = useState<'dashboard' | string>(
     paramCustomerId ?? 'dashboard'
   )
-  const [estimates, setEstimates] = useState<Estimate[]>([])
-  const [allEstimates, setAllEstimates] = useState<Estimate[]>(initialAllEstimates)
-  const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(
-    paramEstimateId
+  const [proposals, setProposals] = useState<Proposal[]>([])
+  const [allProposals, setAllProposals] = useState<Proposal[]>(initialAllProposals)
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(
+    paramProposalId
   )
-  const [settings, setSettings] = useState<EstimateSettings | null>(initialSettings)
+  const [settings, setSettings] = useState<ProposalSettings | null>(initialSettings)
   const [showSetup, setShowSetup] = useState(!initialSettings)
   const [showSettings, setShowSettings] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [pendingChangeOrder, setPendingChangeOrder] = useState(false)
-  const [showNewEstimateForm, setShowNewEstimateForm] = useState(false)
+  const [showNewProposalForm, setShowNewProposalForm] = useState(false)
 
   const backContext =
     paramFrom === 'estimating' && paramCustomerId
       ? {
+          // Route path string kept as /sales/estimating until Phase 3.
           url: `/sales/estimating?customer=${paramCustomerId}${
             paramProject ? `&project=${paramProject}` : ''
           }`,
@@ -64,7 +66,7 @@ export default function EstimatesLayoutClient({
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  // When the customer URL param is present, load that customer's estimates once.
+  // When the customer URL param is present, load that customer's proposals once.
   useEffect(() => {
     let cancelled = false
     async function loadFromParams() {
@@ -76,7 +78,7 @@ export default function EstimatesLayoutClient({
         .eq('company_id', paramCustomerId)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-      if (!cancelled && data) setEstimates(data)
+      if (!cancelled && data) setProposals(data)
     }
     loadFromParams()
     return () => {
@@ -108,7 +110,7 @@ export default function EstimatesLayoutClient({
     }
   }
 
-  async function handleSettingsSave(updated: EstimateSettings) {
+  async function handleSettingsSave(updated: ProposalSettings) {
     setSettings(updated)
     setShowSettings(false)
   }
@@ -125,7 +127,7 @@ export default function EstimatesLayoutClient({
 
   async function handleSelectView(view: 'dashboard' | string) {
     setSelectedView(view)
-    setSelectedEstimateId(null)
+    setSelectedProposalId(null)
     if (view !== 'dashboard') {
       const supabase = createClient()
       const { data } = await supabase
@@ -134,11 +136,11 @@ export default function EstimatesLayoutClient({
         .eq('company_id', view)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-      if (data) setEstimates(data)
+      if (data) setProposals(data)
     }
   }
 
-  async function refreshEstimates() {
+  async function refreshProposals() {
     if (!selectedCustomerId) return
     const supabase = createClient()
     const { data } = await supabase
@@ -147,29 +149,29 @@ export default function EstimatesLayoutClient({
       .eq('company_id', selectedCustomerId)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-    if (data) setEstimates(data)
-    // Also refresh all estimates for dashboard
-    refreshAllEstimates()
+    if (data) setProposals(data)
+    // Also refresh all proposals for dashboard
+    refreshAllProposals()
   }
 
-  async function refreshAllEstimates() {
+  async function refreshAllProposals() {
     const supabase = createClient()
     const { data } = await supabase
       .from('estimates')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-    if (data) setAllEstimates(data)
+    if (data) setAllProposals(data)
   }
 
-  function handleNewEstimateFromPanel() {
-    setShowNewEstimateForm(true)
+  function handleNewProposalFromPanel() {
+    setShowNewProposalForm(true)
   }
 
-  async function handleEstimateFormCreated(customerId: string, estimateId: string) {
-    setShowNewEstimateForm(false)
+  async function handleProposalFormCreated(customerId: string, proposalId: string) {
+    setShowNewProposalForm(false)
     await handleSelectView(customerId)
-    // Refresh estimates for the new customer view
+    // Refresh proposals for the new customer view
     const supabase = createClient()
     const { data } = await supabase
       .from('estimates')
@@ -177,13 +179,13 @@ export default function EstimatesLayoutClient({
       .eq('company_id', customerId)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-    if (data) setEstimates(data)
-    setSelectedEstimateId(estimateId)
-    refreshAllEstimates()
+    if (data) setProposals(data)
+    setSelectedProposalId(proposalId)
+    refreshAllProposals()
   }
 
   function handleNewChangeOrderFromPanel() {
-    if (selectedEstimateId) {
+    if (selectedProposalId) {
       setPendingChangeOrder(true)
     }
   }
@@ -197,7 +199,7 @@ export default function EstimatesLayoutClient({
           </div>
           <h2 className="text-lg font-bold text-gray-900 mb-2">Desktop Only Feature</h2>
           <p className="text-sm text-gray-500 leading-relaxed">
-            Estimates is designed for desktop use. Please open this page on a desktop or laptop for the best experience.
+            Proposals is designed for desktop use. Please open this page on a desktop or laptop for the best experience.
           </p>
         </div>
       </div>
@@ -219,49 +221,49 @@ export default function EstimatesLayoutClient({
         <CustomersPanel
           customers={customers}
           selectedView={selectedView}
-          estimates={estimates}
+          proposals={proposals}
           userId={userId}
           onSelectView={handleSelectView}
           onCustomerAdded={refreshCustomers}
           onOpenSettings={() => setShowSettings(true)}
-          onNewEstimate={handleNewEstimateFromPanel}
+          onNewProposal={handleNewProposalFromPanel}
           onNewChangeOrder={handleNewChangeOrderFromPanel}
         />
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-gray-50 flex flex-col">
-          {showNewEstimateForm ? (
-            <NewEstimateForm
+          {showNewProposalForm ? (
+            <NewProposalForm
               customers={customers}
               settings={settings}
               userId={userId}
               preselectedCustomerId={selectedCustomerId}
-              onCreated={handleEstimateFormCreated}
-              onCancel={() => setShowNewEstimateForm(false)}
+              onCreated={handleProposalFormCreated}
+              onCancel={() => setShowNewProposalForm(false)}
             />
           ) : selectedView === 'dashboard' ? (
-            <EstimatesDashboard
-              estimates={allEstimates}
+            <ProposalsDashboard
+              proposals={allProposals}
               customers={customers}
-              onSelectEstimate={async (customerId, estimateId) => {
+              onSelectProposal={async (customerId, proposalId) => {
                 await handleSelectView(customerId)
-                setSelectedEstimateId(estimateId)
+                setSelectedProposalId(proposalId)
               }}
-              onEstimateDeleted={() => { refreshAllEstimates(); refreshEstimates() }}
+              onProposalDeleted={() => { refreshAllProposals(); refreshProposals() }}
             />
           ) : (
-            <EstimatesWorkspace
+            <ProposalsWorkspace
               customer={selectedCustomer}
-              estimates={estimates}
-              selectedEstimateId={selectedEstimateId}
+              proposals={proposals}
+              selectedProposalId={selectedProposalId}
               settings={settings}
               userId={userId}
-              onSelectEstimate={setSelectedEstimateId}
-              onEstimateCreated={refreshEstimates}
-              onEstimateUpdated={refreshEstimates}
-              onBack={() => setSelectedEstimateId(null)}
+              onSelectProposal={setSelectedProposalId}
+              onProposalCreated={refreshProposals}
+              onProposalUpdated={refreshProposals}
+              onBack={() => setSelectedProposalId(null)}
               onOpenSettings={() => setShowSettings(true)}
               pendingChangeOrder={pendingChangeOrder}
               onChangeOrderHandled={() => setPendingChangeOrder(false)}
-              onEstimateDeleted={() => { setSelectedEstimateId(null); refreshEstimates(); refreshAllEstimates() }}
+              onProposalDeleted={() => { setSelectedProposalId(null); refreshProposals(); refreshAllProposals() }}
               backContext={backContext}
             />
           )}

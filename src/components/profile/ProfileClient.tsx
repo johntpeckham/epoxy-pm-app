@@ -15,7 +15,7 @@ import { useTheme } from '@/components/theme/ThemeProvider'
 import EmployeeManagement from './EmployeeManagement'
 import ReminderRulesEditor from './ReminderRulesEditor'
 import ProjectNumbersEditor from './ProjectNumbersEditor'
-import EstimateFormSettingsEditor from './EstimateFormSettingsEditor'
+import ProposalFormSettingsEditor from './ProposalFormSettingsEditor'
 import TakeoffTemplatesEditor from './TakeoffTemplatesEditor'
 import TakeoffDefaultsEditor from './TakeoffDefaultsEditor'
 import VendorManagementModal from '@/components/ui/VendorManagementModal'
@@ -1086,7 +1086,7 @@ function SalesManagementModal({
 }) {
   const [showRuleEditor, setShowRuleEditor] = useState(false)
   const [showProjectNumbersEditor, setShowProjectNumbersEditor] = useState(false)
-  const [showEstimateFormEditor, setShowEstimateFormEditor] = useState(false)
+  const [showProposalFormEditor, setShowProposalFormEditor] = useState(false)
   const [showTakeoffTemplatesEditor, setShowTakeoffTemplatesEditor] = useState(false)
   const [showTakeoffDefaultsEditor, setShowTakeoffDefaultsEditor] = useState(false)
 
@@ -1100,7 +1100,7 @@ function SalesManagementModal({
       icon: <FileTextIcon className="w-5 h-5" />,
       title: 'Edit Estimate Form',
       description: 'Customize the fields and layout shown on the estimate.',
-      onClick: () => setShowEstimateFormEditor(true),
+      onClick: () => setShowProposalFormEditor(true),
     },
     {
       icon: <BellIcon className="w-5 h-5" />,
@@ -1230,9 +1230,9 @@ function SalesManagementModal({
       {showProjectNumbersEditor && (
         <ProjectNumbersEditor onClose={() => setShowProjectNumbersEditor(false)} />
       )}
-      {showEstimateFormEditor && (
-        <EstimateFormSettingsEditor
-          onClose={() => setShowEstimateFormEditor(false)}
+      {showProposalFormEditor && (
+        <ProposalFormSettingsEditor
+          onClose={() => setShowProposalFormEditor(false)}
         />
       )}
       {showTakeoffTemplatesEditor && (

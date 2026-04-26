@@ -1,4 +1,4 @@
-import type { Customer, LineItem, ChangeOrder } from '../estimates/types'
+import type { Customer, LineItem, ChangeOrder } from '../proposals/types'
 
 export type { Customer, LineItem, ChangeOrder }
 

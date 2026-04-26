@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, UserIcon, PlusIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
 import type { Lead, LeadCategory } from './LeadsClient'
 

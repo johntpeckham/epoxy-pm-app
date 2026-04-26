@@ -2,7 +2,7 @@ import jsPDF from 'jspdf'
 import type { MaterialSystemRow } from './types'
 
 interface PdfData {
-  estimateNumber: number
+  proposalNumber: number
   date: string
   customerName: string
   customerCompany: string
@@ -26,7 +26,7 @@ function fmtMoney(n: number): string {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export function exportEstimatePdf(data: PdfData): { blob: Blob; filename: string } {
+export function exportProposalPdf(data: PdfData): { blob: Blob; filename: string } {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const margin = 50
@@ -82,7 +82,7 @@ export function exportEstimatePdf(data: PdfData): { blob: Blob; filename: string
   doc.text(data.customerName, margin, y)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(217, 119, 6)
-  doc.text(String(data.estimateNumber), pageWidth - margin, y, { align: 'right' })
+  doc.text(String(data.proposalNumber), pageWidth - margin, y, { align: 'right' })
   y += 13
   doc.setTextColor(100, 100, 100)
   doc.setFont('helvetica', 'normal')
@@ -336,6 +336,6 @@ export function exportEstimatePdf(data: PdfData): { blob: Blob; filename: string
   doc.text('Accepted Date _________________________', margin + contentWidth / 2, y)
 
   // Return blob + filename
-  const filename = `Proposal-${data.estimateNumber}-${data.customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+  const filename = `Proposal-${data.proposalNumber}-${data.customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
   return { blob: doc.output('blob'), filename }
 }

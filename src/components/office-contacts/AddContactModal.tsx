@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 
 interface AddContactModalProps {
   userId: string

@@ -19,7 +19,7 @@ import {
   UserIcon,
 } from 'lucide-react'
 import Link from 'next/link'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import type { UserRole } from '@/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -155,7 +155,7 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
     router.replace(qs ? `/job-walk?${qs}` : '/job-walk', { scroll: false })
   }
 
-  const handleCreateFromModal = useCallback((walk: JobWalk, newCustomer?: import('@/components/estimates/types').Customer | null) => {
+  const handleCreateFromModal = useCallback((walk: JobWalk, newCustomer?: import('@/components/proposals/types').Customer | null) => {
     setJobWalks((prev) => [walk, ...prev])
     if (newCustomer) {
       setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)))

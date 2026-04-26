@@ -4,16 +4,16 @@ import { useState } from 'react'
 import { XIcon, SendIcon, Loader2Icon, AlertTriangleIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
-import type { Customer, Estimate } from '@/components/estimates/types'
+import type { Customer, Proposal } from '@/components/proposals/types'
 import type { EstimatingProject, ReminderRule } from './types'
 
-interface SendEstimateModalProps {
-  estimate: Estimate
+interface SendProposalModalProps {
+  proposal: Proposal
   customer: Customer
   project: EstimatingProject
   userId: string
   onClose: () => void
-  onSent: (patch: Partial<Estimate>) => void
+  onSent: (patch: Partial<Proposal>) => void
 }
 
 function formatMoney(n: number): string {
@@ -23,19 +23,19 @@ function formatMoney(n: number): string {
   })}`
 }
 
-export default function SendEstimateModal({
-  estimate,
+export default function SendProposalModal({
+  proposal,
   customer,
   project,
   userId,
   onClose,
   onSent,
-}: SendEstimateModalProps) {
+}: SendProposalModalProps) {
   const [email, setEmail] = useState(customer.email ?? '')
   const [name, setName] = useState(customer.name ?? '')
   const [subject, setSubject] = useState(
-    `Proposal #${estimate.estimate_number} — ${
-      estimate.project_name || project.name || 'Project'
+    `Proposal #${proposal.estimate_number} — ${
+      proposal.project_name || project.name || 'Project'
     } from Peckham Coatings`
   )
   const [message, setMessage] = useState(
@@ -44,8 +44,8 @@ export default function SendEstimateModal({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const lineItemCount = Array.isArray(estimate.line_items)
-    ? estimate.line_items.length
+  const lineItemCount = Array.isArray(proposal.line_items)
+    ? proposal.line_items.length
     : 0
 
   async function handleSend() {
@@ -59,8 +59,8 @@ export default function SendEstimateModal({
     const now = new Date().toISOString()
 
     try {
-      // 1. Update the estimate
-      const estimatePatch: Partial<Estimate> = {
+      // 1. Update the proposal
+      const proposalPatch: Partial<Proposal> = {
         status: 'Sent',
         sent_at: now,
         sent_to_email: email.trim(),
@@ -69,11 +69,12 @@ export default function SendEstimateModal({
       }
       const { error: estErr } = await supabase
         .from('estimates')
-        .update(estimatePatch)
-        .eq('id', estimate.id)
+        .update(proposalPatch)
+        .eq('id', proposal.id)
       if (estErr) throw estErr
 
-      // 2. Auto-create reminders from active rules (skip duplicates)
+      // 2. Auto-create reminders from active rules (skip duplicates).
+      // DB trigger_event literal kept as 'estimate_sent' until Phase 4.
       const { data: rulesData } = await supabase
         .from('reminder_rules')
         .select('*')
@@ -113,22 +114,24 @@ export default function SendEstimateModal({
         }
       }
 
-      // 3. Create a notification for the sender
+      // 3. Create a notification for the sender.
+      // Route path /sales/estimating kept until Phase 3.
       const link = `/sales/estimating?customer=${customer.id}&project=${project.id}`
       await supabase.from('notifications').insert({
         user_id: userId,
+        // Notification type literal kept as 'estimate_sent' until Phase 4.
         type: 'estimate_sent',
-        title: `Proposal #${estimate.estimate_number} sent`,
-        message: `Proposal #${estimate.estimate_number} sent to ${
+        title: `Proposal #${proposal.estimate_number} sent`,
+        message: `Proposal #${proposal.estimate_number} sent to ${
           name.trim() || customer.name || email.trim()
         }`,
         link,
         read: false,
       })
 
-      onSent(estimatePatch)
+      onSent(proposalPatch)
     } catch (err) {
-      console.error('[SendEstimateModal] Send failed:', err)
+      console.error('[SendProposalModal] Send failed:', err)
       setError(
         err instanceof Error ? err.message : 'Failed to send proposal.'
       )
@@ -213,13 +216,13 @@ export default function SendEstimateModal({
             <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-1">
               <p className="text-xs text-gray-500">Proposal preview</p>
               <p className="text-sm font-medium text-gray-900">
-                #{estimate.estimate_number}
-                {estimate.project_name ? ` · ${estimate.project_name}` : ''}
+                #{proposal.estimate_number}
+                {proposal.project_name ? ` · ${proposal.project_name}` : ''}
               </p>
               <p className="text-xs text-gray-500">
                 {lineItemCount} line item{lineItemCount === 1 ? '' : 's'} ·{' '}
                 <span className="font-semibold text-gray-900">
-                  {formatMoney(estimate.total ?? 0)}
+                  {formatMoney(proposal.total ?? 0)}
                 </span>
               </p>
             </div>

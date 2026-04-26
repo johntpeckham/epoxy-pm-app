@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { PlusIcon, XIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { LineItem } from '../estimates/types'
+import type { LineItem } from '../proposals/types'
 
 interface ChangeOrderModalProps {
   onSave: (data: { description: string; lineItems: LineItem[]; notes: string }) => void

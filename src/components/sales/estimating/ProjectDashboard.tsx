@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { PencilIcon, ChevronLeftIcon } from 'lucide-react'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
 import { usePermissions } from '@/lib/usePermissions'
 import ProjectTakeoffSheetsCard from './ProjectTakeoffSheetsCard'
 import ProjectMeasurementsCard from './ProjectMeasurementsCard'
-import ProjectEstimatesCard from './ProjectEstimatesCard'
+import ProjectProposalsCard from './ProjectProposalsCard'
 import ProjectRemindersCard from './ProjectRemindersCard'
 import ProjectNumberOverrideModal from './ProjectNumberOverrideModal'
 
@@ -87,8 +87,8 @@ export default function ProjectDashboard({
           onPatch={onPatch}
         />
 
-        <ProjectEstimatesCard
-          key={`estimates-${project.id}`}
+        <ProjectProposalsCard
+          key={`proposals-${project.id}`}
           project={project}
           customer={customer}
           userId={userId}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { SettingsIcon, PencilIcon } from 'lucide-react'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
 import type { Lead } from './LeadsClient'
 import LeadEditInfoModal from './LeadEditInfoModal'

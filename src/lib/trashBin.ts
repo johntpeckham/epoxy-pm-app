@@ -152,34 +152,38 @@ export async function softDeleteProject(
 }
 
 /**
- * Soft-delete an estimate with its change orders bundled together.
+ * Soft-delete a proposal with its change orders bundled together.
  */
-export async function softDeleteEstimate(
+export async function softDeleteProposal(
   supabase: SupabaseClient,
-  estimateId: string,
-  estimateName: string,
+  proposalId: string,
+  proposalName: string,
   deletedBy: string,
   relatedProject?: string | null,
 ): Promise<{ error: string | null }> {
-  const { data: estimate } = await supabase.from('estimates').select('*').eq('id', estimateId).single()
-  if (!estimate) return { error: 'Estimate not found' }
+  // DB table name kept as 'estimates' until Phase 4.
+  const { data: proposal } = await supabase.from('estimates').select('*').eq('id', proposalId).single()
+  if (!proposal) return { error: 'Proposal not found' }
 
-  const { data: changeOrders } = await supabase.from('change_orders').select('*').eq('estimate_id', estimateId)
+  // DB column name kept as estimate_id until Phase 4.
+  const { data: changeOrders } = await supabase.from('change_orders').select('*').eq('estimate_id', proposalId)
 
-  const itemData: Record<string, unknown> = { estimate, change_orders: changeOrders ?? [] }
+  // Snapshot key kept as 'estimate' so existing trash_bin rows remain restorable.
+  const itemData: Record<string, unknown> = { estimate: proposal, change_orders: changeOrders ?? [] }
 
   const { error: trashErr } = await supabase.from('trash_bin').insert({
+    // DB enum literal kept as 'estimate' until Phase 4.
     item_type: 'estimate',
-    item_id: estimateId,
-    item_name: estimateName,
+    item_id: proposalId,
+    item_name: proposalName,
     item_data: itemData,
     related_project: relatedProject || null,
     deleted_by: deletedBy,
   })
   if (trashErr) return { error: 'Failed to move to trash: ' + trashErr.message }
 
-  await supabase.from('change_orders').delete().eq('estimate_id', estimateId)
-  const { error: deleteErr } = await supabase.from('estimates').delete().eq('id', estimateId)
+  await supabase.from('change_orders').delete().eq('estimate_id', proposalId)
+  const { error: deleteErr } = await supabase.from('estimates').delete().eq('id', proposalId)
   if (deleteErr) return { error: 'Trashed but failed to delete: ' + deleteErr.message }
 
   return { error: null }
@@ -246,17 +250,18 @@ export async function restoreFromTrash(
         }
       }
     } else if (item_type === 'estimate') {
-      const estimateData = item_data.estimate as Record<string, unknown>
-      if (!estimateData) return { error: 'No estimate data found' }
+      // DB enum literal 'estimate' kept until Phase 4.
+      const proposalData = item_data.estimate as Record<string, unknown>
+      if (!proposalData) return { error: 'No proposal data found' }
 
       // Check if parent project still exists
-      if (estimateData.project_id) {
-        const { data: proj } = await supabase.from('projects').select('id').eq('id', estimateData.project_id).single()
+      if (proposalData.project_id) {
+        const { data: proj } = await supabase.from('projects').select('id').eq('id', proposalData.project_id).single()
         if (!proj) return { error: 'Cannot restore — the parent project no longer exists' }
       }
 
-      const { error } = await supabase.from('estimates').insert(estimateData)
-      if (error) return { error: 'Failed to restore estimate: ' + error.message }
+      const { error } = await supabase.from('estimates').insert(proposalData)
+      if (error) return { error: 'Failed to restore proposal: ' + error.message }
 
       const cos = item_data.change_orders as Record<string, unknown>[] | undefined
       if (cos && cos.length > 0) {
@@ -333,7 +338,7 @@ export const ITEM_TYPE_LABELS: Record<string, string> = {
   document: 'Document',
   contract: 'Contract',
   salesman_expense: 'Expense',
-  estimate: 'Estimate',
+  estimate: 'Proposal',
   invoice: 'Invoice',
   change_order: 'Change Order',
   checklist_template: 'Checklist Template',

@@ -3,15 +3,15 @@
 import { useState } from 'react'
 import { FileTextIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { softDeleteEstimate } from '@/lib/trashBin'
-import type { Estimate } from './types'
+import { softDeleteProposal } from '@/lib/trashBin'
+import type { Proposal } from './types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
-interface EstimatesListProps {
-  estimates: Estimate[]
+interface ProposalsListProps {
+  proposals: Proposal[]
   onSelect: (id: string) => void
   userId: string
-  onEstimateDeleted?: () => void
+  onProposalDeleted?: () => void
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -21,27 +21,27 @@ const STATUS_COLORS: Record<string, string> = {
   Invoiced: 'bg-amber-100 text-amber-700',
 }
 
-export default function EstimatesList({ estimates, onSelect, userId, onEstimateDeleted }: EstimatesListProps) {
+export default function ProposalsList({ proposals, onSelect, userId, onProposalDeleted }: ProposalsListProps) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  async function handleDeleteEstimate() {
+  async function handleDeleteProposal() {
     if (!deleteTarget) return
     setIsDeleting(true)
     const supabase = createClient()
-    const target = estimates.find((e) => e.id === deleteTarget)
-    const displayName = target ? `Estimate #${target.estimate_number}` : 'Estimate'
-    await softDeleteEstimate(supabase, deleteTarget, displayName, userId, target?.project_name || null)
+    const target = proposals.find((e) => e.id === deleteTarget)
+    const displayName = target ? `Proposal #${target.estimate_number}` : 'Proposal'
+    await softDeleteProposal(supabase, deleteTarget, displayName, userId, target?.project_name || null)
     setIsDeleting(false)
     setDeleteTarget(null)
-    onEstimateDeleted?.()
+    onProposalDeleted?.()
   }
 
-  if (estimates.length === 0) {
+  if (proposals.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-6">
         <FileTextIcon className="w-10 h-10 text-gray-300 mb-2" />
-        <p className="text-sm text-gray-400">No estimates for this customer yet.</p>
+        <p className="text-sm text-gray-400">No proposals for this customer yet.</p>
       </div>
     )
   }
@@ -49,7 +49,7 @@ export default function EstimatesList({ estimates, onSelect, userId, onEstimateD
   return (
     <>
       <div className="p-4 space-y-2">
-        {estimates.map((est) => (
+        {proposals.map((est) => (
           <div
             key={est.id}
             onClick={() => onSelect(est.id)}
@@ -66,7 +66,7 @@ export default function EstimatesList({ estimates, onSelect, userId, onEstimateD
                 <button
                   onClick={(e) => { e.stopPropagation(); setDeleteTarget(est.id) }}
                   className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded"
-                  title="Delete estimate"
+                  title="Delete proposal"
                 >
                   <Trash2Icon className="w-4 h-4" />
                 </button>
@@ -86,9 +86,9 @@ export default function EstimatesList({ estimates, onSelect, userId, onEstimateD
       </div>
       {deleteTarget && (
         <ConfirmDialog
-          title="Delete Estimate"
-          message="Are you sure you want to move this estimate to the trash bin? You can restore it within 30 days."
-          onConfirm={handleDeleteEstimate}
+          title="Delete Proposal"
+          message="Are you sure you want to move this proposal to the trash bin? You can restore it within 30 days."
+          onConfirm={handleDeleteProposal}
           onCancel={() => setDeleteTarget(null)}
           loading={isDeleting}
         />

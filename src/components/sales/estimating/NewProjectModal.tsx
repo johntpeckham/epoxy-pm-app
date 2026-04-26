@@ -15,7 +15,7 @@ import {
   assignNextProjectNumber,
   peekNextProjectNumber,
 } from '@/lib/nextProjectNumber'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
 
 interface NewProjectModalProps {

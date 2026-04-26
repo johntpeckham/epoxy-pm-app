@@ -35,8 +35,9 @@ export interface MaterialSystemRow {
   items: MaterialSystemItemRow[]
 }
 
-export interface Estimate {
+export interface Proposal {
   id: string
+  // DB column name kept as estimate_number until Phase 4.
   estimate_number: number
   company_id: string
   date: string
@@ -61,8 +62,8 @@ export interface Estimate {
   user_id: string
 }
 
-export type EstimateFollowUpType = 'call' | 'email' | 'text' | 'other'
-export type EstimateFollowUpOutcome =
+export type ProposalFollowUpType = 'call' | 'email' | 'text' | 'other'
+export type ProposalFollowUpOutcome =
   | 'connected'
   | 'voicemail'
   | 'no_answer'
@@ -70,21 +71,23 @@ export type EstimateFollowUpOutcome =
   | 'replied'
   | 'other'
 
-export interface EstimateFollowUp {
+export interface ProposalFollowUp {
   id: string
+  // DB column name kept as estimate_id until Phase 4.
   estimate_id: string
   project_id: string | null
-  follow_up_type: EstimateFollowUpType
+  follow_up_type: ProposalFollowUpType
   notes: string | null
-  outcome: EstimateFollowUpOutcome | null
+  outcome: ProposalFollowUpOutcome | null
   contacted_name: string | null
   created_by: string | null
   created_at: string
 }
 
-export interface EstimateSettings {
+export interface ProposalSettings {
   id: string
   user_id: string
+  // DB column name kept as next_estimate_number until Phase 4.
   next_estimate_number: number
   company_name: string | null
   company_address: string | null
@@ -96,8 +99,10 @@ export interface EstimateSettings {
 
 export interface ChangeOrder {
   id: string
+  // DB enum literal kept as 'estimate' | 'invoice' until Phase 4.
   parent_type: 'estimate' | 'invoice'
   parent_id: string
+  // DB column name kept as estimate_id until Phase 4.
   estimate_id: string | null
   invoice_id: string | null
   change_order_number: string

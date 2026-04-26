@@ -5,11 +5,11 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ArrowLeftIcon, PlusIcon, XIcon, GripVerticalIcon, ChevronDownIcon, CheckIcon, ReceiptIcon, FilePlusIcon, Trash2Icon, SendIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { softDeleteEstimate, moveToTrash } from '@/lib/trashBin'
+import { softDeleteProposal, moveToTrash } from '@/lib/trashBin'
 import { applyDefaultChecklist } from '@/lib/applyDefaultChecklist'
-import type { Customer, Estimate, EstimateSettings, LineItem, ChangeOrder, MaterialSystemRow } from './types'
+import type { Customer, Proposal, ProposalSettings, LineItem, ChangeOrder, MaterialSystemRow } from './types'
 import { DEFAULT_TERMS } from './types'
-import { exportEstimatePdf } from './pdfExport'
+import { exportProposalPdf } from './pdfExport'
 import ChangeOrderModal from '../shared/ChangeOrderModal'
 import ChangeOrdersList from '../shared/ChangeOrdersList'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -17,13 +17,13 @@ import { useMaterialSystems } from '@/lib/useMaterialSystems'
 import MaterialSystemPicker from '@/components/ui/MaterialSystemPicker'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
-import SendEstimateModal from '@/components/sales/estimating/SendEstimateModal'
+import SendProposalModal from '@/components/sales/estimating/SendProposalModal'
 import type { EstimatingProject } from '@/components/sales/estimating/types'
 
-interface EstimateEditorProps {
-  estimate: Estimate
+interface ProposalEditorProps {
+  proposal: Proposal
   customer: Customer
-  settings: EstimateSettings | null
+  settings: ProposalSettings | null
   userId: string
   onBack: () => void
   onUpdated: () => void
@@ -59,8 +59,8 @@ function statusBadgeClasses(status: string): string {
   return `${base} bg-gray-100 text-gray-600`
 }
 
-export default function EstimateEditor({
-  estimate: initialEstimate,
+export default function ProposalEditor({
+  proposal: initialProposal,
   customer,
   settings,
   userId,
@@ -71,23 +71,24 @@ export default function EstimateEditor({
   onChangeOrderHandled,
   onDeleted,
   backContext,
-}: EstimateEditorProps) {
+}: ProposalEditorProps) {
   const searchParams = useSearchParams()
   const fromParam = searchParams?.get('from') ?? null
   const projectIdParam = searchParams?.get('project') ?? null
-  const [estimateNumber, setEstimateNumber] = useState(initialEstimate.estimate_number)
-  const [date, setDate] = useState(initialEstimate.date)
-  const [projectName, setProjectName] = useState(initialEstimate.project_name ?? '')
-  const [description, setDescription] = useState(initialEstimate.description ?? '')
-  const [salesperson, setSalesperson] = useState(initialEstimate.salesperson ?? '')
+  // DB column kept as estimate_number until Phase 4.
+  const [proposalNumber, setProposalNumber] = useState(initialProposal.estimate_number)
+  const [date, setDate] = useState(initialProposal.date)
+  const [projectName, setProjectName] = useState(initialProposal.project_name ?? '')
+  const [description, setDescription] = useState(initialProposal.description ?? '')
+  const [salesperson, setSalesperson] = useState(initialProposal.salesperson ?? '')
   const [lineItems, setLineItems] = useState<LineItem[]>(
-    (initialEstimate.line_items && initialEstimate.line_items.length > 0)
-      ? initialEstimate.line_items
+    (initialProposal.line_items && initialProposal.line_items.length > 0)
+      ? initialProposal.line_items
       : [{ id: genId(), description: '', ft: null, rate: null, amount: 0 }]
   )
-  const [tax, setTax] = useState(initialEstimate.tax ?? 0)
-  const [terms, setTerms] = useState(initialEstimate.terms ?? DEFAULT_TERMS)
-  const [status, setStatus] = useState<Estimate['status']>(initialEstimate.status)
+  const [tax, setTax] = useState(initialProposal.tax ?? 0)
+  const [terms, setTerms] = useState(initialProposal.terms ?? DEFAULT_TERMS)
+  const [status, setStatus] = useState<Proposal['status']>(initialProposal.status)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [pushSuccess, setPushSuccess] = useState(false)
@@ -105,17 +106,17 @@ export default function EstimateEditor({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [materialSystemRows, setMaterialSystemRows] = useState<MaterialSystemRow[]>(
-    initialEstimate.material_systems ?? []
+    initialProposal.material_systems ?? []
   )
   const [showSendModal, setShowSendModal] = useState(false)
   const [project, setProject] = useState<EstimatingProject | null>(null)
-  const [sentAt, setSentAt] = useState<string | null>(initialEstimate.sent_at ?? null)
-  const [acceptedAt, setAcceptedAt] = useState<string | null>(initialEstimate.accepted_at ?? null)
-  const [declinedAt, setDeclinedAt] = useState<string | null>(initialEstimate.declined_at ?? null)
+  const [sentAt, setSentAt] = useState<string | null>(initialProposal.sent_at ?? null)
+  const [acceptedAt, setAcceptedAt] = useState<string | null>(initialProposal.accepted_at ?? null)
+  const [declinedAt, setDeclinedAt] = useState<string | null>(initialProposal.declined_at ?? null)
   const { systems: allMaterialSystems, addSystem: addMaterialSystem, updateSystem: updateMaterialSystem } = useMaterialSystems()
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const estimateIdRef = useRef(initialEstimate.id)
+  const proposalIdRef = useRef(initialProposal.id)
 
   // Open change order modal when triggered from panel
   useEffect(() => {
@@ -163,7 +164,7 @@ export default function EstimateEditor({
     await supabase
       .from('estimates')
       .update({
-        estimate_number: estimateNumber,
+        estimate_number: proposalNumber,
         date,
         project_name: projectName,
         description,
@@ -176,12 +177,12 @@ export default function EstimateEditor({
         terms,
         status,
       })
-      .eq('id', estimateIdRef.current)
+      .eq('id', proposalIdRef.current)
 
     setSaveStatus('saved')
     onUpdated()
     setTimeout(() => setSaveStatus('idle'), 2000)
-  }, [estimateNumber, date, projectName, description, salesperson, lineItems, materialSystemRows, tax, terms, status, onUpdated])
+  }, [proposalNumber, date, projectName, description, salesperson, lineItems, materialSystemRows, tax, terms, status, onUpdated])
 
   // Debounced auto-save
   useEffect(() => {
@@ -225,7 +226,7 @@ export default function EstimateEditor({
     await saveToDb()
   }
 
-  async function handleStatusChange(newStatus: Estimate['status']) {
+  async function handleStatusChange(newStatus: Proposal['status']) {
     setStatus(newStatus)
     setShowStatusMenu(false)
   }
@@ -233,11 +234,11 @@ export default function EstimateEditor({
   async function handlePushToJobs() {
     const supabase = createClient()
     const { data: newProject, error } = await supabase.from('projects').insert({
-      name: projectName || `Estimate #${estimateNumber}`,
+      name: projectName || `Proposal #${proposalNumber}`,
       client_name: customerName,
       address: [customer.address, customer.city, customer.state, customer.zip].filter(Boolean).join(', '),
       status: 'Active',
-      estimate_number: String(estimateNumber),
+      estimate_number: String(proposalNumber),
     }).select('id').single()
     if (!error) {
       // Auto-apply default checklist template
@@ -251,8 +252,8 @@ export default function EstimateEditor({
 
   function handleExportPdf() {
     const items = lineItems.map((item) => ({ ...item, amount: calcAmount(item) }))
-    const result = exportEstimatePdf({
-      estimateNumber,
+    const result = exportProposalPdf({
+      proposalNumber,
       date,
       customerName,
       customerCompany,
@@ -282,7 +283,7 @@ export default function EstimateEditor({
       const { data } = await supabase
         .from('change_orders')
         .select('*')
-        .eq('estimate_id', estimateIdRef.current)
+        .eq('estimate_id', proposalIdRef.current)
         .order('created_at', { ascending: true })
       if (data) setChangeOrders(data)
     }
@@ -299,8 +300,8 @@ export default function EstimateEditor({
       .from('change_orders')
       .insert({
         parent_type: 'estimate',
-        parent_id: estimateIdRef.current,
-        estimate_id: estimateIdRef.current,
+        parent_id: proposalIdRef.current,
+        estimate_id: proposalIdRef.current,
         change_order_number: coNumber,
         description: coData.description,
         line_items: coData.lineItems,
@@ -343,7 +344,7 @@ export default function EstimateEditor({
     const { data: existing } = await supabase
       .from('invoices')
       .select('id')
-      .eq('invoice_number', String(estimateNumber))
+      .eq('invoice_number', String(proposalNumber))
       .eq('user_id', userId)
       .maybeSingle()
 
@@ -360,9 +361,9 @@ export default function EstimateEditor({
     const tot = sub + (tax || 0)
 
     const { error } = await supabase.from('invoices').insert({
-      invoice_number: String(estimateNumber),
+      invoice_number: String(proposalNumber),
       company_id: customer.id,
-      estimate_id: estimateIdRef.current,
+      estimate_id: proposalIdRef.current,
       project_name: projectName || null,
       line_items: items,
       subtotal: sub,
@@ -376,12 +377,12 @@ export default function EstimateEditor({
     })
 
     if (!error) {
-      // Update estimate status to Invoiced
+      // Update proposal status to Invoiced
       setStatus('Invoiced')
       await supabase
         .from('estimates')
         .update({ status: 'Invoiced' })
-        .eq('id', estimateIdRef.current)
+        .eq('id', proposalIdRef.current)
       onUpdated()
 
       setShowConvertConfirm(false)
@@ -407,7 +408,7 @@ export default function EstimateEditor({
     await supabase
       .from('estimates')
       .update({ status: 'Accepted', accepted_at: now })
-      .eq('id', estimateIdRef.current)
+      .eq('id', proposalIdRef.current)
     setStatus('Accepted')
     setAcceptedAt(now)
     await completePendingReminders()
@@ -420,7 +421,7 @@ export default function EstimateEditor({
     await supabase
       .from('estimates')
       .update({ status: 'Declined', declined_at: now })
-      .eq('id', estimateIdRef.current)
+      .eq('id', proposalIdRef.current)
     setStatus('Declined')
     setDeclinedAt(now)
     await completePendingReminders()
@@ -433,11 +434,11 @@ export default function EstimateEditor({
     setShowSendModal(true)
   }
 
-  async function handleDeleteEstimate() {
+  async function handleDeleteProposal() {
     setIsDeleting(true)
     const supabase = createClient()
-    const displayName = `Estimate #${estimateNumber}`
-    await softDeleteEstimate(supabase, estimateIdRef.current, displayName, userId, projectName || null)
+    const displayName = `Proposal #${proposalNumber}`
+    await softDeleteProposal(supabase, proposalIdRef.current, displayName, userId, projectName || null)
     setIsDeleting(false)
     setShowDeleteConfirm(false)
     onDeleted?.()
@@ -526,7 +527,7 @@ export default function EstimateEditor({
               ? `Declined \u2014 ${formatShortDate(declinedAt)}`
               : status}
           </span>
-          {/* Send estimate (drafts only, requires project context) */}
+          {/* Send proposal (drafts only, requires project context) */}
           {(status === 'Draft' || !status) && project && (
             <button
               onClick={handleOpenSend}
@@ -644,9 +645,9 @@ export default function EstimateEditor({
         />
       )}
 
-      {/* Estimate form */}
+      {/* Proposal form */}
       <div className="flex-1 p-6">
-        <div id="estimate-content" className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div id="proposal-content" className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           {/* Header */}
           <div className="px-4 md:px-8 pt-8 pb-4">
             <div className="flex justify-between items-start">
@@ -675,7 +676,7 @@ export default function EstimateEditor({
             </div>
           </div>
 
-          {/* Address + Estimate info */}
+          {/* Address + Proposal info */}
           <div className="px-4 md:px-8 py-4 flex justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Address</p>
@@ -699,8 +700,8 @@ export default function EstimateEditor({
                 <input
                   type="number"
                   inputMode="numeric"
-                  value={estimateNumber}
-                  onChange={(e) => setEstimateNumber(Number(e.target.value))}
+                  value={proposalNumber}
+                  onChange={(e) => setProposalNumber(Number(e.target.value))}
                   className="w-24 text-right text-sm font-semibold text-amber-600 border border-amber-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
@@ -917,7 +918,7 @@ export default function EstimateEditor({
         <ConfirmDialog
           title="Delete Proposal"
           message="Are you sure you want to move this proposal to the trash bin? You can restore it within 30 days."
-          onConfirm={handleDeleteEstimate}
+          onConfirm={handleDeleteProposal}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}
         />
@@ -932,10 +933,10 @@ export default function EstimateEditor({
       )}
 
       {showSendModal && project && (
-        <SendEstimateModal
-          estimate={{
-            ...initialEstimate,
-            estimate_number: estimateNumber,
+        <SendProposalModal
+          proposal={{
+            ...initialProposal,
+            estimate_number: proposalNumber,
             project_name: projectName,
             line_items: lineItems.map((item) => ({ ...item, amount: calcAmount(item) })),
             subtotal,

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, ChevronDownIcon, PlusIcon, CheckIcon, ClipboardCheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { Customer } from '@/components/estimates/types'
+import type { Customer } from '@/components/proposals/types'
 import type { EmployeeProfile } from '@/types'
 import { applyDefaultChecklist } from '@/lib/applyDefaultChecklist'
 

@@ -3,27 +3,27 @@
 import { useState } from 'react'
 import { ArrowLeftIcon, PlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { Customer, EstimateSettings } from './types'
+import type { Customer, ProposalSettings } from './types'
 import { DEFAULT_TERMS } from './types'
 import CustomerSearchSelector from '../shared/CustomerSearchSelector'
 
-interface NewEstimateFormProps {
+interface NewProposalFormProps {
   customers: Customer[]
-  settings: EstimateSettings | null
+  settings: ProposalSettings | null
   userId: string
   preselectedCustomerId?: string | null
-  onCreated: (customerId: string, estimateId: string) => void
+  onCreated: (customerId: string, proposalId: string) => void
   onCancel: () => void
 }
 
-export default function NewEstimateForm({
+export default function NewProposalForm({
   customers,
   settings,
   userId,
   preselectedCustomerId,
   onCreated,
   onCancel,
-}: NewEstimateFormProps) {
+}: NewProposalFormProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(preselectedCustomerId ?? null)
   const [projectName, setProjectName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -35,19 +35,20 @@ export default function NewEstimateForm({
       return
     }
     if (!settings) {
-      setError('Estimate settings not configured')
+      setError('Proposal settings not configured')
       return
     }
     setCreating(true)
     setError(null)
 
     const supabase = createClient()
-    const estimateNumber = settings.next_estimate_number
+    // DB column kept as next_estimate_number until Phase 4.
+    const proposalNumber = settings.next_estimate_number
 
     const { data, error: dbError } = await supabase
       .from('estimates')
       .insert({
-        estimate_number: estimateNumber,
+        estimate_number: proposalNumber,
         company_id: selectedCustomerId,
         date: new Date().toISOString().split('T')[0],
         project_name: projectName || '',
@@ -66,14 +67,14 @@ export default function NewEstimateForm({
       .single()
 
     if (dbError) {
-      setError('Failed to create estimate')
+      setError('Failed to create proposal')
       setCreating(false)
       return
     }
 
     await supabase
       .from('estimate_settings')
-      .update({ next_estimate_number: estimateNumber + 1 })
+      .update({ next_estimate_number: proposalNumber + 1 })
       .eq('user_id', userId)
 
     if (data) {
@@ -87,7 +88,7 @@ export default function NewEstimateForm({
         <button onClick={onCancel} className="p-2 text-gray-400 hover:text-gray-600 rounded">
           <ArrowLeftIcon className="w-4 h-4" />
         </button>
-        <h2 className="text-base font-bold text-gray-900">New Estimate</h2>
+        <h2 className="text-base font-bold text-gray-900">New Proposal</h2>
       </div>
       <div className="flex-1 flex items-start justify-center pt-16 px-6">
         <div className="w-full max-w-md bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-4">
@@ -107,7 +108,7 @@ export default function NewEstimateForm({
             />
           </div>
           {settings && (
-            <p className="text-xs text-gray-400">Estimate #{settings.next_estimate_number}</p>
+            <p className="text-xs text-gray-400">Proposal #{settings.next_estimate_number}</p>
           )}
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex items-center gap-2 pt-2">
@@ -117,7 +118,7 @@ export default function NewEstimateForm({
               className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
             >
               <PlusIcon className="w-4 h-4" />
-              {creating ? 'Creating...' : 'Create Estimate'}
+              {creating ? 'Creating...' : 'Create Proposal'}
             </button>
             <button
               onClick={onCancel}
