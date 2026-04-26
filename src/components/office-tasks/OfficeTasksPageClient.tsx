@@ -11,6 +11,7 @@ import {
   PlusIcon,
   PencilIcon,
   Trash2Icon,
+  Undo2Icon,
   CalendarIcon,
   AlertCircleIcon,
   ExternalLinkIcon,
@@ -185,6 +186,13 @@ export default function OfficeTasksPageClient({
   const [editTaskId, setEditTaskId] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [completedExpanded, setCompletedExpanded] = useState(false)
+  // Tasks the user has just checked off but for which the 2s pause hasn't yet
+  // elapsed. While in this set: row shows strikethrough + Undo button, no DB
+  // write has fired, and the task stays in the active list.
+  const [pendingCompleteIds, setPendingCompleteIds] = useState<Set<string>>(() => new Set())
+  // Live setTimeout handles per pending task — kept in a ref so the unmount
+  // cleanup can flush them without re-running on every state change.
+  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const [view, setView] = useState<OfficeView>({ kind: 'dashboard' })
 
   // Office Tasks card view toggle ("all" vs "mine"). Seeded from the user's
@@ -313,20 +321,93 @@ export default function OfficeTasksPageClient({
   /*  CRUD                                                             */
   /* ================================================================ */
 
-  async function toggleComplete(task: OfficeTask) {
-    const newVal = !task.is_completed
-    setTasks((prev) =>
-      prev.map((t) => (t.id === task.id ? { ...t, is_completed: newVal, updated_at: new Date().toISOString() } : t))
-    )
-    // Routes through the shared utility so any linked equipment scheduled
-    // service is kept in sync with the task (reverse of the equipment
-    // page's forward cascade).
-    await toggleOfficeTaskCompletion(supabase, task.id, newVal, userId)
-    // If the toggle completed a service linked via task_id, a new
-    // scheduled-service (and new linked task) may have been generated for
-    // the next recurrence — refetch so the Equipment preview stays fresh.
-    refetchUpcomingServices()
+  // Commit a pending completion: optimistically flip the task's completed
+  // flag (which moves it to the Completed group) and fire the cascading
+  // Supabase write. Used by both the 2s timer and the unmount-flush.
+  const commitComplete = useCallback(
+    (taskId: string) => {
+      setPendingCompleteIds((prev) => {
+        if (!prev.has(taskId)) return prev
+        const next = new Set(prev)
+        next.delete(taskId)
+        return next
+      })
+      pendingTimersRef.current.delete(taskId)
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId ? { ...t, is_completed: true, updated_at: new Date().toISOString() } : t
+        )
+      )
+      // Fire-and-forget: the helper handles the cascade to linked equipment
+      // services and inventory checks; refetch services after so the
+      // Equipment card preview stays in sync.
+      toggleOfficeTaskCompletion(supabase, taskId, true, userId)
+        .then(() => refetchUpcomingServices())
+        .catch((err) => console.error('[commitComplete] cascade failed:', err))
+    },
+    [supabase, userId, refetchUpcomingServices]
+  )
+
+  // Cancel a pending completion: clear the timer, drop the row from the
+  // pending set, no DB write. Row reverts to its un-checked active state.
+  const cancelPendingComplete = useCallback((taskId: string) => {
+    const timer = pendingTimersRef.current.get(taskId)
+    if (timer) clearTimeout(timer)
+    pendingTimersRef.current.delete(taskId)
+    setPendingCompleteIds((prev) => {
+      if (!prev.has(taskId)) return prev
+      const next = new Set(prev)
+      next.delete(taskId)
+      return next
+    })
+  }, [])
+
+  // Checkbox click handler. Three branches:
+  //   - row is pending → treat as Undo (cancel timer, no write)
+  //   - row is completed → instant un-complete (immediate DB write)
+  //   - row is active → schedule a 2s pending window (no write yet)
+  function handleCheckbox(task: OfficeTask) {
+    if (pendingCompleteIds.has(task.id)) {
+      cancelPendingComplete(task.id)
+      return
+    }
+    if (task.is_completed) {
+      // Un-complete is instant.
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id ? { ...t, is_completed: false, updated_at: new Date().toISOString() } : t
+        )
+      )
+      toggleOfficeTaskCompletion(supabase, task.id, false, userId)
+        .then(() => refetchUpcomingServices())
+        .catch((err) => console.error('[handleCheckbox] un-complete failed:', err))
+      return
+    }
+    // Active → pending: schedule the commit, but don't write yet.
+    setPendingCompleteIds((prev) => {
+      const next = new Set(prev)
+      next.add(task.id)
+      return next
+    })
+    const timerId = setTimeout(() => commitComplete(task.id), 2000)
+    pendingTimersRef.current.set(task.id, timerId)
   }
+
+  // Flush any still-pending completions on unmount so a navigation away
+  // doesn't drop a check-off the user had already committed to visually.
+  useEffect(() => {
+    const timers = pendingTimersRef.current
+    return () => {
+      timers.forEach((timerId, taskId) => {
+        clearTimeout(timerId)
+        // Fire-and-forget the cascade; we're leaving the page anyway.
+        toggleOfficeTaskCompletion(supabase, taskId, true, userId).catch((err) =>
+          console.error('[unmount flush] cascade failed:', err)
+        )
+      })
+      timers.clear()
+    }
+  }, [supabase, userId])
 
   async function deleteTask(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id))
@@ -545,7 +626,9 @@ export default function OfficeTasksPageClient({
                       task={task}
                       getDisplayName={getDisplayName}
                       projects={projects}
-                      onToggle={toggleComplete}
+                      onToggle={handleCheckbox}
+                      onUndo={cancelPendingComplete}
+                      pending={pendingCompleteIds.has(task.id)}
                       onUpdateField={updateField}
                       onEdit={(id) => setEditTaskId(id)}
                     />
@@ -576,7 +659,9 @@ export default function OfficeTasksPageClient({
                         task={task}
                         getDisplayName={getDisplayName}
                         projects={projects}
-                        onToggle={toggleComplete}
+                        onToggle={handleCheckbox}
+                        onUndo={cancelPendingComplete}
+                        pending={pendingCompleteIds.has(task.id)}
                         onUpdateField={updateField}
                         onEdit={(id) => setEditTaskId(id)}
                         completed
@@ -896,6 +981,8 @@ function TaskRow({
   onToggle,
   onUpdateField,
   onEdit,
+  onUndo,
+  pending = false,
   completed,
 }: {
   task: OfficeTask
@@ -904,8 +991,15 @@ function TaskRow({
   onToggle: (t: OfficeTask) => void
   onUpdateField: (id: string, field: string, value: string | null) => void
   onEdit: (id: string) => void
+  onUndo: (taskId: string) => void
+  pending?: boolean
   completed?: boolean
 }) {
+  // While the row is in the 2s pending-complete window we mirror the visual
+  // state of a completed row (strikethrough + dimmed) and also show the
+  // checkbox as checked, so the user can see exactly what the task will look
+  // like once the timer fires.
+  const dimmed = completed || pending
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
   const [expanded, setExpanded] = useState(false)
@@ -931,17 +1025,17 @@ function TaskRow({
     : null
 
   return (
-    <div className={`px-4 sm:px-5 py-3 hover:bg-gray-50 transition-colors group ${completed ? 'opacity-60' : ''}`}>
+    <div className={`px-4 sm:px-5 py-3 hover:bg-gray-50 transition-colors group ${dimmed ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-3">
         <button
           onClick={() => onToggle(task)}
           className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-            task.is_completed
+            task.is_completed || pending
               ? 'border-amber-400 bg-amber-50'
               : 'border-gray-300 hover:border-amber-500'
           }`}
         >
-          {task.is_completed && <CheckIcon className="w-3 h-3 text-amber-500" />}
+          {(task.is_completed || pending) && <CheckIcon className="w-3 h-3 text-amber-500" />}
         </button>
 
         <div className="flex-1 min-w-0">
@@ -959,9 +1053,9 @@ function TaskRow({
             />
           ) : (
             <p
-              onClick={() => !completed && setEditing(true)}
+              onClick={() => !dimmed && setEditing(true)}
               className={`text-sm cursor-text truncate ${
-                completed ? 'text-gray-500 line-through' : 'text-gray-900 font-medium'
+                dimmed ? 'text-gray-500 line-through' : 'text-gray-900 font-medium'
               }`}
             >
               {task.title}
@@ -1028,16 +1122,33 @@ function TaskRow({
           )}
         </div>
 
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(task.id) }}
-            aria-label="Edit task"
-            title="Edit task"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition-colors"
-          >
-            <PencilIcon className="w-4 h-4" />
-          </button>
-        </div>
+        {pending ? (
+          // Undo affordance is persistently visible (not hover-gated) for the
+          // full 2s pending window so it's easy to find. Replaces the Edit
+          // button so the two don't fight for the same slot.
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); onUndo(task.id) }}
+              aria-label="Undo complete"
+              title="Undo"
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-gray-800 text-white rounded-md hover:bg-amber-600 transition-colors"
+            >
+              <Undo2Icon className="w-3 h-3" />
+              Undo
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(task.id) }}
+              aria-label="Edit task"
+              title="Edit task"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition-colors"
+            >
+              <PencilIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
