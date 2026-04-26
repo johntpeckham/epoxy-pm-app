@@ -73,16 +73,16 @@ export default function ProjectDashboard({
       </div>
 
       <div className="p-4 space-y-4">
+        <ProjectMeasurementsCard
+          key={`measurements-${project.id}`}
+          project={project}
+        />
+
         <ProjectEstimatesCard
           key={`estimates-${project.id}`}
           project={project}
           customer={customer}
           userId={userId}
-        />
-
-        <ProjectMeasurementsCard
-          key={`measurements-${project.id}`}
-          project={project}
         />
 
         <ProjectProposalsCard
