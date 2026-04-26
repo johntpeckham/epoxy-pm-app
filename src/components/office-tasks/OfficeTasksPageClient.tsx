@@ -677,7 +677,7 @@ export default function OfficeTasksPageClient({
 
       {/* ── People Section ── hidden for foreman */}
       {!isForeman && (
-      <div className="mt-5">
+      <div className="mt-5 px-4">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">People</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {canManageEmployees && (
@@ -707,7 +707,7 @@ export default function OfficeTasksPageClient({
 
       {/* ── Resources Section ── gated per-tile by feature */}
       {(canView('vendor_management') || canView('material_management') || canView('scheduling')) && (
-      <div className="mt-5">
+      <div className="mt-5 px-4">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Resources</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {canView('vendor_management') && (
@@ -746,7 +746,7 @@ export default function OfficeTasksPageClient({
       )}
 
       {/* ── Admin Section ── */}
-      <div className="mt-5">
+      <div className="mt-5 px-4">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Admin</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {/* Reports tile — gated on reports feature */}
