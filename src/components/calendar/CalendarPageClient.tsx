@@ -180,7 +180,7 @@ function projectToFCEvents(proj: Project): FCEvent[] {
       _linkedProjectId: proj.id,
       _clientName: proj.client_name,
       _address: proj.address,
-      _proposalNumber: proj.estimate_number || null,
+      _proposalNumber: proj.proposal_number || null,
       _status: proj.status,
       _isDriveTime: false,
     },
@@ -628,7 +628,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
     setEditProjectName(proj.name)
     setEditProjectClient(proj.client_name)
     setEditProjectAddress(proj.address)
-    setEditProjectProposal(proj.estimate_number ?? '')
+    setEditProjectProposal(proj.proposal_number ?? '')
     setEditProjectStatus(proj.status)
     setEditProjectStartDate(proj.start_date || '')
     setEditProjectEndDate(proj.end_date || '')
@@ -802,7 +802,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
         client_name: newJobClient.trim(),
         address: newJobAddress.trim(),
         status: newJobStatus,
-        ...(newJobProposal.trim() ? { estimate_number: newJobProposal.trim() } : {}),
+        ...(newJobProposal.trim() ? { proposal_number: newJobProposal.trim() } : {}),
         start_date: newJobStartDate,
         end_date: newJobEndDate,
         include_weekends: newJobIncludeWeekends,
@@ -855,7 +855,7 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
           name: editProjectName.trim(),
           client_name: editProjectClient.trim(),
           address: editProjectAddress.trim(),
-          estimate_number: editProjectProposal.trim() || null,
+          proposal_number: editProjectProposal.trim() || null,
           status: editProjectStatus,
           start_date: editProjectStartDate,
           end_date: editProjectEndDate,

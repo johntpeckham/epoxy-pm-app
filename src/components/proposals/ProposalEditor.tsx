@@ -75,8 +75,8 @@ export default function ProposalEditor({
   const searchParams = useSearchParams()
   const fromParam = searchParams?.get('from') ?? null
   const projectIdParam = searchParams?.get('project') ?? null
-  // DB column kept as estimate_number until Phase 4.
-  const [proposalNumber, setProposalNumber] = useState(initialProposal.estimate_number)
+  // DB column kept as proposal_number until Phase 4.
+  const [proposalNumber, setProposalNumber] = useState(initialProposal.proposal_number)
   const [date, setDate] = useState(initialProposal.date)
   const [projectName, setProjectName] = useState(initialProposal.project_name ?? '')
   const [description, setDescription] = useState(initialProposal.description ?? '')
@@ -162,9 +162,9 @@ export default function ProposalEditor({
     const tot = sub + (tax || 0)
 
     await supabase
-      .from('estimates')
+      .from('proposals')
       .update({
-        estimate_number: proposalNumber,
+        proposal_number: proposalNumber,
         date,
         project_name: projectName,
         description,
@@ -238,7 +238,7 @@ export default function ProposalEditor({
       client_name: customerName,
       address: [customer.address, customer.city, customer.state, customer.zip].filter(Boolean).join(', '),
       status: 'Active',
-      estimate_number: String(proposalNumber),
+      proposal_number: String(proposalNumber),
     }).select('id').single()
     if (!error) {
       // Auto-apply default checklist template
@@ -283,7 +283,7 @@ export default function ProposalEditor({
       const { data } = await supabase
         .from('change_orders')
         .select('*')
-        .eq('estimate_id', proposalIdRef.current)
+        .eq('proposal_id', proposalIdRef.current)
         .order('created_at', { ascending: true })
       if (data) setChangeOrders(data)
     }
@@ -299,9 +299,9 @@ export default function ProposalEditor({
     const { data } = await supabase
       .from('change_orders')
       .insert({
-        parent_type: 'estimate',
+        parent_type: 'proposal',
         parent_id: proposalIdRef.current,
-        estimate_id: proposalIdRef.current,
+        proposal_id: proposalIdRef.current,
         change_order_number: coNumber,
         description: coData.description,
         line_items: coData.lineItems,
@@ -363,7 +363,7 @@ export default function ProposalEditor({
     const { error } = await supabase.from('invoices').insert({
       invoice_number: String(proposalNumber),
       company_id: customer.id,
-      estimate_id: proposalIdRef.current,
+      proposal_id: proposalIdRef.current,
       project_name: projectName || null,
       line_items: items,
       subtotal: sub,
@@ -380,7 +380,7 @@ export default function ProposalEditor({
       // Update proposal status to Invoiced
       setStatus('Invoiced')
       await supabase
-        .from('estimates')
+        .from('proposals')
         .update({ status: 'Invoiced' })
         .eq('id', proposalIdRef.current)
       onUpdated()
@@ -406,7 +406,7 @@ export default function ProposalEditor({
     const supabase = createClient()
     const now = new Date().toISOString()
     await supabase
-      .from('estimates')
+      .from('proposals')
       .update({ status: 'Accepted', accepted_at: now })
       .eq('id', proposalIdRef.current)
     setStatus('Accepted')
@@ -419,7 +419,7 @@ export default function ProposalEditor({
     const supabase = createClient()
     const now = new Date().toISOString()
     await supabase
-      .from('estimates')
+      .from('proposals')
       .update({ status: 'Declined', declined_at: now })
       .eq('id', proposalIdRef.current)
     setStatus('Declined')
@@ -936,7 +936,7 @@ export default function ProposalEditor({
         <SendProposalModal
           proposal={{
             ...initialProposal,
-            estimate_number: proposalNumber,
+            proposal_number: proposalNumber,
             project_name: projectName,
             line_items: lineItems.map((item) => ({ ...item, amount: calcAmount(item) })),
             subtotal,

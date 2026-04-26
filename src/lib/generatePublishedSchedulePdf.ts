@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf'
 export interface PdfScheduleJob {
   job_id: string
   job_name: string
-  estimate_number: string | null
+  proposal_number: string | null
   address: string | null
   employees: {
     employee_id: string
@@ -281,7 +281,7 @@ export async function generateFullSchedulePdf(
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
     const metaLines: string[] = []
-    if (job.estimate_number) metaLines.push(`Proposal #${job.estimate_number}`)
+    if (job.proposal_number) metaLines.push(`Proposal #${job.proposal_number}`)
     if (job.address) {
       const addrLines = doc.splitTextToSize(job.address, PROJECT_COL_W - PROJECT_PAD * 2) as string[]
       metaLines.push(...addrLines)
@@ -561,7 +561,7 @@ export async function generateIndividualSchedulePdf(
     doc.setFontSize(9)
     const nameLines = doc.splitTextToSize(job.job_name || 'Untitled', JOB_COL_W - 4) as string[]
     const metaLines: string[] = []
-    if (job.estimate_number) metaLines.push(`Proposal #${job.estimate_number}`)
+    if (job.proposal_number) metaLines.push(`Proposal #${job.proposal_number}`)
     if (job.address) {
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(7)

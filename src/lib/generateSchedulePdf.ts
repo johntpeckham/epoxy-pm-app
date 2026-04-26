@@ -39,7 +39,7 @@ export interface ScheduleAssignment {
 export interface ScheduleProject {
   id: string
   name: string
-  estimate_number?: string | null
+  proposal_number?: string | null
   address?: string | null
 }
 
@@ -351,7 +351,7 @@ export async function generateSchedulePdf(
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
     const metaLines: string[] = []
-    if (project.estimate_number) metaLines.push(`Proposal #${project.estimate_number}`)
+    if (project.proposal_number) metaLines.push(`Proposal #${project.proposal_number}`)
     if (project.address) {
       const addrLines = doc.splitTextToSize(project.address, PROJECT_COL_W - PROJECT_PAD * 2) as string[]
       metaLines.push(...addrLines)

@@ -269,7 +269,7 @@ export default function ProjectFeedClient({
           projectName={project.name}
           clientName={project.client_name}
           address={project.address}
-          proposalNumber={project.estimate_number ?? ''}
+          proposalNumber={project.proposal_number ?? ''}
           userId={userId}
           onClose={() => setShowReportModal(false)}
         />

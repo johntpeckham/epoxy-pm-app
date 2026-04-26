@@ -48,12 +48,12 @@ export default function ProposalsWorkspace({
   async function handleNewProposal() {
     if (!customer || !settings) return
     const supabase = createClient()
-    const proposalNumber = settings.next_estimate_number
+    const proposalNumber = settings.next_proposal_number
 
     const { data } = await supabase
-      .from('estimates')
+      .from('proposals')
       .insert({
-        estimate_number: proposalNumber,
+        proposal_number: proposalNumber,
         company_id: customer.id,
         date: new Date().toISOString().split('T')[0],
         project_name: '',
@@ -73,8 +73,8 @@ export default function ProposalsWorkspace({
 
     // Increment the next proposal number
     await supabase
-      .from('estimate_settings')
-      .update({ next_estimate_number: proposalNumber + 1 })
+      .from('proposal_settings')
+      .update({ next_proposal_number: proposalNumber + 1 })
       .eq('user_id', userId)
 
     if (data) {
@@ -168,17 +168,16 @@ function CustomerProposalsView({
     const { count } = await supabase
       .from('change_orders')
       .select('*', { count: 'exact', head: true })
-      .eq('estimate_id', latestProposal.id)
+      .eq('proposal_id', latestProposal.id)
     const coNumber = `CO-${(count ?? 0) + 1}`
     const sub = coData.lineItems.reduce((s, item) => {
       const amt = (!item.ft || item.ft === 0) ? (item.rate ?? 0) : (item.ft ?? 0) * (item.rate ?? 0)
       return s + amt
     }, 0)
     await supabase.from('change_orders').insert({
-      // DB enum literal kept as 'estimate' until Phase 4.
-      parent_type: 'estimate',
+      parent_type: 'proposal',
       parent_id: latestProposal.id,
-      estimate_id: latestProposal.id,
+      proposal_id: latestProposal.id,
       change_order_number: coNumber,
       description: coData.description,
       line_items: coData.lineItems,

@@ -68,7 +68,7 @@ const FORM_FIELD_MAPS: Record<string, FieldKeyMap> = {
   },
   project_report: {
     byId: {
-      'pr-02': 'project_name', 'pr-03': 'estimate_number', 'pr-04': 'address',
+      'pr-02': 'project_name', 'pr-03': 'proposal_number', 'pr-04': 'address',
       'pr-05': 'client_name', 'pr-06': 'client_email', 'pr-07': 'client_phone',
       'pr-08': 'site_contact', 'pr-09': 'prevailing_wage', 'pr-10': 'bonding_insurance',
       'pr-11': 'bid_date', 'pr-12': 'bid_platform', 'pr-13': 'project_details_notes',
@@ -91,9 +91,7 @@ const FORM_FIELD_MAPS: Record<string, FieldKeyMap> = {
     byLabel: {
       // Project report has duplicate labels ("Additional Notes") so label mapping
       // is less reliable. We rely primarily on field IDs for this form.
-      // Label key 'Proposal Number' matches the form template label; value
-      // 'estimate_number' kept until Phase 4 (matches DB column).
-      'Project Name': 'project_name', 'Proposal Number': 'estimate_number',
+      'Project Name': 'project_name', 'Proposal Number': 'proposal_number',
       'Address': 'address', 'Client Name': 'client_name', 'Client Email': 'client_email',
       'Client Phone Number': 'client_phone', 'Site Contact': 'site_contact',
       'Prevailing Wage?': 'prevailing_wage', 'Bonding / Insurance Requirements': 'bonding_insurance',

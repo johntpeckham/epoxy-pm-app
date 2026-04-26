@@ -297,7 +297,7 @@ export default function ExistingCustomersView({
         .select('id, name, company, email, phone, city, state, created_at')
         .eq('archived', false),
       supabase
-        .from('estimates')
+        .from('proposals')
         .select('id, company_id, total, status, created_at'),
       supabase
         .from('estimating_projects')

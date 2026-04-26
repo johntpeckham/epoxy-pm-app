@@ -45,10 +45,9 @@ export default function LogFollowUpModal({
 
     try {
       const { data, error: insErr } = await supabase
-        .from('estimate_follow_ups')
+        .from('proposal_follow_ups')
         .insert({
-          // DB column kept as estimate_id until Phase 4.
-          estimate_id: proposal.id,
+          proposal_id: proposal.id,
           project_id: project.id,
           follow_up_type: followUpType,
           notes: notes.trim() || null,
@@ -64,13 +63,11 @@ export default function LogFollowUpModal({
       const followUp = data as ProposalFollowUp
 
       // Log a notification so this appears in the bell.
-      // Route /sales/estimating kept until Phase 3.
       const link = `/sales/estimating?customer=${customer.id}&project=${project.id}`
       await supabase.from('notifications').insert({
         user_id: userId,
-        // Notification type literal kept as 'estimate_follow_up' until Phase 4.
-        type: 'estimate_follow_up',
-        title: `Follow-up logged · #${proposal.estimate_number}`,
+        type: 'proposal_follow_up',
+        title: `Follow-up logged · #${proposal.proposal_number}`,
         message: `${followUpType} with ${
           contactedName.trim() || customer.name || 'contact'
         } · outcome: ${outcome.replace(/_/g, ' ')}`,

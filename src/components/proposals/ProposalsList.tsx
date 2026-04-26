@@ -30,7 +30,7 @@ export default function ProposalsList({ proposals, onSelect, userId, onProposalD
     setIsDeleting(true)
     const supabase = createClient()
     const target = proposals.find((e) => e.id === deleteTarget)
-    const displayName = target ? `Proposal #${target.estimate_number}` : 'Proposal'
+    const displayName = target ? `Proposal #${target.proposal_number}` : 'Proposal'
     await softDeleteProposal(supabase, deleteTarget, displayName, userId, target?.project_name || null)
     setIsDeleting(false)
     setDeleteTarget(null)
@@ -57,7 +57,7 @@ export default function ProposalsList({ proposals, onSelect, userId, onProposalD
           >
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-semibold text-gray-900">
-                #{est.estimate_number}
+                #{est.proposal_number}
               </span>
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[est.status] ?? STATUS_COLORS.Draft}`}>

@@ -27,8 +27,7 @@ export default function ProposalsLayoutClient({
 }: ProposalsLayoutClientProps) {
   const searchParams = useSearchParams()
   const paramCustomerId = searchParams.get('customer')
-  // URL param 'estimate' kept until Phase 3 (route rename).
-  const paramProposalId = searchParams.get('estimate')
+  const paramProposalId = searchParams.get('proposal')
   const paramFrom = searchParams.get('from')
   const paramProject = searchParams.get('project')
 
@@ -51,7 +50,6 @@ export default function ProposalsLayoutClient({
   const backContext =
     paramFrom === 'estimating' && paramCustomerId
       ? {
-          // Route path string kept as /sales/estimating until Phase 3.
           url: `/sales/estimating?customer=${paramCustomerId}${
             paramProject ? `&project=${paramProject}` : ''
           }`,
@@ -73,7 +71,7 @@ export default function ProposalsLayoutClient({
       if (!paramCustomerId) return
       const supabase = createClient()
       const { data } = await supabase
-        .from('estimates')
+        .from('proposals')
         .select('*')
         .eq('company_id', paramCustomerId)
         .eq('user_id', userId)
@@ -92,10 +90,10 @@ export default function ProposalsLayoutClient({
   async function handleSetupComplete(startNumber: number) {
     const supabase = createClient()
     const { data } = await supabase
-      .from('estimate_settings')
+      .from('proposal_settings')
       .upsert({
         user_id: userId,
-        next_estimate_number: startNumber,
+        next_proposal_number: startNumber,
         company_name: 'Peckham Inc. DBA Peckham Coatings',
         company_address: '1865 Herndon Ave K106, Clovis, CA 93611',
         company_city_state_zip: 'Clovis, CA 93611',
@@ -131,7 +129,7 @@ export default function ProposalsLayoutClient({
     if (view !== 'dashboard') {
       const supabase = createClient()
       const { data } = await supabase
-        .from('estimates')
+        .from('proposals')
         .select('*')
         .eq('company_id', view)
         .eq('user_id', userId)
@@ -144,7 +142,7 @@ export default function ProposalsLayoutClient({
     if (!selectedCustomerId) return
     const supabase = createClient()
     const { data } = await supabase
-      .from('estimates')
+      .from('proposals')
       .select('*')
       .eq('company_id', selectedCustomerId)
       .eq('user_id', userId)
@@ -157,7 +155,7 @@ export default function ProposalsLayoutClient({
   async function refreshAllProposals() {
     const supabase = createClient()
     const { data } = await supabase
-      .from('estimates')
+      .from('proposals')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -174,7 +172,7 @@ export default function ProposalsLayoutClient({
     // Refresh proposals for the new customer view
     const supabase = createClient()
     const { data } = await supabase
-      .from('estimates')
+      .from('proposals')
       .select('*')
       .eq('company_id', customerId)
       .eq('user_id', userId)

@@ -26,7 +26,7 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
   const [name, setName] = useState(project.name)
   const [clientName, setClientName] = useState(project.client_name)
   const [address, setAddress] = useState(project.address)
-  const [proposalNumber, setProposalNumber] = useState(project.estimate_number ?? '')
+  const [proposalNumber, setProposalNumber] = useState(project.proposal_number ?? '')
   const [status, setStatus] = useState<'Active' | 'Completed' | 'Closed'>(project.status)
   const [startDate, setStartDate] = useState(project.start_date ?? '')
   const [endDate, setEndDate] = useState(project.end_date ?? '')
@@ -110,7 +110,7 @@ export default function EditProjectModal({ project, onClose, onUpdated }: EditPr
         client_name: clientName.trim(),
         address: address.trim(),
         status,
-        estimate_number: proposalNumber.trim() || null,
+        proposal_number: proposalNumber.trim() || null,
         start_date: startDate || null,
         end_date: endDate || null,
         include_weekends: includeWeekends,

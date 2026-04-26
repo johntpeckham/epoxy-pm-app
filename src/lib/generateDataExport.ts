@@ -617,7 +617,7 @@ export async function generateProjectReportPdfBuffer(
   // ─── Project Details
   addSectionTitle(h, 'PROJECT DETAILS', AMBER, AMBER_LIGHT)
   addFieldRow(h, 'Project Name', data.project_name || '')
-  addFieldRow(h, 'Proposal #', data.estimate_number || '')
+  addFieldRow(h, 'Proposal #', data.proposal_number || '')
   addFieldRow(h, 'Address', data.address || '')
   addFieldRow(h, 'Client', data.client_name || '')
   addFieldRow(h, 'Client Email', data.client_email || '')

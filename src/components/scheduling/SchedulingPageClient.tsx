@@ -34,7 +34,7 @@ interface ScheduleEmployee {
 interface ScheduleJob {
   job_id: string
   job_name: string
-  estimate_number: string | null
+  proposal_number: string | null
   address: string | null
   employees: ScheduleEmployee[]
 }
@@ -556,10 +556,10 @@ export default function SchedulingPageClient({
                         {job.employees.length} {job.employees.length === 1 ? 'employee' : 'employees'}
                       </span>
                     </div>
-                    {(job.estimate_number || job.address) && (
+                    {(job.proposal_number || job.address) && (
                       <div className="text-gray-500 mt-0.5" style={{ fontSize: 11 }}>
-                        {job.estimate_number && <>Proposal #{job.estimate_number}</>}
-                        {job.estimate_number && job.address && <> · </>}
+                        {job.proposal_number && <>Proposal #{job.proposal_number}</>}
+                        {job.proposal_number && job.address && <> · </>}
                         {job.address && <>{job.address}</>}
                       </div>
                     )}
@@ -935,9 +935,9 @@ export default function SchedulingPageClient({
                           <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
                             {job.job_name}
                           </div>
-                          {job.estimate_number && (
+                          {job.proposal_number && (
                             <div className="text-xs text-gray-400 dark:text-gray-500">
-                              Proposal #{job.estimate_number}
+                              Proposal #{job.proposal_number}
                             </div>
                           )}
                           <div className="flex items-center gap-1.5 mt-2">

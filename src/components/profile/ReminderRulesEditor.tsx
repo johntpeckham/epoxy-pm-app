@@ -18,14 +18,14 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import type { ReminderRule } from '@/components/sales/estimating/types'
 
 const TRIGGER_OPTIONS: { value: string; label: string }[] = [
-  { value: 'estimate_sent', label: 'Estimate Sent' },
+  { value: 'proposal_sent', label: 'Proposal Sent' },
 ]
 
 const MERGE_FIELDS = [
   '{customer_name}',
   '{project_name}',
   '{project_number}',
-  '{estimate_number}',
+  '{proposal_number}',
   '{company_name}',
 ]
 
@@ -157,7 +157,7 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
       ...prev,
       {
         id,
-        trigger_event: 'estimate_sent',
+        trigger_event: 'proposal_sent',
         days_after: 3,
         title_template: 'Follow up on {project_name}',
         is_active: true,
@@ -195,7 +195,7 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
         name: 'New template',
         subject_template: 'Following up on {project_name}',
         body_template:
-          'Hi {customer_name},\n\nJust following up on proposal {estimate_number} for {project_name}.\n\nThanks,\n{company_name}',
+          'Hi {customer_name},\n\nJust following up on proposal {proposal_number} for {project_name}.\n\nThanks,\n{company_name}',
         is_active: true,
         isNew: true,
       },

@@ -28,7 +28,7 @@ import NewAppointmentModal, {
 } from './NewAppointmentModal'
 
 type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled'
-type PushedTo = 'job_walk' | 'estimating' | 'estimate' | 'job'
+type PushedTo = 'job_walk' | 'estimating' | 'proposal' | 'job'
 
 interface AppointmentRow {
   id: string
@@ -65,13 +65,10 @@ const STATUS_TEXT_COLOR: Record<AppointmentStatus, string> = {
   cancelled: 'text-gray-400',
 }
 
-// Object keys 'estimating' / 'estimate' are DB enum literals on the
-// crm_appointments.pushed_to column — kept until Phase 4. Only the visible
-// label values are renamed here.
 const PUSHED_TO_LABELS: Record<PushedTo, string> = {
   job_walk: 'Pushed to job walk',
   estimating: 'Pushed to estimating',
-  estimate: 'Pushed to proposal',
+  proposal: 'Pushed to proposal',
   job: 'Pushed to job',
 }
 

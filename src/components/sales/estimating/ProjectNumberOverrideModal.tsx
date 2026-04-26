@@ -55,20 +55,20 @@ export default function ProjectNumberOverrideModal({
       if (updErr) throw updErr
 
       if (cascade && oldNumber) {
-        // Update linked proposals by current estimate_number matching old project number
+        // Update linked proposals by current proposal_number matching old project number
         const numericOld = parseInt(oldNumber.replace(/\D/g, ''), 10)
         const numericNew = parseInt(newNumber.replace(/\D/g, ''), 10)
         if (!Number.isNaN(numericOld) && !Number.isNaN(numericNew)) {
           await supabase
-            .from('estimates')
-            .update({ estimate_number: numericNew })
+            .from('proposals')
+            .update({ proposal_number: numericNew })
             .eq('company_id', project.company_id)
-            .eq('estimate_number', numericOld)
+            .eq('proposal_number', numericOld)
 
           await supabase
             .from('projects')
-            .update({ estimate_number: String(numericNew) })
-            .eq('estimate_number', String(numericOld))
+            .update({ proposal_number: String(numericNew) })
+            .eq('proposal_number', String(numericOld))
 
           await supabase
             .from('invoices')

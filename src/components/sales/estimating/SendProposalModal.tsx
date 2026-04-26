@@ -34,7 +34,7 @@ export default function SendProposalModal({
   const [email, setEmail] = useState(customer.email ?? '')
   const [name, setName] = useState(customer.name ?? '')
   const [subject, setSubject] = useState(
-    `Proposal #${proposal.estimate_number} — ${
+    `Proposal #${proposal.proposal_number} — ${
       proposal.project_name || project.name || 'Project'
     } from Peckham Coatings`
   )
@@ -68,17 +68,17 @@ export default function SendProposalModal({
         sent_message: message.trim() || null,
       }
       const { error: estErr } = await supabase
-        .from('estimates')
+        .from('proposals')
         .update(proposalPatch)
         .eq('id', proposal.id)
       if (estErr) throw estErr
 
       // 2. Auto-create reminders from active rules (skip duplicates).
-      // DB trigger_event literal kept as 'estimate_sent' until Phase 4.
+      // DB trigger_event literal kept as 'proposal_sent' until Phase 4.
       const { data: rulesData } = await supabase
         .from('reminder_rules')
         .select('*')
-        .eq('trigger_event', 'estimate_sent')
+        .eq('trigger_event', 'proposal_sent')
         .eq('is_active', true)
       const rules = (rulesData as ReminderRule[]) ?? []
       if (rules.length > 0) {
@@ -86,7 +86,7 @@ export default function SendProposalModal({
           .from('estimating_reminders')
           .select('id')
           .eq('project_id', project.id)
-          .eq('trigger_event', 'estimate_sent')
+          .eq('trigger_event', 'proposal_sent')
           .limit(1)
         const hasExisting = (existing ?? []).length > 0
         if (!hasExisting) {
@@ -105,7 +105,7 @@ export default function SendProposalModal({
               description: null,
               due_date: due.toISOString(),
               reminder_type: 'auto',
-              trigger_event: 'estimate_sent',
+              trigger_event: 'proposal_sent',
               status: 'pending',
               created_by: userId,
             }
@@ -115,14 +115,12 @@ export default function SendProposalModal({
       }
 
       // 3. Create a notification for the sender.
-      // Route path /sales/estimating kept until Phase 3.
       const link = `/sales/estimating?customer=${customer.id}&project=${project.id}`
       await supabase.from('notifications').insert({
         user_id: userId,
-        // Notification type literal kept as 'estimate_sent' until Phase 4.
-        type: 'estimate_sent',
-        title: `Proposal #${proposal.estimate_number} sent`,
-        message: `Proposal #${proposal.estimate_number} sent to ${
+        type: 'proposal_sent',
+        title: `Proposal #${proposal.proposal_number} sent`,
+        message: `Proposal #${proposal.proposal_number} sent to ${
           name.trim() || customer.name || email.trim()
         }`,
         link,
@@ -216,7 +214,7 @@ export default function SendProposalModal({
             <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-1">
               <p className="text-xs text-gray-500">Proposal preview</p>
               <p className="text-sm font-medium text-gray-900">
-                #{proposal.estimate_number}
+                #{proposal.proposal_number}
                 {proposal.project_name ? ` · ${proposal.project_name}` : ''}
               </p>
               <p className="text-xs text-gray-500">

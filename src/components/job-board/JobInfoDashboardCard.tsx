@@ -53,7 +53,7 @@ export default function JobInfoDashboardCard({ project, onEdit }: JobInfoDashboa
         {/* Proposal # */}
         <div>
           <div className={labelCls}>Proposal #</div>
-          <div className={valueCls}>{project.estimate_number || emptyValue}</div>
+          <div className={valueCls}>{project.proposal_number || emptyValue}</div>
         </div>
 
         {/* Address — full width */}

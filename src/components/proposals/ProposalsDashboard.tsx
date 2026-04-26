@@ -38,7 +38,7 @@ export default function ProposalsDashboard({ proposals, customers, onSelectPropo
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     const target = proposals.find((e) => e.id === deleteTarget)
-    const displayName = target ? `Proposal #${target.estimate_number}` : 'Proposal'
+    const displayName = target ? `Proposal #${target.proposal_number}` : 'Proposal'
     await softDeleteProposal(supabase, deleteTarget, displayName, user?.id ?? '', target?.project_name || null)
     setIsDeleting(false)
     setDeleteTarget(null)
@@ -166,7 +166,7 @@ export default function ProposalsDashboard({ proposals, customers, onSelectPropo
                       onClick={() => onSelectProposal?.(companyKey, est.id)}
                     >
                       <td className="px-4 py-3 text-sm text-gray-600">{est.date}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">#{est.estimate_number}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">#{est.proposal_number}</td>
                       <td className="px-4 py-3">
                         <p className="text-sm text-gray-900">{customer?.name ?? 'Unknown'}</p>
                         {est.project_name && (

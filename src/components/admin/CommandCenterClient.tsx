@@ -411,7 +411,7 @@ function JobCard({
   job,
 }: {
   job: {
-    project: { id: string; name: string; client_name: string | null; estimate_number: string | null; status: string }
+    project: { id: string; name: string; client_name: string | null; proposal_number: string | null; status: string }
     items: { id: string; name: string; is_complete: boolean; group_name: string | null }[]
     projectCount: { done: number; total: number }
     closeoutCount: { done: number; total: number }
@@ -441,8 +441,8 @@ function JobCard({
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            {p.estimate_number && (
-              <span style={{ color: C.text3, fontSize: 10 }}>#{p.estimate_number}</span>
+            {p.proposal_number && (
+              <span style={{ color: C.text3, fontSize: 10 }}>#{p.proposal_number}</span>
             )}
             <span
               style={{ color: C.text, fontSize: 13, fontWeight: 500 }}
@@ -546,7 +546,7 @@ function FieldEstimatingColumn({ data }: { data: CommandCenterData | null }) {
       .slice(0, 8)
       .map((e) => ({
         id: e.id,
-        title: e.project_name || `Proposal #${e.estimate_number ?? '—'}`,
+        title: e.project_name || `Proposal #${e.proposal_number ?? '—'}`,
         status: e.status || 'Draft',
         sub: e.salesperson || '',
         time: e.created_at,
@@ -720,7 +720,7 @@ function LiveActivityColumn({ data }: { data: CommandCenterData | null }) {
           id: `est-${e.id}`,
           time: e.created_at,
           dot: 'teal',
-          text: `Proposal sent — ${e.project_name || `#${e.estimate_number ?? ''}`}`,
+          text: `Proposal sent — ${e.project_name || `#${e.proposal_number ?? ''}`}`,
         })
       }
     }

@@ -33,7 +33,7 @@ import NewJobWalkModal from './NewJobWalkModal'
 import { usePermissions } from '@/lib/usePermissions'
 
 export type JobWalkStatus = 'in_progress' | 'completed' | 'sent_to_estimating'
-export type JobWalkPushedTo = 'estimating' | 'estimate' | 'job'
+export type JobWalkPushedTo = 'estimating' | 'proposal' | 'job'
 
 export interface JobWalk {
   id: string
