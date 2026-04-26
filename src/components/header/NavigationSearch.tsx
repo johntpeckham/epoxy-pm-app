@@ -269,8 +269,7 @@ export default function NavigationSearch() {
                   results.push({
                     id: `proposal-${e.id}`,
                     name: e.project_name || `Proposal #${e.estimate_number}`,
-                    // Route /sales/estimating/estimates/ kept until Phase 3.
-                    route: `/sales/estimating/estimates/${e.id}`,
+                    route: `/sales/estimating/proposals/${e.id}`,
                     icon: CalculatorIcon,
                     secondaryLabel: `#${e.estimate_number}`,
                     category: 'Proposals',
@@ -295,8 +294,7 @@ export default function NavigationSearch() {
                         results.push({
                           id: `proposal-${e.id}`,
                           name: e.project_name || `Proposal #${e.estimate_number}`,
-                          // Route /sales/estimating/estimates/ kept until Phase 3.
-                          route: `/sales/estimating/estimates/${e.id}`,
+                          route: `/sales/estimating/proposals/${e.id}`,
                           icon: CalculatorIcon,
                           secondaryLabel: `#${e.estimate_number}`,
                           category: 'Proposals',

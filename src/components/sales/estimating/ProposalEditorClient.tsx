@@ -204,7 +204,7 @@ export default function ProposalEditorClient({
     }
 
     const projectQs = project ? `?project=${project.id}` : ''
-    router.replace(`/sales/estimating/estimates/${data.id}${projectQs}`)
+    router.replace(`/sales/estimating/proposals/${data.id}${projectQs}`)
   }
 
   function handleStatusChange(next: string) {
