@@ -48,6 +48,14 @@ const nextConfig = {
         destination: "/sales/estimating",
         permanent: false,
       },
+      {
+        // Phase 3 rename: legacy /estimates child segment → /proposals.
+        // Wildcard :id* covers /new, /{uuid}, and any future nested paths.
+        // Query string is preserved automatically by Next.js redirects.
+        source: "/sales/estimating/estimates/:id*",
+        destination: "/sales/estimating/proposals/:id*",
+        permanent: true,
+      },
     ];
   },
 };
