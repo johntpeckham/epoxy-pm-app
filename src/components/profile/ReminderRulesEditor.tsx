@@ -15,24 +15,10 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-import type {
-  ReminderRule,
-  PipelineStage,
-  PipelineStageNotificationRules,
-} from '@/components/sales/estimating/types'
+import type { ReminderRule } from '@/components/sales/estimating/types'
 
 const TRIGGER_OPTIONS: { value: string; label: string }[] = [
   { value: 'estimate_sent', label: 'Estimate Sent' },
-]
-
-const NOTIFY_WHO_OPTIONS: {
-  value: NonNullable<PipelineStageNotificationRules['notify_who']>
-  label: string
-}[] = [
-  { value: 'creator', label: 'Project creator' },
-  { value: 'assigned', label: 'Assigned user' },
-  { value: 'admins', label: 'All admins' },
-  { value: 'specific', label: 'Specific user' },
 ]
 
 const MERGE_FIELDS = [
@@ -63,22 +49,10 @@ interface DraftTemplate {
   isDeleted?: boolean
 }
 
-interface DraftStageNotif {
-  id: string
-  name: string
-  notification_rules: PipelineStageNotificationRules
-}
-
 interface SalesSettingsRow {
   id: string
   reminder_snooze_threshold: number
   reminder_escalation_enabled: boolean
-}
-
-interface UserOption {
-  id: string
-  display_name: string | null
-  email: string | null
 }
 
 interface ReminderRulesEditorProps {
@@ -88,11 +62,9 @@ interface ReminderRulesEditorProps {
 export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProps) {
   const [rules, setRules] = useState<DraftRule[]>([])
   const [templates, setTemplates] = useState<DraftTemplate[]>([])
-  const [stageNotifs, setStageNotifs] = useState<DraftStageNotif[]>([])
   const [salesSettings, setSalesSettings] = useState<SalesSettingsRow | null>(
     null
   )
-  const [users, setUsers] = useState<UserOption[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -102,7 +74,6 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
   const [expandedTemplate, setExpandedTemplate] = useState<Set<string>>(
     new Set()
   )
-  const [expandedStage, setExpandedStage] = useState<Set<string>>(new Set())
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -113,7 +84,6 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
       const [
         { data: ruleData },
         { data: tmplData },
-        { data: stageData },
         { data: salesData },
       ] = await Promise.all([
         supabase
@@ -124,10 +94,6 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
           .from('email_templates')
           .select('*')
           .order('created_at', { ascending: true }),
-        supabase
-          .from('pipeline_stages')
-          .select('*')
-          .order('display_order', { ascending: true }),
         supabase.from('sales_settings').select('*').limit(1).maybeSingle(),
       ])
 
@@ -151,14 +117,6 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
         }))
       )
 
-      setStageNotifs(
-        ((stageData as PipelineStage[]) ?? []).map((s) => ({
-          id: s.id,
-          name: s.name,
-          notification_rules: s.notification_rules ?? {},
-        }))
-      )
-
       if (salesData) {
         setSalesSettings({
           id: salesData.id,
@@ -173,16 +131,6 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
           reminder_snooze_threshold: 3,
           reminder_escalation_enabled: false,
         })
-      }
-
-      try {
-        const res = await fetch('/api/list-users')
-        const result = await res.json()
-        if (res.ok) {
-          setUsers((result.users ?? []) as UserOption[])
-        }
-      } catch (e) {
-        console.warn('[ReminderRulesEditor] list-users failed:', e)
       }
     } catch (err) {
       console.error('[ReminderRulesEditor] fetch failed:', err)
@@ -274,28 +222,6 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
     })
   }
 
-  function updateStageNotif(
-    id: string,
-    patch: Partial<PipelineStageNotificationRules>
-  ) {
-    setStageNotifs((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? { ...s, notification_rules: { ...s.notification_rules, ...patch } }
-          : s
-      )
-    )
-  }
-
-  function toggleStage(id: string) {
-    setExpandedStage((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
   async function handleSave() {
     setSaving(true)
     setError(null)
@@ -342,14 +268,6 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
         } else {
           await supabase.from('email_templates').update(row).eq('id', t.id)
         }
-      }
-
-      // Per-stage notification rules
-      for (const s of stageNotifs) {
-        await supabase
-          .from('pipeline_stages')
-          .update({ notification_rules: s.notification_rules })
-          .eq('id', s.id)
       }
 
       // Sales settings (escalation)
@@ -426,13 +344,6 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
                   onUpdate={updateTemplate}
                   onAdd={addTemplate}
                   onDelete={deleteTemplate}
-                />
-                <StageNotificationsSection
-                  stages={stageNotifs}
-                  users={users}
-                  expanded={expandedStage}
-                  onToggle={toggleStage}
-                  onUpdate={updateStageNotif}
                 />
                 <EscalationSection
                   settings={salesSettings}
@@ -746,166 +657,6 @@ function TemplateRow({
                 {i < MERGE_FIELDS.length - 1 ? ' ' : ''}
               </span>
             ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StageNotificationsSection({
-  stages,
-  users,
-  expanded,
-  onToggle,
-  onUpdate,
-}: {
-  stages: DraftStageNotif[]
-  users: UserOption[]
-  expanded: Set<string>
-  onToggle: (id: string) => void
-  onUpdate: (id: string, patch: Partial<PipelineStageNotificationRules>) => void
-}) {
-  return (
-    <section>
-      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-        Stage notifications
-      </h4>
-      <p className="text-xs text-gray-500 mb-3">
-        Notify users when projects enter a stage. In-app notifications are
-        functional; Email and SMS are coming soon.
-      </p>
-      <div className="space-y-2">
-        {stages.map((s) => (
-          <StageNotifRow
-            key={s.id}
-            stage={s}
-            users={users}
-            isExpanded={expanded.has(s.id)}
-            onToggle={() => onToggle(s.id)}
-            onUpdate={(patch) => onUpdate(s.id, patch)}
-          />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function StageNotifRow({
-  stage,
-  users,
-  isExpanded,
-  onToggle,
-  onUpdate,
-}: {
-  stage: DraftStageNotif
-  users: UserOption[]
-  isExpanded: boolean
-  onToggle: () => void
-  onUpdate: (patch: Partial<PipelineStageNotificationRules>) => void
-}) {
-  const rules = stage.notification_rules
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <div className="flex items-center gap-2 p-2">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="p-1 text-gray-400 hover:text-gray-600"
-        >
-          {isExpanded ? (
-            <ChevronDownIcon className="w-4 h-4" />
-          ) : (
-            <ChevronRightIcon className="w-4 h-4" />
-          )}
-        </button>
-        <span className="flex-1 text-sm font-medium text-gray-900">
-          {stage.name}
-        </span>
-        <label className="flex items-center gap-1 text-xs text-gray-500">
-          <input
-            type="checkbox"
-            checked={Boolean(rules.notify_on_enter)}
-            onChange={(e) => onUpdate({ notify_on_enter: e.target.checked })}
-            className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500/20 focus:border-amber-500"
-          />
-          Notify on enter
-        </label>
-      </div>
-      {isExpanded && rules.notify_on_enter && (
-        <div className="px-3 pb-3 pt-1 bg-amber-50/40 border-t border-amber-100 space-y-2">
-          <div>
-            <label className="block text-[11px] font-medium text-gray-500 mb-1">
-              Notify:
-            </label>
-            <select
-              value={rules.notify_who ?? 'creator'}
-              onChange={(e) =>
-                onUpdate({
-                  notify_who: e.target
-                    .value as PipelineStageNotificationRules['notify_who'],
-                })
-              }
-              className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-            >
-              {NOTIFY_WHO_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {rules.notify_who === 'specific' && (
-            <div>
-              <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                Specific user
-              </label>
-              <select
-                value={rules.notify_specific_user_id ?? ''}
-                onChange={(e) =>
-                  onUpdate({
-                    notify_specific_user_id: e.target.value || null,
-                  })
-                }
-                className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-              >
-                <option value="">None</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.display_name || u.email || 'Unnamed'}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
-            <label className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={Boolean(rules.via_in_app ?? true)}
-                onChange={(e) => onUpdate({ via_in_app: e.target.checked })}
-                className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500/20 focus:border-amber-500"
-              />
-              In-app
-            </label>
-            <label className="flex items-center gap-1 text-gray-400">
-              <input
-                type="checkbox"
-                checked={false}
-                disabled
-                className="w-4 h-4 rounded"
-              />
-              Email <span className="text-[10px]">(coming soon)</span>
-            </label>
-            <label className="flex items-center gap-1 text-gray-400">
-              <input
-                type="checkbox"
-                checked={false}
-                disabled
-                className="w-4 h-4 rounded"
-              />
-              SMS <span className="text-[10px]">(coming soon)</span>
-            </label>
           </div>
         </div>
       )}

@@ -5,11 +5,7 @@ import { XIcon, SendIcon, Loader2Icon, AlertTriangleIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import type { Customer, Estimate } from '@/components/estimates/types'
-import type {
-  EstimatingProject,
-  PipelineStage,
-  ReminderRule,
-} from './types'
+import type { EstimatingProject, ReminderRule } from './types'
 
 interface SendEstimateModalProps {
   estimate: Estimate
@@ -17,7 +13,7 @@ interface SendEstimateModalProps {
   project: EstimatingProject
   userId: string
   onClose: () => void
-  onSent: (patch: Partial<Estimate>, pipelinePatch?: Partial<EstimatingProject>) => void
+  onSent: (patch: Partial<Estimate>) => void
 }
 
 function formatMoney(n: number): string {
@@ -77,32 +73,7 @@ export default function SendEstimateModal({
         .eq('id', estimate.id)
       if (estErr) throw estErr
 
-      // 2. Move pipeline to Estimate Sent — only if not past it already
-      const { data: stagesData } = await supabase
-        .from('pipeline_stages')
-        .select('*')
-        .order('display_order', { ascending: true })
-      const stages = (stagesData as PipelineStage[]) ?? []
-      const targetIdx = stages.findIndex((s) => s.slug === 'estimate_sent')
-      const currentIdx = stages.findIndex((s) => s.slug === project.pipeline_stage)
-      let pipelinePatch: Partial<EstimatingProject> | undefined
-      if (targetIdx >= 0 && (currentIdx < 0 || currentIdx < targetIdx)) {
-        const fromStage = project.pipeline_stage
-        const { error: projErr } = await supabase
-          .from('estimating_projects')
-          .update({ pipeline_stage: 'estimate_sent' })
-          .eq('id', project.id)
-        if (projErr) throw projErr
-        await supabase.from('pipeline_history').insert({
-          project_id: project.id,
-          from_stage: fromStage,
-          to_stage: 'estimate_sent',
-          changed_by: userId,
-        })
-        pipelinePatch = { pipeline_stage: 'estimate_sent' }
-      }
-
-      // 3. Auto-create reminders from active rules (skip duplicates)
+      // 2. Auto-create reminders from active rules (skip duplicates)
       const { data: rulesData } = await supabase
         .from('reminder_rules')
         .select('*')
@@ -142,7 +113,7 @@ export default function SendEstimateModal({
         }
       }
 
-      // 4. Create a notification for the sender
+      // 3. Create a notification for the sender
       const link = `/sales/estimating?customer=${customer.id}&project=${project.id}`
       await supabase.from('notifications').insert({
         user_id: userId,
@@ -155,7 +126,7 @@ export default function SendEstimateModal({
         read: false,
       })
 
-      onSent(estimatePatch, pipelinePatch)
+      onSent(estimatePatch)
     } catch (err) {
       console.error('[SendEstimateModal] Send failed:', err)
       setError(

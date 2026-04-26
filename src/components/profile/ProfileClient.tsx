@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon, TargetIcon, GitBranchIcon, BellIcon, TableIcon, CalculatorIcon, HashIcon, BarChart3Icon } from 'lucide-react'
+import { CameraIcon, CheckIcon, ArrowLeftIcon, UploadIcon, BuildingIcon, Building2Icon, SlidersHorizontalIcon, UsersIcon, DownloadIcon, ClipboardCheckIcon, Trash2Icon, ShieldCheckIcon, PencilIcon, PlusIcon, XIcon, ScrollTextIcon, MoonIcon, FileTextIcon, PackageIcon, TargetIcon, BellIcon, TableIcon, CalculatorIcon, HashIcon, BarChart3Icon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import { Profile, CslbLicense } from '@/types'
 import { useCompanySettings } from '@/lib/useCompanySettings'
@@ -13,7 +13,6 @@ import { useUserRole } from '@/lib/useUserRole'
 import { usePermissions } from '@/lib/usePermissions'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import EmployeeManagement from './EmployeeManagement'
-import PipelineStagesEditor from './PipelineStagesEditor'
 import ReminderRulesEditor from './ReminderRulesEditor'
 import ProjectNumbersEditor from './ProjectNumbersEditor'
 import EstimateFormSettingsEditor from './EstimateFormSettingsEditor'
@@ -1085,7 +1084,6 @@ function SalesManagementModal({
   canEditAdminSettings: boolean
   onClose: () => void
 }) {
-  const [showPipelineEditor, setShowPipelineEditor] = useState(false)
   const [showRuleEditor, setShowRuleEditor] = useState(false)
   const [showProjectNumbersEditor, setShowProjectNumbersEditor] = useState(false)
   const [showEstimateFormEditor, setShowEstimateFormEditor] = useState(false)
@@ -1103,12 +1101,6 @@ function SalesManagementModal({
       title: 'Edit Estimate Form',
       description: 'Customize the fields and layout shown on the estimate.',
       onClick: () => setShowEstimateFormEditor(true),
-    },
-    {
-      icon: <GitBranchIcon className="w-5 h-5" />,
-      title: 'Edit Pipeline Visual',
-      description: 'Rename or reorder stages shown on the sales pipeline.',
-      onClick: () => setShowPipelineEditor(true),
     },
     {
       icon: <BellIcon className="w-5 h-5" />,
@@ -1232,9 +1224,6 @@ function SalesManagementModal({
         </div>
       </div>
 
-      {showPipelineEditor && (
-        <PipelineStagesEditor onClose={() => setShowPipelineEditor(false)} />
-      )}
       {showRuleEditor && (
         <ReminderRulesEditor onClose={() => setShowRuleEditor(false)} />
       )}
