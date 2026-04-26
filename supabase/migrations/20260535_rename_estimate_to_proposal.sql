@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Phase 4: Rename DB tables, columns, indexes, RLS policies, triggers,
--- functions, foreign keys, CHECK constraints, and CRM stage values from
+-- functions, foreign keys, and CHECK constraints from
 -- "estimate" → "proposal".
 --
 -- This migration is the DB-side companion to the code rename in phases
@@ -11,9 +11,9 @@
 -- step:
 --   1. Drop CHECK constraints that block data UPDATEs (literal values
 --      change from 'estimate*' → 'proposal*').
---   2. UPDATE all stored data values (CRM stage, slugs, notification
---      types, parent_type, pushed_to, trash_bin item_type, storage paths,
---      logo URLs).
+--   2. UPDATE all stored data values (notification types, parent_type,
+--      pushed_to, trigger_event slug on reminders, trash_bin item_type,
+--      storage paths, logo URLs).
 --   3. Drop foreign-key constraints that point AT the to-be-renamed
 --      `estimates` table — they're recreated in step 9 against
 --      `proposals`.
@@ -44,7 +44,13 @@
 --   - 'estimating' permission key
 --   - lead status 'sent_to_estimating'
 --   - 'estimating' value in pushed_to enums (keeps; refers to the section)
---   - pipeline_stages slug 'estimating' (the section, not the document)
+--
+-- NOTE: The Pipeline feature (pipeline_stages, pipeline_history,
+-- estimating_projects.pipeline_stage) was removed in
+-- 20260534_remove_pipeline_feature.sql, so this migration does NOT touch
+-- those objects.  The 'Estimate Sent' CRM stage rename is moot — the
+-- stage no longer exists.  estimating_reminders and reminder_rules were
+-- intentionally kept by the Pipeline removal and ARE updated below.
 -- ============================================================================
 
 
@@ -77,11 +83,6 @@ ALTER TABLE job_walks
 -- STEP 2: UPDATE data values
 -- ============================================================================
 
--- 2a. CRM pipeline stage rename: "Estimate Sent" → "Proposal Sent"
-UPDATE pipeline_stages
-SET name = 'Proposal Sent', slug = 'proposal_sent'
-WHERE slug = 'estimate_sent';
-
 -- 2b. Reminder rules referencing the old slug
 UPDATE reminder_rules
 SET trigger_event = 'proposal_sent'
@@ -91,20 +92,6 @@ WHERE trigger_event = 'estimate_sent';
 UPDATE estimating_reminders
 SET trigger_event = 'proposal_sent'
 WHERE trigger_event = 'estimate_sent';
-
--- 2d. Project pipeline-stage values that were the old slug
-UPDATE estimating_projects
-SET pipeline_stage = 'proposal_sent'
-WHERE pipeline_stage = 'estimate_sent';
-
--- 2e. Pipeline history rows that recorded transitions
-UPDATE pipeline_history
-SET from_stage = 'proposal_sent'
-WHERE from_stage = 'estimate_sent';
-
-UPDATE pipeline_history
-SET to_stage = 'proposal_sent'
-WHERE to_stage = 'estimate_sent';
 
 -- 2f. Notification type literals
 UPDATE notifications
@@ -120,7 +107,7 @@ UPDATE change_orders
 SET parent_type = 'proposal'
 WHERE parent_type = 'estimate';
 
--- 2h. pushed_to enums on the three pipeline tables
+-- 2h. pushed_to enums on the three sales-flow tables
 UPDATE crm_appointments
 SET pushed_to = 'proposal'
 WHERE pushed_to = 'estimate';
@@ -484,7 +471,6 @@ ALTER TABLE job_walks
 -- UNION ALL SELECT 'proposal_form_settings',    count(*) FROM proposal_form_settings
 -- UNION ALL SELECT 'proposal_follow_ups',       count(*) FROM proposal_follow_ups;
 
--- SELECT 'pipeline_stages: Proposal Sent', count(*) FROM pipeline_stages WHERE slug = 'proposal_sent';
 -- SELECT 'reminder_rules: proposal_sent',  count(*) FROM reminder_rules  WHERE trigger_event = 'proposal_sent';
 -- SELECT 'notifications: proposal_sent',   count(*) FROM notifications   WHERE type = 'proposal_sent';
 -- SELECT 'notifications: proposal_follow_up', count(*) FROM notifications WHERE type = 'proposal_follow_up';
@@ -496,7 +482,6 @@ ALTER TABLE job_walks
 -- SELECT 1 FROM information_schema.tables WHERE table_name = 'estimate_settings';
 -- SELECT 1 FROM information_schema.tables WHERE table_name = 'estimate_form_settings';
 -- SELECT 1 FROM information_schema.tables WHERE table_name = 'estimate_follow_ups';
--- SELECT count(*) FROM pipeline_stages WHERE slug = 'estimate_sent';
 -- SELECT count(*) FROM notifications   WHERE type IN ('estimate_sent', 'estimate_follow_up');
 -- SELECT count(*) FROM change_orders   WHERE parent_type = 'estimate';
 -- SELECT count(*) FROM trash_bin       WHERE item_type = 'estimate';
