@@ -18,7 +18,7 @@ import type {
   Markup,
 } from '@/components/takeoff/types'
 import type { EstimatingProject, EstimatingProjectPdf } from './types'
-import { useUploadMeasurementPdf } from './useUploadMeasurementPdf'
+import { useUploadTakeoffPdf } from './useUploadTakeoffPdf'
 
 // ─── Row type shared with the server page ──────────────────────────────
 
@@ -44,7 +44,7 @@ export interface MeasurementRow {
   updated_at: string
 }
 
-interface MeasurementToolClientProps {
+interface TakeoffClientProps {
   project: EstimatingProject
   pdfs: EstimatingProjectPdf[]
   measurements: MeasurementRow[]
@@ -151,12 +151,12 @@ async function loadPdfPages(
 
 // ─── Component ─────────────────────────────────────────────────────────
 
-export default function MeasurementToolClient({
+export default function TakeoffClient({
   project,
   pdfs: initialPdfs,
   measurements,
-}: MeasurementToolClientProps) {
-  const uploadPdf = useUploadMeasurementPdf(project.id)
+}: TakeoffClientProps) {
+  const uploadPdf = useUploadTakeoffPdf(project.id)
 
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
@@ -216,7 +216,7 @@ export default function MeasurementToolClient({
         }
         if (!cancelled) setPages(all)
       } catch (err) {
-        console.error('[MeasurementTool] Failed to load PDFs:', err)
+        console.error('[Takeoff] Failed to load PDFs:', err)
       } finally {
         if (!cancelled) setLoadingPdfs(false)
       }
@@ -299,7 +299,7 @@ export default function MeasurementToolClient({
         .upsert(rows, { onConflict: 'pdf_id,page_number' })
 
       if (error) {
-        console.error('[MeasurementTool] Save failed:', error)
+        console.error('[Takeoff] Save failed:', error)
         setSaveState('error')
       } else {
         setSaveState('saved')
@@ -384,7 +384,7 @@ export default function MeasurementToolClient({
         )
         .then(({ error }) => {
           if (error) {
-            console.error('[MeasurementTool] Hide page failed:', error)
+            console.error('[Takeoff] Hide page failed:', error)
           }
         })
     },
@@ -473,8 +473,8 @@ export default function MeasurementToolClient({
             Desktop Only Feature
           </h2>
           <p className="text-sm text-gray-500 leading-relaxed">
-            The Measurement Tool is designed for desktop use. Please open this
-            page on a desktop or laptop for the best experience.
+            Takeoff is designed for desktop use. Please open this page on a
+            desktop or laptop for the best experience.
           </p>
         </div>
       </div>

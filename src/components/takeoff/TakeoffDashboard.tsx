@@ -566,7 +566,7 @@ export default function TakeoffDashboard({
       {/* Push Plans Modal */}
       {showPushModal && (
         <PushPlansModal
-          takeoffName={projectName}
+          projectName={projectName}
           pages={pages}
           items={items}
           pageScales={pageScales}
