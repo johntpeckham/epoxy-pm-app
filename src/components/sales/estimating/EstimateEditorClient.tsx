@@ -364,8 +364,8 @@ export default function EstimateEditorClient({
 
   const title =
     mode === 'new' && !estimate.estimate_number
-      ? 'New Estimate'
-      : `Estimate #${estimate.estimate_number}`
+      ? 'New Proposal'
+      : `Proposal #${estimate.estimate_number}`
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">

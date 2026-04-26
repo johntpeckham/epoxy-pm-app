@@ -35,9 +35,9 @@ function NotFoundState({
         <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CalculatorIcon className="w-7 h-7 text-gray-400" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900 mb-2">Estimate not found</h2>
+        <h2 className="text-lg font-bold text-gray-900 mb-2">Proposal not found</h2>
         <p className="text-sm text-gray-500 leading-relaxed mb-4">
-          This estimate doesn&apos;t exist or has been deleted.
+          This proposal doesn&apos;t exist or has been deleted.
         </p>
         <Link
           href={backHref}

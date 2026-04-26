@@ -57,7 +57,7 @@ export default function ProjectTakeoffSheetsCard({
             <TableIcon className="w-5 h-5" />
           </span>
           <h3 className="text-sm font-semibold text-gray-900 flex-1">
-            Takeoff sheets
+            Estimate
           </h3>
           <button
             onClick={() => setShowNewModal(true)}

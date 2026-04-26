@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PencilIcon } from 'lucide-react'
+import { PencilIcon, ChevronLeftIcon } from 'lucide-react'
 import type { Customer } from '@/components/estimates/types'
 import type { EstimatingProject } from './types'
 import { usePermissions } from '@/lib/usePermissions'
@@ -16,6 +16,7 @@ interface ProjectDashboardProps {
   customer: Customer
   userId: string
   onPatch: (patch: Partial<EstimatingProject>) => void
+  onBack: () => void
 }
 
 export default function ProjectDashboard({
@@ -23,6 +24,7 @@ export default function ProjectDashboard({
   customer,
   userId,
   onPatch,
+  onBack,
 }: ProjectDashboardProps) {
   const { canEdit } = usePermissions()
   // Project number override was previously admin-only. Now surfaces for any
@@ -33,6 +35,14 @@ export default function ProjectDashboard({
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
       <div className="px-4 py-4 border-b border-gray-200 bg-white">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition mb-2"
+        >
+          <ChevronLeftIcon className="w-4 h-4" />
+          Back to customers
+        </button>
         {project.project_number && (
           <div className="mb-1">
             {canOverrideProjectNumber ? (

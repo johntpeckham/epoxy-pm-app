@@ -231,7 +231,7 @@ export default function ProjectEstimatesCard({
             <FileTextIcon className="w-5 h-5" />
           </span>
           <h3 className="text-sm font-semibold text-gray-900 flex-1">
-            Estimates
+            Proposals
             {project.project_number && (
               <span className="ml-2 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
                 #{project.project_number}
@@ -244,7 +244,7 @@ export default function ProjectEstimatesCard({
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
           >
             <PlusIcon className="w-4 h-4" />
-            New estimate
+            New proposal
           </button>
         </div>
 
@@ -276,11 +276,11 @@ export default function ProjectEstimatesCard({
           </div>
         ) : estimates.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-6">
-            No estimates yet for this customer.
+            No proposals yet for this customer.
           </p>
         ) : visible.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-6">
-            No estimates match this filter.
+            No proposals match this filter.
           </p>
         ) : (
           <div className="divide-y divide-gray-100">

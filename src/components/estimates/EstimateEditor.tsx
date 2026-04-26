@@ -271,7 +271,7 @@ export default function EstimateEditor({
       companyWebsite,
       logoBase64: settings?.logo_base64 ?? null,
     })
-    setPdfPreview({ ...result, title: 'Estimate' })
+    setPdfPreview({ ...result, title: 'Proposal' })
     setShowPreview(true)
   }
 
@@ -348,7 +348,7 @@ export default function EstimateEditor({
       .maybeSingle()
 
     if (existing) {
-      setConvertError('This estimate has already been converted to an invoice')
+      setConvertError('This proposal has already been converted to an invoice')
       setConverting(false)
       setShowConvertConfirm(false)
       setTimeout(() => setConvertError(null), 4000)
@@ -578,7 +578,7 @@ export default function EstimateEditor({
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="p-1.5 text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg hover:border-red-200 transition-colors"
-            title="Delete estimate"
+            title="Delete proposal"
           >
             <Trash2Icon className="w-4 h-4" />
           </button>
@@ -597,7 +597,7 @@ export default function EstimateEditor({
       {convertSuccess && (
         <div className="fixed bottom-6 right-6 z-50 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2">
           <CheckIcon className="w-4 h-4" />
-          Estimate converted to invoice
+          Proposal converted to invoice
         </div>
       )}
 
@@ -614,7 +614,7 @@ export default function EstimateEditor({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Convert to Invoice</h3>
-            <p className="text-sm text-gray-600 mb-6">Convert this estimate to an invoice?</p>
+            <p className="text-sm text-gray-600 mb-6">Convert this proposal to an invoice?</p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowConvertConfirm(false)}
@@ -670,7 +670,7 @@ export default function EstimateEditor({
                     Upload Logo
                   </button>
                 )}
-                <h2 className="text-3xl font-bold text-amber-500">Estimate</h2>
+                <h2 className="text-3xl font-bold text-amber-500">Proposal</h2>
               </div>
             </div>
           </div>
@@ -695,7 +695,7 @@ export default function EstimateEditor({
             </div>
             <div className="text-right space-y-1">
               <div className="flex items-center gap-2 justify-end">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Estimate #</span>
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Proposal #</span>
                 <input
                   type="number"
                   inputMode="numeric"
@@ -915,8 +915,8 @@ export default function EstimateEditor({
 
       {showDeleteConfirm && (
         <ConfirmDialog
-          title="Delete Estimate"
-          message="Are you sure you want to move this estimate to the trash bin? You can restore it within 30 days."
+          title="Delete Proposal"
+          message="Are you sure you want to move this proposal to the trash bin? You can restore it within 30 days."
           onConfirm={handleDeleteEstimate}
           onCancel={() => setShowDeleteConfirm(false)}
           loading={isDeleting}
@@ -926,7 +926,7 @@ export default function EstimateEditor({
       {showPreview && (
         <ReportPreviewModal
           pdfData={pdfPreview}
-          title="Estimate"
+          title="Proposal"
           onClose={() => { setShowPreview(false); setPdfPreview(null) }}
         />
       )}

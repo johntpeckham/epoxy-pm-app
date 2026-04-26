@@ -34,12 +34,12 @@ export default function SendEstimateModal({
   const [email, setEmail] = useState(customer.email ?? '')
   const [name, setName] = useState(customer.name ?? '')
   const [subject, setSubject] = useState(
-    `Estimate #${estimate.estimate_number} — ${
+    `Proposal #${estimate.estimate_number} — ${
       estimate.project_name || project.name || 'Project'
     } from Peckham Coatings`
   )
   const [message, setMessage] = useState(
-    'Please find the attached estimate for your review. Let us know if you have any questions.'
+    'Please find the attached proposal for your review. Let us know if you have any questions.'
   )
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -118,8 +118,8 @@ export default function SendEstimateModal({
       await supabase.from('notifications').insert({
         user_id: userId,
         type: 'estimate_sent',
-        title: `Estimate #${estimate.estimate_number} sent`,
-        message: `Estimate #${estimate.estimate_number} sent to ${
+        title: `Proposal #${estimate.estimate_number} sent`,
+        message: `Proposal #${estimate.estimate_number} sent to ${
           name.trim() || customer.name || email.trim()
         }`,
         link,
@@ -130,7 +130,7 @@ export default function SendEstimateModal({
     } catch (err) {
       console.error('[SendEstimateModal] Send failed:', err)
       setError(
-        err instanceof Error ? err.message : 'Failed to send estimate.'
+        err instanceof Error ? err.message : 'Failed to send proposal.'
       )
       setSending(false)
     }
@@ -152,7 +152,7 @@ export default function SendEstimateModal({
           >
             <div className="flex items-center gap-2">
               <SendIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-lg font-semibold text-gray-900">Send estimate</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Send proposal</h3>
             </div>
             <button
               onClick={onClose}
@@ -211,7 +211,7 @@ export default function SendEstimateModal({
             </div>
 
             <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-1">
-              <p className="text-xs text-gray-500">Estimate preview</p>
+              <p className="text-xs text-gray-500">Proposal preview</p>
               <p className="text-sm font-medium text-gray-900">
                 #{estimate.estimate_number}
                 {estimate.project_name ? ` · ${estimate.project_name}` : ''}
@@ -232,7 +232,7 @@ export default function SendEstimateModal({
             )}
 
             <p className="text-[11px] text-gray-400 italic">
-              Email sending coming soon — this will log the estimate as sent and
+              Email sending coming soon — this will log the proposal as sent and
               trigger follow-up reminders.
             </p>
           </div>
@@ -263,7 +263,7 @@ export default function SendEstimateModal({
               ) : (
                 <>
                   <SendIcon className="w-4 h-4" />
-                  Send estimate
+                  Send proposal
                 </>
               )}
             </button>
