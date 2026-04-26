@@ -14,7 +14,6 @@ import {
   AlertCircleIcon,
   ExternalLinkIcon,
   XIcon,
-  SearchIcon,
   Building2Icon,
   WrenchIcon,
   PackageIcon,
@@ -49,6 +48,19 @@ function isOverdue(d: string | null) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   return new Date(d + 'T00:00:00') < today
+}
+
+/**
+ * Compact assignee label for the row pill: "First L." for multi-part names,
+ * the single token otherwise, and pass-through for "Unassigned" / "Unknown".
+ */
+function formatAssigneePill(name: string): string {
+  if (name === 'Unassigned' || name === 'Unknown') return name
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0]
+  const first = parts[0]
+  const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase()
+  return `${first} ${lastInitial}.`
 }
 
 /**
@@ -97,30 +109,11 @@ function formatScheduledDate(d: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-const priorityOrder: Record<OfficePriority, number> = {
-  Urgent: 0,
-  High: 1,
-  Normal: 2,
-  Low: 3,
-}
-
 const priorityColors: Record<OfficePriority, string> = {
   Low: 'bg-gray-100 text-gray-600',
   Normal: 'bg-blue-100 text-blue-700',
   High: 'bg-orange-100 text-orange-700',
   Urgent: 'bg-red-100 text-red-700',
-}
-
-function sortTasks(tasks: OfficeTask[]): OfficeTask[] {
-  return [...tasks].sort((a, b) => {
-    const pa = priorityOrder[a.priority] ?? 2
-    const pb = priorityOrder[b.priority] ?? 2
-    if (pa !== pb) return pa - pb
-    if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date)
-    if (a.due_date) return -1
-    if (b.due_date) return 1
-    return 0
-  })
 }
 
 type ProjectOption = { id: string; name: string }
@@ -134,6 +127,8 @@ export interface UpcomingScheduledService {
   /** Joined from equipment table on the server; may be null if the join fails. */
   equipment_name?: string | null
 }
+
+type OfficeTasksView = 'all' | 'mine'
 
 interface Props {
   userId: string
@@ -150,6 +145,7 @@ interface Props {
   contactCount: number
   vendorCount: number
   sopCount: number
+  initialOfficeTasksViewPreference: OfficeTasksView
 }
 
 type OfficeView =
@@ -177,17 +173,24 @@ export default function OfficeTasksPageClient({
   contactCount,
   vendorCount,
   sopCount,
+  initialOfficeTasksViewPreference,
 }: Props) {
   const supabase = createClient()
 
   const [tasks, setTasks] = useState<OfficeTask[]>(initialTasks)
   const [profiles] = useState<Profile[]>(initialProfiles)
   const [projects] = useState<ProjectOption[]>(initialProjects)
-  const [searchQuery, setSearchQuery] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [collapsedCompleted, setCollapsedCompleted] = useState<Set<string>>(new Set())
+  const [completedExpanded, setCompletedExpanded] = useState(false)
   const [view, setView] = useState<OfficeView>({ kind: 'dashboard' })
+
+  // Office Tasks card view toggle ("all" vs "mine"). Seeded from the user's
+  // saved preference on profiles.office_tasks_view_preference; toggle changes
+  // are written back optimistically and reverted on error.
+  const [officeTasksView, setOfficeTasksView] = useState<OfficeTasksView>(
+    initialOfficeTasksViewPreference
+  )
 
   // Upcoming scheduled services for the Equipment card preview. Seeded from
   // the server prop (for instant paint) and refetched on mount + whenever the
@@ -277,46 +280,32 @@ export default function OfficeTasksPageClient({
     return profileMap.get(id)?.display_name ?? 'Unknown'
   }
 
-  // Filter tasks by search
-  const filteredTasks = useMemo(() => {
-    if (!searchQuery.trim()) return tasks
-    const q = searchQuery.toLowerCase()
-    return tasks.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        (t.description && t.description.toLowerCase().includes(q))
-    )
-  }, [tasks, searchQuery])
-
-  // Group tasks by assigned user
-  const groupedByUser = useMemo(() => {
-    const groups = new Map<string, { name: string; tasks: OfficeTask[] }>()
-
-    for (const task of filteredTasks) {
-      const assigneeId = task.assigned_to ?? '__unassigned__'
-      const name = task.assigned_to ? getDisplayName(task.assigned_to) : 'Unassigned'
-
-      if (!groups.has(assigneeId)) {
-        groups.set(assigneeId, { name, tasks: [] })
-      }
-      groups.get(assigneeId)!.tasks.push(task)
+  // Apply the My/All toggle filter to the full task list. "mine" keeps tasks
+  // assigned to the current user; "all" keeps every task.
+  const visibleTasks = useMemo(() => {
+    if (officeTasksView === 'mine') {
+      return tasks.filter((t) => t.assigned_to === userId)
     }
+    return tasks
+  }, [tasks, officeTasksView, userId])
 
-    // Sort groups alphabetically, Unassigned last
-    return Array.from(groups.entries())
-      .sort(([aId, a], [bId, b]) => {
-        if (aId === '__unassigned__') return 1
-        if (bId === '__unassigned__') return -1
-        return a.name.localeCompare(b.name)
-      })
-      .map(([id, g]) => ({
-        userId: id,
-        name: g.name,
-        incomplete: sortTasks(g.tasks.filter((t) => !t.is_completed)),
-        completed: g.tasks.filter((t) => t.is_completed),
-      }))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTasks, profileMap])
+  // Sort active tasks: due date ascending (closest first); tasks without a
+  // due date are pushed to the bottom and ordered by creation date (newest
+  // first) so freshly added items are easy to spot.
+  const activeTasks = useMemo(() => {
+    const incomplete = visibleTasks.filter((t) => !t.is_completed)
+    return [...incomplete].sort((a, b) => {
+      if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date)
+      if (a.due_date) return -1
+      if (b.due_date) return 1
+      return (b.created_at ?? '').localeCompare(a.created_at ?? '')
+    })
+  }, [visibleTasks])
+
+  const completedTasksList = useMemo(
+    () => visibleTasks.filter((t) => t.is_completed),
+    [visibleTasks]
+  )
 
   /* ================================================================ */
   /*  CRUD                                                             */
@@ -393,20 +382,23 @@ export default function OfficeTasksPageClient({
     }
   }
 
-  function toggleCollapsedCompleted(userId: string) {
-    setCollapsedCompleted((prev) => {
-      const next = new Set(prev)
-      if (next.has(userId)) next.delete(userId)
-      else next.add(userId)
-      return next
-    })
+  // Persist the My/All toggle choice to profiles.office_tasks_view_preference.
+  // Optimistic: update local state immediately so the toggle feels instant,
+  // fire-and-forget the write, revert local state on error.
+  async function handleViewToggle(next: OfficeTasksView) {
+    if (next === officeTasksView) return
+    const prev = officeTasksView
+    setOfficeTasksView(next)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ office_tasks_view_preference: next })
+      .eq('id', userId)
+    if (error) setOfficeTasksView(prev)
   }
 
   /* ================================================================ */
   /*  RENDER                                                           */
   /* ================================================================ */
-
-  const totalIncomplete = tasks.filter((t) => !t.is_completed).length
 
   /* ── Inline workspaces (fill full work area right of sidebar) ── */
   if (view.kind === 'employees' && canManageEmployees) {
@@ -471,23 +463,33 @@ export default function OfficeTasksPageClient({
               <Building2Icon className="w-5 h-5" />
             </span>
             <h3 className="text-sm font-semibold text-gray-900 flex-1">Tasks</h3>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
-              {totalIncomplete} active
-            </span>
           </div>
 
-          {/* Search + New Task actions */}
+          {/* My/All toggle (left) + New Task button (right) */}
           <div className="flex items-center gap-2 mb-3">
-            <div className="relative flex-1">
-              <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search tasks..."
-                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 text-gray-900 placeholder-gray-400"
-              />
+            <div className="inline-flex items-center bg-gray-100 rounded-lg p-0.5">
+              <button
+                onClick={() => handleViewToggle('mine')}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                  officeTasksView === 'mine'
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                My Tasks
+              </button>
+              <button
+                onClick={() => handleViewToggle('all')}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                  officeTasksView === 'all'
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                All Tasks
+              </button>
             </div>
+            <div className="flex-1" />
             <button
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm flex-shrink-0"
@@ -497,45 +499,24 @@ export default function OfficeTasksPageClient({
             </button>
           </div>
 
-          {/* Task list content */}
-          <div className="space-y-3 max-h-[600px] overflow-y-auto -mx-4 px-4">
-            {groupedByUser.length === 0 && (
+          {/* Flat task list */}
+          <div className="max-h-[600px] overflow-y-auto -mx-4 px-4">
+            {activeTasks.length === 0 && completedTasksList.length === 0 && (
               <div className="px-5 py-12 text-center">
                 <Building2Icon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                 <p className="text-sm text-gray-500 font-medium">
-                  {searchQuery ? 'No tasks match your search' : 'No office tasks yet'}
+                  {officeTasksView === 'mine' ? 'No tasks assigned to you.' : 'No tasks yet.'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  {searchQuery ? 'Try a different keyword' : 'Click "+ New Task" to create one'}
+                  Click &quot;+ New Task&quot; to create one
                 </p>
               </div>
             )}
 
-            {groupedByUser.map((group) => (
-              <div key={group.userId} className="rounded-lg border border-gray-100 overflow-hidden">
-                {/* User section header */}
-                <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-bold text-amber-700">
-                        {group.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <h2 className="text-xs font-semibold text-gray-900 flex-1">{group.name}</h2>
-                    <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full font-medium">
-                      {group.incomplete.length} active
-                    </span>
-                  </div>
-                </div>
-
-                {/* Incomplete tasks */}
+            {activeTasks.length > 0 && (
+              <div className="rounded-lg border border-gray-100 overflow-hidden">
                 <div className="divide-y divide-gray-50">
-                  {group.incomplete.length === 0 && group.completed.length === 0 && (
-                    <p className="px-5 py-6 text-sm text-gray-400 text-center">
-                      No tasks
-                    </p>
-                  )}
-                  {group.incomplete.map((task) => (
+                  {activeTasks.map((task) => (
                     <TaskRow
                       key={task.id}
                       task={task}
@@ -548,42 +529,42 @@ export default function OfficeTasksPageClient({
                     />
                   ))}
                 </div>
+              </div>
+            )}
 
-                {/* Completed section */}
-                {group.completed.length > 0 && (
-                  <div className="border-t border-gray-100">
-                    <button
-                      onClick={() => toggleCollapsedCompleted(group.userId)}
-                      className="w-full flex items-center gap-2 px-5 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                    >
-                      {!collapsedCompleted.has(group.userId) ? (
-                        <ChevronRightIcon className="w-4 h-4" />
-                      ) : (
-                        <ChevronDownIcon className="w-4 h-4" />
-                      )}
-                      Completed ({group.completed.length})
-                    </button>
-                    {collapsedCompleted.has(group.userId) && (
-                      <div className="divide-y divide-gray-50">
-                        {group.completed.map((task) => (
-                          <TaskRow
-                            key={task.id}
-                            task={task}
-                            getDisplayName={getDisplayName}
-                            profiles={profiles}
-                            projects={projects}
-                            onToggle={toggleComplete}
-                            onUpdateField={updateField}
-                            onDelete={(id) => setDeleteConfirmId(id)}
-                            completed
-                          />
-                        ))}
-                      </div>
-                    )}
+            {/* Combined Completed group at the bottom (hidden when count = 0) */}
+            {completedTasksList.length > 0 && (
+              <div className="mt-3 rounded-lg border border-gray-100 overflow-hidden">
+                <button
+                  onClick={() => setCompletedExpanded((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  {completedExpanded ? (
+                    <ChevronDownIcon className="w-4 h-4" />
+                  ) : (
+                    <ChevronRightIcon className="w-4 h-4" />
+                  )}
+                  Completed ({completedTasksList.length})
+                </button>
+                {completedExpanded && (
+                  <div className="border-t border-gray-100 divide-y divide-gray-50">
+                    {completedTasksList.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        getDisplayName={getDisplayName}
+                        profiles={profiles}
+                        projects={projects}
+                        onToggle={toggleComplete}
+                        onUpdateField={updateField}
+                        onDelete={(id) => setDeleteConfirmId(id)}
+                        completed
+                      />
+                    ))}
                   </div>
                 )}
               </div>
-            ))}
+            )}
           </div>
         </div>
         )}
@@ -952,7 +933,19 @@ function TaskRow({
               {task.priority}
             </span>
 
-            <span className="text-xs text-gray-500">{getDisplayName(task.assigned_to)}</span>
+            {(() => {
+              const name = getDisplayName(task.assigned_to)
+              const isUnassigned = !task.assigned_to
+              return (
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                    isUnassigned ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {formatAssigneePill(name)}
+                </span>
+              )
+            })()}
 
             {projectName && task.project_id && (
               <Link

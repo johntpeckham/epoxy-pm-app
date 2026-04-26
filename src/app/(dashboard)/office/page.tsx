@@ -8,14 +8,19 @@ import type { EquipmentRow } from '@/app/(dashboard)/equipment/page'
 export default async function OfficePage() {
   const { supabase, user, permissions } = await requirePermission('office', 'view')
 
-  // Fetch display name (role already resolved by requirePermission).
+  // Fetch display name + Office Tasks card view preference (role already
+  // resolved by requirePermission). The preference seeds the My/All toggle
+  // so it paints in the correct state without a client round-trip.
   const { data: profileRow } = await supabase
     .from('profiles')
-    .select('display_name')
+    .select('display_name, office_tasks_view_preference')
     .eq('id', user.id)
     .single()
   const userRole = (permissions.role ?? 'crew') as UserRole
   const userDisplayName = (profileRow?.display_name as string | null) ?? ''
+  const officeTasksViewPreference =
+    ((profileRow as { office_tasks_view_preference?: string | null } | null)
+      ?.office_tasks_view_preference as 'all' | 'mine' | null) ?? 'all'
 
   // Fetch ALL office tasks
   const { data: tasks } = await supabase
@@ -137,6 +142,7 @@ export default async function OfficePage() {
       contactCount={contactCount}
       vendorCount={vendorCount}
       sopCount={sopCount}
+      initialOfficeTasksViewPreference={officeTasksViewPreference}
     />
   )
 }
