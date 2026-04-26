@@ -57,14 +57,14 @@ export default function ProjectTakeoffSheetsCard({
             <TableIcon className="w-5 h-5" />
           </span>
           <h3 className="text-sm font-semibold text-gray-900 flex-1">
-            Estimate
+            Estimates
           </h3>
           <button
             onClick={() => setShowNewModal(true)}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
           >
             <PlusIcon className="w-3.5 h-3.5" />
-            New takeoff
+            New estimate
           </button>
         </div>
 

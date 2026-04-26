@@ -6,6 +6,7 @@ import {
   UploadIcon,
   XIcon,
   Loader2Icon,
+  PlusIcon,
 } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -152,17 +153,16 @@ export default function ProjectMeasurementsCard({
           <span className="text-amber-500">
             <RulerIcon className="w-5 h-5" />
           </span>
-          <h3 className="text-sm font-semibold text-gray-900 flex-1">Takeoff</h3>
+          <h3 className="text-sm font-semibold text-gray-900 flex-1">Takeoffs</h3>
           <AutoSaveIndicator isSaving={saveState === 'saving'} />
+          <Link
+            href={`/sales/estimating/measurement-tool/${project.id}`}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
+          >
+            <PlusIcon className="w-3.5 h-3.5" />
+            New takeoff
+          </Link>
         </div>
-
-        <Link
-          href={`/sales/estimating/measurement-tool/${project.id}`}
-          className="w-full flex items-center justify-center gap-2 min-h-[44px] px-3 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold transition shadow-sm mb-3"
-        >
-          <RulerIcon className="w-4 h-4" />
-          Measurement Tool
-        </Link>
 
         <textarea
           value={measurements}
