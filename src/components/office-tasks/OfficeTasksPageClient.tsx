@@ -9,6 +9,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   PlusIcon,
+  PencilIcon,
   Trash2Icon,
   CalendarIcon,
   AlertCircleIcon,
@@ -181,6 +182,7 @@ export default function OfficeTasksPageClient({
   const [profiles] = useState<Profile[]>(initialProfiles)
   const [projects] = useState<ProjectOption[]>(initialProjects)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editTaskId, setEditTaskId] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [completedExpanded, setCompletedExpanded] = useState(false)
   const [view, setView] = useState<OfficeView>({ kind: 'dashboard' })
@@ -340,6 +342,27 @@ export default function OfficeTasksPageClient({
       .from('office_tasks')
       .update({ [field]: value, updated_at: new Date().toISOString() })
       .eq('id', id)
+  }
+
+  async function updateTask(id: string, data: {
+    title: string
+    description: string
+    assigned_to: string
+    project_id: string
+    due_date: string
+    priority: OfficePriority
+  }) {
+    const patch = {
+      title: data.title,
+      description: data.description || null,
+      assigned_to: data.assigned_to || null,
+      project_id: data.project_id || null,
+      due_date: data.due_date || null,
+      priority: data.priority,
+      updated_at: new Date().toISOString(),
+    }
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+    await supabase.from('office_tasks').update(patch).eq('id', id)
   }
 
   async function createTask(data: {
@@ -521,11 +544,10 @@ export default function OfficeTasksPageClient({
                       key={task.id}
                       task={task}
                       getDisplayName={getDisplayName}
-                      profiles={profiles}
                       projects={projects}
                       onToggle={toggleComplete}
                       onUpdateField={updateField}
-                      onDelete={(id) => setDeleteConfirmId(id)}
+                      onEdit={(id) => setEditTaskId(id)}
                     />
                   ))}
                 </div>
@@ -553,11 +575,10 @@ export default function OfficeTasksPageClient({
                         key={task.id}
                         task={task}
                         getDisplayName={getDisplayName}
-                        profiles={profiles}
                         projects={projects}
                         onToggle={toggleComplete}
                         onUpdateField={updateField}
-                        onDelete={(id) => setDeleteConfirmId(id)}
+                        onEdit={(id) => setEditTaskId(id)}
                         completed
                       />
                     ))}
@@ -804,17 +825,38 @@ export default function OfficeTasksPageClient({
 
       {/* Create modal */}
       {showCreateModal && (
-        <CreateTaskModal
-          userId={userId}
+        <TaskModal
           profiles={profiles}
           projects={projects}
           onClose={() => setShowCreateModal(false)}
-          onCreate={(data) => {
+          onSubmit={(data) => {
             createTask(data)
             setShowCreateModal(false)
           }}
         />
       )}
+
+      {/* Edit modal — same component, dual mode */}
+      {editTaskId && (() => {
+        const task = tasks.find((t) => t.id === editTaskId)
+        if (!task) return null
+        return (
+          <TaskModal
+            task={task}
+            profiles={profiles}
+            projects={projects}
+            onClose={() => setEditTaskId(null)}
+            onSubmit={(data) => {
+              updateTask(task.id, data)
+              setEditTaskId(null)
+            }}
+            onDelete={() => {
+              setEditTaskId(null)
+              setDeleteConfirmId(task.id)
+            }}
+          />
+        )
+      })()}
 
       {/* Delete confirmation */}
       {deleteConfirmId && (
@@ -850,20 +892,18 @@ export default function OfficeTasksPageClient({
 function TaskRow({
   task,
   getDisplayName,
-  profiles,
   projects,
   onToggle,
   onUpdateField,
-  onDelete,
+  onEdit,
   completed,
 }: {
   task: OfficeTask
   getDisplayName: (id: string | null) => string
-  profiles: Profile[]
   projects: { id: string; name: string }[]
   onToggle: (t: OfficeTask) => void
   onUpdateField: (id: string, field: string, value: string | null) => void
-  onDelete: (id: string) => void
+  onEdit: (id: string) => void
   completed?: boolean
 }) {
   const [editing, setEditing] = useState(false)
@@ -989,42 +1029,13 @@ function TaskRow({
         </div>
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <select
-            value={task.assigned_to ?? ''}
-            onChange={(e) => onUpdateField(task.id, 'assigned_to', e.target.value || null)}
-            className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white max-w-[100px]"
-          >
-            <option value="">Unassigned</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.display_name || 'Unknown'}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={task.priority}
-            onChange={(e) => onUpdateField(task.id, 'priority', e.target.value)}
-            className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white w-[75px]"
-          >
-            <option value="Low">Low</option>
-            <option value="Normal">Normal</option>
-            <option value="High">High</option>
-            <option value="Urgent">Urgent</option>
-          </select>
-
-          <input
-            type="date"
-            value={task.due_date || ''}
-            onChange={(e) => onUpdateField(task.id, 'due_date', e.target.value || null)}
-            className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white w-[110px]"
-          />
-
           <button
-            onClick={() => onDelete(task.id)}
-            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onEdit(task.id) }}
+            aria-label="Edit task"
+            title="Edit task"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition-colors"
           >
-            <Trash2Icon className="w-4 h-4" />
+            <PencilIcon className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -1033,21 +1044,22 @@ function TaskRow({
 }
 
 /* ================================================================== */
-/*  CREATE MODAL                                                       */
+/*  TASK MODAL (create + edit)                                         */
 /* ================================================================== */
 
-function CreateTaskModal({
-  userId,
+function TaskModal({
+  task,
   profiles,
   projects,
   onClose,
-  onCreate,
+  onSubmit,
+  onDelete,
 }: {
-  userId: string
+  task?: OfficeTask
   profiles: Profile[]
   projects: { id: string; name: string }[]
   onClose: () => void
-  onCreate: (data: {
+  onSubmit: (data: {
     title: string
     description: string
     assigned_to: string
@@ -1055,18 +1067,20 @@ function CreateTaskModal({
     due_date: string
     priority: OfficePriority
   }) => void
+  onDelete?: () => void
 }) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [assignedTo, setAssignedTo] = useState('')
-  const [projectId, setProjectId] = useState('')
-  const [dueDate, setDueDate] = useState('')
-  const [priority, setPriority] = useState<OfficePriority>('Normal')
+  const isEdit = Boolean(task)
+  const [title, setTitle] = useState(task?.title ?? '')
+  const [description, setDescription] = useState(task?.description ?? '')
+  const [assignedTo, setAssignedTo] = useState(task?.assigned_to ?? '')
+  const [projectId, setProjectId] = useState(task?.project_id ?? '')
+  const [dueDate, setDueDate] = useState(task?.due_date ?? '')
+  const [priority, setPriority] = useState<OfficePriority>(task?.priority ?? 'Normal')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
-    onCreate({
+    onSubmit({
       title: title.trim(),
       description,
       assigned_to: assignedTo,
@@ -1080,7 +1094,9 @@ function CreateTaskModal({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900">New Office Task</h3>
+          <h3 className="text-base font-semibold text-gray-900">
+            {isEdit ? 'Edit Office Task' : 'New Office Task'}
+          </h3>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
             <XIcon className="w-5 h-5" />
           </button>
@@ -1168,21 +1184,35 @@ function CreateTaskModal({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!title.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 rounded-lg transition-colors"
-            >
-              Create Task
-            </button>
+          <div className="flex items-center justify-between gap-2 pt-2">
+            {isEdit && onDelete ? (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <Trash2Icon className="w-4 h-4" />
+                Delete task
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!title.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 rounded-lg transition-colors"
+              >
+                {isEdit ? 'Save Changes' : 'Create Task'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
