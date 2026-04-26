@@ -153,7 +153,7 @@ export default function ProposalEditorClient({
     }))
 
     const payload = {
-      estimate_number: proposal.estimate_number,
+      proposal_number: proposal.proposal_number,
       company_id: customer.id,
       date: proposal.date,
       project_name: proposal.project_name ?? '',
@@ -170,7 +170,7 @@ export default function ProposalEditorClient({
     }
 
     const { data, error } = await supabase
-      .from('estimates')
+      .from('proposals')
       .insert(payload)
       .select('id')
       .single()
@@ -182,7 +182,7 @@ export default function ProposalEditorClient({
       return
     }
 
-    // Increment next_estimate_number ONLY when the saved number was drawn from
+    // Increment next_proposal_number ONLY when the saved number was drawn from
     // settings. If the project's project_number already supplied the numeric
     // portion (server page logic), leave settings alone — otherwise we'd
     // double-increment when a proposal is created off a numbered project.
@@ -194,11 +194,11 @@ export default function ProposalEditorClient({
       })()
       const fromSettings =
         projectDerivedNumber == null ||
-        projectDerivedNumber !== proposal.estimate_number
+        projectDerivedNumber !== proposal.proposal_number
       if (fromSettings) {
         await supabase
-          .from('estimate_settings')
-          .update({ next_estimate_number: proposal.estimate_number + 1 })
+          .from('proposal_settings')
+          .update({ next_proposal_number: proposal.proposal_number + 1 })
           .eq('id', settings.id)
       }
     }
@@ -237,7 +237,7 @@ export default function ProposalEditorClient({
     const tot = sub + tax
 
     const { blob, filename } = exportProposalPdf({
-      proposalNumber: proposal.estimate_number,
+      proposalNumber: proposal.proposal_number,
       date: proposal.date,
       customerName: customer.name,
       customerCompany: customer.company ?? '',
@@ -313,7 +313,7 @@ export default function ProposalEditorClient({
       const tax = proposal.tax ?? 0
       const tot = sub + tax
       const { error } = await supabase
-        .from('estimates')
+        .from('proposals')
         .update({
           date: proposal.date,
           project_name: proposal.project_name ?? '',
@@ -363,9 +363,9 @@ export default function ProposalEditorClient({
   const backLabel = project ? `Back to ${project.name || 'project'}` : 'Back to Estimating'
 
   const title =
-    mode === 'new' && !proposal.estimate_number
+    mode === 'new' && !proposal.proposal_number
       ? 'New Proposal'
-      : `Proposal #${proposal.estimate_number}`
+      : `Proposal #${proposal.proposal_number}`
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">

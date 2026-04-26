@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
   const cleanupQueries = [
     adminClient.from('tasks').update({ assigned_to: null }).eq('assigned_to', user_id),
     adminClient.from('post_comments').update({ user_id: null }).eq('user_id', user_id),
-    adminClient.from('estimates').update({ user_id: null }).eq('user_id', user_id),
-    adminClient.from('estimate_settings').update({ user_id: null }).eq('user_id', user_id),
+    adminClient.from('proposals').update({ user_id: null }).eq('user_id', user_id),
+    adminClient.from('proposal_settings').update({ user_id: null }).eq('user_id', user_id),
     adminClient.from('invoices').update({ user_id: null }).eq('user_id', user_id),
     adminClient.from('change_orders').delete().eq('user_id', user_id),
   ]

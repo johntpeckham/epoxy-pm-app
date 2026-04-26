@@ -60,8 +60,7 @@ const DEFAULT_HEADER_DIVIDER: HeaderDividerSettings = {
 const MERGE_FIELDS = [
   { label: 'Customer Name', value: '{{customer_name}}' },
   { label: 'Project Name', value: '{{project_name}}' },
-  // Token {{estimate_number}} kept until Phase 4 (matches DB column).
-  { label: 'Proposal Number', value: '{{estimate_number}}' },
+  { label: 'Proposal Number', value: '{{proposal_number}}' },
   { label: 'Address', value: '{{address}}' },
   { label: 'Date', value: '{{date}}' },
   { label: 'Warranty Duration', value: '{{warranty_duration}}' },
@@ -70,8 +69,7 @@ const MERGE_FIELDS = [
 const FIELD_KEY_TO_LABEL: Record<string, string> = {
   customer_name: 'Customer Name',
   project_name: 'Project Name',
-  // Field key 'estimate_number' kept until Phase 4 (matches DB column).
-  estimate_number: 'Proposal Number',
+  proposal_number: 'Proposal Number',
   address: 'Address',
   date: 'Date',
   warranty_duration: 'Warranty Duration',
@@ -120,8 +118,7 @@ function htmlToContent(el: HTMLElement): string {
 const SAMPLE_DATA: Record<string, string> = {
   '{{customer_name}}': 'John Smith',
   '{{project_name}}': 'Sample Project',
-  // Token {{estimate_number}} kept until Phase 4 (matches DB column).
-  '{{estimate_number}}': 'PROP-001',
+  '{{proposal_number}}': 'PROP-001',
   '{{address}}': '123 Main Street, Anytown, CA 93401',
   '{{date}}': new Date().toLocaleDateString('en-US', {
     year: 'numeric',

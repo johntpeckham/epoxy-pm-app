@@ -12,7 +12,7 @@ export interface CommandCenterProject {
   id: string
   name: string
   client_name: string | null
-  estimate_number: string | null
+  proposal_number: string | null
   status: string
 }
 
@@ -41,7 +41,7 @@ export interface CommandCenterAppointment {
 
 export interface CommandCenterProposal {
   id: string
-  estimate_number: number | null
+  proposal_number: number | null
   project_name: string | null
   status: string | null
   salesperson: string | null
@@ -135,7 +135,7 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
     supabase.from('profiles').select('id, display_name, avatar_url, role'),
     supabase
       .from('projects')
-      .select('id, name, client_name, estimate_number, status')
+      .select('id, name, client_name, proposal_number, status')
       .order('name', { ascending: true }),
     supabase
       .from('project_checklist_items')
@@ -154,8 +154,8 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
       .lte('created_at', todayEnd)
       .order('created_at', { ascending: false }),
     supabase
-      .from('estimates')
-      .select('id, estimate_number, project_name, status, salesperson, created_at, total')
+      .from('proposals')
+      .select('id, proposal_number, project_name, status, salesperson, created_at, total')
       .order('created_at', { ascending: false })
       .limit(25),
     supabase

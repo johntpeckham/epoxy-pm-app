@@ -6,7 +6,7 @@ export interface Project {
   client_name: string
   address: string
   status: ProjectStatus
-  estimate_number?: string
+  proposal_number?: string
   start_date?: string | null
   end_date?: string | null
   include_weekends?: boolean
@@ -36,7 +36,7 @@ export interface ProjectDocument {
 export interface ProjectReportData {
   // Project Details
   project_name: string
-  estimate_number: string
+  proposal_number: string
   address: string
   client_name: string
   client_email: string

@@ -18,8 +18,8 @@ interface CustomerSummary {
 
 interface ProposalRow {
   id: string
-  // DB column kept as estimate_number until Phase 4.
-  estimate_number: number
+  // DB column kept as proposal_number until Phase 4.
+  proposal_number: number
   project_name: string | null
   total: number | null
   status: string | null
@@ -64,8 +64,8 @@ export default function CustomerDetailModal({
     async function run() {
       const [estRes, projRes, estProjRes] = await Promise.all([
         supabase
-          .from('estimates')
-          .select('id, estimate_number, project_name, total, status, created_at')
+          .from('proposals')
+          .select('id, proposal_number, project_name, total, status, created_at')
           .eq('company_id', customer.id)
           .order('created_at', { ascending: false }),
         supabase
@@ -167,7 +167,6 @@ export default function CustomerDetailModal({
   }
 
   function handleCreateProposal() {
-    // Route /sales/estimating kept until Phase 3.
     router.push(`/sales/estimating?customer=${customer.id}`)
   }
 
@@ -271,7 +270,7 @@ export default function CustomerDetailModal({
                         >
                           <div className="min-w-0">
                             <p className="text-sm text-gray-900 truncate">
-                              #{e.estimate_number}
+                              #{e.proposal_number}
                               {e.project_name ? ` — ${e.project_name}` : ''}
                             </p>
                             <p className="text-[11px] text-gray-400">

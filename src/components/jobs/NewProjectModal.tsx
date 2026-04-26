@@ -194,7 +194,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       client_name: selectedCompany?.name ?? '',
       address: address.trim(),
       status,
-      ...(proposalNumber.trim() ? { estimate_number: proposalNumber.trim() } : {}),
+      ...(proposalNumber.trim() ? { proposal_number: proposalNumber.trim() } : {}),
       ...(startDate ? { start_date: startDate } : {}),
       ...(endDate ? { end_date: endDate } : {}),
       include_weekends: includeWeekends,

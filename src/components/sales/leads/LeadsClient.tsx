@@ -33,7 +33,7 @@ import AddLeadModal from './AddLeadModal'
 import { usePermissions } from '@/lib/usePermissions'
 
 export type LeadStatus = 'new' | 'appointment_set' | 'sent_to_estimating' | 'unable_to_reach' | 'disqualified'
-export type LeadPushedTo = 'appointment' | 'job_walk' | 'estimating' | 'estimate' | 'job'
+export type LeadPushedTo = 'appointment' | 'job_walk' | 'estimating' | 'proposal' | 'job'
 
 export interface Lead {
   id: string

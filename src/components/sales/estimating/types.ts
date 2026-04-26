@@ -55,7 +55,7 @@ export interface EstimatingReminder {
   description: string | null
   due_date: string
   reminder_type: ReminderType
-  trigger_event: 'estimate_sent' | 'stage_change' | null
+  trigger_event: 'proposal_sent' | 'stage_change' | null
   status: ReminderStatus
   snoozed_until: string | null
   completed_at: string | null

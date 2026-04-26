@@ -153,7 +153,7 @@ export default function ProposalFormSettingsEditor({
 
     try {
       const { data: row } = await supabase
-        .from('estimate_form_settings')
+        .from('proposal_form_settings')
         .select('*')
         .limit(1)
         .maybeSingle()
@@ -308,9 +308,7 @@ export default function ProposalFormSettingsEditor({
 
     try {
       const ext = file.name.split('.').pop()
-      // Storage path prefix kept as 'estimate-form-logos/' until Phase 4 to
-      // avoid splitting existing logo objects across two prefixes mid-rename.
-      const path = `estimate-form-logos/${Date.now()}.${ext}`
+      const path = `proposal-form-logos/${Date.now()}.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('company-assets')
         .upload(path, file, { upsert: true })
@@ -352,13 +350,13 @@ export default function ProposalFormSettingsEditor({
 
       if (settings.id) {
         const { error: updErr } = await supabase
-          .from('estimate_form_settings')
+          .from('proposal_form_settings')
           .update(payload)
           .eq('id', settings.id)
         if (updErr) throw updErr
       } else {
         const { error: insErr } = await supabase
-          .from('estimate_form_settings')
+          .from('proposal_form_settings')
           .insert(payload)
         if (insErr) throw insErr
       }

@@ -37,7 +37,7 @@ interface ReportWorkspaceProps {
 
 const emptyReport: ProjectReportData = {
   project_name: '',
-  estimate_number: '',
+  proposal_number: '',
   address: '',
   client_name: '',
   client_email: '',
@@ -135,7 +135,7 @@ export default function ReportWorkspace({ project, userId, onBack }: ReportWorks
     project_name: project.name,
     client_name: project.client_name,
     address: project.address,
-    estimate_number: project.estimate_number ?? '',
+    proposal_number: project.proposal_number ?? '',
   }
 
   const loadReport = useCallback(async () => {

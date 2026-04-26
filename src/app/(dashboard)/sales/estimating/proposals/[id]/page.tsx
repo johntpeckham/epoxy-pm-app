@@ -68,12 +68,12 @@ export default async function ProposalEditorPage({
   // Common settings fetches
   const [{ data: settingsData }, { data: formSettingsData }] = await Promise.all([
     supabase
-      .from('estimate_settings')
+      .from('proposal_settings')
       .select('*')
       .eq('user_id', user.id)
       .maybeSingle(),
     supabase
-      .from('estimate_form_settings')
+      .from('proposal_form_settings')
       .select(
         'default_terms, default_notes, default_tax_rate, default_salesperson_id'
       )
@@ -125,8 +125,8 @@ export default async function ProposalEditorPage({
       return <NotFoundState backHref={backHref} />
     }
 
-    // DB column kept as next_estimate_number until Phase 4.
-    let proposalNumber = settings?.next_estimate_number ?? 1000
+    // DB column kept as next_proposal_number until Phase 4.
+    let proposalNumber = settings?.next_proposal_number ?? 1000
     if (project?.project_number) {
       const m = project.project_number.match(/(\d+)/)
       if (m) proposalNumber = parseInt(m[1], 10)
@@ -134,7 +134,7 @@ export default async function ProposalEditorPage({
 
     const blank: Proposal = {
       id: '',
-      estimate_number: proposalNumber,
+      proposal_number: proposalNumber,
       company_id: customerId,
       date: new Date().toISOString().split('T')[0],
       project_name: project?.name ?? '',
@@ -172,7 +172,7 @@ export default async function ProposalEditorPage({
   }
 
   const { data: proposalData } = await supabase
-    .from('estimates')
+    .from('proposals')
     .select('*')
     .eq('id', id)
     .maybeSingle()

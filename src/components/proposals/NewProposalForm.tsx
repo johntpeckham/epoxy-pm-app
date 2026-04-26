@@ -42,13 +42,13 @@ export default function NewProposalForm({
     setError(null)
 
     const supabase = createClient()
-    // DB column kept as next_estimate_number until Phase 4.
-    const proposalNumber = settings.next_estimate_number
+    // DB column kept as next_proposal_number until Phase 4.
+    const proposalNumber = settings.next_proposal_number
 
     const { data, error: dbError } = await supabase
-      .from('estimates')
+      .from('proposals')
       .insert({
-        estimate_number: proposalNumber,
+        proposal_number: proposalNumber,
         company_id: selectedCustomerId,
         date: new Date().toISOString().split('T')[0],
         project_name: projectName || '',
@@ -73,8 +73,8 @@ export default function NewProposalForm({
     }
 
     await supabase
-      .from('estimate_settings')
-      .update({ next_estimate_number: proposalNumber + 1 })
+      .from('proposal_settings')
+      .update({ next_proposal_number: proposalNumber + 1 })
       .eq('user_id', userId)
 
     if (data) {
@@ -108,7 +108,7 @@ export default function NewProposalForm({
             />
           </div>
           {settings && (
-            <p className="text-xs text-gray-400">Proposal #{settings.next_estimate_number}</p>
+            <p className="text-xs text-gray-400">Proposal #{settings.next_proposal_number}</p>
           )}
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex items-center gap-2 pt-2">

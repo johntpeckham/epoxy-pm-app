@@ -32,7 +32,7 @@ interface ProjectReportModalProps {
 
 const emptyReport: ProjectReportData = {
   project_name: '',
-  estimate_number: '',
+  proposal_number: '',
   address: '',
   client_name: '',
   client_email: '',

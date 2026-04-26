@@ -41,8 +41,7 @@ const FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'document', label: 'Documents' },
   { value: 'contract', label: 'Contracts' },
   { value: 'salesman_expense', label: 'Expenses' },
-  // value 'estimate' is a DB enum literal kept until Phase 4.
-  { value: 'estimate', label: 'Proposals' },
+  { value: 'proposal', label: 'Proposals' },
   { value: 'invoice', label: 'Invoices' },
   { value: 'checklist_template', label: 'Templates' },
   { value: 'customer', label: 'Customers' },
@@ -58,7 +57,7 @@ function getItemIcon(type: string) {
     case 'material_order': return <PackageIcon className="w-4 h-4" />
     case 'document': case 'contract': return <FileTextIcon className="w-4 h-4" />
     case 'salesman_expense': return <ReceiptIcon className="w-4 h-4" />
-    case 'estimate': case 'invoice': case 'change_order': return <DollarSignIcon className="w-4 h-4" />
+    case 'proposal': case 'invoice': case 'change_order': return <DollarSignIcon className="w-4 h-4" />
     case 'checklist_template': return <ClipboardCheckIcon className="w-4 h-4" />
     case 'customer': case 'employee': return <UsersIcon className="w-4 h-4" />
     default: return <Trash2Icon className="w-4 h-4" />

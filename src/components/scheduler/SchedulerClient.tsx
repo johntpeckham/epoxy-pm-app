@@ -641,7 +641,7 @@ export default function SchedulerClient({
     const scheduleProjects = projects.map((p) => ({
       id: p.id,
       name: p.name,
-      estimate_number: p.estimate_number ?? null,
+      proposal_number: p.proposal_number ?? null,
       address: p.address ?? null,
     }))
     return generateSchedulePdf(
@@ -693,7 +693,7 @@ export default function SchedulerClient({
     const jobMap = new Map<string, {
       job_id: string
       job_name: string
-      estimate_number: string | null
+      proposal_number: string | null
       address: string | null
       employees: { employee_id: string; employee_name: string; days: boolean[] }[]
     }>()
@@ -704,7 +704,7 @@ export default function SchedulerClient({
         jobMap.set(a.project_id, {
           job_id: a.project_id,
           job_name: a.project_name,
-          estimate_number: proj?.estimate_number ?? null,
+          proposal_number: proj?.proposal_number ?? null,
           address: proj?.address ?? null,
           employees: [],
         })
@@ -1460,8 +1460,8 @@ function WeekRow({
             {rangeLabel(weekStart)}
           </div>
           {bars.map((bar, idx) => {
-            const barLabel = bar.project.estimate_number
-              ? `${bar.project.name} — Proposal #${bar.project.estimate_number}`
+            const barLabel = bar.project.proposal_number
+              ? `${bar.project.name} — Proposal #${bar.project.proposal_number}`
               : bar.project.name
             const barColor = colorForProjectId(bar.project.id, isDark)
             return (
@@ -1532,9 +1532,9 @@ function JobBucket({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">
             <p className="text-xs font-semibold truncate">
-              {project.estimate_number && (
+              {project.proposal_number && (
                 <>
-                  <span className="text-gray-900">Proposal #{project.estimate_number}</span>
+                  <span className="text-gray-900">Proposal #{project.proposal_number}</span>
                   <span className="text-gray-400"> — </span>
                 </>
               )}

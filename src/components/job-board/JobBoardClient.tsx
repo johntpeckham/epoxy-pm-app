@@ -768,8 +768,8 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                   </button>
                   <div className="flex-1 min-w-0">
                     <h2 className="text-base font-bold text-gray-900 truncate">
-                      {selectedProject.estimate_number
-                        ? `Proposal #${selectedProject.estimate_number} - ${selectedProject.name}`
+                      {selectedProject.proposal_number
+                        ? `Proposal #${selectedProject.proposal_number} - ${selectedProject.name}`
                         : selectedProject.name}
                     </h2>
                     <p className="text-xs text-gray-500 truncate">

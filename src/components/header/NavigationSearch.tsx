@@ -259,8 +259,8 @@ export default function NavigationSearch() {
 
         if (isSalesRole) {
           const proposalNameQuery = Promise.resolve(supabase
-            .from('estimates')
-            .select('id, estimate_number, project_name, company_id')
+            .from('proposals')
+            .select('id, proposal_number, project_name, company_id')
             .ilike('project_name', pattern)
             .limit(5))
             .then(({ data }) => {
@@ -268,10 +268,10 @@ export default function NavigationSearch() {
                 for (const e of data) {
                   results.push({
                     id: `proposal-${e.id}`,
-                    name: e.project_name || `Proposal #${e.estimate_number}`,
+                    name: e.project_name || `Proposal #${e.proposal_number}`,
                     route: `/sales/estimating/proposals/${e.id}`,
                     icon: CalculatorIcon,
-                    secondaryLabel: `#${e.estimate_number}`,
+                    secondaryLabel: `#${e.proposal_number}`,
                     category: 'Proposals',
                   })
                 }
@@ -283,9 +283,9 @@ export default function NavigationSearch() {
           if (!isNaN(numericTerm)) {
             queries.push(
               Promise.resolve(supabase
-                .from('estimates')
-                .select('id, estimate_number, project_name, company_id')
-                .eq('estimate_number', numericTerm)
+                .from('proposals')
+                .select('id, proposal_number, project_name, company_id')
+                .eq('proposal_number', numericTerm)
                 .limit(5))
                 .then(({ data }) => {
                   if (data) {
@@ -293,10 +293,10 @@ export default function NavigationSearch() {
                       if (!results.some((r) => r.id === `proposal-${e.id}`)) {
                         results.push({
                           id: `proposal-${e.id}`,
-                          name: e.project_name || `Proposal #${e.estimate_number}`,
+                          name: e.project_name || `Proposal #${e.proposal_number}`,
                           route: `/sales/estimating/proposals/${e.id}`,
                           icon: CalculatorIcon,
-                          secondaryLabel: `#${e.estimate_number}`,
+                          secondaryLabel: `#${e.proposal_number}`,
                           category: 'Proposals',
                         })
                       }

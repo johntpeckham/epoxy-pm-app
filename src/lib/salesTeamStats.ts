@@ -134,19 +134,19 @@ export async function fetchTeamOverview(
       .gte('created_at', startIso)
       .lt('created_at', endIso),
     supabase
-      .from('estimates')
+      .from('proposals')
       .select('user_id, total')
       .eq('status', 'Sent')
       .gte('sent_at', startIso)
       .lt('sent_at', endIso),
     supabase
-      .from('estimates')
+      .from('proposals')
       .select('user_id, total')
       .eq('status', 'Accepted')
       .gte('accepted_at', startIso)
       .lt('accepted_at', endIso),
     supabase
-      .from('estimates')
+      .from('proposals')
       .select('user_id')
       .eq('status', 'Declined')
       .gte('declined_at', startIso)

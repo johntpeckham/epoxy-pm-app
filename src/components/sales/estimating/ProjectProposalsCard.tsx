@@ -126,14 +126,14 @@ export default function ProjectProposalsCard({
     if (rows.length > 0) {
       const ids = rows.map((r) => r.id)
       const { data: fuData } = await supabase
-        .from('estimate_follow_ups')
+        .from('proposal_follow_ups')
         .select('*')
-        .in('estimate_id', ids)
+        .in('proposal_id', ids)
         .order('created_at', { ascending: false })
       const grouped: Record<string, ProposalFollowUp[]> = {}
       ;((fuData as ProposalFollowUp[]) ?? []).forEach((f) => {
-        if (!grouped[f.estimate_id]) grouped[f.estimate_id] = []
-        grouped[f.estimate_id].push(f)
+        if (!grouped[f.proposal_id]) grouped[f.proposal_id] = []
+        grouped[f.proposal_id].push(f)
       })
       setFollowUpsByProposal(grouped)
     } else {
@@ -297,7 +297,7 @@ export default function ProjectProposalsCard({
                       className="min-w-0 flex-1 group"
                     >
                       <p className="text-sm font-medium text-gray-900 truncate group-hover:text-amber-700 transition">
-                        #{e.estimate_number}
+                        #{e.proposal_number}
                         {e.project_name ? ` · ${e.project_name}` : ''}
                       </p>
                       <p className="text-xs text-gray-500">

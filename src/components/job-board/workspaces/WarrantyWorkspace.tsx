@@ -105,7 +105,7 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
     return text
       .replace(/\{\{customer_name\}\}/g, project.client_name || '—')
       .replace(/\{\{project_name\}\}/g, project.name || '—')
-      .replace(/\{\{estimate_number\}\}/g, project.estimate_number || '—')
+      .replace(/\{\{proposal_number\}\}/g, project.proposal_number || '—')
       .replace(/\{\{address\}\}/g, project.address || '—')
       .replace(/\{\{date\}\}/g, today)
       .replace(/\{\{warranty_duration\}\}/g, template.warranty_duration || '—')

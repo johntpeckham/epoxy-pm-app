@@ -14,8 +14,8 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ settings, userId, onSave, onClose }: SettingsModalProps) {
-  // DB column kept as next_estimate_number until Phase 4.
-  const [nextNumber, setNextNumber] = useState(settings.next_estimate_number)
+  // DB column kept as next_proposal_number until Phase 4.
+  const [nextNumber, setNextNumber] = useState(settings.next_proposal_number)
   const [companyName, setCompanyName] = useState(settings.company_name ?? '')
   const [companyAddress, setCompanyAddress] = useState(settings.company_address ?? '')
   const [companyCityStateZip, setCompanyCityStateZip] = useState(settings.company_city_state_zip ?? '')
@@ -39,9 +39,9 @@ export default function SettingsModal({ settings, userId, onSave, onClose }: Set
     setSaving(true)
     const supabase = createClient()
     const { data } = await supabase
-      .from('estimate_settings')
+      .from('proposal_settings')
       .update({
-        next_estimate_number: nextNumber,
+        next_proposal_number: nextNumber,
         company_name: companyName || null,
         company_address: companyAddress || null,
         company_city_state_zip: companyCityStateZip || null,
