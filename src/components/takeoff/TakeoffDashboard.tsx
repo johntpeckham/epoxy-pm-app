@@ -362,7 +362,7 @@ export default function TakeoffDashboard({
       {/* Section 0 — Page header */}
       <div className="mb-5 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 leading-tight">Measurement Tool</h1>
+          <h1 className="text-2xl font-bold text-gray-900 leading-tight">Takeoff</h1>
           <p className="text-sm text-gray-500 mt-0.5">{projectName}</p>
         </div>
         {pages.length > 0 && (
