@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { XIcon, SlidersHorizontalIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 
-interface TakeoffDefaultsEditorProps {
+interface EstimateDefaultsEditorProps {
   onClose: () => void
 }
 
-export default function TakeoffDefaultsEditor({ onClose }: TakeoffDefaultsEditorProps) {
+export default function EstimateDefaultsEditor({ onClose }: EstimateDefaultsEditorProps) {
   const [taxRate, setTaxRate] = useState('9.25')
   const [mobilization, setMobilization] = useState('500')
   const [overhead, setOverhead] = useState('15')
@@ -30,7 +30,7 @@ export default function TakeoffDefaultsEditor({ onClose }: TakeoffDefaultsEditor
           >
             <div className="flex items-center gap-2">
               <SlidersHorizontalIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-lg font-semibold text-gray-900">Takeoff Defaults</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Estimate Defaults</h3>
             </div>
             <button
               onClick={onClose}
@@ -42,7 +42,7 @@ export default function TakeoffDefaultsEditor({ onClose }: TakeoffDefaultsEditor
 
           <div className="p-4 space-y-4">
             <p className="text-sm text-gray-500">
-              Set default values used when creating new takeoffs.
+              Set default values used when creating new estimates.
             </p>
 
             <div>

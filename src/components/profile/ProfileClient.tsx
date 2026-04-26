@@ -16,8 +16,8 @@ import EmployeeManagement from './EmployeeManagement'
 import ReminderRulesEditor from './ReminderRulesEditor'
 import ProjectNumbersEditor from './ProjectNumbersEditor'
 import ProposalFormSettingsEditor from './ProposalFormSettingsEditor'
-import TakeoffTemplatesEditor from './TakeoffTemplatesEditor'
-import TakeoffDefaultsEditor from './TakeoffDefaultsEditor'
+import EstimateTemplatesEditor from './EstimateTemplatesEditor'
+import EstimateDefaultsEditor from './EstimateDefaultsEditor'
 import VendorManagementModal from '@/components/ui/VendorManagementModal'
 import WarrantyManagement from '@/components/warranty/WarrantyManagement'
 import PreLienManagement from '@/components/prelien/PreLienManagement'
@@ -1087,8 +1087,8 @@ function SalesManagementModal({
   const [showRuleEditor, setShowRuleEditor] = useState(false)
   const [showProjectNumbersEditor, setShowProjectNumbersEditor] = useState(false)
   const [showProposalFormEditor, setShowProposalFormEditor] = useState(false)
-  const [showTakeoffTemplatesEditor, setShowTakeoffTemplatesEditor] = useState(false)
-  const [showTakeoffDefaultsEditor, setShowTakeoffDefaultsEditor] = useState(false)
+  const [showEstimateTemplatesEditor, setShowEstimateTemplatesEditor] = useState(false)
+  const [showEstimateDefaultsEditor, setShowEstimateDefaultsEditor] = useState(false)
 
   const cards: {
     icon: React.ReactNode
@@ -1120,15 +1120,15 @@ function SalesManagementModal({
       : []),
     {
       icon: <TableIcon className="w-5 h-5" />,
-      title: 'Takeoff Templates',
-      description: 'Manage templates for takeoff sheets.',
-      onClick: () => setShowTakeoffTemplatesEditor(true),
+      title: 'Estimate Templates',
+      description: 'Manage templates for estimates.',
+      onClick: () => setShowEstimateTemplatesEditor(true),
     },
     {
       icon: <SlidersHorizontalIcon className="w-5 h-5" />,
-      title: 'Takeoff Defaults',
+      title: 'Estimate Defaults',
       description: 'Set default tax rate, overhead, profit, and mobilization cost.',
-      onClick: () => setShowTakeoffDefaultsEditor(true),
+      onClick: () => setShowEstimateDefaultsEditor(true),
     },
   ]
 
@@ -1235,14 +1235,14 @@ function SalesManagementModal({
           onClose={() => setShowProposalFormEditor(false)}
         />
       )}
-      {showTakeoffTemplatesEditor && (
-        <TakeoffTemplatesEditor
-          onClose={() => setShowTakeoffTemplatesEditor(false)}
+      {showEstimateTemplatesEditor && (
+        <EstimateTemplatesEditor
+          onClose={() => setShowEstimateTemplatesEditor(false)}
         />
       )}
-      {showTakeoffDefaultsEditor && (
-        <TakeoffDefaultsEditor
-          onClose={() => setShowTakeoffDefaultsEditor(false)}
+      {showEstimateDefaultsEditor && (
+        <EstimateDefaultsEditor
+          onClose={() => setShowEstimateDefaultsEditor(false)}
         />
       )}
     </Portal>

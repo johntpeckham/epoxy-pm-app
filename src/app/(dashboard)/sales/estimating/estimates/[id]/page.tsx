@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic'
 
 import { requirePermission } from '@/lib/requirePermission'
 import { redirect } from 'next/navigation'
-import TakeoffDetailClient from '@/components/sales/estimating/takeoff/TakeoffDetailClient'
+import EstimateDetailClient from '@/components/sales/estimating/estimates/EstimateDetailClient'
 
-export default async function TakeoffDetailPage({
+export default async function EstimateDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
@@ -12,18 +12,18 @@ export default async function TakeoffDetailPage({
   const { id } = await params
   const { supabase } = await requirePermission('estimating', 'view')
 
-  const { data: takeoff } = await supabase
+  const { data: estimate } = await supabase
     .from('takeoffs')
     .select('*')
     .eq('id', id)
     .single()
 
-  if (!takeoff) return redirect('/sales/estimating')
+  if (!estimate) return redirect('/sales/estimating')
 
   const { data: project } = await supabase
     .from('estimating_projects')
     .select('*')
-    .eq('id', takeoff.project_id)
+    .eq('id', estimate.project_id)
     .single()
 
   const { data: customer } = project?.company_id
@@ -35,8 +35,8 @@ export default async function TakeoffDetailPage({
     : { data: null }
 
   return (
-    <TakeoffDetailClient
-      takeoff={takeoff}
+    <EstimateDetailClient
+      estimate={estimate}
       projectName={project?.name ?? 'Unknown project'}
       projectId={project?.id ?? ''}
       customerId={project?.company_id ?? ''}

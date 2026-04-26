@@ -81,9 +81,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     pathname === '/sales/estimating' ||
     pathname.startsWith('/sales/estimating/') ||
     pathname === '/estimating' ||
-    pathname.startsWith('/estimating/') ||
-    pathname === '/estimates' ||
-    pathname.startsWith('/estimates/')
+    pathname.startsWith('/estimating/')
 
   // Keep Sales section expanded when any sub-item is active
   useEffect(() => {

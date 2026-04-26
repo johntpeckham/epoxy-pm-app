@@ -5,7 +5,7 @@ import { PencilIcon, ChevronLeftIcon } from 'lucide-react'
 import type { Customer } from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
 import { usePermissions } from '@/lib/usePermissions'
-import ProjectTakeoffSheetsCard from './ProjectTakeoffSheetsCard'
+import ProjectEstimatesCard from './ProjectEstimatesCard'
 import ProjectMeasurementsCard from './ProjectMeasurementsCard'
 import ProjectProposalsCard from './ProjectProposalsCard'
 import ProjectRemindersCard from './ProjectRemindersCard'
@@ -73,8 +73,8 @@ export default function ProjectDashboard({
       </div>
 
       <div className="p-4 space-y-4">
-        <ProjectTakeoffSheetsCard
-          key={`takeoffs-${project.id}`}
+        <ProjectEstimatesCard
+          key={`estimates-${project.id}`}
           project={project}
           customer={customer}
           userId={userId}

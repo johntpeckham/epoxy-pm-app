@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon } from 'lucide-react'
-import type { Takeoff } from '../types'
+import type { Estimate } from '../types'
 import SummaryTab from './tabs/SummaryTab'
 import AreasTab from './tabs/AreasTab'
 import MaterialsTab from './tabs/MaterialsTab'
@@ -28,25 +28,25 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]['key']
 
-interface TakeoffDetailClientProps {
-  takeoff: Takeoff
+interface EstimateDetailClientProps {
+  estimate: Estimate
   projectName: string
   projectId: string
   customerId: string
   customerName: string
 }
 
-export default function TakeoffDetailClient({
-  takeoff,
+export default function EstimateDetailClient({
+  estimate,
   projectName,
   projectId,
   customerId,
   customerName,
-}: TakeoffDetailClientProps) {
+}: EstimateDetailClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('summary')
   const [sidebarModules, setSidebarModules] = useState<string[]>(
-    () => (takeoff as unknown as Record<string, unknown>).sidebar_modules as string[] ?? []
+    () => (estimate as unknown as Record<string, unknown>).sidebar_modules as string[] ?? []
   )
 
   function handleAddModule(moduleId: string) {
@@ -74,9 +74,9 @@ export default function TakeoffDetailClient({
               {customerName} &middot; {projectName}
             </p>
             <h1 className="text-base font-bold text-gray-900 dark:text-white mt-0.5 truncate">
-              {takeoff.name}
+              {estimate.name}
             </h1>
-            {takeoff.template_id && (
+            {estimate.template_id && (
               <p className="text-[11px] text-gray-400 mt-0.5">
                 From template
               </p>

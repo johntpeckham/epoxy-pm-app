@@ -12,8 +12,8 @@ interface Template {
 }
 
 const PLACEHOLDER_TEMPLATES: Template[] = [
-  { id: '1', name: 'Floor Takeoff', description: 'Standard floor coating takeoff with floor and cove areas', areaTypes: 2 },
-  { id: '2', name: 'Roof Takeoff', description: 'Roof coating project takeoff template', areaTypes: 1 },
+  { id: '1', name: 'Floor Estimate', description: 'Standard floor coating estimate with floor and cove areas', areaTypes: 2 },
+  { id: '2', name: 'Roof Estimate', description: 'Roof coating project estimate template', areaTypes: 1 },
   { id: '3', name: 'Blank', description: 'Empty template — start from scratch', areaTypes: 0 },
 ]
 
@@ -28,11 +28,11 @@ const TEMPLATE_TABS = [
 
 type TemplateTabKey = (typeof TEMPLATE_TABS)[number]['key']
 
-interface TakeoffTemplatesEditorProps {
+interface EstimateTemplatesEditorProps {
   onClose: () => void
 }
 
-export default function TakeoffTemplatesEditor({ onClose }: TakeoffTemplatesEditorProps) {
+export default function EstimateTemplatesEditor({ onClose }: EstimateTemplatesEditorProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [activeTab, setActiveTab] = useState<TemplateTabKey>('areas')
   const [templateName, setTemplateName] = useState('')
@@ -74,7 +74,7 @@ export default function TakeoffTemplatesEditor({ onClose }: TakeoffTemplatesEdit
               )}
               <TableIcon className="w-5 h-5 text-amber-500" />
               <h3 className="text-lg font-semibold text-gray-900">
-                {selectedTemplate ? selectedTemplate.name : 'Takeoff Templates'}
+                {selectedTemplate ? selectedTemplate.name : 'Estimate Templates'}
               </h3>
             </div>
             <button
@@ -140,7 +140,7 @@ function TemplateList({
     <div className="p-4 space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">
-          Manage takeoff templates that can be used when creating new takeoffs.
+          Manage estimate templates that can be used when creating new estimates.
         </p>
       </div>
 

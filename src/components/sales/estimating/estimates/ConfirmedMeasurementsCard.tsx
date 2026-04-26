@@ -1,11 +1,11 @@
 'use client'
 
 import { AREA_TYPE_STYLES } from '../types'
-import type { TakeoffAreaType } from '../types'
+import type { EstimateAreaType } from '../types'
 
 interface AreaSummary {
   name: string
-  type: TakeoffAreaType
+  type: EstimateAreaType
   total: string
 }
 

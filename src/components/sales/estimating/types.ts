@@ -73,17 +73,17 @@ export interface ReminderRule {
   created_at: string
 }
 
-// ── Takeoff types ──────────────────────────────────────────────────────
+// ── Estimate types ─────────────────────────────────────────────────────
 
-export type TakeoffStatus = 'draft' | 'complete'
+export type EstimateStatus = 'draft' | 'complete'
 
-export interface Takeoff {
+export interface Estimate {
   id: string
   project_id: string
   customer_id: string | null
   template_id: string | null
   name: string
-  status: TakeoffStatus
+  status: EstimateStatus
   overhead_percent: number
   profit_percent: number
   mobilization_cost: number
@@ -94,7 +94,7 @@ export interface Takeoff {
   updated_at: string
 }
 
-export interface TakeoffTemplate {
+export interface EstimateTemplate {
   id: string
   name: string
   description: string | null
@@ -109,19 +109,19 @@ export interface TakeoffTemplate {
   updated_at: string
 }
 
-export type TakeoffAreaType = 'floor' | 'roof' | 'walls' | 'cove' | 'custom'
+export type EstimateAreaType = 'floor' | 'roof' | 'walls' | 'cove' | 'custom'
 
-export interface TakeoffArea {
+export interface EstimateArea {
   id: string
-  takeoff_id: string
-  area_type: TakeoffAreaType
+  estimate_id: string
+  area_type: EstimateAreaType
   name: string
   parent_area_id: string | null
   sort_order: number
   created_at: string
 }
 
-export interface TakeoffAreaMeasurement {
+export interface EstimateAreaMeasurement {
   id: string
   area_id: string
   section_name: string | null
@@ -132,9 +132,9 @@ export interface TakeoffAreaMeasurement {
   created_at: string
 }
 
-export interface TakeoffMaterial {
+export interface EstimateMaterial {
   id: string
-  takeoff_id: string
+  estimate_id: string
   product_name: string
   description: string | null
   unit: string | null
@@ -146,9 +146,9 @@ export interface TakeoffMaterial {
   created_at: string
 }
 
-export interface TakeoffLabor {
+export interface EstimateLabor {
   id: string
-  takeoff_id: string
+  estimate_id: string
   crew_group: string
   role: string
   hourly_rate: number
@@ -159,9 +159,9 @@ export interface TakeoffLabor {
   created_at: string
 }
 
-export interface TakeoffPrepTool {
+export interface EstimatePrepTool {
   id: string
-  takeoff_id: string
+  estimate_id: string
   product_name: string
   description: string | null
   quantity: number
@@ -171,9 +171,9 @@ export interface TakeoffPrepTool {
   created_at: string
 }
 
-export interface TakeoffSundry {
+export interface EstimateSundry {
   id: string
-  takeoff_id: string
+  estimate_id: string
   product_name: string
   description: string | null
   quantity: number
@@ -183,9 +183,9 @@ export interface TakeoffSundry {
   created_at: string
 }
 
-export interface TakeoffTravel {
+export interface EstimateTravel {
   id: string
-  takeoff_id: string
+  estimate_id: string
   item_name: string
   details: string | null
   quantity: number
@@ -195,7 +195,7 @@ export interface TakeoffTravel {
   created_at: string
 }
 
-export interface TakeoffSettings {
+export interface EstimateSettings {
   id: string
   tax_rate: number
   mobilization_cost: number
@@ -205,12 +205,12 @@ export interface TakeoffSettings {
   updated_at: string
 }
 
-export const TAKEOFF_STATUS_STYLES: Record<TakeoffStatus, { label: string; className: string }> = {
+export const ESTIMATE_STATUS_STYLES: Record<EstimateStatus, { label: string; className: string }> = {
   draft: { label: 'Draft', className: 'bg-gray-100 text-gray-600' },
   complete: { label: 'Complete', className: 'bg-green-100 text-green-700' },
 }
 
-export const AREA_TYPE_STYLES: Record<TakeoffAreaType, { label: string; className: string; unit: string }> = {
+export const AREA_TYPE_STYLES: Record<EstimateAreaType, { label: string; className: string; unit: string }> = {
   floor: { label: 'Floor', className: 'bg-blue-100 text-blue-700', unit: 'SF' },
   roof: { label: 'Roof', className: 'bg-red-100 text-red-700', unit: 'SF' },
   walls: { label: 'Walls', className: 'bg-amber-100 text-amber-700', unit: 'SF' },

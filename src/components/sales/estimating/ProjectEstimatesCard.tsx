@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { TableIcon, PlusIcon, ChevronRightIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer } from '@/components/proposals/types'
-import type { EstimatingProject, Takeoff, TAKEOFF_STATUS_STYLES } from './types'
-import NewTakeoffModal from './NewTakeoffModal'
+import type { EstimatingProject, Estimate } from './types'
+import NewEstimateModal from './NewEstimateModal'
 
-interface ProjectTakeoffSheetsCardProps {
+interface ProjectEstimatesCardProps {
   project: EstimatingProject
   customer: Customer
   userId: string
@@ -19,34 +19,34 @@ const STATUS_STYLES: Record<string, { label: string; className: string }> = {
   complete: { label: 'Complete', className: 'bg-green-100 text-green-700' },
 }
 
-export default function ProjectTakeoffSheetsCard({
+export default function ProjectEstimatesCard({
   project,
   customer,
   userId,
-}: ProjectTakeoffSheetsCardProps) {
+}: ProjectEstimatesCardProps) {
   const router = useRouter()
-  const [takeoffs, setTakeoffs] = useState<Takeoff[]>([])
+  const [estimates, setEstimates] = useState<Estimate[]>([])
   const [loading, setLoading] = useState(true)
   const [showNewModal, setShowNewModal] = useState(false)
 
   useEffect(() => {
-    async function fetchTakeoffs() {
+    async function fetchEstimates() {
       const supabase = createClient()
       const { data } = await supabase
         .from('takeoffs')
         .select('*')
         .eq('project_id', project.id)
         .order('created_at', { ascending: false })
-      setTakeoffs((data as Takeoff[]) ?? [])
+      setEstimates((data as Estimate[]) ?? [])
       setLoading(false)
     }
-    fetchTakeoffs()
+    fetchEstimates()
   }, [project.id])
 
-  function handleTakeoffCreated(takeoff: Takeoff) {
-    setTakeoffs((prev) => [takeoff, ...prev])
+  function handleEstimateCreated(estimate: Estimate) {
+    setEstimates((prev) => [estimate, ...prev])
     setShowNewModal(false)
-    router.push(`/sales/estimating/takeoff/${takeoff.id}`)
+    router.push(`/sales/estimating/estimates/${estimate.id}`)
   }
 
   return (
@@ -57,41 +57,41 @@ export default function ProjectTakeoffSheetsCard({
             <TableIcon className="w-5 h-5" />
           </span>
           <h3 className="text-sm font-semibold text-gray-900 flex-1">
-            Proposals
+            Estimates
           </h3>
           <button
             onClick={() => setShowNewModal(true)}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
           >
             <PlusIcon className="w-3.5 h-3.5" />
-            New proposal
+            New estimate
           </button>
         </div>
 
         {loading ? (
           <p className="text-center text-xs text-gray-400 py-6">Loading...</p>
-        ) : takeoffs.length === 0 ? (
+        ) : estimates.length === 0 ? (
           <p className="text-center text-xs text-gray-400 py-6">
-            No takeoffs yet for this project.
+            No estimates yet for this project.
           </p>
         ) : (
           <div className="space-y-1.5">
-            {takeoffs.map((t) => {
-              const status = STATUS_STYLES[t.status] ?? STATUS_STYLES.draft
+            {estimates.map((e) => {
+              const status = STATUS_STYLES[e.status] ?? STATUS_STYLES.draft
               return (
                 <button
-                  key={t.id}
+                  key={e.id}
                   onClick={() =>
-                    router.push(`/sales/estimating/takeoff/${t.id}`)
+                    router.push(`/sales/estimating/estimates/${e.id}`)
                   }
                   className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition group"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">
-                      {t.name}
+                      {e.name}
                     </p>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      {new Date(t.created_at).toLocaleDateString()}
+                      {new Date(e.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <span
@@ -108,12 +108,12 @@ export default function ProjectTakeoffSheetsCard({
       </div>
 
       {showNewModal && (
-        <NewTakeoffModal
+        <NewEstimateModal
           projectId={project.id}
           customerId={customer.id}
           userId={userId}
           onClose={() => setShowNewModal(false)}
-          onCreated={handleTakeoffCreated}
+          onCreated={handleEstimateCreated}
         />
       )}
     </>

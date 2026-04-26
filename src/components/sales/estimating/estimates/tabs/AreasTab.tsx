@@ -2,9 +2,9 @@
 
 import { PlusIcon } from 'lucide-react'
 import { AREA_TYPE_STYLES } from '../../types'
-import type { TakeoffAreaType } from '../../types'
+import type { EstimateAreaType } from '../../types'
 
-const ADD_BUTTONS: { type: TakeoffAreaType; label: string }[] = [
+const ADD_BUTTONS: { type: EstimateAreaType; label: string }[] = [
   { type: 'floor', label: '+ Add floor' },
   { type: 'roof', label: '+ Add roof' },
   { type: 'walls', label: '+ Add walls' },
@@ -14,7 +14,7 @@ const ADD_BUTTONS: { type: TakeoffAreaType; label: string }[] = [
 
 interface SampleArea {
   id: string
-  type: TakeoffAreaType
+  type: EstimateAreaType
   name: string
   totalLabel: string
   sections: { name: string; length: number; width: number | null; total: number }[]

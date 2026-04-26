@@ -4,29 +4,29 @@ import { useState } from 'react'
 import { XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
-import type { Takeoff } from './types'
+import type { Estimate } from './types'
 
-interface NewTakeoffModalProps {
+interface NewEstimateModalProps {
   projectId: string
   customerId: string
   userId: string
   onClose: () => void
-  onCreated: (takeoff: Takeoff) => void
+  onCreated: (estimate: Estimate) => void
 }
 
 const TEMPLATE_OPTIONS = [
   { value: 'blank', label: 'Blank' },
-  { value: 'floor', label: 'Floor takeoff' },
-  { value: 'roof', label: 'Roof takeoff' },
+  { value: 'floor', label: 'Floor estimate' },
+  { value: 'roof', label: 'Roof estimate' },
 ]
 
-export default function NewTakeoffModal({
+export default function NewEstimateModal({
   projectId,
   customerId,
   userId,
   onClose,
   onCreated,
-}: NewTakeoffModalProps) {
+}: NewEstimateModalProps) {
   const [name, setName] = useState('')
   const [template, setTemplate] = useState('blank')
   const [saving, setSaving] = useState(false)
@@ -54,7 +54,7 @@ export default function NewTakeoffModal({
       return
     }
 
-    onCreated(data as Takeoff)
+    onCreated(data as Estimate)
   }
 
   return (
@@ -71,7 +71,7 @@ export default function NewTakeoffModal({
             className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h3 className="text-lg font-semibold text-gray-900">New takeoff</h3>
+            <h3 className="text-lg font-semibold text-gray-900">New estimate</h3>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
@@ -83,13 +83,13 @@ export default function NewTakeoffModal({
           <div className="p-4 space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Takeoff name <span className="text-red-500">*</span>
+                Estimate name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Main floor takeoff"
+                placeholder="e.g. Main floor estimate"
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 autoFocus
               />
