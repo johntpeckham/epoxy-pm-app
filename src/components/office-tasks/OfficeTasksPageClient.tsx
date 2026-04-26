@@ -1036,11 +1036,11 @@ function TaskRow({
     <div className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group ${dimmed ? 'opacity-60' : ''}`}>
       <div className="flex items-stretch">
         <div className={`w-[3px] flex-shrink-0 ${priorityBarClass}`} aria-hidden />
-        <div className="flex-1 min-w-0 px-4 py-3.5">
-          <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0 px-4 py-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => onToggle(task)}
-              className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+              className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                 task.is_completed || pending
                   ? 'border-amber-400 bg-amber-50'
                   : 'border-gray-300 hover:border-amber-500'
@@ -1072,9 +1072,9 @@ function TaskRow({
                   {task.title}
                 </p>
               )}
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>
+            <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>
               {task.priority}
             </span>
 
@@ -1083,7 +1083,7 @@ function TaskRow({
               const isUnassigned = !task.assigned_to
               return (
                 <span
-                  className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                  className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded font-medium ${
                     isUnassigned ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-700'
                   }`}
                 >
@@ -1095,7 +1095,7 @@ function TaskRow({
             {projectName && task.project_id && (
               <Link
                 href={`/job-board?project=${task.project_id}`}
-                className="text-xs text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1"
+                className="flex-shrink-0 text-xs text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1"
               >
                 {projectName}
                 <ExternalLinkIcon className="w-3 h-3" />
@@ -1104,7 +1104,7 @@ function TaskRow({
 
             {task.due_date && (
               <span
-                className={`text-xs flex items-center gap-1 ${
+                className={`flex-shrink-0 text-xs flex items-center gap-1 ${
                   isOverdue(task.due_date) && !task.is_completed ? 'text-red-600 font-medium' : 'text-gray-500'
                 }`}
               >
@@ -1119,10 +1119,38 @@ function TaskRow({
             {task.description && (
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                className="flex-shrink-0 text-xs text-gray-400 hover:text-gray-600 transition-colors"
               >
                 {expanded ? 'Hide details' : 'Show details'}
               </button>
+            )}
+
+            {pending ? (
+              // Undo affordance is persistently visible (not hover-gated) for the
+              // full 2s pending window so it's easy to find. Replaces the Edit
+              // button so the two don't fight for the same slot.
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onUndo(task.id) }}
+                  aria-label="Undo complete"
+                  title="Undo"
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-gray-800 text-white rounded-md hover:bg-amber-600 transition-colors"
+                >
+                  <Undo2Icon className="w-3 h-3" />
+                  Undo
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit(task.id) }}
+                  aria-label="Edit task"
+                  title="Edit task"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition-colors"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </div>
 
@@ -1131,36 +1159,6 @@ function TaskRow({
               {task.description}
             </p>
           )}
-        </div>
-
-            {pending ? (
-          // Undo affordance is persistently visible (not hover-gated) for the
-          // full 2s pending window so it's easy to find. Replaces the Edit
-          // button so the two don't fight for the same slot.
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={(e) => { e.stopPropagation(); onUndo(task.id) }}
-              aria-label="Undo complete"
-              title="Undo"
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-gray-800 text-white rounded-md hover:bg-amber-600 transition-colors"
-            >
-              <Undo2Icon className="w-3 h-3" />
-              Undo
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(task.id) }}
-              aria-label="Edit task"
-              title="Edit task"
-              className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition-colors"
-            >
-              <PencilIcon className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-          </div>
         </div>
       </div>
     </div>
