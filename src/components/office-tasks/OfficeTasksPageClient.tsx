@@ -677,13 +677,13 @@ export default function OfficeTasksPageClient({
 
       {/* ── People Section ── hidden for foreman */}
       {!isForeman && (
-      <div className="mt-5">
+      <div className="mt-5 px-4">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">People</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {canManageEmployees && (
           <button
             onClick={() => setView({ kind: 'employees' })}
-            className="flex items-center bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
             <UsersIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1 text-left">Employees</span>
@@ -693,7 +693,7 @@ export default function OfficeTasksPageClient({
           {canView('office') && (
           <Link
             href="/office/contacts"
-            className="flex items-center bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
             <ContactIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Contacts</span>
@@ -707,13 +707,13 @@ export default function OfficeTasksPageClient({
 
       {/* ── Resources Section ── gated per-tile by feature */}
       {(canView('vendor_management') || canView('material_management') || canView('scheduling')) && (
-      <div className="mt-5">
+      <div className="mt-5 px-4">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Resources</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {canView('vendor_management') && (
           <Link
             href="/office/vendors"
-            className="flex items-center bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
             <Building2Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Vendors</span>
@@ -724,7 +724,7 @@ export default function OfficeTasksPageClient({
           {canView('material_management') && (
           <Link
             href="/inventory"
-            className="flex items-center bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
             <PackageIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Material inventory</span>
@@ -734,7 +734,7 @@ export default function OfficeTasksPageClient({
           {canView('scheduling') && (
           <Link
             href="/scheduling"
-            className="flex items-center bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
             <CalendarIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Scheduling</span>
@@ -746,14 +746,14 @@ export default function OfficeTasksPageClient({
       )}
 
       {/* ── Admin Section ── */}
-      <div className="mt-5">
+      <div className="mt-5 px-4">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Admin</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {/* Reports tile — gated on reports feature */}
           {canView('reports') && (
           <Link
             href="/reports"
-            className="flex items-center bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
             <BarChart3Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <div className="ml-2.5 flex-1">
@@ -767,7 +767,7 @@ export default function OfficeTasksPageClient({
           {canView('sops') && (
           <Link
             href="/sops"
-            className="flex items-center bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
             <FileTextIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">SOPs &amp; forms</span>
@@ -779,7 +779,7 @@ export default function OfficeTasksPageClient({
           {canView('training_certifications') && (
           <Link
             href="/training-certifications"
-            className="flex items-center bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
           >
             <GraduationCapIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Training &amp; certifications</span>
@@ -788,8 +788,8 @@ export default function OfficeTasksPageClient({
           )}
 
           {/* Company Meetings tile with sub-items */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="flex items-center p-4">
+          <div className="bg-white border border-gray-200/80 rounded-md overflow-hidden">
+            <div className="flex items-center px-4 py-3">
               <UsersIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
               <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Company meetings</span>
             </div>
