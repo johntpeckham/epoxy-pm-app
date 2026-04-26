@@ -14,7 +14,7 @@ interface Job {
 }
 
 interface PushPlansModalProps {
-  takeoffName: string
+  projectName: string
   pages: TakeoffPage[]
   items: TakeoffItem[]
   pageScales: Record<string, number>
@@ -25,7 +25,7 @@ interface PushPlansModalProps {
 }
 
 export default function PushPlansModal({
-  takeoffName,
+  projectName,
   pages,
   items,
   pageScales,
@@ -79,10 +79,10 @@ export default function PushPlansModal({
       if (!user) throw new Error('Not authenticated')
 
       // Generate the PDF report blob
-      const blob = await generateReportBlob(takeoffName, pages, items, pageScales, pageRenderedSizes)
+      const blob = await generateReportBlob(projectName, pages, items, pageScales, pageRenderedSizes)
 
       // Upload to Supabase storage
-      const fileName = `${takeoffName} - Takeoff Report.pdf`
+      const fileName = `${projectName} - Takeoff Report.pdf`
       const ext = 'pdf'
       const storagePath = `${selectedJob.id}/plan/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
@@ -109,7 +109,7 @@ export default function PushPlansModal({
     } finally {
       setSending(false)
     }
-  }, [selectedJob, supabase, takeoffName, pages, items, pageScales, pageRenderedSizes, onSuccess, onError])
+  }, [selectedJob, supabase, projectName, pages, items, pageScales, pageRenderedSizes, onSuccess, onError])
 
   return (
     <Portal>
@@ -133,7 +133,7 @@ export default function PushPlansModal({
           <div className="px-5 py-4 flex flex-col gap-4">
             {/* Sending indicator */}
             <p className="text-sm text-gray-500">
-              Sending: <span className="font-medium text-gray-700">{takeoffName} Report</span>
+              Sending: <span className="font-medium text-gray-700">{projectName} Report</span>
             </p>
 
             {/* Search input */}

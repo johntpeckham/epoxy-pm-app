@@ -4,9 +4,9 @@ import { useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { EstimatingProjectPdf } from './types'
 
-export const MEASUREMENT_PDF_BUCKET = 'estimating-project-files'
+export const TAKEOFF_PDF_BUCKET = 'estimating-project-files'
 
-export function useUploadMeasurementPdf(projectId: string) {
+export function useUploadTakeoffPdf(projectId: string) {
   return useCallback(
     async (file: File): Promise<EstimatingProjectPdf> => {
       const supabase = createClient()
@@ -14,14 +14,14 @@ export function useUploadMeasurementPdf(projectId: string) {
       const path = `${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
       const { error: uploadErr } = await supabase.storage
-        .from(MEASUREMENT_PDF_BUCKET)
+        .from(TAKEOFF_PDF_BUCKET)
         .upload(path, file, {
           contentType: file.type || 'application/pdf',
         })
       if (uploadErr) throw uploadErr
 
       const { data: urlData } = supabase.storage
-        .from(MEASUREMENT_PDF_BUCKET)
+        .from(TAKEOFF_PDF_BUCKET)
         .getPublicUrl(path)
 
       const { data: inserted, error: insertErr } = await supabase

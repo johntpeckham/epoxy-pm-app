@@ -19,7 +19,7 @@ export default function ProjectMeasurementsCard({
         </span>
         <h3 className="text-sm font-semibold text-gray-900 flex-1">Takeoffs</h3>
         <Link
-          href={`/sales/estimating/measurement-tool/${project.id}`}
+          href={`/sales/estimating/takeoff/${project.id}`}
           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
         >
           <ArrowRightIcon className="w-3.5 h-3.5" />

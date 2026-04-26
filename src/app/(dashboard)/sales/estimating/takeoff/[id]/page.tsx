@@ -3,9 +3,9 @@ export const dynamic = 'force-dynamic'
 import { RulerIcon } from 'lucide-react'
 import Link from 'next/link'
 import { requirePermission } from '@/lib/requirePermission'
-import MeasurementToolClient, {
+import TakeoffClient, {
   type MeasurementRow,
-} from '@/components/sales/estimating/MeasurementToolClient'
+} from '@/components/sales/estimating/TakeoffClient'
 import type {
   EstimatingProject,
   EstimatingProjectPdf,
@@ -15,7 +15,7 @@ interface PageProps {
   params: Promise<{ id: string }>
 }
 
-export default async function MeasurementToolPage({ params }: PageProps) {
+export default async function TakeoffPage({ params }: PageProps) {
   const { supabase } = await requirePermission('estimating', 'view')
   const { id } = await params
 
@@ -66,7 +66,7 @@ export default async function MeasurementToolPage({ params }: PageProps) {
     : { data: [] as MeasurementRow[] }
 
   return (
-    <MeasurementToolClient
+    <TakeoffClient
       project={project as EstimatingProject}
       pdfs={pdfs}
       measurements={(measurementRows ?? []) as MeasurementRow[]}
