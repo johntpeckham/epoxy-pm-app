@@ -1000,7 +1000,6 @@ function TaskRow({
   const dimmed = completed || pending
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
-  const [expanded, setExpanded] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setTitle(task.title) }, [task.title])
@@ -1022,20 +1021,13 @@ function TaskRow({
     ? projects.find((p) => p.id === task.project_id)?.name
     : null
 
-  // Priority-colored left accent bar. Overdue (active, past-due) escalates to
-  // red regardless of priority — overdue is itself a high-urgency signal.
-  const overdue = !task.is_completed && isOverdue(task.due_date)
-  const priorityBarClass =
-    task.priority === 'High' || task.priority === 'Urgent' || overdue
-      ? 'bg-red-500'
-      : task.priority === 'Normal'
-        ? 'bg-blue-500'
-        : 'bg-gray-400'
+  // Solid amber accent bar — purely decorative, matches the orange/amber
+  // accent used elsewhere in the UI (e.g. the "+ New Task" button).
 
   return (
     <div className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group ${dimmed ? 'opacity-60' : ''}`}>
       <div className="flex items-stretch">
-        <div className={`w-[3px] flex-shrink-0 ${priorityBarClass}`} aria-hidden />
+        <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
         <div className="flex-1 min-w-0 px-4 py-3">
           <div className="flex items-center gap-2">
             <button
@@ -1116,15 +1108,6 @@ function TaskRow({
               </span>
             )}
 
-            {task.description && (
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="flex-shrink-0 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                {expanded ? 'Hide details' : 'Show details'}
-              </button>
-            )}
-
             {pending ? (
               // Undo affordance is persistently visible (not hover-gated) for the
               // full 2s pending window so it's easy to find. Replaces the Edit
@@ -1153,12 +1136,6 @@ function TaskRow({
               </div>
             )}
           </div>
-
-          {expanded && task.description && (
-            <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap bg-white rounded-lg px-3 py-2">
-              {task.description}
-            </p>
-          )}
         </div>
       </div>
     </div>
