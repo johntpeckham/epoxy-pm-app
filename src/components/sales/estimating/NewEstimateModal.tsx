@@ -38,7 +38,7 @@ export default function NewEstimateModal({
     setSaving(true)
     const supabase = createClient()
     const { data, error } = await supabase
-      .from('takeoffs')
+      .from('estimates')
       .insert({
         project_id: projectId,
         customer_id: customerId,

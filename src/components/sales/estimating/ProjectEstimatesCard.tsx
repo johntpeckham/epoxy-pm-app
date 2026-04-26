@@ -33,7 +33,7 @@ export default function ProjectEstimatesCard({
     async function fetchEstimates() {
       const supabase = createClient()
       const { data } = await supabase
-        .from('takeoffs')
+        .from('estimates')
         .select('*')
         .eq('project_id', project.id)
         .order('created_at', { ascending: false })

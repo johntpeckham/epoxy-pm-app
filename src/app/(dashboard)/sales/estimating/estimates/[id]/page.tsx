@@ -13,7 +13,7 @@ export default async function EstimateDetailPage({
   const { supabase } = await requirePermission('estimating', 'view')
 
   const { data: estimate } = await supabase
-    .from('takeoffs')
+    .from('estimates')
     .select('*')
     .eq('id', id)
     .single()
