@@ -195,7 +195,7 @@ export default function ReminderRulesEditor({ onClose }: ReminderRulesEditorProp
         name: 'New template',
         subject_template: 'Following up on {project_name}',
         body_template:
-          'Hi {customer_name},\n\nJust following up on estimate {estimate_number} for {project_name}.\n\nThanks,\n{company_name}',
+          'Hi {customer_name},\n\nJust following up on proposal {estimate_number} for {project_name}.\n\nThanks,\n{company_name}',
         is_active: true,
         isNew: true,
       },

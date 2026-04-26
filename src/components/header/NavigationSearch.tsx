@@ -147,7 +147,7 @@ export default function NavigationSearch() {
   const { canView } = usePermissions()
   const supabaseRef = useRef(createClient())
 
-  // Surfaced sales/estimate search results for any user who can view at
+  // Surfaced sales/proposal search results for any user who can view at
   // least one sales sub-feature.
   const isSalesRole = SALES_FEATURES.some((f) => canView(f))
 
@@ -204,7 +204,7 @@ export default function NavigationSearch() {
     if (filteredPages.length > 0) {
       grouped.push({ category: 'Pages', items: filteredPages })
     }
-    const dataCategories = ['Projects', 'Estimates', 'Companies', 'Contacts', 'Leads', 'Equipment', 'Check Deposits']
+    const dataCategories = ['Projects', 'Proposals', 'Companies', 'Contacts', 'Leads', 'Equipment', 'Check Deposits']
     for (const cat of dataCategories) {
       const items = dataResults.filter((r) => r.category === cat)
       if (items.length > 0) {
@@ -258,7 +258,7 @@ export default function NavigationSearch() {
         )
 
         if (isSalesRole) {
-          const estimateNameQuery = Promise.resolve(supabase
+          const proposalNameQuery = Promise.resolve(supabase
             .from('estimates')
             .select('id, estimate_number, project_name, company_id')
             .ilike('project_name', pattern)
@@ -267,17 +267,18 @@ export default function NavigationSearch() {
               if (data) {
                 for (const e of data) {
                   results.push({
-                    id: `estimate-${e.id}`,
-                    name: e.project_name || `Estimate #${e.estimate_number}`,
+                    id: `proposal-${e.id}`,
+                    name: e.project_name || `Proposal #${e.estimate_number}`,
+                    // Route /sales/estimating/estimates/ kept until Phase 3.
                     route: `/sales/estimating/estimates/${e.id}`,
                     icon: CalculatorIcon,
                     secondaryLabel: `#${e.estimate_number}`,
-                    category: 'Estimates',
+                    category: 'Proposals',
                   })
                 }
               }
             })
-          queries.push(estimateNameQuery)
+          queries.push(proposalNameQuery)
 
           const numericTerm = parseInt(term, 10)
           if (!isNaN(numericTerm)) {
@@ -290,14 +291,15 @@ export default function NavigationSearch() {
                 .then(({ data }) => {
                   if (data) {
                     for (const e of data) {
-                      if (!results.some((r) => r.id === `estimate-${e.id}`)) {
+                      if (!results.some((r) => r.id === `proposal-${e.id}`)) {
                         results.push({
-                          id: `estimate-${e.id}`,
-                          name: e.project_name || `Estimate #${e.estimate_number}`,
+                          id: `proposal-${e.id}`,
+                          name: e.project_name || `Proposal #${e.estimate_number}`,
+                          // Route /sales/estimating/estimates/ kept until Phase 3.
                           route: `/sales/estimating/estimates/${e.id}`,
                           icon: CalculatorIcon,
                           secondaryLabel: `#${e.estimate_number}`,
-                          category: 'Estimates',
+                          category: 'Proposals',
                         })
                       }
                     }

@@ -469,7 +469,7 @@ export default function ProfileClient({ userId, userEmail, initialProfile }: Pro
                 <SettingsTile
                   icon={TargetIcon}
                   title="Sales management"
-                  subtitle="Pipeline, estimates, notifications"
+                  subtitle="Pipeline, proposals, notifications"
                   onClick={() => setShowSalesManagement(true)}
                 />
               )}
@@ -1098,8 +1098,8 @@ function SalesManagementModal({
   }[] = [
     {
       icon: <FileTextIcon className="w-5 h-5" />,
-      title: 'Edit Estimate Form',
-      description: 'Customize the fields and layout shown on the estimate.',
+      title: 'Edit Proposal Form',
+      description: 'Customize the fields and layout shown on the proposal.',
       onClick: () => setShowProposalFormEditor(true),
     },
     {

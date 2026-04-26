@@ -65,10 +65,13 @@ const STATUS_TEXT_COLOR: Record<AppointmentStatus, string> = {
   cancelled: 'text-gray-400',
 }
 
+// Object keys 'estimating' / 'estimate' are DB enum literals on the
+// crm_appointments.pushed_to column — kept until Phase 4. Only the visible
+// label values are renamed here.
 const PUSHED_TO_LABELS: Record<PushedTo, string> = {
   job_walk: 'Pushed to job walk',
   estimating: 'Pushed to estimating',
-  estimate: 'Pushed to estimate',
+  estimate: 'Pushed to proposal',
   job: 'Pushed to job',
 }
 
@@ -526,7 +529,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
                           onClick={() => { setOpenPushMenuFor(null); showToast('Coming soon') }}
                           className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
                         >
-                          Push to estimate
+                          Push to proposal
                         </button>
                         <button
                           onClick={() => { setOpenPushMenuFor(null); showToast('Coming soon') }}

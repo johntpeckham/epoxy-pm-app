@@ -52,8 +52,8 @@ export interface SalesmanStats {
   email: number
   appts: number
   walks: number
-  estimatesSentCount: number
-  estimatesSentValue: number
+  proposalsSentCount: number
+  proposalsSentValue: number
   wonCount: number
   wonRevenue: number
   declinedCount: number
@@ -63,7 +63,7 @@ export interface TeamTotals {
   totalCalls: number
   emailsSent: number
   apptsSet: number
-  estimatesSent: number
+  proposalsSent: number
   projectsWon: number
   revenueWon: number
 }
@@ -89,8 +89,8 @@ export function hasAnyActivity(s: SalesmanStats): boolean {
     s.email > 0 ||
     s.appts > 0 ||
     s.walks > 0 ||
-    s.estimatesSentCount > 0 ||
-    s.estimatesSentValue > 0 ||
+    s.proposalsSentCount > 0 ||
+    s.proposalsSentValue > 0 ||
     s.wonCount > 0 ||
     s.wonRevenue > 0
   )
@@ -180,8 +180,8 @@ export async function fetchTeamOverview(
       email: 0,
       appts: 0,
       walks: 0,
-      estimatesSentCount: 0,
-      estimatesSentValue: 0,
+      proposalsSentCount: 0,
+      proposalsSentValue: 0,
       wonCount: 0,
       wonRevenue: 0,
       declinedCount: 0,
@@ -211,8 +211,8 @@ export async function fetchTeamOverview(
     if (!r.user_id) continue
     const u = byUser.get(r.user_id)
     if (!u) continue
-    u.estimatesSentCount++
-    u.estimatesSentValue += Number(r.total ?? 0)
+    u.proposalsSentCount++
+    u.proposalsSentValue += Number(r.total ?? 0)
   }
   for (const r of wonEstRows) {
     if (!r.user_id) continue
@@ -231,7 +231,7 @@ export async function fetchTeamOverview(
     totalCalls: callRows.length,
     emailsSent: callRows.filter((r) => r.outcome === 'email_sent').length,
     apptsSet: apptRows.length,
-    estimatesSent: sentEstRows.length,
+    proposalsSent: sentEstRows.length,
     projectsWon: wonEstRows.length,
     revenueWon: wonEstRows.reduce((s, r) => s + Number(r.total ?? 0), 0),
   }

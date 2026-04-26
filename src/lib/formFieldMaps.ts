@@ -91,7 +91,9 @@ const FORM_FIELD_MAPS: Record<string, FieldKeyMap> = {
     byLabel: {
       // Project report has duplicate labels ("Additional Notes") so label mapping
       // is less reliable. We rely primarily on field IDs for this form.
-      'Project Name': 'project_name', 'Estimate Number': 'estimate_number',
+      // Label key 'Proposal Number' matches the form template label; value
+      // 'estimate_number' kept until Phase 4 (matches DB column).
+      'Project Name': 'project_name', 'Proposal Number': 'estimate_number',
       'Address': 'address', 'Client Name': 'client_name', 'Client Email': 'client_email',
       'Client Phone Number': 'client_phone', 'Site Contact': 'site_contact',
       'Prevailing Wage?': 'prevailing_wage', 'Bonding / Insurance Requirements': 'bonding_insurance',

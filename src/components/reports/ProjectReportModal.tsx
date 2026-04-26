@@ -24,7 +24,7 @@ interface ProjectReportModalProps {
   projectName: string
   clientName: string
   address: string
-  estimateNumber: string
+  proposalNumber: string
   userId: string
   userRole?: UserRole
   onClose: () => void

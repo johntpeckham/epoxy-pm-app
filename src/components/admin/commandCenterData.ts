@@ -39,7 +39,7 @@ export interface CommandCenterAppointment {
   user_name?: string | null
 }
 
-export interface CommandCenterEstimate {
+export interface CommandCenterProposal {
   id: string
   estimate_number: number | null
   project_name: string | null
@@ -89,7 +89,7 @@ export interface CommandCenterData {
   checklistItems: CommandCenterChecklistItem[]
   callLogsToday: CommandCenterCallLogEntry[]
   appointmentsToday: CommandCenterAppointment[]
-  estimatesRecent: CommandCenterEstimate[]
+  proposalsRecent: CommandCenterProposal[]
   reportsToday: CommandCenterReport[]
   assignedTasksForToday: CommandCenterAssignedTask[]
   taskCompletionsToday: CommandCenterTaskCompletion[]
@@ -127,7 +127,7 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
     checklistRes,
     callLogsRes,
     appointmentsRes,
-    estimatesRes,
+    proposalsRes,
     reportsRes,
     assignedTasksRes,
     completionsRes,
@@ -249,7 +249,7 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
     checklistItems: (checklistRes.data ?? []) as CommandCenterChecklistItem[],
     callLogsToday,
     appointmentsToday,
-    estimatesRecent: (estimatesRes.data ?? []) as CommandCenterEstimate[],
+    proposalsRecent: (proposalsRes.data ?? []) as CommandCenterProposal[],
     reportsToday,
     assignedTasksForToday: (assignedTasksRes.data ?? []) as CommandCenterAssignedTask[],
     taskCompletionsToday: (completionsRes.data ?? []) as CommandCenterTaskCompletion[],

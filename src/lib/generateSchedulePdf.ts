@@ -344,14 +344,14 @@ export async function generateSchedulePdf(
     const projectAssignments = assignmentsByProject.get(project.id) ?? []
     const isInactive = !projects.some((p) => p.id === project.id)
 
-    // Build project cell lines (name wrapped, then estimate #, then address)
+    // Build project cell lines (name wrapped, then proposal #, then address)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     const nameLines = doc.splitTextToSize(project.name || 'Untitled', PROJECT_COL_W - PROJECT_PAD * 2) as string[]
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
     const metaLines: string[] = []
-    if (project.estimate_number) metaLines.push(`Est #${project.estimate_number}`)
+    if (project.estimate_number) metaLines.push(`Proposal #${project.estimate_number}`)
     if (project.address) {
       const addrLines = doc.splitTextToSize(project.address, PROJECT_COL_W - PROJECT_PAD * 2) as string[]
       metaLines.push(...addrLines)
