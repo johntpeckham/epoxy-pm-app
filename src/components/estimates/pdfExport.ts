@@ -59,22 +59,22 @@ export function exportEstimatePdf(data: PdfData): { blob: Blob; filename: string
     }
   }
 
-  // ─── "Estimate" title ───
+  // ─── "Proposal" title ───
   const titleY = Math.max(logoBottomY + 8, margin + 4)
   doc.setFontSize(28)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(217, 119, 6) // amber-600
-  doc.text('Estimate', pageWidth - margin, titleY, { align: 'right' })
+  doc.text('Proposal', pageWidth - margin, titleY, { align: 'right' })
 
   y += 28
   doc.setTextColor(0, 0, 0)
 
-  // ─── Address + Estimate info ───
+  // ─── Address + Proposal info ───
   doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(150, 150, 150)
   doc.text('ADDRESS', margin, y)
-  doc.text('ESTIMATE #', pageWidth - margin - 100, y)
+  doc.text('PROPOSAL #', pageWidth - margin - 100, y)
   y += 12
   doc.setTextColor(0, 0, 0)
   doc.setFontSize(10)
@@ -336,6 +336,6 @@ export function exportEstimatePdf(data: PdfData): { blob: Blob; filename: string
   doc.text('Accepted Date _________________________', margin + contentWidth / 2, y)
 
   // Return blob + filename
-  const filename = `Estimate-${data.estimateNumber}-${data.customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+  const filename = `Proposal-${data.estimateNumber}-${data.customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
   return { blob: doc.output('blob'), filename }
 }

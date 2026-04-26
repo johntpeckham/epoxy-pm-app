@@ -152,7 +152,7 @@ export default function ProjectMeasurementsCard({
           <span className="text-amber-500">
             <RulerIcon className="w-5 h-5" />
           </span>
-          <h3 className="text-sm font-semibold text-gray-900 flex-1">Measurements</h3>
+          <h3 className="text-sm font-semibold text-gray-900 flex-1">Takeoff</h3>
           <AutoSaveIndicator isSaving={saveState === 'saving'} />
         </div>
 

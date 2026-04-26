@@ -6,7 +6,6 @@ import {
   PlusIcon,
   SearchIcon,
   CalculatorIcon,
-  ChevronLeftIcon,
   UsersIcon,
   FolderOpenIcon,
   ArrowLeftIcon,
@@ -156,11 +155,6 @@ export default function EstimatingClient({
     setSelectedProjectId(project.id)
   }
 
-  function handleBackToCustomers() {
-    setSelectedCustomerId(null)
-    setSelectedProjectId(null)
-  }
-
   async function refreshCustomers() {
     const supabase = createClient()
     const { data } = await supabase
@@ -197,33 +191,22 @@ export default function EstimatingClient({
       {/* Left column */}
       <div
         className={`flex-shrink-0 w-screen max-w-full lg:w-80 xl:w-96 min-w-0 bg-white border-r border-gray-200 flex-col overflow-hidden ${
-          inState3 ? 'hidden lg:flex' : 'flex'
+          inState3 ? 'hidden' : 'flex'
         }`}
       >
-        {inState3 && selectedCustomer ? (
-          <ProjectSidebar
-            customer={selectedCustomer}
-            projects={projects}
-            selectedProjectId={selectedProjectId}
-            onBack={handleBackToCustomers}
-            onSelectProject={handleSelectProject}
-            onNewProject={() => setShowNewModal(true)}
-          />
-        ) : (
-          <CustomerSidebar
-            customers={filteredCustomers}
-            selectedCustomerId={selectedCustomerId}
-            search={search}
-            onSearch={setSearch}
-            onSelect={handleSelectCustomer}
-            onNewProject={() => setShowNewModal(true)}
-            listMode={listMode}
-            onListModeChange={setListMode}
-            myProjects={myProjects}
-            loadingMyProjects={loadingMyProjects}
-            onSelectMyProject={handleSelectMyProject}
-          />
-        )}
+        <CustomerSidebar
+          customers={filteredCustomers}
+          selectedCustomerId={selectedCustomerId}
+          search={search}
+          onSearch={setSearch}
+          onSelect={handleSelectCustomer}
+          onNewProject={() => setShowNewModal(true)}
+          listMode={listMode}
+          onListModeChange={setListMode}
+          myProjects={myProjects}
+          loadingMyProjects={loadingMyProjects}
+          onSelectMyProject={handleSelectMyProject}
+        />
       </div>
 
       {/* Right column */}
@@ -239,6 +222,7 @@ export default function EstimatingClient({
             customer={selectedCustomer}
             userId={userId}
             onPatch={handleProjectPatch}
+            onBack={() => setSelectedProjectId(null)}
           />
         ) : inState2 && selectedCustomer ? (
           <CustomerProjectsPanel
@@ -550,112 +534,3 @@ function ProjectListRow({
   )
 }
 
-// ── State 3 sidebar: project list for selected customer ──────────────────
-interface ProjectSidebarProps {
-  customer: Customer
-  projects: EstimatingProject[]
-  selectedProjectId: string | null
-  onBack: () => void
-  onSelectProject: (id: string) => void
-  onNewProject: () => void
-}
-
-function ProjectSidebar({
-  customer,
-  projects,
-  selectedProjectId,
-  onBack,
-  onSelectProject,
-  onNewProject,
-}: ProjectSidebarProps) {
-  return (
-    <>
-      <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-[#2a2a2a] space-y-2 flex-shrink-0">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
-        >
-          <ChevronLeftIcon className="w-4 h-4" />
-          Back to customers
-        </button>
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-base font-bold text-gray-900 truncate">
-              {customer.name}
-            </h1>
-            {customer.company && (
-              <p className="text-xs text-gray-500 truncate">{customer.company}</p>
-            )}
-          </div>
-          <button
-            onClick={onNewProject}
-            className="flex-shrink-0 flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white px-3 py-2 rounded-lg text-sm font-semibold transition shadow-sm"
-            aria-label="New project"
-          >
-            <PlusIcon className="w-4 h-4" />
-            New
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {projects.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">
-            No projects yet.
-          </p>
-        ) : (
-          projects.map((p) => (
-            <ProjectSidebarItem
-              key={p.id}
-              project={p}
-              isSelected={selectedProjectId === p.id}
-              onSelect={() => onSelectProject(p.id)}
-            />
-          ))
-        )}
-      </div>
-    </>
-  )
-}
-
-function ProjectSidebarItem({
-  project,
-  isSelected,
-  onSelect,
-}: {
-  project: EstimatingProject
-  isSelected: boolean
-  onSelect: () => void
-}) {
-  const statusStyle = PROJECT_STATUS_STYLES[project.status]
-  return (
-    <button
-      onClick={onSelect}
-      className={`w-full text-left relative rounded-lg border p-3 transition ${
-        isSelected
-          ? 'border-gray-300 bg-gray-50'
-          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-      }`}
-    >
-      {isSelected && (
-        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-amber-500" />
-      )}
-      <p className="text-sm font-semibold text-gray-900 truncate">
-        {project.project_number && (
-          <span className="text-amber-600 mr-1">#{project.project_number}</span>
-        )}
-        {project.name}
-      </p>
-      <div className="mt-1.5 flex items-center gap-1.5">
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusStyle.className}`}
-        >
-          {statusStyle.label}
-        </span>
-        <span className="text-[10px] text-gray-400">
-          {new Date(project.created_at).toLocaleDateString()}
-        </span>
-      </div>
-    </button>
-  )
-}
