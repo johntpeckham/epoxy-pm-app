@@ -406,7 +406,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
   return (
-    <div className="col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] transition-all" style={{ borderLeft: '4px solid rgba(239, 159, 39, 0.55)' }}>
+    <div className="col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] transition-all flex flex-col" style={{ borderLeft: '4px solid rgba(239, 159, 39, 0.55)' }}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <ListChecksIcon className="w-5 h-5 flex-shrink-0 text-amber-500" />
@@ -538,6 +538,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
       )}
 
       {/* Body */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
       {loading ? (
         <p className="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">Loading…</p>
       ) : totalCount === 0 ? (
@@ -598,10 +599,11 @@ export default function MyTasksCard({ userId, userRole }: Props) {
           </div>
         </div>
       )}
+      </div>
 
       {/* Admin: management links — always visible at card bottom */}
       {isAdmin && (
-        <div className="flex justify-center items-center gap-3 px-4 py-2.5 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex justify-center items-center gap-3 px-4 py-2.5 border-t border-gray-200 dark:border-gray-700 flex-none">
           <Link
             href="/my-work/employee-summary"
             className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
