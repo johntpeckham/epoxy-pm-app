@@ -135,98 +135,6 @@ export default async function MyWorkPage() {
       : null,
   }))
 
-  // Sales activity stats are meaningful only for users with any sales
-  // sub-feature access (admin shortcut handles the admin case).
-  const isSalesRole =
-    permissions.canView('crm') ||
-    permissions.canView('dialer') ||
-    permissions.canView('emailer') ||
-    permissions.canView('leads') ||
-    permissions.canView('appointments') ||
-    permissions.canView('estimating') ||
-    permissions.canView('job_walk')
-  let salesActivity: {
-    callsToday: number
-    callsWeek: number
-    nextAppointment: {
-      id: string
-      company_id: string
-      company_name: string
-      date: string
-    } | null
-    overdueReminderCount: number
-  } | null = null
-
-  if (isSalesRole) {
-    const now = new Date()
-    const startOfDay = new Date(now)
-    startOfDay.setHours(0, 0, 0, 0)
-    const endOfDay = new Date(startOfDay)
-    endOfDay.setDate(endOfDay.getDate() + 1)
-    const weekStart = new Date(now)
-    const day = weekStart.getDay()
-    const diffToMonday = day === 0 ? -6 : 1 - day
-    weekStart.setDate(weekStart.getDate() + diffToMonday)
-    weekStart.setHours(0, 0, 0, 0)
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekEnd.getDate() + 7)
-
-    const [
-      { count: todayCountRaw },
-      { count: weekCountRaw },
-      { data: nextApptData },
-      { count: overdueCountRaw },
-    ] = await Promise.all([
-      supabase
-        .from('crm_call_log')
-        .select('id', { count: 'exact', head: true })
-        .eq('created_by', user.id)
-        .gte('call_date', startOfDay.toISOString())
-        .lt('call_date', endOfDay.toISOString()),
-      supabase
-        .from('crm_call_log')
-        .select('id', { count: 'exact', head: true })
-        .eq('created_by', user.id)
-        .gte('call_date', weekStart.toISOString())
-        .lt('call_date', weekEnd.toISOString()),
-      supabase
-        .from('crm_appointments')
-        .select('id, date, company_id, companies!inner(id, name)')
-        .eq('status', 'scheduled')
-        .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
-        .gte('date', now.toISOString())
-        .order('date', { ascending: true })
-        .limit(1),
-      supabase
-        .from('crm_follow_up_reminders')
-        .select('id', { count: 'exact', head: true })
-        .eq('assigned_to', user.id)
-        .eq('is_completed', false)
-        .lt('reminder_date', now.toISOString()),
-    ])
-
-    type ApptRow = {
-      id: string
-      date: string
-      company_id: string
-      companies: { id: string; name: string } | null
-    }
-    const first = ((nextApptData ?? []) as unknown as ApptRow[])[0]
-    salesActivity = {
-      callsToday: todayCountRaw ?? 0,
-      callsWeek: weekCountRaw ?? 0,
-      nextAppointment: first
-        ? {
-            id: first.id,
-            company_id: first.company_id,
-            company_name: first.companies?.name ?? 'Company',
-            date: first.date,
-          }
-        : null,
-      overdueReminderCount: overdueCountRaw ?? 0,
-    }
-  }
-
   // Office Daily Reports — today's snapshot for the card. Skip the queries
   // entirely when the card is hidden for this user.
   const todayDateStr = new Date().toISOString().slice(0, 10)
@@ -279,7 +187,6 @@ export default async function MyWorkPage() {
         initialOfficeTasks={officeTasks ?? []}
         initialExpenses={expenses}
         initialReminders={reminders}
-        initialSalesActivity={salesActivity}
         initialMyTodayReport={myTodayReport}
         initialTodayReportsCount={todayReportsCount}
       />

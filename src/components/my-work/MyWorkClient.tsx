@@ -29,7 +29,6 @@ import {
   WalletIcon,
   Maximize2Icon,
   BellIcon,
-  PhoneIcon,
   FileTextIcon,
   LayoutDashboardIcon,
 } from 'lucide-react'
@@ -50,18 +49,6 @@ export interface MyWorkReminder {
   contact_name: string | null
 }
 
-export interface MyWorkSalesActivity {
-  callsToday: number
-  callsWeek: number
-  nextAppointment: {
-    id: string
-    company_id: string
-    company_name: string
-    date: string
-  } | null
-  overdueReminderCount: number
-}
-
 type WorkspaceType =
   | 'assigned_tasks'
   | 'assigned_checklist'
@@ -78,7 +65,6 @@ interface Props {
   initialOfficeTasks: OfficeTask[]
   initialExpenses: SalesmanExpenseRow[]
   initialReminders?: MyWorkReminder[]
-  initialSalesActivity?: MyWorkSalesActivity | null
   initialMyTodayReport?: {
     id: string
     clock_in: string | null
@@ -166,8 +152,8 @@ function InteractiveCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-3.5 col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="bg-white rounded-xl border border-gray-200 p-3.5 col-span-2 transition-all hover:shadow-sm hover:border-gray-300 flex flex-col">
+      <div className="flex items-center gap-2 mb-2 flex-none">
         <span className="text-amber-500">{icon}</span>
         <h3 className="text-sm font-semibold text-gray-900 flex-1">{title}</h3>
         {headerActions}
@@ -179,7 +165,7 @@ function InteractiveCard({
           <Maximize2Icon className="w-4 h-4" />
         </button>
       </div>
-      {children}
+      <div className="flex-1 min-h-0 flex flex-col">{children}</div>
     </div>
   )
 }
@@ -269,7 +255,6 @@ export default function MyWorkClient({
   initialOfficeTasks,
   initialExpenses,
   initialReminders,
-  initialSalesActivity,
   initialMyTodayReport,
   initialTodayReportsCount,
 }: Props) {
@@ -286,14 +271,6 @@ export default function MyWorkClient({
   const canSeeAllExpenses = canView('office')
   const canViewCrm = canView('crm')
   const canViewJobBoard = canView('job_board')
-  const canViewAnySales =
-    canView('crm') ||
-    canView('dialer') ||
-    canView('emailer') ||
-    canView('leads') ||
-    canView('appointments') ||
-    canView('estimating') ||
-    canView('job_walk')
   // Per-card My Work gates. Individual cards can be hidden per user via the
   // permission editor; defaults seeded to match role expectations.
   const showDailyPlaybook = canView('daily_playbook')
@@ -856,7 +833,7 @@ export default function MyWorkClient({
                     )}
                   </div>
                 )}
-                <div className="space-y-2 max-h-[400px] overflow-y-auto -mx-4 px-4">
+                <div className="space-y-2 flex-1 min-h-0 overflow-y-auto -mx-4 px-4">
                   {activeOfficeTasks.map((task) => (
                     <div key={`ot-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
                       <div className="flex items-stretch">
@@ -1143,10 +1120,10 @@ export default function MyWorkClient({
       )}
 
       {/* ── Quick glance section ── */}
-      {!allCardsHidden && (showOfficeDailyReport || showExpensesSummary || (canViewAnySales && initialSalesActivity)) && (
+      {!allCardsHidden && (showOfficeDailyReport || showExpensesSummary) && (
       <div className="px-4 mt-2">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Quick glance</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
 
           {/* Office Daily Report tile */}
           {showOfficeDailyReport && (
@@ -1222,40 +1199,6 @@ export default function MyWorkClient({
               </span>
             </div>
           </QuickGlanceTile>
-          )}
-
-          {/* Sales activity tile — any sales feature grants access */}
-          {canViewAnySales && initialSalesActivity && (
-            <QuickGlanceTile
-              icon={<PhoneIcon className="w-4 h-4" />}
-              title="Sales activity"
-              onClick={() => router.push('/sales')}
-            >
-              <div className="flex items-baseline gap-4">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[20px] font-medium tabular-nums text-gray-900 leading-none">
-                    {initialSalesActivity.callsToday}
-                  </span>
-                  <span className="text-[11px] text-gray-400">today</span>
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[20px] font-medium tabular-nums text-gray-900 leading-none">
-                    {initialSalesActivity.callsWeek}
-                  </span>
-                  <span className="text-[11px] text-gray-400">this week</span>
-                </div>
-              </div>
-              <p
-                className={`text-[11px] mt-1 ${
-                  initialSalesActivity.overdueReminderCount > 0
-                    ? 'text-amber-600 font-medium'
-                    : 'text-gray-400'
-                }`}
-              >
-                {initialSalesActivity.overdueReminderCount} overdue follow-up
-                {initialSalesActivity.overdueReminderCount === 1 ? '' : 's'}
-              </p>
-            </QuickGlanceTile>
           )}
 
         </div>
