@@ -299,6 +299,54 @@ export default function MyWorkClient({
   /* ---- Unified Assigned Work completed toggle ---- */
   const [showCompletedAssigned, setShowCompletedAssigned] = useState(false)
 
+  /* ---- Unified Assigned Work pending-complete window (2s delay before
+         the underlying source action fires; the user can uncheck inside
+         the window to cancel). Keys are `${source}-${id}` so the three
+         sources can't collide. ---- */
+  const [pendingCompleteIds, setPendingCompleteIds] = useState<Set<string>>(new Set())
+  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  useEffect(() => {
+    const timers = pendingTimersRef.current
+    return () => {
+      timers.forEach((t) => clearTimeout(t))
+      timers.clear()
+    }
+  }, [])
+  const schedulePendingComplete = useCallback(
+    (key: string, runComplete: () => void) => {
+      const existing = pendingTimersRef.current.get(key)
+      if (existing) clearTimeout(existing)
+      setPendingCompleteIds((prev) => {
+        const next = new Set(prev)
+        next.add(key)
+        return next
+      })
+      const t = setTimeout(() => {
+        pendingTimersRef.current.delete(key)
+        setPendingCompleteIds((prev) => {
+          if (!prev.has(key)) return prev
+          const next = new Set(prev)
+          next.delete(key)
+          return next
+        })
+        runComplete()
+      }, 2000)
+      pendingTimersRef.current.set(key, t)
+    },
+    []
+  )
+  const cancelPendingComplete = useCallback((key: string) => {
+    const t = pendingTimersRef.current.get(key)
+    if (t) clearTimeout(t)
+    pendingTimersRef.current.delete(key)
+    setPendingCompleteIds((prev) => {
+      if (!prev.has(key)) return prev
+      const next = new Set(prev)
+      next.delete(key)
+      return next
+    })
+  }, [])
+
   /* ---- Expenses state ---- */
   const [showExpenseCreateModal, setShowExpenseCreateModal] = useState(false)
 
@@ -437,6 +485,25 @@ export default function MyWorkClient({
     // Routes through the shared utility so any linked equipment scheduled
     // service is kept in sync with the task.
     await toggleOfficeTaskCompletion(supabase, task.id, newVal, userId)
+  }
+
+  /* ---- Unified Assigned Work checkbox handlers (route through the 2s
+         pending window before invoking the existing source action). ---- */
+  function handleOfficeTaskCheckbox(task: OfficeTask) {
+    const key = `ot-${task.id}`
+    if (pendingCompleteIds.has(key)) cancelPendingComplete(key)
+    else schedulePendingComplete(key, () => { void toggleOfficeTask(task) })
+  }
+  function handleChecklistCheckbox(item: AssignedChecklist) {
+    if (!canEditChecklists) return
+    const key = `cl-${item.id}`
+    if (pendingCompleteIds.has(key)) cancelPendingComplete(key)
+    else schedulePendingComplete(key, () => { void toggleChecklistItem(item) })
+  }
+  function handleFieldTaskCheckbox(task: AssignedTask) {
+    const key = `ft-${task.id}`
+    if (pendingCompleteIds.has(key)) cancelPendingComplete(key)
+    else schedulePendingComplete(key, () => { void toggleTaskStatus(task) })
   }
 
   /* ================================================================ */
@@ -837,20 +904,23 @@ export default function MyWorkClient({
                   </div>
                 )}
                 <div className="space-y-2 flex-1 min-h-0 overflow-y-auto -mx-4 px-4">
-                  {activeOfficeTasks.map((task) => (
-                    <div key={`ot-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
+                  {activeOfficeTasks.map((task) => {
+                    const key = `ot-${task.id}`
+                    const isPending = pendingCompleteIds.has(key)
+                    return (
+                    <div key={key} className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group${isPending ? ' opacity-60' : ''}`}>
                       <div className="flex items-stretch">
                         <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
                         <div className="flex-1 min-w-0 px-4 py-3">
                           <div className="flex items-start gap-2.5">
                             <button
-                              onClick={() => toggleOfficeTask(task)}
+                              onClick={() => handleOfficeTaskCheckbox(task)}
                               className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
                             >
-                              {task.is_completed && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                              {(task.is_completed || isPending) && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
                             </button>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
+                              <p className={`text-xs font-medium text-gray-900 truncate${isPending ? ' line-through' : ''}`}>{task.title}</p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                                 <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700">Office Tasks</span>
                                 {task.priority !== 'Normal' && (
@@ -868,24 +938,28 @@ export default function MyWorkClient({
                         </div>
                       </div>
                     </div>
-                  ))}
-                  {activeChecklist.map((item) => (
-                    <div key={`cl-${item.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
+                    )
+                  })}
+                  {activeChecklist.map((item) => {
+                    const key = `cl-${item.id}`
+                    const isPending = pendingCompleteIds.has(key)
+                    return (
+                    <div key={key} className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group${isPending ? ' opacity-60' : ''}`}>
                       <div className="flex items-stretch">
                         <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
                         <div className="flex-1 min-w-0 px-4 py-3">
                           <div className="flex items-start gap-2.5">
                             <button
-                              onClick={() => toggleChecklistItem(item)}
+                              onClick={() => handleChecklistCheckbox(item)}
                               disabled={!canEditChecklists}
                               className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                                 canEditChecklists ? 'border-gray-300 hover:border-amber-500 cursor-pointer' : 'border-gray-200 cursor-default'
                               }`}
                             >
-                              {item.is_complete && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                              {(item.is_complete || isPending) && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
                             </button>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-gray-900 truncate">{item.name}</p>
+                              <p className={`text-xs font-medium text-gray-900 truncate${isPending ? ' line-through' : ''}`}>{item.name}</p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                                 <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700">Job Board Checklist</span>
                                 {canViewJobBoard ? (
@@ -909,23 +983,27 @@ export default function MyWorkClient({
                         </div>
                       </div>
                     </div>
-                  ))}
-                  {activeTasks.map((task) => (
-                    <div key={`ft-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
+                    )
+                  })}
+                  {activeTasks.map((task) => {
+                    const key = `ft-${task.id}`
+                    const isPending = pendingCompleteIds.has(key)
+                    return (
+                    <div key={key} className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group${isPending ? ' opacity-60' : ''}`}>
                       <div className="flex items-stretch">
                         <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
                         <div className="flex-1 min-w-0 px-4 py-3">
                           <div className="flex items-start gap-2.5">
                             <button
-                              onClick={() => toggleTaskStatus(task)}
+                              onClick={() => handleFieldTaskCheckbox(task)}
                               className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
                             >
-                              {task.status === 'completed' && (
+                              {(task.status === 'completed' || isPending) && (
                                 <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
                               )}
                             </button>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
+                              <p className={`text-xs font-medium text-gray-900 truncate${isPending ? ' line-through' : ''}`}>{task.title}</p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                                 <span className="text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-700">Field Tasks</span>
                                 {canViewJobBoard ? (
@@ -958,7 +1036,8 @@ export default function MyWorkClient({
                         </div>
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                   {totalCompleted > 0 && (
                     <button
                       onClick={() => setShowCompletedAssigned(!showCompletedAssigned)}
