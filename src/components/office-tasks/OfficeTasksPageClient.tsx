@@ -767,25 +767,24 @@ export default function OfficeTasksPageClient({
       {!isForeman && (
       <div className="mt-5 px-4">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">People</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="flex flex-wrap gap-2">
           {canManageEmployees && (
           <button
             onClick={() => setView({ kind: 'employees' })}
-            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           >
             <UsersIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1 text-left">Employees</span>
+            <span>Employees</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </button>
           )}
           {canView('office') && (
           <Link
             href="/office/contacts"
-            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           >
             <ContactIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Contacts</span>
-            <span className="text-[12px] text-gray-400 mr-2">{contactCount}</span>
+            <span>Contacts</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           )}
@@ -797,35 +796,34 @@ export default function OfficeTasksPageClient({
       {(canView('vendor_management') || canView('material_management') || canView('scheduling')) && (
       <div className="mt-5 px-4">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Resources</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="flex flex-wrap gap-2">
           {canView('vendor_management') && (
           <Link
             href="/office/vendors"
-            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           >
             <Building2Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Vendors</span>
-            <span className="text-[12px] text-gray-400 mr-2">{vendorCount}</span>
+            <span>Vendors</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           )}
           {canView('material_management') && (
           <Link
             href="/inventory"
-            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           >
             <PackageIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Material inventory</span>
+            <span>Material inventory</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           )}
           {canView('scheduling') && (
           <Link
             href="/scheduling"
-            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           >
             <CalendarIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Scheduling</span>
+            <span>Scheduling</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           )}
@@ -836,18 +834,15 @@ export default function OfficeTasksPageClient({
       {/* ── Admin Section ── */}
       <div className="mt-5 px-4">
         <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Admin</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="flex flex-wrap gap-2">
           {/* Reports tile — gated on reports feature */}
           {canView('reports') && (
           <Link
             href="/reports"
-            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           >
             <BarChart3Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <div className="ml-2.5 flex-1">
-              <span className="text-[13px] font-medium text-gray-900">Reports</span>
-              <p className="text-[11px] text-gray-400 mt-0.5">Timesheets, sales, expenses</p>
-            </div>
+            <span>Reports</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           )}
@@ -855,11 +850,10 @@ export default function OfficeTasksPageClient({
           {canView('sops') && (
           <Link
             href="/sops"
-            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           >
             <FileTextIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">SOPs &amp; forms</span>
-            {sopCount > 0 && <span className="text-[12px] text-gray-400 mr-2">{sopCount}</span>}
+            <span>SOPs &amp; forms</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           )}
@@ -867,40 +861,29 @@ export default function OfficeTasksPageClient({
           {canView('training_certifications') && (
           <Link
             href="/training-certifications"
-            className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           >
             <GraduationCapIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Training &amp; certifications</span>
+            <span>Training &amp; certifications</span>
             <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </Link>
           )}
 
-          {/* Company Meetings tile with sub-items */}
-          <div className="bg-white border border-gray-200/80 rounded-md overflow-hidden">
-            <div className="flex items-center px-4 py-3">
-              <UsersIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-              <span className="text-[13px] font-medium text-gray-900 ml-2.5 flex-1">Company meetings</span>
-            </div>
-            <div className="border-t border-gray-100">
-              <div className="flex items-center justify-between px-4 py-2 pl-10">
-                <span className="text-[12px] text-gray-600">Weekly meeting</span>
-                <span className="text-[12px] text-gray-400">Coming soon</span>
-              </div>
-              <div className="border-t border-gray-100 flex items-center justify-between px-4 py-2 pl-10">
-                <span className="text-[12px] text-gray-600">Sales meeting</span>
-                <span className="text-[12px] text-gray-400">Coming soon</span>
-              </div>
-            </div>
-          </div>
+          {/* Company meetings — no route today; render styled like the others
+              with chevron for visual consistency, click is a no-op until a
+              destination exists. */}
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+          >
+            <UsersIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <span>Company meetings</span>
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          </button>
 
-          {/* Material Balances placeholder — non-interactive, no route */}
-          <div className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3">
-            <ScaleIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <div className="ml-2.5 flex-1">
-              <span className="text-[13px] font-medium text-gray-900">Material Balances</span>
-              <p className="text-[11px] text-gray-400 mt-0.5">Coming soon</p>
-            </div>
-          </div>
+          {/* Material Balances placeholder — click swaps the label to
+              "Coming soon" with a subtle pulse for 2s, then reverts. */}
+          <MaterialBalancesButton />
         </div>
       </div>
 
@@ -977,6 +960,41 @@ export default function OfficeTasksPageClient({
         </div>
       )}
     </div>
+  )
+}
+
+/* ================================================================== */
+/*  MATERIAL BALANCES BUTTON                                           */
+/* ================================================================== */
+
+function MaterialBalancesButton() {
+  const [showingComingSoon, setShowingComingSoon] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
+
+  function handleClick() {
+    if (showingComingSoon) return
+    setShowingComingSoon(true)
+    timerRef.current = setTimeout(() => {
+      setShowingComingSoon(false)
+      timerRef.current = null
+    }, 2000)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`inline-flex items-center gap-2 bg-white border border-gray-200/80 rounded-md px-3 py-2 text-[13px] font-medium text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-colors${showingComingSoon ? ' animate-pulse' : ''}`}
+    >
+      <ScaleIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+      <span>{showingComingSoon ? 'Coming soon' : 'Material Balances'}</span>
+    </button>
   )
 }
 
