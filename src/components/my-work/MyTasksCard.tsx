@@ -406,7 +406,7 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
   return (
-    <div className="col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] transition-all flex flex-col" style={{ borderLeft: '4px solid rgba(239, 159, 39, 0.55)' }}>
+    <div className="col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] transition-all flex flex-col md:h-[560px]" style={{ borderLeft: '4px solid rgba(239, 159, 39, 0.55)' }}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <ListChecksIcon className="w-5 h-5 flex-shrink-0 text-amber-500" />

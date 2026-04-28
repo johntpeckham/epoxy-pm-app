@@ -143,16 +143,18 @@ function InteractiveCard({
   title,
   onExpand,
   headerActions,
+  className,
   children,
 }: {
   icon: React.ReactNode
   title: string
   onExpand: () => void
   headerActions?: React.ReactNode
+  className?: string
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-3.5 col-span-2 transition-all hover:shadow-sm hover:border-gray-300 flex flex-col">
+    <div className={`bg-white rounded-xl border border-gray-200 p-3.5 col-span-2 transition-all hover:shadow-sm hover:border-gray-300 flex flex-col${className ? ` ${className}` : ''}`}>
       <div className="flex items-center gap-2 mb-2 flex-none">
         <span className="text-amber-500">{icon}</span>
         <h3 className="text-sm font-semibold text-gray-900 flex-1">{title}</h3>
@@ -796,6 +798,7 @@ export default function MyWorkClient({
           icon={<Building2Icon className="w-5 h-5" />}
           title="Assigned Work"
           onExpand={() => openWorkspace('office_tasks')}
+          className="md:h-[560px]"
           headerActions={
             <button
               onClick={() => { openWorkspace('office_tasks'); setTimeout(() => setShowOfficeCreateModal(true), 100) }}
