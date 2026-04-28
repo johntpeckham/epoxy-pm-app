@@ -16,7 +16,6 @@ import {
   Settings2Icon,
 } from 'lucide-react'
 import type { AssignedTask, AssignedTaskCompletion, UserRole } from '@/types'
-import TeamTasksSection from './TeamTasksSection'
 import { usePermissions } from '@/lib/usePermissions'
 
 /* ------------------------------------------------------------------ */
@@ -104,9 +103,6 @@ export default function MyTasksCard({ userId, userRole }: Props) {
   const [newTaskDayOfMonth, setNewTaskDayOfMonth] = useState<number>(new Date().getDate())
   const [newTaskDate, setNewTaskDate] = useState<string>(() => toDateKey(new Date()))
   const [savingNewTask, setSavingNewTask] = useState(false)
-  const [teamExpanded, setTeamExpanded] = useState(false)
-  const [myWorkExpanded, setMyWorkExpanded] = useState(true)
-
   const today = startOfToday()
   const isToday = isSameDay(viewDate, today)
   const dateKey = toDateKey(viewDate)
@@ -573,65 +569,33 @@ export default function MyTasksCard({ userId, userRole }: Props) {
 
           {/* My work section */}
           <div>
-            <button
-              onClick={() => setMyWorkExpanded((v) => !v)}
-              className="flex items-center gap-1.5 w-full text-left py-1.5"
-            >
-              {myWorkExpanded ? (
-                <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
-              ) : (
-                <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400" />
-              )}
+            <div className="flex items-center gap-1.5 py-1.5">
               <span className="text-[12px] text-gray-400 dark:text-gray-500">My work</span>
-            </button>
-            {myWorkExpanded && (
-              myTasks.length === 0 ? (
-                <p className="text-xs text-gray-400 dark:text-gray-500 py-3 pl-5">
-                  No personal work items yet. Click + New to add one.
-                </p>
-              ) : (
-                <TaskSection
-                  tasks={myTasks}
-                  completionByTaskId={completionByTaskId}
-                  noteTaskId={noteTaskId}
-                  noteValue={noteValue}
-                  onCheckBox={markCompleted}
-                  onUncheckBox={markIncomplete}
-                  onOpenNote={openUncheck}
-                  onNoteChange={setNoteValue}
-                  onSaveNote={saveUncheck}
-                  onCancelNote={() => { setNoteTaskId(null); setNoteValue('') }}
-                  editable
-                  onDelete={async (t) => {
-                    setTasks((prev) => prev.filter((x) => x.id !== t.id))
-                    await supabase.from('assigned_tasks').delete().eq('id', t.id)
-                  }}
-                />
-              )
+            </div>
+            {myTasks.length === 0 ? (
+              <p className="text-xs text-gray-400 dark:text-gray-500 py-3 pl-5">
+                No personal work items yet. Click + New to add one.
+              </p>
+            ) : (
+              <TaskSection
+                tasks={myTasks}
+                completionByTaskId={completionByTaskId}
+                noteTaskId={noteTaskId}
+                noteValue={noteValue}
+                onCheckBox={markCompleted}
+                onUncheckBox={markIncomplete}
+                onOpenNote={openUncheck}
+                onNoteChange={setNoteValue}
+                onSaveNote={saveUncheck}
+                onCancelNote={() => { setNoteTaskId(null); setNoteValue('') }}
+                editable
+                onDelete={async (t) => {
+                  setTasks((prev) => prev.filter((x) => x.id !== t.id))
+                  await supabase.from('assigned_tasks').delete().eq('id', t.id)
+                }}
+              />
             )}
           </div>
-        </div>
-      )}
-
-      {/* Admin: Team Playbook section */}
-      {isAdmin && (
-        <div className="px-4 pb-3 mt-2">
-          <button
-            onClick={() => setTeamExpanded((v) => !v)}
-            className="flex items-center gap-1.5 w-full text-left py-1.5"
-          >
-            {teamExpanded ? (
-              <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
-            ) : (
-              <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400" />
-            )}
-            <span className="text-[12px] text-gray-400 dark:text-gray-500">Team Playbook</span>
-          </button>
-          {teamExpanded && (
-            <div className="mt-1">
-              <TeamTasksSection currentUserId={userId} />
-            </div>
-          )}
         </div>
       )}
 
@@ -727,7 +691,7 @@ function TaskSection({
           const isDone = !!c?.is_completed
           const editingNote = noteTaskId === task.id
           return (
-            <div key={task.id} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 dark:bg-[#252525] dark:hover:bg-[#2a2a2a] transition-colors px-4 py-3">
+            <div key={task.id} className="rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-[#252525] dark:hover:bg-[#2a2a2a] transition-colors px-4 py-3">
               <div className="flex items-start gap-2.5">
                 <button
                   onClick={() => (isDone ? onUncheckBox(task) : onCheckBox(task))}
@@ -760,11 +724,10 @@ function TaskSection({
                     <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => onOpenNote(task)}
-                        className="text-xs font-medium hover:opacity-80"
-                        style={{ color: '#E24B4A' }}
+                        className="text-xs font-medium text-white hover:opacity-80"
                         title={c?.note ? `Not completed: ${c.note}` : undefined}
                       >
-                        Incomplete
+                        Mark incomplete
                       </button>
                       <div ref={chevronOpenId === task.id ? chevronRef : undefined} className="relative">
                         <button
@@ -772,10 +735,10 @@ function TaskSection({
                           className="w-[28px] h-[28px] flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                           aria-label="Status options"
                         >
-                          <ChevronDownIcon className="w-[14px] h-[14px] text-gray-400 dark:text-gray-500" />
+                          <ChevronDownIcon className="w-[14px] h-[14px] text-white" />
                         </button>
                         {chevronOpenId === task.id && (
-                          <div className="absolute right-0 top-7 z-30 bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden min-w-[180px]">
+                          <div className="absolute right-0 top-7 z-50 bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden min-w-[180px]">
                             <button
                               onClick={() => {
                                 setChevronOpenId(null)
