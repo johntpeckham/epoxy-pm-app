@@ -25,6 +25,7 @@ import {
   BuildingIcon,
   BarChart3Icon,
   GraduationCapIcon,
+  ScaleIcon,
 } from 'lucide-react'
 import EmployeeManagement from '@/components/profile/EmployeeManagement'
 import EquipmentPageClient from '@/components/equipment/EquipmentPageClient'
@@ -560,9 +561,9 @@ export default function OfficeTasksPageClient({
 
         {/* ── Tasks Card (spans 2 columns) ── hidden for foreman */}
         {!isForeman && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 flex flex-col lg:h-[560px]">
           {/* Card header */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-none">
             <span className="text-amber-500">
               <Building2Icon className="w-5 h-5" />
             </span>
@@ -570,7 +571,7 @@ export default function OfficeTasksPageClient({
           </div>
 
           {/* My/All toggle (left) + New Task button (right) */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-none">
             <div className="inline-flex items-center bg-gray-100 rounded-lg p-0.5">
               <button
                 onClick={() => handleViewToggle('mine')}
@@ -604,7 +605,7 @@ export default function OfficeTasksPageClient({
           </div>
 
           {/* Flat task list */}
-          <div className="max-h-[600px] overflow-y-auto -mx-4 px-4">
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-4 px-4">
             {activeTasks.length === 0 && completedTasksList.length === 0 && (
               <div className="px-5 py-12 text-center">
                 <Building2Icon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -675,15 +676,16 @@ export default function OfficeTasksPageClient({
 
         {/* ── Equipment Card (spans 2 columns) ── gated on equipment feature */}
         {canView('equipment') && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2 md:col-span-4 lg:col-span-2 transition-all hover:shadow-sm hover:border-gray-300 flex flex-col lg:h-[560px]">
           {/* Card header */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-none">
             <span className="text-amber-500">
               <WrenchIcon className="w-5 h-5" />
             </span>
             <h3 className="text-sm font-semibold text-gray-900 flex-1">Equipment</h3>
           </div>
 
+          <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Upcoming scheduled services preview */}
           <div className="mb-3">
             <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -753,6 +755,7 @@ export default function OfficeTasksPageClient({
           >
             View All Equipment →
           </button>
+          </div>
         </div>
         )}
 
@@ -887,6 +890,15 @@ export default function OfficeTasksPageClient({
                 <span className="text-[12px] text-gray-600">Sales meeting</span>
                 <span className="text-[12px] text-gray-400">Coming soon</span>
               </div>
+            </div>
+          </div>
+
+          {/* Material Balances placeholder — non-interactive, no route */}
+          <div className="flex items-center bg-white border border-gray-200/80 rounded-md px-4 py-3">
+            <ScaleIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <div className="ml-2.5 flex-1">
+              <span className="text-[13px] font-medium text-gray-900">Material Balances</span>
+              <p className="text-[11px] text-gray-400 mt-0.5">Coming soon</p>
             </div>
           </div>
         </div>
