@@ -860,7 +860,7 @@ export default function MyWorkClient({
                   {activeOfficeTasks.map((task) => (
                     <div key={`ot-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
                       <div className="flex items-stretch">
-                        <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                        <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
                         <div className="flex-1 min-w-0 px-4 py-3">
                           <div className="flex items-start gap-2.5">
                             <button
@@ -872,7 +872,7 @@ export default function MyWorkClient({
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700">Office Tasks</span>
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700">Office Tasks</span>
                                 {task.priority !== 'Normal' && (
                                   <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>{task.priority}</span>
                                 )}
@@ -892,7 +892,7 @@ export default function MyWorkClient({
                   {activeChecklist.map((item) => (
                     <div key={`cl-${item.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
                       <div className="flex items-stretch">
-                        <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                        <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
                         <div className="flex-1 min-w-0 px-4 py-3">
                           <div className="flex items-start gap-2.5">
                             <button
@@ -907,7 +907,7 @@ export default function MyWorkClient({
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-gray-900 truncate">{item.name}</p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700">Job Board Checklist</span>
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700">Job Board Checklist</span>
                                 {canViewJobBoard ? (
                                   <Link href={`/job-board?project=${item.project_id}`} className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5">
                                     {item.project_name}
@@ -933,7 +933,7 @@ export default function MyWorkClient({
                   {activeTasks.map((task) => (
                     <div key={`ft-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
                       <div className="flex items-stretch">
-                        <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                        <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
                         <div className="flex-1 min-w-0 px-4 py-3">
                           <div className="flex items-start gap-2.5">
                             <button
@@ -947,7 +947,7 @@ export default function MyWorkClient({
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700">Field Tasks</span>
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-700">Field Tasks</span>
                                 {canViewJobBoard ? (
                                   <Link
                                     href={`/job-board?project=${task.project_id}`}
@@ -993,14 +993,14 @@ export default function MyWorkClient({
                       {completedOfficeTasks.map((task) => (
                         <div key={`ot-c-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 transition-colors">
                           <div className="flex items-stretch">
-                            <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                            <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
                             <div className="flex-1 min-w-0 px-4 py-3">
                               <div className="flex items-start gap-2.5">
                                 <button onClick={() => toggleOfficeTask(task)} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
                                   <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
                                 </button>
                                 <p className="text-xs text-gray-500 line-through truncate flex-1">{task.title}</p>
-                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700 flex-shrink-0">Office Tasks</span>
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 flex-shrink-0">Office Tasks</span>
                               </div>
                             </div>
                           </div>
@@ -1009,14 +1009,14 @@ export default function MyWorkClient({
                       {completedChecklist.map((item) => (
                         <div key={`cl-c-${item.id}`} className="rounded-lg overflow-hidden bg-gray-50 transition-colors">
                           <div className="flex items-stretch">
-                            <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                            <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
                             <div className="flex-1 min-w-0 px-4 py-3">
                               <div className="flex items-start gap-2.5">
                                 <button onClick={() => toggleChecklistItem(item)} disabled={!canEditChecklists} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
                                   <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
                                 </button>
                                 <p className="text-xs text-gray-500 line-through truncate flex-1">{item.name}</p>
-                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700 flex-shrink-0">Job Board Checklist</span>
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 flex-shrink-0">Job Board Checklist</span>
                               </div>
                             </div>
                           </div>
@@ -1025,14 +1025,14 @@ export default function MyWorkClient({
                       {completedTasks.map((task) => (
                         <div key={`ft-c-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 transition-colors">
                           <div className="flex items-stretch">
-                            <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                            <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
                             <div className="flex-1 min-w-0 px-4 py-3">
                               <div className="flex items-start gap-2.5">
                                 <button onClick={() => toggleTaskStatus(task)} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
                                   <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
                                 </button>
                                 <p className="text-xs text-gray-500 line-through truncate flex-1">{task.title}</p>
-                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700 flex-shrink-0">Field Tasks</span>
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-700 flex-shrink-0">Field Tasks</span>
                               </div>
                             </div>
                           </div>
