@@ -721,13 +721,13 @@ function TaskSection({
   if (tasks.length === 0) return null
   return (
     <div>
-      <div className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg overflow-hidden">
+      <div className="space-y-2">
         {tasks.map((task) => {
           const c = completionByTaskId.get(task.id)
           const isDone = !!c?.is_completed
           const editingNote = noteTaskId === task.id
           return (
-            <div key={task.id} className="py-2 px-5">
+            <div key={task.id} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 dark:bg-[#252525] dark:hover:bg-[#2a2a2a] transition-colors px-4 py-3">
               <div className="flex items-start gap-2.5">
                 <button
                   onClick={() => (isDone ? onUncheckBox(task) : onCheckBox(task))}

@@ -316,7 +316,9 @@ export default function MyWorkClient({
   /* ---- Office Tasks state ---- */
   const [officeTasks, setOfficeTasks] = useState(initialOfficeTasks)
   const [showOfficeCreateModal, setShowOfficeCreateModal] = useState(false)
-  const [showCompletedOffice, setShowCompletedOffice] = useState(false)
+
+  /* ---- Unified Assigned Work completed toggle ---- */
+  const [showCompletedAssigned, setShowCompletedAssigned] = useState(false)
 
   /* ---- Expenses state ---- */
   const [showExpenseCreateModal, setShowExpenseCreateModal] = useState(false)
@@ -811,11 +813,11 @@ export default function MyWorkClient({
         {/* ── Daily Playbook (left column) ── */}
         {showDailyPlaybook && <MyTasksCard userId={userId} userRole={userRole} />}
 
-        {/* ── Assigned Office Work (right column — combined checklist items + office tasks) ── */}
-        {showAssignedOfficeWork && (
+        {/* ── Assigned Work (combined office tasks + checklist items + field tasks) ── */}
+        {(showAssignedOfficeWork || showAssignedFieldTasks) && (
         <InteractiveCard
           icon={<Building2Icon className="w-5 h-5" />}
-          title="Assigned office work"
+          title="Assigned Work"
           onExpand={() => openWorkspace('office_tasks')}
           headerActions={
             <button
@@ -827,274 +829,222 @@ export default function MyWorkClient({
             </button>
           }
         >
-          {/* ── Checklist items section ── */}
-          <div className="mb-3">
-            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Job board checklist items</p>
-            {activeChecklist.length === 0 && completedChecklist.length === 0 ? (
-              <p className="text-xs text-gray-400 py-2">No checklist items assigned</p>
-            ) : (
+          {(() => {
+            const totalActive =
+              activeOfficeTasks.length + activeChecklist.length + activeTasks.length
+            const totalCompleted =
+              completedOfficeTasks.length + completedChecklist.length + completedTasks.length
+            const overdueCount =
+              activeOfficeTasks.filter((t) => isOverdue(t.due_date) && !t.is_completed).length +
+              activeChecklist.filter((c) => isOverdue(c.due_date)).length +
+              activeTasks.filter((t) => isOverdue(t.due_date)).length
+
+            if (totalActive === 0 && totalCompleted === 0) {
+              return <p className="text-xs text-gray-400 py-2">No work assigned</p>
+            }
+
+            return (
               <>
-                {activeChecklist.length > 0 && (
-                  <div className="mb-1.5">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-gray-600">{activeChecklist.length} active</span>
-                      {activeChecklist.filter((c) => isOverdue(c.due_date)).length > 0 && (
-                        <span className="text-xs text-red-600 font-medium flex items-center gap-1">
-                          <AlertCircleIcon className="w-3 h-3" />
-                          {activeChecklist.filter((c) => isOverdue(c.due_date)).length} overdue
-                        </span>
-                      )}
-                    </div>
-                    {(activeChecklist.length + completedChecklist.length) > 0 && (
-                      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber-500 rounded-full transition-all duration-300"
-                          style={{ width: `${Math.round((completedChecklist.length / (activeChecklist.length + completedChecklist.length)) * 100)}%` }}
-                        />
-                      </div>
+                {totalActive > 0 && (
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-600">{totalActive} active</span>
+                    {overdueCount > 0 && (
+                      <span className="text-xs text-red-600 font-medium flex items-center gap-1">
+                        <AlertCircleIcon className="w-3 h-3" />
+                        {overdueCount} overdue
+                      </span>
                     )}
                   </div>
                 )}
-                <div className="space-y-0 max-h-[200px] overflow-y-auto -mx-4 px-4">
-                  <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
-                    {activeChecklist.map((item) => (
-                      <div key={item.id} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors">
-                        <button
-                          onClick={() => toggleChecklistItem(item)}
-                          disabled={!canEditChecklists}
-                          className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                            canEditChecklists ? 'border-gray-300 hover:border-amber-500 cursor-pointer' : 'border-gray-200 cursor-default'
-                          }`}
-                        >
-                          {item.is_complete && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-900 truncate">{item.name}</p>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                            {canViewJobBoard ? (
-                              <Link href={`/job-board?project=${item.project_id}`} className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5">
-                                {item.project_name}
-                                <ExternalLinkIcon className="w-2.5 h-2.5" />
-                              </Link>
-                            ) : (
-                              <span className="text-[10px] text-gray-500">{item.project_name}</span>
-                            )}
-                            {item.group_name && <span className="text-[10px] text-gray-400">{item.group_name}</span>}
-                            {item.due_date && (
-                              <span className={`text-[10px] flex items-center gap-0.5 ${isOverdue(item.due_date) ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
-                                <CalendarIcon className="w-2.5 h-2.5" />
-                                {formatDate(item.due_date)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {completedChecklist.length > 0 && (
-                    <button
-                      onClick={() => setShowCompletedChecklist(!showCompletedChecklist)}
-                      className="w-full flex items-center gap-1.5 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      {showCompletedChecklist ? <ChevronDownIcon className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
-                      {completedChecklist.length} completed
-                    </button>
-                  )}
-                  {showCompletedChecklist && (
-                    <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden opacity-60">
-                      {completedChecklist.map((item) => (
-                        <div key={item.id} className="flex items-start gap-2.5 px-3 py-2.5">
-                          <button onClick={() => toggleChecklistItem(item)} disabled={!canEditChecklists} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
-                            <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
-                          </button>
-                          <p className="text-xs text-gray-500 line-through truncate flex-1">{item.name}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* ── Office work section ── */}
-          <div className="border-t border-gray-100 pt-3">
-            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Office tasks</p>
-            {activeOfficeTasks.length === 0 && completedOfficeTasks.length === 0 ? (
-              <p className="text-xs text-gray-400 py-2">No office tasks</p>
-            ) : (
-              <>
-                {activeOfficeTasks.length > 0 && (
-                  <div className="mb-1.5">
-                    <span className="text-xs font-semibold text-gray-600">{activeOfficeTasks.length} active</span>
-                  </div>
-                )}
-                <div className="space-y-0 max-h-[200px] overflow-y-auto -mx-4 px-4">
-                  <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
-                    {activeOfficeTasks.map((task) => (
-                      <div key={task.id} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors">
-                        <button
-                          onClick={() => toggleOfficeTask(task)}
-                          className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
-                        >
-                          {task.is_completed && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                            {task.priority !== 'Normal' && (
-                              <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>{task.priority}</span>
-                            )}
-                            {task.due_date && (
-                              <span className={`text-[10px] flex items-center gap-0.5 ${isOverdue(task.due_date) && !task.is_completed ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
-                                <CalendarIcon className="w-2.5 h-2.5" />
-                                {formatDate(task.due_date)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {completedOfficeTasks.length > 0 && (
-                    <button
-                      onClick={() => setShowCompletedOffice(!showCompletedOffice)}
-                      className="w-full flex items-center gap-1.5 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      {showCompletedOffice ? <ChevronDownIcon className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
-                      {completedOfficeTasks.length} completed
-                    </button>
-                  )}
-                  {showCompletedOffice && (
-                    <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden opacity-60">
-                      {completedOfficeTasks.map((task) => (
-                        <div key={task.id} className="flex items-start gap-2.5 px-3 py-2.5">
-                          <button onClick={() => toggleOfficeTask(task)} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
-                            <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
-                          </button>
-                          <p className="text-xs text-gray-500 line-through truncate flex-1">{task.title}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </InteractiveCard>
-        )}
-
-        {/* ── Assigned Field Tasks (gated by canView('assigned_field_tasks')) ── */}
-        {showAssignedFieldTasks && (
-          <InteractiveCard
-            icon={<ListTodoIcon className="w-5 h-5" />}
-            title="Assigned Field Tasks"
-            onExpand={() => openWorkspace('assigned_tasks')}
-          >
-            {activeTasks.length === 0 && completedTasks.length === 0 ? (
-              <div className="text-center py-6">
-                <ListTodoIcon className="w-6 h-6 text-gray-300 mx-auto mb-1.5" />
-                <p className="text-xs text-gray-400">No tasks assigned to you</p>
-              </div>
-            ) : (
-              <>
-                {activeTasks.length > 0 && (
-                  <div className="mb-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-gray-600">
-                        {activeTasks.length} active
-                      </span>
-                      {activeTasks.filter((t) => isOverdue(t.due_date)).length > 0 && (
-                        <span className="text-xs text-red-600 font-medium flex items-center gap-1">
-                          <AlertCircleIcon className="w-3 h-3" />
-                          {activeTasks.filter((t) => isOverdue(t.due_date)).length} overdue
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-                <div className="space-y-0 max-h-[400px] overflow-y-auto -mx-4 px-4">
-                  <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
-                    {activeTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors"
-                      >
-                        <button
-                          onClick={() => toggleTaskStatus(task)}
-                          className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
-                        >
-                          {task.status === 'completed' && (
-                            <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
-                          )}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                            {canViewJobBoard ? (
-                              <Link
-                                href={`/job-board?project=${task.project_id}`}
-                                className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5"
-                              >
-                                {task.project_name}
-                                <ExternalLinkIcon className="w-2.5 h-2.5" />
-                              </Link>
-                            ) : (
-                              <span className="text-[10px] text-gray-500">{task.project_name}</span>
-                            )}
-                            {task.due_date && (
-                              <span
-                                className={`text-[10px] flex items-center gap-0.5 ${
-                                  isOverdue(task.due_date) ? 'text-red-600 font-medium' : 'text-gray-400'
-                                }`}
-                              >
-                                <CalendarIcon className="w-2.5 h-2.5" />
-                                {formatDate(task.due_date)}
-                              </span>
-                            )}
-                            <span
-                              className={`text-[10px] px-1 py-0.5 rounded ${statusColors[task.status]}`}
+                <div className="space-y-2 max-h-[400px] overflow-y-auto -mx-4 px-4">
+                  {activeOfficeTasks.map((task) => (
+                    <div key={`ot-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
+                      <div className="flex items-stretch">
+                        <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                        <div className="flex-1 min-w-0 px-4 py-3">
+                          <div className="flex items-start gap-2.5">
+                            <button
+                              onClick={() => toggleOfficeTask(task)}
+                              className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
                             >
-                              {statusLabels[task.status]}
-                            </span>
+                              {task.is_completed && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700">Office Tasks</span>
+                                {task.priority !== 'Normal' && (
+                                  <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>{task.priority}</span>
+                                )}
+                                {task.due_date && (
+                                  <span className={`text-[10px] flex items-center gap-0.5 ${isOverdue(task.due_date) && !task.is_completed ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                                    <CalendarIcon className="w-2.5 h-2.5" />
+                                    {formatDate(task.due_date)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                  {completedTasks.length > 0 && (
+                    </div>
+                  ))}
+                  {activeChecklist.map((item) => (
+                    <div key={`cl-${item.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
+                      <div className="flex items-stretch">
+                        <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                        <div className="flex-1 min-w-0 px-4 py-3">
+                          <div className="flex items-start gap-2.5">
+                            <button
+                              onClick={() => toggleChecklistItem(item)}
+                              disabled={!canEditChecklists}
+                              className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                                canEditChecklists ? 'border-gray-300 hover:border-amber-500 cursor-pointer' : 'border-gray-200 cursor-default'
+                              }`}
+                            >
+                              {item.is_complete && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-900 truncate">{item.name}</p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700">Job Board Checklist</span>
+                                {canViewJobBoard ? (
+                                  <Link href={`/job-board?project=${item.project_id}`} className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5">
+                                    {item.project_name}
+                                    <ExternalLinkIcon className="w-2.5 h-2.5" />
+                                  </Link>
+                                ) : (
+                                  <span className="text-[10px] text-gray-500">{item.project_name}</span>
+                                )}
+                                {item.group_name && <span className="text-[10px] text-gray-400">{item.group_name}</span>}
+                                {item.due_date && (
+                                  <span className={`text-[10px] flex items-center gap-0.5 ${isOverdue(item.due_date) ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                                    <CalendarIcon className="w-2.5 h-2.5" />
+                                    {formatDate(item.due_date)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {activeTasks.map((task) => (
+                    <div key={`ft-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group">
+                      <div className="flex items-stretch">
+                        <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                        <div className="flex-1 min-w-0 px-4 py-3">
+                          <div className="flex items-start gap-2.5">
+                            <button
+                              onClick={() => toggleTaskStatus(task)}
+                              className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
+                            >
+                              {task.status === 'completed' && (
+                                <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                              )}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-900 truncate">{task.title}</p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700">Field Tasks</span>
+                                {canViewJobBoard ? (
+                                  <Link
+                                    href={`/job-board?project=${task.project_id}`}
+                                    className="text-[10px] text-amber-600 hover:underline flex items-center gap-0.5"
+                                  >
+                                    {task.project_name}
+                                    <ExternalLinkIcon className="w-2.5 h-2.5" />
+                                  </Link>
+                                ) : (
+                                  <span className="text-[10px] text-gray-500">{task.project_name}</span>
+                                )}
+                                {task.due_date && (
+                                  <span
+                                    className={`text-[10px] flex items-center gap-0.5 ${
+                                      isOverdue(task.due_date) ? 'text-red-600 font-medium' : 'text-gray-400'
+                                    }`}
+                                  >
+                                    <CalendarIcon className="w-2.5 h-2.5" />
+                                    {formatDate(task.due_date)}
+                                  </span>
+                                )}
+                                <span className={`text-[10px] px-1 py-0.5 rounded ${statusColors[task.status]}`}>
+                                  {statusLabels[task.status]}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {totalCompleted > 0 && (
                     <button
-                      onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+                      onClick={() => setShowCompletedAssigned(!showCompletedAssigned)}
                       className="w-full flex items-center gap-1.5 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      {showCompletedTasks ? <ChevronDownIcon className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
-                      {completedTasks.length} completed
+                      {showCompletedAssigned ? <ChevronDownIcon className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
+                      {totalCompleted} completed
                     </button>
                   )}
-                  {showCompletedTasks && (
-                    <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden opacity-60">
+                  {showCompletedAssigned && (
+                    <div className="space-y-2 opacity-60">
+                      {completedOfficeTasks.map((task) => (
+                        <div key={`ot-c-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 transition-colors">
+                          <div className="flex items-stretch">
+                            <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                            <div className="flex-1 min-w-0 px-4 py-3">
+                              <div className="flex items-start gap-2.5">
+                                <button onClick={() => toggleOfficeTask(task)} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
+                                  <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                                </button>
+                                <p className="text-xs text-gray-500 line-through truncate flex-1">{task.title}</p>
+                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700 flex-shrink-0">Office Tasks</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {completedChecklist.map((item) => (
+                        <div key={`cl-c-${item.id}`} className="rounded-lg overflow-hidden bg-gray-50 transition-colors">
+                          <div className="flex items-stretch">
+                            <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                            <div className="flex-1 min-w-0 px-4 py-3">
+                              <div className="flex items-start gap-2.5">
+                                <button onClick={() => toggleChecklistItem(item)} disabled={!canEditChecklists} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
+                                  <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                                </button>
+                                <p className="text-xs text-gray-500 line-through truncate flex-1">{item.name}</p>
+                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700 flex-shrink-0">Job Board Checklist</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                       {completedTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="flex items-start gap-2.5 px-3 py-2.5"
-                        >
-                          <button
-                            onClick={() => toggleTaskStatus(task)}
-                            className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center"
-                          >
-                            <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
-                          </button>
-                          <p className="text-xs text-gray-500 line-through truncate flex-1">
-                            {task.title}
-                          </p>
+                        <div key={`ft-c-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 transition-colors">
+                          <div className="flex items-stretch">
+                            <div className="w-[3px] flex-shrink-0 bg-amber-500" aria-hidden />
+                            <div className="flex-1 min-w-0 px-4 py-3">
+                              <div className="flex items-start gap-2.5">
+                                <button onClick={() => toggleTaskStatus(task)} className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center">
+                                  <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                                </button>
+                                <p className="text-xs text-gray-500 line-through truncate flex-1">{task.title}</p>
+                                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-gray-100 text-gray-700 flex-shrink-0">Field Tasks</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
               </>
-            )}
-          </InteractiveCard>
+            )
+          })()}
+        </InteractiveCard>
         )}
 
         {/* ── Follow-up Reminders ── gated by crm */}
