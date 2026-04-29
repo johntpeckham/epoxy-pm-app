@@ -766,7 +766,8 @@ export default function OfficeTasksPageClient({
       {/* ── People Section ── hidden for foreman */}
       {!isForeman && (
       <div className="mt-5 px-4">
-        <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">People</p>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-3">People</p>
         <div className="flex flex-wrap gap-2">
           {canManageEmployees && (
           <button
@@ -789,13 +790,15 @@ export default function OfficeTasksPageClient({
           </Link>
           )}
         </div>
+        </div>
       </div>
       )}
 
       {/* ── Resources Section ── gated per-tile by feature */}
       {(canView('vendor_management') || canView('material_management') || canView('scheduling')) && (
       <div className="mt-5 px-4">
-        <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Resources</p>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-3">Resources</p>
         <div className="flex flex-wrap gap-2">
           {canView('vendor_management') && (
           <Link
@@ -828,12 +831,14 @@ export default function OfficeTasksPageClient({
           </Link>
           )}
         </div>
+        </div>
       </div>
       )}
 
       {/* ── Admin Section ── */}
       <div className="mt-5 px-4">
-        <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-2.5">Admin</p>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <p className="text-[13px] font-medium text-gray-500 tracking-wide mb-3">Admin</p>
         <div className="flex flex-wrap gap-2">
           {/* Reports tile — gated on reports feature */}
           {canView('reports') && (
@@ -884,6 +889,7 @@ export default function OfficeTasksPageClient({
           {/* Material Balances placeholder — click swaps the label to
               "Coming soon" with a subtle pulse for 2s, then reverts. */}
           <MaterialBalancesButton />
+        </div>
         </div>
       </div>
 
