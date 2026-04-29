@@ -133,7 +133,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             isMyWorkActive
               ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              : 'text-gray-400 hover:text-white hover:bg-neutral-800'
           }`}
         >
           <ClipboardCheckIcon className="w-5 h-5 flex-shrink-0" />
@@ -146,7 +146,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isOfficeActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-400 hover:text-white hover:bg-neutral-800'
             }`}
           >
             <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
@@ -154,14 +154,14 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           </Link>
         )}
         {/* Soft divider */}
-        <div className="mx-3 my-2 border-t border-gray-800/60" />
+        <div className="mx-3 my-2 border-t border-neutral-800/60" />
 
         {canViewSales && (
           <div>
             <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
               isSalesActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-400 hover:text-white hover:bg-neutral-800'
             }`}>
               <Link
                 href="/sales"
@@ -193,7 +193,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isSalesCrmActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <UsersIcon className="w-4 h-4 flex-shrink-0" />
@@ -207,7 +207,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isSalesDialerActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <PhoneIcon className="w-4 h-4 flex-shrink-0" />
@@ -221,7 +221,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isSalesEmailerActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <MailIcon className="w-4 h-4 flex-shrink-0" />
@@ -235,7 +235,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isSalesAppointmentsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <CalendarIcon className="w-4 h-4 flex-shrink-0" />
@@ -249,7 +249,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isSalesLeadsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <TargetIcon className="w-4 h-4 flex-shrink-0" />
@@ -263,7 +263,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isJobWalkActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <FootprintsIcon className="w-4 h-4 flex-shrink-0" />
@@ -275,7 +275,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         )}
 
         {/* Soft divider */}
-        <div className="mx-3 my-2 border-t border-gray-800/60" />
+        <div className="mx-3 my-2 border-t border-neutral-800/60" />
 
         {canView('estimating') && (
           <Link
@@ -284,7 +284,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isEstimatingActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-400 hover:text-white hover:bg-neutral-800'
             }`}
           >
             <CalculatorIcon className="w-5 h-5 flex-shrink-0" />
@@ -297,7 +297,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
               isJobBoardActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-400 hover:text-white hover:bg-neutral-800'
             }`}>
               <Link
                 href={jobBoardHref}
@@ -329,7 +329,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isJobsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <BriefcaseIcon className="w-4 h-4 flex-shrink-0" />
@@ -343,7 +343,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isReportsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
@@ -357,7 +357,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isJsaReportsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <ShieldIcon className="w-4 h-4 flex-shrink-0" />
@@ -371,7 +371,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isReceiptsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <ReceiptIcon className="w-4 h-4 flex-shrink-0" />
@@ -385,7 +385,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isTimesheetsActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <ClockIcon className="w-4 h-4 flex-shrink-0" />
@@ -399,7 +399,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isPhotosActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <ImageIcon className="w-4 h-4 flex-shrink-0" />
@@ -413,7 +413,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   className={`flex items-center gap-2.5 pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isTasksActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
                   <CheckSquareIcon className="w-4 h-4 flex-shrink-0" />
@@ -431,7 +431,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isJobsActive
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                 }`}
               >
                 <BriefcaseIcon className="w-5 h-5 flex-shrink-0" />
@@ -445,7 +445,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isReportsActive
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                 }`}
               >
                 <ClipboardListIcon className="w-5 h-5 flex-shrink-0" />
@@ -459,7 +459,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isJsaReportsActive
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                 }`}
               >
                 <ShieldIcon className="w-5 h-5 flex-shrink-0" />
@@ -473,7 +473,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isReceiptsActive
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                 }`}
               >
                 <ReceiptIcon className="w-5 h-5 flex-shrink-0" />
@@ -487,7 +487,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isTimesheetsActive
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                 }`}
               >
                 <ClockIcon className="w-5 h-5 flex-shrink-0" />
@@ -501,7 +501,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isPhotosActive
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                 }`}
               >
                 <ImageIcon className="w-5 h-5 flex-shrink-0" />
@@ -515,7 +515,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isTasksActive
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                 }`}
               >
                 <CheckSquareIcon className="w-5 h-5 flex-shrink-0" />
@@ -532,7 +532,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isBillingActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-400 hover:text-white hover:bg-neutral-800'
             }`}
           >
             <DollarSignIcon className="w-5 h-5 flex-shrink-0" />
@@ -541,7 +541,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         )}
 
         {/* Soft divider */}
-        <div className="mx-3 my-2 border-t border-gray-800/60" />
+        <div className="mx-3 my-2 border-t border-neutral-800/60" />
 
         {canView('calendar') && (
           <Link
@@ -550,7 +550,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isCalendarActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-400 hover:text-white hover:bg-neutral-800'
             }`}
           >
             <CalendarIcon className="w-5 h-5 flex-shrink-0" />
@@ -565,7 +565,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             className={`hidden lg:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isSchedulerActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-400 hover:text-white hover:bg-neutral-800'
             }`}
           >
             <CalendarRangeIcon className="w-5 h-5 flex-shrink-0" />
@@ -580,7 +580,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isMarketingActive
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-400 hover:text-white hover:bg-neutral-800'
             }`}
           >
             <MegaphoneIcon className="w-5 h-5 flex-shrink-0" />
@@ -609,7 +609,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
       {/* Mobile drawer */}
       <div
-        className={`lg:hidden fixed left-0 bottom-0 z-40 w-64 bg-black transform transition-transform duration-200 ${
+        className={`lg:hidden fixed left-0 bottom-0 z-40 w-64 bg-neutral-900 transform transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ top: 'calc(3rem + env(safe-area-inset-top, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
@@ -617,7 +617,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         <div className="absolute right-3 top-3">
           <button
             onClick={() => setMobileOpen(false)}
-            className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800"
+            className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-neutral-800"
           >
             <XIcon className="w-5 h-5" />
           </button>
@@ -627,7 +627,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
       {/* Desktop sidebar */}
       <aside
-        className="hidden lg:flex flex-col w-56 bg-black border-r border-gray-800 fixed bottom-0 left-0"
+        className="hidden lg:flex flex-col w-56 bg-neutral-900 border-r border-neutral-800 fixed bottom-0 left-0"
         style={{ top: '3rem' }}
       >
         {navContent}
