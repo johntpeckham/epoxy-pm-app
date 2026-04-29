@@ -609,7 +609,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
       {/* Mobile drawer */}
       <div
-        className={`lg:hidden fixed left-0 bottom-0 z-40 w-64 bg-neutral-900 transform transition-transform duration-200 ${
+        className={`lg:hidden fixed left-0 bottom-0 z-40 w-64 bg-neutral-950 transform transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ top: 'calc(3rem + env(safe-area-inset-top, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
@@ -627,7 +627,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
       {/* Desktop sidebar */}
       <aside
-        className="hidden lg:flex flex-col w-56 bg-neutral-900 border-r border-neutral-800 fixed bottom-0 left-0"
+        className="hidden lg:flex flex-col w-56 bg-neutral-950 border-r border-neutral-800 fixed bottom-0 left-0"
         style={{ top: '3rem' }}
       >
         {navContent}
