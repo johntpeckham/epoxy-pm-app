@@ -46,7 +46,7 @@ export default function ProjectEstimatesCard({
   function handleEstimateCreated(estimate: Estimate) {
     setEstimates((prev) => [estimate, ...prev])
     setShowNewModal(false)
-    router.push(`/sales/estimating/estimates/${estimate.id}`)
+    router.push(`/estimating/estimates/${estimate.id}`)
   }
 
   return (
@@ -82,7 +82,7 @@ export default function ProjectEstimatesCard({
                 <button
                   key={e.id}
                   onClick={() =>
-                    router.push(`/sales/estimating/estimates/${e.id}`)
+                    router.push(`/estimating/estimates/${e.id}`)
                   }
                   className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition group"
                 >

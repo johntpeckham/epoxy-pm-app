@@ -397,7 +397,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
     )
     showToast(
       'Estimating project created.',
-      `/sales/estimating?customer=${customerId}&project=${projectId}`
+      `/estimating?customer=${customerId}&project=${projectId}`
     )
   }
 
@@ -464,7 +464,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
                   </Link>
                 ) : appt.pushed_to === 'estimating' && appt.pushed_ref_id ? (
                   <Link
-                    href={`/sales/estimating?project=${appt.pushed_ref_id}`}
+                    href={`/estimating?project=${appt.pushed_ref_id}`}
                     onClick={(e) => e.stopPropagation()}
                     className="text-xs text-gray-400 hover:text-amber-600"
                   >

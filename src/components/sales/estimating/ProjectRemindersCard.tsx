@@ -64,7 +64,7 @@ export default function ProjectRemindersCard({
       })
       if (overdue.length === 0) return
 
-      const link = `/sales/estimating?customer=${customerId}&project=${projectId}`
+      const link = `/estimating?customer=${customerId}&project=${projectId}`
       for (const r of overdue) {
         const { data: existing } = await supabase
           .from('notifications')

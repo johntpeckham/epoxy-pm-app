@@ -50,7 +50,7 @@ export default function ProposalsLayoutClient({
   const backContext =
     paramFrom === 'estimating' && paramCustomerId
       ? {
-          url: `/sales/estimating?customer=${paramCustomerId}${
+          url: `/estimating?customer=${paramCustomerId}${
             paramProject ? `&project=${paramProject}` : ''
           }`,
           label: 'Back to project',

@@ -59,7 +59,7 @@ export default function EstimateDetailClient({
 
   function handleBack() {
     router.push(
-      `/sales/estimating?customer=${customerId}&project=${projectId}`
+      `/estimating?customer=${customerId}&project=${projectId}`
     )
   }
 

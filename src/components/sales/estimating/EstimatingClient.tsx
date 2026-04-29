@@ -85,7 +85,7 @@ export default function EstimatingClient({
     if (selectedCustomerId) params.set('customer', selectedCustomerId)
     if (selectedProjectId) params.set('project', selectedProjectId)
     const qs = params.toString()
-    const url = qs ? `/sales/estimating?${qs}` : '/sales/estimating'
+    const url = qs ? `/estimating?${qs}` : '/estimating'
     router.replace(url, { scroll: false })
   }, [selectedCustomerId, selectedProjectId, router])
 

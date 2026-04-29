@@ -254,7 +254,7 @@ function PushToEstimatingModal({
     })
     showToast(
       'Estimating project created.',
-      `/sales/estimating?customer=${customerId}&project=${projectId}`
+      `/estimating?customer=${customerId}&project=${projectId}`
     )
     onClose()
   }

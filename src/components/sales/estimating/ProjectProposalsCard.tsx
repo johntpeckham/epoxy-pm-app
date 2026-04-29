@@ -219,7 +219,7 @@ export default function ProjectProposalsCard({
     // longer creates a draft row on click. Pass project + customer so the
     // editor can pre-fill context and render the back-to-project link.
     router.push(
-      `/sales/estimating/proposals/new?project=${project.id}&customer=${customerId}`
+      `/estimating/proposals/new?project=${project.id}&customer=${customerId}`
     )
   }
 
@@ -293,7 +293,7 @@ export default function ProjectProposalsCard({
                 <div key={e.id} className="py-2.5">
                   <div className="flex items-center gap-3">
                     <Link
-                      href={`/sales/estimating/proposals/${e.id}?project=${project.id}`}
+                      href={`/estimating/proposals/${e.id}?project=${project.id}`}
                       className="min-w-0 flex-1 group"
                     >
                       <p className="text-sm font-medium text-gray-900 truncate group-hover:text-amber-700 transition">

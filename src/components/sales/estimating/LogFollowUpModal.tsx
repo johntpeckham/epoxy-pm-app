@@ -63,7 +63,7 @@ export default function LogFollowUpModal({
       const followUp = data as ProposalFollowUp
 
       // Log a notification so this appears in the bell.
-      const link = `/sales/estimating?customer=${customer.id}&project=${project.id}`
+      const link = `/estimating?customer=${customer.id}&project=${project.id}`
       await supabase.from('notifications').insert({
         user_id: userId,
         type: 'proposal_follow_up',

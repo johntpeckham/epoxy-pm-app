@@ -106,8 +106,8 @@ export default async function ProposalEditorPage({
   }
 
   const backHref = project
-    ? `/sales/estimating?project=${project.id}`
-    : '/sales/estimating'
+    ? `/estimating?project=${project.id}`
+    : '/estimating'
 
   if (id === 'new') {
     const customerId = sp.customer ?? project?.company_id ?? null

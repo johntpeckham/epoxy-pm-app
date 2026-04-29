@@ -554,7 +554,7 @@ export default function TakeoffClient({
     <div className="flex flex-col h-full overflow-hidden w-full max-w-full">
       <div className="flex items-center gap-2 bg-white dark:bg-[#242424] border-b border-gray-200 dark:border-[#2a2a2a] flex-shrink-0 px-4 sm:px-6 py-3">
         <Link
-          href={`/sales/estimating?customer=${project.company_id}&project=${project.id}`}
+          href={`/estimating?customer=${project.company_id}&project=${project.id}`}
           className="flex-shrink-0"
         >
           <ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" />

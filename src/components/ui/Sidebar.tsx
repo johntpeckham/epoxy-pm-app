@@ -77,11 +77,8 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isSalesAppointmentsActive = pathname === '/sales/appointments' || pathname.startsWith('/sales/appointments/')
   const isSalesLeadsActive = pathname === '/sales/leads' || pathname.startsWith('/sales/leads/')
   const isJobWalkActive = pathname === '/job-walk' || pathname.startsWith('/job-walk/')
-  const isSalesEstimatingActive =
-    pathname === '/sales/estimating' ||
-    pathname.startsWith('/sales/estimating/') ||
-    pathname === '/estimating' ||
-    pathname.startsWith('/estimating/')
+  const isEstimatingActive =
+    pathname === '/estimating' || pathname.startsWith('/estimating/')
 
   // Keep Sales section expanded when any sub-item is active
   useEffect(() => {
@@ -91,8 +88,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
       isSalesEmailerActive ||
       isSalesAppointmentsActive ||
       isSalesLeadsActive ||
-      isJobWalkActive ||
-      isSalesEstimatingActive
+      isJobWalkActive
     ) {
       setSalesExpanded(true)
     }
@@ -103,7 +99,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     isSalesAppointmentsActive,
     isSalesLeadsActive,
     isJobWalkActive,
-    isSalesEstimatingActive,
   ])
 
   useEffect(() => {
@@ -275,26 +270,27 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   Job Walk
                 </Link>
               )}
-              {canView('estimating') && (
-                <Link
-                  href="/sales/estimating"
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isSalesEstimatingActive
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  }`}
-                >
-                  <CalculatorIcon className="w-4 h-4 flex-shrink-0" />
-                  Estimating
-                </Link>
-              )}
             </div>
           </div>
         )}
 
         {/* Soft divider */}
         <div className="mx-3 my-2 border-t border-gray-800/60" />
+
+        {canView('estimating') && (
+          <Link
+            href="/estimating"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isEstimatingActive
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <CalculatorIcon className="w-5 h-5 flex-shrink-0" />
+            Estimating
+          </Link>
+        )}
 
         {canView('job_board') ? (
           <div>

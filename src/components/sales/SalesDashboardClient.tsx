@@ -35,7 +35,7 @@ const NAV_BUTTONS: { label: string; href: string; icon: typeof UsersIcon; featur
   { label: 'Appointments', href: '/sales/appointments', icon: CalendarIcon,    feature: 'appointments' },
   { label: 'Leads',        href: '/sales/leads',        icon: TargetIcon,      feature: 'leads' },
   { label: 'Job Walk',     href: '/job-walk',           icon: FootprintsIcon,  feature: 'job_walk' },
-  { label: 'Estimating',   href: '/sales/estimating',   icon: CalculatorIcon,  feature: 'estimating' },
+  { label: 'Estimating',   href: '/estimating',   icon: CalculatorIcon,  feature: 'estimating' },
 ]
 
 const RANGES: { value: TimeRange; label: string }[] = [

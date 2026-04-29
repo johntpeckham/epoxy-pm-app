@@ -18,7 +18,7 @@ export default async function EstimateDetailPage({
     .eq('id', id)
     .single()
 
-  if (!estimate) return redirect('/sales/estimating')
+  if (!estimate) return redirect('/estimating')
 
   const { data: project } = await supabase
     .from('estimating_projects')

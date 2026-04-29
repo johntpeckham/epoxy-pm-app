@@ -115,7 +115,7 @@ export default function SendProposalModal({
       }
 
       // 3. Create a notification for the sender.
-      const link = `/sales/estimating?customer=${customer.id}&project=${project.id}`
+      const link = `/estimating?customer=${customer.id}&project=${project.id}`
       await supabase.from('notifications').insert({
         user_id: userId,
         type: 'proposal_sent',

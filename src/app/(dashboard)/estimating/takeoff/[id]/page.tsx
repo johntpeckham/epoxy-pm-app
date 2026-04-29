@@ -37,7 +37,7 @@ export default async function TakeoffPage({ params }: PageProps) {
             This estimating project doesn&apos;t exist or has been deleted.
           </p>
           <Link
-            href="/sales/estimating"
+            href="/estimating"
             className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold transition"
           >
             Back to Estimating
