@@ -99,7 +99,7 @@ const NAV_PAGES: NavPage[] = [
   { name: 'Appointments', route: '/sales/appointments', icon: CalendarIcon, description: 'Sales', keywords: ['meetings', 'schedule'], access: { type: 'permission', feature: 'appointments' } },
   { name: 'Leads', route: '/sales/leads', icon: TargetIcon, description: 'Sales', keywords: ['prospects', 'pipeline'], access: { type: 'permission', feature: 'leads' } },
   { name: 'Job Walk', route: '/job-walk', icon: FootprintsIcon, description: 'Sales', keywords: ['site visit', 'pre-construction'], access: { type: 'permission', feature: 'job_walk' } },
-  { name: 'Estimating', route: '/sales/estimating', icon: CalculatorIcon, description: 'Sales', keywords: ['takeoff', 'bid', 'proposal'], access: { type: 'permission', feature: 'estimating' } },
+  { name: 'Estimating', route: '/estimating', icon: CalculatorIcon, description: 'Sales', keywords: ['takeoff', 'bid', 'proposal'], access: { type: 'permission', feature: 'estimating' } },
   { name: 'Job Board', route: '/job-board', icon: LayoutDashboardIcon, description: 'Job Board', keywords: [], access: { type: 'permission', feature: 'job_board' } },
   { name: 'Job Feed', route: '/jobs', icon: BriefcaseIcon, description: 'Job Board', keywords: [], access: { type: 'permission', feature: 'jobs' } },
   { name: 'Daily Reports', route: '/daily-reports', icon: ClipboardListIcon, description: 'Job Board', keywords: ['field report'], access: { type: 'permission', feature: 'daily_reports' } },
@@ -269,7 +269,7 @@ export default function NavigationSearch() {
                   results.push({
                     id: `proposal-${e.id}`,
                     name: e.project_name || `Proposal #${e.proposal_number}`,
-                    route: `/sales/estimating/proposals/${e.id}`,
+                    route: `/estimating/proposals/${e.id}`,
                     icon: CalculatorIcon,
                     secondaryLabel: `#${e.proposal_number}`,
                     category: 'Proposals',
@@ -294,7 +294,7 @@ export default function NavigationSearch() {
                         results.push({
                           id: `proposal-${e.id}`,
                           name: e.project_name || `Proposal #${e.proposal_number}`,
-                          route: `/sales/estimating/proposals/${e.id}`,
+                          route: `/estimating/proposals/${e.id}`,
                           icon: CalculatorIcon,
                           secondaryLabel: `#${e.proposal_number}`,
                           category: 'Proposals',

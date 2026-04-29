@@ -39,13 +39,18 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: "/estimating",
-        destination: "/sales/estimating",
-        permanent: false,
+        source: "/sales/estimating",
+        destination: "/estimating",
+        permanent: true,
+      },
+      {
+        source: "/sales/estimating/:path*",
+        destination: "/estimating/:path*",
+        permanent: true,
       },
       {
         source: "/job-takeoff",
-        destination: "/sales/estimating",
+        destination: "/estimating",
         permanent: false,
       },
     ];

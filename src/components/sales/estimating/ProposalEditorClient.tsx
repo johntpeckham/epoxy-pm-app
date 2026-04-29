@@ -204,7 +204,7 @@ export default function ProposalEditorClient({
     }
 
     const projectQs = project ? `?project=${project.id}` : ''
-    router.replace(`/sales/estimating/proposals/${data.id}${projectQs}`)
+    router.replace(`/estimating/proposals/${data.id}${projectQs}`)
   }
 
   function handleStatusChange(next: string) {
@@ -358,8 +358,8 @@ export default function ProposalEditorClient({
   }, [])
 
   const backHref = project
-    ? `/sales/estimating?project=${project.id}`
-    : '/sales/estimating'
+    ? `/estimating?project=${project.id}`
+    : '/estimating'
   const backLabel = project ? `Back to ${project.name || 'project'}` : 'Back to Estimating'
 
   const title =

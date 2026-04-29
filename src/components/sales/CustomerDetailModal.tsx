@@ -167,7 +167,7 @@ export default function CustomerDetailModal({
   }
 
   function handleCreateProposal() {
-    router.push(`/sales/estimating?customer=${customer.id}`)
+    router.push(`/estimating?customer=${customer.id}`)
   }
 
   return (
