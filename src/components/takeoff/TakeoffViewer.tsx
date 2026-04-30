@@ -239,7 +239,7 @@ export default function TakeoffViewer({
     }
   }, [])
 
-  // ─── Convert client coords to PDF-space coords ───
+  // ─── Convert client coords to canvas-CSS-px (transient working space) ───
   const clientToPdf = useCallback((clientX: number, clientY: number): Point => {
     const container = containerRef.current
     if (!container) return { x: 0, y: 0 }
@@ -249,6 +249,28 @@ export default function TakeoffViewer({
       y: (clientY - rect.top - panYRef.current) / zoomRef.current,
     }
   }, [])
+
+  // ─── Coordinate-space conversion helpers ───
+  // Stored points (m.points, mk.points) are NORMALIZED (0–1) relative to the
+  // PDF intrinsic page. Transient points (tempPoints, scalePoints, mousePos,
+  // svgDragStart, markupTextInput.pos) are in canvas-CSS-px at zoom=1 and are
+  // converted at the storage boundary. canvasSize is the canvas CSS size of
+  // the current render — different sessions may render the same PDF at
+  // different canvas sizes, so we always convert through the normalized space.
+  const canvasToNorm = useCallback(
+    (p: Point): Point => ({
+      x: canvasSize.w > 0 ? p.x / canvasSize.w : 0,
+      y: canvasSize.h > 0 ? p.y / canvasSize.h : 0,
+    }),
+    [canvasSize.w, canvasSize.h]
+  )
+  const normToCanvas = useCallback(
+    (p: Point): Point => ({
+      x: p.x * canvasSize.w,
+      y: p.y * canvasSize.h,
+    }),
+    [canvasSize.w, canvasSize.h]
+  )
 
   // ─── Wheel zoom + touch pinch + touch pan — native events ───
   useEffect(() => {
@@ -420,7 +442,12 @@ export default function TakeoffViewer({
       const ch = container.clientHeight
       const fitScale = Math.min(cw / rawVp.width, ch / rawVp.height) * 0.92
 
-      const dpr = window.devicePixelRatio || 1
+      // DPR floor of 2 ensures retina-class crispness even on 1x displays,
+      // and an additional quality multiplier oversamples beyond fit-scale so
+      // that CSS zoom-up (transform: scale) stays sharp without re-rendering.
+      const baseDpr = window.devicePixelRatio || 1
+      const RENDER_QUALITY_MULTIPLIER = 2
+      const dpr = Math.max(baseDpr, 2) * RENDER_QUALITY_MULTIPLIER
       dprRef.current = dpr
       const viewport = pdfPage.getViewport({ scale: fitScale * dpr })
       canvas.width = viewport.width
@@ -450,13 +477,17 @@ export default function TakeoffViewer({
   }, [page.arrayBuffer, page.pageIndex])
 
   // ─── Complete linear polyline ───
+  // Stored points are normalized 0–1 (PDF-page-relative). Lengths are computed
+  // in canvas-CSS-px and divided by the live pixels-per-foot derived from the
+  // normalized pageScale.
   const completeLinearRef = useRef<() => void>(() => {})
   completeLinearRef.current = () => {
     if (activeTool !== 'linear' || tempPoints.length < 2) return
-    const ppf = pageScale
-    if (!ppf || !activeItemId) return
+    if (pageScale === undefined || !activeItemId || canvasSize.w === 0) return
+    const ppf = pageScale * canvasSize.w
+    if (ppf <= 0) return
     const d = polylineLen(tempPoints) / ppf
-    addMeasurement({ id: genId(), type: 'linear', points: [...tempPoints], valueInFeet: d, perimeterFt: 0, label: fmtFtIn(d), pageKey })
+    addMeasurement({ id: genId(), type: 'linear', points: tempPoints.map(canvasToNorm), valueInFeet: d, perimeterFt: 0, label: fmtFtIn(d), pageKey })
     setTempPoints([])
   }
 
@@ -464,13 +495,13 @@ export default function TakeoffViewer({
   const completeAreaRef = useRef<() => void>(() => {})
   completeAreaRef.current = () => {
     if (activeTool !== 'area-polygon' || tempPoints.length < 3) return
-    const ppf = pageScale
-    if (!ppf || !activeItemId) return
+    if (pageScale === undefined || !activeItemId || canvasSize.w === 0) return
+    const ppf = pageScale * canvasSize.w
+    if (ppf <= 0) return
     const area = polyArea(tempPoints) / (ppf * ppf)
-    // Perimeter = sum of all edges including closing segment
     const perimPx = polylineLen(tempPoints) + ptDist(tempPoints[tempPoints.length - 1], tempPoints[0])
     const perimFt = perimPx / ppf
-    addMeasurement({ id: genId(), type: 'area', points: [...tempPoints], valueInFeet: area, perimeterFt: perimFt, label: `${area.toFixed(1)} sq ft`, pageKey })
+    addMeasurement({ id: genId(), type: 'area', points: tempPoints.map(canvasToNorm), valueInFeet: area, perimeterFt: perimFt, label: `${area.toFixed(1)} sq ft`, pageKey })
     setTempPoints([])
   }
 
@@ -565,9 +596,9 @@ export default function TakeoffViewer({
     if (isSvgDragging && svgDragStart) {
       setIsSvgDragging(false)
       if (activeTool === 'markup-rect') {
-        onMarkupsChange([...markups, { id: genId(), type: 'rect', points: [svgDragStart, pt], color: '#f59e0b', pageKey }])
+        onMarkupsChange([...markups, { id: genId(), type: 'rect', points: [canvasToNorm(svgDragStart), canvasToNorm(pt)], color: '#f59e0b', pageKey }])
       } else if (activeTool === 'markup-arrow') {
-        onMarkupsChange([...markups, { id: genId(), type: 'arrow', points: [svgDragStart, pt], color: '#f59e0b', pageKey }])
+        onMarkupsChange([...markups, { id: genId(), type: 'arrow', points: [canvasToNorm(svgDragStart), canvasToNorm(pt)], color: '#f59e0b', pageKey }])
       }
       setSvgDragStart(null)
     }
@@ -580,36 +611,36 @@ export default function TakeoffViewer({
       const pt = clientToPdf(e.clientX, e.clientY)
       const hitTol = 8 / zoom // 8 screen px tolerance in PDF space
 
-      // Check measurements
+      // Check measurements — convert stored normalized points to canvas-CSS-px
+      // before comparing with `pt` (which is in canvas-CSS-px).
       for (const item of items) {
         for (const m of item.measurements) {
           if (m.pageKey !== pageKey) continue
-          if (m.type === 'linear' && m.points.length >= 2) {
-            for (let si = 1; si < m.points.length; si++) {
-              if (distToSegment(pt.x, pt.y, m.points[si - 1].x, m.points[si - 1].y, m.points[si].x, m.points[si].y) < hitTol) {
+          const cpts = m.points.map(normToCanvas)
+          if (m.type === 'linear' && cpts.length >= 2) {
+            for (let si = 1; si < cpts.length; si++) {
+              if (distToSegment(pt.x, pt.y, cpts[si - 1].x, cpts[si - 1].y, cpts[si].x, cpts[si].y) < hitTol) {
                 setSelectedSvgId(m.id)
                 setSelectedSvgType('measurement')
                 return
               }
             }
-          } else if (m.type === 'area' && m.points.length >= 3) {
-            // Check inside polygon or near outline
-            if (pointInPolygon(pt.x, pt.y, m.points)) {
+          } else if (m.type === 'area' && cpts.length >= 3) {
+            if (pointInPolygon(pt.x, pt.y, cpts)) {
               setSelectedSvgId(m.id)
               setSelectedSvgType('measurement')
               return
             }
-            for (let si = 0; si < m.points.length; si++) {
-              const next = (si + 1) % m.points.length
-              if (distToSegment(pt.x, pt.y, m.points[si].x, m.points[si].y, m.points[next].x, m.points[next].y) < hitTol) {
+            for (let si = 0; si < cpts.length; si++) {
+              const next = (si + 1) % cpts.length
+              if (distToSegment(pt.x, pt.y, cpts[si].x, cpts[si].y, cpts[next].x, cpts[next].y) < hitTol) {
                 setSelectedSvgId(m.id)
                 setSelectedSvgType('measurement')
                 return
               }
             }
-          } else if (m.type === 'area' && m.points.length === 2) {
-            // Legacy 2-point rect
-            const [a, b] = m.points
+          } else if (m.type === 'area' && cpts.length === 2) {
+            const [a, b] = cpts
             const minX = Math.min(a.x, b.x) - hitTol
             const maxX = Math.max(a.x, b.x) + hitTol
             const minY = Math.min(a.y, b.y) - hitTol
@@ -623,11 +654,12 @@ export default function TakeoffViewer({
         }
       }
 
-      // Check markups
+      // Check markups — same conversion
       for (const mk of markups) {
         if (mk.pageKey !== pageKey) continue
-        if (mk.type === 'rect' && mk.points.length === 2) {
-          const [a, b] = mk.points
+        const cpts = mk.points.map(normToCanvas)
+        if (mk.type === 'rect' && cpts.length === 2) {
+          const [a, b] = cpts
           const minX = Math.min(a.x, b.x) - hitTol
           const maxX = Math.max(a.x, b.x) + hitTol
           const minY = Math.min(a.y, b.y) - hitTol
@@ -637,18 +669,17 @@ export default function TakeoffViewer({
             setSelectedSvgType('markup')
             return
           }
-        } else if (mk.type === 'arrow' && mk.points.length === 2) {
-          if (distToSegment(pt.x, pt.y, mk.points[0].x, mk.points[0].y, mk.points[1].x, mk.points[1].y) < hitTol) {
+        } else if (mk.type === 'arrow' && cpts.length === 2) {
+          if (distToSegment(pt.x, pt.y, cpts[0].x, cpts[0].y, cpts[1].x, cpts[1].y) < hitTol) {
             setSelectedSvgId(mk.id)
             setSelectedSvgType('markup')
             return
           }
-        } else if (mk.type === 'text' && mk.points.length === 1) {
-          const pos = mk.points[0]
+        } else if (mk.type === 'text' && cpts.length === 1) {
+          const pos = cpts[0]
           const text = mk.text || ''
           const w = text.length * 8 + 12
           const h = 22
-          // Text bounding box + margin
           if (pt.x >= pos.x - hitTol && pt.x <= pos.x + w + hitTol &&
               pt.y >= pos.y - 16 - hitTol && pt.y <= pos.y - 16 + h + hitTol) {
             setSelectedSvgId(mk.id)
@@ -709,13 +740,18 @@ export default function TakeoffViewer({
   }
 
   // ─── Scale modal ───
+  // Emits a normalized "units-per-foot" value: canvas-px-per-foot divided by
+  // the canvas CSS width. Stored this way so calibration survives canvas
+  // resizes between sessions.
   function handleScaleSubmit() {
     const ft = Number(scaleFeet) || 0
     const inches = Number(scaleInches) || 0
     if (ft === 0 && inches === 0) return
     const realFt = ft + inches / 12
-    if (realFt <= 0) return
-    onPageScaleChange(ptDist(scalePoints[0], scalePoints[1]) / realFt)
+    if (realFt <= 0 || canvasSize.w === 0) return
+    const pxDist = ptDist(scalePoints[0], scalePoints[1])
+    const pxPerFt = pxDist / realFt
+    onPageScaleChange(pxPerFt / canvasSize.w)
     setShowScaleModal(false)
     setScalePoints([])
     setTempPoints([])
@@ -777,7 +813,7 @@ export default function TakeoffViewer({
 
   function handleMarkupTextSubmit() {
     if (!markupTextValue.trim()) { setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false }); return }
-    onMarkupsChange([...markups, { id: genId(), type: 'text', points: [markupTextInput.pos], text: markupTextValue.trim(), color: '#f59e0b', pageKey }])
+    onMarkupsChange([...markups, { id: genId(), type: 'text', points: [canvasToNorm(markupTextInput.pos)], text: markupTextValue.trim(), color: '#f59e0b', pageKey }])
     setMarkupTextInput({ pos: { x: 0, y: 0 }, visible: false })
     setMarkupTextValue('')
   }
@@ -851,7 +887,7 @@ export default function TakeoffViewer({
     for (const m of item.measurements) {
       if (m.pageKey !== pageKey) continue
       if (m.type === 'linear' && m.points.length >= 2) {
-        const pts = m.points.map(toSvg)
+        const pts = m.points.map(normToCanvas)
         // Midpoint of the entire path for label placement
         const totalLen = polylineLen(pts)
         let midPt = pts[0]
@@ -883,7 +919,7 @@ export default function TakeoffViewer({
           </g>
         )
       } else if (m.type === 'area' && m.points.length >= 3) {
-        const pts = m.points.map(toSvg)
+        const pts = m.points.map(normToCanvas)
         const center = { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length }
         const areaLine = m.label || ''
         const perimLine = m.perimeterFt ? `Perim: ${fmtFtIn(m.perimeterFt)}` : ''
@@ -907,7 +943,7 @@ export default function TakeoffViewer({
         )
       } else if (m.type === 'area' && m.points.length === 2) {
         // Legacy: 2-point rect area from old drag tool
-        const [a, b] = m.points.map(toSvg)
+        const [a, b] = m.points.map(normToCanvas)
         const pts = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }]
         const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
         const labelW = m.label ? (m.label.length * 7 + 10) / zoom : 0
@@ -931,16 +967,16 @@ export default function TakeoffViewer({
   for (const mk of markups) {
     if (mk.pageKey !== pageKey) continue
     if (mk.type === 'rect' && mk.points.length === 2) {
-      const a = toSvg(mk.points[0])
-      const b = toSvg(mk.points[1])
+      const a = normToCanvas(mk.points[0])
+      const b = normToCanvas(mk.points[1])
       svgElements.push(
         <rect key={mk.id} x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)}
           width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)}
           fill="none" stroke={mk.color} strokeWidth={sw} strokeDasharray={`${6 / zoom} ${3 / zoom}`} />
       )
     } else if (mk.type === 'arrow' && mk.points.length === 2) {
-      const from = toSvg(mk.points[0])
-      const to = toSvg(mk.points[1])
+      const from = normToCanvas(mk.points[0])
+      const to = normToCanvas(mk.points[1])
       const angle = Math.atan2(to.y - from.y, to.x - from.x)
       const hl = 12 / zoom
       const p1 = { x: to.x - hl * Math.cos(angle - Math.PI / 6), y: to.y - hl * Math.sin(angle - Math.PI / 6) }
@@ -952,7 +988,7 @@ export default function TakeoffViewer({
         </g>
       )
     } else if (mk.type === 'text' && mk.points.length === 1) {
-      const pos = toSvg(mk.points[0])
+      const pos = normToCanvas(mk.points[0])
       const text = mk.text || ''
       const w = (text.length * 8 + 12) / zoom
       const h = 22 / zoom
@@ -973,7 +1009,7 @@ export default function TakeoffViewer({
       const selSw = 3 / zoom
       const dashArr = `${6 / zoom} ${4 / zoom}`
       if (m.type === 'linear' && m.points.length >= 2) {
-        const pts = m.points.map(toSvg)
+        const pts = m.points.map(normToCanvas)
         const topPt = pts.reduce((best, p) => p.y < best.y ? p : best, pts[0])
         svgElements.push(
           <g key="sel-highlight">
@@ -987,7 +1023,7 @@ export default function TakeoffViewer({
           </g>
         )
       } else if (m.type === 'area' && m.points.length >= 3) {
-        const pts = m.points.map(toSvg)
+        const pts = m.points.map(normToCanvas)
         const topPt = pts.reduce((best, p) => p.y < best.y ? p : best, pts[0])
         svgElements.push(
           <g key="sel-highlight">
@@ -1001,7 +1037,7 @@ export default function TakeoffViewer({
           </g>
         )
       } else if (m.type === 'area' && m.points.length === 2) {
-        const [a, b] = m.points.map(toSvg)
+        const [a, b] = m.points.map(normToCanvas)
         const pts = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }]
         const topPt = pts.reduce((best, p) => p.y < best.y ? p : best, pts[0])
         svgElements.push(
@@ -1024,8 +1060,8 @@ export default function TakeoffViewer({
       const selSw = 3 / zoom
       const dashArr = `${6 / zoom} ${4 / zoom}`
       if (mk.type === 'rect' && mk.points.length === 2) {
-        const a = toSvg(mk.points[0])
-        const b = toSvg(mk.points[1])
+        const a = normToCanvas(mk.points[0])
+        const b = normToCanvas(mk.points[1])
         const topX = Math.max(a.x, b.x)
         const topY = Math.min(a.y, b.y)
         svgElements.push(
@@ -1042,8 +1078,8 @@ export default function TakeoffViewer({
           </g>
         )
       } else if (mk.type === 'arrow' && mk.points.length === 2) {
-        const from = toSvg(mk.points[0])
-        const to = toSvg(mk.points[1])
+        const from = normToCanvas(mk.points[0])
+        const to = normToCanvas(mk.points[1])
         const topPt = from.y < to.y ? from : to
         svgElements.push(
           <g key="sel-highlight">
@@ -1057,7 +1093,7 @@ export default function TakeoffViewer({
           </g>
         )
       } else if (mk.type === 'text' && mk.points.length === 1) {
-        const pos = toSvg(mk.points[0])
+        const pos = normToCanvas(mk.points[0])
         const text = mk.text || ''
         const w = (text.length * 8 + 12) / zoom
         const h = 22 / zoom
@@ -1107,7 +1143,7 @@ export default function TakeoffViewer({
     const placedLen = polylineLen(pts)
     const liveLen = mp && pts.length > 0 ? ptDist(pts[pts.length - 1], mp) : 0
     const totalPx = placedLen + liveLen
-    const ppf = pageScale || 1
+    const ppf = pageScale && canvasSize.w > 0 ? pageScale * canvasSize.w : 1
     const totalFt = totalPx / ppf
     svgElements.push(
       <g key="linear-progress">
@@ -1150,7 +1186,7 @@ export default function TakeoffViewer({
     // Preview polygon fill (with cursor as temporary closing point)
     const previewPts = [...pts, ...(mp ? [mp] : [])]
     // Running area estimate
-    const ppf = pageScale || 1
+    const ppf = pageScale && canvasSize.w > 0 ? pageScale * canvasSize.w : 1
     const liveArea = previewPts.length >= 3 ? polyArea(previewPts) / (ppf * ppf) : 0
     const livePerimPx = previewPts.length >= 2 ? polylineLen(previewPts) + ptDist(previewPts[previewPts.length - 1], previewPts[0]) : 0
     const livePerimFt = livePerimPx / ppf
@@ -1246,7 +1282,7 @@ export default function TakeoffViewer({
             zoom={zoom}
             onZoomIn={zoomIn}
             onZoomOut={zoomOut}
-            pageScale={scaleCalibrated ? { pageIndex: page.pageIndex, pixelsPerFoot: pageScale!, calibrated: true } : undefined}
+            pageScale={scaleCalibrated && canvasSize.w > 0 ? { pageIndex: page.pageIndex, pixelsPerFoot: pageScale! * canvasSize.w, calibrated: true } : undefined}
             isFullscreen={isFullscreen}
             onToggleFullscreen={onToggleFullscreen}
             hidePagination

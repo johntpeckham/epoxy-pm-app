@@ -78,46 +78,13 @@ async function renderPdfPageToCanvas(
 
 // ─── Coordinate mapping ───
 //
-// Measurement points are stored in "canvas CSS space":
-//   storedX ∈ [0, canvasSize.w]  where canvasSize.w = rawPdfW * fitScale
-//   fitScale = min(containerW / rawPdfW, containerH / rawPdfH) * 0.92
-//
-// To draw on the export canvas (rawPdfW * EXPORT_SCALE pixels wide):
-//   1. Normalize: normalizedX = storedX / canvasSize.w   (range 0..1)
-//   2. Scale:     exportX = normalizedX * exportCanvasW
-//   Combined:     exportX = storedX * (exportCanvasW / canvasSize.w)
-//                         = storedX * scaleFactor
-//
-// canvasSize.w is provided by pageRenderedSizes (stored when viewer renders).
-// When not available (legacy data), we estimate the viewer container dimensions
-// from the current window size, matching the TakeoffViewer layout:
-//   - Viewer overlay starts at left-56 (224px) on lg screens
-//   - Measurement sidebar is 260px wide
-//   - Toolbar is ~36px tall
-//   - Canvas container is the remaining space
-
-function estimateCanvasSize(rawW: number, rawH: number): { w: number; h: number } {
-  // Estimate what the viewer container dimensions would be.
-  // Viewer layout: fixed overlay from left:224px, contains toolbar + (canvas + 260px sidebar)
-  const winW = typeof window !== 'undefined' ? window.innerWidth : 1400
-  const winH = typeof window !== 'undefined' ? window.innerHeight : 900
-  const containerW = Math.max(400, winW - 224 - 260)
-  const containerH = Math.max(300, winH - 100) // toolbar + banners
-  const fitScale = Math.min(containerW / rawW, containerH / rawH) * 0.92
-  return { w: rawW * fitScale, h: rawH * fitScale }
-}
-
-function computeScaleFactor(
-  rawW: number,
-  rawH: number,
-  storedCanvasSize: { w: number; h: number } | undefined,
-): number {
-  const exportW = rawW * EXPORT_SCALE
-  const canvasW = (storedCanvasSize && storedCanvasSize.w > 0)
-    ? storedCanvasSize.w
-    : estimateCanvasSize(rawW, rawH).w
-  return exportW / canvasW
-}
+// Measurement points are stored as NORMALIZED 0-1 coords relative to the PDF
+// intrinsic page (coordVersion 2 in TakeoffClient.tsx).
+// To draw on the export canvas (exportW × exportH px):
+//   exportX = normalizedX * exportW
+//   exportY = normalizedY * exportH
+// Stroke widths / font sizes scale off `sf = exportW / 1000` so the visual
+// weight of overlays scales with output resolution.
 
 // ─── Draw measurements onto a canvas ───
 
@@ -125,8 +92,12 @@ function drawMeasurementsOnCanvas(
   ctx: CanvasRenderingContext2D,
   items: TakeoffItem[],
   pageKey: string,
-  sf: number, // scaleFactor: storedCoord * sf = exportCoord
+  exportW: number,
+  exportH: number,
 ) {
+  const sx = exportW
+  const sy = exportH
+  const sf = exportW / 1000
   const sw = Math.max(2, 2 * sf)
   const fontSize = Math.max(12, 12 * sf)
   const cr = Math.max(4, 4 * sf)
@@ -138,7 +109,7 @@ function drawMeasurementsOnCanvas(
       const rgb = hexToRgb(color)
 
       if (m.type === 'linear' && m.points.length >= 2) {
-        const pts = m.points.map(p => ({ x: p.x * sf, y: p.y * sf }))
+        const pts = m.points.map(p => ({ x: p.x * sx, y: p.y * sy }))
 
         // Draw polyline
         ctx.beginPath()
@@ -176,7 +147,7 @@ function drawMeasurementsOnCanvas(
           drawLabel(ctx, m.label, midPt.x, midPt.y, fontSize)
         }
       } else if (m.type === 'area' && m.points.length >= 3) {
-        const pts = m.points.map(p => ({ x: p.x * sf, y: p.y * sf }))
+        const pts = m.points.map(p => ({ x: p.x * sx, y: p.y * sy }))
 
         // Fill polygon
         ctx.beginPath()
@@ -200,7 +171,7 @@ function drawMeasurementsOnCanvas(
         if (lines.length) drawLabel(ctx, lines.join(' | '), center.x, center.y, fontSize)
       } else if (m.type === 'area' && m.points.length === 2) {
         // Legacy 2-point rect
-        const [a, b] = m.points.map(p => ({ x: p.x * sf, y: p.y * sf }))
+        const [a, b] = m.points.map(p => ({ x: p.x * sx, y: p.y * sy }))
         ctx.beginPath()
         ctx.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y))
         ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.15)`
@@ -324,15 +295,13 @@ async function renderPageComposite(
   page: TakeoffPage,
   items: TakeoffItem[],
   pageKey: string,
-  storedCanvasSize: { w: number; h: number } | undefined,
 ): Promise<{ dataUrl: string; rawW: number; rawH: number; exportW: number; exportH: number }> {
   const { canvas, rawW, rawH } = await renderPdfPageToCanvas(page)
   const exportW = canvas.width
   const exportH = canvas.height
-  const sf = computeScaleFactor(rawW, rawH, storedCanvasSize)
 
   const ctx = canvas.getContext('2d')!
-  drawMeasurementsOnCanvas(ctx, items, pageKey, sf)
+  drawMeasurementsOnCanvas(ctx, items, pageKey, exportW, exportH)
   drawLegend(ctx, items, pageKey, exportW, exportH)
 
   return { dataUrl: canvas.toDataURL('image/jpeg', 0.92), rawW, rawH, exportW, exportH }
@@ -347,8 +316,9 @@ export async function exportSinglePage(
   storedCanvasSize: { w: number; h: number } | undefined,
   projectName: string,
 ): Promise<{ blob: Blob; filename: string }> {
+  void storedCanvasSize // accepted for backward-compatible signature; coords are normalized
   const { dataUrl, rawW, rawH } = await renderPageComposite(
-    page, items, pageKey, storedCanvasSize,
+    page, items, pageKey,
   )
 
   const orientation = rawW > rawH ? 'landscape' : 'portrait'
@@ -369,6 +339,7 @@ export async function exportFullReport(
   pageScales: Record<string, number>,
   pageRenderedSizes: Record<string, { w: number; h: number }>,
 ): Promise<{ blob: Blob; filename: string }> {
+  void pageRenderedSizes // accepted for signature compat; coords are normalized
   const safeName = projectName.replace(/[^a-zA-Z0-9-_]/g, '-').replace(/-+/g, '-') || 'takeoff'
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' })
   const pw = doc.internal.pageSize.getWidth()
@@ -492,7 +463,7 @@ export async function exportFullReport(
     const pageKey = `${page.pdfIndex}-${page.pageIndex}`
     try {
       const { dataUrl, rawW, rawH } = await renderPageComposite(
-        page, items, pageKey, pageRenderedSizes[pageKey],
+        page, items, pageKey,
       )
 
       // Fit to letter landscape with margins
@@ -535,6 +506,7 @@ export async function generateReportBlob(
   pageScales: Record<string, number>,
   pageRenderedSizes: Record<string, { w: number; h: number }>,
 ): Promise<Blob> {
+  void pageRenderedSizes // accepted for signature compat; coords are normalized
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' })
   const pw = doc.internal.pageSize.getWidth()
   const ph = doc.internal.pageSize.getHeight()
@@ -638,7 +610,7 @@ export async function generateReportBlob(
     const pageKey = `${page.pdfIndex}-${page.pageIndex}`
     try {
       const { dataUrl, rawW, rawH } = await renderPageComposite(
-        page, items, pageKey, pageRenderedSizes[pageKey],
+        page, items, pageKey,
       )
 
       const availW = pw - margin * 2

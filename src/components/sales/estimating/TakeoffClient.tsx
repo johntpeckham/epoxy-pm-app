@@ -26,10 +26,18 @@ export interface MeasurementPageSlice {
   items: TakeoffItem[]
   markups: Markup[]
   pageRenderedSize?: { w: number; h: number } | null
+  // coordVersion >= 2: m.points / mk.points are normalized 0-1 relative to
+  // the PDF intrinsic page. When absent/<2, points are legacy canvas-CSS-px
+  // anchored to the slice's pageRenderedSize.
+  coordVersion?: number
 }
 
 export interface MeasurementScaleCalibration {
-  pixelsPerFoot: number
+  // Legacy: canvas-CSS-px per foot, anchored to the slice's pageRenderedSize.w.
+  pixelsPerFoot?: number
+  // New (coordVersion >= 2): normalized x-units per foot — i.e., the fraction
+  // of the PDF page width that represents one foot. Independent of canvas size.
+  unitsPerFoot?: number
 }
 
 export interface MeasurementRow {
@@ -69,6 +77,17 @@ function mergeItemsById(target: TakeoffItem[], incoming: TakeoffItem[]) {
   }
 }
 
+// Convert legacy canvas-CSS-px points (anchored to the saved pageRenderedSize)
+// to normalized 0-1 coords. Used as a one-time fix-up when loading rows that
+// were written before coordVersion 2 was introduced.
+function normalizeLegacyPoints(
+  pts: { x: number; y: number }[],
+  size: { w: number; h: number }
+): { x: number; y: number }[] {
+  if (size.w <= 0 || size.h <= 0) return pts
+  return pts.map((p) => ({ x: p.x / size.w, y: p.y / size.h }))
+}
+
 function buildInitialState(
   pdfs: EstimatingProjectPdf[],
   rows: MeasurementRow[]
@@ -84,6 +103,7 @@ function buildInitialState(
 
   const items: TakeoffItem[] = []
   const markups: Markup[] = []
+  // pageScales is normalized units-per-foot (independent of canvas size).
   const pageScales: Record<string, number> = {}
   const pageRenderedSizes: Record<string, { w: number; h: number }> = {}
   const hiddenPages: Record<string, boolean> = {}
@@ -96,13 +116,50 @@ function buildInitialState(
     if (row.hidden) hiddenPages[pageKey] = true
 
     const slice = row.measurements ?? { items: [], markups: [] }
-    if (slice.items?.length) mergeItemsById(items, slice.items)
-    if (slice.markups?.length) markups.push(...slice.markups)
-    if (slice.pageRenderedSize) {
-      pageRenderedSizes[pageKey] = slice.pageRenderedSize
+    const isLegacy = (slice.coordVersion ?? 1) < 2
+    const renderedSize = slice.pageRenderedSize ?? null
+
+    if (slice.items?.length) {
+      const normalizedItems: TakeoffItem[] = isLegacy && renderedSize
+        ? slice.items.map((it) => ({
+            ...it,
+            measurements: it.measurements.map((m) => ({
+              ...m,
+              points: normalizeLegacyPoints(m.points, renderedSize),
+            })),
+          }))
+        : slice.items
+      mergeItemsById(items, normalizedItems)
     }
-    if (row.scale_calibration?.pixelsPerFoot) {
-      pageScales[pageKey] = row.scale_calibration.pixelsPerFoot
+
+    if (slice.markups?.length) {
+      const normalizedMarkups: Markup[] = isLegacy && renderedSize
+        ? slice.markups.map((mk) => ({
+            ...mk,
+            points: normalizeLegacyPoints(mk.points, renderedSize),
+          }))
+        : slice.markups
+      markups.push(...normalizedMarkups)
+    }
+
+    if (renderedSize) {
+      pageRenderedSizes[pageKey] = renderedSize
+    }
+
+    const cal = row.scale_calibration
+    if (cal) {
+      if (typeof cal.unitsPerFoot === 'number' && cal.unitsPerFoot > 0) {
+        pageScales[pageKey] = cal.unitsPerFoot
+      } else if (
+        typeof cal.pixelsPerFoot === 'number' &&
+        cal.pixelsPerFoot > 0 &&
+        renderedSize &&
+        renderedSize.w > 0
+      ) {
+        // Legacy: convert canvas-px-per-foot at original pageRenderedSize.w
+        // into normalized units-per-foot.
+        pageScales[pageKey] = cal.pixelsPerFoot / renderedSize.w
+      }
     }
   }
 
@@ -272,7 +329,8 @@ export default function TakeoffClient({
           .filter((item) => item.measurements.length > 0)
         const markupsForPage = markups.filter((m) => m.pageKey === pageKey)
         const renderedSize = pageRenderedSizes[pageKey] ?? null
-        const pixelsPerFoot = pageScales[pageKey]
+        // pageScales now stores normalized units-per-foot.
+        const unitsPerFoot = pageScales[pageKey]
 
         rows.push({
           project_id: project.id,
@@ -282,8 +340,9 @@ export default function TakeoffClient({
             items: itemsForPage,
             markups: markupsForPage,
             pageRenderedSize: renderedSize,
+            coordVersion: 2,
           },
-          scale_calibration: pixelsPerFoot ? { pixelsPerFoot } : null,
+          scale_calibration: unitsPerFoot ? { unitsPerFoot } : null,
           hidden: hiddenPages[pageKey] ?? false,
         })
       }
@@ -363,7 +422,7 @@ export default function TakeoffClient({
         .filter((item) => item.measurements.length > 0)
       const markupsForPage = markups.filter((m) => m.pageKey === pageKey)
       const renderedSize = pageRenderedSizes[pageKey] ?? null
-      const pixelsPerFoot = pageScales[pageKey]
+      const unitsPerFoot = pageScales[pageKey]
 
       const supabase = createClient()
       supabase
@@ -378,8 +437,9 @@ export default function TakeoffClient({
                 items: itemsForPage,
                 markups: markupsForPage,
                 pageRenderedSize: renderedSize,
+                coordVersion: 2,
               },
-              scale_calibration: pixelsPerFoot ? { pixelsPerFoot } : null,
+              scale_calibration: unitsPerFoot ? { unitsPerFoot } : null,
               hidden: true,
             },
           ],
@@ -442,10 +502,10 @@ export default function TakeoffClient({
   }, [])
 
   const handlePageScaleChange = useCallback(
-    (pixelsPerFoot: number) => {
+    (unitsPerFoot: number) => {
       if (!activePage) return
       const key = `${activePage.pdfIndex}-${activePage.pageIndex}`
-      setPageScales((prev) => ({ ...prev, [key]: pixelsPerFoot }))
+      setPageScales((prev) => ({ ...prev, [key]: unitsPerFoot }))
     },
     [activePage]
   )
