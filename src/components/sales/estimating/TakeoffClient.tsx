@@ -140,6 +140,9 @@ async function loadPdfPages(
       pdfIndex,
       pageIndex: i,
       pdfName: pdf.file_name,
+      displayName: doc.numPages > 1
+        ? `${pdf.file_name} — Page ${i + 1}`
+        : pdf.file_name,
       thumbnailDataUrl,
       arrayBuffer,
       pdfBase64: null,
@@ -393,6 +396,11 @@ export default function TakeoffClient({
 
   const handleRenamePage = useCallback(
     (pdfIndex: number, pageIndex: number, displayName: string) => {
+      const matches = pages.filter((p) => p.pdfIndex === pdfIndex)
+      const isMultiPage = matches.length > 1
+      const target = matches.find((p) => p.pageIndex === pageIndex)
+      const pdfId = target?.pdfId
+
       setPages((prev) =>
         prev.map((p) =>
           p.pdfIndex === pdfIndex && p.pageIndex === pageIndex
@@ -400,8 +408,27 @@ export default function TakeoffClient({
             : p
         )
       )
+
+      // Single-page PDF: persist the rename to the DB via file_name on the
+      // pdf row. Multi-page PDFs have per-page displayNames with no DB column,
+      // so they remain client-side only.
+      if (!isMultiPage && pdfId) {
+        setPdfs((prev) =>
+          prev.map((p) => (p.id === pdfId ? { ...p, file_name: displayName } : p))
+        )
+        const supabase = createClient()
+        supabase
+          .from('estimating_project_measurement_pdfs')
+          .update({ file_name: displayName })
+          .eq('id', pdfId)
+          .then(({ error }) => {
+            if (error) {
+              console.error('[Takeoff] Rename PDF failed:', error)
+            }
+          })
+      }
     },
-    []
+    [pages]
   )
 
   const handleOpenPage = useCallback((page: TakeoffPage) => {

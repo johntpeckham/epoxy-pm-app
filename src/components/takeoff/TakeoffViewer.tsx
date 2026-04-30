@@ -1293,10 +1293,11 @@ export default function TakeoffViewer({
         {/* Canvas area */}
         <div
           ref={containerRef}
-          className="flex-1 relative bg-gray-100 overflow-hidden"
+          className="flex-1 relative bg-gray-100 overflow-hidden overscroll-contain"
           style={{
             touchAction: 'none',
             contain: 'strict',
+            overscrollBehavior: 'contain',
             cursor: activeTool === 'pan' ? 'grab' : undefined,
           }}
         >
