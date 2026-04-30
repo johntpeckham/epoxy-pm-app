@@ -77,17 +77,6 @@ function mergeItemsById(target: TakeoffItem[], incoming: TakeoffItem[]) {
   }
 }
 
-// Convert legacy canvas-CSS-px points (anchored to the saved pageRenderedSize)
-// to normalized 0-1 coords. Used as a one-time fix-up when loading rows that
-// were written before coordVersion 2 was introduced.
-function normalizeLegacyPoints(
-  pts: { x: number; y: number }[],
-  size: { w: number; h: number }
-): { x: number; y: number }[] {
-  if (size.w <= 0 || size.h <= 0) return pts
-  return pts.map((p) => ({ x: p.x / size.w, y: p.y / size.h }))
-}
-
 function buildInitialState(
   pdfs: EstimatingProjectPdf[],
   rows: MeasurementRow[]
@@ -116,50 +105,35 @@ function buildInitialState(
     if (row.hidden) hiddenPages[pageKey] = true
 
     const slice = row.measurements ?? { items: [], markups: [] }
-    const isLegacy = (slice.coordVersion ?? 1) < 2
+    // All point/markup coords are now read as if they were normalized 0-1
+    // (coordVersion 2). Pre-coordVersion-2 rows render in the wrong
+    // position/size and are expected to be re-taken by the user — strategy
+    // (a) per the bug-fix prompt. We do NOT attempt a rescue based on the
+    // saved pageRenderedSize because that field can be stale, mismatched
+    // against the originally-captured canvas size, or missing entirely on
+    // very old rows, and rescue attempts have caused larger displacement
+    // and growth on re-entry than just letting the broken data fall where
+    // it falls.
     const renderedSize = slice.pageRenderedSize ?? null
 
     if (slice.items?.length) {
-      const normalizedItems: TakeoffItem[] = isLegacy && renderedSize
-        ? slice.items.map((it) => ({
-            ...it,
-            measurements: it.measurements.map((m) => ({
-              ...m,
-              points: normalizeLegacyPoints(m.points, renderedSize),
-            })),
-          }))
-        : slice.items
-      mergeItemsById(items, normalizedItems)
+      mergeItemsById(items, slice.items)
     }
 
     if (slice.markups?.length) {
-      const normalizedMarkups: Markup[] = isLegacy && renderedSize
-        ? slice.markups.map((mk) => ({
-            ...mk,
-            points: normalizeLegacyPoints(mk.points, renderedSize),
-          }))
-        : slice.markups
-      markups.push(...normalizedMarkups)
+      markups.push(...slice.markups)
     }
 
     if (renderedSize) {
       pageRenderedSizes[pageKey] = renderedSize
     }
 
+    // scale_calibration: only the new normalized field (unitsPerFoot) is
+    // honored. Legacy pixelsPerFoot rows are ignored — the user must re-set
+    // the scale with the Set Scale tool. (Same strategy-(a) reasoning.)
     const cal = row.scale_calibration
-    if (cal) {
-      if (typeof cal.unitsPerFoot === 'number' && cal.unitsPerFoot > 0) {
-        pageScales[pageKey] = cal.unitsPerFoot
-      } else if (
-        typeof cal.pixelsPerFoot === 'number' &&
-        cal.pixelsPerFoot > 0 &&
-        renderedSize &&
-        renderedSize.w > 0
-      ) {
-        // Legacy: convert canvas-px-per-foot at original pageRenderedSize.w
-        // into normalized units-per-foot.
-        pageScales[pageKey] = cal.pixelsPerFoot / renderedSize.w
-      }
+    if (cal && typeof cal.unitsPerFoot === 'number' && cal.unitsPerFoot > 0) {
+      pageScales[pageKey] = cal.unitsPerFoot
     }
   }
 
