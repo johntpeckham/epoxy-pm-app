@@ -14,6 +14,11 @@ interface TakeoffSidebarProps {
   onRenameItem: (id: string, name: string) => void
   onChangeItemColor: (id: string, color: string) => void
   onDeleteMeasurement: (itemId: string, measurementId: string) => void
+  // New: parent tracks panel-open state to gate PDF click placement and to
+  // drive the Escape-with-in-progress-points behavior.
+  isPanelOpen: boolean
+  onPanelOpenChange: (open: boolean) => void
+  isMeasuringActive: boolean
 }
 
 function fmtFtIn(ft: number): string {
@@ -53,8 +58,11 @@ export default function TakeoffSidebar({
   onRenameItem,
   onChangeItemColor,
   onDeleteMeasurement,
+  isPanelOpen,
+  onPanelOpenChange,
+  isMeasuringActive,
 }: TakeoffSidebarProps) {
-  const [showAdd, setShowAdd] = useState(false)
+  const showAdd = isPanelOpen
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<MeasurementType>('linear')
   const [newColor, setNewColor] = useState(ITEM_COLORS[0])
@@ -62,13 +70,27 @@ export default function TakeoffSidebar({
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
 
-  function handleAdd() {
+  // "Start Measuring" — creates the item if needed and arms PDF click
+  // placement, but keeps the config panel open with form state intact so the
+  // user can re-arm via Escape (which clears in-progress points).
+  function handleStartMeasuring() {
     if (!newName.trim()) return
     onAddItem(newName.trim(), newType, newColor)
+  }
+
+  function handleCancel() {
     setNewName('')
     setNewType('linear')
     setNewColor(ITEM_COLORS[0])
-    setShowAdd(false)
+    onPanelOpenChange(false)
+  }
+
+  function handleTogglePanel() {
+    if (isPanelOpen) {
+      handleCancel()
+    } else {
+      onPanelOpenChange(true)
+    }
   }
 
   function startRename(item: TakeoffItem) {
@@ -91,7 +113,7 @@ export default function TakeoffSidebar({
       <div className="px-3 py-2.5 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
         <span className="text-gray-300 font-semibold text-xs tracking-wide uppercase">Measurement Items</span>
         <button
-          onClick={() => setShowAdd(!showAdd)}
+          onClick={handleTogglePanel}
           className="w-6 h-6 flex items-center justify-center rounded bg-amber-500 hover:bg-amber-400 text-white transition-colors"
           title="Add Item"
         >
@@ -106,7 +128,7 @@ export default function TakeoffSidebar({
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            onKeyDown={(e) => e.key === 'Enter' && handleStartMeasuring()}
             placeholder="Item name"
             className="w-full px-2.5 py-1.5 bg-[#222] border border-gray-700 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
             autoFocus
@@ -138,13 +160,14 @@ export default function TakeoffSidebar({
           </div>
           <div className="flex gap-1.5">
             <button
-              onClick={handleAdd}
-              className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium rounded transition-colors"
+              onClick={handleStartMeasuring}
+              disabled={isMeasuringActive || !newName.trim()}
+              className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-500/40 disabled:cursor-not-allowed text-white text-xs font-medium rounded transition-colors"
             >
-              Add
+              {isMeasuringActive ? 'Measuring…' : 'Start Measuring'}
             </button>
             <button
-              onClick={() => setShowAdd(false)}
+              onClick={handleCancel}
               className="px-3 py-1.5 text-gray-500 hover:text-gray-300 text-xs transition-colors"
             >
               Cancel
