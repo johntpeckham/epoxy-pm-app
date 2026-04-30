@@ -18,6 +18,7 @@ import {
   CheckIcon,
   DownloadIcon,
   Loader2Icon,
+  Undo2Icon,
 } from 'lucide-react'
 import type { ToolMode, PageScale } from './types'
 
@@ -37,6 +38,8 @@ interface TakeoffToolbarProps {
   hidePagination?: boolean
   onDownloadPage?: () => void
   isDownloading?: boolean
+  onUndo?: () => void
+  canUndo?: boolean
 }
 
 const tools: { mode: ToolMode; label: string; icon: React.ReactNode; group: string }[] = [
@@ -64,6 +67,8 @@ export default function TakeoffToolbar({
   hidePagination,
   onDownloadPage,
   isDownloading,
+  onUndo,
+  canUndo,
 }: TakeoffToolbarProps) {
   const scaleSet = pageScale?.calibrated === true
 
@@ -124,6 +129,21 @@ export default function TakeoffToolbar({
       </div>
 
       <div className="w-px h-5 bg-gray-700 mx-1.5" />
+
+      {/* Undo */}
+      {onUndo && (
+        <>
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (⌘Z / Ctrl+Z)"
+            className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-gray-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-500"
+          >
+            <Undo2Icon className="w-4 h-4" />
+          </button>
+          <div className="w-px h-5 bg-gray-700 mx-1.5" />
+        </>
+      )}
 
       {/* Page nav */}
       {!hidePagination && (

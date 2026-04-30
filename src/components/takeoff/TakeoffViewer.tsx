@@ -188,6 +188,13 @@ export default function TakeoffViewer({
   const activeToolRef = useRef<ToolMode>('pan')
   useEffect(() => { activeToolRef.current = activeTool }, [activeTool])
 
+  // ─── Sidebar config-panel + click-arming state ───
+  // isConfigPanelOpen: mirrors the sidebar's "+" form. When open, PDF clicks
+  // are LOCKED unless the user has explicitly clicked "Start Measuring",
+  // which sets isMeasuringActive=true.
+  const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false)
+  const [isMeasuringActive, setIsMeasuringActive] = useState(false)
+
   // ─── Scale calibration ───
   const [scalePoints, setScalePoints] = useState<Point[]>([])
   const [showScaleModal, setShowScaleModal] = useState(false)
@@ -489,6 +496,9 @@ export default function TakeoffViewer({
     const d = polylineLen(tempPoints) / ppf
     addMeasurement({ id: genId(), type: 'linear', points: tempPoints.map(canvasToNorm), valueInFeet: d, perimeterFt: 0, label: fmtFtIn(d), pageKey })
     setTempPoints([])
+    // Each measurement requires re-arming via "Start Measuring" or by
+    // re-selecting the item from the sidebar list.
+    setIsMeasuringActive(false)
   }
 
   // ─── Complete area polygon ───
@@ -503,6 +513,7 @@ export default function TakeoffViewer({
     const perimFt = perimPx / ppf
     addMeasurement({ id: genId(), type: 'area', points: tempPoints.map(canvasToNorm), valueInFeet: area, perimeterFt: perimFt, label: `${area.toFixed(1)} sq ft`, pageKey })
     setTempPoints([])
+    setIsMeasuringActive(false)
   }
 
   // ─── Delete selected item ref (to avoid stale closures) ───
@@ -525,6 +536,20 @@ export default function TakeoffViewer({
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        // Special case: config panel open AND points already placed →
+        // discard in-progress points and disarm, but KEEP the panel open
+        // (form state preserved in the sidebar). User can click
+        // "Start Measuring" again to retry.
+        if (isConfigPanelOpen && tempPoints.length > 0) {
+          setTempPoints([])
+          setIsMeasuringActive(false)
+          return
+        }
+        // Config panel open with no points → do nothing (user must click
+        // Cancel to close the panel).
+        if (isConfigPanelOpen) {
+          return
+        }
         setTempPoints([])
         setScalePoints([])
         setSvgDragStart(null)
@@ -541,10 +566,24 @@ export default function TakeoffViewer({
       if (e.key === 'Delete' || e.key === 'Backspace') {
         deleteSelectedRef.current()
       }
+      // Cmd+Z / Ctrl+Z → undo. Skip if focus is in a form field so native
+      // text undo still works inside the sidebar inputs and modal inputs.
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        const target = e.target as HTMLElement | null
+        const tag = target?.tagName
+        const isEditable =
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          tag === 'SELECT' ||
+          target?.isContentEditable === true
+        if (isEditable) return
+        e.preventDefault()
+        handleUndoRef.current()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [showScaleModal, markupTextInput.visible])
+  }, [showScaleModal, markupTextInput.visible, isConfigPanelOpen, tempPoints.length])
 
   // ─── Prereqs check ───
   function checkPrereqs(): boolean {
@@ -707,11 +746,15 @@ export default function TakeoffViewer({
     }
     if (activeTool === 'linear') {
       if (!checkPrereqs()) return
+      // Click placement is locked until the user explicitly clicks
+      // "Start Measuring" in the sidebar config panel.
+      if (!isMeasuringActive) return
       setTempPoints(p => [...p, pt])
       return
     }
     if (activeTool === 'area-polygon') {
       if (!checkPrereqs()) return
+      if (!isMeasuringActive) return
       // Snap to first point — close polygon if clicking within 10 screen px
       if (tempPoints.length >= 3) {
         const screenDist = ptDist(pt, tempPoints[0]) * zoomRef.current
@@ -765,12 +808,31 @@ export default function TakeoffViewer({
   }
 
   // ─── Item management ───
+  // Tracks the item created during the current "+" panel session so that
+  // repeated "Start Measuring" clicks within the same session (e.g. after
+  // Escape clears in-progress points) re-arm placement instead of
+  // re-creating the item.
+  const panelSessionItemIdRef = useRef<string | null>(null)
+
   function handleAddItem(name: string, type: MeasurementType, color?: string) {
+    if (panelSessionItemIdRef.current) {
+      // Already created the item this session — just re-arm placement.
+      const existing = items.find((it) => it.id === panelSessionItemIdRef.current)
+      if (existing) {
+        setActiveItemId(existing.id)
+        setActiveTool(existing.type === 'linear' ? 'linear' : 'area-polygon')
+        setTempPoints([])
+        setIsMeasuringActive(true)
+        return
+      }
+    }
     const newItem: TakeoffItem = { id: genId(), name, type, measurements: [], color: color || getNextColor() }
     onItemsChange([...items, newItem])
     setActiveItemId(newItem.id)
     setActiveTool(type === 'linear' ? 'linear' : 'area-polygon')
     setTempPoints([])
+    setIsMeasuringActive(true)
+    panelSessionItemIdRef.current = newItem.id
   }
 
   function handleChangeItemColor(id: string, color: string) {
@@ -789,12 +851,61 @@ export default function TakeoffViewer({
     }
   }
 
+  // ─── Undo ───
+  // Walks back one step at a time. If in-progress points exist, the last
+  // point is removed. Otherwise, the most recent completed measurement on
+  // this page is removed. (Page-scoped so undo doesn't reach across pages.)
+  // Persistence is handled by TakeoffClient's debounced autosave on every
+  // items mutation — no explicit DB delete needed.
+  function findMostRecentMeasurement(): { itemIndex: number; measurementIndex: number } | null {
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i]
+      for (let j = it.measurements.length - 1; j >= 0; j--) {
+        if (it.measurements[j].pageKey === pageKey) {
+          return { itemIndex: i, measurementIndex: j }
+        }
+      }
+    }
+    return null
+  }
+
+  const canUndo =
+    tempPoints.length > 0 || findMostRecentMeasurement() !== null
+
+  const handleUndoRef = useRef<() => void>(() => {})
+  handleUndoRef.current = () => {
+    if (tempPoints.length > 0) {
+      const next = tempPoints.slice(0, -1)
+      setTempPoints(next)
+      // Single-point case: removing it leaves the measurement empty but
+      // armed; the user can re-place. Matches Escape-with-1-point semantics
+      // except that the panel doesn't have to be open here.
+      return
+    }
+    const target = findMostRecentMeasurement()
+    if (!target) return
+    const next = items.map((it, i) =>
+      i === target.itemIndex
+        ? {
+            ...it,
+            measurements: it.measurements.filter(
+              (_, j) => j !== target.measurementIndex
+            ),
+          }
+        : it
+    )
+    onItemsChange(next)
+  }
+
   function handleSelectItem(id: string) {
     setActiveItemId(id)
     const item = items.find(i => i.id === id)
     if (item) {
       setActiveTool(item.type === 'linear' ? 'linear' : 'area-polygon')
       setTempPoints([])
+      // Selecting an existing item from the sidebar list arms placement
+      // immediately (no "+" panel involved).
+      setIsMeasuringActive(true)
     }
   }
 
@@ -1288,6 +1399,8 @@ export default function TakeoffViewer({
             hidePagination
             onDownloadPage={handleDownloadPage}
             isDownloading={isDownloading}
+            onUndo={() => handleUndoRef.current()}
+            canUndo={canUndo}
           />
           {activeItemId && activeTool !== 'pan' && activeTool !== 'set-scale' && (() => {
             const item = items.find(i => i.id === activeItemId)
@@ -1414,6 +1527,22 @@ export default function TakeoffViewer({
           onRenameItem={handleRenameItem}
           onChangeItemColor={handleChangeItemColor}
           onDeleteMeasurement={handleDeleteMeasurement}
+          isPanelOpen={isConfigPanelOpen}
+          onPanelOpenChange={(open) => {
+            setIsConfigPanelOpen(open)
+            if (open) {
+              // Fresh panel session — reset session item tracking and disarm.
+              panelSessionItemIdRef.current = null
+              setIsMeasuringActive(false)
+              setTempPoints([])
+            } else {
+              // Cancel — disarm placement.
+              setIsMeasuringActive(false)
+              setTempPoints([])
+              panelSessionItemIdRef.current = null
+            }
+          }}
+          isMeasuringActive={isMeasuringActive}
         />
       </div>
 
