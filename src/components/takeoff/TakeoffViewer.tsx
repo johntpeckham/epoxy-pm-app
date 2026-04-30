@@ -496,9 +496,9 @@ export default function TakeoffViewer({
     const d = polylineLen(tempPoints) / ppf
     addMeasurement({ id: genId(), type: 'linear', points: tempPoints.map(canvasToNorm), valueInFeet: d, perimeterFt: 0, label: fmtFtIn(d), pageKey })
     setTempPoints([])
-    // Each measurement requires re-arming via "Start Measuring" or by
-    // re-selecting the item from the sidebar list.
-    setIsMeasuringActive(false)
+    // Stay armed — the lock boundary is the "+" button (new item), not
+    // Enter (single shape complete). User can immediately draw the next
+    // shape under the same item.
   }
 
   // ─── Complete area polygon ───
@@ -513,7 +513,7 @@ export default function TakeoffViewer({
     const perimFt = perimPx / ppf
     addMeasurement({ id: genId(), type: 'area', points: tempPoints.map(canvasToNorm), valueInFeet: area, perimeterFt: perimFt, label: `${area.toFixed(1)} sq ft`, pageKey })
     setTempPoints([])
-    setIsMeasuringActive(false)
+    // Stay armed — see completeLinearRef for rationale.
   }
 
   // ─── Delete selected item ref (to avoid stale closures) ───
