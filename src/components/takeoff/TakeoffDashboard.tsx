@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon, SendIcon, GripVerticalIcon, Trash2Icon } from 'lucide-react'
+import KebabMenu from '@/components/ui/KebabMenu'
 import {
   DndContext,
   closestCenter,
@@ -693,6 +694,7 @@ export default function TakeoffDashboard({
             own inner DndContext sorting items + handling cross-section
             drops. */}
         {sortedSections.length > 0 && (
+          <div className="bg-gray-50/60 pt-2.5 border-t border-gray-100">
           <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
             <SortableContext items={sortedSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               {sortedSections.map((section) => {
@@ -703,9 +705,9 @@ export default function TakeoffDashboard({
                 return (
                   <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
                     {({ setActivatorRef, listeners, attributes }) => (
-                      <div className="border-b border-gray-100 last:border-b-0">
+                      <div className="mx-3 mb-2.5 rounded-md border border-gray-200 bg-white overflow-hidden">
                         {/* Section header */}
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/60">
+                        <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200">
                           {sectionDraggable ? (
                             <button
                               ref={setActivatorRef}
@@ -739,7 +741,7 @@ export default function TakeoffDashboard({
                               }}
                               onFocus={(e) => e.target.select()}
                               autoFocus
-                              className="flex-1 text-sm font-semibold tracking-wide text-gray-900 bg-transparent border-b border-amber-500 outline-none"
+                              className="flex-1 text-sm font-medium tracking-wide text-gray-900 bg-transparent border-b border-amber-500 outline-none"
                               onClick={(e) => e.stopPropagation()}
                             />
                           ) : (
@@ -749,39 +751,40 @@ export default function TakeoffDashboard({
                                 setEditingSectionId(section.id)
                                 setEditingSectionName(section.name)
                               }}
-                              className="flex-1 text-sm font-semibold text-gray-900 tracking-wide truncate cursor-pointer hover:text-amber-600"
+                              className="flex-1 text-sm font-medium text-gray-900 tracking-wide truncate cursor-pointer hover:text-amber-600"
                             >
                               {section.name}
                             </span>
                           )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setEditingSectionId(section.id)
-                              setEditingSectionName(section.name)
-                            }}
-                            title="Rename section"
-                            className="p-1 text-gray-400 hover:text-amber-500 flex-shrink-0 transition-colors"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const count = sectionItems.length
-                              const message =
-                                count > 0
-                                  ? `Delete section "${section.name}" and all ${count} measurement${count === 1 ? '' : 's'} inside? This cannot be undone.`
-                                  : `Delete section "${section.name}"?`
-                              if (typeof window !== 'undefined' && window.confirm(message)) {
-                                onDeleteSection(section.id)
-                              }
-                            }}
-                            title="Delete section"
-                            className="p-1 text-gray-400 hover:text-red-500 flex-shrink-0 transition-colors"
-                          >
-                            <Trash2Icon className="w-4 h-4" />
-                          </button>
+                          <KebabMenu
+                            variant="light"
+                            title="Section actions"
+                            items={[
+                              {
+                                label: 'Rename',
+                                icon: <Pencil size={13} />,
+                                onSelect: () => {
+                                  setEditingSectionId(section.id)
+                                  setEditingSectionName(section.name)
+                                },
+                              },
+                              {
+                                label: 'Delete',
+                                destructive: true,
+                                icon: <Trash2Icon className="w-3.5 h-3.5" />,
+                                onSelect: () => {
+                                  const count = sectionItems.length
+                                  const message =
+                                    count > 0
+                                      ? `Delete section "${section.name}" and all ${count} measurement${count === 1 ? '' : 's'} inside? This cannot be undone.`
+                                      : `Delete section "${section.name}"?`
+                                  if (typeof window !== 'undefined' && window.confirm(message)) {
+                                    onDeleteSection(section.id)
+                                  }
+                                },
+                              },
+                            ]}
+                          />
                         </div>
 
                         {/* Inner DndContext: items within this section. */}
@@ -848,13 +851,9 @@ export default function TakeoffDashboard({
                                         autoFocus
                                       />
                                     ) : (
-                                      <div
-                                        onClick={() => { setEditingItemId(item.id); setEditItemName(item.name) }}
-                                        className="group/name flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
-                                      >
-                                        <span className="text-sm font-semibold text-gray-900 truncate">{item.name}</span>
-                                        <Pencil size={12} className="text-gray-400 group-hover/name:text-amber-500 flex-shrink-0" />
-                                      </div>
+                                      <span className="text-sm font-semibold text-gray-900 truncate flex-1 min-w-0">
+                                        {item.name}
+                                      </span>
                                     )}
                                     <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
                                       item.type === 'linear'
@@ -874,6 +873,20 @@ export default function TakeoffDashboard({
                                         {fmtFtIn(itemPerim)} perim.
                                       </span>
                                     )}
+                                    <KebabMenu
+                                      variant="light"
+                                      title="Item actions"
+                                      items={[
+                                        {
+                                          label: 'Rename',
+                                          icon: <Pencil size={13} />,
+                                          onSelect: () => {
+                                            setEditingItemId(item.id)
+                                            setEditItemName(item.name)
+                                          },
+                                        },
+                                      ]}
+                                    />
                                     </>)}
                                   </SortableMeasurementRow>
                                 )
@@ -883,13 +896,13 @@ export default function TakeoffDashboard({
                         </DndContext>
 
                         {/* Section subtotals — always shown, even at 0. */}
-                        <div className="border-t border-gray-100 bg-gray-50/40">
+                        <div className="border-t border-gray-200 bg-gray-50/40">
                           <div className="flex items-center justify-between px-4 py-1.5">
                             <div className="flex items-center gap-2">
                               <RulerIcon className="w-3.5 h-3.5 text-amber-500" />
                               <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total Linear</span>
                             </div>
-                            <span className="text-xs font-bold text-amber-600">{fmtFtIn(sub.linear)}</span>
+                            <span className="text-[13px] font-bold text-amber-600">{fmtFtIn(sub.linear)}</span>
                           </div>
                           <div className="flex items-center justify-between px-4 py-1.5 border-t border-gray-100/80">
                             <div className="flex items-center gap-2">
@@ -897,7 +910,7 @@ export default function TakeoffDashboard({
                               <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-xs font-bold text-amber-600">{fmtArea(sub.area)}</span>
+                              <span className="text-[13px] font-bold text-amber-600">{fmtArea(sub.area)}</span>
                               {sub.perim > 0 && (
                                 <span className="text-[11px] text-gray-500">{fmtFtIn(sub.perim)} perim.</span>
                               )}
@@ -911,18 +924,19 @@ export default function TakeoffDashboard({
               })}
             </SortableContext>
           </DndContext>
+          </div>
         )}
 
-        {/* Project totals — always rendered, even at 0. Stronger border
-            and slightly larger typography distinguish them from section
-            subtotals. */}
-        <div className="border-t-2 border-gray-300 bg-white">
+        {/* Project totals — always rendered, even at 0. 2px amber top
+            border + slightly larger value text emphasize the bottom-line
+            summary versus the section subtotals. */}
+        <div className="border-t-2 border-amber-500 bg-white">
           <div className="flex items-center justify-between px-4 py-2.5">
             <div className="flex items-center gap-2">
               <RulerIcon className="w-4 h-4 text-amber-500" />
               <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Project Total Linear</span>
             </div>
-            <span className="text-sm font-bold text-amber-600">{fmtFtIn(projectTotals.linear)}</span>
+            <span className="text-[14px] font-bold text-amber-600">{fmtFtIn(projectTotals.linear)}</span>
           </div>
           <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100">
             <div className="flex items-center gap-2">
@@ -930,7 +944,7 @@ export default function TakeoffDashboard({
               <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Project Total Area</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-amber-600">{fmtArea(projectTotals.area)}</span>
+              <span className="text-[14px] font-bold text-amber-600">{fmtArea(projectTotals.area)}</span>
               {projectTotals.perim > 0 && (
                 <span className="text-xs text-gray-500">{fmtFtIn(projectTotals.perim)} perim.</span>
               )}

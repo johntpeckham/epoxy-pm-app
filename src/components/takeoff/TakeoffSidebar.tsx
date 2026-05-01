@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PlusIcon, Trash2Icon, XIcon, Pencil, Plus, GripVerticalIcon, RulerIcon, SquareIcon } from 'lucide-react'
+import KebabMenu from '@/components/ui/KebabMenu'
 import {
   DndContext,
   closestCenter,
@@ -662,9 +663,9 @@ export default function TakeoffSidebar({
               return (
                 <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
                   {({ setActivatorRef, listeners, attributes }) => (
-                    <div className="border-b border-gray-800/60">
+                    <div className="mx-2.5 mb-2.5 rounded-md border border-gray-800/60 bg-[#171717] overflow-hidden">
                       {/* Section header */}
-                      <div className="flex items-center gap-1.5 px-2 py-2 bg-[#181818]">
+                      <div className="flex items-center gap-1.5 px-2 py-2 border-b border-gray-800/60">
                         {sectionDraggable ? (
                           <button
                             ref={setActivatorRef}
@@ -698,7 +699,7 @@ export default function TakeoffSidebar({
                             }}
                             onFocus={(e) => e.target.select()}
                             autoFocus
-                            className="flex-1 text-[13px] font-semibold border-b border-amber-500 outline-none bg-transparent text-white"
+                            className="flex-1 text-[14px] font-medium border-b border-amber-500 outline-none bg-transparent text-white"
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : (
@@ -708,39 +709,40 @@ export default function TakeoffSidebar({
                               setEditingSectionId(section.id)
                               setEditingSectionName(section.name)
                             }}
-                            className="flex-1 text-[13px] font-semibold tracking-wide text-gray-200 truncate cursor-pointer hover:text-white"
+                            className="flex-1 text-[14px] font-medium tracking-wide text-gray-200 truncate cursor-pointer hover:text-white"
                           >
                             {section.name}
                           </span>
                         )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setEditingSectionId(section.id)
-                            setEditingSectionName(section.name)
-                          }}
-                          title="Rename section"
-                          className="p-1 text-gray-600 hover:text-amber-400 flex-shrink-0 transition-colors"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const count = sectionItems.length
-                            const message =
-                              count > 0
-                                ? `Delete section "${section.name}" and all ${count} measurement${count === 1 ? '' : 's'} inside? This cannot be undone.`
-                                : `Delete section "${section.name}"?`
-                            if (typeof window !== 'undefined' && window.confirm(message)) {
-                              onDeleteSection(section.id)
-                            }
-                          }}
-                          title="Delete section"
-                          className="p-1 text-gray-600 hover:text-red-400 flex-shrink-0 transition-colors"
-                        >
-                          <Trash2Icon className="w-3.5 h-3.5" />
-                        </button>
+                        <KebabMenu
+                          variant="dark"
+                          title="Section actions"
+                          items={[
+                            {
+                              label: 'Rename',
+                              icon: <Pencil size={13} />,
+                              onSelect: () => {
+                                setEditingSectionId(section.id)
+                                setEditingSectionName(section.name)
+                              },
+                            },
+                            {
+                              label: 'Delete',
+                              destructive: true,
+                              icon: <Trash2Icon className="w-3.5 h-3.5" />,
+                              onSelect: () => {
+                                const count = sectionItems.length
+                                const message =
+                                  count > 0
+                                    ? `Delete section "${section.name}" and all ${count} measurement${count === 1 ? '' : 's'} inside? This cannot be undone.`
+                                    : `Delete section "${section.name}"?`
+                                if (typeof window !== 'undefined' && window.confirm(message)) {
+                                  onDeleteSection(section.id)
+                                }
+                              },
+                            },
+                          ]}
+                        />
                       </div>
 
                       {/* Inner DndContext: items within this section. */}
@@ -808,33 +810,36 @@ export default function TakeoffSidebar({
                                           </div>
                                         ) : (
                                           <>
-                                            <div
-                                              onClick={(e) => { e.stopPropagation(); startRename(item) }}
-                                              className="group/name flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
-                                            >
-                                              <span className={`text-xs font-medium truncate ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                                                {item.name}
-                                              </span>
-                                              <Pencil size={12} className="text-gray-600 group-hover/name:text-amber-500 flex-shrink-0" />
-                                            </div>
+                                            <span className={`text-xs font-medium truncate flex-1 min-w-0 ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                                              {item.name}
+                                            </span>
                                             <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
                                               item.type === 'linear' ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
                                             }`}>
                                               {item.type === 'linear' ? 'LINEAR' : 'AREA'}
                                             </span>
-                                            <button
-                                              onClick={(e) => { e.stopPropagation(); onAddMoreToItem(item.id) }}
-                                              title="Add more shapes to this item"
-                                              className="p-1.5 text-gray-700 hover:text-amber-400 flex-shrink-0 transition-colors"
-                                            >
-                                              <Plus className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                              onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id) }}
-                                              className="p-1.5 text-gray-700 hover:text-red-400 flex-shrink-0 transition-colors"
-                                            >
-                                              <Trash2Icon className="w-4 h-4" />
-                                            </button>
+                                            <KebabMenu
+                                              variant="dark"
+                                              title="Item actions"
+                                              items={[
+                                                {
+                                                  label: 'Add measurements',
+                                                  icon: <Plus className="w-3.5 h-3.5" />,
+                                                  onSelect: () => onAddMoreToItem(item.id),
+                                                },
+                                                {
+                                                  label: 'Rename',
+                                                  icon: <Pencil size={13} />,
+                                                  onSelect: () => startRename(item),
+                                                },
+                                                {
+                                                  label: 'Delete',
+                                                  destructive: true,
+                                                  icon: <Trash2Icon className="w-3.5 h-3.5" />,
+                                                  onSelect: () => onDeleteItem(item.id),
+                                                },
+                                              ]}
+                                            />
                                           </>
                                         )}
                                       </div>
@@ -872,13 +877,13 @@ export default function TakeoffSidebar({
                       </DndContext>
 
                       {/* Section subtotals — always rendered, even at 0. */}
-                      <div className="bg-[#0d0d0d]">
-                        <div className="flex items-center justify-between px-4 py-1.5 border-t border-gray-800/60">
+                      <div className="bg-[#0d0d0d] border-t border-gray-800/60">
+                        <div className="flex items-center justify-between px-4 py-1.5">
                           <div className="flex items-center gap-1.5">
                             <RulerIcon className="w-3 h-3 text-amber-500" />
                             <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Total Linear</span>
                           </div>
-                          <span className="text-[11px] font-bold text-amber-400">{fmtFtIn(subLinear)}</span>
+                          <span className="text-[13px] font-bold text-amber-400">{fmtFtIn(subLinear)}</span>
                         </div>
                         <div className="flex items-center justify-between px-4 py-1.5 border-t border-gray-800/40">
                           <div className="flex items-center gap-1.5">
@@ -886,7 +891,7 @@ export default function TakeoffSidebar({
                             <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-bold text-amber-400">{fmtArea(subArea)}</span>
+                            <span className="text-[13px] font-bold text-amber-400">{fmtArea(subArea)}</span>
                             {subPerim > 0 && (
                               <span className="text-[9px] text-gray-500">{fmtFtIn(subPerim)} perim.</span>
                             )}
@@ -901,15 +906,15 @@ export default function TakeoffSidebar({
           </SortableContext>
         </DndContext>
 
-        {/* Project totals — always rendered, even at 0. Slightly stronger
-            than section subtotals (thicker top border, larger label). */}
-        <div className="bg-[#0a0a0a] border-t-2 border-zinc-700 mt-1">
+        {/* Project totals — always rendered, even at 0. 2px amber top
+            border + larger value text emphasize the bottom-line summary. */}
+        <div className="mx-2.5 mt-1 bg-[#0a0a0a] border-t-2 border-amber-500 rounded-b-md">
           <div className="flex items-center justify-between px-4 py-2">
             <div className="flex items-center gap-2">
               <RulerIcon className="w-3.5 h-3.5 text-amber-500" />
               <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Project Total Linear</span>
             </div>
-            <span className="text-[12px] font-bold text-amber-400">{fmtFtIn(projectTotals.linear)}</span>
+            <span className="text-[14px] font-bold text-amber-400">{fmtFtIn(projectTotals.linear)}</span>
           </div>
           <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800/60">
             <div className="flex items-center gap-2">
@@ -917,7 +922,7 @@ export default function TakeoffSidebar({
               <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Project Total Area</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[12px] font-bold text-amber-400">{fmtArea(projectTotals.area)}</span>
+              <span className="text-[14px] font-bold text-amber-400">{fmtArea(projectTotals.area)}</span>
               {projectTotals.perim > 0 && (
                 <span className="text-[10px] text-gray-500">{fmtFtIn(projectTotals.perim)} perim.</span>
               )}
