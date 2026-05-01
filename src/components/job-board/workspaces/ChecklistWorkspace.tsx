@@ -277,7 +277,7 @@ export default function ChecklistWorkspace({ project, userId, onBack, isAdmin = 
 
   return (
     <WorkspaceShell
-      title="Office Checklist"
+      title="Job Checklist"
       icon={<ClipboardCheckIcon className="w-5 h-5" />}
       onBack={onBack}
       actions={
