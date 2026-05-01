@@ -494,9 +494,9 @@ export default function TakeoffSidebar({
   }
 
   return (
-    <div className="w-[260px] flex-shrink-0 bg-[#111] border-l border-gray-800 flex flex-col h-full overflow-hidden">
+    <div className="w-[325px] flex-shrink-0 bg-neutral-900 border-l border-neutral-800 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-2.5 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+      <div className="px-3 py-2.5 border-b border-neutral-800 flex items-center justify-between flex-shrink-0">
         <span className="text-gray-300 font-semibold text-xs tracking-wide uppercase">Measurement Items</span>
         <button
           onClick={handleTogglePanel}
@@ -509,7 +509,7 @@ export default function TakeoffSidebar({
 
       {/* Inline add form */}
       {showAdd && (
-        <div className="px-3 py-2.5 border-b border-gray-800 space-y-2 flex-shrink-0">
+        <div className="px-3 py-2.5 border-b border-neutral-800 space-y-2 flex-shrink-0">
           <input
             type="text"
             value={newName}
@@ -663,9 +663,9 @@ export default function TakeoffSidebar({
               return (
                 <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
                   {({ setActivatorRef, listeners, attributes }) => (
-                    <div className="mx-2.5 mb-2.5 rounded-md border border-gray-800/60 bg-[#171717] overflow-hidden">
+                    <div className="mx-3 mb-[18px] rounded-md border border-neutral-700 bg-neutral-800 overflow-hidden">
                       {/* Section header */}
-                      <div className="flex items-center gap-1.5 px-2 py-2 border-b border-gray-800/60">
+                      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-neutral-700">
                         {sectionDraggable ? (
                           <button
                             ref={setActivatorRef}
@@ -680,6 +680,7 @@ export default function TakeoffSidebar({
                         ) : (
                           <span className="w-6" />
                         )}
+                        <span aria-hidden="true" className="block w-[3px] h-4 bg-amber-500 rounded-[2px] flex-shrink-0" />
                         {isRenamingThis ? (
                           <input
                             ref={(el) => { sectionEditInputRef.current = el }}
@@ -699,7 +700,7 @@ export default function TakeoffSidebar({
                             }}
                             onFocus={(e) => e.target.select()}
                             autoFocus
-                            className="flex-1 text-[14px] font-medium border-b border-amber-500 outline-none bg-transparent text-white"
+                            className="flex-1 text-[16px] font-medium border-b border-amber-500 outline-none bg-transparent text-white"
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : (
@@ -709,7 +710,7 @@ export default function TakeoffSidebar({
                               setEditingSectionId(section.id)
                               setEditingSectionName(section.name)
                             }}
-                            className="flex-1 text-[14px] font-medium tracking-wide text-gray-200 truncate cursor-pointer hover:text-white"
+                            className="flex-1 text-[16px] font-medium tracking-wide text-gray-100 truncate cursor-pointer hover:text-white"
                           >
                             {section.name}
                           </span>
@@ -756,10 +757,6 @@ export default function TakeoffSidebar({
                             sectionItems.map((item) => {
                               const isSelected = item.id === selectedItemId
                               const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
-                              const totalPerim =
-                                item.type === 'area'
-                                  ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0)
-                                  : 0
                               const isEditing = editingId === item.id
                               return (
                                 <SortableMeasurementRow key={item.id} itemId={item.id} draggable={!isEditing}>
@@ -768,8 +765,8 @@ export default function TakeoffSidebar({
                                       onClick={() => onSelectItem(item.id)}
                                       className={`cursor-pointer transition-colors ${
                                         isSelected
-                                          ? 'bg-[#1a1a1a] border-l-4 border-l-amber-500'
-                                          : 'bg-[#111] hover:bg-[#161616] border-l-4 border-l-transparent opacity-70 hover:opacity-100'
+                                          ? 'bg-neutral-700/60 border-l-4 border-l-amber-500'
+                                          : 'bg-transparent hover:bg-neutral-700/30 border-l-4 border-l-transparent'
                                       }`}
                                     >
                                       <div className="px-2 py-2 flex items-center gap-1.5 min-w-0">
@@ -810,13 +807,16 @@ export default function TakeoffSidebar({
                                           </div>
                                         ) : (
                                           <>
-                                            <span className={`text-xs font-medium truncate flex-1 min-w-0 ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                                            <span className={`text-[14px] font-medium truncate flex-1 min-w-0 ${isSelected ? 'text-white' : 'text-gray-200'}`}>
                                               {item.name}
                                             </span>
                                             <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
                                               item.type === 'linear' ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
                                             }`}>
                                               {item.type === 'linear' ? 'LINEAR' : 'AREA'}
+                                            </span>
+                                            <span className="text-[12px] font-semibold text-amber-400 flex-shrink-0 tabular-nums">
+                                              {item.type === 'linear' ? fmtFtIn(total) : fmtArea(total)}
                                             </span>
                                             <KebabMenu
                                               variant="dark"
@@ -843,17 +843,22 @@ export default function TakeoffSidebar({
                                           </>
                                         )}
                                       </div>
-                                      {isSelected && item.measurements.length > 0 && (
-                                        <div className="px-3 pb-1">
+                                      {item.measurements.length > 0 && (
+                                        <div className="pl-[22px] pr-3 pb-2">
                                           {item.measurements.map((m) => (
-                                            <div key={m.id} className="flex items-center justify-between py-0.5 group">
-                                              <span className="text-[10px] text-gray-500">
-                                                {m.label}
-                                                {m.type === 'area' && m.perimeterFt ? ` | ${fmtFtIn(m.perimeterFt)} perim.` : ''}
+                                            <div key={m.id} className="flex items-center gap-2 py-0.5 group">
+                                              <span aria-hidden="true" className="block w-1 h-1 rounded-full bg-gray-600 flex-shrink-0" />
+                                              <span className="text-[12px] text-gray-400 tabular-nums">
+                                                {m.type === 'area'
+                                                  ? fmtArea(m.valueInFeet)
+                                                  : fmtFtIn(m.valueInFeet)}
+                                                {m.type === 'area' && m.perimeterFt ? (
+                                                  <span className="text-gray-600"> · {fmtFtIn(m.perimeterFt)} perim</span>
+                                                ) : null}
                                               </span>
                                               <button
                                                 onClick={(e) => { e.stopPropagation(); onDeleteMeasurement(item.id, m.id) }}
-                                                className="p-1.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="ml-auto p-1 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                                               >
                                                 <XIcon className="w-3 h-3" />
                                               </button>
@@ -861,12 +866,6 @@ export default function TakeoffSidebar({
                                           ))}
                                         </div>
                                       )}
-                                      <div className={`px-3 pb-2 text-[11px] font-bold ${isSelected ? 'text-amber-400' : 'text-gray-600'}`}>
-                                        Total: {item.type === 'linear' ? fmtFtIn(total) : fmtArea(total)}
-                                        {item.type === 'area' && totalPerim > 0 && (
-                                          <span className="ml-1.5 text-[10px] font-medium opacity-70">| {fmtFtIn(totalPerim)} perim.</span>
-                                        )}
-                                      </div>
                                     </div>
                                   )}
                                 </SortableMeasurementRow>
@@ -876,24 +875,24 @@ export default function TakeoffSidebar({
                         </SortableContext>
                       </DndContext>
 
-                      {/* Section subtotals — always rendered, even at 0. */}
-                      <div className="bg-[#0d0d0d] border-t border-gray-800/60">
-                        <div className="flex items-center justify-between px-4 py-1.5">
+                      {/* Section subtotals — visible footer band. */}
+                      <div className="bg-neutral-900 border-t border-neutral-700">
+                        <div className="flex items-center justify-between px-4 py-2">
                           <div className="flex items-center gap-1.5">
                             <RulerIcon className="w-3 h-3 text-amber-500" />
-                            <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Total Linear</span>
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Total Linear</span>
                           </div>
-                          <span className="text-[13px] font-bold text-amber-400">{fmtFtIn(subLinear)}</span>
+                          <span className="text-[13px] font-bold text-amber-400 tabular-nums">{fmtFtIn(subLinear)}</span>
                         </div>
-                        <div className="flex items-center justify-between px-4 py-1.5 border-t border-gray-800/40">
+                        <div className="flex items-center justify-between px-4 py-2 border-t border-neutral-800">
                           <div className="flex items-center gap-1.5">
                             <SquareIcon className="w-3 h-3 text-amber-500" />
-                            <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-bold text-amber-400">{fmtArea(subArea)}</span>
+                            <span className="text-[13px] font-bold text-amber-400 tabular-nums">{fmtArea(subArea)}</span>
                             {subPerim > 0 && (
-                              <span className="text-[9px] text-gray-500">{fmtFtIn(subPerim)} perim.</span>
+                              <span className="text-[10px] text-gray-500">{fmtFtIn(subPerim)} perim.</span>
                             )}
                           </div>
                         </div>
@@ -906,27 +905,23 @@ export default function TakeoffSidebar({
           </SortableContext>
         </DndContext>
 
-        {/* Project totals — always rendered, even at 0. 2px amber top
-            border + larger value text emphasize the bottom-line summary. */}
-        <div className="mx-2.5 mt-1 bg-[#0a0a0a] border-t-2 border-amber-500 rounded-b-md">
-          <div className="flex items-center justify-between px-4 py-2">
-            <div className="flex items-center gap-2">
-              <RulerIcon className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Project Total Linear</span>
-            </div>
-            <span className="text-[14px] font-bold text-amber-400">{fmtFtIn(projectTotals.linear)}</span>
+        {/* Project totals — emphasized amber-tinted block. Always rendered. */}
+        <div className="mx-3 mt-1 mb-2 px-4 py-3 rounded-md bg-amber-500/10 border border-amber-500/30">
+          <div className="text-[11px] font-medium text-amber-400 uppercase tracking-[0.06em] mb-2">
+            Project Totals
           </div>
-          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800/60">
-            <div className="flex items-center gap-2">
-              <SquareIcon className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Project Total Area</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] font-bold text-amber-400">{fmtArea(projectTotals.area)}</span>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-[13px] font-medium text-gray-300">Project Total Linear</span>
+            <span className="text-[17px] font-medium text-amber-400 tabular-nums">{fmtFtIn(projectTotals.linear)}</span>
+          </div>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-[13px] font-medium text-gray-300">Project Total Area</span>
+            <span className="text-[17px] font-medium text-amber-400 tabular-nums">
+              {fmtArea(projectTotals.area)}
               {projectTotals.perim > 0 && (
-                <span className="text-[10px] text-gray-500">{fmtFtIn(projectTotals.perim)} perim.</span>
+                <span className="ml-1.5 text-[12px] font-normal text-gray-500"> · {fmtFtIn(projectTotals.perim)} perim</span>
               )}
-            </div>
+            </span>
           </div>
         </div>
 
