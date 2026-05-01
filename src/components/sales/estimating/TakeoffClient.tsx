@@ -488,6 +488,29 @@ export default function TakeoffClient({
     setItems(next)
   }, [])
 
+  // Reorder items to match the given id order. The autosave effect picks up
+  // the new array order on its next debounce and writes it back to the
+  // estimating_project_measurements JSONB blob — so reorder is persisted by
+  // the same path that already saves new measurements / renames / deletes.
+  // No DB schema change is needed because items live as a JSON array, not
+  // as separate rows.
+  const handleReorderItems = useCallback((orderedIds: string[]) => {
+    setItems((prev) => {
+      const byId = new Map(prev.map((it) => [it.id, it]))
+      const reordered: TakeoffItem[] = []
+      for (const id of orderedIds) {
+        const it = byId.get(id)
+        if (it) reordered.push(it)
+      }
+      // Append any items not present in orderedIds (defensive — shouldn't
+      // happen with normal DnD but keeps state consistent on edge cases).
+      for (const it of prev) {
+        if (!orderedIds.includes(it.id)) reordered.push(it)
+      }
+      return reordered
+    })
+  }, [])
+
   const handleMarkupsChange = useCallback((next: Markup[]) => {
     setMarkups(next)
   }, [])
@@ -597,6 +620,7 @@ export default function TakeoffClient({
         onDeletePage={handleDeletePage}
         onRenamePage={handleRenamePage}
         onRenameItem={handleRenameItem}
+        onReorderItems={handleReorderItems}
       />
     )
   }

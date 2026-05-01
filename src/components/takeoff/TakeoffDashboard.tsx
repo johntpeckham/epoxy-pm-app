@@ -2,7 +2,24 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon, SendIcon } from 'lucide-react'
+import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon, SendIcon, GripVerticalIcon } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { TakeoffPage, TakeoffItem, Markup } from './types'
 import { exportFullReport } from './takeoffExport'
 import PushPlansModal from './PushPlansModal'
@@ -34,6 +51,15 @@ interface TakeoffDashboardProps {
   onDeletePage: (pdfIndex: number, pageIndex: number) => void
   onRenamePage: (pdfIndex: number, pageIndex: number, displayName: string) => void
   onRenameItem: (itemId: string, newName: string) => void
+  /**
+   * Optional drag-and-drop reorder hook for the Measurements card. Receives
+   * the new ordered list of item IDs after a drop. Persistence is the
+   * parent's responsibility — it should reorder its `items` state to match
+   * and let the autosave write the new array order to JSONB.
+   */
+  onReorderItems?: (orderedIds: string[]) => void
+  /** When false, the drag handles are hidden / disabled. */
+  canEditItems?: boolean
 }
 
 // ─── Thumbnail card ───
@@ -124,39 +150,39 @@ function PageThumbnail({
   }
 
   return (
-    <div className="relative group" style={{ width: 180 }}>
+    <div className="relative group" style={{ width: 90 }}>
       {/* Green checkmark badge — top left, when page has measurements/markups */}
       {isWorkedOn && (
-        <div className="absolute top-1.5 left-1.5 z-10 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shadow-sm">
-          <CheckIcon className="w-3 h-3 text-white" strokeWidth={3} />
+        <div className="absolute top-1 left-1 z-10 w-3 h-3 rounded-full bg-green-500 flex items-center justify-center shadow-sm">
+          <CheckIcon className="w-2 h-2 text-white" strokeWidth={3} />
         </div>
       )}
       {/* Delete button — top right, visible on hover */}
       {!confirmDelete && (
         <button
           onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
-          className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-full bg-black/60 hover:bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-1 right-1 z-10 w-4 h-4 rounded-full bg-black/60 hover:bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <XIcon className="w-4 h-4" />
+          <XIcon className="w-2.5 h-2.5" />
         </button>
       )}
 
       {/* Delete confirmation overlay */}
       {confirmDelete && (
-        <div className="absolute inset-0 z-20 bg-black/70 rounded-lg flex flex-col items-center justify-center gap-2">
-          <p className="text-white text-xs font-medium">Remove this page?</p>
-          <div className="flex gap-2">
+        <div className="absolute inset-0 z-20 bg-black/70 rounded-lg flex flex-col items-center justify-center gap-1">
+          <p className="text-white text-[9px] font-medium">Remove?</p>
+          <div className="flex gap-1">
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(); setConfirmDelete(false) }}
-              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-[11px] font-semibold rounded transition-colors"
+              className="px-1.5 py-0.5 bg-red-500 hover:bg-red-600 text-white text-[9px] font-semibold rounded transition-colors"
             >
               Yes
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}
-              className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white text-[11px] font-semibold rounded transition-colors"
+              className="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-500 text-white text-[9px] font-semibold rounded transition-colors"
             >
-              Cancel
+              No
             </button>
           </div>
         </div>
@@ -168,14 +194,14 @@ function PageThumbnail({
           isWorkedOn ? 'border-2 border-green-500 hover:border-green-600' : 'border border-gray-200 hover:border-amber-400'
         }`}
       >
-        <div className="w-full h-[220px] bg-gray-100 flex items-center justify-center overflow-hidden relative">
+        <div className="w-full h-[110px] bg-gray-100 flex items-center justify-center overflow-hidden relative">
           {loading && <div className="absolute inset-0 bg-gray-100 animate-pulse" />}
           <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
         </div>
       </button>
 
       {/* Editable name below thumbnail */}
-      <div className="mt-1 px-1">
+      <div className="mt-0.5 px-0.5">
         {editing ? (
           <input
             ref={inputRef}
@@ -187,15 +213,15 @@ function PageThumbnail({
               if (e.key === 'Enter') { e.currentTarget.blur() }
               if (e.key === 'Escape') { cancelEdit() }
             }}
-            className="text-base font-semibold text-center border-b-2 border-amber-500 outline-none bg-transparent w-full max-w-[140px] mx-auto block"
+            className="text-[11px] font-semibold text-center border-b border-amber-500 outline-none bg-transparent w-full max-w-[80px] mx-auto block"
           />
         ) : (
           <div
             onClick={(e) => { e.stopPropagation(); startEditing() }}
-            className="group/name flex items-center gap-1 justify-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 transition-colors"
+            className="group/name flex items-center gap-0.5 justify-center cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5 transition-colors"
           >
-            <span className="text-base font-semibold text-gray-800 truncate">{displayName}</span>
-            <Pencil size={12} className="text-gray-400 group-hover/name:text-amber-500 flex-shrink-0" />
+            <span className="text-[11px] font-semibold text-gray-800 truncate">{displayName}</span>
+            <Pencil size={9} className="text-gray-400 group-hover/name:text-amber-500 flex-shrink-0" />
           </div>
         )}
       </div>
@@ -227,6 +253,59 @@ function fmtArea(sf: number): string {
   return sf >= 1000 ? `${sf.toLocaleString('en-US', { maximumFractionDigits: 0 })} sq ft` : `${sf.toFixed(1)} sq ft`
 }
 
+// ─── Sortable measurement row ───
+// Inline so the row's render code (rich layout, inline-rename, type pill,
+// totals) stays close to the dashboard. The row owns its useSortable hook
+// and the drag handle; rendering of the body is delegated back via a render
+// prop to keep one source of truth for layout.
+
+function SortableMeasurementRow({
+  itemId,
+  isLast,
+  draggable,
+  children,
+}: {
+  itemId: string
+  isLast: boolean
+  draggable: boolean
+  children: (handle: {
+    setActivatorRef: (el: HTMLElement | null) => void
+    listeners: ReturnType<typeof useSortable>['listeners']
+    attributes: ReturnType<typeof useSortable>['attributes']
+  }) => React.ReactNode
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: itemId, disabled: !draggable })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    position: 'relative',
+    opacity: isDragging ? 0.85 : 1,
+    boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.12)' : undefined,
+    background: isDragging ? '#fff' : undefined,
+    borderRadius: isDragging ? 8 : undefined,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 px-4 py-2.5 ${!isLast ? 'border-b border-gray-50' : ''}`}
+    >
+      {children({ setActivatorRef: setActivatorNodeRef, listeners, attributes })}
+    </div>
+  )
+}
+
 // ─── Dashboard ───
 
 export default function TakeoffDashboard({
@@ -242,6 +321,8 @@ export default function TakeoffDashboard({
   onDeletePage,
   onRenamePage,
   onRenameItem,
+  onReorderItems,
+  canEditItems = true,
 }: TakeoffDashboardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -254,6 +335,29 @@ export default function TakeoffDashboard({
   const [showPreview, setShowPreview] = useState(false)
   const [showPushModal, setShowPushModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  // DnD sensors for the Measurements card. PointerSensor with an 8px
+  // activation distance keeps inline-rename clicks on the item name from
+  // accidentally starting a drag.
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleItemsDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over || active.id === over.id) return
+      if (!onReorderItems) return
+      const ids = items.map((it) => it.id)
+      const fromIndex = ids.indexOf(active.id as string)
+      const toIndex = ids.indexOf(over.id as string)
+      if (fromIndex < 0 || toIndex < 0) return
+      const next = arrayMove(ids, fromIndex, toIndex)
+      onReorderItems(next)
+    },
+    [items, onReorderItems]
+  )
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -398,7 +502,56 @@ export default function TakeoffDashboard({
         </div>
       )}
 
-      {/* Section 1 — Measurement Items Summary */}
+      {/* Section 1 — Plan Pages grid */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Plan Pages</h2>
+          <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+            {pages.length}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 mb-5">
+        {pages.map((page) => {
+          const pk = `${page.pdfIndex}-${page.pageIndex}`
+          return (
+            <PageThumbnail
+              key={pk}
+              page={page}
+              onClick={() => onOpenPage(page)}
+              onDelete={() => onDeletePage(page.pdfIndex, page.pageIndex)}
+              onRename={(name) => onRenamePage(page.pdfIndex, page.pageIndex, name)}
+              isWorkedOn={workedOnPages.has(pk)}
+            />
+          )
+        })}
+
+        {/* Add PDF card — sized to match the smaller PageThumbnail (90 × 126). */}
+        <button
+          onClick={() => { if (!uploading) fileInputRef.current?.click() }}
+          disabled={uploading}
+          className="flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer disabled:cursor-wait disabled:opacity-70"
+          style={{ width: 90, height: 126 }}
+        >
+          {uploading ? (
+            <>
+              <Loader2Icon className="w-4 h-4 text-amber-500 animate-spin mb-1" />
+              <span className="text-[10px] font-medium text-amber-500">Processing…</span>
+            </>
+          ) : (
+            <>
+              <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center mb-1">
+                <PlusIcon className="w-3.5 h-3.5 text-gray-400" />
+              </div>
+              <span className="text-[10px] font-medium text-gray-400">Add PDF</span>
+            </>
+          )}
+        </button>
+        <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
+      </div>
+
+      {/* Section 2 — Measurement Items Summary */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-5">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-900">Measurements</h2>
@@ -413,16 +566,39 @@ export default function TakeoffDashboard({
             <p className="text-sm text-gray-400 text-center">No measurements yet — open a page to start measuring</p>
           </div>
         ) : (
-          <div>
+          <DndContext
+            sensors={dndSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleItemsDragEnd}
+          >
+            <SortableContext items={items.map((it) => it.id)} strategy={verticalListSortingStrategy}>
             {items.map((item, idx) => {
               const itemTotal = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
               const itemPerim = item.type === 'area' ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0) : 0
               const isLast = idx === items.length - 1
+              const dragEnabled = canEditItems && !!onReorderItems && items.length > 1
               return (
-                <div
+                <SortableMeasurementRow
                   key={item.id}
-                  className={`flex items-center gap-3 px-4 py-2.5 ${!isLast ? 'border-b border-gray-50' : ''}`}
+                  itemId={item.id}
+                  isLast={isLast}
+                  draggable={dragEnabled}
                 >
+                  {({ setActivatorRef, listeners, attributes }) => (<>
+                  {dragEnabled ? (
+                    <button
+                      ref={setActivatorRef}
+                      type="button"
+                      {...listeners}
+                      {...attributes}
+                      aria-label="Drag to reorder"
+                      className="flex-shrink-0 -ml-1 p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
+                    >
+                      <GripVerticalIcon className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <span className="w-2" />
+                  )}
                   <div
                     className="w-3 h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: item.color }}
@@ -476,10 +652,16 @@ export default function TakeoffDashboard({
                       {fmtFtIn(itemPerim)} perim.
                     </span>
                   )}
-                </div>
+                  </>)}
+                </SortableMeasurementRow>
               )
             })}
+            </SortableContext>
+          </DndContext>
+        )}
 
+        {items.length > 0 && (
+          <div>
             <div className="border-t border-gray-200 bg-gray-50/50">
               {totalLinear > 0 && (
                 <div className="flex items-center justify-between px-4 py-2">
@@ -514,54 +696,6 @@ export default function TakeoffDashboard({
         )}
       </div>
 
-      {/* Section 2 — PDF Pages grid */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Plan Pages</h2>
-          <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
-            {pages.length}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-3">
-        {pages.map((page) => {
-          const pk = `${page.pdfIndex}-${page.pageIndex}`
-          return (
-            <PageThumbnail
-              key={pk}
-              page={page}
-              onClick={() => onOpenPage(page)}
-              onDelete={() => onDeletePage(page.pdfIndex, page.pageIndex)}
-              onRename={(name) => onRenamePage(page.pdfIndex, page.pageIndex, name)}
-              isWorkedOn={workedOnPages.has(pk)}
-            />
-          )
-        })}
-
-        {/* Add PDF card */}
-        <button
-          onClick={() => { if (!uploading) fileInputRef.current?.click() }}
-          disabled={uploading}
-          className="flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer disabled:cursor-wait disabled:opacity-70"
-          style={{ width: 180, height: 252 }}
-        >
-          {uploading ? (
-            <>
-              <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin mb-2" />
-              <span className="text-xs font-medium text-amber-500">Processing...</span>
-            </>
-          ) : (
-            <>
-              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
-                <PlusIcon className="w-5 h-5 text-gray-400" />
-              </div>
-              <span className="text-xs font-medium text-gray-400">Add PDF</span>
-            </>
-          )}
-        </button>
-        <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
-      </div>
 
       {/* Push Plans Modal */}
       {showPushModal && (
