@@ -1,14 +1,19 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { PlusIcon, Trash2Icon, XIcon, Pencil } from 'lucide-react'
+import { PlusIcon, Trash2Icon, XIcon, Pencil, Plus } from 'lucide-react'
 import type { TakeoffItem, MeasurementType } from './types'
 import { ITEM_COLORS } from './TakeoffViewer'
 
 interface TakeoffSidebarProps {
   items: TakeoffItem[]
-  activeItemId: string | null
+  /** Sidebar selection (for visual highlight + PDF dim-others). */
+  selectedItemId: string | null
+  /** Toggle selection on row body click. */
   onSelectItem: (id: string) => void
+  /** Open the new-measurement panel pre-populated for this existing item
+   *  (locked Linear/Area toggle, editable name/color). */
+  onAddMoreToItem: (id: string) => void
   onAddItem: (name: string, type: MeasurementType, color?: string) => void
   onDeleteItem: (id: string) => void
   onRenameItem: (id: string, name: string) => void
@@ -23,6 +28,9 @@ interface TakeoffSidebarProps {
   // set, this item is hidden from the saved list and its live tally is
   // rendered inline in the panel.
   panelSessionItemId: string | null
+  /** When set, the panel is in "add more shapes to an existing item" mode.
+   *  The Linear/Area toggle is locked; name/color stay editable. */
+  panelEditingItemId: string | null
   // Number of currently-placing points (the in-progress shape under the
   // panel-session item). Used to gate Finish Measuring.
   tempPointsCount: number
@@ -61,8 +69,9 @@ function ColorSwatches({ selected, onSelect }: { selected: string; onSelect: (c:
 
 export default function TakeoffSidebar({
   items,
-  activeItemId,
+  selectedItemId,
   onSelectItem,
+  onAddMoreToItem,
   onAddItem,
   onDeleteItem,
   onRenameItem,
@@ -72,6 +81,7 @@ export default function TakeoffSidebar({
   onPanelOpenChange,
   isMeasuringActive,
   panelSessionItemId,
+  panelEditingItemId,
   tempPointsCount,
   onFinishMeasuring,
 }: TakeoffSidebarProps) {
@@ -79,6 +89,35 @@ export default function TakeoffSidebar({
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<MeasurementType>('linear')
   const [newColor, setNewColor] = useState(ITEM_COLORS[0])
+  const isEditingExisting = panelEditingItemId !== null
+
+  // When the panel transitions into "add to existing" mode (the user clicked
+  // the "+" icon on a saved row), pre-populate the form fields from the
+  // item's current values. We key this on the item id changing, not on
+  // every render, so user edits to name/color while the panel is open are
+  // preserved.
+  useEffect(() => {
+    if (!isEditingExisting) return
+    const item = items.find((it) => it.id === panelEditingItemId)
+    if (!item) return
+    setNewName(item.name)
+    setNewType(item.type)
+    setNewColor(item.color)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelEditingItemId])
+
+  // Mirror name/color edits made in the panel onto the live item while
+  // editing-existing, so the live tally header (and the PDF stroke color)
+  // reflect the user's choices in real time. Skipped while the panel is
+  // closed or while creating a brand-new item (which has its own
+  // creation-on-Start-Measuring flow).
+  useEffect(() => {
+    if (!isEditingExisting || !panelEditingItemId) return
+    const trimmed = newName.trim()
+    if (trimmed) onRenameItem(panelEditingItemId, trimmed)
+    onChangeItemColor(panelEditingItemId, newColor)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newName, newColor, panelEditingItemId])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
@@ -192,25 +231,31 @@ export default function TakeoffSidebar({
           />
           {/* Color swatches */}
           <ColorSwatches selected={newColor} onSelect={setNewColor} />
-          {/* Type pill toggle */}
+          {/* Type pill toggle. Locked when editing-existing — type is a
+              property of the item itself; switching it would invalidate the
+              already-stored shapes' geometry. */}
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setNewType('linear')}
+              onClick={() => { if (!isEditingExisting) setNewType('linear') }}
+              disabled={isEditingExisting}
+              aria-disabled={isEditingExisting}
               className={`flex-1 py-1 text-xs font-medium rounded transition-colors ${
                 newType === 'linear'
                   ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
                   : 'bg-[#222] text-gray-500 border border-gray-700 hover:text-gray-300'
-              }`}
+              } ${isEditingExisting && newType !== 'linear' ? 'opacity-40 cursor-not-allowed' : ''} ${isEditingExisting ? 'cursor-not-allowed' : ''}`}
             >
               Linear
             </button>
             <button
-              onClick={() => setNewType('area')}
+              onClick={() => { if (!isEditingExisting) setNewType('area') }}
+              disabled={isEditingExisting}
+              aria-disabled={isEditingExisting}
               className={`flex-1 py-1 text-xs font-medium rounded transition-colors ${
                 newType === 'area'
                   ? 'bg-green-500/20 text-green-400 border border-green-500/40'
                   : 'bg-[#222] text-gray-500 border border-gray-700 hover:text-gray-300'
-              }`}
+              } ${isEditingExisting && newType !== 'area' ? 'opacity-40 cursor-not-allowed' : ''} ${isEditingExisting ? 'cursor-not-allowed' : ''}`}
             >
               Area
             </button>
@@ -293,7 +338,7 @@ export default function TakeoffSidebar({
         )}
 
         {savedItems.map((item) => {
-          const isActive = item.id === activeItemId
+          const isSelected = item.id === selectedItemId
           const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
           const totalPerim = item.type === 'area' ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0) : 0
           const isEditing = editingId === item.id
@@ -303,7 +348,7 @@ export default function TakeoffSidebar({
               key={item.id}
               onClick={() => onSelectItem(item.id)}
               className={`cursor-pointer transition-colors border-b border-gray-800/60 ${
-                isActive
+                isSelected
                   ? 'bg-[#1a1a1a] border-l-4 border-l-amber-500'
                   : 'bg-[#111] hover:bg-[#161616] border-l-4 border-l-transparent opacity-70 hover:opacity-100'
               }`}
@@ -341,7 +386,7 @@ export default function TakeoffSidebar({
                       onClick={(e) => { e.stopPropagation(); startRename(item) }}
                       className="group/name flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
                     >
-                      <span className={`text-xs font-medium truncate ${isActive ? 'text-white' : 'text-gray-400'}`}>
+                      <span className={`text-xs font-medium truncate ${isSelected ? 'text-white' : 'text-gray-400'}`}>
                         {item.name}
                       </span>
                       <Pencil size={12} className="text-gray-600 group-hover/name:text-amber-500 flex-shrink-0" />
@@ -351,11 +396,17 @@ export default function TakeoffSidebar({
                     }`}>
                       {item.type === 'linear' ? 'LINEAR' : 'AREA'}
                     </span>
-                    {isActive && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 bg-amber-500/20 text-amber-400">
-                        Measuring
-                      </span>
-                    )}
+                    {/* Add-more "+" — opens the new-measurement panel
+                        pre-populated for this item. Stop propagation so
+                        clicking the icon does not also toggle row
+                        selection. */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onAddMoreToItem(item.id) }}
+                      title="Add more shapes to this item"
+                      className="p-1.5 text-gray-700 hover:text-amber-400 flex-shrink-0 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id) }}
                       className="p-1.5 text-gray-700 hover:text-red-400 flex-shrink-0 transition-colors"
@@ -366,10 +417,10 @@ export default function TakeoffSidebar({
                 )}
               </div>
 
-              {/* Measurements (always visible when active) */}
-              {isActive && item.measurements.length > 0 && (
+              {/* Per-shape list expands when the row is selected. */}
+              {isSelected && item.measurements.length > 0 && (
                 <div className="px-3 pb-1">
-                  {item.measurements.map((m, _idx) => (
+                  {item.measurements.map((m) => (
                     <div key={m.id} className="flex items-center justify-between py-0.5 group">
                       <span className="text-[10px] text-gray-500">
                         {m.label}
@@ -387,7 +438,7 @@ export default function TakeoffSidebar({
               )}
 
               {/* Total */}
-              <div className={`px-3 pb-2 text-[11px] font-bold ${isActive ? 'text-amber-400' : 'text-gray-600'}`}>
+              <div className={`px-3 pb-2 text-[11px] font-bold ${isSelected ? 'text-amber-400' : 'text-gray-600'}`}>
                 Total: {item.type === 'linear' ? fmtFtIn(total) : `${total.toFixed(1)} sq ft`}
                 {item.type === 'area' && totalPerim > 0 && (
                   <span className="ml-1.5 text-[10px] font-medium opacity-70">| {fmtFtIn(totalPerim)} perim.</span>
