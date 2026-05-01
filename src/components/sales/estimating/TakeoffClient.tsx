@@ -6,7 +6,6 @@ import {
   RulerIcon,
   MonitorIcon,
   ArrowLeftIcon,
-  Loader2Icon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
@@ -236,6 +235,10 @@ export default function TakeoffClient({
   const [pdfs, setPdfs] = useState<EstimatingProjectPdf[]>(initialPdfs)
   const [pages, setPages] = useState<TakeoffPage[]>([])
   const [loadingPdfs, setLoadingPdfs] = useState(initialPdfs.length > 0)
+  // Real progress count for the initial PDF-load loop. Each PDF that
+  // finishes fetching + thumbnailing increments by 1; the loading screen
+  // surfaces (loadProgressDone / pdfs.length) as a percentage.
+  const [loadProgressDone, setLoadProgressDone] = useState(0)
 
   const initial = useMemo(
     () => buildInitialState(initialPdfs, measurements),
@@ -337,6 +340,7 @@ export default function TakeoffClient({
       return
     }
     setLoadingPdfs(true)
+    setLoadProgressDone(0)
     ;(async () => {
       try {
         const all: TakeoffPage[] = []
@@ -344,6 +348,7 @@ export default function TakeoffClient({
           const pdfPages = await loadPdfPages(pdfs[i], i)
           if (cancelled) return
           all.push(...pdfPages)
+          setLoadProgressDone(i + 1)
         }
         if (!cancelled) setPages(all)
       } catch (err) {
@@ -845,11 +850,23 @@ export default function TakeoffClient({
       />
     )
   } else if (loadingPdfs && pages.length === 0) {
+    // Real progress: each PDF that finishes fetching + thumbnailing
+    // advances the bar by (1 / total). pdfs.length === 0 case is handled
+    // earlier (sets loadingPdfs=false and skips this branch entirely).
+    const total = pdfs.length || 1
+    const pct = Math.min(100, Math.round((loadProgressDone / total) * 100))
     column3Content = (
       <div className="flex items-center justify-center h-full bg-gray-50">
-        <div className="text-center">
-          <Loader2Icon className="w-6 h-6 text-amber-500 animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-400">Loading plans…</p>
+        <div className="w-[320px]">
+          <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-amber-500 transition-[width] duration-200"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="text-sm text-gray-500 text-center mt-3 tabular-nums">
+            Loading plans… {pct}%
+          </p>
         </div>
       </div>
     )
