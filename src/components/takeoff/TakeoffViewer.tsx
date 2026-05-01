@@ -1456,7 +1456,9 @@ export default function TakeoffViewer({
             </div>
           )}
 
-          {/* Inner div: CSS transform for zoom + pan */}
+          {/* Inner div: CSS transform for zoom + pan (PDF canvas only).
+              The SVG overlay below is intentionally NOT inside this scaled
+              wrapper — see the comment on the <svg> for why. */}
           <div
             ref={innerRef}
             style={{
@@ -1467,41 +1469,43 @@ export default function TakeoffViewer({
             }}
           >
             <canvas ref={canvasRef} style={{ display: 'block' }} />
-
-            {/* SVG overlay for measurements — same coordinate space as canvas.
-                viewBox is locked to logical pixel dimensions so the browser
-                always re-tessellates vector strokes/fills crisply when the
-                parent's CSS scale(zoom) changes (rather than rasterizing the
-                overlay once at 1× and then bitmap-scaling). The SVG also gets
-                its own compositor layer via translateZ(0) so it isn't
-                bundled into a low-DPI parent layer. */}
-            {pdfLoaded && canvasSize.w > 0 && (
-              <svg
-                width={canvasSize.w}
-                height={canvasSize.h}
-                viewBox={`0 0 ${canvasSize.w} ${canvasSize.h}`}
-                preserveAspectRatio="none"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: `${canvasSize.w}px`,
-                  height: `${canvasSize.h}px`,
-                  cursor,
-                  pointerEvents: 'all',
-                  transform: 'translateZ(0)',
-                  willChange: 'transform',
-                }}
-                onMouseDown={handleSvgMouseDown}
-                onMouseMove={handleSvgMouseMove}
-                onMouseUp={handleSvgMouseUp}
-                onClick={handleSvgClick}
-                onDoubleClick={handleSvgDoubleClick}
-              >
-                {svgElements}
-              </svg>
-            )}
           </div>
+
+          {/* SVG overlay for measurements.
+              Held OUTSIDE the scaled wrapper so the browser re-tessellates
+              vector strokes at the current zoom resolution instead of
+              bitmap-scaling a once-rasterized compositor layer. We mirror
+              the wrapper's translate (panX, panY) but apply zoom by
+              growing the SVG's intrinsic width/height to canvasSize * zoom
+              while keeping viewBox locked to canvasSize — points stay in
+              zoom=1 user-units, so neither the captured/stored coords nor
+              the hit-test math has to change. */}
+          {pdfLoaded && canvasSize.w > 0 && (
+            <svg
+              width={canvasSize.w * zoom}
+              height={canvasSize.h * zoom}
+              viewBox={`0 0 ${canvasSize.w} ${canvasSize.h}`}
+              preserveAspectRatio="none"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: `${canvasSize.w * zoom}px`,
+                height: `${canvasSize.h * zoom}px`,
+                transform: `translate(${panX}px, ${panY}px)`,
+                transformOrigin: '0 0',
+                cursor,
+                pointerEvents: 'all',
+              }}
+              onMouseDown={handleSvgMouseDown}
+              onMouseMove={handleSvgMouseMove}
+              onMouseUp={handleSvgMouseUp}
+              onClick={handleSvgClick}
+              onDoubleClick={handleSvgDoubleClick}
+            >
+              {svgElements}
+            </svg>
+          )}
 
           {/* Markup text input */}
           {markupTextInput.visible && (
