@@ -16,9 +16,40 @@ import type {
   TakeoffItem,
   TakeoffPage,
   Markup,
+  TakeoffSection,
 } from '@/components/takeoff/types'
 import type { EstimatingProject, EstimatingProjectPdf } from './types'
 import { useUploadTakeoffPdf } from './useUploadTakeoffPdf'
+
+// ─── Sections row type (DB shape) ──────────────────────────────────────
+
+export interface TakeoffSectionRow {
+  id: string
+  project_id: string
+  name: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+function sectionRowToClient(row: TakeoffSectionRow): TakeoffSection {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    name: row.name,
+    sortOrder: row.sort_order,
+  }
+}
+
+function genSectionId(): string {
+  // Crypto.randomUUID is widely available in modern browsers and matches
+  // what Supabase generates for inserts; fallback to Math.random for SSR
+  // (this code path runs client-side so the browser branch is taken).
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
 
 // ─── Row type shared with the server page ──────────────────────────────
 
@@ -56,6 +87,7 @@ interface TakeoffClientProps {
   project: EstimatingProject
   pdfs: EstimatingProjectPdf[]
   measurements: MeasurementRow[]
+  sections: TakeoffSectionRow[]
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────
@@ -189,6 +221,7 @@ export default function TakeoffClient({
   project,
   pdfs: initialPdfs,
   measurements,
+  sections: initialSections,
 }: TakeoffClientProps) {
   const uploadPdf = useUploadTakeoffPdf(project.id)
 
@@ -208,7 +241,71 @@ export default function TakeoffClient({
     () => buildInitialState(initialPdfs, measurements),
     [initialPdfs, measurements]
   )
-  const [items, setItems] = useState<TakeoffItem[]>(initial.items)
+  // ─── Sections ────────────────────────────────────────────────────────
+  // Sections are stored in their own DB table and loaded via the server
+  // page. Items live in JSONB (existing pattern); each item carries an
+  // optional sectionId that is lazily filled in here on first render so
+  // legacy data continues to work — the next autosave persists the
+  // assignment back to JSONB.
+  const [sections, setSections] = useState<TakeoffSection[]>(() =>
+    initialSections
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+      .map(sectionRowToClient)
+  )
+
+  // Resolve the "default" section for new/orphaned items: the first
+  // section by sort order. If no sections exist for the project (the
+  // user deleted them all), we synthesize one client-side and persist on
+  // the next mount; new items still bind to its id immediately.
+  const defaultSectionRef = useRef<TakeoffSection | null>(null)
+  if (!defaultSectionRef.current && sections.length > 0) {
+    defaultSectionRef.current = sections[0]
+  }
+
+  // Lazy assign sectionId for legacy items. Run on initial.items and any
+  // item that comes through buildInitialState without a sectionId. We do
+  // this BEFORE the items useState so the first render already has the
+  // assignments and the autosave debounce will persist them.
+  const lazySectionAssignedItems = useMemo(() => {
+    const validIds = new Set(sections.map((s) => s.id))
+    const fallback = sections[0]?.id
+    if (!fallback) return initial.items
+    return initial.items.map((it) =>
+      it.sectionId && validIds.has(it.sectionId) ? it : { ...it, sectionId: fallback }
+    )
+  }, [initial.items, sections])
+
+  const [items, setItems] = useState<TakeoffItem[]>(lazySectionAssignedItems)
+
+  // Auto-create a Default section if the project has measurement data
+  // but zero sections exist (user deleted them all, or a brand-new
+  // project that didn't get backfilled). Runs once on mount.
+  const sectionAutoCreateRanRef = useRef(false)
+  useEffect(() => {
+    if (sectionAutoCreateRanRef.current) return
+    sectionAutoCreateRanRef.current = true
+    if (sections.length > 0) return
+    const newId = genSectionId()
+    const optimistic: TakeoffSection = {
+      id: newId,
+      projectId: project.id,
+      name: 'Default',
+      sortOrder: 0,
+    }
+    setSections([optimistic])
+    defaultSectionRef.current = optimistic
+    const supabase = createClient()
+    supabase
+      .from('estimating_project_measurement_sections')
+      .insert({ id: newId, project_id: project.id, name: 'Default', sort_order: 0 })
+      .then(({ error }) => {
+        if (error) {
+          console.error('[Takeoff] Auto-create default section failed:', error)
+        }
+      })
+  }, [project.id, sections.length])
+
   const [markups, setMarkups] = useState<Markup[]>(initial.markups)
   const [pageScales, setPageScales] = useState<Record<string, number>>(
     initial.pageScales
@@ -540,6 +637,151 @@ export default function TakeoffClient({
     []
   )
 
+  // ─── Section CRUD ────────────────────────────────────────────────────
+  // All persistence is direct to estimating_project_measurement_sections.
+  // Items' sectionId lives in JSONB and is persisted by the existing
+  // measurements autosave on the next mutation.
+
+  const handleCreateSection = useCallback(
+    (name: string): string => {
+      const trimmed = name.trim() || 'New Section'
+      const newId = genSectionId()
+      setSections((prev) => {
+        const sortOrder =
+          prev.length > 0 ? Math.max(...prev.map((s) => s.sortOrder)) + 1 : 0
+        const next: TakeoffSection = {
+          id: newId,
+          projectId: project.id,
+          name: trimmed,
+          sortOrder,
+        }
+        const supabase = createClient()
+        supabase
+          .from('estimating_project_measurement_sections')
+          .insert({
+            id: newId,
+            project_id: project.id,
+            name: trimmed,
+            sort_order: sortOrder,
+          })
+          .then(({ error }) => {
+            if (error) console.error('[Takeoff] Create section failed:', error)
+          })
+        return [...prev, next]
+      })
+      return newId
+    },
+    [project.id]
+  )
+
+  const handleRenameSection = useCallback((sectionId: string, name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setSections((prev) =>
+      prev.map((s) => (s.id === sectionId ? { ...s, name: trimmed } : s))
+    )
+    const supabase = createClient()
+    supabase
+      .from('estimating_project_measurement_sections')
+      .update({ name: trimmed })
+      .eq('id', sectionId)
+      .then(({ error }) => {
+        if (error) console.error('[Takeoff] Rename section failed:', error)
+      })
+  }, [])
+
+  const handleDeleteSection = useCallback((sectionId: string) => {
+    setSections((prev) => prev.filter((s) => s.id !== sectionId))
+    // Items in the deleted section are removed from client state. The
+    // CASCADE FK is on sections.project_id (not items, which live in
+    // JSONB), so the JSONB is updated by the next autosave that writes
+    // out the smaller items array.
+    setItems((prev) => prev.filter((it) => it.sectionId !== sectionId))
+    const supabase = createClient()
+    supabase
+      .from('estimating_project_measurement_sections')
+      .delete()
+      .eq('id', sectionId)
+      .then(({ error }) => {
+        if (error) console.error('[Takeoff] Delete section failed:', error)
+      })
+  }, [])
+
+  const handleReorderSections = useCallback((orderedIds: string[]) => {
+    setSections((prev) => {
+      const byId = new Map(prev.map((s) => [s.id, s]))
+      const next: TakeoffSection[] = []
+      orderedIds.forEach((id, i) => {
+        const s = byId.get(id)
+        if (s) next.push({ ...s, sortOrder: i })
+      })
+      // Defensive: keep any sections not present in orderedIds at the end
+      // with continuing indices.
+      let nextIdx = next.length
+      for (const s of prev) {
+        if (!orderedIds.includes(s.id)) {
+          next.push({ ...s, sortOrder: nextIdx++ })
+        }
+      }
+      // Persist only the rows whose sort_order changed.
+      const supabase = createClient()
+      next.forEach((s) => {
+        const old = byId.get(s.id)
+        if (!old || old.sortOrder === s.sortOrder) return
+        supabase
+          .from('estimating_project_measurement_sections')
+          .update({ sort_order: s.sortOrder })
+          .eq('id', s.id)
+          .then(({ error }) => {
+            if (error)
+              console.error('[Takeoff] Reorder section failed:', error)
+          })
+      })
+      return next
+    })
+  }, [])
+
+  // Move an item to a different section AND/OR reorder within a section.
+  // Receives the per-section ordered id lists for source + destination.
+  // The single canonical client list of items is rebuilt to match the
+  // section grouping; the autosave persists the new array order to JSONB.
+  const handleReorderItemsInSections = useCallback(
+    (sectionIdToOrderedItemIds: Record<string, string[]>) => {
+      setItems((prev) => {
+        const byId = new Map(prev.map((it) => [it.id, it]))
+        const next: TakeoffItem[] = []
+        // Walk sections in their current sort order so items group
+        // naturally section-by-section in the array (cosmetic; the
+        // grouped render in the sidebar is by sectionId, not by array
+        // adjacency, but adjacency makes the JSONB more readable).
+        const sectionOrder = sections
+          .slice()
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((s) => s.id)
+        for (const sectionId of sectionOrder) {
+          const ids = sectionIdToOrderedItemIds[sectionId] ?? []
+          for (const id of ids) {
+            const it = byId.get(id)
+            if (!it) continue
+            next.push({ ...it, sectionId })
+            byId.delete(id)
+          }
+        }
+        // Any remaining items that weren't placed (e.g., a section that
+        // was just deleted) — drop them onto the first existing section
+        // so they're never orphaned.
+        const fallback = sections[0]?.id
+        for (const remaining of byId.values()) {
+          next.push(
+            fallback ? { ...remaining, sectionId: fallback } : remaining
+          )
+        }
+        return next
+      })
+    },
+    [sections]
+  )
+
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen((prev) => !prev)
   }, [])
@@ -588,12 +830,18 @@ export default function TakeoffClient({
         isFullscreen={isFullscreen}
         pageRenderedSizes={pageRenderedSizes}
         projectName={project.name}
+        sections={sections}
         onBack={handleBackToDashboard}
         onPageScaleChange={handlePageScaleChange}
         onItemsChange={handleItemsChange}
         onMarkupsChange={handleMarkupsChange}
         onToggleFullscreen={handleToggleFullscreen}
         onCanvasSizeChange={handleCanvasSizeChange}
+        onCreateSection={handleCreateSection}
+        onRenameSection={handleRenameSection}
+        onDeleteSection={handleDeleteSection}
+        onReorderSections={handleReorderSections}
+        onReorderItemsInSections={handleReorderItemsInSections}
       />
     )
   } else if (loadingPdfs && pages.length === 0) {
