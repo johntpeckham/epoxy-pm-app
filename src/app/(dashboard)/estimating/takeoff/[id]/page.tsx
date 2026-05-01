@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { requirePermission } from '@/lib/requirePermission'
 import TakeoffClient, {
   type MeasurementRow,
+  type TakeoffSectionRow,
 } from '@/components/sales/estimating/TakeoffClient'
 import type {
   EstimatingProject,
@@ -65,11 +66,19 @@ export default async function TakeoffPage({ params }: PageProps) {
         )
     : { data: [] as MeasurementRow[] }
 
+  const { data: sectionRows } = await supabase
+    .from('estimating_project_measurement_sections')
+    .select('*')
+    .eq('project_id', id)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
   return (
     <TakeoffClient
       project={project as EstimatingProject}
       pdfs={pdfs}
       measurements={(measurementRows ?? []) as MeasurementRow[]}
+      sections={(sectionRows ?? []) as TakeoffSectionRow[]}
     />
   )
 }

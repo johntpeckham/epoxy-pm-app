@@ -11,6 +11,7 @@ import type {
   MeasurementType,
   Markup,
   TakeoffPage,
+  TakeoffSection,
 } from './types'
 import { ArrowLeftIcon, AlertTriangleIcon } from 'lucide-react'
 import { exportSinglePage } from './takeoffExport'
@@ -110,12 +111,20 @@ interface TakeoffViewerProps {
   isFullscreen: boolean
   pageRenderedSizes: Record<string, { w: number; h: number }>
   projectName: string
+  sections: TakeoffSection[]
   onBack: () => void
   onPageScaleChange: (pixelsPerFoot: number) => void
   onItemsChange: (items: TakeoffItem[]) => void
   onMarkupsChange: (markups: Markup[]) => void
   onToggleFullscreen: () => void
   onCanvasSizeChange: (pageKey: string, size: { w: number; h: number }) => void
+  onCreateSection: (name: string) => string
+  onRenameSection: (id: string, name: string) => void
+  onDeleteSection: (id: string) => void
+  onReorderSections: (orderedIds: string[]) => void
+  onReorderItemsInSections: (
+    sectionIdToOrderedItemIds: Record<string, string[]>
+  ) => void
 }
 
 export default function TakeoffViewer({
@@ -126,12 +135,18 @@ export default function TakeoffViewer({
   isFullscreen,
   pageRenderedSizes,
   projectName,
+  sections,
   onBack,
   onPageScaleChange,
   onItemsChange,
   onMarkupsChange,
   onToggleFullscreen,
   onCanvasSizeChange,
+  onCreateSection,
+  onRenameSection,
+  onDeleteSection,
+  onReorderSections,
+  onReorderItemsInSections,
 }: TakeoffViewerProps) {
   const pageKey = `${page.pdfIndex}-${page.pageIndex}`
   const scaleCalibrated = pageScale !== undefined
@@ -827,11 +842,25 @@ export default function TakeoffViewer({
   // tally inline in the panel.
   const [panelSessionItemId, setPanelSessionItemId] = useState<string | null>(null)
 
-  function handleAddItem(name: string, type: MeasurementType, color?: string) {
+  function handleAddItem(
+    name: string,
+    type: MeasurementType,
+    color?: string,
+    sectionId?: string,
+  ) {
     if (panelSessionItemId) {
-      // Already created the item this session — just re-arm placement.
+      // Already created the item this session — just re-arm placement and
+      // (if the user changed the dropdown) move the item to the new
+      // section.
       const existing = items.find((it) => it.id === panelSessionItemId)
       if (existing) {
+        if (sectionId && existing.sectionId !== sectionId) {
+          onItemsChange(
+            items.map((it) =>
+              it.id === existing.id ? { ...it, sectionId } : it
+            )
+          )
+        }
         setActiveItemId(existing.id)
         setActiveTool(existing.type === 'linear' ? 'linear' : 'area-polygon')
         setTempPoints([])
@@ -839,7 +868,15 @@ export default function TakeoffViewer({
         return
       }
     }
-    const newItem: TakeoffItem = { id: genId(), name, type, measurements: [], color: color || getNextColor() }
+    const fallbackSection = sectionId || sections[0]?.id
+    const newItem: TakeoffItem = {
+      id: genId(),
+      name,
+      type,
+      measurements: [],
+      color: color || getNextColor(),
+      sectionId: fallbackSection,
+    }
     onItemsChange([...items, newItem])
     setActiveItemId(newItem.id)
     setActiveTool(type === 'linear' ? 'linear' : 'area-polygon')
@@ -1566,6 +1603,7 @@ export default function TakeoffViewer({
         {/* Sidebar */}
         <TakeoffSidebar
           items={items}
+          sections={sections}
           selectedItemId={selectedItemId}
           onSelectItem={handleSelectItem}
           onAddMoreToItem={handleAddMoreToItem}
@@ -1574,6 +1612,11 @@ export default function TakeoffViewer({
           onRenameItem={handleRenameItem}
           onChangeItemColor={handleChangeItemColor}
           onDeleteMeasurement={handleDeleteMeasurement}
+          onCreateSection={onCreateSection}
+          onRenameSection={onRenameSection}
+          onDeleteSection={onDeleteSection}
+          onReorderSections={onReorderSections}
+          onReorderItemsInSections={onReorderItemsInSections}
           isPanelOpen={isConfigPanelOpen}
           onPanelOpenChange={(open) => {
             setIsConfigPanelOpen(open)

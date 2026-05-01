@@ -1,12 +1,30 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { PlusIcon, Trash2Icon, XIcon, Pencil, Plus } from 'lucide-react'
-import type { TakeoffItem, MeasurementType } from './types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { PlusIcon, Trash2Icon, XIcon, Pencil, Plus, GripVerticalIcon, RulerIcon, SquareIcon } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import type { TakeoffItem, MeasurementType, TakeoffSection } from './types'
 import { ITEM_COLORS } from './TakeoffViewer'
 
 interface TakeoffSidebarProps {
   items: TakeoffItem[]
+  sections: TakeoffSection[]
   /** Sidebar selection (for visual highlight + PDF dim-others). */
   selectedItemId: string | null
   /** Toggle selection on row body click. */
@@ -14,11 +32,19 @@ interface TakeoffSidebarProps {
   /** Open the new-measurement panel pre-populated for this existing item
    *  (locked Linear/Area toggle, editable name/color). */
   onAddMoreToItem: (id: string) => void
-  onAddItem: (name: string, type: MeasurementType, color?: string) => void
+  onAddItem: (name: string, type: MeasurementType, color?: string, sectionId?: string) => void
   onDeleteItem: (id: string) => void
   onRenameItem: (id: string, name: string) => void
   onChangeItemColor: (id: string, color: string) => void
   onDeleteMeasurement: (itemId: string, measurementId: string) => void
+  /** Section CRUD wired in TakeoffClient. */
+  onCreateSection: (name: string) => string
+  onRenameSection: (id: string, name: string) => void
+  onDeleteSection: (id: string) => void
+  onReorderSections: (orderedIds: string[]) => void
+  onReorderItemsInSections: (
+    sectionIdToOrderedItemIds: Record<string, string[]>
+  ) => void
   // Parent tracks panel-open state to gate PDF click placement and to drive
   // the Escape-with-in-progress-points behavior.
   isPanelOpen: boolean
@@ -37,6 +63,12 @@ interface TakeoffSidebarProps {
   // Finalize the panel-session item: close the panel; the item stays in
   // `items` and surfaces in the saved list.
   onFinishMeasuring: () => void
+}
+
+function fmtArea(sf: number): string {
+  return sf >= 1000
+    ? `${sf.toLocaleString('en-US', { maximumFractionDigits: 0 })} sq ft`
+    : `${sf.toFixed(1)} sq ft`
 }
 
 function fmtFtIn(ft: number): string {
@@ -67,8 +99,105 @@ function ColorSwatches({ selected, onSelect }: { selected: string; onSelect: (c:
   )
 }
 
+// ─── Sortable wrappers ─────────────────────────────────────────────────
+// Inline so the row/section render logic stays close to the sidebar.
+// Each takes a render-prop `children` so the rich row/section body lives
+// in one place (the sidebar return JSX) — the wrappers only own the
+// dnd-kit hook + drag-handle styling.
+
+function SortableMeasurementRow({
+  itemId,
+  draggable,
+  children,
+}: {
+  itemId: string
+  draggable: boolean
+  children: (handle: {
+    setActivatorRef: (el: HTMLElement | null) => void
+    listeners: ReturnType<typeof useSortable>['listeners']
+    attributes: ReturnType<typeof useSortable>['attributes']
+  }) => React.ReactNode
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: itemId, disabled: !draggable })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    position: 'relative',
+    opacity: isDragging ? 0.85 : 1,
+    boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.4)' : undefined,
+    background: isDragging ? '#1a1a1a' : undefined,
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ setActivatorRef: setActivatorNodeRef, listeners, attributes })}
+    </div>
+  )
+}
+
+function SortableSection({
+  sectionId,
+  draggable,
+  children,
+}: {
+  sectionId: string
+  draggable: boolean
+  children: (handle: {
+    setActivatorRef: (el: HTMLElement | null) => void
+    listeners: ReturnType<typeof useSortable>['listeners']
+    attributes: ReturnType<typeof useSortable>['attributes']
+  }) => React.ReactNode
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: sectionId, disabled: !draggable })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 60 : undefined,
+    position: 'relative',
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ setActivatorRef: setActivatorNodeRef, listeners, attributes })}
+    </div>
+  )
+}
+
+function buildSectionMapWithItemMoved(
+  sortedSections: TakeoffSection[],
+  itemsBySectionId: Map<string, TakeoffItem[]>,
+  itemId: string,
+  destSectionId: string
+): Record<string, string[]> {
+  const next: Record<string, string[]> = {}
+  for (const s of sortedSections) {
+    next[s.id] = (itemsBySectionId.get(s.id) ?? [])
+      .map((it) => it.id)
+      .filter((id) => id !== itemId)
+  }
+  if (!next[destSectionId]) next[destSectionId] = []
+  if (!next[destSectionId].includes(itemId)) next[destSectionId].push(itemId)
+  return next
+}
+
 export default function TakeoffSidebar({
   items,
+  sections,
   selectedItemId,
   onSelectItem,
   onAddMoreToItem,
@@ -77,6 +206,11 @@ export default function TakeoffSidebar({
   onRenameItem,
   onChangeItemColor,
   onDeleteMeasurement,
+  onCreateSection,
+  onRenameSection,
+  onDeleteSection,
+  onReorderSections,
+  onReorderItemsInSections,
   isPanelOpen,
   onPanelOpenChange,
   isMeasuringActive,
@@ -89,7 +223,165 @@ export default function TakeoffSidebar({
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<MeasurementType>('linear')
   const [newColor, setNewColor] = useState(ITEM_COLORS[0])
+  // Section dropdown selection in the panel. Default-selection logic
+  // applied via the openTransition useEffect below.
+  const [newSectionId, setNewSectionId] = useState<string>('')
   const isEditingExisting = panelEditingItemId !== null
+
+  // Inline rename state for sections.
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
+  const [editingSectionName, setEditingSectionName] = useState('')
+  const sectionEditInputRef = useRef<HTMLInputElement | null>(null)
+
+  // ─── Sections + items grouping + totals ──────────────────────────────
+  // panelSessionItemId is filtered out of the saved list while the panel
+  // is open (its tally renders inline in the panel instead).
+  const visibleItems = useMemo(() => {
+    return panelSessionItemId
+      ? items.filter((it) => it.id !== panelSessionItemId)
+      : items
+  }, [items, panelSessionItemId])
+
+  const sortedSections = useMemo(() => {
+    return [...sections].sort((a, b) => a.sortOrder - b.sortOrder)
+  }, [sections])
+
+  // Group items by sectionId, preserving array order within each group.
+  // Items whose sectionId points at a non-existent section get bucketed
+  // under the first section so they remain visible.
+  const itemsBySectionId = useMemo(() => {
+    const fallback = sortedSections[0]?.id
+    const map = new Map<string, TakeoffItem[]>()
+    for (const s of sortedSections) map.set(s.id, [])
+    for (const it of visibleItems) {
+      const target =
+        it.sectionId && map.has(it.sectionId)
+          ? it.sectionId
+          : fallback
+      if (target) {
+        const arr = map.get(target)
+        if (arr) arr.push(it)
+      }
+    }
+    return map
+  }, [visibleItems, sortedSections])
+
+  function sumLinear(itemList: TakeoffItem[]): number {
+    return itemList
+      .filter((it) => it.type === 'linear')
+      .reduce(
+        (s, it) => s + it.measurements.reduce((m, x) => m + x.valueInFeet, 0),
+        0
+      )
+  }
+  function sumArea(itemList: TakeoffItem[]): number {
+    return itemList
+      .filter((it) => it.type === 'area')
+      .reduce(
+        (s, it) => s + it.measurements.reduce((m, x) => m + x.valueInFeet, 0),
+        0
+      )
+  }
+  function sumPerim(itemList: TakeoffItem[]): number {
+    return itemList
+      .filter((it) => it.type === 'area')
+      .reduce(
+        (s, it) =>
+          s +
+          it.measurements.reduce(
+            (m, x) => m + (x.perimeterFt || 0),
+            0
+          ),
+        0
+      )
+  }
+
+  const projectTotals = useMemo(
+    () => ({
+      linear: sumLinear(visibleItems),
+      area: sumArea(visibleItems),
+      perim: sumPerim(visibleItems),
+    }),
+    [visibleItems]
+  )
+
+  // ─── DnD ─────────────────────────────────────────────────────────────
+  // PointerSensor with an 8px activation distance keeps inline-rename
+  // clicks on item names from accidentally starting a drag.
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  // Section reorder.
+  function handleSectionDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const ids = sortedSections.map((s) => s.id)
+    const fromIndex = ids.indexOf(active.id as string)
+    const toIndex = ids.indexOf(over.id as string)
+    if (fromIndex < 0 || toIndex < 0) return
+    onReorderSections(arrayMove(ids, fromIndex, toIndex))
+  }
+
+  // Item reorder within a section. Items can be reordered within the same
+  // section; cross-section moves are exposed via a separate "Move to…"
+  // affordance on hover (the dropdown in the new-measurement add-to-
+  // existing panel covers the deliberate-edit case). Item-to-item drag
+  // across sections is also supported here when the drop target's
+  // sortable id is in another section's SortableContext.
+  function handleItemDragEnd(sectionId: string) {
+    return (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over) return
+      const sourceItems = itemsBySectionId.get(sectionId) ?? []
+      const sourceIds = sourceItems.map((it) => it.id)
+      // Same-section reorder.
+      if (sourceIds.includes(over.id as string)) {
+        const fromIndex = sourceIds.indexOf(active.id as string)
+        const toIndex = sourceIds.indexOf(over.id as string)
+        if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return
+        const reordered = arrayMove(sourceIds, fromIndex, toIndex)
+        const next: Record<string, string[]> = {}
+        for (const s of sortedSections) {
+          next[s.id] =
+            s.id === sectionId
+              ? reordered
+              : (itemsBySectionId.get(s.id) ?? []).map((it) => it.id)
+        }
+        onReorderItemsInSections(next)
+        return
+      }
+      // Cross-section drop — `over.id` is either an item id in another
+      // section or a section id (when hovering an empty section).
+      let destSectionId: string | null = null
+      let destInsertIdx = 0
+      const overAsSection = sortedSections.find((s) => s.id === over.id)
+      if (overAsSection) {
+        destSectionId = overAsSection.id
+        destInsertIdx = (itemsBySectionId.get(destSectionId) ?? []).length
+      } else {
+        for (const s of sortedSections) {
+          if (s.id === sectionId) continue
+          const ids = (itemsBySectionId.get(s.id) ?? []).map((it) => it.id)
+          const idx = ids.indexOf(over.id as string)
+          if (idx >= 0) {
+            destSectionId = s.id
+            destInsertIdx = idx
+            break
+          }
+        }
+      }
+      if (!destSectionId) return
+      const next: Record<string, string[]> = {}
+      for (const s of sortedSections) next[s.id] = (itemsBySectionId.get(s.id) ?? []).map((it) => it.id)
+      next[sectionId] = next[sectionId].filter((id) => id !== active.id)
+      const destIds = next[destSectionId].slice()
+      destIds.splice(destInsertIdx, 0, active.id as string)
+      next[destSectionId] = destIds
+      onReorderItemsInSections(next)
+    }
+  }
 
   // When the panel transitions into "add to existing" mode (the user clicked
   // the "+" icon on a saved row), pre-populate the form fields from the
@@ -103,8 +395,42 @@ export default function TakeoffSidebar({
     setNewName(item.name)
     setNewType(item.type)
     setNewColor(item.color)
+    setNewSectionId(item.sectionId || sortedSections[0]?.id || '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panelEditingItemId])
+
+  // When the panel opens for a NEW item (top "+" button), default the
+  // section dropdown to the currently-selected saved row's section if
+  // any, else the first section.
+  const prevPanelOpenRef = useRef(false)
+  useEffect(() => {
+    if (isPanelOpen && !prevPanelOpenRef.current && !isEditingExisting) {
+      const fromSelected = selectedItemId
+        ? items.find((it) => it.id === selectedItemId)?.sectionId
+        : null
+      setNewSectionId(fromSelected || sortedSections[0]?.id || '')
+    }
+    prevPanelOpenRef.current = isPanelOpen
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPanelOpen])
+
+  // Mirror the panel's section dropdown onto the in-progress item while
+  // editing-existing (so a section change is reflected immediately in
+  // the grouped list — Cancel still restores via the snapshot path in
+  // the parent).
+  useEffect(() => {
+    if (!isEditingExisting || !panelEditingItemId) return
+    if (!newSectionId) return
+    onReorderItemsInSections(
+      buildSectionMapWithItemMoved(
+        sortedSections,
+        itemsBySectionId,
+        panelEditingItemId,
+        newSectionId
+      )
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newSectionId, panelEditingItemId])
 
   // Mirror name/color edits made in the panel onto the live item while
   // editing-existing, so the live tally header (and the PDF stroke color)
@@ -146,16 +472,22 @@ export default function TakeoffSidebar({
   const sessionItem = panelSessionItemId
     ? items.find((it) => it.id === panelSessionItemId) ?? null
     : null
-  const savedItems = panelSessionItemId
-    ? items.filter((it) => it.id !== panelSessionItemId)
-    : items
 
   // "Start Measuring" — creates the item if needed and arms PDF click
   // placement, but keeps the config panel open with form state intact so the
   // user can re-arm via Escape (which clears in-progress points).
   function handleStartMeasuring() {
     if (!newName.trim()) return
-    onAddItem(newName.trim(), newType, newColor)
+    // If zero sections exist (unusual: user deleted them all and the
+    // auto-create hasn't completed yet), let the create flow run with
+    // undefined section — TakeoffViewer's handleAddItem will fall back
+    // to whatever sections[0] resolves to client-side.
+    onAddItem(
+      newName.trim(),
+      newType,
+      newColor,
+      newSectionId || sortedSections[0]?.id
+    )
   }
 
   // "Finish Measuring" — only valid in the "actively measuring" mode.
@@ -260,6 +592,28 @@ export default function TakeoffSidebar({
               Area
             </button>
           </div>
+
+          {/* Section dropdown — placed between the type toggle and the
+              Finish/Cancel buttons per spec. In add-to-existing mode the
+              default is the existing item's section; in new-item mode the
+              default is the selected row's section if any, else the
+              first section. Editable in both modes. */}
+          {sortedSections.length > 0 && (
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wide text-gray-500">Section</label>
+              <select
+                value={newSectionId}
+                onChange={(e) => setNewSectionId(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1.5 bg-[#222] border border-gray-700 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+              >
+                {sortedSections.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex gap-1.5">
             <button
               onClick={isMeasuringActive ? handleFinishMeasuring : handleStartMeasuring}
@@ -329,7 +683,7 @@ export default function TakeoffSidebar({
 
         {/* Stronger divider + section header — only when the config panel
             is open AND there is at least one already-saved item. */}
-        {showAdd && savedItems.length > 0 && (
+        {showAdd && visibleItems.length > 0 && (
           <div className="px-3 pt-3 pb-2 border-t-2 border-zinc-700">
             <span className="text-gray-300 font-semibold text-xs tracking-wide uppercase">
               Saved Measurements
@@ -337,116 +691,298 @@ export default function TakeoffSidebar({
           </div>
         )}
 
-        {savedItems.map((item) => {
-          const isSelected = item.id === selectedItemId
-          const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
-          const totalPerim = item.type === 'area' ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0) : 0
-          const isEditing = editingId === item.id
+        {/* Outer DndContext: sections sortable relative to each other. */}
+        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+          <SortableContext items={sortedSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+            {sortedSections.map((section) => {
+              const sectionItems = itemsBySectionId.get(section.id) ?? []
+              const subLinear = sumLinear(sectionItems)
+              const subArea = sumArea(sectionItems)
+              const subPerim = sumPerim(sectionItems)
+              const isRenamingThis = editingSectionId === section.id
+              const sectionDraggable = sortedSections.length > 1
+              return (
+                <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
+                  {({ setActivatorRef, listeners, attributes }) => (
+                    <div className="border-b border-gray-800/60">
+                      {/* Section header */}
+                      <div className="flex items-center gap-1.5 px-2 py-2 bg-[#181818]">
+                        {sectionDraggable ? (
+                          <button
+                            ref={setActivatorRef}
+                            type="button"
+                            {...listeners}
+                            {...attributes}
+                            aria-label="Drag to reorder section"
+                            className="flex-shrink-0 p-1 text-gray-500 hover:text-gray-300 cursor-grab active:cursor-grabbing touch-none"
+                          >
+                            <GripVerticalIcon className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <span className="w-6" />
+                        )}
+                        {isRenamingThis ? (
+                          <input
+                            ref={(el) => { sectionEditInputRef.current = el }}
+                            type="text"
+                            value={editingSectionName}
+                            onChange={(e) => setEditingSectionName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                onRenameSection(section.id, editingSectionName)
+                                setEditingSectionId(null)
+                              }
+                              if (e.key === 'Escape') setEditingSectionId(null)
+                            }}
+                            onBlur={() => {
+                              onRenameSection(section.id, editingSectionName)
+                              setEditingSectionId(null)
+                            }}
+                            onFocus={(e) => e.target.select()}
+                            autoFocus
+                            className="flex-1 text-[13px] font-semibold border-b border-amber-500 outline-none bg-transparent text-white"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingSectionId(section.id)
+                              setEditingSectionName(section.name)
+                            }}
+                            className="flex-1 text-[13px] font-semibold tracking-wide text-gray-200 truncate cursor-pointer hover:text-white"
+                          >
+                            {section.name}
+                          </span>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingSectionId(section.id)
+                            setEditingSectionName(section.name)
+                          }}
+                          title="Rename section"
+                          className="p-1 text-gray-600 hover:text-amber-400 flex-shrink-0 transition-colors"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const count = sectionItems.length
+                            const message =
+                              count > 0
+                                ? `Delete section "${section.name}" and all ${count} measurement${count === 1 ? '' : 's'} inside? This cannot be undone.`
+                                : `Delete section "${section.name}"?`
+                            if (typeof window !== 'undefined' && window.confirm(message)) {
+                              onDeleteSection(section.id)
+                            }
+                          }}
+                          title="Delete section"
+                          className="p-1 text-gray-600 hover:text-red-400 flex-shrink-0 transition-colors"
+                        >
+                          <Trash2Icon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
 
-          return (
-            <div
-              key={item.id}
-              onClick={() => onSelectItem(item.id)}
-              className={`cursor-pointer transition-colors border-b border-gray-800/60 ${
-                isSelected
-                  ? 'bg-[#1a1a1a] border-l-4 border-l-amber-500'
-                  : 'bg-[#111] hover:bg-[#161616] border-l-4 border-l-transparent opacity-70 hover:opacity-100'
-              }`}
-            >
-              {/* Top row: dot + name + badge + delete */}
-              <div className="px-3 py-2 flex items-center gap-2 min-w-0">
-                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                      {/* Inner DndContext: items within this section. */}
+                      <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd(section.id)}>
+                        <SortableContext items={sectionItems.map((it) => it.id)} strategy={verticalListSortingStrategy}>
+                          {sectionItems.length === 0 ? (
+                            <div className="px-4 py-3 text-[11px] text-gray-600 italic">
+                              No measurements in this section
+                            </div>
+                          ) : (
+                            sectionItems.map((item) => {
+                              const isSelected = item.id === selectedItemId
+                              const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
+                              const totalPerim =
+                                item.type === 'area'
+                                  ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0)
+                                  : 0
+                              const isEditing = editingId === item.id
+                              return (
+                                <SortableMeasurementRow key={item.id} itemId={item.id} draggable={!isEditing}>
+                                  {({ setActivatorRef, listeners, attributes }) => (
+                                    <div
+                                      onClick={() => onSelectItem(item.id)}
+                                      className={`cursor-pointer transition-colors ${
+                                        isSelected
+                                          ? 'bg-[#1a1a1a] border-l-4 border-l-amber-500'
+                                          : 'bg-[#111] hover:bg-[#161616] border-l-4 border-l-transparent opacity-70 hover:opacity-100'
+                                      }`}
+                                    >
+                                      <div className="px-2 py-2 flex items-center gap-1.5 min-w-0">
+                                        <button
+                                          ref={setActivatorRef}
+                                          type="button"
+                                          {...listeners}
+                                          {...attributes}
+                                          aria-label="Drag to reorder measurement"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="flex-shrink-0 p-0.5 text-gray-700 hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none"
+                                        >
+                                          <GripVerticalIcon className="w-3.5 h-3.5" />
+                                        </button>
+                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                                        {isEditing ? (
+                                          <div className="flex-1 min-w-0 space-y-1.5">
+                                            <input
+                                              type="text"
+                                              value={editName}
+                                              onChange={(e) => setEditName(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') finishRename(item.id)
+                                                if (e.key === 'Escape') setEditingId(null)
+                                              }}
+                                              onFocus={(e) => e.target.select()}
+                                              className="text-sm font-semibold border-b border-amber-500 outline-none bg-transparent w-full max-w-[160px] text-white"
+                                              autoFocus
+                                              onClick={(e) => e.stopPropagation()}
+                                            />
+                                            <ColorSwatches selected={editColor} onSelect={(c) => { setEditColor(c); onChangeItemColor(item.id, c) }} />
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); finishRename(item.id) }}
+                                              className="text-[10px] text-amber-400 hover:text-amber-300 font-medium"
+                                            >
+                                              Done
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <div
+                                              onClick={(e) => { e.stopPropagation(); startRename(item) }}
+                                              className="group/name flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
+                                            >
+                                              <span className={`text-xs font-medium truncate ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                                                {item.name}
+                                              </span>
+                                              <Pencil size={12} className="text-gray-600 group-hover/name:text-amber-500 flex-shrink-0" />
+                                            </div>
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
+                                              item.type === 'linear' ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
+                                            }`}>
+                                              {item.type === 'linear' ? 'LINEAR' : 'AREA'}
+                                            </span>
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); onAddMoreToItem(item.id) }}
+                                              title="Add more shapes to this item"
+                                              className="p-1.5 text-gray-700 hover:text-amber-400 flex-shrink-0 transition-colors"
+                                            >
+                                              <Plus className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id) }}
+                                              className="p-1.5 text-gray-700 hover:text-red-400 flex-shrink-0 transition-colors"
+                                            >
+                                              <Trash2Icon className="w-4 h-4" />
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                      {isSelected && item.measurements.length > 0 && (
+                                        <div className="px-3 pb-1">
+                                          {item.measurements.map((m) => (
+                                            <div key={m.id} className="flex items-center justify-between py-0.5 group">
+                                              <span className="text-[10px] text-gray-500">
+                                                {m.label}
+                                                {m.type === 'area' && m.perimeterFt ? ` | ${fmtFtIn(m.perimeterFt)} perim.` : ''}
+                                              </span>
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); onDeleteMeasurement(item.id, m.id) }}
+                                                className="p-1.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              >
+                                                <XIcon className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      <div className={`px-3 pb-2 text-[11px] font-bold ${isSelected ? 'text-amber-400' : 'text-gray-600'}`}>
+                                        Total: {item.type === 'linear' ? fmtFtIn(total) : fmtArea(total)}
+                                        {item.type === 'area' && totalPerim > 0 && (
+                                          <span className="ml-1.5 text-[10px] font-medium opacity-70">| {fmtFtIn(totalPerim)} perim.</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </SortableMeasurementRow>
+                              )
+                            })
+                          )}
+                        </SortableContext>
+                      </DndContext>
 
-                {isEditing ? (
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') finishRename(item.id)
-                        if (e.key === 'Escape') setEditingId(null)
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      className="text-sm font-semibold border-b border-amber-500 outline-none bg-transparent w-full max-w-[180px] text-white"
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <ColorSwatches selected={editColor} onSelect={(c) => { setEditColor(c); onChangeItemColor(item.id, c) }} />
-                    <button
-                      onClick={(e) => { e.stopPropagation(); finishRename(item.id) }}
-                      className="text-[10px] text-amber-400 hover:text-amber-300 font-medium"
-                    >
-                      Done
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      onClick={(e) => { e.stopPropagation(); startRename(item) }}
-                      className="group/name flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
-                    >
-                      <span className={`text-xs font-medium truncate ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                        {item.name}
-                      </span>
-                      <Pencil size={12} className="text-gray-600 group-hover/name:text-amber-500 flex-shrink-0" />
+                      {/* Section subtotals — always rendered, even at 0. */}
+                      <div className="bg-[#0d0d0d]">
+                        <div className="flex items-center justify-between px-4 py-1.5 border-t border-gray-800/60">
+                          <div className="flex items-center gap-1.5">
+                            <RulerIcon className="w-3 h-3 text-amber-500" />
+                            <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Total Linear</span>
+                          </div>
+                          <span className="text-[11px] font-bold text-amber-400">{fmtFtIn(subLinear)}</span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-1.5 border-t border-gray-800/40">
+                          <div className="flex items-center gap-1.5">
+                            <SquareIcon className="w-3 h-3 text-amber-500" />
+                            <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-amber-400">{fmtArea(subArea)}</span>
+                            {subPerim > 0 && (
+                              <span className="text-[9px] text-gray-500">{fmtFtIn(subPerim)} perim.</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
-                      item.type === 'linear' ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
-                    }`}>
-                      {item.type === 'linear' ? 'LINEAR' : 'AREA'}
-                    </span>
-                    {/* Add-more "+" — opens the new-measurement panel
-                        pre-populated for this item. Stop propagation so
-                        clicking the icon does not also toggle row
-                        selection. */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onAddMoreToItem(item.id) }}
-                      title="Add more shapes to this item"
-                      className="p-1.5 text-gray-700 hover:text-amber-400 flex-shrink-0 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id) }}
-                      className="p-1.5 text-gray-700 hover:text-red-400 flex-shrink-0 transition-colors"
-                    >
-                      <Trash2Icon className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
-              </div>
+                  )}
+                </SortableSection>
+              )
+            })}
+          </SortableContext>
+        </DndContext>
 
-              {/* Per-shape list expands when the row is selected. */}
-              {isSelected && item.measurements.length > 0 && (
-                <div className="px-3 pb-1">
-                  {item.measurements.map((m) => (
-                    <div key={m.id} className="flex items-center justify-between py-0.5 group">
-                      <span className="text-[10px] text-gray-500">
-                        {m.label}
-                        {m.type === 'area' && m.perimeterFt ? ` | ${fmtFtIn(m.perimeterFt)} perim.` : ''}
-                      </span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onDeleteMeasurement(item.id, m.id) }}
-                        className="p-1.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <XIcon className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Total */}
-              <div className={`px-3 pb-2 text-[11px] font-bold ${isSelected ? 'text-amber-400' : 'text-gray-600'}`}>
-                Total: {item.type === 'linear' ? fmtFtIn(total) : `${total.toFixed(1)} sq ft`}
-                {item.type === 'area' && totalPerim > 0 && (
-                  <span className="ml-1.5 text-[10px] font-medium opacity-70">| {fmtFtIn(totalPerim)} perim.</span>
-                )}
-              </div>
+        {/* Project totals — always rendered, even at 0. Slightly stronger
+            than section subtotals (thicker top border, larger label). */}
+        <div className="bg-[#0a0a0a] border-t-2 border-zinc-700 mt-1">
+          <div className="flex items-center justify-between px-4 py-2">
+            <div className="flex items-center gap-2">
+              <RulerIcon className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Project Total Linear</span>
             </div>
-          )
-        })}
+            <span className="text-[12px] font-bold text-amber-400">{fmtFtIn(projectTotals.linear)}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800/60">
+            <div className="flex items-center gap-2">
+              <SquareIcon className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Project Total Area</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-bold text-amber-400">{fmtArea(projectTotals.area)}</span>
+              {projectTotals.perim > 0 && (
+                <span className="text-[10px] text-gray-500">{fmtFtIn(projectTotals.perim)} perim.</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* + Add Section button — at the bottom of the list. */}
+        <div className="px-3 py-3">
+          <button
+            onClick={() => {
+              const id = onCreateSection('New Section')
+              // Defer focus so the new section row is mounted first.
+              setEditingSectionId(id)
+              setEditingSectionName('New Section')
+              setTimeout(() => sectionEditInputRef.current?.focus(), 0)
+            }}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs font-medium rounded transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Section
+          </button>
+        </div>
       </div>
     </div>
   )

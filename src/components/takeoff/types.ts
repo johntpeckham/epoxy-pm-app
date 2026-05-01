@@ -30,6 +30,20 @@ export interface TakeoffItem {
   type: MeasurementType
   measurements: Measurement[]
   color: string
+  /**
+   * Section grouping (in-PDF sidebar + downstream views). Optional in the
+   * stored JSONB so legacy items load — TakeoffClient lazily assigns each
+   * sectionless item to the project's first section ("Default") on load,
+   * and the next autosave persists it.
+   */
+  sectionId?: string
+}
+
+export interface TakeoffSection {
+  id: string
+  projectId: string
+  name: string
+  sortOrder: number
 }
 
 export interface Markup {
