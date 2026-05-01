@@ -194,6 +194,17 @@ export default function TakeoffViewer({
   // which sets isMeasuringActive=true.
   const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false)
   const [isMeasuringActive, setIsMeasuringActive] = useState(false)
+  // selectedItemId — pure visual highlight on the sidebar + dim-other-shapes
+  // treatment on the PDF overlay. Distinct from activeItemId (which is the
+  // measurement-target during real measuring driven by the panel).
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  // panelEditingItemId — when set, the panel is in "add more shapes to an
+  // existing item" mode (opened via the "+" icon on a saved row). The
+  // Linear/Area toggle is locked, the name/color fields are pre-populated.
+  const [panelEditingItemId, setPanelEditingItemId] = useState<string | null>(null)
+  // Snapshot of the item taken at the moment "+" is clicked, so Cancel can
+  // restore name/color/measurements exactly as they were.
+  const [originalEditingSnapshot, setOriginalEditingSnapshot] = useState<TakeoffItem | null>(null)
 
   // ─── Scale calibration ───
   const [scalePoints, setScalePoints] = useState<Point[]>([])
@@ -899,16 +910,26 @@ export default function TakeoffViewer({
     onItemsChange(next)
   }
 
+  // Sidebar row body click — toggle visual selection only. No canvas arming,
+  // no panel opening. Selection is purely a render hint for the overlay
+  // (selected item: full opacity + thicker stroke; others: dimmed).
   function handleSelectItem(id: string) {
-    setActiveItemId(id)
-    const item = items.find(i => i.id === id)
-    if (item) {
-      setActiveTool(item.type === 'linear' ? 'linear' : 'area-polygon')
-      setTempPoints([])
-      // Selecting an existing item from the sidebar list arms placement
-      // immediately (no "+" panel involved).
-      setIsMeasuringActive(true)
-    }
+    setSelectedItemId((prev) => (prev === id ? null : id))
+  }
+
+  // Sidebar row "+" icon — open the new-measurement config panel pre-loaded
+  // with this item's data, in "add to existing" mode. The Linear/Area
+  // toggle is locked in the panel; name/color stay editable. Finish
+  // Measuring then commits any name/color edits and keeps any new shapes
+  // appended; Cancel discards the new shapes plus name/color edits.
+  function handleAddMoreToItem(id: string) {
+    setSelectedItemId(null)
+    setIsConfigPanelOpen(true)
+    setPanelEditingItemId(id)
+    setPanelSessionItemId(id) // Reuse existing session-item plumbing.
+    setOriginalEditingSnapshot(items.find((it) => it.id === id) ?? null)
+    setIsMeasuringActive(false)
+    setTempPoints([])
   }
 
   function handleDeleteItem(id: string) {
@@ -995,8 +1016,16 @@ export default function TakeoffViewer({
   const cr = 4 / zoom  // constant circle radius
 
   // Completed measurements
+  // Selection treatment: when the user has clicked a saved row to "select"
+  // it, the selected item's shapes render at full opacity with a thicker
+  // stroke, while everything else dims to 35%. With no selection, the
+  // legacy isActive (= measurement-target) treatment still applies.
+  const hasSelection = selectedItemId !== null
   for (const item of items) {
     const isActive = item.id === activeItemId
+    const isSelected = item.id === selectedItemId
+    const opacity = hasSelection ? (isSelected ? 1 : 0.35) : (isActive ? 1 : 0.6)
+    const swMul = hasSelection && isSelected ? 1.75 : 1
     for (const m of item.measurements) {
       if (m.pageKey !== pageKey) continue
       if (m.type === 'linear' && m.points.length >= 2) {
@@ -1020,8 +1049,8 @@ export default function TakeoffViewer({
         const labelW = m.label ? (m.label.length * 7 + 10) / zoom : 0
         const labelH = 18 / zoom
         svgElements.push(
-          <g key={m.id} opacity={isActive ? 1 : 0.6}>
-            <polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={item.color} strokeWidth={sw} />
+          <g key={m.id} opacity={opacity}>
+            <polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={item.color} strokeWidth={sw * swMul} />
             {pts.map((p, pi) => <circle key={pi} cx={p.x} cy={p.y} r={cr} fill={item.color} />)}
             {m.label && (
               <>
@@ -1041,8 +1070,8 @@ export default function TakeoffViewer({
         const labelW = longestLine ? (longestLine.length * 7 + 10) / zoom : 0
         const labelH = (showPerim ? 32 : 18) / zoom
         svgElements.push(
-          <g key={m.id} opacity={isActive ? 1 : 0.6}>
-            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '26'} stroke={item.color} strokeWidth={sw} />
+          <g key={m.id} opacity={opacity}>
+            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '26'} stroke={item.color} strokeWidth={sw * swMul} />
             {areaLine && (
               <>
                 <rect x={center.x - labelW / 2} y={center.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
@@ -1062,8 +1091,8 @@ export default function TakeoffViewer({
         const labelW = m.label ? (m.label.length * 7 + 10) / zoom : 0
         const labelH = 18 / zoom
         svgElements.push(
-          <g key={m.id} opacity={isActive ? 1 : 0.6}>
-            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '26'} stroke={item.color} strokeWidth={sw} />
+          <g key={m.id} opacity={opacity}>
+            <polygon points={pts.map(p => `${p.x},${p.y}`).join(' ')} fill={item.color + '26'} stroke={item.color} strokeWidth={sw * swMul} />
             {m.label && (
               <>
                 <rect x={center.x - labelW / 2} y={center.y - labelH / 2} width={labelW} height={labelH} rx={3 / zoom} fill="rgba(0,0,0,0.75)" />
@@ -1537,8 +1566,9 @@ export default function TakeoffViewer({
         {/* Sidebar */}
         <TakeoffSidebar
           items={items}
-          activeItemId={activeItemId}
+          selectedItemId={selectedItemId}
           onSelectItem={handleSelectItem}
+          onAddMoreToItem={handleAddMoreToItem}
           onAddItem={handleAddItem}
           onDeleteItem={handleDeleteItem}
           onRenameItem={handleRenameItem}
@@ -1548,28 +1578,48 @@ export default function TakeoffViewer({
           onPanelOpenChange={(open) => {
             setIsConfigPanelOpen(open)
             if (open) {
-              // Fresh panel session — reset session item tracking and disarm.
+              // Fresh panel session for a NEW item (top "+" button).
               setPanelSessionItemId(null)
+              setPanelEditingItemId(null)
+              setOriginalEditingSnapshot(null)
               setIsMeasuringActive(false)
               setTempPoints([])
             } else {
-              // Cancel — disarm placement.
+              // Cancel. If we were in "add to existing" mode, restore the
+              // item from the snapshot (discards new shapes + name/color
+              // edits). If we were creating a NEW item from the top "+",
+              // the half-built item stays as-is (matches existing
+              // behavior — the user can delete it from the sidebar if
+              // they want).
+              if (panelEditingItemId && originalEditingSnapshot) {
+                onItemsChange(
+                  items.map((it) =>
+                    it.id === panelEditingItemId ? originalEditingSnapshot : it
+                  )
+                )
+              }
               setIsMeasuringActive(false)
               setTempPoints([])
               setPanelSessionItemId(null)
+              setPanelEditingItemId(null)
+              setOriginalEditingSnapshot(null)
             }
           }}
           isMeasuringActive={isMeasuringActive}
           panelSessionItemId={panelSessionItemId}
+          panelEditingItemId={panelEditingItemId}
           tempPointsCount={tempPoints.length}
           onFinishMeasuring={() => {
-            // Finalize the in-progress item: close the panel, leave the
-            // item in `items` (so it surfaces in the saved list), and
-            // disarm placement.
+            // Finalize: close the panel and disarm placement. The item
+            // already lives in `items` — for new items it was created on
+            // Start Measuring; for "add to existing" any name/color edits
+            // and added shapes are already applied to live state.
             setIsConfigPanelOpen(false)
             setIsMeasuringActive(false)
             setTempPoints([])
             setPanelSessionItemId(null)
+            setPanelEditingItemId(null)
+            setOriginalEditingSnapshot(null)
           }}
         />
       </div>
