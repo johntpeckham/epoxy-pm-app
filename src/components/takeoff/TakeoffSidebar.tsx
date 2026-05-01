@@ -21,6 +21,12 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import type { TakeoffItem, MeasurementType, TakeoffSection } from './types'
 import { ITEM_COLORS } from './TakeoffViewer'
+import {
+  computeProjectTotals,
+  computeTotals,
+  groupItemsBySection,
+  sortSections,
+} from './sectionTotals'
 
 interface TakeoffSidebarProps {
   items: TakeoffItem[]
@@ -242,66 +248,17 @@ export default function TakeoffSidebar({
       : items
   }, [items, panelSessionItemId])
 
-  const sortedSections = useMemo(() => {
-    return [...sections].sort((a, b) => a.sortOrder - b.sortOrder)
-  }, [sections])
+  const sortedSections = useMemo(() => sortSections(sections), [sections])
 
-  // Group items by sectionId, preserving array order within each group.
-  // Items whose sectionId points at a non-existent section get bucketed
-  // under the first section so they remain visible.
-  const itemsBySectionId = useMemo(() => {
-    const fallback = sortedSections[0]?.id
-    const map = new Map<string, TakeoffItem[]>()
-    for (const s of sortedSections) map.set(s.id, [])
-    for (const it of visibleItems) {
-      const target =
-        it.sectionId && map.has(it.sectionId)
-          ? it.sectionId
-          : fallback
-      if (target) {
-        const arr = map.get(target)
-        if (arr) arr.push(it)
-      }
-    }
-    return map
-  }, [visibleItems, sortedSections])
-
-  function sumLinear(itemList: TakeoffItem[]): number {
-    return itemList
-      .filter((it) => it.type === 'linear')
-      .reduce(
-        (s, it) => s + it.measurements.reduce((m, x) => m + x.valueInFeet, 0),
-        0
-      )
-  }
-  function sumArea(itemList: TakeoffItem[]): number {
-    return itemList
-      .filter((it) => it.type === 'area')
-      .reduce(
-        (s, it) => s + it.measurements.reduce((m, x) => m + x.valueInFeet, 0),
-        0
-      )
-  }
-  function sumPerim(itemList: TakeoffItem[]): number {
-    return itemList
-      .filter((it) => it.type === 'area')
-      .reduce(
-        (s, it) =>
-          s +
-          it.measurements.reduce(
-            (m, x) => m + (x.perimeterFt || 0),
-            0
-          ),
-        0
-      )
-  }
+  // Group items by sectionId. Shared helper so all surfaces produce
+  // identical groupings.
+  const itemsBySectionId = useMemo(
+    () => groupItemsBySection(sortedSections, visibleItems),
+    [visibleItems, sortedSections]
+  )
 
   const projectTotals = useMemo(
-    () => ({
-      linear: sumLinear(visibleItems),
-      area: sumArea(visibleItems),
-      perim: sumPerim(visibleItems),
-    }),
+    () => computeProjectTotals(visibleItems),
     [visibleItems]
   )
 
@@ -696,9 +653,10 @@ export default function TakeoffSidebar({
           <SortableContext items={sortedSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
             {sortedSections.map((section) => {
               const sectionItems = itemsBySectionId.get(section.id) ?? []
-              const subLinear = sumLinear(sectionItems)
-              const subArea = sumArea(sectionItems)
-              const subPerim = sumPerim(sectionItems)
+              const sub = computeTotals(sectionItems)
+              const subLinear = sub.linear
+              const subArea = sub.area
+              const subPerim = sub.perim
               const isRenamingThis = editingSectionId === section.id
               const sectionDraggable = sortedSections.length > 1
               return (

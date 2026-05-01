@@ -1,4 +1,10 @@
-import type { TakeoffPage, TakeoffItem, Point } from './types'
+import type { TakeoffPage, TakeoffItem, Point, TakeoffSection } from './types'
+import {
+  computeProjectTotals,
+  computeTotals,
+  groupItemsBySection,
+  sortSections,
+} from './sectionTotals'
 import jsPDF from 'jspdf'
 
 // ─── Lazy pdfjs (same approach as TakeoffViewer) ───
@@ -330,6 +336,140 @@ export async function exportSinglePage(
   return { blob: doc.output('blob'), filename }
 }
 
+// ─── Sectioned items table for the report ───
+// Draws section headings, per-section item rows, per-section subtotals
+// (TOTAL LINEAR + TOTAL AREA both always shown), and project totals at
+// the bottom (PROJECT TOTAL LINEAR + PROJECT TOTAL AREA both always
+// shown). Returns the new cy. Sections flow inline — no forced page
+// breaks per section, but the row-fit check still inserts a page break
+// when an individual row would overflow.
+
+function drawSectionedItemsTable(
+  doc: jsPDF,
+  items: TakeoffItem[],
+  sections: TakeoffSection[],
+  margin: number,
+  pw: number,
+  ph: number,
+  cyStart: number,
+): number {
+  const colX = { color: margin, name: margin + 24, type: margin + 240, count: margin + 340, total: margin + 440 }
+  let cy = cyStart
+
+  // Header row
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(100, 100, 100)
+  doc.text('Color', colX.color, cy + 9)
+  doc.text('Item Name', colX.name, cy + 9)
+  doc.text('Type', colX.type, cy + 9)
+  doc.text('Measurements', colX.count, cy + 9)
+  doc.text('Total', colX.total, cy + 9)
+  cy += 16
+  doc.setDrawColor(220, 220, 220)
+  doc.line(margin, cy, pw - margin, cy)
+  cy += 6
+
+  const sortedSections = sortSections(sections)
+  const grouped = groupItemsBySection(sortedSections, items)
+
+  // If sections are empty (legacy / unknown), fall back to a single
+  // implicit "Measurements" group covering all items so the table still
+  // renders correctly.
+  const renderGroups: Array<{ name: string; items: TakeoffItem[] }> =
+    sortedSections.length > 0
+      ? sortedSections.map((s) => ({
+          name: s.name,
+          items: grouped.get(s.id) ?? [],
+        }))
+      : [{ name: 'Measurements', items }]
+
+  for (const group of renderGroups) {
+    // Page-fit guard for the section heading + at least one row + subtotals.
+    if (cy > ph - margin - 80) {
+      doc.addPage()
+      cy = margin
+    }
+
+    // Section heading
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(30, 30, 30)
+    doc.text(group.name, margin, cy + 11)
+    cy += 18
+    doc.setDrawColor(235, 235, 235)
+    doc.line(margin, cy, pw - margin, cy)
+    cy += 6
+
+    // Rows
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    if (group.items.length === 0) {
+      doc.setTextColor(160, 160, 160)
+      doc.text('No measurements in this section', colX.name, cy + 9)
+      cy += 22
+    } else {
+      for (const item of group.items) {
+        if (cy > ph - margin - 20) {
+          doc.addPage()
+          cy = margin
+        }
+        const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
+        const rgb = hexToRgb(item.color)
+        doc.setFillColor(rgb.r, rgb.g, rgb.b)
+        doc.circle(colX.color + 5, cy + 5, 4, 'F')
+        doc.setTextColor(30, 30, 30)
+        doc.text(item.name, colX.name, cy + 9)
+        doc.setTextColor(100, 100, 100)
+        doc.text(item.type === 'linear' ? 'Linear' : 'Area', colX.type, cy + 9)
+        doc.text(`${item.measurements.length}`, colX.count, cy + 9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(30, 30, 30)
+        doc.text(item.type === 'linear' ? fmtFtIn(total) : fmtArea(total), colX.total, cy + 9)
+        doc.setFont('helvetica', 'normal')
+        cy += 22
+      }
+    }
+
+    // Section subtotals — both always shown.
+    const sub = computeTotals(group.items)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(120, 120, 120)
+    doc.text(`Total Linear: ${fmtFtIn(sub.linear)}`, colX.name, cy + 9)
+    doc.text(`Total Area: ${fmtArea(sub.area)}${sub.perim > 0 ? `   |   ${fmtFtIn(sub.perim)} perim.` : ''}`, colX.total - 60, cy + 9)
+    cy += 18
+    doc.setDrawColor(230, 230, 230)
+    doc.line(margin, cy, pw - margin, cy)
+    cy += 10
+  }
+
+  // Project totals — always shown.
+  if (cy > ph - margin - 60) {
+    doc.addPage()
+    cy = margin
+  }
+  cy += 6
+  doc.setDrawColor(80, 80, 80)
+  doc.setLineWidth(1.2)
+  doc.line(margin, cy, pw - margin, cy)
+  doc.setLineWidth(1)
+  cy += 14
+  const proj = computeProjectTotals(items)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(30, 30, 30)
+  doc.text(`Project Total Linear: ${fmtFtIn(proj.linear)}`, margin, cy + 11)
+  cy += 20
+  doc.text(
+    `Project Total Area: ${fmtArea(proj.area)}${proj.perim > 0 ? `   |   ${fmtFtIn(proj.perim)} perim.` : ''}`,
+    margin,
+    cy + 11
+  )
+  cy += 24
+  return cy
+}
+
 // ─── Export full report PDF ───
 
 export async function exportFullReport(
@@ -338,6 +478,7 @@ export async function exportFullReport(
   items: TakeoffItem[],
   pageScales: Record<string, number>,
   pageRenderedSizes: Record<string, { w: number; h: number }>,
+  sections: TakeoffSection[] = [],
 ): Promise<{ blob: Blob; filename: string }> {
   void pageRenderedSizes // accepted for signature compat; coords are normalized
   const safeName = projectName.replace(/[^a-zA-Z0-9-_]/g, '-').replace(/-+/g, '-') || 'takeoff'
@@ -379,84 +520,13 @@ export async function exportFullReport(
 
   cy += 12
 
-  // ─── Measurement items table ───
+  // ─── Measurement items table (sectioned) ───
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0, 0, 0)
   doc.text('Measurement Items', margin, cy + 12)
   cy += 24
-
-  // Table header
-  const colX = { color: margin, name: margin + 24, type: margin + 240, count: margin + 340, total: margin + 440 }
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(100, 100, 100)
-  doc.text('Color', colX.color, cy + 9)
-  doc.text('Item Name', colX.name, cy + 9)
-  doc.text('Type', colX.type, cy + 9)
-  doc.text('Measurements', colX.count, cy + 9)
-  doc.text('Total', colX.total, cy + 9)
-  cy += 16
-  doc.setDrawColor(220, 220, 220)
-  doc.line(margin, cy, pw - margin, cy)
-  cy += 6
-
-  // Table rows
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  for (const item of items) {
-    if (cy > ph - margin - 20) {
-      doc.addPage()
-      cy = margin
-    }
-    const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
-    const rgb = hexToRgb(item.color)
-
-    // Color dot
-    doc.setFillColor(rgb.r, rgb.g, rgb.b)
-    doc.circle(colX.color + 5, cy + 5, 4, 'F')
-
-    // Name
-    doc.setTextColor(30, 30, 30)
-    doc.text(item.name, colX.name, cy + 9)
-
-    // Type
-    doc.setTextColor(100, 100, 100)
-    doc.text(item.type === 'linear' ? 'Linear' : 'Area', colX.type, cy + 9)
-
-    // Count
-    doc.text(`${item.measurements.length}`, colX.count, cy + 9)
-
-    // Total
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(30, 30, 30)
-    doc.text(item.type === 'linear' ? fmtFtIn(total) : fmtArea(total), colX.total, cy + 9)
-    doc.setFont('helvetica', 'normal')
-
-    cy += 22
-  }
-
-  // Totals row
-  cy += 6
-  doc.setDrawColor(220, 220, 220)
-  doc.line(margin, cy, pw - margin, cy)
-  cy += 12
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-
-  const totalLinear = items.filter(i => i.type === 'linear').reduce((s, i) => s + i.measurements.reduce((a, m) => a + m.valueInFeet, 0), 0)
-  const totalAreaVal = items.filter(i => i.type === 'area').reduce((s, i) => s + i.measurements.reduce((a, m) => a + m.valueInFeet, 0), 0)
-
-  if (totalLinear > 0) {
-    doc.setTextColor(30, 30, 30)
-    doc.text(`Total Linear: ${fmtFtIn(totalLinear)}`, margin, cy + 11)
-    cy += 20
-  }
-  if (totalAreaVal > 0) {
-    doc.setTextColor(30, 30, 30)
-    doc.text(`Total Area: ${fmtArea(totalAreaVal)}`, margin, cy + 11)
-    cy += 20
-  }
+  cy = drawSectionedItemsTable(doc, items, sections, margin, pw, ph, cy)
 
   // ─── Pages 2+: Plan pages with measurements ───
   for (const page of pages) {
@@ -505,6 +575,7 @@ export async function generateReportBlob(
   items: TakeoffItem[],
   pageScales: Record<string, number>,
   pageRenderedSizes: Record<string, { w: number; h: number }>,
+  sections: TakeoffSection[] = [],
 ): Promise<Blob> {
   void pageRenderedSizes // accepted for signature compat; coords are normalized
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' })
@@ -546,65 +617,7 @@ export async function generateReportBlob(
   doc.setTextColor(0, 0, 0)
   doc.text('Measurement Items', margin, cy + 12)
   cy += 24
-
-  const colX2 = { color: margin, name: margin + 24, type: margin + 240, count: margin + 340, total: margin + 440 }
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(100, 100, 100)
-  doc.text('Color', colX2.color, cy + 9)
-  doc.text('Item Name', colX2.name, cy + 9)
-  doc.text('Type', colX2.type, cy + 9)
-  doc.text('Measurements', colX2.count, cy + 9)
-  doc.text('Total', colX2.total, cy + 9)
-  cy += 16
-  doc.setDrawColor(220, 220, 220)
-  doc.line(margin, cy, pw - margin, cy)
-  cy += 6
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  for (const item of items) {
-    if (cy > ph - margin - 20) {
-      doc.addPage()
-      cy = margin
-    }
-    const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
-    const rgb = hexToRgb(item.color)
-
-    doc.setFillColor(rgb.r, rgb.g, rgb.b)
-    doc.circle(colX2.color + 5, cy + 5, 4, 'F')
-    doc.setTextColor(30, 30, 30)
-    doc.text(item.name, colX2.name, cy + 9)
-    doc.setTextColor(100, 100, 100)
-    doc.text(item.type === 'linear' ? 'Linear' : 'Area', colX2.type, cy + 9)
-    doc.text(`${item.measurements.length}`, colX2.count, cy + 9)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(30, 30, 30)
-    doc.text(item.type === 'linear' ? fmtFtIn(total) : fmtArea(total), colX2.total, cy + 9)
-    doc.setFont('helvetica', 'normal')
-    cy += 22
-  }
-
-  cy += 6
-  doc.setDrawColor(220, 220, 220)
-  doc.line(margin, cy, pw - margin, cy)
-  cy += 12
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-
-  const totalLinear2 = items.filter(i => i.type === 'linear').reduce((s, i) => s + i.measurements.reduce((a, m) => a + m.valueInFeet, 0), 0)
-  const totalAreaVal2 = items.filter(i => i.type === 'area').reduce((s, i) => s + i.measurements.reduce((a, m) => a + m.valueInFeet, 0), 0)
-
-  if (totalLinear2 > 0) {
-    doc.setTextColor(30, 30, 30)
-    doc.text(`Total Linear: ${fmtFtIn(totalLinear2)}`, margin, cy + 11)
-    cy += 20
-  }
-  if (totalAreaVal2 > 0) {
-    doc.setTextColor(30, 30, 30)
-    doc.text(`Total Area: ${fmtArea(totalAreaVal2)}`, margin, cy + 11)
-    cy += 20
-  }
+  cy = drawSectionedItemsTable(doc, items, sections, margin, pw, ph, cy)
 
   for (const page of pages) {
     const pageKey = `${page.pdfIndex}-${page.pageIndex}`
