@@ -407,9 +407,9 @@ function drawSectionedItemsTable(
     const cardH = headerH + bodyH + subtotalH
 
     // Card body — light fill behind everything so the rows + footer read as
-    // a unified card. Border drawn last so it sits cleanly on top.
+    // a unified card. Border in gray-200 to match the UI section cards.
     doc.setFillColor(255, 255, 255)
-    doc.setDrawColor(209, 213, 219) // gray-300
+    doc.setDrawColor(229, 231, 235) // gray-200
     doc.setLineWidth(0.5)
     doc.roundedRect(margin, cy, pw - 2 * margin, cardH, 4, 4, 'FD')
     doc.setLineWidth(1)
@@ -479,9 +479,8 @@ function drawSectionedItemsTable(
       }
     }
 
-    // Section subtotals — visible footer band with top border + slightly
-    // darker fill spanning the full card width.
-    doc.setFillColor(249, 250, 251) // gray-50
+    // Section subtotals — footer band darker than card body, edge-to-edge.
+    doc.setFillColor(243, 244, 246) // gray-100
     doc.rect(margin + 0.25, cy + 0.25, pw - 2 * margin - 0.5, subtotalH - 0.5, 'F')
     doc.setDrawColor(229, 231, 235) // gray-200
     doc.setLineWidth(0.5)

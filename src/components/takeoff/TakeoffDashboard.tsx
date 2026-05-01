@@ -694,7 +694,7 @@ export default function TakeoffDashboard({
             own inner DndContext sorting items + handling cross-section
             drops. */}
         {sortedSections.length > 0 && (
-          <div className="bg-gray-100 pt-[18px] border-t border-gray-200">
+          <div className="pt-[18px] border-t border-gray-200">
           <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
             <SortableContext items={sortedSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               {sortedSections.map((section) => {
@@ -705,7 +705,7 @@ export default function TakeoffDashboard({
                 return (
                   <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
                     {({ setActivatorRef, listeners, attributes }) => (
-                      <div className="mx-3 mb-[18px] rounded-md border border-gray-300 bg-white overflow-hidden shadow-sm">
+                      <div className="mx-3 mb-[18px] rounded-md border border-gray-200 bg-white overflow-hidden shadow-md">
                         {/* Section header */}
                         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200">
                           {sectionDraggable ? (
@@ -910,8 +910,8 @@ export default function TakeoffDashboard({
                           </SortableContext>
                         </DndContext>
 
-                        {/* Section subtotals — visible footer band. */}
-                        <div className="border-t border-gray-200 bg-gray-50">
+                        {/* Section subtotals — visible footer band, darker than card body. */}
+                        <div className="border-t border-gray-200 bg-gray-100">
                           <div className="flex items-center justify-between px-4 py-2">
                             <div className="flex items-center gap-2">
                               <RulerIcon className="w-3.5 h-3.5 text-amber-500" />
