@@ -313,7 +313,7 @@ function SortableMeasurementRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 px-4 py-2.5 ${!isLast ? 'border-b border-gray-50' : ''}`}
+      className={`px-4 py-2.5 ${!isLast ? 'border-b border-gray-100' : ''}`}
     >
       {children({ setActivatorRef: setActivatorNodeRef, listeners, attributes })}
     </div>
@@ -694,7 +694,7 @@ export default function TakeoffDashboard({
             own inner DndContext sorting items + handling cross-section
             drops. */}
         {sortedSections.length > 0 && (
-          <div className="bg-gray-50/60 pt-2.5 border-t border-gray-100">
+          <div className="bg-gray-100 pt-[18px] border-t border-gray-200">
           <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
             <SortableContext items={sortedSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               {sortedSections.map((section) => {
@@ -705,9 +705,9 @@ export default function TakeoffDashboard({
                 return (
                   <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
                     {({ setActivatorRef, listeners, attributes }) => (
-                      <div className="mx-3 mb-2.5 rounded-md border border-gray-200 bg-white overflow-hidden">
+                      <div className="mx-3 mb-[18px] rounded-md border border-gray-300 bg-white overflow-hidden shadow-sm">
                         {/* Section header */}
-                        <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200">
+                        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200">
                           {sectionDraggable ? (
                             <button
                               ref={setActivatorRef}
@@ -722,6 +722,7 @@ export default function TakeoffDashboard({
                           ) : (
                             <span className="w-6" />
                           )}
+                          <span aria-hidden="true" className="block w-[3px] h-4 bg-amber-500 rounded-[2px] flex-shrink-0" />
                           {isRenamingThis ? (
                             <input
                               ref={(el) => { sectionEditInputRef.current = el }}
@@ -741,7 +742,7 @@ export default function TakeoffDashboard({
                               }}
                               onFocus={(e) => e.target.select()}
                               autoFocus
-                              className="flex-1 text-sm font-medium tracking-wide text-gray-900 bg-transparent border-b border-amber-500 outline-none"
+                              className="flex-1 text-[16px] font-medium tracking-wide text-gray-900 bg-transparent border-b border-amber-500 outline-none"
                               onClick={(e) => e.stopPropagation()}
                             />
                           ) : (
@@ -751,7 +752,7 @@ export default function TakeoffDashboard({
                                 setEditingSectionId(section.id)
                                 setEditingSectionName(section.name)
                               }}
-                              className="flex-1 text-sm font-medium text-gray-900 tracking-wide truncate cursor-pointer hover:text-amber-600"
+                              className="flex-1 text-[16px] font-medium text-gray-900 tracking-wide truncate cursor-pointer hover:text-amber-600"
                             >
                               {section.name}
                             </span>
@@ -810,6 +811,7 @@ export default function TakeoffDashboard({
                                     draggable={dragEnabled}
                                   >
                                     {({ setActivatorRef, listeners, attributes }) => (<>
+                                    <div className="flex items-center gap-3">
                                     {dragEnabled ? (
                                       <button
                                         ref={setActivatorRef}
@@ -847,11 +849,11 @@ export default function TakeoffDashboard({
                                           setEditingItemId(null)
                                         }}
                                         onFocus={(e) => e.target.select()}
-                                        className="text-sm font-semibold border-b border-amber-500 outline-none bg-transparent flex-1"
+                                        className="text-[14px] font-medium border-b border-amber-500 outline-none bg-transparent flex-1"
                                         autoFocus
                                       />
                                     ) : (
-                                      <span className="text-sm font-semibold text-gray-900 truncate flex-1 min-w-0">
+                                      <span className="text-[14px] font-medium text-gray-900 truncate flex-1 min-w-0">
                                         {item.name}
                                       </span>
                                     )}
@@ -862,10 +864,7 @@ export default function TakeoffDashboard({
                                     }`}>
                                       {item.type === 'linear' ? 'Linear' : 'Area'}
                                     </span>
-                                    <span className="text-xs text-gray-400 flex-shrink-0 w-28 text-right">
-                                      {item.measurements.length} measurement{item.measurements.length !== 1 ? 's' : ''}
-                                    </span>
-                                    <span className="text-sm font-bold text-gray-900 flex-shrink-0 w-28 text-right">
+                                    <span className="text-[14px] font-semibold text-amber-600 flex-shrink-0 tabular-nums w-28 text-right">
                                       {item.type === 'linear' ? fmtFtIn(itemTotal) : fmtArea(itemTotal)}
                                     </span>
                                     {item.type === 'area' && itemPerim > 0 && (
@@ -887,6 +886,22 @@ export default function TakeoffDashboard({
                                         },
                                       ]}
                                     />
+                                    </div>
+                                    {item.measurements.length > 0 && (
+                                      <div className="pl-[26px] pr-2 pt-1.5 space-y-0.5">
+                                        {item.measurements.map((m) => (
+                                          <div key={m.id} className="flex items-center gap-2">
+                                            <span aria-hidden="true" className="block w-1 h-1 rounded-full bg-gray-300 flex-shrink-0" />
+                                            <span className="text-[12px] text-gray-500 tabular-nums">
+                                              {m.type === 'area' ? fmtArea(m.valueInFeet) : fmtFtIn(m.valueInFeet)}
+                                              {m.type === 'area' && m.perimeterFt ? (
+                                                <span className="text-gray-400"> · {fmtFtIn(m.perimeterFt)} perim</span>
+                                              ) : null}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                     </>)}
                                   </SortableMeasurementRow>
                                 )
@@ -895,22 +910,22 @@ export default function TakeoffDashboard({
                           </SortableContext>
                         </DndContext>
 
-                        {/* Section subtotals — always shown, even at 0. */}
-                        <div className="border-t border-gray-200 bg-gray-50/40">
-                          <div className="flex items-center justify-between px-4 py-1.5">
+                        {/* Section subtotals — visible footer band. */}
+                        <div className="border-t border-gray-200 bg-gray-50">
+                          <div className="flex items-center justify-between px-4 py-2">
                             <div className="flex items-center gap-2">
                               <RulerIcon className="w-3.5 h-3.5 text-amber-500" />
                               <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total Linear</span>
                             </div>
-                            <span className="text-[13px] font-bold text-amber-600">{fmtFtIn(sub.linear)}</span>
+                            <span className="text-[13px] font-bold text-amber-600 tabular-nums">{fmtFtIn(sub.linear)}</span>
                           </div>
-                          <div className="flex items-center justify-between px-4 py-1.5 border-t border-gray-100/80">
+                          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200">
                             <div className="flex items-center gap-2">
                               <SquareIcon className="w-3.5 h-3.5 text-amber-500" />
                               <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-[13px] font-bold text-amber-600">{fmtArea(sub.area)}</span>
+                              <span className="text-[13px] font-bold text-amber-600 tabular-nums">{fmtArea(sub.area)}</span>
                               {sub.perim > 0 && (
                                 <span className="text-[11px] text-gray-500">{fmtFtIn(sub.perim)} perim.</span>
                               )}
@@ -927,28 +942,23 @@ export default function TakeoffDashboard({
           </div>
         )}
 
-        {/* Project totals — always rendered, even at 0. 2px amber top
-            border + slightly larger value text emphasize the bottom-line
-            summary versus the section subtotals. */}
-        <div className="border-t-2 border-amber-500 bg-white">
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <RulerIcon className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Project Total Linear</span>
-            </div>
-            <span className="text-[14px] font-bold text-amber-600">{fmtFtIn(projectTotals.linear)}</span>
+        {/* Project totals — emphasized amber-tinted block. Always rendered. */}
+        <div className="mx-3 mb-3 px-4 py-3 rounded-md bg-amber-50 border border-amber-200">
+          <div className="text-[11px] font-medium text-amber-700 uppercase tracking-[0.06em] mb-2">
+            Project Totals
           </div>
-          <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100">
-            <div className="flex items-center gap-2">
-              <SquareIcon className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Project Total Area</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[14px] font-bold text-amber-600">{fmtArea(projectTotals.area)}</span>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-[13px] font-medium text-gray-700">Project Total Linear</span>
+            <span className="text-[17px] font-medium text-amber-600 tabular-nums">{fmtFtIn(projectTotals.linear)}</span>
+          </div>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-[13px] font-medium text-gray-700">Project Total Area</span>
+            <span className="text-[17px] font-medium text-amber-600 tabular-nums">
+              {fmtArea(projectTotals.area)}
               {projectTotals.perim > 0 && (
-                <span className="text-xs text-gray-500">{fmtFtIn(projectTotals.perim)} perim.</span>
+                <span className="ml-1.5 text-[12px] font-normal text-gray-500"> · {fmtFtIn(projectTotals.perim)} perim</span>
               )}
-            </div>
+            </span>
           </div>
         </div>
 

@@ -359,16 +359,14 @@ function drawSectionedItemsTable(
   // Header row
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(100, 100, 100)
-  doc.text('Color', colX.color, cy + 9)
-  doc.text('Item Name', colX.name, cy + 9)
-  doc.text('Type', colX.type, cy + 9)
-  doc.text('Measurements', colX.count, cy + 9)
-  doc.text('Total', colX.total, cy + 9)
+  doc.setTextColor(107, 114, 128)
+  doc.text('ITEM', colX.name, cy + 9)
+  doc.text('TYPE', colX.type, cy + 9)
+  doc.text('TOTAL', colX.total, cy + 9)
   cy += 16
-  doc.setDrawColor(220, 220, 220)
+  doc.setDrawColor(229, 231, 235)
   doc.line(margin, cy, pw - margin, cy)
-  cy += 6
+  cy += 10
 
   const sortedSections = sortSections(sections)
   const grouped = groupItemsBySection(sortedSections, items)
@@ -386,40 +384,54 @@ function drawSectionedItemsTable(
 
   for (const group of renderGroups) {
     // Page-fit guard for the section heading + at least one row + subtotals.
-    if (cy > ph - margin - 100) {
+    if (cy > ph - margin - 110) {
       doc.addPage()
       cy = margin
     }
 
-    // Section card outline — measure the card height first by tallying rows
-    // and subtotals, then draw the card border before painting the contents.
-    const headerH = 22
-    const rowH = 22
+    // Card geometry. Items always render expanded with one indented line
+    // per individual measurement underneath the parent header row.
+    const headerH = 24
+    const rowH = 20
+    const measurementH = 14
     const emptyH = 22
-    const subtotalH = 26
-    const bodyH = group.items.length === 0 ? emptyH : group.items.length * rowH
+    const subtotalH = 30
+    let bodyH = 0
+    if (group.items.length === 0) {
+      bodyH = emptyH
+    } else {
+      for (const it of group.items) {
+        bodyH += rowH + it.measurements.length * measurementH + 4
+      }
+    }
     const cardH = headerH + bodyH + subtotalH
 
-    // Card: subtle 0.5pt border + rounded corners.
-    doc.setDrawColor(220, 220, 220)
+    // Card body — light fill behind everything so the rows + footer read as
+    // a unified card. Border drawn last so it sits cleanly on top.
+    doc.setFillColor(255, 255, 255)
+    doc.setDrawColor(209, 213, 219) // gray-300
     doc.setLineWidth(0.5)
-    doc.roundedRect(margin, cy, pw - 2 * margin, cardH, 4, 4, 'S')
+    doc.roundedRect(margin, cy, pw - 2 * margin, cardH, 4, 4, 'FD')
     doc.setLineWidth(1)
 
     const cardTop = cy
 
-    // Section heading (inside the card).
+    // Amber accent bar to the left of the section name (3×16 pt).
+    doc.setFillColor(245, 158, 11) // amber-500
+    doc.rect(margin + 8, cy + 6, 3, 14, 'F')
+
+    // Section heading (inside the card, 16pt bold-ish via fontSize 13).
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
+    doc.setFontSize(13)
     doc.setTextColor(30, 30, 30)
-    doc.text(group.name, margin + 8, cy + 14)
+    doc.text(group.name, margin + 16, cy + 16)
     cy += headerH
-    doc.setDrawColor(230, 230, 230)
+    doc.setDrawColor(229, 231, 235) // gray-200
     doc.setLineWidth(0.5)
     doc.line(margin, cy, pw - margin, cy)
     doc.setLineWidth(1)
 
-    // Rows
+    // Rows + per-measurement detail lines.
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
     if (group.items.length === 0) {
@@ -430,64 +442,117 @@ function drawSectionedItemsTable(
       cy += emptyH
     } else {
       for (const item of group.items) {
-        // No mid-card page break — the card was sized in advance, so we
-        // keep the section visually intact on a single page.
         const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
         const rgb = hexToRgb(item.color)
+        // Item header row: color dot + name + type + total
         doc.setFillColor(rgb.r, rgb.g, rgb.b)
         doc.circle(colX.color + 5, cy + 10, 4, 'F')
         doc.setTextColor(30, 30, 30)
-        doc.text(item.name, colX.name, cy + 14)
+        doc.setFont('helvetica', 'normal')
+        doc.text(item.name, colX.name, cy + 13)
         doc.setTextColor(100, 100, 100)
-        doc.text(item.type === 'linear' ? 'Linear' : 'Area', colX.type, cy + 14)
-        doc.text(`${item.measurements.length}`, colX.count, cy + 14)
+        doc.text(item.type === 'linear' ? 'Linear' : 'Area', colX.type, cy + 13)
         doc.setFont('helvetica', 'bold')
-        doc.setTextColor(30, 30, 30)
-        doc.text(item.type === 'linear' ? fmtFtIn(total) : fmtArea(total), colX.total, cy + 14)
+        doc.setTextColor(180, 83, 9) // amber-700
+        doc.text(item.type === 'linear' ? fmtFtIn(total) : fmtArea(total), colX.total, cy + 13)
         doc.setFont('helvetica', 'normal')
         cy += rowH
+
+        // Per-measurement lines, indented under the item name.
+        doc.setFontSize(9)
+        doc.setTextColor(120, 120, 120)
+        for (const m of item.measurements) {
+          // Small grey bullet dot
+          doc.setFillColor(180, 180, 180)
+          doc.circle(colX.name + 6, cy + 6, 1.2, 'F')
+          const valueText =
+            m.type === 'area' ? fmtArea(m.valueInFeet) : fmtFtIn(m.valueInFeet)
+          const detail =
+            m.type === 'area' && m.perimeterFt
+              ? `${valueText}  ·  ${fmtFtIn(m.perimeterFt)} perim`
+              : valueText
+          doc.text(detail, colX.name + 12, cy + 9)
+          cy += measurementH
+        }
+        doc.setFontSize(10)
+        cy += 4
       }
     }
 
-    // Section subtotals — both always shown, separated by a thin border.
-    doc.setDrawColor(230, 230, 230)
+    // Section subtotals — visible footer band with top border + slightly
+    // darker fill spanning the full card width.
+    doc.setFillColor(249, 250, 251) // gray-50
+    doc.rect(margin + 0.25, cy + 0.25, pw - 2 * margin - 0.5, subtotalH - 0.5, 'F')
+    doc.setDrawColor(229, 231, 235) // gray-200
     doc.setLineWidth(0.5)
     doc.line(margin, cy, pw - margin, cy)
     doc.setLineWidth(1)
     const sub = computeTotals(group.items)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.setTextColor(120, 120, 120)
-    doc.text(`Total Linear: ${fmtFtIn(sub.linear)}`, colX.name, cy + 14)
-    doc.text(`Total Area: ${fmtArea(sub.area)}${sub.perim > 0 ? `   |   ${fmtFtIn(sub.perim)} perim.` : ''}`, colX.total - 60, cy + 14)
+    doc.setTextColor(107, 114, 128) // gray-500
+    doc.text(`TOTAL LINEAR`, margin + 12, cy + 18)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(180, 83, 9) // amber-700
+    doc.text(fmtFtIn(sub.linear), colX.type, cy + 18)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(107, 114, 128)
+    doc.text(`TOTAL AREA`, colX.count, cy + 18)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(180, 83, 9)
+    doc.text(
+      `${fmtArea(sub.area)}${sub.perim > 0 ? `  ·  ${fmtFtIn(sub.perim)} perim` : ''}`,
+      colX.total,
+      cy + 18
+    )
+    doc.setFont('helvetica', 'normal')
     cy = cardTop + cardH
-    cy += 10 // gap between section cards
+    cy += 18 // gap between section cards
   }
 
-  // Project totals — always shown, separated by a 2pt amber top rule and
-  // rendered with slightly larger value text to emphasize the bottom line.
-  if (cy > ph - margin - 70) {
+  // Project totals — emphasized amber-tinted block.
+  if (cy > ph - margin - 80) {
     doc.addPage()
     cy = margin
   }
-  cy += 4
-  doc.setDrawColor(245, 158, 11) // amber-500
-  doc.setLineWidth(2)
-  doc.line(margin, cy, pw - margin, cy)
+  const projBlockH = 70
+  doc.setFillColor(255, 251, 235) // amber-50
+  doc.setDrawColor(253, 230, 138) // amber-200
+  doc.setLineWidth(0.5)
+  doc.roundedRect(margin, cy, pw - 2 * margin, projBlockH, 4, 4, 'FD')
   doc.setLineWidth(1)
-  cy += 16
-  const proj = computeProjectTotals(items)
+
+  // Small-caps label
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(13)
-  doc.setTextColor(30, 30, 30)
-  doc.text(`Project Total Linear: ${fmtFtIn(proj.linear)}`, margin, cy + 11)
-  cy += 22
-  doc.text(
-    `Project Total Area: ${fmtArea(proj.area)}${proj.perim > 0 ? `   |   ${fmtFtIn(proj.perim)} perim.` : ''}`,
-    margin,
-    cy + 11
-  )
-  cy += 24
+  doc.setFontSize(9)
+  doc.setTextColor(180, 83, 9) // amber-700
+  doc.text('PROJECT TOTALS', margin + 12, cy + 16)
+
+  const proj = computeProjectTotals(items)
+  // Linear row
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(55, 65, 81) // gray-700
+  doc.text('Project Total Linear', margin + 12, cy + 36)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.setTextColor(217, 119, 6) // amber-600
+  doc.text(fmtFtIn(proj.linear), pw - margin - 12, cy + 36, { align: 'right' })
+
+  // Area row
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(55, 65, 81)
+  doc.text('Project Total Area', margin + 12, cy + 56)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.setTextColor(217, 119, 6)
+  const areaText = `${fmtArea(proj.area)}${proj.perim > 0 ? `  ·  ${fmtFtIn(proj.perim)} perim` : ''}`
+  doc.text(areaText, pw - margin - 12, cy + 56, { align: 'right' })
+
+  doc.setFont('helvetica', 'normal')
+  doc.setLineWidth(1)
+  cy += projBlockH + 8
   return cy
 }
 
