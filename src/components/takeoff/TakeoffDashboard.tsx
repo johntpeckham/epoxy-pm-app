@@ -905,8 +905,8 @@ export default function TakeoffDashboard({
                   <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
                     {({ setActivatorRef, listeners, attributes }) => (
                       <div className="mx-3 mb-[18px] rounded-md border border-gray-200 bg-white overflow-hidden shadow-md">
-                        {/* Section header */}
-                        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200">
+                        {/* Section header — amber-outlined to mirror the PROJECT TOTALS border. */}
+                        <div className="flex items-center gap-2 px-3 py-2.5 m-1.5 rounded-md border border-amber-200">
                           {sectionDraggable ? (
                             <button
                               ref={setActivatorRef}

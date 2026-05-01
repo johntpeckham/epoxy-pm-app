@@ -416,6 +416,13 @@ function drawSectionedItemsTable(
 
     const cardTop = cy
 
+    // Amber-outlined section header rectangle — mirrors the PROJECT TOTALS
+    // border color so the two amber outlines read as a consistent pair.
+    doc.setDrawColor(253, 230, 138) // amber-200
+    doc.setLineWidth(0.5)
+    doc.roundedRect(margin + 4, cy + 3, pw - 2 * margin - 8, headerH - 6, 2, 2, 'S')
+    doc.setLineWidth(1)
+
     // Amber accent bar to the left of the section name (3×16 pt).
     doc.setFillColor(245, 158, 11) // amber-500
     doc.rect(margin + 8, cy + 6, 3, 14, 'F')
