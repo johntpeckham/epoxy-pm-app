@@ -862,6 +862,7 @@ export default function TakeoffClient({
         markups={markups}
         pageScales={pageScales}
         pageRenderedSizes={pageRenderedSizes}
+        sections={sections}
         onAddPages={handleAddPages}
         onUploadPdf={handleUploadPdf}
         onOpenPage={handleOpenPage}
@@ -869,6 +870,11 @@ export default function TakeoffClient({
         onRenamePage={handleRenamePage}
         onRenameItem={handleRenameItem}
         onReorderItems={handleReorderItems}
+        onCreateSection={handleCreateSection}
+        onRenameSection={handleRenameSection}
+        onDeleteSection={handleDeleteSection}
+        onReorderSections={handleReorderSections}
+        onReorderItemsInSections={handleReorderItemsInSections}
       />
     )
   }

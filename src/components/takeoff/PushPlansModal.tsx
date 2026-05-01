@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, SearchIcon, Loader2Icon, SendIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
-import type { TakeoffPage, TakeoffItem } from './types'
+import type { TakeoffPage, TakeoffItem, TakeoffSection } from './types'
 import { generateReportBlob } from './takeoffExport'
 
 interface Job {
@@ -19,6 +19,7 @@ interface PushPlansModalProps {
   items: TakeoffItem[]
   pageScales: Record<string, number>
   pageRenderedSizes: Record<string, { w: number; h: number }>
+  sections?: TakeoffSection[]
   onClose: () => void
   onSuccess: (jobName: string) => void
   onError: (message: string) => void
@@ -29,6 +30,7 @@ export default function PushPlansModal({
   pages,
   items,
   pageScales,
+  sections,
   pageRenderedSizes,
   onClose,
   onSuccess,
@@ -79,7 +81,7 @@ export default function PushPlansModal({
       if (!user) throw new Error('Not authenticated')
 
       // Generate the PDF report blob
-      const blob = await generateReportBlob(projectName, pages, items, pageScales, pageRenderedSizes)
+      const blob = await generateReportBlob(projectName, pages, items, pageScales, pageRenderedSizes, sections ?? [])
 
       // Upload to Supabase storage
       const fileName = `${projectName} - Takeoff Report.pdf`
