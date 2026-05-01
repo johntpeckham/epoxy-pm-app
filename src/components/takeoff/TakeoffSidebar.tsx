@@ -663,9 +663,9 @@ export default function TakeoffSidebar({
               return (
                 <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
                   {({ setActivatorRef, listeners, attributes }) => (
-                    <div className="mx-3 mb-[18px] rounded-md border border-neutral-700 bg-neutral-800 overflow-hidden">
+                    <div className="mx-3 mb-[18px] rounded-md border border-white/10 bg-white/[0.04] overflow-hidden">
                       {/* Section header */}
-                      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-neutral-700">
+                      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/[0.06]">
                         {sectionDraggable ? (
                           <button
                             ref={setActivatorRef}
@@ -876,7 +876,7 @@ export default function TakeoffSidebar({
                       </DndContext>
 
                       {/* Section subtotals — visible footer band. */}
-                      <div className="bg-neutral-900 border-t border-neutral-700">
+                      <div className="bg-black/25 border-t border-white/[0.06]">
                         <div className="flex items-center justify-between px-4 py-2">
                           <div className="flex items-center gap-1.5">
                             <RulerIcon className="w-3 h-3 text-amber-500" />
@@ -884,7 +884,7 @@ export default function TakeoffSidebar({
                           </div>
                           <span className="text-[13px] font-bold text-amber-400 tabular-nums">{fmtFtIn(subLinear)}</span>
                         </div>
-                        <div className="flex items-center justify-between px-4 py-2 border-t border-neutral-800">
+                        <div className="flex items-center justify-between px-4 py-2 border-t border-white/[0.06]">
                           <div className="flex items-center gap-1.5">
                             <SquareIcon className="w-3 h-3 text-amber-500" />
                             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
