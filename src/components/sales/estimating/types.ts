@@ -15,6 +15,10 @@ export interface EstimatingProject {
   source_ref_id: string | null
   measurements: string | null
   project_number: string | null
+  project_address_street: string | null
+  project_address_city: string | null
+  project_address_state: string | null
+  project_address_zip: string | null
   created_by: string | null
   created_at: string
   updated_at: string

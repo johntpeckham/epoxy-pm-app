@@ -10,6 +10,8 @@ import ProjectMeasurementsCard from './ProjectMeasurementsCard'
 import ProjectProposalsCard from './ProjectProposalsCard'
 import ProjectRemindersCard from './ProjectRemindersCard'
 import ProjectNumberOverrideModal from './ProjectNumberOverrideModal'
+import EditProjectModal from './EditProjectModal'
+import { formatAddressLine } from './ProjectAddressFields'
 
 interface ProjectDashboardProps {
   project: EstimatingProject
@@ -30,19 +32,44 @@ export default function ProjectDashboard({
   // Project number override was previously admin-only. Now surfaces for any
   // user with edit access to estimating (admin retains it via shortcut).
   const canOverrideProjectNumber = canEdit('estimating')
+  const canEditProject = canEdit('estimating')
   const [showOverride, setShowOverride] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+
+  // Compose the project's structured address into a single display line.
+  // Falls back to the customer's single-line address only if the project
+  // has no structured fields (legacy projects pre-migration backfill).
+  const projectAddressLine = formatAddressLine({
+    street: project.project_address_street ?? '',
+    city: project.project_address_city ?? '',
+    state: project.project_address_state ?? '',
+    zip: project.project_address_zip ?? '',
+  })
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
-      <div className="px-4 py-4 border-b border-gray-200 bg-white">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition mb-2"
-        >
-          <ChevronLeftIcon className="w-4 h-4" />
-          Back to customers
-        </button>
+      <div className="px-4 py-4 border-b border-gray-200 bg-white relative">
+        <div className="flex items-start justify-between gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition mb-2"
+          >
+            <ChevronLeftIcon className="w-4 h-4" />
+            Back to customers
+          </button>
+          {canEditProject && (
+            <button
+              type="button"
+              onClick={() => setShowEdit(true)}
+              title="Edit project"
+              aria-label="Edit project"
+              className="text-gray-400 hover:text-amber-600 hover:bg-amber-50 p-1.5 rounded-md transition flex-shrink-0"
+            >
+              <PencilIcon className="w-4 h-4" />
+            </button>
+          )}
+        </div>
         {project.project_number && (
           <div className="mb-1">
             {canOverrideProjectNumber ? (
@@ -68,7 +95,7 @@ export default function ProjectDashboard({
         <p className="text-xs text-gray-500 truncate">
           {customer.name}
           {customer.company ? ` · ${customer.company}` : ''}
-          {customer.address ? ` · ${customer.address}` : ''}
+          {projectAddressLine ? ` · ${projectAddressLine}` : ''}
         </p>
       </div>
 
@@ -109,6 +136,15 @@ export default function ProjectDashboard({
             onPatch(patch)
             setShowOverride(false)
           }}
+        />
+      )}
+
+      {showEdit && (
+        <EditProjectModal
+          project={project}
+          customer={customer}
+          onClose={() => setShowEdit(false)}
+          onUpdated={(patch) => onPatch(patch)}
         />
       )}
     </div>
