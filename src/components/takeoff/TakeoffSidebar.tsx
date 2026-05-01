@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { PlusIcon, Trash2Icon, CheckIcon, XIcon, Pencil } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { PlusIcon, Trash2Icon, XIcon, Pencil } from 'lucide-react'
 import type { TakeoffItem, MeasurementType } from './types'
 import { ITEM_COLORS } from './TakeoffViewer'
 
@@ -14,11 +14,21 @@ interface TakeoffSidebarProps {
   onRenameItem: (id: string, name: string) => void
   onChangeItemColor: (id: string, color: string) => void
   onDeleteMeasurement: (itemId: string, measurementId: string) => void
-  // New: parent tracks panel-open state to gate PDF click placement and to
-  // drive the Escape-with-in-progress-points behavior.
+  // Parent tracks panel-open state to gate PDF click placement and to drive
+  // the Escape-with-in-progress-points behavior.
   isPanelOpen: boolean
   onPanelOpenChange: (open: boolean) => void
   isMeasuringActive: boolean
+  // Id of the item created in the current "+" panel session, if any. While
+  // set, this item is hidden from the saved list and its live tally is
+  // rendered inline in the panel.
+  panelSessionItemId: string | null
+  // Number of currently-placing points (the in-progress shape under the
+  // panel-session item). Used to gate Finish Measuring.
+  tempPointsCount: number
+  // Finalize the panel-session item: close the panel; the item stays in
+  // `items` and surfaces in the saved list.
+  onFinishMeasuring: () => void
 }
 
 function fmtFtIn(ft: number): string {
@@ -61,6 +71,9 @@ export default function TakeoffSidebar({
   isPanelOpen,
   onPanelOpenChange,
   isMeasuringActive,
+  panelSessionItemId,
+  tempPointsCount,
+  onFinishMeasuring,
 }: TakeoffSidebarProps) {
   const showAdd = isPanelOpen
   const [newName, setNewName] = useState('')
@@ -70,6 +83,34 @@ export default function TakeoffSidebar({
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
 
+  // Inline blocking message for "Finish Measuring while shape in progress".
+  // Auto-dismiss after 2.5s. We hide the message at render time when the
+  // in-progress shape is gone (tempPointsCount === 0) so Enter/Escape feel
+  // instant; the 2.5s timer is the long-tail dismissal for the case where
+  // the user keeps clicking Finish without resolving the shape.
+  const [blockMessage, setBlockMessage] = useState<string | null>(null)
+  const blockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  function showBlockMessage(text: string) {
+    setBlockMessage(text)
+    if (blockTimerRef.current) clearTimeout(blockTimerRef.current)
+    blockTimerRef.current = setTimeout(() => setBlockMessage(null), 2500)
+  }
+  useEffect(() => {
+    return () => {
+      if (blockTimerRef.current) clearTimeout(blockTimerRef.current)
+    }
+  }, [])
+
+  // The in-progress item is rendered inline in the panel and excluded from
+  // the saved list. Until the user clicks Finish Measuring it should not
+  // appear in the saved list at all.
+  const sessionItem = panelSessionItemId
+    ? items.find((it) => it.id === panelSessionItemId) ?? null
+    : null
+  const savedItems = panelSessionItemId
+    ? items.filter((it) => it.id !== panelSessionItemId)
+    : items
+
   // "Start Measuring" — creates the item if needed and arms PDF click
   // placement, but keeps the config panel open with form state intact so the
   // user can re-arm via Escape (which clears in-progress points).
@@ -78,10 +119,26 @@ export default function TakeoffSidebar({
     onAddItem(newName.trim(), newType, newColor)
   }
 
+  // "Finish Measuring" — only valid in the "actively measuring" mode.
+  // Blocked when there's an in-progress shape with placed points; in that
+  // case we surface an inline auto-dismissing message instead of finalizing.
+  function handleFinishMeasuring() {
+    if (tempPointsCount > 0) {
+      showBlockMessage('Complete or cancel current shape first')
+      return
+    }
+    onFinishMeasuring()
+    setNewName('')
+    setNewType('linear')
+    setNewColor(ITEM_COLORS[0])
+  }
+
   function handleCancel() {
     setNewName('')
     setNewType('linear')
     setNewColor(ITEM_COLORS[0])
+    if (blockTimerRef.current) clearTimeout(blockTimerRef.current)
+    setBlockMessage(null)
     onPanelOpenChange(false)
   }
 
@@ -160,11 +217,11 @@ export default function TakeoffSidebar({
           </div>
           <div className="flex gap-1.5">
             <button
-              onClick={handleStartMeasuring}
-              disabled={isMeasuringActive || !newName.trim()}
+              onClick={isMeasuringActive ? handleFinishMeasuring : handleStartMeasuring}
+              disabled={!isMeasuringActive && !newName.trim()}
               className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-500/40 disabled:cursor-not-allowed text-white text-xs font-medium rounded transition-colors"
             >
-              {isMeasuringActive ? 'Measuring…' : 'Start Measuring'}
+              {isMeasuringActive ? 'Finish Measuring' : 'Start Measuring'}
             </button>
             <button
               onClick={handleCancel}
@@ -173,6 +230,47 @@ export default function TakeoffSidebar({
               Cancel
             </button>
           </div>
+
+          {/* Inline blocking-message slot. Subtle warning tone, auto-dismiss
+              after 2.5s, and hidden the moment the in-progress shape clears
+              (Enter / Escape) so feedback feels instant. */}
+          {blockMessage && tempPointsCount > 0 && (
+            <div role="status" className="text-[11px] text-amber-300/90 leading-snug">
+              {blockMessage}
+            </div>
+          )}
+
+          {/* Live tally for the in-progress (panel-session) item.
+              Only shown once at least one shape has been completed. */}
+          {sessionItem && sessionItem.measurements.length > 0 && (() => {
+            const total = sessionItem.measurements.reduce((s, m) => s + m.valueInFeet, 0)
+            const totalPerim = sessionItem.type === 'area'
+              ? sessionItem.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0)
+              : 0
+            const count = sessionItem.measurements.length
+            return (
+              <div className="rounded border border-gray-800 bg-[#0c0c0c] px-2.5 py-2 space-y-1">
+                <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-gray-500">
+                  <span>{count} {sessionItem.type === 'linear' ? 'segment' : 'shape'}{count === 1 ? '' : 's'}</span>
+                  <span className={`px-1.5 py-0.5 rounded font-semibold ${
+                    sessionItem.type === 'linear'
+                      ? 'bg-blue-500/15 text-blue-400'
+                      : 'bg-green-500/15 text-green-400'
+                  }`}>
+                    {sessionItem.type === 'linear' ? 'LINEAR' : 'AREA'}
+                  </span>
+                </div>
+                <div className="text-[12px] font-bold text-amber-400">
+                  Total: {sessionItem.type === 'linear' ? fmtFtIn(total) : `${total.toFixed(1)} sq ft`}
+                </div>
+                {sessionItem.type === 'area' && totalPerim > 0 && (
+                  <div className="text-[10px] font-medium text-gray-400">
+                    {fmtFtIn(totalPerim)} perim.
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       )}
 
@@ -184,7 +282,17 @@ export default function TakeoffSidebar({
           </div>
         )}
 
-        {items.map((item) => {
+        {/* Stronger divider + section header — only when the config panel
+            is open AND there is at least one already-saved item. */}
+        {showAdd && savedItems.length > 0 && (
+          <div className="px-3 pt-3 pb-2 border-t-2 border-zinc-700">
+            <span className="text-gray-300 font-semibold text-xs tracking-wide uppercase">
+              Saved Measurements
+            </span>
+          </div>
+        )}
+
+        {savedItems.map((item) => {
           const isActive = item.id === activeItemId
           const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
           const totalPerim = item.type === 'area' ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0) : 0

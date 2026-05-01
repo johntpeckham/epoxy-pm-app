@@ -811,13 +811,15 @@ export default function TakeoffViewer({
   // Tracks the item created during the current "+" panel session so that
   // repeated "Start Measuring" clicks within the same session (e.g. after
   // Escape clears in-progress points) re-arm placement instead of
-  // re-creating the item.
-  const panelSessionItemIdRef = useRef<string | null>(null)
+  // re-creating the item. State (not just a ref) so the sidebar can
+  // exclude the in-progress item from the saved list and render its live
+  // tally inline in the panel.
+  const [panelSessionItemId, setPanelSessionItemId] = useState<string | null>(null)
 
   function handleAddItem(name: string, type: MeasurementType, color?: string) {
-    if (panelSessionItemIdRef.current) {
+    if (panelSessionItemId) {
       // Already created the item this session — just re-arm placement.
-      const existing = items.find((it) => it.id === panelSessionItemIdRef.current)
+      const existing = items.find((it) => it.id === panelSessionItemId)
       if (existing) {
         setActiveItemId(existing.id)
         setActiveTool(existing.type === 'linear' ? 'linear' : 'area-polygon')
@@ -832,7 +834,7 @@ export default function TakeoffViewer({
     setActiveTool(type === 'linear' ? 'linear' : 'area-polygon')
     setTempPoints([])
     setIsMeasuringActive(true)
-    panelSessionItemIdRef.current = newItem.id
+    setPanelSessionItemId(newItem.id)
   }
 
   function handleChangeItemColor(id: string, color: string) {
@@ -1547,17 +1549,28 @@ export default function TakeoffViewer({
             setIsConfigPanelOpen(open)
             if (open) {
               // Fresh panel session — reset session item tracking and disarm.
-              panelSessionItemIdRef.current = null
+              setPanelSessionItemId(null)
               setIsMeasuringActive(false)
               setTempPoints([])
             } else {
               // Cancel — disarm placement.
               setIsMeasuringActive(false)
               setTempPoints([])
-              panelSessionItemIdRef.current = null
+              setPanelSessionItemId(null)
             }
           }}
           isMeasuringActive={isMeasuringActive}
+          panelSessionItemId={panelSessionItemId}
+          tempPointsCount={tempPoints.length}
+          onFinishMeasuring={() => {
+            // Finalize the in-progress item: close the panel, leave the
+            // item in `items` (so it surfaces in the saved list), and
+            // disarm placement.
+            setIsConfigPanelOpen(false)
+            setIsMeasuringActive(false)
+            setTempPoints([])
+            setPanelSessionItemId(null)
+          }}
         />
       </div>
 
