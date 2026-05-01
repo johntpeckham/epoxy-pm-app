@@ -279,7 +279,7 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <span className="text-amber-500"><ClipboardCheckIcon className="w-5 h-5" /></span>
-        <h3 className="text-sm font-semibold text-gray-900 flex-1">Office Checklist</h3>
+        <h3 className="text-sm font-semibold text-gray-900 flex-1">Job Checklist</h3>
 
         {/* + New dropdown (admin only) */}
         {isAdmin && <div className="relative">
@@ -346,7 +346,7 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
         <button
           onClick={onExpand}
           className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition"
-          title="Open full Office Checklist workspace"
+          title="Open full Job Checklist workspace"
         >
           <Maximize2Icon className="w-4 h-4" />
         </button>
@@ -373,7 +373,7 @@ export default function ChecklistDashboardCard({ project, userId, onExpand, isAd
       ) : items.length === 0 ? (
         <div className="text-center py-8">
           <ClipboardCheckIcon className="w-6 h-6 text-gray-300 mx-auto mb-1.5" />
-          <p className="text-xs text-gray-500 font-medium">No office checklist items yet</p>
+          <p className="text-xs text-gray-500 font-medium">No job checklist items yet</p>
           <p className="text-[10px] text-gray-400 mt-0.5">Use <span className="font-semibold">+ New</span> to add items or apply a template.</p>
         </div>
       ) : (
