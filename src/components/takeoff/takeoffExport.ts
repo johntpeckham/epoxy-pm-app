@@ -386,81 +386,102 @@ function drawSectionedItemsTable(
 
   for (const group of renderGroups) {
     // Page-fit guard for the section heading + at least one row + subtotals.
-    if (cy > ph - margin - 80) {
+    if (cy > ph - margin - 100) {
       doc.addPage()
       cy = margin
     }
 
-    // Section heading
+    // Section card outline — measure the card height first by tallying rows
+    // and subtotals, then draw the card border before painting the contents.
+    const headerH = 22
+    const rowH = 22
+    const emptyH = 22
+    const subtotalH = 26
+    const bodyH = group.items.length === 0 ? emptyH : group.items.length * rowH
+    const cardH = headerH + bodyH + subtotalH
+
+    // Card: subtle 0.5pt border + rounded corners.
+    doc.setDrawColor(220, 220, 220)
+    doc.setLineWidth(0.5)
+    doc.roundedRect(margin, cy, pw - 2 * margin, cardH, 4, 4, 'S')
+    doc.setLineWidth(1)
+
+    const cardTop = cy
+
+    // Section heading (inside the card).
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
     doc.setTextColor(30, 30, 30)
-    doc.text(group.name, margin, cy + 11)
-    cy += 18
-    doc.setDrawColor(235, 235, 235)
+    doc.text(group.name, margin + 8, cy + 14)
+    cy += headerH
+    doc.setDrawColor(230, 230, 230)
+    doc.setLineWidth(0.5)
     doc.line(margin, cy, pw - margin, cy)
-    cy += 6
+    doc.setLineWidth(1)
 
     // Rows
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
     if (group.items.length === 0) {
       doc.setTextColor(160, 160, 160)
-      doc.text('No measurements in this section', colX.name, cy + 9)
-      cy += 22
+      doc.setFont('helvetica', 'italic')
+      doc.text('No measurements in this section', colX.name, cy + 14)
+      doc.setFont('helvetica', 'normal')
+      cy += emptyH
     } else {
       for (const item of group.items) {
-        if (cy > ph - margin - 20) {
-          doc.addPage()
-          cy = margin
-        }
+        // No mid-card page break — the card was sized in advance, so we
+        // keep the section visually intact on a single page.
         const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
         const rgb = hexToRgb(item.color)
         doc.setFillColor(rgb.r, rgb.g, rgb.b)
-        doc.circle(colX.color + 5, cy + 5, 4, 'F')
+        doc.circle(colX.color + 5, cy + 10, 4, 'F')
         doc.setTextColor(30, 30, 30)
-        doc.text(item.name, colX.name, cy + 9)
+        doc.text(item.name, colX.name, cy + 14)
         doc.setTextColor(100, 100, 100)
-        doc.text(item.type === 'linear' ? 'Linear' : 'Area', colX.type, cy + 9)
-        doc.text(`${item.measurements.length}`, colX.count, cy + 9)
+        doc.text(item.type === 'linear' ? 'Linear' : 'Area', colX.type, cy + 14)
+        doc.text(`${item.measurements.length}`, colX.count, cy + 14)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(30, 30, 30)
-        doc.text(item.type === 'linear' ? fmtFtIn(total) : fmtArea(total), colX.total, cy + 9)
+        doc.text(item.type === 'linear' ? fmtFtIn(total) : fmtArea(total), colX.total, cy + 14)
         doc.setFont('helvetica', 'normal')
-        cy += 22
+        cy += rowH
       }
     }
 
-    // Section subtotals — both always shown.
+    // Section subtotals — both always shown, separated by a thin border.
+    doc.setDrawColor(230, 230, 230)
+    doc.setLineWidth(0.5)
+    doc.line(margin, cy, pw - margin, cy)
+    doc.setLineWidth(1)
     const sub = computeTotals(group.items)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.setTextColor(120, 120, 120)
-    doc.text(`Total Linear: ${fmtFtIn(sub.linear)}`, colX.name, cy + 9)
-    doc.text(`Total Area: ${fmtArea(sub.area)}${sub.perim > 0 ? `   |   ${fmtFtIn(sub.perim)} perim.` : ''}`, colX.total - 60, cy + 9)
-    cy += 18
-    doc.setDrawColor(230, 230, 230)
-    doc.line(margin, cy, pw - margin, cy)
-    cy += 10
+    doc.text(`Total Linear: ${fmtFtIn(sub.linear)}`, colX.name, cy + 14)
+    doc.text(`Total Area: ${fmtArea(sub.area)}${sub.perim > 0 ? `   |   ${fmtFtIn(sub.perim)} perim.` : ''}`, colX.total - 60, cy + 14)
+    cy = cardTop + cardH
+    cy += 10 // gap between section cards
   }
 
-  // Project totals — always shown.
-  if (cy > ph - margin - 60) {
+  // Project totals — always shown, separated by a 2pt amber top rule and
+  // rendered with slightly larger value text to emphasize the bottom line.
+  if (cy > ph - margin - 70) {
     doc.addPage()
     cy = margin
   }
-  cy += 6
-  doc.setDrawColor(80, 80, 80)
-  doc.setLineWidth(1.2)
+  cy += 4
+  doc.setDrawColor(245, 158, 11) // amber-500
+  doc.setLineWidth(2)
   doc.line(margin, cy, pw - margin, cy)
   doc.setLineWidth(1)
-  cy += 14
+  cy += 16
   const proj = computeProjectTotals(items)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
+  doc.setFontSize(13)
   doc.setTextColor(30, 30, 30)
   doc.text(`Project Total Linear: ${fmtFtIn(proj.linear)}`, margin, cy + 11)
-  cy += 20
+  cy += 22
   doc.text(
     `Project Total Area: ${fmtArea(proj.area)}${proj.perim > 0 ? `   |   ${fmtFtIn(proj.perim)} perim.` : ''}`,
     margin,

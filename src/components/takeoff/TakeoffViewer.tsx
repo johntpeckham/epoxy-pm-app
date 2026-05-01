@@ -1445,8 +1445,8 @@ export default function TakeoffViewer({
   return (
     <div className="flex flex-col h-full w-full bg-white">
       {/* Back + Toolbar */}
-      <div className="flex items-center bg-gray-900 flex-shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors border-r border-gray-700">
+      <div className="flex items-center bg-[#1a1a1a] flex-shrink-0">
+        <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors border-r border-[#2a2a2a]">
           <ArrowLeftIcon className="w-4 h-4" />
           Dashboard
         </button>

@@ -73,7 +73,7 @@ export default function TakeoffToolbar({
   const scaleSet = pageScale?.calibrated === true
 
   return (
-    <div className="flex items-center gap-0.5 px-2 py-1.5 bg-gray-900 border-b border-gray-800 flex-nowrap overflow-hidden">
+    <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#1a1a1a] border-b border-[#2a2a2a] flex-nowrap overflow-hidden">
       {/* Set Scale — prominent button */}
       {scaleSet ? (
         <button
