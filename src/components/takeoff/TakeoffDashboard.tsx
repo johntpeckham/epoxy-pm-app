@@ -263,6 +263,17 @@ function fmtFtIn(ft: number): string {
   return `${f}'-${i}"`
 }
 
+function humanFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB'
+  if (bytes < 1024) return `${bytes} B`
+  const kb = bytes / 1024
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)} KB`
+  const mb = kb / 1024
+  if (mb < 1024) return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`
+  const gb = mb / 1024
+  return `${gb.toFixed(gb < 10 ? 2 : 1)} GB`
+}
+
 function fmtArea(sf: number): string {
   return sf >= 1000 ? `${sf.toLocaleString('en-US', { maximumFractionDigits: 0 })} sq ft` : `${sf.toFixed(1)} sq ft`
 }
@@ -385,8 +396,36 @@ export default function TakeoffDashboard({
   onReorderItemsInSections,
 }: TakeoffDashboardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  // Batch upload state for the multi-file Add PDF flow. Each entry tracks
+  // one File from the user's selection; the queue runner promotes them
+  // through pending → uploading → done|failed with a concurrency cap of 4.
+  type BatchStatus = 'pending' | 'uploading' | 'done' | 'failed'
+  interface BatchFile {
+    id: string
+    file: File
+    name: string
+    size: number
+    status: BatchStatus
+    error?: string
+  }
+  const [batch, setBatch] = useState<BatchFile[] | null>(null)
+  const batchRef = useRef<BatchFile[] | null>(null)
+  batchRef.current = batch
+  // Tracks whether the queue runner loop is already in flight so retries
+  // and re-entry from concurrent state updates don't kick off duplicate
+  // workers for the same file.
+  const queueRunningRef = useRef(false)
+  const BATCH_CONCURRENCY = 4
+  // Derived rollups for the inline batch progress display below.
+  const batchTotal = batch?.length ?? 0
+  const batchDone = batch?.filter((b) => b.status === 'done').length ?? 0
+  const batchFailed = batch?.filter((b) => b.status === 'failed').length ?? 0
+  const batchActive = batch?.some((b) => b.status === 'pending' || b.status === 'uploading') ?? false
+  const batchTotalBytes = batch?.reduce((s, b) => s + b.size, 0) ?? 0
+  const batchDoneBytes = batch?.filter((b) => b.status === 'done').reduce((s, b) => s + b.size, 0) ?? 0
+  const batchPct = batchTotalBytes > 0 ? Math.round((batchDoneBytes / batchTotalBytes) * 100) : 0
+  const batchFailedFiles = batch?.filter((b) => b.status === 'failed') ?? []
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editItemName, setEditItemName] = useState('')
   const [isDownloadingReport, setIsDownloadingReport] = useState(false)
@@ -512,61 +551,179 @@ export default function TakeoffDashboard({
   // (`projectTotals`). Old per-flat-list totals removed when sections
   // shipped — every surface now uses computeProjectTotals.
 
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
-      setUploadError('Please select a PDF file.')
-      setTimeout(() => setUploadError(null), 4000)
-      if (fileInputRef.current) fileInputRef.current.value = ''
+  // Single-file upload primitive shared by the queue runner. Mirrors the
+  // pre-batch path: prefer the parent-supplied onUploadPdf (Supabase) and
+  // otherwise fall back to in-memory base64 (legacy / no projectId).
+  const uploadOneFile = useCallback(async (file: File) => {
+    if (onUploadPdf) {
+      await onUploadPdf(file)
       return
     }
-
-    setUploading(true)
-    setUploadError(null)
-
-    try {
-      if (onUploadPdf) {
-        await onUploadPdf(file)
-      } else {
-        const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as ArrayBuffer)
-          reader.onerror = reject
-          reader.readAsArrayBuffer(file)
-        })
-
-        const pdfBase64 = arrayBufferToBase64(arrayBuffer)
-
-        const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
-        const pdfIndex = pages.length > 0 ? Math.max(...pages.map((p) => p.pdfIndex)) + 1 : 0
-
-        const newPages: TakeoffPage[] = []
-        for (let i = 0; i < doc.numPages; i++) {
-          const pdfPage = await doc.getPage(i + 1)
-          const viewport = pdfPage.getViewport({ scale: 0.3 })
-          const canvas = document.createElement('canvas')
-          canvas.width = viewport.width
-          canvas.height = viewport.height
-          const ctx = canvas.getContext('2d')!
-          await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
-          const thumbnailDataUrl = canvas.toDataURL('image/png')
-
-          newPages.push({ pdfIndex, pageIndex: i, pdfName: file.name, thumbnailDataUrl, arrayBuffer, pdfBase64 })
-        }
-
-        onAddPages(newPages)
-      }
-    } catch (err) {
-      console.error('[Takeoff] Upload failed:', err)
-      setUploadError('Failed to load PDF. Please try a different file.')
-      setTimeout(() => setUploadError(null), 4000)
-    } finally {
-      setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
+    const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as ArrayBuffer)
+      reader.onerror = reject
+      reader.readAsArrayBuffer(file)
+    })
+    const pdfBase64 = arrayBufferToBase64(arrayBuffer)
+    const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
+    const currentPages = pages
+    const pdfIndex = currentPages.length > 0 ? Math.max(...currentPages.map((p) => p.pdfIndex)) + 1 : 0
+    const newPages: TakeoffPage[] = []
+    for (let i = 0; i < doc.numPages; i++) {
+      const pdfPage = await doc.getPage(i + 1)
+      const viewport = pdfPage.getViewport({ scale: 0.3 })
+      const canvas = document.createElement('canvas')
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      const ctx = canvas.getContext('2d')!
+      await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
+      const thumbnailDataUrl = canvas.toDataURL('image/png')
+      newPages.push({ pdfIndex, pageIndex: i, pdfName: file.name, thumbnailDataUrl, arrayBuffer, pdfBase64 })
     }
+    onAddPages(newPages)
   }, [pages, onAddPages, onUploadPdf])
+
+  // Walks the batch state and starts uploads up to the concurrency limit.
+  // Re-runs itself after each settle so newly-pending entries from the
+  // user clicking Retry get picked up automatically.
+  const runBatchQueue = useCallback(() => {
+    if (queueRunningRef.current) return
+    queueRunningRef.current = true
+    const tick = async (): Promise<void> => {
+      const current = batchRef.current
+      if (!current) {
+        queueRunningRef.current = false
+        return
+      }
+      const inFlight = current.filter((b) => b.status === 'uploading').length
+      const slots = Math.max(0, BATCH_CONCURRENCY - inFlight)
+      const nextUp = current.filter((b) => b.status === 'pending').slice(0, slots)
+      if (nextUp.length === 0) {
+        // Nothing to start. If nothing is in flight either, the batch has
+        // settled. Auto-clear after a short delay if no failures.
+        const stillRunning = current.some((b) => b.status === 'uploading')
+        if (!stillRunning) {
+          queueRunningRef.current = false
+          const anyFailed = current.some((b) => b.status === 'failed')
+          if (!anyFailed) {
+            setTimeout(() => {
+              const after = batchRef.current
+              if (after && after.every((b) => b.status === 'done')) {
+                setBatch(null)
+              }
+            }, 1500)
+          }
+        }
+        return
+      }
+      // Mark as uploading optimistically.
+      setBatch((prev) => {
+        if (!prev) return prev
+        const startingIds = new Set(nextUp.map((b) => b.id))
+        return prev.map((b) =>
+          startingIds.has(b.id) ? { ...b, status: 'uploading' as const, error: undefined } : b
+        )
+      })
+      // Kick off each upload independently; per-file errors don't cascade.
+      await Promise.all(
+        nextUp.map(async (entry) => {
+          try {
+            await uploadOneFile(entry.file)
+            setBatch((prev) =>
+              prev ? prev.map((b) => (b.id === entry.id ? { ...b, status: 'done' as const } : b)) : prev
+            )
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Upload failed'
+            console.error('[Takeoff] Upload failed for', entry.name, err)
+            setBatch((prev) =>
+              prev
+                ? prev.map((b) =>
+                    b.id === entry.id ? { ...b, status: 'failed' as const, error: message } : b
+                  )
+                : prev
+            )
+          }
+        })
+      )
+      // Yield to React so the state writes above are visible to batchRef
+      // before we recurse and pick up the next slot of pending work.
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      queueRunningRef.current = false
+      runBatchQueue()
+    }
+    void tick()
+  }, [uploadOneFile])
+
+  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files
+    if (!fileList || fileList.length === 0) return
+
+    const accepted: BatchFile[] = []
+    let rejectedCount = 0
+    for (const file of Array.from(fileList)) {
+      const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf'
+      if (!isPdf) {
+        rejectedCount++
+        continue
+      }
+      accepted.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        name: file.name,
+        size: file.size,
+        status: 'pending',
+      })
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    if (accepted.length === 0) {
+      setUploadError(
+        rejectedCount > 0
+          ? `Selected ${rejectedCount === 1 ? 'file is' : 'files are'} not a PDF.`
+          : 'No files selected.'
+      )
+      setTimeout(() => setUploadError(null), 4000)
+      return
+    }
+    if (rejectedCount > 0) {
+      setUploadError(`${rejectedCount} non-PDF file${rejectedCount === 1 ? '' : 's'} skipped.`)
+      setTimeout(() => setUploadError(null), 4000)
+    } else {
+      setUploadError(null)
+    }
+
+    setBatch((prev) => {
+      // Append to an existing in-flight batch when the user clicks Add PDF
+      // again before the prior batch finishes; otherwise start fresh.
+      if (prev && prev.some((b) => b.status === 'pending' || b.status === 'uploading' || b.status === 'failed')) {
+        return [...prev, ...accepted]
+      }
+      return accepted
+    })
+    // Run on a microtask so batchRef has the latest setBatch result.
+    setTimeout(() => runBatchQueue(), 0)
+  }, [runBatchQueue])
+
+  const handleRetryFile = useCallback((id: string) => {
+    setBatch((prev) =>
+      prev
+        ? prev.map((b) => (b.id === id ? { ...b, status: 'pending' as const, error: undefined } : b))
+        : prev
+    )
+    setTimeout(() => runBatchQueue(), 0)
+  }, [runBatchQueue])
+
+  const handleDismissBatch = useCallback(() => {
+    // Allow dismiss only when nothing is mid-flight so we don't orphan
+    // an active upload's onComplete handler against null state.
+    setBatch((prev) => {
+      if (!prev) return null
+      const stillRunning = prev.some((b) => b.status === 'pending' || b.status === 'uploading')
+      return stillRunning ? prev : null
+    })
+  }, [])
 
   const handleDownloadReport = useCallback(async () => {
     setIsDownloadingReport(true)
@@ -617,11 +774,63 @@ export default function TakeoffDashboard({
         )}
       </div>
 
-      {/* Upload error toast */}
+      {/* Upload error toast (catastrophic, batch-independent errors) */}
       {uploadError && (
         <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
           <AlertCircleIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
           <span className="text-sm text-red-700">{uploadError}</span>
+        </div>
+      )}
+
+      {/* Inline batch upload progress — file count + cumulative byte
+          progress. The Supabase SDK doesn't expose per-upload byte progress,
+          so the bar advances in chunks as each file completes. The file
+          count gives a finer-grained signal mid-batch. */}
+      {batch && batch.length > 0 && (
+        <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+          <div className="flex items-center justify-between gap-3 mb-1.5">
+            <div className="text-sm font-medium text-gray-700">
+              {batchActive
+                ? `Uploading ${batchDone} of ${batchTotal} file${batchTotal === 1 ? '' : 's'}`
+                : `${batchDone} of ${batchTotal} complete${batchFailed > 0 ? ` (${batchFailed} failed)` : ''}`}
+            </div>
+            {!batchActive && (
+              <button
+                onClick={handleDismissBatch}
+                className="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                {batchFailed > 0 ? 'Dismiss' : 'Done'}
+              </button>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-3 mb-1.5">
+            <span className="text-xs text-gray-500 tabular-nums">
+              {batchPct}% — {humanFileSize(batchDoneBytes)} of {humanFileSize(batchTotalBytes)}
+            </span>
+          </div>
+          <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-amber-500 transition-[width] duration-200"
+              style={{ width: `${batchPct}%` }}
+            />
+          </div>
+          {batchFailedFiles.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+              {batchFailedFiles.map((f) => (
+                <div key={f.id} className="flex items-center gap-2 text-xs">
+                  <AlertCircleIcon className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                  <span className="text-gray-700 truncate flex-1 min-w-0" title={f.name}>{f.name}</span>
+                  <span className="text-red-600 truncate max-w-[40%]" title={f.error}>{f.error || 'Upload failed'}</span>
+                  <button
+                    onClick={() => handleRetryFile(f.id)}
+                    className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-white text-[11px] font-medium transition-colors flex-shrink-0"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -652,26 +861,16 @@ export default function TakeoffDashboard({
 
         {/* Add PDF card — sized to match the smaller PageThumbnail (90 × 126). */}
         <button
-          onClick={() => { if (!uploading) fileInputRef.current?.click() }}
-          disabled={uploading}
-          className="flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer disabled:cursor-wait disabled:opacity-70"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer"
           style={{ width: 90, height: 126 }}
         >
-          {uploading ? (
-            <>
-              <Loader2Icon className="w-4 h-4 text-amber-500 animate-spin mb-1" />
-              <span className="text-[10px] font-medium text-amber-500">Processing…</span>
-            </>
-          ) : (
-            <>
-              <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center mb-1">
-                <PlusIcon className="w-3.5 h-3.5 text-gray-400" />
-              </div>
-              <span className="text-[10px] font-medium text-gray-400">Add PDF</span>
-            </>
-          )}
+          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center mb-1">
+            <PlusIcon className="w-3.5 h-3.5 text-gray-400" />
+          </div>
+          <span className="text-[10px] font-medium text-gray-400">Add PDF</span>
         </button>
-        <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
+        <input ref={fileInputRef} type="file" accept=".pdf" multiple onChange={handleFileUpload} className="hidden" />
       </div>
 
       {/* Section 2 — Measurement Items Summary */}
