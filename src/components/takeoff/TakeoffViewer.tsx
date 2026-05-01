@@ -1464,22 +1464,33 @@ export default function TakeoffViewer({
               transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
               position: 'relative',
               display: 'inline-block',
-              willChange: 'transform',
             }}
           >
             <canvas ref={canvasRef} style={{ display: 'block' }} />
 
-            {/* SVG overlay for measurements — same coordinate space as canvas */}
+            {/* SVG overlay for measurements — same coordinate space as canvas.
+                viewBox is locked to logical pixel dimensions so the browser
+                always re-tessellates vector strokes/fills crisply when the
+                parent's CSS scale(zoom) changes (rather than rasterizing the
+                overlay once at 1× and then bitmap-scaling). The SVG also gets
+                its own compositor layer via translateZ(0) so it isn't
+                bundled into a low-DPI parent layer. */}
             {pdfLoaded && canvasSize.w > 0 && (
               <svg
                 width={canvasSize.w}
                 height={canvasSize.h}
+                viewBox={`0 0 ${canvasSize.w} ${canvasSize.h}`}
+                preserveAspectRatio="none"
                 style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
+                  width: `${canvasSize.w}px`,
+                  height: `${canvasSize.h}px`,
                   cursor,
                   pointerEvents: 'all',
+                  transform: 'translateZ(0)',
+                  willChange: 'transform',
                 }}
                 onMouseDown={handleSvgMouseDown}
                 onMouseMove={handleSvgMouseMove}
