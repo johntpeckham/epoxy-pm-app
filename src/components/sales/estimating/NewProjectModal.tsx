@@ -17,6 +17,10 @@ import {
 } from '@/lib/nextProjectNumber'
 import type { Customer } from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
+import ProjectAddressFields, {
+  EMPTY_ADDRESS,
+  type AddressValues,
+} from './ProjectAddressFields'
 
 interface NewProjectModalProps {
   userId: string
@@ -48,6 +52,15 @@ export default function NewProjectModal({
   const [projectNumber, setProjectNumber] = useState('')
   const [editingNumber, setEditingNumber] = useState(false)
   const [loadingNumber, setLoadingNumber] = useState(true)
+
+  // Structured project address: empty by default; either typed manually
+  // or auto-filled from the customer when "Same as customer address" is on.
+  const [projectAddress, setProjectAddress] = useState<AddressValues>(EMPTY_ADDRESS)
+  const [sameAsCustomer, setSameAsCustomer] = useState(false)
+  // Stash whatever the user had typed before checking the box so toggling
+  // off restores their work instead of dropping it on the floor.
+  const [stashedProjectAddress, setStashedProjectAddress] =
+    useState<AddressValues>(EMPTY_ADDRESS)
 
   useEffect(() => {
     let cancelled = false
@@ -82,6 +95,34 @@ export default function NewProjectModal({
     () => customers.find((c) => c.id === customerId) ?? null,
     [customers, customerId]
   )
+
+  const customerAddress: AddressValues = useMemo(
+    () => ({
+      street: selectedCustomer?.address ?? '',
+      city: selectedCustomer?.city ?? '',
+      state: selectedCustomer?.state ?? '',
+      zip: selectedCustomer?.zip ?? '',
+    }),
+    [selectedCustomer]
+  )
+
+  // Keep the project fields synced to the customer fields while the
+  // checkbox is on — covers the case where the user changes customer
+  // after ticking the box.
+  useEffect(() => {
+    if (sameAsCustomer) setProjectAddress(customerAddress)
+  }, [sameAsCustomer, customerAddress])
+
+  function handleSameAsCustomerChange(checked: boolean) {
+    if (checked) {
+      // Stash the user's manual edits so unchecking restores them.
+      setStashedProjectAddress(projectAddress)
+      setProjectAddress(customerAddress)
+    } else {
+      setProjectAddress(stashedProjectAddress)
+    }
+    setSameAsCustomer(checked)
+  }
 
   const filteredCustomers = useMemo(() => {
     const q = customerSearch.trim().toLowerCase()
@@ -143,6 +184,10 @@ export default function NewProjectModal({
         status: 'active',
         source: 'manual',
         project_number: assignedNumber,
+        project_address_street: projectAddress.street.trim() || null,
+        project_address_city: projectAddress.city.trim() || null,
+        project_address_state: projectAddress.state.trim() || null,
+        project_address_zip: projectAddress.zip.trim() || null,
         created_by: userId,
       })
       .select('*')
@@ -330,6 +375,14 @@ export default function NewProjectModal({
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
               />
             </div>
+
+            <ProjectAddressFields
+              customerAddress={customerAddress}
+              projectAddress={projectAddress}
+              sameAsCustomer={sameAsCustomer}
+              onProjectAddressChange={setProjectAddress}
+              onSameAsCustomerChange={handleSameAsCustomerChange}
+            />
 
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
