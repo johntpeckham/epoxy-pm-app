@@ -178,7 +178,10 @@ export function ChecklistItemRow({
           </button>
         )}
 
-        {/* Name */}
+        {/* Name. Templated items (template_id !== null) render as a plain
+            span — clicking the text is a no-op so users can't rename a
+            template item on a single project. Manually-added items keep
+            the existing inline-rename click target. */}
         <div className="flex-1 min-w-0">
           {readOnly ? (
             <span className={`text-sm truncate block ${item.is_complete ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
@@ -194,6 +197,10 @@ export function ChecklistItemRow({
               className="w-full text-sm text-gray-900 border border-amber-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
               autoFocus
             />
+          ) : item.template_id ? (
+            <span className={`text-sm truncate w-full block ${item.is_complete ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+              {item.name}
+            </span>
           ) : (
             <button
               onClick={() => setEditingName(true)}
