@@ -187,13 +187,18 @@ export default function OfficeTasksPageClient({
   const [editTaskId, setEditTaskId] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [completedExpanded, setCompletedExpanded] = useState(false)
-  // Tasks the user has just checked off but for which the 2s pause hasn't yet
-  // elapsed. While in this set: row shows strikethrough + Undo button, no DB
-  // write has fired, and the task stays in the active list.
+  // Tasks the user has just checked off but for which the shared 3s pause
+  // hasn't yet elapsed. While in this set: row shows strikethrough + Undo
+  // button, no DB write has fired, and the task stays in the active list.
+  // A single shared timer drains the whole set together so rapid completions
+  // don't cause the list to jump as items disappear staggered.
   const [pendingCompleteIds, setPendingCompleteIds] = useState<Set<string>>(() => new Set())
-  // Live setTimeout handles per pending task — kept in a ref so the unmount
-  // cleanup can flush them without re-running on every state change.
-  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  // Mirror of pendingCompleteIds in a ref so the shared timer callback (and
+  // unmount flush) can read the latest set without re-binding on every state
+  // change.
+  const pendingIdsRef = useRef<Set<string>>(new Set())
+  // Single shared setTimeout handle for the entire pending set.
+  const sharedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [view, setView] = useState<OfficeView>({ kind: 'dashboard' })
 
   // Office Tasks card view toggle ("all" vs "mine"). Seeded from the user's
@@ -322,51 +327,52 @@ export default function OfficeTasksPageClient({
   /*  CRUD                                                             */
   /* ================================================================ */
 
-  // Commit a pending completion: optimistically flip the task's completed
-  // flag (which moves it to the Completed group) and fire the cascading
-  // Supabase write. Used by both the 2s timer and the unmount-flush.
-  const commitComplete = useCallback(
-    (taskId: string) => {
-      setPendingCompleteIds((prev) => {
-        if (!prev.has(taskId)) return prev
-        const next = new Set(prev)
-        next.delete(taskId)
-        return next
-      })
-      pendingTimersRef.current.delete(taskId)
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId ? { ...t, is_completed: true, updated_at: new Date().toISOString() } : t
-        )
+  // Commit every still-pending completion together: optimistically flip the
+  // tasks' completed flags (moving them to the Completed group as a single
+  // batch) and fire the cascading Supabase writes. Used by both the shared
+  // 3s timer and the unmount-flush.
+  const commitAllPending = useCallback(() => {
+    const ids = Array.from(pendingIdsRef.current)
+    pendingIdsRef.current = new Set()
+    sharedTimerRef.current = null
+    if (ids.length === 0) return
+    setPendingCompleteIds(new Set())
+    const idSet = new Set(ids)
+    const nowIso = new Date().toISOString()
+    setTasks((prev) =>
+      prev.map((t) =>
+        idSet.has(t.id) ? { ...t, is_completed: true, updated_at: nowIso } : t
       )
-      // Fire-and-forget: the helper handles the cascade to linked equipment
-      // services and inventory checks; refetch services after so the
-      // Equipment card preview stays in sync.
-      toggleOfficeTaskCompletion(supabase, taskId, true, userId)
-        .then(() => refetchUpcomingServices())
-        .catch((err) => console.error('[commitComplete] cascade failed:', err))
-    },
-    [supabase, userId, refetchUpcomingServices]
-  )
+    )
+    // Fire-and-forget per task: the helper handles the cascade to linked
+    // equipment services and inventory checks; refetch services after so the
+    // Equipment card preview stays in sync.
+    Promise.allSettled(
+      ids.map((id) => toggleOfficeTaskCompletion(supabase, id, true, userId))
+    )
+      .then(() => refetchUpcomingServices())
+      .catch((err) => console.error('[commitAllPending] cascade failed:', err))
+  }, [supabase, userId, refetchUpcomingServices])
 
-  // Cancel a pending completion: clear the timer, drop the row from the
-  // pending set, no DB write. Row reverts to its un-checked active state.
+  // Cancel a single pending completion: drop it from the set, no DB write.
+  // The shared timer is NOT reset — remaining pending items disappear at the
+  // originally-scheduled time. If the set becomes empty, clear the timer.
   const cancelPendingComplete = useCallback((taskId: string) => {
-    const timer = pendingTimersRef.current.get(taskId)
-    if (timer) clearTimeout(timer)
-    pendingTimersRef.current.delete(taskId)
-    setPendingCompleteIds((prev) => {
-      if (!prev.has(taskId)) return prev
-      const next = new Set(prev)
-      next.delete(taskId)
-      return next
-    })
+    if (!pendingIdsRef.current.has(taskId)) return
+    const next = new Set(pendingIdsRef.current)
+    next.delete(taskId)
+    pendingIdsRef.current = next
+    setPendingCompleteIds(next)
+    if (next.size === 0 && sharedTimerRef.current) {
+      clearTimeout(sharedTimerRef.current)
+      sharedTimerRef.current = null
+    }
   }, [])
 
   // Checkbox click handler. Three branches:
-  //   - row is pending → treat as Undo (cancel timer, no write)
+  //   - row is pending → treat as Undo (remove from set, no write)
   //   - row is completed → instant un-complete (immediate DB write)
-  //   - row is active → schedule a 2s pending window (no write yet)
+  //   - row is active → add to pending set; (re)start the shared 3s timer
   function handleCheckbox(task: OfficeTask) {
     if (pendingCompleteIds.has(task.id)) {
       cancelPendingComplete(task.id)
@@ -384,29 +390,32 @@ export default function OfficeTasksPageClient({
         .catch((err) => console.error('[handleCheckbox] un-complete failed:', err))
       return
     }
-    // Active → pending: schedule the commit, but don't write yet.
-    setPendingCompleteIds((prev) => {
-      const next = new Set(prev)
-      next.add(task.id)
-      return next
-    })
-    const timerId = setTimeout(() => commitComplete(task.id), 2000)
-    pendingTimersRef.current.set(task.id, timerId)
+    // Active → pending: add to the shared set and reset the shared timer so
+    // a fresh 3s window covers all currently-pending items.
+    const next = new Set(pendingIdsRef.current)
+    next.add(task.id)
+    pendingIdsRef.current = next
+    setPendingCompleteIds(next)
+    if (sharedTimerRef.current) clearTimeout(sharedTimerRef.current)
+    sharedTimerRef.current = setTimeout(() => commitAllPending(), 3000)
   }
 
   // Flush any still-pending completions on unmount so a navigation away
   // doesn't drop a check-off the user had already committed to visually.
   useEffect(() => {
-    const timers = pendingTimersRef.current
     return () => {
-      timers.forEach((timerId, taskId) => {
-        clearTimeout(timerId)
+      if (sharedTimerRef.current) {
+        clearTimeout(sharedTimerRef.current)
+        sharedTimerRef.current = null
+      }
+      const ids = Array.from(pendingIdsRef.current)
+      pendingIdsRef.current = new Set()
+      for (const id of ids) {
         // Fire-and-forget the cascade; we're leaving the page anyway.
-        toggleOfficeTaskCompletion(supabase, taskId, true, userId).catch((err) =>
+        toggleOfficeTaskCompletion(supabase, id, true, userId).catch((err) =>
           console.error('[unmount flush] cascade failed:', err)
         )
-      })
-      timers.clear()
+      }
     }
   }, [supabase, userId])
 
