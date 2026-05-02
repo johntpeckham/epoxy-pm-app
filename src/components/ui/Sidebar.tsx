@@ -139,12 +139,13 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     isTasksActive,
   ])
 
-  // Auto-open the Job Board group when Job Board itself is active OR any
-  // descendant route (Job Feed and its children) is active, so the user
-  // doesn't have to manually expand two levels to reach where they are.
+  // Auto-open the Job Board group when any descendant route (Job Feed and
+  // its children) is active, so the user doesn't have to manually expand two
+  // levels to reach where they are. Intentionally NOT triggered by
+  // isJobBoardActive itself — clicking the Job Board text/icon should
+  // navigate without auto-toggling the chevron (matches the Sales pattern).
   useEffect(() => {
     if (
-      isJobBoardActive ||
       isJobsActive ||
       isReportsActive ||
       isJsaReportsActive ||
@@ -156,7 +157,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
       setJobBoardExpanded(true)
     }
   }, [
-    isJobBoardActive,
     isJobsActive,
     isReportsActive,
     isJsaReportsActive,

@@ -299,52 +299,72 @@ export default function MyWorkClient({
   /* ---- Unified Assigned Work completed toggle ---- */
   const [showCompletedAssigned, setShowCompletedAssigned] = useState(false)
 
-  /* ---- Unified Assigned Work pending-complete window (2s delay before
-         the underlying source action fires; the user can uncheck inside
-         the window to cancel). Keys are `${source}-${id}` so the three
-         sources can't collide. ---- */
+  /* ---- Unified Assigned Work pending-complete window (shared 3s delay
+         before the underlying source actions fire; the user can uncheck
+         inside the window to cancel). A single timer drains the whole
+         pending set together so rapid completions don't cause the list
+         to jump as items disappear staggered. Keys are `${source}-${id}`
+         so the three sources can't collide. The runComplete callback for
+         each pending key is held in a ref so the shared timer can fire
+         them all on expiration. ---- */
   const [pendingCompleteIds, setPendingCompleteIds] = useState<Set<string>>(new Set())
-  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const pendingRunsRef = useRef<Map<string, () => void>>(new Map())
+  const sharedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    const timers = pendingTimersRef.current
+    const sharedTimer = sharedTimerRef
+    const pendingRuns = pendingRunsRef.current
     return () => {
-      timers.forEach((t) => clearTimeout(t))
-      timers.clear()
+      if (sharedTimer.current) {
+        clearTimeout(sharedTimer.current)
+        sharedTimer.current = null
+      }
+      pendingRuns.clear()
+    }
+  }, [])
+  const commitAllPending = useCallback(() => {
+    const runs = Array.from(pendingRunsRef.current.values())
+    pendingRunsRef.current.clear()
+    sharedTimerRef.current = null
+    if (runs.length === 0) return
+    setPendingCompleteIds(new Set())
+    for (const run of runs) {
+      try {
+        run()
+      } catch (err) {
+        console.error('[commitAllPending] source action failed:', err)
+      }
     }
   }, [])
   const schedulePendingComplete = useCallback(
     (key: string, runComplete: () => void) => {
-      const existing = pendingTimersRef.current.get(key)
-      if (existing) clearTimeout(existing)
+      // Add (or overwrite) the runComplete for this key, then reset the
+      // shared timer so a fresh 3s window covers all currently-pending items.
+      pendingRunsRef.current.set(key, runComplete)
       setPendingCompleteIds((prev) => {
         const next = new Set(prev)
         next.add(key)
         return next
       })
-      const t = setTimeout(() => {
-        pendingTimersRef.current.delete(key)
-        setPendingCompleteIds((prev) => {
-          if (!prev.has(key)) return prev
-          const next = new Set(prev)
-          next.delete(key)
-          return next
-        })
-        runComplete()
-      }, 2000)
-      pendingTimersRef.current.set(key, t)
+      if (sharedTimerRef.current) clearTimeout(sharedTimerRef.current)
+      sharedTimerRef.current = setTimeout(() => commitAllPending(), 3000)
     },
-    []
+    [commitAllPending]
   )
+  // Remove a single pending completion. The shared timer is NOT reset —
+  // remaining pending items disappear at the originally-scheduled time.
+  // If the set becomes empty, clear the timer.
   const cancelPendingComplete = useCallback((key: string) => {
-    const t = pendingTimersRef.current.get(key)
-    if (t) clearTimeout(t)
-    pendingTimersRef.current.delete(key)
+    pendingRunsRef.current.delete(key)
     setPendingCompleteIds((prev) => {
       if (!prev.has(key)) return prev
       const next = new Set(prev)
       next.delete(key)
       return next
     })
+    if (pendingRunsRef.current.size === 0 && sharedTimerRef.current) {
+      clearTimeout(sharedTimerRef.current)
+      sharedTimerRef.current = null
+    }
   }, [])
 
   /* ---- Expenses state ---- */
