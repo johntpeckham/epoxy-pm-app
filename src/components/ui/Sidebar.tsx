@@ -117,9 +117,14 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     isJobWalkActive,
   ])
 
+  // Auto-open the Job Feed group when any descendant route (Daily Reports /
+  // JSA Reports / Job Expenses / Timesheets / Photos / Field Tasks) is
+  // active, so the user doesn't have to manually expand to reach where
+  // they are. Intentionally NOT triggered by isJobsActive itself —
+  // clicking the Job Feed text/icon should navigate without auto-toggling
+  // the chevron (matches the Job Board / Sales pattern).
   useEffect(() => {
     if (
-      isJobsActive ||
       isReportsActive ||
       isJsaReportsActive ||
       isReceiptsActive ||
@@ -130,7 +135,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
       setJobFeedExpanded(true)
     }
   }, [
-    isJobsActive,
     isReportsActive,
     isJsaReportsActive,
     isReceiptsActive,
