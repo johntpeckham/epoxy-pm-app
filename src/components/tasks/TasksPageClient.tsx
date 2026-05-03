@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef, useMemo, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
@@ -175,6 +175,7 @@ export default function TasksPageClient({
   userId,
 }: TasksPageClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const { canCreate } = usePermissions()
   const { fields: taskTemplateFields, loading: taskTemplateLoading } = useFormTemplate('task')
@@ -186,6 +187,7 @@ export default function TasksPageClient({
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
   const [showCompleted, setShowCompleted] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   // ── New Task modal state ─────────────────────────────────────────────────
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -201,6 +203,27 @@ export default function TasksPageClient({
   const [newPhotoPreview, setNewPhotoPreview] = useState<string | null>(null)
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
   const newPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // Deep-link: ?task={id} opens that task's detail modal. If the task is not
+  // visible to the current user (deleted or permission-restricted), show a toast.
+  useEffect(() => {
+    const taskId = searchParams.get('task')
+    if (!taskId) return
+    const found = initialTasks.find((t) => t.id === taskId)
+    if (found) {
+      setSelectedTask(found)
+    } else {
+      setToastMessage('This task is no longer available.')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-dismiss toast after 3.5s
+  useEffect(() => {
+    if (!toastMessage) return
+    const t = setTimeout(() => setToastMessage(null), 3500)
+    return () => clearTimeout(t)
+  }, [toastMessage])
 
   const projectStatusMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -434,7 +457,7 @@ export default function TasksPageClient({
       }
       const dynamicFields = buildDynamicFields(TASK_FORM_KEY, allValues, taskTemplateFields)
 
-      const { error: insertErr } = await supabase.from('tasks').insert({
+      const { data: insertedTask, error: insertErr } = await supabase.from('tasks').insert({
         project_id: newProjectId,
         created_by: userId,
         assigned_to: newAssignedTo || null,
@@ -455,7 +478,7 @@ export default function TasksPageClient({
           type: 'task_assigned',
           title: 'New task assigned',
           message: `${creatorName} assigned you: ${newTitle.trim()}`,
-          link: '/tasks',
+          link: insertedTask?.id ? `/tasks?task=${insertedTask.id}` : '/tasks',
         })
         if (notifErr) console.error('[TasksPageClient] Notification insert failed:', notifErr)
       }
@@ -946,6 +969,12 @@ export default function TasksPageClient({
           </div>
         </div>
         </Portal>
+      )}
+
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          {toastMessage}
+        </div>
       )}
     </div>
   )

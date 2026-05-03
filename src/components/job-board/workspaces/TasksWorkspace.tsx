@@ -248,7 +248,7 @@ function CreateTaskModal({
       photoUrl = path
     }
 
-    const { error: insertErr } = await supabase.from('tasks').insert({
+    const { data: insertedTask, error: insertErr } = await supabase.from('tasks').insert({
       project_id: project.id,
       created_by: userId,
       assigned_to: assignedTo || null,
@@ -257,7 +257,7 @@ function CreateTaskModal({
       status,
       photo_url: photoUrl,
       due_date: dueDate || null,
-    })
+    }).select().single()
 
     if (insertErr) {
       setError('Failed to create task')
@@ -274,7 +274,7 @@ function CreateTaskModal({
         type: 'task_assigned',
         title: 'Task Assigned',
         message: `${creatorName} assigned you: ${title.trim()}`,
-        link: '/tasks',
+        link: insertedTask?.id ? `/tasks?task=${insertedTask.id}` : '/tasks',
       }).then(() => {})
     }
 
