@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { UserIcon, PencilIcon, Trash2Icon, PinIcon } from 'lucide-react'
 import { Project } from '@/types'
+import KebabMenu, { KebabMenuItem } from '@/components/ui/KebabMenu'
 
 interface ProjectCardProps {
   project: Project
@@ -57,39 +58,41 @@ export default memo(function ProjectCard({
         </div>
       </button>
 
-      {/* Action icons — hover visible */}
-      <div className="absolute top-2.5 right-2 flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-        {onTogglePin && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onTogglePin(project) }}
-            title={isPinned ? 'Unpin project' : 'Pin project'}
-            className={`p-1.5 rounded-lg transition ${
-              isPinned
-                ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-100'
-                : 'text-gray-400 hover:text-amber-600 hover:bg-amber-100'
-            }`}
-          >
-            <PinIcon className={`w-4 h-4 ${isPinned ? 'fill-current' : ''}`} />
-          </button>
-        )}
-        {showEditDelete && onEdit && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(project) }}
-            title="Edit project"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 transition"
-          >
-            <PencilIcon className="w-4 h-4" />
-          </button>
-        )}
-        {showEditDelete && onDelete && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(project) }}
-            title="Delete project"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-100 transition"
-          >
-            <Trash2Icon className="w-4 h-4" />
-          </button>
-        )}
+      {/* Kebab menu — hover visible (matches prior inline-icon pattern) */}
+      <div
+        className="absolute top-2 right-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <KebabMenu
+          variant="light"
+          title="Project actions"
+          items={(() => {
+            const items: KebabMenuItem[] = []
+            if (onTogglePin) {
+              items.push({
+                label: isPinned ? 'Unpin' : 'Pin',
+                icon: <PinIcon size={13} className={isPinned ? 'fill-current' : ''} />,
+                onSelect: () => onTogglePin(project),
+              })
+            }
+            if (showEditDelete && onEdit) {
+              items.push({
+                label: 'Edit',
+                icon: <PencilIcon size={13} />,
+                onSelect: () => onEdit(project),
+              })
+            }
+            if (showEditDelete && onDelete) {
+              items.push({
+                label: 'Delete',
+                icon: <Trash2Icon size={13} />,
+                destructive: true,
+                onSelect: () => onDelete(project),
+              })
+            }
+            return items
+          })()}
+        />
       </div>
     </div>
   )

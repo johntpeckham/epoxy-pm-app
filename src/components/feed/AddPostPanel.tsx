@@ -629,7 +629,7 @@ export default function AddPostPanel({ project, userId, onPosted }: AddPostPanel
             type: 'task_assigned',
             title: 'New task assigned',
             message: `${creatorName} assigned you: ${taskTitle.trim()}`,
-            link: '/tasks',
+            link: taskData?.id ? `/tasks?task=${taskData.id}` : '/tasks',
           })
           if (notifErr) console.error('[AddPostPanel] Notification insert failed:', notifErr)
         }
