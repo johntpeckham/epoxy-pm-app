@@ -25,9 +25,10 @@ interface JobsOverviewProps {
   onSelectProject: (project: Project) => void
   onBack?: () => void
   onProjectStatusChange?: () => void
+  canEdit?: boolean
 }
 
-export default function JobsOverview({ projects, onSelectProject, onBack, onProjectStatusChange }: JobsOverviewProps) {
+export default function JobsOverview({ projects, onSelectProject, onBack, onProjectStatusChange, canEdit = false }: JobsOverviewProps) {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showClosed, setShowClosed] = useState(false)
@@ -68,6 +69,23 @@ export default function JobsOverview({ projects, onSelectProject, onBack, onProj
     }
     fetchChecklist()
   }, [])
+
+  // Toggle a checklist item's complete state (used by Jobs Overview chip dropdowns).
+  // Mirrors the same DB write performed by ChecklistWorkspace.toggleComplete so the
+  // project's actual checklist page and Jobs Overview share a single source of truth.
+  async function toggleChecklistItem(item: ChecklistItem) {
+    const newVal = !item.is_complete
+    setChecklistItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_complete: newVal } : i)))
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('project_checklist_items')
+      .update({ is_complete: newVal, updated_at: new Date().toISOString() })
+      .eq('id', item.id)
+    if (error) {
+      console.error('[JobsOverview] Toggle checklist failed:', error)
+      setChecklistItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_complete: !newVal } : i)))
+    }
+  }
 
   // Group checklist items by project_id
   const checklistByProject = useMemo(() => {
@@ -120,6 +138,8 @@ export default function JobsOverview({ projects, onSelectProject, onBack, onProj
           checklistByProject={checklistByProject}
           onSelectProject={onSelectProject}
           onRequestStatusChange={(projectId, projectName, newStatus) => setPendingStatusChange({ projectId, projectName, newStatus })}
+          onToggleItem={toggleChecklistItem}
+          canEdit={canEdit}
           defaultExpanded={true}
           badgeColor="bg-green-100 text-green-700"
         />
@@ -132,6 +152,8 @@ export default function JobsOverview({ projects, onSelectProject, onBack, onProj
           checklistByProject={checklistByProject}
           onSelectProject={onSelectProject}
           onRequestStatusChange={(projectId, projectName, newStatus) => setPendingStatusChange({ projectId, projectName, newStatus })}
+          onToggleItem={toggleChecklistItem}
+          canEdit={canEdit}
           defaultExpanded={true}
           badgeColor="bg-blue-100 text-blue-700"
         />
@@ -145,6 +167,8 @@ export default function JobsOverview({ projects, onSelectProject, onBack, onProj
             checklistByProject={checklistByProject}
             onSelectProject={onSelectProject}
             onRequestStatusChange={(projectId, projectName, newStatus) => setPendingStatusChange({ projectId, projectName, newStatus })}
+            onToggleItem={toggleChecklistItem}
+            canEdit={canEdit}
             defaultExpanded={false}
             badgeColor="bg-gray-100 text-gray-500"
             collapsible={true}
@@ -175,6 +199,8 @@ function ProjectSection({
   checklistByProject,
   onSelectProject,
   onRequestStatusChange,
+  onToggleItem,
+  canEdit,
   defaultExpanded,
   badgeColor,
   collapsible = false,
@@ -185,6 +211,8 @@ function ProjectSection({
   checklistByProject: Map<string, ChecklistItem[]>
   onSelectProject: (project: Project) => void
   onRequestStatusChange: (projectId: string, projectName: string, newStatus: ProjectStatus) => void
+  onToggleItem: (item: ChecklistItem) => void
+  canEdit: boolean
   defaultExpanded: boolean
   badgeColor: string
   collapsible?: boolean
@@ -220,6 +248,8 @@ function ProjectSection({
               checklistItems={checklistByProject.get(project.id) ?? []}
               onSelect={() => onSelectProject(project)}
               onRequestStatusChange={onRequestStatusChange}
+              onToggleItem={onToggleItem}
+              canEdit={canEdit}
               badgeColor={badgeColor}
             />
           ))}
@@ -262,12 +292,16 @@ function ProjectSummaryCard({
   checklistItems,
   onSelect,
   onRequestStatusChange,
+  onToggleItem,
+  canEdit,
   badgeColor,
 }: {
   project: Project
   checklistItems: ChecklistItem[]
   onSelect: () => void
   onRequestStatusChange: (projectId: string, projectName: string, newStatus: ProjectStatus) => void
+  onToggleItem: (item: ChecklistItem) => void
+  canEdit: boolean
   badgeColor: string
 }) {
   const totalCount = checklistItems.length
@@ -372,6 +406,8 @@ function ProjectSummaryCard({
                 group={group}
                 items={items}
                 projectStatus={project.status}
+                onToggleItem={onToggleItem}
+                canEdit={canEdit}
               />
             ))}
           </div>
@@ -387,10 +423,14 @@ function ChecklistGroupSection({
   group,
   items,
   projectStatus,
+  onToggleItem,
+  canEdit,
 }: {
   group: string
   items: ChecklistItem[]
   projectStatus: string
+  onToggleItem: (item: ChecklistItem) => void
+  canEdit: boolean
 }) {
   const isCloseout = group === 'Closeout Checklist'
   const isActive = projectStatus === 'Active'
@@ -421,30 +461,110 @@ function ChecklistGroupSection({
       {expanded && (
         <div className="flex flex-wrap gap-1.5">
           {items.map((item) => (
-            <div
+            <ChecklistChip
               key={item.id}
-              className={`relative rounded-lg border px-2 py-1.5 w-[80px] sm:w-[90px] ${
-                item.is_complete
-                  ? isCloseout
-                    ? 'border-blue-200 bg-blue-50'
-                    : 'border-green-200 bg-green-50'
-                  : 'border-gray-200 bg-gray-50'
-              }`}
-            >
-              <p className={`text-[10px] leading-tight line-clamp-2 pr-3 ${
-                item.is_complete
-                  ? isCloseout ? 'text-blue-700' : 'text-green-700'
-                  : 'text-gray-600'
-              }`}>
-                {item.name}
-              </p>
-              {item.is_complete && (
-                <div className="absolute top-1 right-1">
-                  <CheckIcon className={`w-2.5 h-2.5 ${isCloseout ? 'text-blue-500' : 'text-green-500'}`} />
-                </div>
-              )}
-            </div>
+              item={item}
+              isCloseout={isCloseout}
+              canEdit={canEdit}
+              onToggle={() => onToggleItem(item)}
+            />
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Single checklist chip with hover-chevron + dropdown ──────────── */
+
+function ChecklistChip({
+  item,
+  isCloseout,
+  canEdit,
+  onToggle,
+}: {
+  item: ChecklistItem
+  isCloseout: boolean
+  canEdit: boolean
+  onToggle: () => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false)
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setIsOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [isOpen])
+
+  const showChevron = canEdit && (hovered || isOpen)
+
+  return (
+    <div
+      ref={ref}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={`relative rounded-lg border px-2 py-1.5 w-[80px] sm:w-[90px] ${
+        item.is_complete
+          ? isCloseout
+            ? 'border-blue-200 bg-blue-50'
+            : 'border-green-200 bg-green-50'
+          : 'border-gray-200 bg-gray-50'
+      }`}
+    >
+      <p
+        className={`text-[10px] leading-tight line-clamp-2 pr-3 ${
+          item.is_complete ? (isCloseout ? 'text-blue-700' : 'text-green-700') : 'text-gray-600'
+        }`}
+      >
+        {item.name}
+      </p>
+      {item.is_complete && !showChevron && (
+        <div className="absolute top-1 right-1">
+          <CheckIcon className={`w-2.5 h-2.5 ${isCloseout ? 'text-blue-500' : 'text-green-500'}`} />
+        </div>
+      )}
+      {showChevron && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsOpen((v) => !v)
+          }}
+          className="absolute top-0.5 right-0.5 p-0.5 rounded hover:bg-white/70 transition"
+          aria-label={item.is_complete ? 'Mark incomplete' : 'Mark complete'}
+        >
+          <ChevronDownIcon className="w-2.5 h-2.5 text-gray-500" />
+        </button>
+      )}
+      {isOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1"
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              onToggle()
+            }}
+            className="w-full text-left px-2.5 py-1.5 text-[11px] text-gray-700 hover:bg-amber-50 transition flex items-center gap-1.5"
+          >
+            <CheckIcon className="w-3 h-3 text-amber-500" />
+            {item.is_complete ? 'Mark incomplete' : 'Mark complete'}
+          </button>
         </div>
       )}
     </div>

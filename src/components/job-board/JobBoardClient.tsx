@@ -1127,6 +1127,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
             onSelectProject={selectProject}
             onBack={() => setMobileView('list')}
             onProjectStatusChange={fetchProjects}
+            canEdit={canEdit('job_board')}
           />
         )}
       </div>
