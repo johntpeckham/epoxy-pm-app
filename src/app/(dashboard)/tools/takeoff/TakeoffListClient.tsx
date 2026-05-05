@@ -47,9 +47,8 @@ export default function TakeoffListClient({ initialTakeoffs, userId }: Props) {
           name: 'Untitled Takeoff',
           created_by: userId,
           company_id: null,
-          customer_id: null,
           status: 'active',
-          pipeline_stage: 'estimating',
+          source: 'manual',
         })
         .select('id')
         .single()
