@@ -124,6 +124,9 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Toast
+  const [deleteErrorToast, setDeleteErrorToast] = useState<string | null>(null)
+
   // Status dropdown
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<'Active' | 'Completed' | 'Closed' | null>(null)
@@ -312,7 +315,12 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     const supabase = createClient()
 
     const result = await softDeleteProject(supabase, projectToDelete.id, projectToDelete.name, userId)
-    if (result.error) console.error('[JobBoard] Soft delete project failed:', result.error)
+    if (result.error) {
+      setIsDeleting(false)
+      setDeleteErrorToast(result.error)
+      setTimeout(() => setDeleteErrorToast(null), 6000)
+      return
+    }
 
     if (selectedProject?.id === projectToDelete.id) {
       setSelectedProject(null)
@@ -1173,6 +1181,21 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
           loading={isUpdatingStatus}
           variant="default"
         />
+      )}
+
+      {deleteErrorToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] max-w-md w-full px-4">
+          <div className="bg-red-600 text-white text-sm rounded-lg shadow-lg px-4 py-3 flex items-start gap-3">
+            <span className="flex-1 break-words">{deleteErrorToast}</span>
+            <button
+              onClick={() => setDeleteErrorToast(null)}
+              className="flex-shrink-0 text-white/70 hover:text-white transition-colors"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
