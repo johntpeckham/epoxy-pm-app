@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { BriefcaseIcon, ClipboardListIcon, ImageIcon, CheckSquareIcon, CalendarIcon, CalendarRangeIcon, XIcon, ShieldIcon, ReceiptIcon, ClockIcon, DollarSignIcon, LayoutDashboardIcon, ClipboardCheckIcon, ChevronRightIcon, FootprintsIcon, TrendingUpIcon, UsersIcon, PhoneIcon, MailIcon, TargetIcon, CalculatorIcon, MegaphoneIcon, WrenchIcon } from 'lucide-react'
+import { RulerIcon } from 'lucide-react'
 import { usePermissions } from '@/lib/usePermissions'
 
 interface SidebarProps {
@@ -82,6 +83,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isTimesheetsActive = pathname === '/timesheets'
   const isCalendarActive = pathname === '/calendar'
   const isSchedulerActive = pathname === '/scheduler' || pathname.startsWith('/scheduler/')
+  const isTakeoffToolsActive = pathname === '/tools/takeoff' || pathname.startsWith('/tools/takeoff/')
   const isMarketingActive = pathname === '/marketing' || pathname.startsWith('/marketing/')
   const isBillingActive = pathname === '/billing'
   const isMyWorkActive = pathname === '/my-work'
@@ -169,6 +171,13 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     isPhotosActive,
     isTasksActive,
   ])
+
+  // Auto-open the Tools group when the Takeoff Tools route is active.
+  useEffect(() => {
+    if (isTakeoffToolsActive) {
+      setToolsExpanded(true)
+    }
+  }, [isTakeoffToolsActive])
 
   const navContent = (
     <div className="flex flex-col h-full">
@@ -546,13 +555,12 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
           </Link>
         )}
 
-        {/* Tools — chevron group with NO destination route. Scheduler is
-            the only child today. The desktop-only `hidden lg:block` on
-            the wrapper preserves Scheduler's existing visibility rule
-            (its ancestor — and thus the whole group — is hidden on
-            mobile / tablet). The group hides entirely if no children
-            are visible to this user. */}
-        {canView('scheduler') && (
+        {/* Tools — chevron group with NO destination route. Children:
+            Takeoff (estimating feature key) and Scheduler.
+            The desktop-only `hidden lg:block` on the wrapper preserves
+            Scheduler's existing visibility rule. The group hides entirely
+            if no children are visible to this user. */}
+        {(canView('estimating') || canView('scheduler')) && (
           <div className="hidden lg:block">
             <div className="flex items-center rounded-lg text-sm font-medium text-gray-400">
               <div className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0">
@@ -574,18 +582,34 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 opacity: toolsExpanded ? 1 : 0,
               }}
             >
-              <Link
-                href="/scheduler"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSchedulerActive
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-neutral-800'
-                }`}
-              >
-                <CalendarRangeIcon className="w-4 h-4 flex-shrink-0" />
-                Scheduler
-              </Link>
+              {canView('estimating') && (
+                <Link
+                  href="/tools/takeoff"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isTakeoffToolsActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
+                  }`}
+                >
+                  <RulerIcon className="w-4 h-4 flex-shrink-0" />
+                  Takeoff
+                </Link>
+              )}
+              {canView('scheduler') && (
+                <Link
+                  href="/scheduler"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isSchedulerActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
+                  }`}
+                >
+                  <CalendarRangeIcon className="w-4 h-4 flex-shrink-0" />
+                  Scheduler
+                </Link>
+              )}
             </div>
           </div>
         )}
