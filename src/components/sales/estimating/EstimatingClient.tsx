@@ -159,6 +159,7 @@ export default function EstimatingClient({
       .from('companies')
       .select('*')
       .eq('archived', false)
+      .eq('status', 'active')
       .order('name', { ascending: true })
     if (data) setCustomers(data as Customer[])
   }

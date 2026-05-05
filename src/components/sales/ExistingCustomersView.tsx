@@ -295,7 +295,8 @@ export default function ExistingCustomersView({
       supabase
         .from('companies')
         .select('id, name, company, email, phone, city, state, created_at')
-        .eq('archived', false),
+        .eq('archived', false)
+        .eq('status', 'active'),
       supabase
         .from('proposals')
         .select('id, company_id, total, status, created_at'),
@@ -311,7 +312,8 @@ export default function ExistingCustomersView({
       supabase
         .from('companies')
         .select('id, name, industry, region, assigned_to')
-        .eq('archived', false),
+        .eq('archived', false)
+        .eq('status', 'active'),
       supabase
         .from('profiles')
         .select('id, display_name'),

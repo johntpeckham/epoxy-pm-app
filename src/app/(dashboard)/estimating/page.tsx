@@ -12,6 +12,7 @@ export default async function SalesEstimatingPage() {
     .from('companies')
     .select('*')
     .eq('archived', false)
+    .eq('status', 'active')
     .order('name', { ascending: true })
 
   return (

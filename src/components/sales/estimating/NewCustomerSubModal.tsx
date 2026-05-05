@@ -51,7 +51,7 @@ export default function NewCustomerSubModal({
         city: city.trim() || null,
         state: state.trim() || null,
         zip: zip.trim() || null,
-        status: 'prospect',
+        status: 'active',
         priority: 'medium',
         archived: false,
         created_by: userId,
