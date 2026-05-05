@@ -27,7 +27,6 @@ interface JobWalkDetailClientProps {
   initialWalk: JobWalk
   customers: Customer[]
   assignees: AppointmentAssigneeOption[]
-  isAdmin: boolean
   userId: string
 }
 
@@ -35,7 +34,6 @@ export default function JobWalkDetailClient({
   initialWalk,
   customers,
   assignees,
-  isAdmin,
   userId,
 }: JobWalkDetailClientProps) {
   const router = useRouter()
@@ -80,53 +78,55 @@ export default function JobWalkDetailClient({
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 gap-4 flex-wrap border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1e1e1e]">
-        <div className="flex items-center gap-2 min-w-0">
-          <Link
-            href="/job-walk"
-            className="flex-shrink-0 p-1 -ml-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-          >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </Link>
-          <FootprintsIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
-            {walk.project_name || 'Job Walk'}
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <select
-            value={walk.status}
-            onChange={(e) => setWalkStatus(e.target.value as JobWalkStatus)}
-            style={{
-              backgroundColor: JOB_WALK_STATUS_COLORS[walk.status as JobWalkStatus].bg,
-              borderColor: JOB_WALK_STATUS_COLORS[walk.status as JobWalkStatus].border,
-              color: JOB_WALK_STATUS_COLORS[walk.status as JobWalkStatus].text,
-            }}
-            className="text-[12px] font-medium border rounded-md px-2 py-1 max-w-[175px] cursor-pointer outline-none"
-          >
-            {JOB_WALK_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-
-          {canManage && (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              title="Delete job walk"
-              aria-label="Delete job walk"
-              className="p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition"
+      {/* Header bar — full-width background, content constrained to max-w-3xl */}
+      <div className="border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1e1e1e]">
+        <div className="max-w-3xl mx-auto flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 gap-4 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <Link
+              href="/job-walk"
+              className="flex-shrink-0 p-1 -ml-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
             >
-              <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
-            </button>
-          )}
+              <ArrowLeftIcon className="w-5 h-5" />
+            </Link>
+            <FootprintsIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+              {walk.project_name || 'Job Walk'}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <select
+              value={walk.status}
+              onChange={(e) => setWalkStatus(e.target.value as JobWalkStatus)}
+              style={{
+                backgroundColor: JOB_WALK_STATUS_COLORS[walk.status as JobWalkStatus].bg,
+                borderColor: JOB_WALK_STATUS_COLORS[walk.status as JobWalkStatus].border,
+                color: JOB_WALK_STATUS_COLORS[walk.status as JobWalkStatus].text,
+              }}
+              className="text-[12px] font-medium border rounded-md px-2 py-1 max-w-[175px] cursor-pointer outline-none"
+            >
+              {JOB_WALK_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                title="Delete job walk"
+                aria-label="Delete job walk"
+                className="p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition"
+              >
+                <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="px-4 sm:px-6 py-5 space-y-4 max-w-3xl">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 space-y-4">
         <div className="flex items-center gap-2">
           <JobWalkPushMenu
             walk={walk}
@@ -138,7 +138,6 @@ export default function JobWalkDetailClient({
           walk={walk}
           customers={customers}
           assignees={assignees}
-          isAdmin={isAdmin}
           onPatch={handleUpdate}
         />
         <JobWalkPhotosCard walkId={walk.id} userId={userId} />

@@ -10,7 +10,6 @@ import type { JobWalk } from './JobWalkClient'
 
 interface NewJobWalkModalProps {
   userId: string
-  isAdmin?: boolean
   customers: Customer[]
   assignees?: AppointmentAssigneeOption[]
   onClose: () => void
@@ -29,7 +28,6 @@ function todayISO(): string {
 
 export default function NewJobWalkModal({
   userId,
-  isAdmin = true,
   customers,
   assignees = [],
   onClose,
@@ -405,11 +403,9 @@ export default function NewJobWalkModal({
                 <select
                   value={assignedTo}
                   onChange={(e) => setAssignedTo(e.target.value)}
-                  disabled={!isAdmin}
-                  className={`${inputCls} ${!isAdmin ? 'bg-gray-50 text-gray-500' : ''}`}
+                  className={inputCls}
                 >
-                  <option value="">— Unassigned —</option>
-                  {assignees.map((a) => (
+                    {assignees.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.display_name || a.id.slice(0, 8)}
                     </option>
