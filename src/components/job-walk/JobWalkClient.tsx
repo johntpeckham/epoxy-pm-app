@@ -1,15 +1,13 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   PlusIcon,
   SearchIcon,
   FootprintsIcon,
   ChevronRightIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   Trash2Icon,
   ArrowLeftIcon,
   MapPinIcon,
@@ -17,20 +15,17 @@ import {
   MailIcon,
   CalendarIcon,
   UserIcon,
+  PencilIcon,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Customer } from '@/components/proposals/types'
-import type { UserRole } from '@/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-import JobWalkInfoCard from './JobWalkInfoCard'
-import JobWalkNotesCard from './JobWalkNotesCard'
-import JobWalkPhotosCard from './JobWalkPhotosCard'
-import JobWalkMeasurementsCard from './JobWalkMeasurementsCard'
-import JobWalkCamToPlanCard from './JobWalkCamToPlanCard'
-import JobWalkPushMenu from './JobWalkPushMenu'
+import KebabMenu from '@/components/ui/KebabMenu'
 import NewJobWalkModal from './NewJobWalkModal'
+import JobWalkEditInfoModal from './JobWalkEditInfoModal'
 import { usePermissions } from '@/lib/usePermissions'
+import { softDeleteJobWalk } from '@/lib/trashBin'
 
 export type JobWalkStatus = 'in_progress' | 'completed' | 'sent_to_estimating'
 export type JobWalkPushedTo = 'estimating' | 'proposal' | 'job'
@@ -58,16 +53,15 @@ export interface JobWalk {
 interface JobWalkClientProps {
   initialJobWalks: JobWalk[]
   userId: string
-  userRole: UserRole
 }
 
-const JOB_WALK_STATUS_OPTIONS: { value: JobWalkStatus; label: string }[] = [
+export const JOB_WALK_STATUS_OPTIONS: { value: JobWalkStatus; label: string }[] = [
   { value: 'in_progress', label: 'In Progress' },
   { value: 'sent_to_estimating', label: 'Sent to Estimating' },
   { value: 'completed', label: 'Completed' },
 ]
 
-const JOB_WALK_STATUS_COLORS: Record<JobWalkStatus, { bg: string; border: string; text: string }> = {
+export const JOB_WALK_STATUS_COLORS: Record<JobWalkStatus, { bg: string; border: string; text: string }> = {
   in_progress: { bg: 'rgba(239,159,39,0.15)', border: 'rgba(239,159,39,0.3)', text: '#EF9F27' },
   sent_to_estimating: { bg: 'rgba(55,138,221,0.15)', border: 'rgba(55,138,221,0.3)', text: '#378ADD' },
   completed: { bg: 'rgba(29,158,117,0.15)', border: 'rgba(29,158,117,0.3)', text: '#1D9E75' },
@@ -90,31 +84,24 @@ function formatDate(iso: string | null): string {
   })
 }
 
-export default function JobWalkClient({ initialJobWalks, userId, userRole }: JobWalkClientProps) {
+export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClientProps) {
   const { canEdit } = usePermissions()
   // The "All/Mine" filter was previously admin-only. Use user_management as
   // an admin-only proxy so the behaviour lines up with the default template.
   const isAdmin = canEdit('user_management')
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [jobWalks, setJobWalks] = useState<JobWalk[]>(initialJobWalks)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [assignees, setAssignees] = useState<AppointmentAssigneeOption[]>([])
-  const [creating, setCreating] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingWalk, setEditingWalk] = useState<JobWalk | null>(null)
   const [confirmDeleteWalk, setConfirmDeleteWalk] = useState<JobWalk | null>(null)
   const [deletingWalk, setDeletingWalk] = useState(false)
+  const [deleteToast, setDeleteToast] = useState<string | null>(null)
+  const [assignedExpanded, setAssignedExpanded] = useState(true)
+  const [unassignedExpanded, setUnassignedExpanded] = useState(true)
   const [completedExpanded, setCompletedExpanded] = useState(false)
-
-  useEffect(() => {
-    const urlId = searchParams.get('walk')
-    if (urlId && jobWalks.some((w) => w.id === urlId)) {
-      setExpandedId(urlId)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   useEffect(() => {
     async function fetchCustomersAndAssignees() {
@@ -142,30 +129,14 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
     fetchCustomersAndAssignees()
   }, [userId])
 
-  function toggleExpand(id: string) {
-    const next = expandedId === id ? null : id
-    setExpandedId(next)
-    const params = new URLSearchParams(searchParams.toString())
-    if (next) {
-      params.set('walk', next)
-    } else {
-      params.delete('walk')
-    }
-    const qs = params.toString()
-    router.replace(qs ? `/job-walk?${qs}` : '/job-walk', { scroll: false })
-  }
-
   const handleCreateFromModal = useCallback((walk: JobWalk, newCustomer?: import('@/components/proposals/types').Customer | null) => {
     setJobWalks((prev) => [walk, ...prev])
     if (newCustomer) {
       setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)))
     }
-    setExpandedId(walk.id)
     setShowCreateModal(false)
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('walk', walk.id)
-    router.replace(`/job-walk?${params.toString()}`, { scroll: false })
-  }, [router, searchParams])
+    router.push(`/job-walk/${walk.id}`)
+  }, [router])
 
   const handleUpdate = useCallback((id: string, patch: Partial<JobWalk>) => {
     setJobWalks((prev) =>
@@ -197,27 +168,23 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
     if (!confirmDeleteWalk) return
     setDeletingWalk(true)
     const supabase = createClient()
-    const { error } = await supabase
-      .from('job_walks')
-      .delete()
-      .eq('id', confirmDeleteWalk.id)
-    if (error) {
-      console.error('[JobWalk] Delete failed:', error)
+    const result = await softDeleteJobWalk(
+      supabase,
+      confirmDeleteWalk.id,
+      confirmDeleteWalk.project_name,
+      userId,
+    )
+    if (result.error) {
       setDeletingWalk(false)
+      setConfirmDeleteWalk(null)
+      setDeleteToast(result.error)
+      setTimeout(() => setDeleteToast(null), 6000)
       return
     }
-    const deletedId = confirmDeleteWalk.id
-    setJobWalks((prev) => prev.filter((w) => w.id !== deletedId))
-    if (expandedId === deletedId) {
-      setExpandedId(null)
-      const params = new URLSearchParams(searchParams.toString())
-      params.delete('walk')
-      const qs = params.toString()
-      router.replace(qs ? `/job-walk?${qs}` : '/job-walk', { scroll: false })
-    }
+    setJobWalks((prev) => prev.filter((w) => w.id !== confirmDeleteWalk.id))
     setDeletingWalk(false)
     setConfirmDeleteWalk(null)
-  }, [confirmDeleteWalk, expandedId, router, searchParams])
+  }, [confirmDeleteWalk, userId])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -230,62 +197,50 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
     })
   }, [jobWalks, search])
 
-  const assigneeMap = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const a of assignees) m.set(a.id, a.display_name || a.id.slice(0, 8))
-    return m
-  }, [assignees])
+  const canManage = canEdit('job_walk')
 
-  const myFiltered = useMemo(
-    () => (isAdmin ? filtered.filter((w) => w.assigned_to === userId) : filtered),
-    [isAdmin, filtered, userId]
+  const assignedActiveWalks = useMemo(
+    () => filtered.filter((w) => w.status !== 'completed' && w.assigned_to !== null),
+    [filtered]
   )
 
-  const inProgressWalks = useMemo(
-    () => myFiltered.filter((w) => w.status !== 'completed'),
-    [myFiltered]
+  const unassignedWalks = useMemo(
+    () => filtered.filter((w) => w.status !== 'completed' && w.assigned_to === null),
+    [filtered]
   )
-
-  const otherUserSections = useMemo(() => {
-    if (!isAdmin) return []
-    const others = filtered.filter((w) => w.assigned_to !== userId && w.status !== 'completed')
-    const grouped = new Map<string, JobWalk[]>()
-    for (const w of others) {
-      const key = w.assigned_to ?? '__unassigned__'
-      const arr = grouped.get(key) ?? []
-      arr.push(w)
-      grouped.set(key, arr)
-    }
-    return Array.from(grouped.entries())
-      .map(([uid, items]) => ({
-        userId: uid,
-        name: uid === '__unassigned__' ? 'Unassigned' : (assigneeMap.get(uid) ?? uid.slice(0, 8)),
-        walks: items,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name))
-  }, [isAdmin, filtered, userId, assigneeMap])
 
   const completedWalks = useMemo(
-    () => (isAdmin ? filtered.filter((w) => w.status === 'completed') : filtered.filter((w) => w.status === 'completed')),
-    [filtered, isAdmin]
+    () => filtered.filter((w) => w.status === 'completed'),
+    [filtered]
   )
 
   function renderCard(walk: JobWalk) {
-    const isExpanded = expandedId === walk.id
     const isDimmed = walk.status === 'completed'
+    const kebabItems = canManage
+      ? [
+          {
+            label: 'Edit',
+            icon: <PencilIcon className="w-4 h-4" />,
+            onSelect: () => setEditingWalk(walk),
+          },
+          {
+            label: 'Delete',
+            icon: <Trash2Icon className="w-4 h-4" />,
+            destructive: true as const,
+            onSelect: () => setConfirmDeleteWalk(walk),
+          },
+        ]
+      : []
 
     return (
       <div
         key={walk.id}
-        className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl transition-opacity ${
+        onClick={() => router.push(`/job-walk/${walk.id}`)}
+        className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all ${
           isDimmed ? 'opacity-70' : ''
         }`}
       >
-        {/* Collapsed summary — always visible */}
-        <div
-          onClick={() => toggleExpand(walk.id)}
-          className="w-full text-left px-6 py-5 cursor-pointer"
-        >
+        <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <span className="text-[17px] font-medium text-gray-900 dark:text-white">
@@ -328,7 +283,7 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2.5 flex-shrink-0 mt-0.5">
+            <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
               <select
                 value={walk.status}
                 onChange={(e) => {
@@ -347,73 +302,62 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
-              <span className="inline-flex items-center gap-1 text-[13px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors select-none">
-                {isExpanded ? 'Close' : 'View'}
-                {isExpanded ? (
-                  <ChevronUpIcon className="w-4 h-4" />
-                ) : (
-                  <ChevronDownIcon className="w-4 h-4" />
-                )}
-              </span>
+              {kebabItems.length > 0 && (
+                <KebabMenu items={kebabItems} variant="light" />
+              )}
             </div>
           </div>
         </div>
+      </div>
+    )
+  }
 
-        {/* Expanded detail */}
-        {isExpanded && (
-          <div className="border-t border-gray-100 dark:border-[#2a2a2a]">
-            {/* Action bar */}
-            <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 dark:bg-[#1e1e1e] flex-wrap">
-              <JobWalkPushMenu
-                walk={walk}
-                userId={userId}
-                onPatch={(patch) => handleUpdate(walk.id, patch)}
-              />
-              <div className="flex-1" />
-              <button
-                type="button"
-                onClick={() => setConfirmDeleteWalk(walk)}
-                title="Delete job walk"
-                aria-label="Delete job walk"
-                className="flex-shrink-0 p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition"
-              >
-                <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
-              </button>
-            </div>
+  function renderSectionHeader(
+    label: string,
+    count: number,
+    expanded: boolean,
+    onToggle: () => void,
+  ) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-2 pt-4 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-widest hover:text-gray-500"
+      >
+        <ChevronRightIcon
+          className={`w-3 h-3 transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+        />
+        {label} ({count})
+        <span className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a] ml-2" />
+      </button>
+    )
+  }
 
-            {/* Detail cards */}
-            <div className="p-4 space-y-4">
-              <JobWalkInfoCard
-                key={`info-${walk.id}`}
-                walk={walk}
-                customers={customers}
-                assignees={assignees}
-                isAdmin={isAdmin}
-                onPatch={(patch) => handleUpdate(walk.id, patch)}
-              />
-              <JobWalkPhotosCard
-                key={`photos-${walk.id}`}
-                walkId={walk.id}
-                userId={userId}
-              />
-              <JobWalkNotesCard
-                key={`notes-${walk.id}`}
-                walk={walk}
-                onPatch={(patch) => handleUpdate(walk.id, patch)}
-              />
-              <JobWalkMeasurementsCard
-                key={`measurements-${walk.id}`}
-                walk={walk}
-                userId={userId}
-                onPatch={(patch) => handleUpdate(walk.id, patch)}
-              />
-              <JobWalkCamToPlanCard />
-            </div>
+  function renderGroup(
+    label: string,
+    walks: JobWalk[],
+    expanded: boolean,
+    onToggle: () => void,
+  ) {
+    return (
+      <div>
+        {renderSectionHeader(label, walks.length, expanded, onToggle)}
+        {expanded && (
+          <div className="space-y-3 pt-2">
+            {walks.length === 0 ? (
+              <p className="text-sm text-gray-400 italic px-2 py-2">
+                {search ? 'No matches.' : `No job walks in this section.`}
+              </p>
+            ) : (
+              walks.map((walk) => renderCard(walk))
+            )}
           </div>
         )}
       </div>
     )
   }
+
+  const hasAny = assignedActiveWalks.length > 0 || unassignedWalks.length > 0 || completedWalks.length > 0
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
@@ -445,61 +389,32 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
         </div>
       </div>
 
-      {/* Card list */}
-      <div className="px-4 sm:px-7 py-6">
-        {filtered.length === 0 ? (
+      {/* Groups */}
+      <div className="px-4 sm:px-7 py-4">
+        {!hasAny && !search ? (
           <div className="text-center py-14">
             <FootprintsIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">
-              {search ? 'No matching job walks.' : 'No job walks yet. Create one to get started.'}
-            </p>
+            <p className="text-sm text-gray-400">No job walks yet. Create one to get started.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {inProgressWalks.map((walk) => renderCard(walk))}
-
-            {/* Admin: other users' sections */}
-            {isAdmin && otherUserSections.length > 0 && (
-              <>
-                <div className="pt-4 pb-2">
-                  <div className="border-t border-gray-200 dark:border-[#2a2a2a]" />
-                </div>
-                {otherUserSections.map((section) => (
-                  <div key={section.userId}>
-                    <div className="flex items-baseline gap-2 pb-2 pt-1">
-                      <span className="text-[16px] font-medium text-gray-900 dark:text-white">
-                        {section.name}
-                      </span>
-                      <span className="text-[13px] text-gray-400">
-                        ({section.walks.length})
-                      </span>
-                    </div>
-                    <div className="space-y-3">
-                      {section.walks.map((walk) => renderCard(walk))}
-                    </div>
-                  </div>
-                ))}
-              </>
+          <div className="space-y-1">
+            {renderGroup(
+              'Active',
+              assignedActiveWalks,
+              assignedExpanded,
+              () => setAssignedExpanded((v) => !v),
             )}
-
-            {completedWalks.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setCompletedExpanded((v) => !v)}
-                  className="w-full flex items-center gap-2 px-2 pt-4 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-widest hover:text-gray-500"
-                >
-                  {completedExpanded ? (
-                    <ChevronDownIcon className="w-3 h-3" />
-                  ) : (
-                    <ChevronRightIcon className="w-3 h-3" />
-                  )}
-                  Completed ({completedWalks.length})
-                  <span className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a] ml-2" />
-                </button>
-                {completedExpanded &&
-                  completedWalks.map((walk) => renderCard(walk))}
-              </>
+            {renderGroup(
+              'Unassigned',
+              unassignedWalks,
+              unassignedExpanded,
+              () => setUnassignedExpanded((v) => !v),
+            )}
+            {renderGroup(
+              'Completed',
+              completedWalks,
+              completedExpanded,
+              () => setCompletedExpanded((v) => !v),
             )}
           </div>
         )}
@@ -516,16 +431,45 @@ export default function JobWalkClient({ initialJobWalks, userId, userRole }: Job
         />
       )}
 
+      {editingWalk && (
+        <JobWalkEditInfoModal
+          walk={editingWalk}
+          customers={customers}
+          assignees={assignees}
+          isAdmin={isAdmin}
+          onClose={() => setEditingWalk(null)}
+          onSaved={(patch) => {
+            handleUpdate(editingWalk.id, patch)
+            setEditingWalk(null)
+          }}
+        />
+      )}
+
       {confirmDeleteWalk && (
         <ConfirmDialog
           title="Delete Job Walk"
-          message="Are you sure you want to delete this job walk? This action cannot be undone."
+          message={`Are you sure you want to delete "${confirmDeleteWalk.project_name}"? It will be moved to the trash bin and can be restored within 1 year.`}
           confirmLabel="Delete"
           variant="destructive"
           loading={deletingWalk}
           onConfirm={handleDeleteWalk}
           onCancel={() => (deletingWalk ? null : setConfirmDeleteWalk(null))}
         />
+      )}
+
+      {deleteToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] max-w-md w-full px-4">
+          <div className="bg-red-600 text-white text-sm rounded-lg shadow-lg px-4 py-3 flex items-start gap-3">
+            <span className="flex-1 break-words">{deleteToast}</span>
+            <button
+              onClick={() => setDeleteToast(null)}
+              className="flex-shrink-0 text-white/70 hover:text-white transition-colors"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

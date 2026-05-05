@@ -15,6 +15,7 @@ export type TrashItemType =
   | 'checklist_template'
   | 'customer'
   | 'employee'
+  | 'job_walk'
 
 export interface TrashBinItem {
   id: string
@@ -44,6 +45,7 @@ const TABLE_MAP: Record<string, string> = {
   checklist_template: 'checklist_templates',
   customer: 'customers',
   employee: 'employee_profiles',
+  job_walk: 'job_walks',
 }
 
 /** Tables with project_id FK that get cascade-deleted with a project */
@@ -56,6 +58,12 @@ const PROJECT_RELATED_TABLES = [
   'project_contracts',
   'material_orders',
   'project_preliens',
+]
+
+/** Tables with job_walk_id FK that get cascade-deleted with a job walk */
+const JOB_WALK_RELATED_TABLES = [
+  'job_walk_photos',
+  'job_walk_measurement_pdfs',
 ]
 
 /**
@@ -153,6 +161,63 @@ export async function softDeleteProject(
 }
 
 /**
+ * Soft-delete a job walk: snapshot the walk + all related data, clean up storage, then delete.
+ */
+export async function softDeleteJobWalk(
+  supabase: SupabaseClient,
+  walkId: string,
+  walkName: string,
+  deletedBy: string,
+): Promise<{ error: string | null }> {
+  // 1. Snapshot the job walk record
+  const { data: walk, error: walkErr } = await supabase
+    .from('job_walks')
+    .select('*')
+    .eq('id', walkId)
+    .single()
+  if (walkErr || !walk) return { error: 'Failed to snapshot job walk: ' + (walkErr?.message ?? 'not found') }
+
+  // 2. Snapshot all related child data
+  const relatedData: Record<string, unknown[]> = {}
+  for (const table of JOB_WALK_RELATED_TABLES) {
+    const { data } = await supabase
+      .from(table)
+      .select('*')
+      .eq('job_walk_id', walkId)
+    if (data && data.length > 0) relatedData[table] = data
+  }
+
+  // 3. Clean up storage objects before delete (metadata is snapshotted above)
+  const photos = relatedData.job_walk_photos as Array<Record<string, unknown>> | undefined
+  if (photos && photos.length > 0) {
+    const photoPaths = photos.map((p) => p.storage_path as string).filter(Boolean)
+    if (photoPaths.length) await supabase.storage.from('job-walk-photos').remove(photoPaths)
+  }
+  const pdfs = relatedData.job_walk_measurement_pdfs as Array<Record<string, unknown>> | undefined
+  if (pdfs && pdfs.length > 0) {
+    const pdfPaths = pdfs.map((p) => p.storage_path as string).filter(Boolean)
+    if (pdfPaths.length) await supabase.storage.from('job-walk-measurements').remove(pdfPaths)
+  }
+
+  // 4. Insert into trash
+  const { error: trashErr } = await supabase.from('trash_bin').insert({
+    item_type: 'job_walk',
+    item_id: walkId,
+    item_name: walkName,
+    item_data: { walk, ...relatedData },
+    related_project: null,
+    deleted_by: deletedBy,
+  })
+  if (trashErr) return { error: 'Failed to move to trash: ' + trashErr.message }
+
+  // 5. Delete the job walk (FK cascades handle child rows)
+  const { error: deleteErr } = await supabase.from('job_walks').delete().eq('id', walkId)
+  if (deleteErr) return { error: 'Trashed but failed to delete job walk: ' + deleteErr.message }
+
+  return { error: null }
+}
+
+/**
  * Soft-delete a proposal with its change orders bundled together.
  */
 export async function softDeleteProposal(
@@ -240,6 +305,20 @@ export async function restoreFromTrash(
 
       // Restore related tables
       for (const table of PROJECT_RELATED_TABLES) {
+        const rows = item_data[table] as Record<string, unknown>[] | undefined
+        if (rows && rows.length > 0) {
+          const { error } = await supabase.from(table).insert(rows)
+          if (error) console.error(`[TrashBin] Failed to restore ${table}:`, error)
+        }
+      }
+    } else if (item_type === 'job_walk') {
+      const walkData = item_data.walk as Record<string, unknown>
+      if (!walkData) return { error: 'No job walk data found in snapshot' }
+
+      const { error: walkErr } = await supabase.from('job_walks').insert(walkData)
+      if (walkErr) return { error: 'Failed to restore job walk: ' + walkErr.message }
+
+      for (const table of JOB_WALK_RELATED_TABLES) {
         const rows = item_data[table] as Record<string, unknown>[] | undefined
         if (rows && rows.length > 0) {
           const { error } = await supabase.from(table).insert(rows)
@@ -340,4 +419,5 @@ export const ITEM_TYPE_LABELS: Record<string, string> = {
   checklist_template: 'Checklist Template',
   customer: 'Customer',
   employee: 'Employee',
+  job_walk: 'Job Walk',
 }
