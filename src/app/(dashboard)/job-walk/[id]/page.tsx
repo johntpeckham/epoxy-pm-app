@@ -13,7 +13,7 @@ interface PageProps {
 }
 
 export default async function JobWalkDetailPage({ params }: PageProps) {
-  const { supabase, user, permissions } = await requirePermission('job_walk', 'view')
+  const { supabase, user } = await requirePermission('job_walk', 'view')
   const { id } = await params
 
   const { data: walk } = await supabase
@@ -44,9 +44,7 @@ export default async function JobWalkDetailPage({ params }: PageProps) {
     )
   }
 
-  const isAdmin = permissions.isAdmin ?? false
-
-  const [{ data: custData }, { data: profData }] = await Promise.all([
+  const [{ data: custData }, { data: profData }, { data: permsData }] = await Promise.all([
     supabase
       .from('companies')
       .select('*')
@@ -55,21 +53,29 @@ export default async function JobWalkDetailPage({ params }: PageProps) {
     supabase
       .from('profiles')
       .select('id, display_name, role')
-      .in('role', ['admin', 'office_manager', 'salesman'])
       .order('display_name', { ascending: true }),
+    supabase
+      .from('user_permissions')
+      .select('user_id')
+      .eq('feature', 'job_walk')
+      .eq('access_level', 'full'),
   ])
 
   const customers = (custData ?? []) as Customer[]
+  const jobWalkEditIds = new Set(
+    ((permsData ?? []) as { user_id: string }[]).map((p) => p.user_id)
+  )
   const assignees: AppointmentAssigneeOption[] = (
-    (profData ?? []) as { id: string; display_name: string | null }[]
-  ).map((p) => ({ id: p.id, display_name: p.display_name }))
+    (profData ?? []) as { id: string; display_name: string | null; role: string }[]
+  )
+    .filter((p) => p.role === 'admin' || jobWalkEditIds.has(p.id))
+    .map((p) => ({ id: p.id, display_name: p.display_name }))
 
   return (
     <JobWalkDetailClient
       initialWalk={walk as JobWalk}
       customers={customers}
       assignees={assignees}
-      isAdmin={isAdmin}
       userId={user.id}
     />
   )

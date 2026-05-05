@@ -12,7 +12,6 @@ interface JobWalkEditInfoModalProps {
   walk: JobWalk
   customers: Customer[]
   assignees?: AppointmentAssigneeOption[]
-  isAdmin?: boolean
   onClose: () => void
   onSaved: (patch: Partial<JobWalk>) => void
 }
@@ -25,7 +24,6 @@ export default function JobWalkEditInfoModal({
   walk,
   customers,
   assignees = [],
-  isAdmin = true,
   onClose,
   onSaved,
 }: JobWalkEditInfoModalProps) {
@@ -281,8 +279,7 @@ export default function JobWalkEditInfoModal({
                 <select
                   value={assignedTo}
                   onChange={(e) => setAssignedTo(e.target.value)}
-                  disabled={!isAdmin}
-                  className={`${inputCls} ${!isAdmin ? 'bg-gray-50 text-gray-500' : ''}`}
+                  className={inputCls}
                 >
                   <option value="">— Unassigned —</option>
                   {assignees.map((a) => (

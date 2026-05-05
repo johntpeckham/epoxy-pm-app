@@ -52,6 +52,7 @@ export interface JobWalk {
 
 interface JobWalkClientProps {
   initialJobWalks: JobWalk[]
+  initialEmployeeWalks?: JobWalk[]
   userId: string
 }
 
@@ -84,13 +85,12 @@ function formatDate(iso: string | null): string {
   })
 }
 
-export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClientProps) {
+export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = [], userId }: JobWalkClientProps) {
   const { canEdit } = usePermissions()
-  // The "All/Mine" filter was previously admin-only. Use user_management as
-  // an admin-only proxy so the behaviour lines up with the default template.
   const isAdmin = canEdit('user_management')
   const router = useRouter()
   const [jobWalks, setJobWalks] = useState<JobWalk[]>(initialJobWalks)
+  const [employeeWalks, setEmployeeWalks] = useState<JobWalk[]>(initialEmployeeWalks)
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [assignees, setAssignees] = useState<AppointmentAssigneeOption[]>([])
@@ -99,14 +99,15 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
   const [confirmDeleteWalk, setConfirmDeleteWalk] = useState<JobWalk | null>(null)
   const [deletingWalk, setDeletingWalk] = useState(false)
   const [deleteToast, setDeleteToast] = useState<string | null>(null)
-  const [assignedExpanded, setAssignedExpanded] = useState(true)
-  const [unassignedExpanded, setUnassignedExpanded] = useState(true)
+  const [activeExpanded, setActiveExpanded] = useState(true)
   const [completedExpanded, setCompletedExpanded] = useState(false)
+  const [employeeExpanded, setEmployeeExpanded] = useState(false)
+  const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function fetchCustomersAndAssignees() {
       const supabase = createClient()
-      const [{ data: custData }, { data: profData }] = await Promise.all([
+      const [{ data: custData }, { data: profData }, { data: permsData }] = await Promise.all([
         supabase
           .from('companies')
           .select('*')
@@ -115,41 +116,48 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
         supabase
           .from('profiles')
           .select('id, display_name, role')
-          .in('role', ['admin', 'office_manager', 'salesman'])
           .order('display_name', { ascending: true }),
+        supabase
+          .from('user_permissions')
+          .select('user_id')
+          .eq('feature', 'job_walk')
+          .eq('access_level', 'full'),
       ])
       if (custData) setCustomers(custData as Customer[])
+      const jobWalkEditIds = new Set(
+        ((permsData ?? []) as { user_id: string }[]).map((p) => p.user_id)
+      )
       setAssignees(
-        ((profData ?? []) as { id: string; display_name: string | null }[]).map((p) => ({
-          id: p.id,
-          display_name: p.display_name,
-        }))
+        ((profData ?? []) as { id: string; display_name: string | null; role: string }[])
+          .filter((p) => p.role === 'admin' || jobWalkEditIds.has(p.id))
+          .map((p) => ({ id: p.id, display_name: p.display_name }))
       )
     }
     fetchCustomersAndAssignees()
   }, [userId])
 
   const handleCreateFromModal = useCallback((walk: JobWalk, newCustomer?: import('@/components/proposals/types').Customer | null) => {
-    setJobWalks((prev) => [walk, ...prev])
+    if (walk.assigned_to === userId) {
+      setJobWalks((prev) => [walk, ...prev])
+    } else {
+      setEmployeeWalks((prev) => [walk, ...prev])
+    }
     if (newCustomer) {
       setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)))
     }
     setShowCreateModal(false)
     router.push(`/job-walk/${walk.id}`)
-  }, [router])
+  }, [router, userId])
 
   const handleUpdate = useCallback((id: string, patch: Partial<JobWalk>) => {
-    setJobWalks((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, ...patch } : w))
-    )
+    setJobWalks((prev) => prev.map((w) => (w.id === id ? { ...w, ...patch } : w)))
+    setEmployeeWalks((prev) => prev.map((w) => (w.id === id ? { ...w, ...patch } : w)))
   }, [])
 
   const setWalkStatus = useCallback(async (walk: JobWalk, next: JobWalkStatus) => {
     if (next === walk.status) return
-    // Optimistic update
-    setJobWalks((prev) =>
-      prev.map((w) => (w.id === walk.id ? { ...w, status: next } : w))
-    )
+    setJobWalks((prev) => prev.map((w) => (w.id === walk.id ? { ...w, status: next } : w)))
+    setEmployeeWalks((prev) => prev.map((w) => (w.id === walk.id ? { ...w, status: next } : w)))
     const supabase = createClient()
     const { error } = await supabase
       .from('job_walks')
@@ -157,10 +165,8 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
       .eq('id', walk.id)
     if (error) {
       console.error('[JobWalk] Status update failed:', error)
-      // Revert on error
-      setJobWalks((prev) =>
-        prev.map((w) => (w.id === walk.id ? { ...w, status: walk.status } : w))
-      )
+      setJobWalks((prev) => prev.map((w) => (w.id === walk.id ? { ...w, status: walk.status } : w)))
+      setEmployeeWalks((prev) => prev.map((w) => (w.id === walk.id ? { ...w, status: walk.status } : w)))
     }
   }, [])
 
@@ -182,6 +188,7 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
       return
     }
     setJobWalks((prev) => prev.filter((w) => w.id !== confirmDeleteWalk.id))
+    setEmployeeWalks((prev) => prev.filter((w) => w.id !== confirmDeleteWalk.id))
     setDeletingWalk(false)
     setConfirmDeleteWalk(null)
   }, [confirmDeleteWalk, userId])
@@ -199,13 +206,8 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
 
   const canManage = canEdit('job_walk')
 
-  const assignedActiveWalks = useMemo(
-    () => filtered.filter((w) => w.status !== 'completed' && w.assigned_to !== null),
-    [filtered]
-  )
-
-  const unassignedWalks = useMemo(
-    () => filtered.filter((w) => w.status !== 'completed' && w.assigned_to === null),
+  const activeWalks = useMemo(
+    () => filtered.filter((w) => w.status !== 'completed'),
     [filtered]
   )
 
@@ -213,6 +215,41 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     () => filtered.filter((w) => w.status === 'completed'),
     [filtered]
   )
+
+  const filteredEmployeeWalks = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return employeeWalks
+    return employeeWalks.filter(
+      (w) =>
+        w.project_name.toLowerCase().includes(q) ||
+        (w.customer_name ?? '').toLowerCase().includes(q)
+    )
+  }, [employeeWalks, search])
+
+  const employeeWalksByUser = useMemo(() => {
+    const byUser = new Map<string, JobWalk[]>()
+    for (const w of filteredEmployeeWalks) {
+      const uid = w.assigned_to ?? '__unassigned__'
+      if (!byUser.has(uid)) byUser.set(uid, [])
+      byUser.get(uid)!.push(w)
+    }
+    return byUser
+  }, [filteredEmployeeWalks])
+
+  function getEmployeeDisplayName(uid: string): string {
+    if (uid === '__unassigned__') return 'Unassigned'
+    const a = assignees.find((x) => x.id === uid)
+    return a?.display_name || uid.slice(0, 8)
+  }
+
+  function toggleEmployee(uid: string) {
+    setExpandedEmployees((prev) => {
+      const next = new Set(prev)
+      if (next.has(uid)) next.delete(uid)
+      else next.add(uid)
+      return next
+    })
+  }
 
   function renderCard(walk: JobWalk) {
     const isDimmed = walk.status === 'completed'
@@ -357,7 +394,7 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
     )
   }
 
-  const hasAny = assignedActiveWalks.length > 0 || unassignedWalks.length > 0 || completedWalks.length > 0
+  const hasAny = activeWalks.length > 0 || completedWalks.length > 0
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
@@ -400,15 +437,9 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
           <div className="space-y-1">
             {renderGroup(
               'Active',
-              assignedActiveWalks,
-              assignedExpanded,
-              () => setAssignedExpanded((v) => !v),
-            )}
-            {renderGroup(
-              'Unassigned',
-              unassignedWalks,
-              unassignedExpanded,
-              () => setUnassignedExpanded((v) => !v),
+              activeWalks,
+              activeExpanded,
+              () => setActiveExpanded((v) => !v),
             )}
             {renderGroup(
               'Completed',
@@ -418,12 +449,41 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
             )}
           </div>
         )}
+
+        {isAdmin && filteredEmployeeWalks.length > 0 && (
+          <div className="mt-2">
+            {renderSectionHeader(
+              'Employee Job Walks',
+              filteredEmployeeWalks.length,
+              employeeExpanded,
+              () => setEmployeeExpanded((v) => !v),
+            )}
+            {employeeExpanded && (
+              <div className="space-y-1 pt-1">
+                {(Array.from(employeeWalksByUser.entries()) as [string, JobWalk[]][]).map(([uid, walks]) => (
+                  <div key={uid} className="pl-4">
+                    {renderSectionHeader(
+                      getEmployeeDisplayName(uid),
+                      walks.length,
+                      expandedEmployees.has(uid),
+                      () => toggleEmployee(uid),
+                    )}
+                    {expandedEmployees.has(uid) && (
+                      <div className="space-y-3 pt-2">
+                        {walks.map((walk) => renderCard(walk))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showCreateModal && (
         <NewJobWalkModal
           userId={userId}
-          isAdmin={isAdmin}
           customers={customers}
           assignees={assignees}
           onClose={() => setShowCreateModal(false)}
@@ -436,7 +496,6 @@ export default function JobWalkClient({ initialJobWalks, userId }: JobWalkClient
           walk={editingWalk}
           customers={customers}
           assignees={assignees}
-          isAdmin={isAdmin}
           onClose={() => setEditingWalk(null)}
           onSaved={(patch) => {
             handleUpdate(editingWalk.id, patch)

@@ -12,7 +12,6 @@ interface JobWalkInfoCardProps {
   walk: JobWalk
   customers: Customer[]
   assignees?: AppointmentAssigneeOption[]
-  isAdmin?: boolean
   onPatch: (patch: Partial<JobWalk>) => void
 }
 
@@ -30,7 +29,6 @@ export default function JobWalkInfoCard({
   walk,
   customers,
   assignees = [],
-  isAdmin = true,
   onPatch,
 }: JobWalkInfoCardProps) {
   const { canEdit } = usePermissions()
@@ -139,7 +137,6 @@ export default function JobWalkInfoCard({
           walk={walk}
           customers={customers}
           assignees={assignees}
-          isAdmin={isAdmin}
           onClose={() => setEditOpen(false)}
           onSaved={(patch) => onPatch(patch)}
         />
