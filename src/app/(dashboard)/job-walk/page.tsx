@@ -2,12 +2,10 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
 import { requirePermission } from '@/lib/requirePermission'
-import type { UserRole } from '@/types'
 import JobWalkClient, { JobWalk } from '@/components/job-walk/JobWalkClient'
 
 export default async function JobWalkPage() {
   const { supabase, user, permissions } = await requirePermission('job_walk', 'view')
-  const userRole = (permissions.role ?? 'crew') as UserRole
 
   const jwQuery = supabase.from('job_walks').select('*').order('created_at', { ascending: false })
   // Non-admins only see job walks assigned to them.
@@ -19,7 +17,6 @@ export default async function JobWalkPage() {
       <JobWalkClient
         initialJobWalks={(jobWalks as JobWalk[]) ?? []}
         userId={user.id}
-        userRole={userRole}
       />
     </Suspense>
   )

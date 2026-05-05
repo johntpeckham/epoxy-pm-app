@@ -6,6 +6,7 @@ import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import type { JobWalk } from './JobWalkClient'
 import JobWalkEditInfoModal from './JobWalkEditInfoModal'
+import { usePermissions } from '@/lib/usePermissions'
 
 interface JobWalkInfoCardProps {
   walk: JobWalk
@@ -32,6 +33,7 @@ export default function JobWalkInfoCard({
   isAdmin = true,
   onPatch,
 }: JobWalkInfoCardProps) {
+  const { canEdit } = usePermissions()
   const [editOpen, setEditOpen] = useState(false)
 
   const emptyValue = <span className="text-sm text-gray-300">—</span>
@@ -105,14 +107,16 @@ export default function JobWalkInfoCard({
             <SettingsIcon className="w-5 h-5" />
           </span>
           <h3 className="text-sm font-semibold text-gray-900 flex-1">Job Walk Info</h3>
-          <button
-            type="button"
-            onClick={() => setEditOpen(true)}
-            aria-label="Edit job walk info"
-            className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition"
-          >
-            <PencilIcon className="w-4 h-4" />
-          </button>
+          {canEdit('job_walk') && (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              aria-label="Edit job walk info"
+              className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition"
+            >
+              <PencilIcon className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <dl className="divide-y divide-gray-100">
