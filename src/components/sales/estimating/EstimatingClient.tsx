@@ -249,6 +249,9 @@ export default function EstimatingClient({
           prefillCustomerId={selectedCustomerId}
           onClose={() => setShowNewModal(false)}
           onCreated={handleProjectCreated}
+          onCustomerCreated={(customer) =>
+            setCustomers((prev) => [customer, ...prev])
+          }
         />
       )}
     </div>
