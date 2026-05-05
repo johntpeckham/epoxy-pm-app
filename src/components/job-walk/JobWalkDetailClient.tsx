@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   ArrowLeftIcon,
   FootprintsIcon,
+  PencilIcon,
   Trash2Icon,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -16,7 +17,9 @@ import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmen
 import type { JobWalk, JobWalkStatus } from './JobWalkClient'
 import { JOB_WALK_STATUS_COLORS, JOB_WALK_STATUS_OPTIONS } from './JobWalkClient'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import KebabMenu from '@/components/ui/KebabMenu'
 import JobWalkInfoCard from './JobWalkInfoCard'
+import JobWalkEditInfoModal from './JobWalkEditInfoModal'
 import JobWalkPhotosCard from './JobWalkPhotosCard'
 import JobWalkNotesCard from './JobWalkNotesCard'
 import JobWalkMeasurementsCard from './JobWalkMeasurementsCard'
@@ -41,6 +44,7 @@ export default function JobWalkDetailClient({
   const canManage = canEdit('job_walk')
 
   const [walk, setWalk] = useState<JobWalk>(initialWalk)
+  const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteToast, setDeleteToast] = useState<string | null>(null)
@@ -78,10 +82,10 @@ export default function JobWalkDetailClient({
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
-      {/* Header bar — full-width background, content constrained to max-w-3xl */}
+      {/* Header bar — full-width, content spans edge-to-edge with page padding */}
       <div className="border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1e1e1e]">
-        <div className="max-w-3xl mx-auto flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 gap-4 flex-wrap">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 gap-4">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <Link
               href="/job-walk"
               className="flex-shrink-0 p-1 -ml-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
@@ -111,15 +115,22 @@ export default function JobWalkDetailClient({
             </select>
 
             {canManage && (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                title="Delete job walk"
-                aria-label="Delete job walk"
-                className="p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition"
-              >
-                <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
-              </button>
+              <KebabMenu
+                variant="light"
+                items={[
+                  {
+                    label: 'Edit',
+                    icon: <PencilIcon className="w-4 h-4" />,
+                    onSelect: () => setEditOpen(true),
+                  },
+                  {
+                    label: 'Delete',
+                    icon: <Trash2Icon className="w-4 h-4" />,
+                    destructive: true,
+                    onSelect: () => setConfirmDelete(true),
+                  },
+                ]}
+              />
             )}
           </div>
         </div>
@@ -134,17 +145,22 @@ export default function JobWalkDetailClient({
             onPatch={handleUpdate}
           />
         </div>
-        <JobWalkInfoCard
-          walk={walk}
-          customers={customers}
-          assignees={assignees}
-          onPatch={handleUpdate}
-        />
+        <JobWalkInfoCard walk={walk} />
         <JobWalkPhotosCard walkId={walk.id} userId={userId} />
         <JobWalkNotesCard walk={walk} onPatch={handleUpdate} />
         <JobWalkMeasurementsCard walk={walk} userId={userId} onPatch={handleUpdate} />
         <JobWalkCamToPlanCard />
       </div>
+
+      {editOpen && (
+        <JobWalkEditInfoModal
+          walk={walk}
+          customers={customers}
+          assignees={assignees}
+          onClose={() => setEditOpen(false)}
+          onSaved={(patch) => handleUpdate(patch)}
+        />
+      )}
 
       {confirmDelete && (
         <ConfirmDialog
