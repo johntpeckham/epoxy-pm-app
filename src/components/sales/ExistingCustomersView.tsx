@@ -281,20 +281,20 @@ export default function ExistingCustomersView({
 
   const fetchAll = useCallback(async () => {
     const [
-      { data: customerRows },
-      { data: proposalRows },
-      { data: estimatingProjectRows },
-      { data: projectRows },
-      { data: invoiceRows },
-      { data: crmCompanyRows },
-      { data: profileRows },
-      { data: tagRows },
-      { data: companyTagRows },
-      { data: contactRows },
+      { data: customerRows, error: customerErr },
+      { data: proposalRows, error: proposalErr },
+      { data: estimatingProjectRows, error: estProjErr },
+      { data: projectRows, error: projectErr },
+      { data: invoiceRows, error: invoiceErr },
+      { data: crmCompanyRows, error: crmCompanyErr },
+      { data: profileRows, error: profileErr },
+      { data: tagRows, error: tagErr },
+      { data: companyTagRows, error: companyTagErr },
+      { data: contactRows, error: contactErr },
     ] = await Promise.all([
       supabase
         .from('companies')
-        .select('id, name, company, email, phone, city, state, created_at, status')
+        .select('id, name, company, email, phone, city, state, created_at')
         .eq('archived', false)
         .eq('status', 'active'),
       supabase
@@ -305,7 +305,7 @@ export default function ExistingCustomersView({
         .select('id, company_id, status, created_at, updated_at'),
       supabase
         .from('projects')
-        .select('id, company_id, client_name, status, created_at'),
+        .select('id, client_name, status, created_at'),
       supabase
         .from('invoices')
         .select('id, company_id, total, issued_date'),
@@ -328,8 +328,26 @@ export default function ExistingCustomersView({
         .select('company_id, job_title'),
     ])
 
-    console.log('[CUSTOMERS DEBUG] fetched companies — count:', customerRows?.length, 'statuses:', customerRows?.map((c: { status?: string }) => c.status))
-    console.log('[CUSTOMERS DEBUG] fetched companies — full sample:', customerRows?.slice(0, 3))
+    const logErr = (label: string, err: unknown) => {
+      if (!err) return
+      const e = err as { code?: string; message?: string; hint?: string; details?: string }
+      console.error('[CUSTOMERS QUERY ERROR]', label, {
+        code: e.code,
+        message: e.message,
+        hint: e.hint,
+        details: e.details,
+      })
+    }
+    logErr('companies (customers)', customerErr)
+    logErr('proposals', proposalErr)
+    logErr('estimating_projects', estProjErr)
+    logErr('projects', projectErr)
+    logErr('invoices', invoiceErr)
+    logErr('companies (crm meta)', crmCompanyErr)
+    logErr('profiles', profileErr)
+    logErr('crm_tags', tagErr)
+    logErr('crm_company_tags', companyTagErr)
+    logErr('contacts', contactErr)
 
     setProfiles((profileRows as ProfileMini[] | null) ?? [])
     setAllTags((tagRows as TagRow[] | null) ?? [])
@@ -511,7 +529,6 @@ export default function ExistingCustomersView({
       }
     }
 
-    console.log('[CUSTOMERS DEBUG] before transformation — input rows:', customerRows?.length)
     const rows: CustomerRow[] = []
     for (const c of (customerRows ?? []) as Array<{
       id: string
@@ -582,7 +599,6 @@ export default function ExistingCustomersView({
       })
     }
 
-    console.log('[CUSTOMERS DEBUG] after transformation — output rows:', rows.length, 'sample:', rows.slice(0, 3))
     setCustomers(rows)
 
     // Custom columns (shared pool)
@@ -704,9 +720,6 @@ export default function ExistingCustomersView({
         ? now - 90 * DAY_MS
         : null
 
-    console.log('[CUSTOMERS DEBUG] ExistingCustomersView received — input count:', customers?.length, 'statuses:', customers?.map((c) => (c as unknown as { status?: string }).status))
-    console.log('[CUSTOMERS DEBUG] before search/filter — rows:', customers?.length, 'search query:', search, 'active filters:', { industry: Array.from(filterIndustry), region: Array.from(filterRegion), assigned: Array.from(filterAssigned), tags: Array.from(filterTags), lastContact: filterLastContact, jobTitle: Array.from(filterJobTitle) })
-
     const arr = customers.filter((c) => {
       if (filterIndustry.size > 0 && !(c.industry && filterIndustry.has(c.industry))) {
         return false
@@ -805,7 +818,6 @@ export default function ExistingCustomersView({
       }
       return sortAsc ? r : -r
     })
-    console.log('[CUSTOMERS DEBUG] after search/filter — rows:', arr.length)
     return arr
   }, [
     customers,
@@ -937,8 +949,6 @@ export default function ExistingCustomersView({
       </button>
     </div>
   )
-
-  console.log('[CUSTOMERS DEBUG] render decision — output rows:', filteredSorted.length, 'will show empty state:', !loading && filteredSorted.length === 0, 'loading:', loading)
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
