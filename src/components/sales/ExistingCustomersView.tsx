@@ -526,11 +526,6 @@ export default function ExistingCustomersView({
       const estProj = completedEstProjByCustomer.get(c.id)
       const projByName = nameKey ? completedProjByName.get(nameKey) : undefined
 
-      const hasAcceptedProposal = (accepted?.count ?? 0) > 0
-      const hasCompletedJob =
-        (estProj?.count ?? 0) > 0 || (projByName?.count ?? 0) > 0
-      if (!hasAcceptedProposal && !hasCompletedJob) continue
-
       const jobsCompleted = (estProj?.count ?? 0) + (projByName?.count ?? 0)
 
       const invoices = invoiceByCustomer.get(c.id)
@@ -1156,8 +1151,8 @@ export default function ExistingCustomersView({
             No customers yet.
           </p>
           <p className="text-xs text-gray-400">
-            Customers appear here once they have a completed job or accepted
-            proposal.
+            Create a new company with Status set to Customer, or convert a
+            prospect from the Prospects tab.
           </p>
         </div>
       ) : (
