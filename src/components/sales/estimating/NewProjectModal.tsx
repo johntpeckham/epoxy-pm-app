@@ -6,6 +6,7 @@ import {
   SearchIcon,
   ChevronDownIcon,
   PencilIcon,
+  PlusIcon,
   Loader2Icon,
   AlertTriangleIcon,
 } from 'lucide-react'
@@ -15,12 +16,14 @@ import {
   assignNextProjectNumber,
   peekNextProjectNumber,
 } from '@/lib/nextProjectNumber'
+import { usePermissions } from '@/lib/usePermissions'
 import type { Customer } from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
 import ProjectAddressFields, {
   EMPTY_ADDRESS,
   type AddressValues,
 } from './ProjectAddressFields'
+import NewCustomerSubModal from './NewCustomerSubModal'
 
 interface NewProjectModalProps {
   userId: string
@@ -28,6 +31,7 @@ interface NewProjectModalProps {
   prefillCustomerId?: string | null
   onClose: () => void
   onCreated: (project: EstimatingProject) => void
+  onCustomerCreated?: (customer: Customer) => void
 }
 
 export default function NewProjectModal({
@@ -36,7 +40,11 @@ export default function NewProjectModal({
   prefillCustomerId,
   onClose,
   onCreated,
+  onCustomerCreated,
 }: NewProjectModalProps) {
+  // Local copy so a customer created via the sub-modal is immediately
+  // visible in the dropdown without round-tripping through the parent.
+  const [localCustomers, setLocalCustomers] = useState<Customer[]>(customers)
   const [customerId, setCustomerId] = useState<string | null>(
     prefillCustomerId ?? null
   )
@@ -44,9 +52,12 @@ export default function NewProjectModal({
   const [description, setDescription] = useState('')
   const [customerSearch, setCustomerSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const { canCreate } = usePermissions()
+  const canCreateCustomer = canCreate('crm')
 
   const [autoProjectNumber, setAutoProjectNumber] = useState<string | null>(null)
   const [projectNumber, setProjectNumber] = useState('')
@@ -92,8 +103,8 @@ export default function NewProjectModal({
   }
 
   const selectedCustomer = useMemo(
-    () => customers.find((c) => c.id === customerId) ?? null,
-    [customers, customerId]
+    () => localCustomers.find((c) => c.id === customerId) ?? null,
+    [localCustomers, customerId]
   )
 
   const customerAddress: AddressValues = useMemo(
@@ -126,8 +137,8 @@ export default function NewProjectModal({
 
   const filteredCustomers = useMemo(() => {
     const q = customerSearch.trim().toLowerCase()
-    if (!q) return customers.slice(0, 30)
-    return customers
+    if (!q) return localCustomers.slice(0, 30)
+    return localCustomers
       .filter((c) => {
         const hay = [c.name, c.company ?? '', c.email ?? '', c.phone ?? '']
           .join(' ')
@@ -135,7 +146,7 @@ export default function NewProjectModal({
         return hay.includes(q)
       })
       .slice(0, 30)
-  }, [customers, customerSearch])
+  }, [localCustomers, customerSearch])
 
   useEffect(() => {
     if (!showDropdown) return
@@ -216,10 +227,12 @@ export default function NewProjectModal({
     <Portal>
       <div
         className="fixed inset-0 z-[60] flex flex-col md:items-center md:justify-center bg-black/50 modal-below-header"
-        onClick={() => (saving ? null : onClose())}
+        onClick={() => (saving || showNewCustomer ? null : onClose())}
       >
         <div
-          className="mt-auto md:my-auto md:mx-auto w-full md:max-w-md h-auto bg-white md:rounded-xl flex flex-col overflow-hidden"
+          className={`mt-auto md:my-auto md:mx-auto w-full md:max-w-md h-auto bg-white md:rounded-xl flex flex-col overflow-hidden transition ${
+            showNewCustomer ? 'opacity-50 pointer-events-none' : ''
+          }`}
           onClick={(e) => e.stopPropagation()}
         >
           <div
@@ -268,6 +281,19 @@ export default function NewProjectModal({
                       className="w-full pl-7 pr-2 py-1.5 border border-gray-200 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500"
                     />
                   </div>
+                  {canCreateCustomer && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDropdown(false)
+                        setShowNewCustomer(true)
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-amber-50 transition border-b border-gray-100"
+                    >
+                      <PlusIcon className="w-4 h-4 text-amber-500" />
+                      <span className="font-medium text-amber-600">New customer</span>
+                    </button>
+                  )}
                   <div className="overflow-y-auto max-h-48">
                     {filteredCustomers.length === 0 ? (
                       <p className="px-3 py-4 text-xs text-gray-400 text-center">
@@ -427,6 +453,18 @@ export default function NewProjectModal({
           </div>
         </div>
       </div>
+      {showNewCustomer && (
+        <NewCustomerSubModal
+          userId={userId}
+          onClose={() => setShowNewCustomer(false)}
+          onCreated={(customer) => {
+            setLocalCustomers((prev) => [customer, ...prev])
+            setCustomerId(customer.id)
+            setShowNewCustomer(false)
+            onCustomerCreated?.(customer)
+          }}
+        />
+      )}
     </Portal>
   )
 }
