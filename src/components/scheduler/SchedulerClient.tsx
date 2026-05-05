@@ -436,13 +436,15 @@ export default function SchedulerClient({
   // array has length 1 for a single-employee assignment and length N for a
   // group drop from the multi-select pool.
   const [popover, setPopover] = useState<{
-    mode: 'add' | 'edit'
+    mode: 'add' | 'edit' | 'move'
     employees: EmployeeProfile[]
     project: Project
     weekISO: string
     initialDays: DayFlags
     /** id of the existing assignment row when editing */
     editId?: string
+    /** id of the source assignment row when moving an assigned chip to another job */
+    sourceAssignmentId?: string
   } | null>(null)
 
   // Duplicate warning popup state
@@ -772,10 +774,15 @@ export default function SchedulerClient({
 
   // ── DnD handlers ────────────────────────────────────────────────────────
   function handleDragStart(event: DragStartEvent) {
-    const data = event.active.data.current as { employee?: EmployeeProfile } | undefined
+    const data = event.active.data.current as
+      | { employee?: EmployeeProfile; sourceAssignmentId?: string }
+      | undefined
     if (!data?.employee) return
     setActiveDrag(data.employee)
+    // Multi-select group drops only apply to bank drags. Assigned-chip drags
+    // always move a single employee, regardless of multi-select state.
     if (
+      !data.sourceAssignmentId &&
       multiSelectMode &&
       selectedEmployeeIds.has(data.employee.id) &&
       selectedEmployeeIds.size > 1
@@ -791,12 +798,43 @@ export default function SchedulerClient({
     setActiveDragCount(1)
     const { active, over } = event
     if (!over) return
-    const activeData = active.data.current as { employee?: EmployeeProfile } | undefined
+    const activeData = active.data.current as
+      | { employee?: EmployeeProfile; sourceAssignmentId?: string; sourceProjectId?: string }
+      | undefined
     const overData = over.data.current as { project?: Project } | undefined
     if (!activeData?.employee || !overData?.project) return
 
     const draggedEmployee = activeData.employee
     const project = overData.project
+
+    // Branch: chip drag from an assigned job vs. fresh bank drag.
+    if (activeData.sourceAssignmentId) {
+      // No-op when dropped back on the same job.
+      if (activeData.sourceProjectId === project.id) return
+      // Already assigned to the destination this week → duplicate warning.
+      const dupe = assignments.some(
+        (a) =>
+          a.employee_id === draggedEmployee.id &&
+          a.project_id === project.id &&
+          a.week_start === activeWeekISO
+      )
+      if (dupe) {
+        setDuplicateWarning({
+          employeeName: draggedEmployee.name,
+          projectName: project.name,
+        })
+        return
+      }
+      setPopover({
+        mode: 'move',
+        employees: [draggedEmployee],
+        project,
+        weekISO: activeWeekISO,
+        initialDays: emptyDays(),
+        sourceAssignmentId: activeData.sourceAssignmentId,
+      })
+      return
+    }
 
     // Determine if this is a group drop from multi-select mode
     const isGroup =
@@ -1019,6 +1057,8 @@ export default function SchedulerClient({
                       project={project}
                       items={items}
                       allAssignments={assignments}
+                      employees={employees}
+                      activeDragId={activeDrag?.id ?? null}
                       color={colorForProjectId(project.id, isDark)}
                       onRemove={handleRemoveAssignment}
                       onEdit={(assignment) => {
@@ -1058,6 +1098,8 @@ export default function SchedulerClient({
                         inactive
                         items={items}
                         allAssignments={assignments}
+                        employees={employees}
+                        activeDragId={activeDrag?.id ?? null}
                         color={colorForProjectId(pid, isDark)}
                         onRemove={handleRemoveAssignment}
                         onEdit={(assignment) => {
@@ -1252,6 +1294,30 @@ export default function SchedulerClient({
                   setSelectedEmployeeIds(new Set())
                   setMultiSelectMode(false)
                 }
+              } else if (popover.mode === 'move' && popover.sourceAssignmentId) {
+                // Delete the source row, then insert a new one on the
+                // destination. The delete is best-effort: if the source
+                // was already removed (rare race), continue with the
+                // insert and surface any subsequent failure via the
+                // shared save indicator.
+                const srcId = popover.sourceAssignmentId
+                const deletedOk = await deleteAssignmentRemote(srcId)
+                if (!deletedOk) {
+                  console.error('[Scheduler] Source assignment delete failed during move; continuing with insert')
+                }
+                const emp = popover.employees[0]
+                const created = await insertAssignment(emp, popover.project, popover.weekISO, days)
+                if (created) {
+                  setAssignments((prev) => {
+                    const next = deletedOk ? prev.filter((a) => a.id !== srcId) : prev
+                    return [...next, created]
+                  })
+                } else {
+                  // Insert failed — keep the source row visible if its delete also failed.
+                  if (deletedOk) removeLocalAssignment(srcId)
+                  // Leave the modal open so the user can retry.
+                  return
+                }
               } else if (popover.editId !== undefined) {
                 const ok = await updateAssignmentDaysRemote(popover.editId, days)
                 if (ok) updateLocalAssignmentDays(popover.editId, days)
@@ -1271,7 +1337,7 @@ export default function SchedulerClient({
                 popover.weekISO,
                 days,
                 assignments,
-                popover.editId
+                popover.editId ?? popover.sourceAssignmentId
               )
               if (conflicts.length > 0) {
                 if (!firstConflictName) firstConflictName = emp.name
@@ -1493,6 +1559,8 @@ function JobBucket({
   project,
   items,
   allAssignments,
+  employees,
+  activeDragId,
   onRemove,
   onEdit,
   inactive = false,
@@ -1501,6 +1569,8 @@ function JobBucket({
   project: Project
   items: Assignment[]
   allAssignments: Assignment[]
+  employees: EmployeeProfile[]
+  activeDragId: string | null
   onRemove: (id: string) => void | Promise<void>
   onEdit: (assignment: Assignment) => void
   inactive?: boolean
@@ -1566,15 +1636,21 @@ function JobBucket({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-1.5 justify-items-start">
-          {items.map((assignment) => (
-            <AssignmentRow
-              key={assignment.id}
-              assignment={assignment}
-              conflicts={findConflictsForAssignment(assignment, allAssignments)}
-              onRemove={() => onRemove(assignment.id)}
-              onClick={() => onEdit(assignment)}
-            />
-          ))}
+          {items.map((assignment) => {
+            const employee = employees.find((e) => e.id === assignment.employee_id)
+            return (
+              <AssignmentRow
+                key={assignment.id}
+                assignment={assignment}
+                employee={employee}
+                projectId={project.id}
+                isDragging={activeDragId === assignment.employee_id}
+                conflicts={findConflictsForAssignment(assignment, allAssignments)}
+                onRemove={() => onRemove(assignment.id)}
+                onClick={() => onEdit(assignment)}
+              />
+            )
+          })}
         </div>
       )}
     </div>
@@ -1584,15 +1660,40 @@ function JobBucket({
 // ─── Assignment row inside a bucket ───────────────────────────────────────
 function AssignmentRow({
   assignment,
+  employee,
+  projectId,
+  isDragging,
   conflicts,
   onRemove,
   onClick,
 }: {
   assignment: Assignment
+  employee: EmployeeProfile | undefined
+  projectId: string
+  isDragging: boolean
   conflicts: Conflict[]
   onRemove: () => void
   onClick: () => void
 }) {
+  // Synthesize a minimal EmployeeProfile from the assignment when the full
+  // record isn't in the visible employees list (e.g. archived employees).
+  // The drag overlay only needs `id`, `name`, `role`, and `photo_url`.
+  const dragEmployee: EmployeeProfile =
+    employee ?? ({
+      id: assignment.employee_id,
+      name: assignment.employee_name,
+      role: '',
+      photo_url: null,
+    } as EmployeeProfile)
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `assigned-${assignment.id}`,
+    data: {
+      employee: dragEmployee,
+      sourceAssignmentId: assignment.id,
+      sourceProjectId: projectId,
+    },
+  })
+
   const days = assignment.days
   const conflictingDaySet = new Set<number>()
   for (const c of conflicts) for (const d of c.conflictingDays) conflictingDaySet.add(d)
@@ -1608,8 +1709,13 @@ function AssignmentRow({
 
   return (
     <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
       onClick={onClick}
-      className="group flex items-center gap-2 max-w-full px-2 py-1.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-white hover:border-amber-300 cursor-pointer transition"
+      className={`group flex items-center gap-2 max-w-full px-2 py-1.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-white hover:border-amber-300 cursor-grab active:cursor-grabbing transition touch-none ${
+        isDragging ? 'opacity-40' : ''
+      }`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1">
