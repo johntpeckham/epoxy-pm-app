@@ -963,6 +963,11 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const filteredSorted = useMemo(() => {
     let rows = companies
 
+    // Prospects tab never shows active (customer) companies
+    if (viewMode === 'new') {
+      rows = rows.filter((r) => r.status !== 'active')
+    }
+
     // Column filters (AND across fields; OR within a field)
     const applySetFilter = (field: keyof CompanyRow, selected: Set<string>) => {
       if (selected.size === 0) return
