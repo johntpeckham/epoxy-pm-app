@@ -1,3 +1,7 @@
+// SHARED COMPONENT — used by BOTH the Estimating route
+// (/estimating/takeoff/[id]) and the Tools route (/tools/takeoff/[id]).
+// Do NOT fork or copy this file for either route. Any change here applies
+// to both entry points automatically.
 'use client'
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
@@ -910,7 +914,11 @@ export default function TakeoffClient({
     <div className="flex flex-col h-full overflow-hidden w-full max-w-full">
       <div className="flex items-center gap-2 bg-white dark:bg-[#242424] border-b border-gray-200 dark:border-[#2a2a2a] flex-shrink-0 px-4 sm:px-6 py-3">
         <Link
-          href={`/estimating?customer=${project.company_id}&project=${project.id}`}
+          href={
+            project.company_id
+              ? `/estimating?customer=${project.company_id}&project=${project.id}`
+              : '/tools/takeoff'
+          }
           className="flex-shrink-0"
         >
           <ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" />
@@ -919,6 +927,11 @@ export default function TakeoffClient({
         <span className="text-2xl font-bold text-gray-900 dark:text-white flex-1 truncate">
           {project.name}
         </span>
+        {!project.company_id && (
+          <span className="text-xs text-gray-400 hidden sm:inline flex-shrink-0">
+            No project linked
+          </span>
+        )}
         <AutoSaveIndicator isSaving={saveState === 'saving'} />
       </div>
 
