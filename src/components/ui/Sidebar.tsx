@@ -284,20 +284,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   Emailer
                 </Link>
               )}
-              {canView('appointments') && (
-                <Link
-                  href="/sales/appointments"
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isSalesAppointmentsActive
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
-                  }`}
-                >
-                  <CalendarIcon className="w-4 h-4 flex-shrink-0" />
-                  Appointments
-                </Link>
-              )}
               {canView('leads') && (
                 <Link
                   href="/sales/leads"
@@ -310,6 +296,20 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 >
                   <TargetIcon className="w-4 h-4 flex-shrink-0" />
                   Leads
+                </Link>
+              )}
+              {canView('appointments') && (
+                <Link
+                  href="/sales/appointments"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isSalesAppointmentsActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
+                  }`}
+                >
+                  <CalendarIcon className="w-4 h-4 flex-shrink-0" />
+                  Appointments
                 </Link>
               )}
               {canView('job_walk') && (
