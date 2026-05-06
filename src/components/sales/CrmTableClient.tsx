@@ -701,6 +701,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
     searchBlobRef.current = contactNameBlob
 
     setCompanies(merged)
+    console.log('[CRM TAB DEBUG] fetch resolved — count:', merged.length, 'statuses:', merged.map((c) => c.status))
 
     // Custom columns
     const { data: ccData } = await supabase
@@ -771,6 +772,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const searchBlobRef = useRef<Map<string, string>>(new Map())
 
   useEffect(() => {
+    console.log('[CRM TAB DEBUG] effect triggered — deps:', ['fetchAll'])
     fetchAll()
   }, [fetchAll])
 
@@ -964,6 +966,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
 
   // ─── Filter + search + sort ─────────────────────��────────────────────────
   const filteredSorted = useMemo(() => {
+    console.log('[CRM TAB DEBUG] filter running — viewMode:', viewMode, 'source array length:', companies.length, 'statuses in source:', companies.map((c) => c.status))
     let rows = companies
 
     // Prospects tab never shows active (customer) companies
@@ -1042,6 +1045,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           return 0
       }
     })
+    console.log('[CRM TAB DEBUG] filter result — output length:', sorted.length, 'statuses in output:', sorted.map((c) => c.status))
     return sorted
   }, [companies, filters, search, sortField, sortAsc, radiusCities, locationValue])
 
@@ -1178,13 +1182,19 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           </div>
           <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-xs">
             <button
-              onClick={() => setViewMode('new')}
+              onClick={() => {
+                console.log('[CRM TAB DEBUG] tab switched to:', 'new', 'previous:', viewMode)
+                setViewMode('new')
+              }}
               className="px-3 py-1 rounded-full font-medium transition-colors bg-white text-gray-900 shadow-sm"
             >
               Prospects
             </button>
             <button
-              onClick={() => setViewMode('existing')}
+              onClick={() => {
+                console.log('[CRM TAB DEBUG] tab switched to:', 'existing', 'previous:', viewMode)
+                setViewMode('existing')
+              }}
               className="px-3 py-1 rounded-full font-medium transition-colors text-gray-500 hover:text-gray-700"
             >
               Customers
