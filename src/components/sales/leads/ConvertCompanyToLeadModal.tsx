@@ -93,7 +93,7 @@ export default function ConvertCompanyToLeadModal({
         customer_phone: phone,
         address,
         date: new Date().toISOString().slice(0, 10),
-        status: 'in_progress',
+        status: 'new',
         category: category || null,
         assigned_to: userId,
         created_by: userId,
@@ -103,6 +103,12 @@ export default function ConvertCompanyToLeadModal({
 
     setSaving(false)
     if (leadErr || !newLead) {
+      console.error('[CONVERT TO LEAD ERROR]', {
+        code: leadErr?.code,
+        message: leadErr?.message,
+        hint: leadErr?.hint,
+        details: leadErr?.details,
+      })
       setError(`Lead create failed: ${leadErr?.message ?? 'unknown error'}`)
       return
     }
