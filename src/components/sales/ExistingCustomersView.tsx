@@ -294,7 +294,7 @@ export default function ExistingCustomersView({
     ] = await Promise.all([
       supabase
         .from('companies')
-        .select('id, name, company, email, phone, city, state, created_at')
+        .select('id, name, city, state, created_at')
         .eq('archived', false)
         .eq('status', 'active'),
       supabase
@@ -311,7 +311,7 @@ export default function ExistingCustomersView({
         .select('id, company_id, total, issued_date'),
       supabase
         .from('companies')
-        .select('id, name, industry, region, assigned_to')
+        .select('id, name, industry, assigned_to')
         .eq('archived', false)
         .eq('status', 'active'),
       supabase
@@ -363,7 +363,6 @@ export default function ExistingCustomersView({
       {
         id: string
         industry: string | null
-        region: string | null
         assigned_to: string | null
       }
     >()
@@ -371,7 +370,6 @@ export default function ExistingCustomersView({
       id: string
       name: string
       industry: string | null
-      region: string | null
       assigned_to: string | null
     }>) {
       const key = (row.name ?? '').trim().toLowerCase()
@@ -380,7 +378,6 @@ export default function ExistingCustomersView({
         crmByName.set(key, {
           id: row.id,
           industry: row.industry,
-          region: row.region,
           assigned_to: row.assigned_to,
         })
       }
@@ -533,9 +530,6 @@ export default function ExistingCustomersView({
     for (const c of (customerRows ?? []) as Array<{
       id: string
       name: string
-      company: string | null
-      email: string | null
-      phone: string | null
       city: string | null
       state: string | null
       created_at: string
@@ -579,15 +573,15 @@ export default function ExistingCustomersView({
       rows.push({
         id: c.id,
         name: c.name,
-        company: c.company,
-        email: c.email,
-        phone: c.phone,
+        company: null,
+        email: null,
+        phone: null,
         city: c.city,
         state: c.state,
         created_at: c.created_at,
         crm_company_id: crm?.id ?? null,
         industry: crm?.industry ?? null,
-        region: crm?.region ?? null,
+        region: null,
         assigned_to: assignedId,
         assigned_name: assignedId ? profileMap.get(assignedId) ?? null : null,
         tag_ids: crm ? tagsByCompany.get(crm.id) ?? [] : [],
