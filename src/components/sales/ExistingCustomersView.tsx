@@ -46,7 +46,6 @@ interface CustomerRow {
   created_at: string
   crm_company_id: string | null
   industry: string | null
-  region: string | null
   assigned_to: string | null
   assigned_name: string | null
   tag_ids: string[]
@@ -116,7 +115,6 @@ export default function ExistingCustomersView({
   }, [searchInput])
 
   const [filterIndustry, setFilterIndustry] = useState<Set<string>>(new Set())
-  const [filterRegion, setFilterRegion] = useState<Set<string>>(new Set())
   const [filterAssigned, setFilterAssigned] = useState<Set<string>>(new Set())
   const [filterTags, setFilterTags] = useState<Set<string>>(new Set())
   const [filterLastContact, setFilterLastContact] =
@@ -607,7 +605,6 @@ export default function ExistingCustomersView({
         created_at: c.created_at,
         crm_company_id: crm?.id ?? null,
         industry: crm?.industry ?? null,
-        region: null,
         assigned_to: assignedId,
         assigned_name: assignedId ? profileMap.get(assignedId) ?? null : null,
         tag_ids: crm ? tagsByCompany.get(crm.id) ?? [] : [],
@@ -695,20 +692,17 @@ export default function ExistingCustomersView({
 
   const filterOptions = useMemo(() => {
     const industries = new Set<string>()
-    const regions = new Set<string>()
     const assigned = new Set<string>()
     const tagIds = new Set<string>()
     const jobTitles = new Set<string>()
     for (const c of customers) {
       if (c.industry) industries.add(c.industry)
-      if (c.region) regions.add(c.region)
       if (c.assigned_to) assigned.add(c.assigned_to)
       for (const t of c.tag_ids) tagIds.add(t)
       for (const jt of c.contactJobTitles) if (jt.trim()) jobTitles.add(jt.trim())
     }
     return {
       industries: Array.from(industries).sort(),
-      regions: Array.from(regions).sort(),
       assigned: Array.from(assigned),
       tags: Array.from(tagIds),
       jobTitles: Array.from(jobTitles).sort(),
@@ -742,9 +736,6 @@ export default function ExistingCustomersView({
 
     const arr = customers.filter((c) => {
       if (filterIndustry.size > 0 && !(c.industry && filterIndustry.has(c.industry))) {
-        return false
-      }
-      if (filterRegion.size > 0 && !(c.region && filterRegion.has(c.region))) {
         return false
       }
       if (
@@ -844,7 +835,6 @@ export default function ExistingCustomersView({
     search,
     filterJobTitle,
     filterIndustry,
-    filterRegion,
     filterAssigned,
     filterTags,
     filterLastContact,
@@ -1058,16 +1048,6 @@ export default function ExistingCustomersView({
         />
 
         <FilterChip
-          label="Region"
-          openKey="region"
-          openFilter={openFilter}
-          setOpenFilter={setOpenFilter}
-          selected={filterRegion}
-          setSelected={setFilterRegion}
-          options={filterOptions.regions.map((v) => ({ value: v, label: v }))}
-        />
-
-        <FilterChip
           label="Assigned to"
           openKey="assigned"
           openFilter={openFilter}
@@ -1162,7 +1142,6 @@ export default function ExistingCustomersView({
         </div>
 
         {(filterIndustry.size > 0 ||
-          filterRegion.size > 0 ||
           filterAssigned.size > 0 ||
           filterTags.size > 0 ||
           filterJobTitle.size > 0 ||
@@ -1170,7 +1149,6 @@ export default function ExistingCustomersView({
           <button
             onClick={() => {
               setFilterIndustry(new Set())
-              setFilterRegion(new Set())
               setFilterAssigned(new Set())
               setFilterTags(new Set())
               setFilterJobTitle(new Set())
