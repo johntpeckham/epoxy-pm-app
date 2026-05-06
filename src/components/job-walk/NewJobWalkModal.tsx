@@ -12,6 +12,7 @@ interface NewJobWalkModalProps {
   userId: string
   customers: Customer[]
   assignees?: AppointmentAssigneeOption[]
+  prefill?: { customer: Customer }
   onClose: () => void
   onCreated: (walk: JobWalk, newCustomer?: Customer | null) => void
 }
@@ -30,20 +31,22 @@ export default function NewJobWalkModal({
   userId,
   customers,
   assignees = [],
+  prefill,
   onClose,
   onCreated,
 }: NewJobWalkModalProps) {
-  const [projectName, setProjectName] = useState('')
-  const [customerQuery, setCustomerQuery] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const prefillCustomer = prefill?.customer ?? null
+  const [projectName, setProjectName] = useState(prefillCustomer?.name ?? '')
+  const [customerQuery, setCustomerQuery] = useState(prefillCustomer?.name ?? '')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(prefillCustomer)
   const [creatingNewCustomer, setCreatingNewCustomer] = useState(false)
   const [newCustomerName, setNewCustomerName] = useState('')
   const [newCustomerEmail, setNewCustomerEmail] = useState('')
   const [newCustomerPhone, setNewCustomerPhone] = useState('')
   const [newCustomerAddress, setNewCustomerAddress] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [address, setAddress] = useState('')
+  const [customerEmail, setCustomerEmail] = useState(prefillCustomer?.email ?? '')
+  const [customerPhone, setCustomerPhone] = useState(prefillCustomer?.phone ?? '')
+  const [address, setAddress] = useState(prefillCustomer ? buildFullAddress(prefillCustomer) : '')
   const [date, setDate] = useState(todayISO())
   const [notes, setNotes] = useState('')
   const [assignedTo, setAssignedTo] = useState<string>(userId)
