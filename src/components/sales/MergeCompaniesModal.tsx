@@ -17,14 +17,11 @@ interface CompanyFull {
   name: string
   industry: string | null
   zone: string | null
-  region: string | null
   state: string | null
-  county: string | null
   city: string | null
   status: string
   priority: string | null
   lead_source: string | null
-  deal_value: number | null
   assigned_to: string | null
   notes: string | null
   import_metadata: Record<string, string> | null
@@ -35,14 +32,11 @@ type MergeableField =
   | 'name'
   | 'industry'
   | 'zone'
-  | 'region'
   | 'state'
-  | 'county'
   | 'city'
   | 'status'
   | 'priority'
   | 'lead_source'
-  | 'deal_value'
   | 'assigned_to'
   | 'notes'
 
@@ -50,14 +44,11 @@ const FIELD_LABELS: Record<MergeableField, string> = {
   name: 'Company name',
   industry: 'Industry',
   zone: 'Zone',
-  region: 'Region',
   state: 'State',
-  county: 'County',
   city: 'City',
   status: 'Status',
   priority: 'Priority',
   lead_source: 'Lead source',
-  deal_value: 'Deal value',
   assigned_to: 'Assigned to',
   notes: 'Notes',
 }
@@ -66,14 +57,11 @@ const FIELDS: MergeableField[] = [
   'name',
   'industry',
   'zone',
-  'region',
   'state',
-  'county',
   'city',
   'status',
   'priority',
   'lead_source',
-  'deal_value',
   'assigned_to',
   'notes',
 ]
@@ -105,11 +93,18 @@ export default function MergeCompaniesModal({
       const { data, error: err } = await supabase
         .from('companies')
         .select(
-          'id, name, industry, zone, region, state, county, city, status, priority, lead_source, deal_value, assigned_to, notes, import_metadata'
+          'id, name, industry, zone, state, city, status, priority, lead_source, assigned_to, notes, import_metadata'
         )
         .in('id', [companyIdA, companyIdB])
       if (cancelled) return
       if (err) {
+        console.error('[MERGE QUERY ERROR]', {
+          context: 'companies fetch',
+          code: err.code,
+          message: err.message,
+          hint: err.hint,
+          details: err.details,
+        })
         setError(err.message)
         setLoading(false)
         return
@@ -162,12 +157,20 @@ export default function MergeCompaniesModal({
         .from('companies')
         .update(update)
         .eq('id', survivingId)
-      if (upErr) throw upErr
+      if (upErr) {
+        console.error('[MERGE QUERY ERROR]', {
+          context: 'merge update',
+          code: upErr.code,
+          message: upErr.message,
+          hint: upErr.hint,
+          details: upErr.details,
+        })
+        throw upErr
+      }
 
       // Move related rows from losing to surviving.
       const relocateTables: [string, string][] = [
         ['contacts', 'company_id'],
-        ['crm_company_addresses', 'company_id'],
         ['crm_company_tags', 'company_id'],
         ['crm_call_log', 'company_id'],
         ['crm_comments', 'company_id'],
@@ -180,7 +183,16 @@ export default function MergeCompaniesModal({
           .from(table)
           .update({ [col]: survivingId })
           .eq(col, losingId)
-        if (moveErr) throw moveErr
+        if (moveErr) {
+          console.error('[MERGE QUERY ERROR]', {
+            context: `relocate ${table}`,
+            code: moveErr.code,
+            message: moveErr.message,
+            hint: moveErr.hint,
+            details: moveErr.details,
+          })
+          throw moveErr
+        }
       }
 
       // Delete the losing company.
@@ -188,7 +200,16 @@ export default function MergeCompaniesModal({
         .from('companies')
         .delete()
         .eq('id', losingId)
-      if (delErr) throw delErr
+      if (delErr) {
+        console.error('[MERGE QUERY ERROR]', {
+          context: 'duplicate delete',
+          code: delErr.code,
+          message: delErr.message,
+          hint: delErr.hint,
+          details: delErr.details,
+        })
+        throw delErr
+      }
 
       onMerged(survivingId)
     } catch (err: unknown) {
@@ -231,8 +252,8 @@ export default function MergeCompaniesModal({
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-white border border-gray-200 mb-4 text-xs text-gray-700">
                   <AlertTriangleIcon className="w-4 h-4 flex-none mt-0.5" />
                   <p>
-                    Contacts, call log, comments, files, addresses, appointments
-                    and tags from the other company will be merged into the surviving
+                    Contacts, call log, comments, files, appointments and tags
+                    from the other company will be merged into the surviving
                     company. The other will be deleted — this cannot be undone.
                   </p>
                 </div>
