@@ -35,8 +35,9 @@ import NewAppointmentModal from './NewAppointmentModal'
 import NewReminderModal from './NewReminderModal'
 import MergeContactsModal from './MergeContactsModal'
 import ConvertCompanyToLeadModal from './leads/ConvertCompanyToLeadModal'
+import KebabMenu, { type KebabMenuItem } from '@/components/ui/KebabMenu'
 
-type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted' | 'active' | 'inactive'
+type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'blacklisted' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
 interface Company {
@@ -129,8 +130,9 @@ interface ProfileMini {
 const STATUS_LABELS: Record<CompanyStatus, string> = {
   prospect: 'Prospect',
   contacted: 'Contacted',
-  hot_lead: 'Hot Lead',
-  lost: 'Lost',
+  lead_created: 'Lead Created',
+  appointment_made: 'Appointment Made',
+  not_very_interested: 'Not Very Interested',
   blacklisted: 'Blacklisted',
   active: 'Active',
   inactive: 'Inactive',
@@ -139,8 +141,9 @@ const STATUS_LABELS: Record<CompanyStatus, string> = {
 const STATUS_TEXT_COLOR: Record<CompanyStatus, string> = {
   prospect: 'text-[#27500A]',
   contacted: 'text-[#0C447C]',
-  hot_lead: 'text-[#854F0B]',
-  lost: 'text-[#791F1F]',
+  lead_created: 'text-[#0C447C]',
+  appointment_made: 'text-[#0C447C]',
+  not_very_interested: 'text-[#791F1F]',
   blacklisted: 'text-gray-400',
   active: 'text-green-600',
   inactive: 'text-gray-400',
@@ -297,6 +300,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false)
   const [showLeadSourceDropdown, setShowLeadSourceDropdown] = useState(false)
+  const [showConvertDropdown, setShowConvertDropdown] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -403,6 +407,12 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   async function updateCompany(fields: Partial<Company>) {
     const { error } = await supabase.from('companies').update(fields).eq('id', companyId)
     if (error) {
+      console.error('[PROSPECT ACTION ERROR]', 'updateCompany', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
       showToast(`Update failed: ${error.message}`)
       return
     }
@@ -414,6 +424,12 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     const { error } = await supabase.from('companies').delete().eq('id', companyId)
     setDeleting(false)
     if (error) {
+      console.error('[PROSPECT ACTION ERROR]', 'delete', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
       showToast(`Delete failed: ${error.message}`)
       setConfirmDelete(false)
       return
@@ -424,6 +440,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   async function handleBlacklist() {
     await updateCompany({ status: 'blacklisted' })
     setConfirmBlacklist(false)
+    void logActivity('Marked as Do Not Call')
   }
 
   async function handleArchiveToggle() {
@@ -443,11 +460,18 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     setArchiving(false)
     setShowArchiveConfirm(false)
     if (error) {
+      console.error('[PROSPECT ACTION ERROR]', archive ? 'archive' : 'restore', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
       showToast(`${archive ? 'Archive' : 'Restore'} failed: ${error.message}`)
       return
     }
     setCompany((prev) => prev ? { ...prev, archived: archive, archived_at: archive ? new Date().toISOString() : null, archived_by: archive ? userId : null } : prev)
     showToast(`Company ${archive ? 'archived' : 'restored'}`)
+    void logActivity(archive ? 'Archived' : 'Restored from archive')
   }
 
   async function handleConvertToCustomer() {
@@ -459,11 +483,18 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     setConverting(false)
     setConfirmConvert(false)
     if (error) {
+      console.error('[PROSPECT ACTION ERROR]', 'convertToCustomer', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
       showToast(`Convert failed: ${error.message}`)
       return
     }
     setCompany((prev) => prev ? { ...prev, status: 'active' as CompanyStatus } : prev)
     showToast('Company updated with customer details')
+    void logActivity('Converted to customer')
   }
 
   async function handleDeleteContact(id: string) {
@@ -533,6 +564,24 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     }
     setComments((prev) => [data as Comment, ...prev])
     setNewComment('')
+  }
+
+  async function logActivity(text: string) {
+    const { data, error } = await supabase
+      .from('crm_comments')
+      .insert({ company_id: companyId, content: text, created_by: userId })
+      .select('*')
+      .single()
+    if (error || !data) {
+      console.error('[PROSPECT ACTIVITY ERROR]', {
+        code: error?.code,
+        message: error?.message,
+        hint: error?.hint,
+        details: error?.details,
+      })
+      return
+    }
+    setComments((prev) => [data as Comment, ...prev])
   }
 
   async function handleUploadFile(file: File) {
@@ -674,8 +723,9 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const statusDropdownOptions: CompanyStatus[] = [
     'prospect',
     'contacted',
-    'hot_lead',
-    'lost',
+    'lead_created',
+    'appointment_made',
+    'not_very_interested',
     'blacklisted',
   ]
   const priorityDropdownOptions: CompanyPriority[] = ['high', 'medium', 'low']
@@ -707,56 +757,92 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             {STATUS_LABELS[company.status]}
           </span>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {company.status !== 'blacklisted' && (
-            <button
-              onClick={() => setConfirmBlacklist(true)}
-              className="px-3 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Blacklist
-            </button>
-          )}
-          <button
-            onClick={() => setShowConvertToLead(true)}
-            className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
-          >
-            Convert to lead
-          </button>
-          <button
-            onClick={() => setConfirmConvert(true)}
-            className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
-          >
-            Convert to customer
-          </button>
-          {canArchive && (
-            <button
-              onClick={() => setShowArchiveConfirm(true)}
-              disabled={archiving}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-              title={company.archived ? 'Restore company' : 'Archive company'}
-            >
-              {company.archived ? (
-                <ArchiveRestoreIcon className="w-4 h-4" />
-              ) : (
-                <ArchiveIcon className="w-4 h-4" />
+        {canEdit('crm') && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {company.status !== 'blacklisted' && (
+              <button
+                onClick={() => setConfirmBlacklist(true)}
+                className="px-3 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Do Not Call
+              </button>
+            )}
+            <div className="relative">
+              <button
+                onClick={() => setShowConvertDropdown((v) => !v)}
+                className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+              >
+                Convert to:
+                <ChevronDownIcon className="w-4 h-4" />
+              </button>
+              {showConvertDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setShowConvertDropdown(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+                    <button
+                      onClick={() => {
+                        setShowConvertDropdown(false)
+                        setShowConvertToLead(true)
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Lead
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowConvertDropdown(false)
+                        setConfirmConvert(true)
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Customer
+                    </button>
+                  </div>
+                </>
               )}
+            </div>
+            <button
+              onClick={() => setShowNewAppointment(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+            >
+              <CalendarIcon className="w-4 h-4" />
+              Create Appointment
             </button>
-          )}
-          <button
-            onClick={() => setShowEditCompany(true)}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-            title="Edit company"
-          >
-            <PencilIcon className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Delete company"
-          >
-            <Trash2Icon className="w-4 h-4" />
-          </button>
-        </div>
+            <KebabMenu
+              title="More actions"
+              items={[
+                ...(canArchive
+                  ? ([
+                      {
+                        label: company.archived ? 'Restore' : 'Archive',
+                        icon: company.archived ? (
+                          <ArchiveRestoreIcon className="w-4 h-4" />
+                        ) : (
+                          <ArchiveIcon className="w-4 h-4" />
+                        ),
+                        disabled: archiving,
+                        onSelect: () => setShowArchiveConfirm(true),
+                      },
+                    ] as KebabMenuItem[])
+                  : []),
+                {
+                  label: 'Edit',
+                  icon: <PencilIcon className="w-4 h-4" />,
+                  onSelect: () => setShowEditCompany(true),
+                },
+                {
+                  label: 'Delete',
+                  icon: <Trash2Icon className="w-4 h-4" />,
+                  destructive: true,
+                  onSelect: () => setConfirmDelete(true),
+                },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Subtitle ── */}
@@ -857,8 +943,9 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         {/* Status */}
         <div className="relative">
           <button
-            onClick={() => setShowStatusDropdown((v) => !v)}
-            className="text-left bg-gray-50 hover:bg-gray-100 rounded-lg px-4 py-3 min-w-[140px] transition-colors"
+            onClick={() => canEdit('crm') && setShowStatusDropdown((v) => !v)}
+            disabled={!canEdit('crm')}
+            className="text-left bg-gray-50 hover:bg-gray-100 rounded-lg px-4 py-3 min-w-[140px] transition-colors disabled:cursor-default disabled:hover:bg-gray-50"
           >
             <div className="text-[11px] text-gray-400">Status</div>
             <div className={`text-sm font-medium mt-0.5 ${STATUS_TEXT_COLOR[company.status]}`}>
@@ -873,8 +960,12 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                   <button
                     key={s}
                     onClick={() => {
+                      const previous = company.status
                       updateCompany({ status: s })
                       setShowStatusDropdown(false)
+                      if (previous !== s) {
+                        void logActivity(`Status changed to ${STATUS_LABELS[s]}`)
+                      }
                     }}
                     className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
                   >
@@ -1619,6 +1710,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             setShowNewAppointment(false)
             setAppointmentContactPrefill(null)
             showToast('Appointment scheduled.')
+            void updateCompany({ status: 'appointment_made' as CompanyStatus })
+            void logActivity('Appointment created')
           }}
         />
       )}
@@ -1763,9 +1856,9 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
 
       {confirmBlacklist && (
         <ConfirmDialog
-          title="Blacklist company?"
-          message={`Mark ${company.name} as blacklisted? You can always change the status back later.`}
-          confirmLabel="Blacklist"
+          title="Mark as Do Not Call?"
+          message={`Mark ${company.name} as Do Not Call? You can always change the status back later.`}
+          confirmLabel="Do Not Call"
           onConfirm={handleBlacklist}
           onCancel={() => setConfirmBlacklist(false)}
           variant="default"
@@ -1832,6 +1925,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           onConverted={(leadId) => {
             setShowConvertToLead(false)
             showToast('Lead created.')
+            void updateCompany({ status: 'lead_created' as CompanyStatus })
+            void logActivity('Converted to lead')
             router.push(`/sales/leads?lead=${leadId}`)
           }}
         />

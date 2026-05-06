@@ -47,7 +47,7 @@ import ColumnSettingsModal from './ColumnSettingsModal'
 
 type CrmViewMode = 'new' | 'existing'
 
-type CompanyStatus = 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted' | 'active' | 'inactive'
+type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'blacklisted' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
 interface ContactPhoneRow {
@@ -114,8 +114,9 @@ type FilterField =
 const STATUS_LABELS: Record<CompanyStatus, string> = {
   prospect: 'Prospect',
   contacted: 'Contacted',
-  hot_lead: 'Hot Lead',
-  lost: 'Lost',
+  lead_created: 'Lead Created',
+  appointment_made: 'Appointment Made',
+  not_very_interested: 'Not Very Interested',
   blacklisted: 'Blacklisted',
   active: 'Active',
   inactive: 'Inactive',
@@ -904,7 +905,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       .sort((a, b) => a.label.localeCompare(b.label))
 
     return {
-      status: (['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'] as CompanyStatus[]).map(
+      status: (['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'blacklisted'] as CompanyStatus[]).map(
         (s) => ({ value: s, label: STATUS_LABELS[s] })
       ),
       zone: uniqueField('zone').map((v) => ({ value: v, label: v })),
@@ -1633,7 +1634,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                 <EditableSelectCell
                                   value={c.status}
                                   showHoverChevron
-                                  options={(['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'] as CompanyStatus[]).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+                                  options={(['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'blacklisted'] as CompanyStatus[]).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
                                   displayClassName={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
                                   className={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
                                   onSave={(v) => updateCompanyField(c.id, 'status', (v ?? 'prospect') as CompanyStatus)}
