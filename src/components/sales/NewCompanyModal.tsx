@@ -46,7 +46,7 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
   const [streetAddress, setStreetAddress] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
-  const [status, setStatus] = useState<'prospect' | 'contacted' | 'hot_lead' | 'active' | 'lost'>('prospect')
+  const [status, setStatus] = useState<'prospect' | 'contacted' | 'not_very_interested' | 'active'>('prospect')
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium')
   const [leadSource, setLeadSource] = useState('')
   const [numberOfLocations, setNumberOfLocations] = useState('')
@@ -233,9 +233,8 @@ export default function NewCompanyModal({ userId, onClose, onSaved }: NewCompany
                 >
                   <option value="prospect">Prospect</option>
                   <option value="contacted">Contacted</option>
-                  <option value="hot_lead">Hot Lead</option>
+                  <option value="not_very_interested">Not Very Interested</option>
                   <option value="active">Customer</option>
-                  <option value="lost">Lost</option>
                 </select>
               </div>
               <div>

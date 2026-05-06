@@ -131,8 +131,9 @@ const PRIORITY_LABELS: Record<CompanyPriority, string> = {
 const STATUS_TEXT_COLOR: Record<CompanyStatus, string> = {
   prospect: 'text-[#27500A]',
   contacted: 'text-[#0C447C]',
-  hot_lead: 'text-[#854F0B]',
-  lost: 'text-[#791F1F]',
+  lead_created: 'text-[#1F6FB8]',
+  appointment_made: 'text-[#854F0B]',
+  not_very_interested: 'text-[#791F1F]',
   blacklisted: 'text-gray-400',
   active: 'text-green-600',
   inactive: 'text-gray-400',
