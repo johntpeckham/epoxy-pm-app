@@ -79,11 +79,11 @@ const LEAD_STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
 ]
 
 const LEAD_STATUS_COLORS: Record<LeadStatus, { bg: string; border: string; text: string }> = {
-  new: { bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.3)', text: '#6b7280' },
-  appointment_set: { bg: 'rgba(29,158,117,0.15)', border: 'rgba(29,158,117,0.3)', text: '#1D9E75' },
-  sent_to_estimating: { bg: 'rgba(55,138,221,0.15)', border: 'rgba(55,138,221,0.3)', text: '#378ADD' },
-  unable_to_reach: { bg: 'rgba(239,159,39,0.15)', border: 'rgba(239,159,39,0.3)', text: '#EF9F27' },
-  disqualified: { bg: 'rgba(226,75,74,0.15)', border: 'rgba(226,75,74,0.3)', text: '#E24B4A' },
+  new: { bg: 'rgba(156,163,175,0.22)', border: 'rgba(156,163,175,0.55)', text: '#d1d5db' },
+  appointment_set: { bg: 'rgba(74,222,128,0.22)', border: 'rgba(74,222,128,0.55)', text: '#4ade80' },
+  sent_to_estimating: { bg: 'rgba(96,165,250,0.22)', border: 'rgba(96,165,250,0.55)', text: '#60a5fa' },
+  unable_to_reach: { bg: 'rgba(251,191,36,0.22)', border: 'rgba(251,191,36,0.55)', text: '#fbbf24' },
+  disqualified: { bg: 'rgba(248,113,113,0.22)', border: 'rgba(248,113,113,0.55)', text: '#f87171' },
 }
 
 function formatDate(iso: string | null): string {

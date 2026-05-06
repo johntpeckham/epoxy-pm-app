@@ -66,9 +66,9 @@ const APPOINTMENT_STATUS_OPTIONS: { value: AppointmentStatus; label: string }[] 
 ]
 
 const APPOINTMENT_STATUS_COLORS: Record<AppointmentStatus, { bg: string; border: string; text: string }> = {
-  scheduled: { bg: 'rgba(29,158,117,0.15)', border: 'rgba(29,158,117,0.3)', text: '#1D9E75' },
-  completed: { bg: 'rgba(55,138,221,0.15)', border: 'rgba(55,138,221,0.3)', text: '#378ADD' },
-  cancelled: { bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.3)', text: '#6b7280' },
+  scheduled: { bg: 'rgba(52,211,153,0.22)', border: 'rgba(52,211,153,0.55)', text: '#34d399' },
+  completed: { bg: 'rgba(96,165,250,0.22)', border: 'rgba(96,165,250,0.55)', text: '#60a5fa' },
+  cancelled: { bg: 'rgba(156,163,175,0.22)', border: 'rgba(156,163,175,0.55)', text: '#9ca3af' },
 }
 
 const PUSHED_TO_LABELS: Record<PushedTo, string> = {
