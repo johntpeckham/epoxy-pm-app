@@ -40,6 +40,7 @@ import NewJobWalkModal from '@/components/job-walk/NewJobWalkModal'
 import type { Customer } from '@/components/proposals/types'
 import type { JobWalk } from '@/components/job-walk/JobWalkClient'
 import KebabMenu, { type KebabMenuItem } from '@/components/ui/KebabMenu'
+import { updateCompanyStatus } from '@/lib/crm/updateCompanyStatus'
 
 type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'job_walk_scheduled' | 'not_very_interested' | 'do_not_call' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
@@ -444,41 +445,48 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     router.push('/sales/crm')
   }
 
-  async function handleDoNotCall() {
+  async function handleStatusChange(next: CompanyStatus) {
     if (!company) return
-    const archivedAt = new Date().toISOString()
-    const { error } = await supabase
-      .from('companies')
-      .update({
-        status: 'do_not_call',
-        archived: true,
-        archived_at: archivedAt,
-        archived_by: userId,
-      })
-      .eq('id', companyId)
-    setConfirmDoNotCall(false)
-    if (error) {
-      console.error('[DO NOT CALL ERROR]', {
-        code: error.code,
-        message: error.message,
-        hint: error.hint,
-        details: error.details,
-      })
-      showToast(`Mark as Do Not Call failed: ${error.message}`)
-      return
-    }
+    if (company.status === next) return
+    const previous = company
+    // Optimistic update so the UI reflects the change immediately. We
+    // revert on error.
+    const optimisticArchive = next === 'do_not_call'
+    const optimisticArchivedAt = optimisticArchive ? new Date().toISOString() : previous.archived_at
+    const optimisticArchivedBy = optimisticArchive ? userId : previous.archived_by
     setCompany((prev) =>
       prev
         ? {
             ...prev,
-            status: 'do_not_call' as CompanyStatus,
-            archived: true,
-            archived_at: archivedAt,
-            archived_by: userId,
+            status: next,
+            archived: optimisticArchive ? true : prev.archived,
+            archived_at: optimisticArchive ? optimisticArchivedAt : prev.archived_at,
+            archived_by: optimisticArchive ? optimisticArchivedBy : prev.archived_by,
           }
         : prev
     )
-    void logActivity('Marked as Do Not Call')
+    const { data, error } = await updateCompanyStatus({
+      supabase,
+      companyId,
+      newStatus: next,
+      userId,
+    })
+    if (error) {
+      // Revert the optimistic update.
+      setCompany(previous)
+      showToast(`Status update failed: ${error.message}`)
+      return
+    }
+    // Append the activity log entry to local state so the timeline
+    // updates immediately, mirroring logActivity()'s behavior.
+    if (data?.logEntry) {
+      setComments((prev) => [data.logEntry as Comment, ...prev])
+    }
+  }
+
+  async function handleDoNotCall() {
+    setConfirmDoNotCall(false)
+    await handleStatusChange('do_not_call' as CompanyStatus)
   }
 
   async function handleArchiveToggle() {
@@ -1021,12 +1029,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                   <button
                     key={s}
                     onClick={() => {
-                      const previous = company.status
-                      updateCompany({ status: s })
                       setShowStatusDropdown(false)
-                      if (previous !== s) {
-                        void logActivity(`Status changed to ${STATUS_LABELS[s]}`)
-                      }
+                      void handleStatusChange(s)
                     }}
                     className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
                   >

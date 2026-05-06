@@ -35,6 +35,7 @@ import FindDuplicatesModal from './FindDuplicatesModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import ExistingCustomersView from './ExistingCustomersView'
 import { toCsv, downloadCsv } from '@/lib/csv'
+import { updateCompanyStatus, type CompanyStatusSlug } from '@/lib/crm/updateCompanyStatus'
 import LocationFilter, {
   applyLocationFilter,
   type LocationFilterValue,
@@ -392,9 +393,39 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             ? profiles.find((p) => p.id === newAssigned)?.display_name ?? null
             : null
         }
+        // When changing status to do_not_call, the helper also archives
+        // the company. Reflect that in the optimistic row so it moves
+        // out of the active list immediately.
+        if (field === 'status' && (value as CompanyStatusSlug) === 'do_not_call') {
+          next.archived = true
+        }
         return next
       })
     )
+    if (field === 'status') {
+      const { error } = await updateCompanyStatus({
+        supabase,
+        companyId: id,
+        newStatus: value as CompanyStatusSlug,
+        userId,
+      })
+      if (error) {
+        showToast(`Save failed: ${error.message}`)
+        // revert both fields we may have optimistically changed.
+        setCompanies((cs) =>
+          cs.map((c) =>
+            c.id === id ? { ...c, status: prev.status, archived: prev.archived } : c
+          )
+        )
+        return
+      }
+      // On success, refresh so an archived row drops out of the active
+      // view (or appears in the archived view).
+      if ((value as CompanyStatusSlug) === 'do_not_call') {
+        fetchAll()
+      }
+      return
+    }
     const updates: Record<string, unknown> = { [field]: value }
     const { error } = await supabase.from('companies').update(updates).eq('id', id)
     if (error) {
