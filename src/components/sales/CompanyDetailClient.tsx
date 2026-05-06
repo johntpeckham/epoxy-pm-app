@@ -37,7 +37,7 @@ import MergeContactsModal from './MergeContactsModal'
 import ConvertCompanyToLeadModal from './leads/ConvertCompanyToLeadModal'
 import KebabMenu, { type KebabMenuItem } from '@/components/ui/KebabMenu'
 
-type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'blacklisted' | 'active' | 'inactive'
+type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'do_not_call' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
 interface Company {
@@ -133,7 +133,7 @@ const STATUS_LABELS: Record<CompanyStatus, string> = {
   lead_created: 'Lead Created',
   appointment_made: 'Appointment Made',
   not_very_interested: 'Not Very Interested',
-  blacklisted: 'Blacklisted',
+  do_not_call: 'Do Not Call',
   active: 'Active',
   inactive: 'Inactive',
 }
@@ -144,7 +144,7 @@ const STATUS_TEXT_COLOR: Record<CompanyStatus, string> = {
   lead_created: 'text-[#0C447C]',
   appointment_made: 'text-[#0C447C]',
   not_very_interested: 'text-[#791F1F]',
-  blacklisted: 'text-gray-400',
+  do_not_call: 'text-gray-400',
   active: 'text-green-600',
   inactive: 'text-gray-400',
 }
@@ -280,7 +280,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   )
   const [showMergeContactsModal, setShowMergeContactsModal] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [confirmBlacklist, setConfirmBlacklist] = useState(false)
+  const [confirmDoNotCall, setConfirmDoNotCall] = useState(false)
   const [confirmConvert, setConfirmConvert] = useState(false)
   const [converting, setConverting] = useState(false)
   const [showConvertToLead, setShowConvertToLead] = useState(false)
@@ -437,9 +437,40 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     router.push('/sales/crm')
   }
 
-  async function handleBlacklist() {
-    await updateCompany({ status: 'blacklisted' })
-    setConfirmBlacklist(false)
+  async function handleDoNotCall() {
+    if (!company) return
+    const archivedAt = new Date().toISOString()
+    const { error } = await supabase
+      .from('companies')
+      .update({
+        status: 'do_not_call',
+        archived: true,
+        archived_at: archivedAt,
+        archived_by: userId,
+      })
+      .eq('id', companyId)
+    setConfirmDoNotCall(false)
+    if (error) {
+      console.error('[DO NOT CALL ERROR]', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
+      showToast(`Mark as Do Not Call failed: ${error.message}`)
+      return
+    }
+    setCompany((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: 'do_not_call' as CompanyStatus,
+            archived: true,
+            archived_at: archivedAt,
+            archived_by: userId,
+          }
+        : prev
+    )
     void logActivity('Marked as Do Not Call')
   }
 
@@ -726,7 +757,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     'lead_created',
     'appointment_made',
     'not_very_interested',
-    'blacklisted',
+    'do_not_call',
   ]
   const priorityDropdownOptions: CompanyPriority[] = ['high', 'medium', 'low']
 
@@ -759,9 +790,9 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         </div>
         {canEdit('crm') && (
           <div className="flex items-center gap-2 flex-wrap">
-            {company.status !== 'blacklisted' && (
+            {company.status !== 'do_not_call' && (
               <button
-                onClick={() => setConfirmBlacklist(true)}
+                onClick={() => setConfirmDoNotCall(true)}
                 className="px-3 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Do Not Call
@@ -1858,13 +1889,13 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         />
       )}
 
-      {confirmBlacklist && (
+      {confirmDoNotCall && (
         <ConfirmDialog
           title="Mark as Do Not Call?"
-          message={`Mark ${company.name} as Do Not Call? You can always change the status back later.`}
+          message={`Mark ${company.name} as Do Not Call? This will also archive the company. You can restore it later.`}
           confirmLabel="Do Not Call"
-          onConfirm={handleBlacklist}
-          onCancel={() => setConfirmBlacklist(false)}
+          onConfirm={handleDoNotCall}
+          onCancel={() => setConfirmDoNotCall(false)}
           variant="default"
         />
       )}

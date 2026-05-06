@@ -347,7 +347,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
 
     // Eligible companies
     const eligibleCompanies = companies.filter((c) => {
-      if (c.status === 'blacklisted') return false
+      if (c.status === 'do_not_call') return false
       if (statusSet && !statusSet.has(c.status)) return false
       if (!applyLocationFilter(c, locationValue, locationRadiusCities)) return false
       if (industry && c.industry !== industry) return false
@@ -514,7 +514,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
       if (queued.has(c.id)) continue
       const comp = companyMap.get(c.company_id)
       if (!comp) continue
-      if (comp.status === 'blacklisted') continue
+      if (comp.status === 'do_not_call') continue
       const hay = `${c.first_name} ${c.last_name} ${comp.name}`.toLowerCase()
       if (hay.includes(debouncedSearch)) {
         matches.push({ contact: c, company: comp })
@@ -933,7 +933,7 @@ function buildSmartListQueue(input: {
     filters.status.length > 0 ? new Set(filters.status) : null
 
   const eligibleCompanies = companies.filter((c) => {
-    if (c.status === 'blacklisted') return false
+    if (c.status === 'do_not_call') return false
     if (statusSet && !statusSet.has(c.status)) return false
     if (filters.zone.length > 0 && (!c.zone || !filters.zone.includes(c.zone)))
       return false
