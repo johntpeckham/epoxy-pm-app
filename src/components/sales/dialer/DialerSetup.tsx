@@ -40,10 +40,30 @@ import {
   normalizePhoneType,
   pickInitialActiveContactId,
 } from './dialerTypes'
-import {
-  type SmartListFilters,
-  EMPTY_SMART_FILTERS,
-} from '../zone-map/zoneMapTypes'
+
+interface SmartListFilters {
+  zone: string[]
+  region: string[]
+  state: string[]
+  county: string[]
+  city: string[]
+  industry: string[]
+  status: string[]
+  priority: string[]
+  tags: string[]
+}
+
+const EMPTY_SMART_FILTERS: SmartListFilters = {
+  zone: [],
+  region: [],
+  state: [],
+  county: [],
+  city: [],
+  industry: [],
+  status: [],
+  priority: [],
+  tags: [],
+}
 
 type PriorityFilter = 'all' | 'high' | 'high_medium'
 
