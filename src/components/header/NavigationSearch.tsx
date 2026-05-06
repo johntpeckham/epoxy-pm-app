@@ -363,7 +363,7 @@ export default function NavigationSearch() {
                     results.push({
                       id: `lead-${l.id}`,
                       name: l.project_name || l.customer_name || 'Untitled Lead',
-                      route: `/sales/leads?lead=${l.id}`,
+                      route: `/sales/leads/${l.id}`,
                       icon: TargetIcon,
                       secondaryLabel: 'Leads',
                       category: 'Leads',

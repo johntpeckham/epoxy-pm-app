@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -21,12 +21,6 @@ import type { Customer } from '@/components/proposals/types'
 import type { UserRole } from '@/types'
 import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-import LeadInfoCard from './LeadInfoCard'
-import LeadCategoryCard from './LeadCategoryCard'
-import LeadProjectDetailsCard from './LeadProjectDetailsCard'
-import LeadPhotosCard from './LeadPhotosCard'
-import LeadMeasurementsCard from './LeadMeasurementsCard'
-import LeadPushMenu from './LeadPushMenu'
 import AddLeadModal from './AddLeadModal'
 import LeadEditInfoModal from './LeadEditInfoModal'
 import KebabMenu from '@/components/ui/KebabMenu'
@@ -104,10 +98,8 @@ export default function LeadsClient({
   userRole,
 }: LeadsClientProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
-  const [categories, setCategories] = useState<LeadCategory[]>(initialCategories)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [categories] = useState<LeadCategory[]>(initialCategories)
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [assignees, setAssignees] = useState<AppointmentAssigneeOption[]>([])
@@ -122,14 +114,6 @@ export default function LeadsClient({
     setToast({ message, href: href ?? null })
     setTimeout(() => setToast(null), 3500)
   }
-
-  useEffect(() => {
-    const urlId = searchParams.get('lead')
-    if (urlId && leads.some((l) => l.id === urlId)) {
-      setExpandedId(urlId)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   useEffect(() => {
     async function fetchCustomersAndAssignees() {
@@ -156,19 +140,6 @@ export default function LeadsClient({
     }
     fetchCustomersAndAssignees()
   }, [userId])
-
-  function toggleExpand(id: string) {
-    const next = expandedId === id ? null : id
-    setExpandedId(next)
-    const params = new URLSearchParams(searchParams.toString())
-    if (next) {
-      params.set('lead', next)
-    } else {
-      params.delete('lead')
-    }
-    const qs = params.toString()
-    router.replace(qs ? `/sales/leads?${qs}` : '/sales/leads', { scroll: false })
-  }
 
   const handleUpdate = useCallback((id: string, patch: Partial<Lead>) => {
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)))
@@ -202,18 +173,10 @@ export default function LeadsClient({
       setDeleting(false)
       return
     }
-    const deletedId = confirmDelete.id
-    setLeads((prev) => prev.filter((l) => l.id !== deletedId))
-    if (expandedId === deletedId) {
-      setExpandedId(null)
-      const params = new URLSearchParams(searchParams.toString())
-      params.delete('lead')
-      const qs = params.toString()
-      router.replace(qs ? `/sales/leads?${qs}` : '/sales/leads', { scroll: false })
-    }
+    setLeads((prev) => prev.filter((l) => l.id !== confirmDelete.id))
     setDeleting(false)
     setConfirmDelete(null)
-  }, [confirmDelete, expandedId, router, searchParams])
+  }, [confirmDelete])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -278,18 +241,10 @@ export default function LeadsClient({
       })
     }
     setShowAddModal(false)
-    setExpandedId(lead.id)
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('lead', lead.id)
-    router.replace(`/sales/leads?${params.toString()}`, { scroll: false })
-  }
-
-  function handleCategoriesChanged(next: LeadCategory[]) {
-    setCategories(next)
+    router.push(`/sales/leads/${lead.id}`)
   }
 
   function renderCard(lead: Lead) {
-    const isExpanded = expandedId === lead.id
     const isDimmed = lead.status === 'disqualified'
 
     return (
@@ -299,9 +254,9 @@ export default function LeadsClient({
           isDimmed ? 'opacity-70' : ''
         }`}
       >
-        {/* Collapsed summary — always visible */}
+        {/* Card body — clicking navigates to the detail page */}
         <div
-          onClick={() => toggleExpand(lead.id)}
+          onClick={() => router.push(`/sales/leads/${lead.id}`)}
           className="w-full text-left px-6 py-5 cursor-pointer"
         >
           <div className="flex items-start justify-between gap-4">
@@ -384,67 +339,6 @@ export default function LeadsClient({
             </div>
           </div>
         </div>
-
-        {/* Expanded detail */}
-        {isExpanded && (
-          <div className="border-t border-gray-100 dark:border-[#2a2a2a]">
-            {/* Action bar */}
-            <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 dark:bg-[#1e1e1e] flex-wrap">
-              <LeadPushMenu
-                lead={lead}
-                userId={userId}
-                onPatch={(patch) => handleUpdate(lead.id, patch)}
-                showToast={showToast}
-              />
-              <div className="flex-1" />
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(lead)}
-                title="Delete lead"
-                aria-label="Delete lead"
-                className="flex-shrink-0 p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition"
-              >
-                <Trash2Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
-              </button>
-            </div>
-
-            {/* Detail cards */}
-            <div className="p-4 space-y-4">
-              <LeadInfoCard
-                key={`info-${lead.id}`}
-                lead={lead}
-                customers={customers}
-                assignees={assignees}
-                isAdmin={isAdmin}
-                onPatch={(patch) => handleUpdate(lead.id, patch)}
-              />
-              <LeadCategoryCard
-                key={`cat-${lead.id}`}
-                lead={lead}
-                categories={categories}
-                isAdmin={isAdmin}
-                onPatch={(patch) => handleUpdate(lead.id, patch)}
-                onCategoriesChanged={handleCategoriesChanged}
-              />
-              <LeadProjectDetailsCard
-                key={`pd-${lead.id}`}
-                lead={lead}
-                onPatch={(patch) => handleUpdate(lead.id, patch)}
-              />
-              <LeadPhotosCard
-                key={`photos-${lead.id}`}
-                leadId={lead.id}
-                userId={userId}
-              />
-              <LeadMeasurementsCard
-                key={`m-${lead.id}`}
-                lead={lead}
-                userId={userId}
-                onPatch={(patch) => handleUpdate(lead.id, patch)}
-              />
-            </div>
-          </div>
-        )}
       </div>
     )
   }
