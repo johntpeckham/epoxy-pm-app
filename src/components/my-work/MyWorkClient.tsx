@@ -897,14 +897,20 @@ export default function MyWorkClient({
           }
         >
           {(() => {
+            const showReminders = canViewCrm
+            const activeReminders = showReminders ? reminders : []
             const totalActive =
-              activeOfficeTasks.length + activeChecklist.length + activeTasks.length
+              activeOfficeTasks.length +
+              activeChecklist.length +
+              activeTasks.length +
+              activeReminders.length
             const totalCompleted =
               completedOfficeTasks.length + completedChecklist.length + completedTasks.length
             const overdueCount =
               activeOfficeTasks.filter((t) => isOverdue(t.due_date) && !t.is_completed).length +
               activeChecklist.filter((c) => isOverdue(c.due_date)).length +
-              activeTasks.filter((t) => isOverdue(t.due_date)).length
+              activeTasks.filter((t) => isOverdue(t.due_date)).length +
+              activeReminders.filter((r) => isReminderOverdue(r.reminder_date)).length
 
             if (totalActive === 0 && totalCompleted === 0) {
               return <p className="text-xs text-gray-400 py-2">No work assigned</p>
@@ -924,42 +930,113 @@ export default function MyWorkClient({
                   </div>
                 )}
                 <div className="space-y-2 flex-1 min-h-0 overflow-y-auto -mx-4 px-4">
-                  {activeOfficeTasks.map((task) => {
-                    const key = `ot-${task.id}`
-                    const isPending = pendingCompleteIds.has(key)
-                    return (
-                    <div key={key} className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group${isPending ? ' opacity-60' : ''}`}>
-                      <div className="flex items-stretch">
-                        <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
-                        <div className="flex-1 min-w-0 px-4 py-3">
-                          <div className="flex items-start gap-2.5">
-                            <button
-                              onClick={() => handleOfficeTaskCheckbox(task)}
-                              className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
-                            >
-                              {(task.is_completed || isPending) && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
-                            </button>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-medium text-gray-900 truncate${isPending ? ' line-through' : ''}`}>{task.title}</p>
-                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700">Office Tasks</span>
-                                {task.priority !== 'Normal' && (
-                                  <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>{task.priority}</span>
-                                )}
-                                {task.due_date && (
-                                  <span className={`text-[10px] flex items-center gap-0.5 ${isOverdue(task.due_date) && !task.is_completed ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
-                                    <CalendarIcon className="w-2.5 h-2.5" />
-                                    {formatDate(task.due_date)}
-                                  </span>
-                                )}
+                  {(() => {
+                    type CombinedItem =
+                      | { kind: 'office'; date: number; task: typeof activeOfficeTasks[number] }
+                      | { kind: 'reminder'; date: number; reminder: typeof activeReminders[number] }
+                    const combined: CombinedItem[] = [
+                      ...activeOfficeTasks.map<CombinedItem>((task) => ({
+                        kind: 'office',
+                        date: task.due_date
+                          ? new Date(task.due_date).getTime()
+                          : new Date(task.created_at ?? 0).getTime() || Number.POSITIVE_INFINITY,
+                        task,
+                      })),
+                      ...activeReminders.map<CombinedItem>((r) => ({
+                        kind: 'reminder',
+                        date: new Date(r.reminder_date).getTime(),
+                        reminder: r,
+                      })),
+                    ].sort((a, b) => a.date - b.date)
+                    return combined.map((it) => {
+                      if (it.kind === 'office') {
+                        const task = it.task
+                        const key = `ot-${task.id}`
+                        const isPending = pendingCompleteIds.has(key)
+                        return (
+                          <div key={key} className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group${isPending ? ' opacity-60' : ''}`}>
+                            <div className="flex items-stretch">
+                              <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
+                              <div className="flex-1 min-w-0 px-4 py-3">
+                                <div className="flex items-start gap-2.5">
+                                  <button
+                                    onClick={() => handleOfficeTaskCheckbox(task)}
+                                    className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
+                                  >
+                                    {(task.is_completed || isPending) && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                                  </button>
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-xs font-medium text-gray-900 truncate${isPending ? ' line-through' : ''}`}>{task.title}</p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                      <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700">Office Tasks</span>
+                                      {task.priority !== 'Normal' && (
+                                        <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${priorityColors[task.priority]}`}>{task.priority}</span>
+                                      )}
+                                      {task.due_date && (
+                                        <span className={`text-[10px] flex items-center gap-0.5 ${isOverdue(task.due_date) && !task.is_completed ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                                          <CalendarIcon className="w-2.5 h-2.5" />
+                                          {formatDate(task.due_date)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      }
+                      const r = it.reminder
+                      const overdue = isReminderOverdue(r.reminder_date)
+                      return (
+                        <div
+                          key={`rem-${r.id}`}
+                          className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group cursor-pointer"
+                          onClick={() => router.push(`/sales/crm/${r.company_id}`)}
+                        >
+                          <div className="flex items-stretch">
+                            <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
+                            <div className="flex-1 min-w-0 px-4 py-3">
+                              <div className="flex items-start gap-2.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    toggleReminderComplete(r.id)
+                                  }}
+                                  className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
+                                  aria-label="Mark complete"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-gray-900 truncate">
+                                    {r.contact_name
+                                      ? `${r.contact_name} · ${r.company_name}`
+                                      : r.company_name}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                    <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700">Reminder</span>
+                                    <span className={`text-[10px] flex items-center gap-0.5 ${overdue ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                                      <CalendarIcon className="w-2.5 h-2.5" />
+                                      {formatReminderDateTime(r.reminder_date)}
+                                    </span>
+                                    {overdue && (
+                                      <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">
+                                        Overdue
+                                      </span>
+                                    )}
+                                  </div>
+                                  {r.note && (
+                                    <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">
+                                      {r.note}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                    )
-                  })}
+                      )
+                    })
+                  })()}
                   {activeChecklist.map((item) => {
                     const key = `cl-${item.id}`
                     const isPending = pendingCompleteIds.has(key)
@@ -1124,98 +1201,6 @@ export default function MyWorkClient({
             )
           })()}
         </InteractiveCard>
-        )}
-
-        {/* ── Follow-up Reminders ── gated by crm */}
-        {canViewCrm && reminders.length > 0 && (
-          <InteractiveCard
-            icon={<BellIcon className="w-5 h-5" />}
-            title="Follow-up reminders"
-            onExpand={() => router.push('/sales/crm')}
-          >
-            {(() => {
-              const sorted = [...reminders].sort((a, b) => {
-                const aOver = isReminderOverdue(a.reminder_date)
-                const bOver = isReminderOverdue(b.reminder_date)
-                if (aOver && !bOver) return -1
-                if (!aOver && bOver) return 1
-                // Both overdue: oldest first. Both upcoming: soonest first.
-                return (
-                  new Date(a.reminder_date).getTime() -
-                  new Date(b.reminder_date).getTime()
-                )
-              })
-              const overdueCount = sorted.filter((r) =>
-                isReminderOverdue(r.reminder_date)
-              ).length
-              return (
-                <>
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-600">
-                      {sorted.length} upcoming
-                    </span>
-                    {overdueCount > 0 && (
-                      <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
-                        <AlertCircleIcon className="w-3 h-3" />
-                        {overdueCount} overdue
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-0 max-h-[400px] overflow-y-auto -mx-4 px-4">
-                    <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
-                      {sorted.map((r) => {
-                        const overdue = isReminderOverdue(r.reminder_date)
-                        return (
-                          <div
-                            key={r.id}
-                            className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors"
-                          >
-                            <button
-                              onClick={() => toggleReminderComplete(r.id)}
-                              className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
-                              aria-label="Mark complete"
-                            >
-                              {/* empty checkbox */}
-                            </button>
-                            <Link
-                              href={`/sales/crm/${r.company_id}`}
-                              className="flex-1 min-w-0 block"
-                            >
-                              <p className="text-xs font-medium text-gray-900 truncate">
-                                {r.contact_name
-                                  ? `${r.contact_name} · ${r.company_name}`
-                                  : r.company_name}
-                              </p>
-                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                <span
-                                  className={`text-[10px] flex items-center gap-0.5 ${
-                                    overdue ? 'text-amber-600 font-medium' : 'text-gray-400'
-                                  }`}
-                                >
-                                  <CalendarIcon className="w-2.5 h-2.5" />
-                                  {formatReminderDateTime(r.reminder_date)}
-                                </span>
-                                {overdue && (
-                                  <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">
-                                    Overdue
-                                  </span>
-                                )}
-                              </div>
-                              {r.note && (
-                                <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">
-                                  {r.note}
-                                </p>
-                              )}
-                            </Link>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </>
-              )
-            })()}
-          </InteractiveCard>
         )}
 
       </div>

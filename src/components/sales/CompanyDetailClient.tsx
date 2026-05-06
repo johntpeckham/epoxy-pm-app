@@ -281,6 +281,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   >(null)
   const [showNewReminder, setShowNewReminder] = useState(false)
   const [deleteReminderId, setDeleteReminderId] = useState<string | null>(null)
+  const [editReminder, setEditReminder] = useState<Reminder | null>(null)
   const [mergeContactsMode, setMergeContactsMode] = useState(false)
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(
     new Set()
@@ -293,10 +294,13 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [showConvertToLead, setShowConvertToLead] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteFileId, setDeleteFileId] = useState<string | null>(null)
-  const [deleteActivity, setDeleteActivity] = useState<
-    { kind: 'call' | 'comment'; id: string } | null
-  >(null)
-  const [deletingActivity, setDeletingActivity] = useState(false)
+  const [activitySelectMode, setActivitySelectMode] = useState(false)
+  const [selectedActivityIds, setSelectedActivityIds] = useState<{
+    calls: Set<string>
+    comments: Set<string>
+  }>({ calls: new Set(), comments: new Set() })
+  const [confirmBulkDeleteActivity, setConfirmBulkDeleteActivity] = useState(false)
+  const [bulkDeletingActivity, setBulkDeletingActivity] = useState(false)
   const [showAddLink, setShowAddLink] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [archiving, setArchiving] = useState(false)
@@ -733,32 +737,61 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     setDeleteReminderId(null)
   }
 
-  async function handleDeleteActivity() {
-    if (!deleteActivity) return
-    setDeletingActivity(true)
-    const table = deleteActivity.kind === 'call' ? 'crm_call_log' : 'crm_comments'
-    const { error } = await supabase
-      .from(table)
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', deleteActivity.id)
-    setDeletingActivity(false)
-    if (error) {
-      console.error('[ACTIVITY DELETE ERROR]', {
-        code: error.code,
-        message: error.message,
-        hint: error.hint,
-        details: error.details,
+  function exitActivitySelectMode() {
+    setActivitySelectMode(false)
+    setSelectedActivityIds({ calls: new Set(), comments: new Set() })
+  }
+
+  function toggleActivitySelected(kind: 'call' | 'comment', id: string) {
+    setSelectedActivityIds((prev) => {
+      const target = kind === 'call' ? prev.calls : prev.comments
+      const next = new Set(target)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return kind === 'call'
+        ? { calls: next, comments: prev.comments }
+        : { calls: prev.calls, comments: next }
+    })
+  }
+
+  async function handleBulkDeleteActivity() {
+    const callIds = Array.from(selectedActivityIds.calls)
+    const commentIds = Array.from(selectedActivityIds.comments)
+    if (callIds.length + commentIds.length === 0) return
+    setBulkDeletingActivity(true)
+    const nowIso = new Date().toISOString()
+    const callRes = callIds.length > 0
+      ? await supabase
+          .from('crm_call_log')
+          .update({ deleted_at: nowIso })
+          .in('id', callIds)
+      : { error: null }
+    const commentRes = commentIds.length > 0
+      ? await supabase
+          .from('crm_comments')
+          .update({ deleted_at: nowIso })
+          .in('id', commentIds)
+      : { error: null }
+    setBulkDeletingActivity(false)
+    setConfirmBulkDeleteActivity(false)
+    const firstErr = callRes.error ?? commentRes.error
+    if (firstErr) {
+      console.error('[ACTIVITY BULK DELETE ERROR]', {
+        code: firstErr.code,
+        message: firstErr.message,
+        hint: firstErr.hint,
+        details: firstErr.details,
       })
-      showToast(`Delete failed: ${error.message}`)
-      setDeleteActivity(null)
+      showToast(`Delete failed: ${firstErr.message}`)
       return
     }
-    if (deleteActivity.kind === 'call') {
-      setCallLog((prev) => prev.filter((c) => c.id !== deleteActivity.id))
-    } else {
-      setComments((prev) => prev.filter((c) => c.id !== deleteActivity.id))
+    if (callIds.length > 0) {
+      setCallLog((prev) => prev.filter((c) => !selectedActivityIds.calls.has(c.id)))
     }
-    setDeleteActivity(null)
+    if (commentIds.length > 0) {
+      setComments((prev) => prev.filter((c) => !selectedActivityIds.comments.has(c.id)))
+    }
+    exitActivitySelectMode()
   }
 
   const fromParam = searchParams.get('from')
@@ -1369,13 +1402,48 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-gray-900">Activity</h2>
-              <button
-                onClick={() => setShowLogCall(true)}
-                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Log call
-              </button>
+              {activitySelectMode ? (
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const n =
+                      selectedActivityIds.calls.size +
+                      selectedActivityIds.comments.size
+                    return (
+                      <button
+                        onClick={() => setConfirmBulkDeleteActivity(true)}
+                        disabled={n === 0}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 disabled:text-gray-300 disabled:cursor-default"
+                      >
+                        Delete ({n})
+                      </button>
+                    )
+                  })()}
+                  <button
+                    onClick={exitActivitySelectMode}
+                    className="text-xs text-gray-500 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowLogCall(true)}
+                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Log call
+                  </button>
+                  {canEdit('crm') && (
+                    <button
+                      onClick={() => setActivitySelectMode(true)}
+                      className="text-xs text-gray-500 hover:text-gray-800"
+                    >
+                      Select
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* New comment input */}
@@ -1430,8 +1498,17 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                       const c = it.entry
                       const contact = contacts.find((x) => x.id === c.contact_id)
                       const dot = OUTCOME_DOT_COLOR[c.outcome] ?? 'bg-gray-300'
+                      const checked = selectedActivityIds.calls.has(c.id)
                       return (
                         <div key={`call-${c.id}`} className="flex items-start gap-3">
+                          {activitySelectMode && (
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleActivitySelected('call', c.id)}
+                              className="mt-3 w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500/20"
+                            />
+                          )}
                           <div className="flex-shrink-0 w-9 h-9 bg-gray-50 rounded-full flex items-center justify-center relative">
                             <PhoneIcon className="w-4 h-4 text-gray-500" />
                             <span
@@ -1465,27 +1542,21 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                               )}
                             </div>
                           </div>
-                          {canEdit('crm') && (
-                            <KebabMenu
-                              variant="light"
-                              title="Activity actions"
-                              items={[
-                                {
-                                  label: 'Delete',
-                                  icon: <Trash2Icon className="w-4 h-4" />,
-                                  destructive: true,
-                                  onSelect: () =>
-                                    setDeleteActivity({ kind: 'call', id: c.id }),
-                                },
-                              ]}
-                            />
-                          )}
                         </div>
                       )
                     }
                     const c = it.entry
+                    const checked = selectedActivityIds.comments.has(c.id)
                     return (
                       <div key={`comment-${c.id}`} className="flex items-start gap-3">
+                        {activitySelectMode && (
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleActivitySelected('comment', c.id)}
+                            className="mt-3 w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500/20"
+                          />
+                        )}
                         <div className="flex-shrink-0 w-9 h-9 bg-gray-50 rounded-full flex items-center justify-center">
                           <MessageSquareIcon className="w-4 h-4 text-gray-500" />
                         </div>
@@ -1503,21 +1574,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                             )}
                           </div>
                         </div>
-                        {canEdit('crm') && (
-                          <KebabMenu
-                            variant="light"
-                            title="Activity actions"
-                            items={[
-                              {
-                                label: 'Delete',
-                                icon: <Trash2Icon className="w-4 h-4" />,
-                                destructive: true,
-                                onSelect: () =>
-                                  setDeleteActivity({ kind: 'comment', id: c.id }),
-                              },
-                            ]}
-                          />
-                        )}
                       </div>
                     )
                   })}
@@ -1628,13 +1684,25 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                           </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => setDeleteReminderId(r.id)}
-                        className="p-1 text-gray-300 hover:text-red-600 rounded opacity-0 group-hover:opacity-100 transition"
-                        title="Delete"
-                      >
-                        <Trash2Icon className="w-4 h-4" />
-                      </button>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <KebabMenu
+                          variant="light"
+                          title="Reminder actions"
+                          items={[
+                            {
+                              label: 'Edit',
+                              icon: <PencilIcon className="w-4 h-4" />,
+                              onSelect: () => setEditReminder(r),
+                            },
+                            {
+                              label: 'Delete',
+                              icon: <Trash2Icon className="w-4 h-4" />,
+                              destructive: true,
+                              onSelect: () => setDeleteReminderId(r.id),
+                            },
+                          ]}
+                        />
+                      </div>
                     </div>
                   )
                 })}
@@ -1887,6 +1955,30 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         />
       )}
 
+      {editReminder && (
+        <NewReminderModal
+          companyId={companyId}
+          userId={userId}
+          contacts={contacts.map((c) => ({
+            id: c.id,
+            first_name: c.first_name,
+            last_name: c.last_name,
+          }))}
+          reminder={{
+            id: editReminder.id,
+            reminder_date: editReminder.reminder_date,
+            contact_id: editReminder.contact_id,
+            note: editReminder.note,
+            assigned_to: editReminder.assigned_to,
+          }}
+          onClose={() => setEditReminder(null)}
+          onSaved={() => {
+            setEditReminder(null)
+            fetchAll()
+          }}
+        />
+      )}
+
       {deleteReminderId && (
         <ConfirmDialog
           title="Delete reminder?"
@@ -2051,15 +2143,19 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         />
       )}
 
-      {deleteActivity && (
+      {confirmBulkDeleteActivity && (
         <ConfirmDialog
-          title="Delete activity entry?"
-          message="This entry will be removed from the activity feed."
+          title={`Delete ${
+            selectedActivityIds.calls.size + selectedActivityIds.comments.size
+          } activity entries?`}
+          message="The selected entries will be removed from the activity feed."
           confirmLabel="Delete"
           variant="destructive"
-          loading={deletingActivity}
-          onConfirm={handleDeleteActivity}
-          onCancel={() => (deletingActivity ? null : setDeleteActivity(null))}
+          loading={bulkDeletingActivity}
+          onConfirm={handleBulkDeleteActivity}
+          onCancel={() =>
+            bulkDeletingActivity ? null : setConfirmBulkDeleteActivity(false)
+          }
         />
       )}
 

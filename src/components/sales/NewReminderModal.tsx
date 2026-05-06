@@ -16,10 +16,19 @@ export interface ReminderAssigneeOption {
   display_name: string | null
 }
 
+export interface ExistingReminder {
+  id: string
+  reminder_date: string
+  contact_id: string | null
+  note: string | null
+  assigned_to: string | null
+}
+
 interface NewReminderModalProps {
   companyId: string
   userId: string
   contacts: ReminderContactOption[]
+  reminder?: ExistingReminder
   onClose: () => void
   onSaved: () => void
 }
@@ -36,10 +45,12 @@ export default function NewReminderModal({
   companyId,
   userId,
   contacts,
+  reminder,
   onClose,
   onSaved,
 }: NewReminderModalProps) {
-  // Default to tomorrow 9:00 AM local
+  const isEdit = !!reminder
+  // Default to tomorrow 9:00 AM local for new reminders.
   const defaultDate = (() => {
     const d = new Date()
     d.setDate(d.getDate() + 1)
@@ -47,10 +58,12 @@ export default function NewReminderModal({
     return toLocalInput(d.toISOString())
   })()
 
-  const [reminderDate, setReminderDate] = useState(defaultDate)
-  const [contactId, setContactId] = useState('')
-  const [note, setNote] = useState('')
-  const [assignedTo, setAssignedTo] = useState<string>(userId)
+  const [reminderDate, setReminderDate] = useState(
+    reminder ? toLocalInput(reminder.reminder_date) : defaultDate
+  )
+  const [contactId, setContactId] = useState(reminder?.contact_id ?? '')
+  const [note, setNote] = useState(reminder?.note ?? '')
+  const [assignedTo, setAssignedTo] = useState<string>(reminder?.assigned_to ?? userId)
   const [assignees, setAssignees] = useState<ReminderAssigneeOption[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -78,22 +91,33 @@ export default function NewReminderModal({
     setError(null)
     const supabase = createClient()
     const iso = new Date(reminderDate).toISOString()
-    const { error: err } = await supabase.from('crm_follow_up_reminders').insert({
-      company_id: companyId,
+    const payload = {
       contact_id: contactId || null,
       reminder_date: iso,
       note: note.trim() || null,
       assigned_to: assignedTo || null,
-      created_by: userId,
-    })
+    }
+    const { error: err } = isEdit
+      ? await supabase
+          .from('crm_follow_up_reminders')
+          .update(payload)
+          .eq('id', reminder!.id)
+      : await supabase.from('crm_follow_up_reminders').insert({
+          ...payload,
+          company_id: companyId,
+          created_by: userId,
+        })
     setSaving(false)
     if (err) {
-      console.error('[REMINDER INSERT ERROR]', {
-        code: err.code,
-        message: err.message,
-        hint: err.hint,
-        details: err.details,
-      })
+      console.error(
+        isEdit ? '[REMINDER UPDATE ERROR]' : '[REMINDER INSERT ERROR]',
+        {
+          code: err.code,
+          message: err.message,
+          hint: err.hint,
+          details: err.details,
+        }
+      )
       setError(err.message)
       return
     }
@@ -117,7 +141,9 @@ export default function NewReminderModal({
             className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h3 className="text-lg font-semibold text-gray-900">New Reminder</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {isEdit ? 'Edit Reminder' : 'New Reminder'}
+            </h3>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
