@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   PencilIcon,
@@ -237,6 +237,7 @@ interface CompanyDetailClientProps {
 
 export default function CompanyDetailClient({ companyId, userId }: CompanyDetailClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = useMemo(() => createClient(), [])
 
   const [loading, setLoading] = useState(true)
@@ -631,12 +632,21 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     setDeleteReminderId(null)
   }
 
+  const fromParam = searchParams.get('from')
+  const backView =
+    fromParam === 'existing' || fromParam === 'new'
+      ? fromParam
+      : company?.status === 'active'
+        ? 'existing'
+        : 'new'
+  const backHref = `/sales/crm?view=${backView}`
+
   // Placeholder; filled in subsequent edits.
   if (loading) return <div className="p-8 text-sm text-gray-400">Loading…</div>
   if (notFound)
     return (
       <div className="p-8">
-        <Link href="/sales/crm" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+        <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeftIcon className="w-4 h-4" />
           CRM
         </Link>
@@ -674,7 +684,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       {/* ── Back link ── */}
       <div className="px-4 sm:px-6 pt-4 pb-2">
-        <Link href="/sales/crm" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600">
+        <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600">
           <ArrowLeftIcon className="w-4 h-4" />
           <span>Back to CRM</span>
         </Link>

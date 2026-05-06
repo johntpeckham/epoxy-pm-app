@@ -191,7 +191,10 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   const searchParams = useSearchParams()
   const supabase = useMemo(() => createClient(), [])
 
-  const [viewMode, setViewMode] = useState<CrmViewMode>('new')
+  const [viewMode, setViewMode] = useState<CrmViewMode>(() => {
+    const v = searchParams.get('view')
+    return v === 'existing' || v === 'new' ? v : 'new'
+  })
 
   const [loading, setLoading] = useState(true)
   const [companies, setCompanies] = useState<CompanyRow[]>([])
@@ -1551,7 +1554,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                 return (
                   <Fragment key={c.id}>
                     <tr
-                      onClick={() => router.push(`/sales/crm/${c.id}`)}
+                      onClick={() => router.push(`/sales/crm/${c.id}?from=${viewMode}`)}
                       className={`group border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
                         blacklisted || c.archived ? 'opacity-40' : ''
                       }`}
@@ -1705,7 +1708,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                         return (
                           <tr
                             key={`${c.id}-${k.id}`}
-                            onClick={() => router.push(`/sales/crm/${c.id}`)}
+                            onClick={() => router.push(`/sales/crm/${c.id}?from=${viewMode}`)}
                             className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
                               blacklisted ? 'opacity-40' : ''
                             }`}
