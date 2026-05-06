@@ -88,7 +88,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isBillingActive = pathname === '/billing'
   const isMyWorkActive = pathname === '/my-work'
   const isOfficeActive = pathname === '/office' || pathname.startsWith('/office/')
-  const isSalesActive = pathname === '/sales'
+  const isSalesActive = pathname === '/sales' || pathname.startsWith('/sales/')
   const isSalesCrmActive = pathname === '/sales/crm' || pathname.startsWith('/sales/crm/')
   const isSalesDialerActive = pathname === '/sales/dialer' || pathname.startsWith('/sales/dialer/')
   const isSalesEmailerActive = pathname === '/sales/emailer' || pathname.startsWith('/sales/emailer/')
@@ -214,27 +214,27 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
         {canViewSales && (
           <div>
-            <div className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
-              isSalesActive
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-neutral-800'
-            }`}>
-              <Link
-                href="/sales"
-                onClick={() => setMobileOpen(false)}
-                className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
-              >
+            <button
+              type="button"
+              onClick={() => setSalesExpanded(!salesExpanded)}
+              aria-expanded={salesExpanded}
+              className={`w-full flex items-center rounded-lg text-sm font-medium transition-colors ${
+                isSalesActive
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-neutral-800'
+              }`}
+            >
+              <span className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0">
                 <TrendingUpIcon className="w-5 h-5 flex-shrink-0" />
                 Sales
-              </Link>
-              <button
-                onClick={() => setSalesExpanded(!salesExpanded)}
-                className="px-2 py-2.5 flex-shrink-0 text-gray-500 hover:text-white transition-colors"
-                aria-label={salesExpanded ? 'Collapse sub-items' : 'Expand sub-items'}
+              </span>
+              <span
+                className="px-2 py-2.5 flex-shrink-0 text-gray-500"
+                aria-hidden
               >
                 <ChevronRightIcon className={`w-4 h-4 transition-transform duration-200 ${salesExpanded ? 'rotate-90' : ''}`} />
-              </button>
-            </div>
+              </span>
+            </button>
             <div
               className="overflow-hidden transition-all duration-200 ease-in-out"
               style={{
