@@ -256,7 +256,7 @@ function PushToJobWalkModal({
         customer_phone: lead.customer_phone,
         address: lead.address,
         date: lead.date,
-        status: 'in_progress',
+        status: 'upcoming',
         notes: includeProjectDetails ? lead.project_details : null,
         measurements: includeMeasurements ? lead.measurements : null,
         assigned_to: lead.assigned_to ?? userId,

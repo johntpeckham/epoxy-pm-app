@@ -8,9 +8,6 @@ import {
   PlusIcon,
   SearchIcon,
   TargetIcon,
-  ChevronRightIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   Trash2Icon,
   ArrowLeftIcon,
   MapPinIcon,
@@ -18,6 +15,7 @@ import {
   MailIcon,
   CalendarIcon,
   UserIcon,
+  PencilIcon,
 } from 'lucide-react'
 import type { Customer } from '@/components/proposals/types'
 import type { UserRole } from '@/types'
@@ -30,6 +28,9 @@ import LeadPhotosCard from './LeadPhotosCard'
 import LeadMeasurementsCard from './LeadMeasurementsCard'
 import LeadPushMenu from './LeadPushMenu'
 import AddLeadModal from './AddLeadModal'
+import LeadEditInfoModal from './LeadEditInfoModal'
+import KebabMenu from '@/components/ui/KebabMenu'
+import PageTabs from '../PageTabs'
 import { usePermissions } from '@/lib/usePermissions'
 
 export type LeadStatus = 'new' | 'appointment_set' | 'sent_to_estimating' | 'unable_to_reach' | 'disqualified'
@@ -110,11 +111,12 @@ export default function LeadsClient({
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [assignees, setAssignees] = useState<AppointmentAssigneeOption[]>([])
-  const [completedExpanded, setCompletedExpanded] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editLead, setEditLead] = useState<Lead | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<{ message: string; href?: string | null } | null>(null)
+  const [tab, setTab] = useState<'new' | 'completed'>('new')
 
   function showToast(message: string, href?: string | null) {
     setToast({ message, href: href ?? null })
@@ -235,19 +237,22 @@ export default function LeadsClient({
     return m
   }, [assignees])
 
-  const myFiltered = useMemo(
-    () => (isAdmin ? filtered.filter((l) => l.assigned_to === userId) : filtered),
-    [isAdmin, filtered, userId]
+  const tabFiltered = useMemo(
+    () =>
+      filtered.filter((l) =>
+        tab === 'new' ? l.status === 'new' : l.status !== 'new'
+      ),
+    [filtered, tab]
   )
 
-  const activeLeads = useMemo(
-    () => myFiltered.filter((l) => l.status !== 'disqualified'),
-    [myFiltered]
+  const myLeads = useMemo(
+    () => (isAdmin ? tabFiltered.filter((l) => l.assigned_to === userId) : tabFiltered),
+    [isAdmin, tabFiltered, userId]
   )
 
   const otherUserSections = useMemo(() => {
     if (!isAdmin) return []
-    const others = filtered.filter((l) => l.assigned_to !== userId && l.status !== 'disqualified')
+    const others = tabFiltered.filter((l) => l.assigned_to !== userId)
     const grouped = new Map<string, Lead[]>()
     for (const l of others) {
       const key = l.assigned_to ?? '__unassigned__'
@@ -262,12 +267,7 @@ export default function LeadsClient({
         leads: items,
       }))
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [isAdmin, filtered, userId, assigneeMap])
-
-  const disqualifiedLeads = useMemo(
-    () => (isAdmin ? filtered.filter((l) => l.status === 'disqualified') : filtered.filter((l) => l.status === 'disqualified')),
-    [filtered, isAdmin]
-  )
+  }, [isAdmin, tabFiltered, userId, assigneeMap])
 
   function handleLeadCreated(lead: Lead, newCustomer?: Customer | null) {
     setLeads((prev) => [lead, ...prev])
@@ -295,7 +295,7 @@ export default function LeadsClient({
     return (
       <div
         key={lead.id}
-        className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl transition-opacity ${
+        className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl hover:border-gray-300 hover:shadow-sm transition-all ${
           isDimmed ? 'opacity-70' : ''
         }`}
       >
@@ -346,7 +346,7 @@ export default function LeadsClient({
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2.5 flex-shrink-0 mt-0.5">
+            <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
               <select
                 value={lead.status}
                 onChange={(e) => {
@@ -365,14 +365,22 @@ export default function LeadsClient({
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
-              <span className="inline-flex items-center gap-1 text-[13px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors select-none">
-                {isExpanded ? 'Close' : 'View'}
-                {isExpanded ? (
-                  <ChevronUpIcon className="w-4 h-4" />
-                ) : (
-                  <ChevronDownIcon className="w-4 h-4" />
-                )}
-              </span>
+              <KebabMenu
+                variant="light"
+                items={[
+                  {
+                    label: 'Edit',
+                    icon: <PencilIcon className="w-4 h-4" />,
+                    onSelect: () => setEditLead(lead),
+                  },
+                  {
+                    label: 'Delete',
+                    icon: <Trash2Icon className="w-4 h-4" />,
+                    destructive: true,
+                    onSelect: () => setConfirmDelete(lead),
+                  },
+                ]}
+              />
             </div>
           </div>
         </div>
@@ -471,18 +479,36 @@ export default function LeadsClient({
         </div>
       </div>
 
+      <p className="text-sm text-gray-400 px-4 sm:px-6 pt-3">
+        Track new leads and move them through the pipeline.
+      </p>
+
+      {/* Tabs */}
+      <PageTabs<'new' | 'completed'>
+        tabs={[
+          { key: 'new', label: 'New Leads' },
+          { key: 'completed', label: 'Completed' },
+        ]}
+        activeKey={tab}
+        onChange={setTab}
+      />
+
       {/* Card list */}
       <div className="px-4 sm:px-7 py-6">
-        {filtered.length === 0 ? (
+        {tabFiltered.length === 0 ? (
           <div className="text-center py-14">
             <TargetIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-sm text-gray-400">
-              {search ? 'No matching leads.' : 'No leads yet. Add one to get started.'}
+              {search
+                ? 'No matching leads.'
+                : tab === 'new'
+                ? 'No new leads. Add one to get started.'
+                : 'No completed leads yet.'}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {activeLeads.map((lead) => renderCard(lead))}
+            {myLeads.map((lead) => renderCard(lead))}
 
             {/* Admin: other users' sections */}
             {isAdmin && otherUserSections.length > 0 && (
@@ -507,26 +533,6 @@ export default function LeadsClient({
                 ))}
               </>
             )}
-
-            {disqualifiedLeads.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setCompletedExpanded((v) => !v)}
-                  className="w-full flex items-center gap-2 px-2 pt-4 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-widest hover:text-gray-500"
-                >
-                  {completedExpanded ? (
-                    <ChevronDownIcon className="w-3 h-3" />
-                  ) : (
-                    <ChevronRightIcon className="w-3 h-3" />
-                  )}
-                  Disqualified ({disqualifiedLeads.length})
-                  <span className="flex-1 h-px bg-gray-200 dark:bg-[#2a2a2a] ml-2" />
-                </button>
-                {completedExpanded &&
-                  disqualifiedLeads.map((lead) => renderCard(lead))}
-              </>
-            )}
           </div>
         )}
       </div>
@@ -540,6 +546,20 @@ export default function LeadsClient({
           assignees={assignees}
           onClose={() => setShowAddModal(false)}
           onCreated={handleLeadCreated}
+        />
+      )}
+
+      {editLead && (
+        <LeadEditInfoModal
+          lead={editLead}
+          customers={customers}
+          assignees={assignees}
+          isAdmin={isAdmin}
+          onClose={() => setEditLead(null)}
+          onSaved={(patch) => {
+            handleUpdate(editLead.id, patch)
+            setEditLead(null)
+          }}
         />
       )}
 

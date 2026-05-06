@@ -156,7 +156,7 @@ export default function NewJobWalkModal({
         address: finalAddress,
         date: date || null,
         notes: notes.trim() || null,
-        status: 'in_progress',
+        status: 'upcoming',
         assigned_to: assignedTo || null,
         created_by: userId,
       })
