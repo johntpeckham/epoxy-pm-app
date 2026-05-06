@@ -24,10 +24,11 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import KebabMenu from '@/components/ui/KebabMenu'
 import NewJobWalkModal from './NewJobWalkModal'
 import JobWalkEditInfoModal from './JobWalkEditInfoModal'
+import PageTabs from '@/components/sales/PageTabs'
 import { usePermissions } from '@/lib/usePermissions'
 import { softDeleteJobWalk } from '@/lib/trashBin'
 
-export type JobWalkStatus = 'in_progress' | 'completed' | 'sent_to_estimating'
+export type JobWalkStatus = 'upcoming' | 'completed' | 'sent_to_estimating'
 export type JobWalkPushedTo = 'estimating' | 'proposal' | 'job'
 
 export interface JobWalk {
@@ -57,19 +58,19 @@ interface JobWalkClientProps {
 }
 
 export const JOB_WALK_STATUS_OPTIONS: { value: JobWalkStatus; label: string }[] = [
-  { value: 'in_progress', label: 'In Progress' },
+  { value: 'upcoming', label: 'Upcoming' },
   { value: 'sent_to_estimating', label: 'Sent to Estimating' },
   { value: 'completed', label: 'Completed' },
 ]
 
 export const JOB_WALK_STATUS_COLORS: Record<JobWalkStatus, { bg: string; border: string; text: string }> = {
-  in_progress: { bg: 'rgba(239,159,39,0.15)', border: 'rgba(239,159,39,0.3)', text: '#EF9F27' },
+  upcoming: { bg: 'rgba(239,159,39,0.15)', border: 'rgba(239,159,39,0.3)', text: '#EF9F27' },
   sent_to_estimating: { bg: 'rgba(55,138,221,0.15)', border: 'rgba(55,138,221,0.3)', text: '#378ADD' },
   completed: { bg: 'rgba(29,158,117,0.15)', border: 'rgba(29,158,117,0.3)', text: '#1D9E75' },
 }
 
 export const STATUS_STYLES: Record<JobWalkStatus, { label: string; className: string }> = {
-  in_progress: { label: 'In Progress', className: 'bg-green-100 text-green-700' },
+  upcoming: { label: 'Upcoming', className: 'bg-green-100 text-green-700' },
   completed: { label: 'Completed', className: 'bg-blue-100 text-blue-700' },
   sent_to_estimating: { label: 'Sent to Estimating', className: 'bg-gray-100 text-gray-600' },
 }
@@ -99,8 +100,7 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
   const [confirmDeleteWalk, setConfirmDeleteWalk] = useState<JobWalk | null>(null)
   const [deletingWalk, setDeletingWalk] = useState(false)
   const [deleteToast, setDeleteToast] = useState<string | null>(null)
-  const [activeExpanded, setActiveExpanded] = useState(true)
-  const [completedExpanded, setCompletedExpanded] = useState(false)
+  const [tab, setTab] = useState<'upcoming' | 'completed'>('upcoming')
   const [employeeExpanded, setEmployeeExpanded] = useState(false)
   const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set())
 
@@ -206,25 +206,30 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
 
   const canManage = canEdit('job_walk')
 
-  const activeWalks = useMemo(
-    () => filtered.filter((w) => w.status !== 'completed'),
-    [filtered]
-  )
-
-  const completedWalks = useMemo(
-    () => filtered.filter((w) => w.status === 'completed'),
-    [filtered]
+  const tabWalks = useMemo(
+    () =>
+      filtered.filter((w) =>
+        tab === 'upcoming'
+          ? w.status === 'upcoming'
+          : w.status === 'sent_to_estimating' || w.status === 'completed'
+      ),
+    [filtered, tab]
   )
 
   const filteredEmployeeWalks = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return employeeWalks
-    return employeeWalks.filter(
+    const matchesTab = (w: JobWalk) =>
+      tab === 'upcoming'
+        ? w.status === 'upcoming'
+        : w.status === 'sent_to_estimating' || w.status === 'completed'
+    const base = employeeWalks.filter(matchesTab)
+    if (!q) return base
+    return base.filter(
       (w) =>
         w.project_name.toLowerCase().includes(q) ||
         (w.customer_name ?? '').toLowerCase().includes(q)
     )
-  }, [employeeWalks, search])
+  }, [employeeWalks, search, tab])
 
   const employeeWalksByUser = useMemo(() => {
     const byUser = new Map<string, JobWalk[]>()
@@ -370,32 +375,6 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
     )
   }
 
-  function renderGroup(
-    label: string,
-    walks: JobWalk[],
-    expanded: boolean,
-    onToggle: () => void,
-  ) {
-    return (
-      <div>
-        {renderSectionHeader(label, walks.length, expanded, onToggle)}
-        {expanded && (
-          <div className="space-y-3 pt-2">
-            {walks.length === 0 ? (
-              <p className="text-sm text-gray-400 italic px-2 py-2">
-                {search ? 'No matches.' : `No job walks in this section.`}
-              </p>
-            ) : (
-              walks.map((walk) => renderCard(walk))
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const hasAny = activeWalks.length > 0 || completedWalks.length > 0
-
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#1a1a1a]">
       {/* Header */}
@@ -426,27 +405,36 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
         </div>
       </div>
 
-      {/* Groups */}
-      <div className="px-4 sm:px-7 py-4">
-        {!hasAny && !search ? (
+      <p className="text-sm text-gray-400 px-4 sm:px-6 pt-3">
+        Walk the job site and capture details for estimating.
+      </p>
+
+      {/* Tabs */}
+      <PageTabs<'upcoming' | 'completed'>
+        tabs={[
+          { key: 'upcoming', label: 'Upcoming' },
+          { key: 'completed', label: 'Completed' },
+        ]}
+        activeKey={tab}
+        onChange={setTab}
+      />
+
+      {/* List */}
+      <div className="px-4 sm:px-7 py-6">
+        {tabWalks.length === 0 ? (
           <div className="text-center py-14">
             <FootprintsIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">No job walks yet. Create one to get started.</p>
+            <p className="text-sm text-gray-400">
+              {search
+                ? 'No matching job walks.'
+                : tab === 'upcoming'
+                ? 'No upcoming job walks. Create one to get started.'
+                : 'No completed job walks yet.'}
+            </p>
           </div>
         ) : (
-          <div className="space-y-1">
-            {renderGroup(
-              'Active',
-              activeWalks,
-              activeExpanded,
-              () => setActiveExpanded((v) => !v),
-            )}
-            {renderGroup(
-              'Completed',
-              completedWalks,
-              completedExpanded,
-              () => setCompletedExpanded((v) => !v),
-            )}
+          <div className="space-y-3">
+            {tabWalks.map((walk) => renderCard(walk))}
           </div>
         )}
 
