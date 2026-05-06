@@ -88,6 +88,12 @@ export default function NewReminderModal({
     })
     setSaving(false)
     if (err) {
+      console.error('[REMINDER INSERT ERROR]', {
+        code: err.code,
+        message: err.message,
+        hint: err.hint,
+        details: err.details,
+      })
       setError(err.message)
       return
     }
