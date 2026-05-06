@@ -70,11 +70,11 @@ const TARGET_FIELD_OPTIONS: TargetField[] = [
 function normalizeStatus(s: string | null): string | null {
   if (!s) return null
   const v = s.toLowerCase().trim().replace(/[\s-]/g, '_')
-  if (['prospect', 'contacted', 'hot_lead', 'lost', 'blacklisted'].includes(v)) return v
-  if (/hot/.test(v)) return 'hot_lead'
+  if (['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'blacklisted', 'active', 'inactive'].includes(v)) return v
+  if (/hot/.test(v)) return 'contacted'
   if (/contact/.test(v)) return 'contacted'
   if (/black/.test(v)) return 'blacklisted'
-  if (/lost|dead/.test(v)) return 'lost'
+  if (/lost|dead/.test(v)) return 'not_very_interested'
   if (/prospect|lead|new/.test(v)) return 'prospect'
   return null
 }

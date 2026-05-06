@@ -44,8 +44,9 @@ type PriorityFilter = 'all' | 'high' | 'high_medium'
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'prospect', label: 'Prospect' },
   { value: 'contacted', label: 'Contacted' },
-  { value: 'hot_lead', label: 'Hot lead' },
-  { value: 'lost', label: 'Lost' },
+  { value: 'lead_created', label: 'Lead Created' },
+  { value: 'appointment_made', label: 'Appointment Made' },
+  { value: 'not_very_interested', label: 'Not Very Interested' },
 ]
 
 const UNASSIGNED_SENTINEL = '__unassigned__'
