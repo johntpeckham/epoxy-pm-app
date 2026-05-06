@@ -293,6 +293,10 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [showConvertToLead, setShowConvertToLead] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteFileId, setDeleteFileId] = useState<string | null>(null)
+  const [deleteActivity, setDeleteActivity] = useState<
+    { kind: 'call' | 'comment'; id: string } | null
+  >(null)
+  const [deletingActivity, setDeletingActivity] = useState(false)
   const [showAddLink, setShowAddLink] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [archiving, setArchiving] = useState(false)
@@ -355,11 +359,13 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         .from('crm_call_log')
         .select('*')
         .eq('company_id', companyId)
+        .is('deleted_at', null)
         .order('call_date', { ascending: false }),
       supabase
         .from('crm_comments')
         .select('*')
         .eq('company_id', companyId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false }),
       supabase
         .from('crm_files')
@@ -725,6 +731,34 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     }
     setReminders((prev) => prev.filter((r) => r.id !== id))
     setDeleteReminderId(null)
+  }
+
+  async function handleDeleteActivity() {
+    if (!deleteActivity) return
+    setDeletingActivity(true)
+    const table = deleteActivity.kind === 'call' ? 'crm_call_log' : 'crm_comments'
+    const { error } = await supabase
+      .from(table)
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', deleteActivity.id)
+    setDeletingActivity(false)
+    if (error) {
+      console.error('[ACTIVITY DELETE ERROR]', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
+      showToast(`Delete failed: ${error.message}`)
+      setDeleteActivity(null)
+      return
+    }
+    if (deleteActivity.kind === 'call') {
+      setCallLog((prev) => prev.filter((c) => c.id !== deleteActivity.id))
+    } else {
+      setComments((prev) => prev.filter((c) => c.id !== deleteActivity.id))
+    }
+    setDeleteActivity(null)
   }
 
   const fromParam = searchParams.get('from')
@@ -1431,6 +1465,21 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                               )}
                             </div>
                           </div>
+                          {canEdit('crm') && (
+                            <KebabMenu
+                              variant="light"
+                              title="Activity actions"
+                              items={[
+                                {
+                                  label: 'Delete',
+                                  icon: <Trash2Icon className="w-4 h-4" />,
+                                  destructive: true,
+                                  onSelect: () =>
+                                    setDeleteActivity({ kind: 'call', id: c.id }),
+                                },
+                              ]}
+                            />
+                          )}
                         </div>
                       )
                     }
@@ -1454,6 +1503,21 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                             )}
                           </div>
                         </div>
+                        {canEdit('crm') && (
+                          <KebabMenu
+                            variant="light"
+                            title="Activity actions"
+                            items={[
+                              {
+                                label: 'Delete',
+                                icon: <Trash2Icon className="w-4 h-4" />,
+                                destructive: true,
+                                onSelect: () =>
+                                  setDeleteActivity({ kind: 'comment', id: c.id }),
+                              },
+                            ]}
+                          />
+                        )}
                       </div>
                     )
                   })}
@@ -1984,6 +2048,18 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           onConfirm={() => handleDeleteFile(deleteFileId)}
           onCancel={() => setDeleteFileId(null)}
           variant="destructive"
+        />
+      )}
+
+      {deleteActivity && (
+        <ConfirmDialog
+          title="Delete activity entry?"
+          message="This entry will be removed from the activity feed."
+          confirmLabel="Delete"
+          variant="destructive"
+          loading={deletingActivity}
+          onConfirm={handleDeleteActivity}
+          onCancel={() => (deletingActivity ? null : setDeleteActivity(null))}
         />
       )}
 
