@@ -2189,7 +2189,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             showToast('Lead created.')
             void updateCompany({ status: 'lead_created' as CompanyStatus })
             void logActivity('Converted to lead')
-            router.push(`/sales/leads?lead=${leadId}`)
+            router.push(`/sales/leads/${leadId}`)
           }}
         />
       )}

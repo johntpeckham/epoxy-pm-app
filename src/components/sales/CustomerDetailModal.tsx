@@ -162,7 +162,7 @@ export default function CustomerDetailModal({
       return
     }
     onToast?.('Lead created')
-    if (data?.id) router.push(`/sales/leads?lead=${data.id}`)
+    if (data?.id) router.push(`/sales/leads/${data.id}`)
     else router.push('/sales/leads')
   }
 
