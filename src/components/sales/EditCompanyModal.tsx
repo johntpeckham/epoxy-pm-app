@@ -15,7 +15,7 @@ export interface EditableCompany {
   state: string | null
   city: string | null
   address: string | null
-  status: 'prospect' | 'contacted' | 'hot_lead' | 'lost' | 'blacklisted'
+  status: 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'blacklisted'
   priority: 'high' | 'medium' | 'low' | null
   lead_source: string | null
   assigned_to: string | null
@@ -185,8 +185,9 @@ export default function EditCompanyModal({
                 <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className={inputClass}>
                   <option value="prospect">Prospect</option>
                   <option value="contacted">Contacted</option>
-                  <option value="hot_lead">Hot Lead</option>
-                  <option value="lost">Lost</option>
+                  <option value="lead_created">Lead Created</option>
+                  <option value="appointment_made">Appointment Made</option>
+                  <option value="not_very_interested">Not Very Interested</option>
                   <option value="blacklisted">Blacklisted</option>
                 </select>
               </div>
