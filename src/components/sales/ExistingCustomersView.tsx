@@ -1264,7 +1264,6 @@ export default function ExistingCustomersView({
                           return (
                             <td key={col.id} className="pl-2 pr-2" style={cellPad}>
                               <div className="text-sm font-medium text-gray-900 truncate">{c.name}</div>
-                              <div className="text-[11px] text-gray-500 truncate">{c.email || c.phone || c.company || '—'}</div>
                             </td>
                           )
                         case 'ex_industry':
