@@ -340,7 +340,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
       assignedToIds.length > 0 ? new Set(assignedToIds) : null
 
     const eligibleCompanies = companies.filter((c) => {
-      if (c.status === 'blacklisted') return false
+      if (c.status === 'do_not_call') return false
       if (statusSet && !statusSet.has(c.status)) return false
       if (!applyLocationFilter(c, locationValue, locationRadiusCities)) return false
       if (industry && c.industry !== industry) return false
@@ -500,7 +500,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
       if (queued.has(c.id)) continue
       const comp = companyMap.get(c.company_id)
       if (!comp) continue
-      if (comp.status === 'blacklisted') continue
+      if (comp.status === 'do_not_call') continue
       const hay = `${c.first_name} ${c.last_name} ${comp.name}`.toLowerCase()
       if (hay.includes(debouncedSearch)) {
         matches.push({ contact: c, company: comp })

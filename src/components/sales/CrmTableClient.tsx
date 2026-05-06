@@ -47,7 +47,7 @@ import ColumnSettingsModal from './ColumnSettingsModal'
 
 type CrmViewMode = 'new' | 'existing'
 
-type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'blacklisted' | 'active' | 'inactive'
+type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'do_not_call' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
 interface ContactPhoneRow {
@@ -117,7 +117,7 @@ const STATUS_LABELS: Record<CompanyStatus, string> = {
   lead_created: 'Lead Created',
   appointment_made: 'Appointment Made',
   not_very_interested: 'Not Very Interested',
-  blacklisted: 'Blacklisted',
+  do_not_call: 'Do Not Call',
   active: 'Active',
   inactive: 'Inactive',
 }
@@ -134,7 +134,7 @@ const STATUS_TEXT_COLOR: Record<CompanyStatus, string> = {
   lead_created: 'text-[#1F6FB8]',
   appointment_made: 'text-[#854F0B]',
   not_very_interested: 'text-[#791F1F]',
-  blacklisted: 'text-gray-400',
+  do_not_call: 'text-gray-400',
   active: 'text-green-600',
   inactive: 'text-gray-400',
 }
@@ -906,7 +906,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       .sort((a, b) => a.label.localeCompare(b.label))
 
     return {
-      status: (['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'blacklisted'] as CompanyStatus[]).map(
+      status: (['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'do_not_call'] as CompanyStatus[]).map(
         (s) => ({ value: s, label: STATUS_LABELS[s] })
       ),
       zone: uniqueField('zone').map((v) => ({ value: v, label: v })),
@@ -1548,7 +1548,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
             </thead>
             <tbody>
               {pageRows.map((c) => {
-                const blacklisted = c.status === 'blacklisted'
                 const last = formatDate(c.last_activity)
                 const cityState = [c.city, c.state].filter(Boolean).join(', ')
                 const hasContacts = c.contacts.length > 0
@@ -1558,7 +1557,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                     <tr
                       onClick={() => router.push(`/sales/crm/${c.id}?from=${viewMode}`)}
                       className={`group border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                        blacklisted || c.archived ? 'opacity-40' : ''
+                        c.archived ? 'opacity-40' : ''
                       }`}
                       style={{ borderBottomWidth: '0.5px' }}
                     >
@@ -1635,7 +1634,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                 <EditableSelectCell
                                   value={c.status}
                                   showHoverChevron
-                                  options={(['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'blacklisted'] as CompanyStatus[]).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+                                  options={(['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'do_not_call'] as CompanyStatus[]).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
                                   displayClassName={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
                                   className={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
                                   onSave={(v) => updateCompanyField(c.id, 'status', (v ?? 'prospect') as CompanyStatus)}
@@ -1712,7 +1711,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                             key={`${c.id}-${k.id}`}
                             onClick={() => router.push(`/sales/crm/${c.id}?from=${viewMode}`)}
                             className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                              blacklisted ? 'opacity-40' : ''
+                              c.archived ? 'opacity-40' : ''
                             }`}
                             style={{ borderBottomWidth: '0.5px' }}
                           >

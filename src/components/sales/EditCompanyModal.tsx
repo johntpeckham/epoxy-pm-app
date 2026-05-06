@@ -15,7 +15,7 @@ export interface EditableCompany {
   state: string | null
   city: string | null
   address: string | null
-  status: 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'blacklisted'
+  status: 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'do_not_call'
   priority: 'high' | 'medium' | 'low' | null
   lead_source: string | null
   assigned_to: string | null
@@ -188,7 +188,7 @@ export default function EditCompanyModal({
                   <option value="lead_created">Lead Created</option>
                   <option value="appointment_made">Appointment Made</option>
                   <option value="not_very_interested">Not Very Interested</option>
-                  <option value="blacklisted">Blacklisted</option>
+                  <option value="do_not_call">Do Not Call</option>
                 </select>
               </div>
               <div>
