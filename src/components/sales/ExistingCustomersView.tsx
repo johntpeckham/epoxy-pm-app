@@ -325,7 +325,7 @@ export default function ExistingCustomersView({
         .select('company_id, tag_id'),
       supabase
         .from('contacts')
-        .select('company_id, job_title'),
+        .select('id, company_id, job_title, email, phone, is_primary, created_at'),
     ])
 
     const logErr = (label: string, err: unknown) => {
@@ -394,11 +394,36 @@ export default function ExistingCustomersView({
     }
 
     const jobTitlesByCompany = new Map<string, string[]>()
-    for (const row of (contactRows ?? []) as Array<{ company_id: string; job_title: string | null }>) {
-      if (!row.job_title) continue
-      const list = jobTitlesByCompany.get(row.company_id) ?? []
-      list.push(row.job_title)
-      jobTitlesByCompany.set(row.company_id, list)
+    type ContactRow = {
+      id: string
+      company_id: string
+      job_title: string | null
+      email: string | null
+      phone: string | null
+      is_primary: boolean | null
+      created_at: string
+    }
+    const primaryByCompany = new Map<string, { email: string | null; phone: string | null }>()
+    const contactsByCompany = new Map<string, ContactRow[]>()
+    for (const row of (contactRows ?? []) as ContactRow[]) {
+      if (row.job_title) {
+        const list = jobTitlesByCompany.get(row.company_id) ?? []
+        list.push(row.job_title)
+        jobTitlesByCompany.set(row.company_id, list)
+      }
+      const list = contactsByCompany.get(row.company_id) ?? []
+      list.push(row)
+      contactsByCompany.set(row.company_id, list)
+    }
+    for (const [companyId, list] of contactsByCompany) {
+      const chosen =
+        list.find((r) => r.is_primary === true) ??
+        [...list].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))[0] ??
+        null
+      primaryByCompany.set(companyId, {
+        email: chosen?.email ?? null,
+        phone: chosen?.phone ?? null,
+      })
     }
 
     // Aggregate proposals per customer: accepted count + revenue + latest.
@@ -570,12 +595,13 @@ export default function ExistingCustomersView({
         : null
 
       const assignedId = crm?.assigned_to ?? null
+      const primary = primaryByCompany.get(c.id) ?? null
       rows.push({
         id: c.id,
         name: c.name,
         company: null,
-        email: null,
-        phone: null,
+        email: primary?.email ?? null,
+        phone: primary?.phone ?? null,
         city: c.city,
         state: c.state,
         created_at: c.created_at,
