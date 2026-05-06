@@ -770,7 +770,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             <div className="relative">
               <button
                 onClick={() => setShowConvertDropdown((v) => !v)}
-                className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
               >
                 Convert to:
                 <ChevronDownIcon className="w-4 h-4" />
@@ -806,7 +806,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             </div>
             <button
               onClick={() => setShowNewAppointment(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
             >
               <CalendarIcon className="w-4 h-4" />
               Create Appointment
@@ -940,6 +940,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
 
       {/* ── Summary cards ── */}
       <div className="pb-2 flex gap-3 flex-wrap">
+        {company.status !== 'active' && (
+        <>
         {/* Status */}
         <div className="relative">
           <button
@@ -1014,6 +1016,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             </>
           )}
         </div>
+        </>
+        )}
 
         {/* Contacts count */}
         <div className="bg-gray-50 rounded-lg px-4 py-3 min-w-[140px]">
@@ -1573,7 +1577,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                     className="fixed inset-0 z-30"
                     onClick={() => setShowLeadSourceDropdown(false)}
                   />
-                  <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]">
+                  <div className="absolute left-0 bottom-full mb-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]">
                     <button
                       onClick={() => {
                         updateCompany({ lead_source: null })

@@ -32,8 +32,8 @@ const NAV_BUTTONS: { label: string; href: string; icon: typeof UsersIcon; featur
   { label: 'CRM',          href: '/sales/crm',          icon: UsersIcon,       feature: 'crm' },
   { label: 'Dialer',       href: '/sales/dialer',       icon: PhoneIcon,       feature: 'dialer' },
   { label: 'Emailer',      href: '/sales/emailer',      icon: MailIcon,        feature: 'emailer' },
-  { label: 'Appointments', href: '/sales/appointments', icon: CalendarIcon,    feature: 'appointments' },
   { label: 'Leads',        href: '/sales/leads',        icon: TargetIcon,      feature: 'leads' },
+  { label: 'Appointments', href: '/sales/appointments', icon: CalendarIcon,    feature: 'appointments' },
   { label: 'Job Walk',     href: '/job-walk',           icon: FootprintsIcon,  feature: 'job_walk' },
   { label: 'Estimating',   href: '/estimating',   icon: CalculatorIcon,  feature: 'estimating' },
 ]
