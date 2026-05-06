@@ -24,6 +24,7 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   ArrowLeftIcon,
+  PhoneOffIcon,
 } from 'lucide-react'
 import { usePermissions } from '@/lib/usePermissions'
 import Portal from '@/components/ui/Portal'
@@ -35,9 +36,12 @@ import NewAppointmentModal from './NewAppointmentModal'
 import NewReminderModal from './NewReminderModal'
 import MergeContactsModal from './MergeContactsModal'
 import ConvertCompanyToLeadModal from './leads/ConvertCompanyToLeadModal'
+import NewJobWalkModal from '@/components/job-walk/NewJobWalkModal'
+import type { Customer } from '@/components/proposals/types'
+import type { JobWalk } from '@/components/job-walk/JobWalkClient'
 import KebabMenu, { type KebabMenuItem } from '@/components/ui/KebabMenu'
 
-type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'do_not_call' | 'active' | 'inactive'
+type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'job_walk_scheduled' | 'not_very_interested' | 'do_not_call' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
 interface Company {
@@ -132,6 +136,7 @@ const STATUS_LABELS: Record<CompanyStatus, string> = {
   contacted: 'Contacted',
   lead_created: 'Lead Created',
   appointment_made: 'Appointment Made',
+  job_walk_scheduled: 'Job Walk Scheduled',
   not_very_interested: 'Not Very Interested',
   do_not_call: 'Do Not Call',
   active: 'Active',
@@ -139,14 +144,15 @@ const STATUS_LABELS: Record<CompanyStatus, string> = {
 }
 
 const STATUS_TEXT_COLOR: Record<CompanyStatus, string> = {
-  prospect: 'text-[#27500A]',
-  contacted: 'text-[#0C447C]',
-  lead_created: 'text-[#0C447C]',
-  appointment_made: 'text-[#0C447C]',
-  not_very_interested: 'text-[#791F1F]',
+  prospect: 'text-green-400',
+  contacted: 'text-blue-400',
+  lead_created: 'text-cyan-400',
+  appointment_made: 'text-amber-400',
+  job_walk_scheduled: 'text-violet-400',
+  not_very_interested: 'text-red-400',
   do_not_call: 'text-gray-400',
-  active: 'text-green-600',
-  inactive: 'text-gray-400',
+  active: 'text-emerald-400',
+  inactive: 'text-gray-500',
 }
 
 const PRIORITY_LABELS: Record<CompanyPriority, string> = {
@@ -300,7 +306,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false)
   const [showLeadSourceDropdown, setShowLeadSourceDropdown] = useState(false)
-  const [showConvertDropdown, setShowConvertDropdown] = useState(false)
+  const [showCreateDropdown, setShowCreateDropdown] = useState(false)
+  const [showCreateJobWalk, setShowCreateJobWalk] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -756,6 +763,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
     'contacted',
     'lead_created',
     'appointment_made',
+    'job_walk_scheduled',
     'not_very_interested',
     'do_not_call',
   ]
@@ -790,7 +798,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         </div>
         {canEdit('crm') && (
           <div className="flex items-center gap-2 flex-wrap">
-            {company.status !== 'do_not_call' && (
+            {company.status !== 'active' && company.status !== 'do_not_call' && (
               <button
                 onClick={() => setConfirmDoNotCall(true)}
                 className="px-3 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -798,24 +806,32 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                 Do Not Call
               </button>
             )}
-            <div className="relative">
+            {company.status !== 'active' && (
               <button
-                onClick={() => setShowConvertDropdown((v) => !v)}
+                onClick={() => setConfirmConvert(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
               >
-                Convert to:
+                Convert to Customer
+              </button>
+            )}
+            <div className="relative">
+              <button
+                onClick={() => setShowCreateDropdown((v) => !v)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+              >
+                Create:
                 <ChevronDownIcon className="w-4 h-4" />
               </button>
-              {showConvertDropdown && (
+              {showCreateDropdown && (
                 <>
                   <div
                     className="fixed inset-0 z-30"
-                    onClick={() => setShowConvertDropdown(false)}
+                    onClick={() => setShowCreateDropdown(false)}
                   />
-                  <div className="absolute right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+                  <div className="absolute right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px]">
                     <button
                       onClick={() => {
-                        setShowConvertDropdown(false)
+                        setShowCreateDropdown(false)
                         setShowConvertToLead(true)
                       }}
                       className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -824,27 +840,39 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
                     </button>
                     <button
                       onClick={() => {
-                        setShowConvertDropdown(false)
-                        setConfirmConvert(true)
+                        setShowCreateDropdown(false)
+                        setShowNewAppointment(true)
                       }}
                       className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      Customer
+                      Appointment
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCreateDropdown(false)
+                        setShowCreateJobWalk(true)
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Job Walk
                     </button>
                   </div>
                 </>
               )}
             </div>
-            <button
-              onClick={() => setShowNewAppointment(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
-            >
-              <CalendarIcon className="w-4 h-4" />
-              Create Appointment
-            </button>
             <KebabMenu
               title="More actions"
               items={[
+                ...(company.status === 'active'
+                  ? ([
+                      {
+                        label: 'Do Not Call',
+                        icon: <PhoneOffIcon className="w-4 h-4" />,
+                        destructive: true,
+                        onSelect: () => setConfirmDoNotCall(true),
+                      },
+                    ] as KebabMenuItem[])
+                  : []),
                 ...(canArchive
                   ? ([
                       {
@@ -1060,6 +1088,53 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         <div className="bg-gray-50 rounded-lg px-4 py-3 min-w-[140px]">
           <div className="text-[11px] text-gray-400">Last activity</div>
           <div className="text-sm font-medium text-gray-900 mt-0.5">{formatDate(lastActivity)}</div>
+        </div>
+
+        {/* Lead source */}
+        <div className="relative">
+          <button
+            onClick={() => canEdit('crm') && setShowLeadSourceDropdown((v) => !v)}
+            disabled={!canEdit('crm')}
+            className="text-left bg-gray-50 hover:bg-gray-100 rounded-lg px-4 py-3 min-w-[140px] transition-colors disabled:cursor-default disabled:hover:bg-gray-50"
+          >
+            <div className="text-[11px] text-gray-400">Lead source</div>
+            <div className="text-sm font-medium text-gray-900 mt-0.5">
+              {company.lead_source
+                ? LEAD_SOURCE_LABELS[company.lead_source] ?? company.lead_source
+                : '—'}
+            </div>
+          </button>
+          {showLeadSourceDropdown && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowLeadSourceDropdown(false)} />
+              <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]">
+                <button
+                  onClick={() => {
+                    updateCompany({ lead_source: null })
+                    setShowLeadSourceDropdown(false)
+                  }}
+                  className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
+                >
+                  — None —
+                </button>
+                {Object.entries(LEAD_SOURCE_LABELS).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      updateCompany({ lead_source: value })
+                      setShowLeadSourceDropdown(false)
+                    }}
+                    className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
+                  >
+                    <span>{label}</span>
+                    {company.lead_source === value && (
+                      <CheckIcon className="w-4 h-4 text-gray-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
       </div>
@@ -1586,60 +1661,6 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           </section>
           </div>
 
-          {/* Lead source */}
-          <div className="bg-white dark:bg-[#242424] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
-          <section>
-            <h2 className="text-sm font-medium text-gray-900 mb-3">Lead source</h2>
-            <div className="relative inline-block">
-              <button
-                onClick={() => setShowLeadSourceDropdown((v) => !v)}
-                className="text-left bg-gray-50 hover:bg-gray-100 rounded-lg px-4 py-3 min-w-[180px] transition-colors"
-              >
-                <div className="text-[11px] text-gray-400">Source</div>
-                <div className="text-sm font-medium text-gray-900 mt-0.5">
-                  {company.lead_source
-                    ? LEAD_SOURCE_LABELS[company.lead_source] ?? company.lead_source
-                    : '—'}
-                </div>
-              </button>
-              {showLeadSourceDropdown && (
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    onClick={() => setShowLeadSourceDropdown(false)}
-                  />
-                  <div className="absolute left-0 bottom-full mb-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]">
-                    <button
-                      onClick={() => {
-                        updateCompany({ lead_source: null })
-                        setShowLeadSourceDropdown(false)
-                      }}
-                      className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50"
-                    >
-                      — None —
-                    </button>
-                    {Object.entries(LEAD_SOURCE_LABELS).map(([value, label]) => (
-                      <button
-                        key={value}
-                        onClick={() => {
-                          updateCompany({ lead_source: value })
-                          setShowLeadSourceDropdown(false)
-                        }}
-                        className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
-                      >
-                        <span>{label}</span>
-                        {company.lead_source === value && (
-                          <CheckIcon className="w-4 h-4 text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </section>
-          </div>
-
           {/* Imported data */}
           {company.import_metadata && Object.keys(company.import_metadata).length > 0 && (
             <ImportedDataSection metadata={company.import_metadata} />
@@ -1747,6 +1768,36 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             showToast('Appointment scheduled.')
             void updateCompany({ status: 'appointment_made' as CompanyStatus })
             void logActivity('Appointment created')
+          }}
+        />
+      )}
+
+      {showCreateJobWalk && (
+        <NewJobWalkModal
+          userId={userId}
+          customers={[]}
+          assignees={profiles.map((p) => ({ id: p.id, display_name: p.display_name }))}
+          prefill={{
+            customer: {
+              id: company.id,
+              name: company.name,
+              company: null,
+              email: contacts.find((c) => c.is_primary)?.email ?? contacts[0]?.email ?? null,
+              phone: contacts.find((c) => c.is_primary)?.phone ?? contacts[0]?.phone ?? null,
+              address: company.address,
+              city: company.city,
+              state: company.state,
+              zip: company.zip,
+              created_at: company.created_at,
+              user_id: company.assigned_to ?? userId,
+            } satisfies Customer,
+          }}
+          onClose={() => setShowCreateJobWalk(false)}
+          onCreated={(_walk: JobWalk) => {
+            setShowCreateJobWalk(false)
+            showToast('Job walk created.')
+            void updateCompany({ status: 'job_walk_scheduled' as CompanyStatus })
+            void logActivity('Job walk scheduled')
           }}
         />
       )}

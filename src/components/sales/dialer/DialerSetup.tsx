@@ -72,6 +72,7 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'contacted', label: 'Contacted' },
   { value: 'lead_created', label: 'Lead Created' },
   { value: 'appointment_made', label: 'Appointment Made' },
+  { value: 'job_walk_scheduled', label: 'Job Walk Scheduled' },
   { value: 'not_very_interested', label: 'Not Very Interested' },
 ]
 

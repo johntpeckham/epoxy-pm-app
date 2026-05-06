@@ -47,7 +47,7 @@ import ColumnSettingsModal from './ColumnSettingsModal'
 
 type CrmViewMode = 'new' | 'existing'
 
-type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'not_very_interested' | 'do_not_call' | 'active' | 'inactive'
+type CompanyStatus = 'prospect' | 'contacted' | 'lead_created' | 'appointment_made' | 'job_walk_scheduled' | 'not_very_interested' | 'do_not_call' | 'active' | 'inactive'
 type CompanyPriority = 'high' | 'medium' | 'low'
 
 interface ContactPhoneRow {
@@ -116,6 +116,7 @@ const STATUS_LABELS: Record<CompanyStatus, string> = {
   contacted: 'Contacted',
   lead_created: 'Lead Created',
   appointment_made: 'Appointment Made',
+  job_walk_scheduled: 'Job Walk Scheduled',
   not_very_interested: 'Not Very Interested',
   do_not_call: 'Do Not Call',
   active: 'Active',
@@ -129,14 +130,15 @@ const PRIORITY_LABELS: Record<CompanyPriority, string> = {
 }
 
 const STATUS_TEXT_COLOR: Record<CompanyStatus, string> = {
-  prospect: 'text-[#27500A]',
-  contacted: 'text-[#0C447C]',
-  lead_created: 'text-[#1F6FB8]',
-  appointment_made: 'text-[#854F0B]',
-  not_very_interested: 'text-[#791F1F]',
+  prospect: 'text-green-400',
+  contacted: 'text-blue-400',
+  lead_created: 'text-cyan-400',
+  appointment_made: 'text-amber-400',
+  job_walk_scheduled: 'text-violet-400',
+  not_very_interested: 'text-red-400',
   do_not_call: 'text-gray-400',
-  active: 'text-green-600',
-  inactive: 'text-gray-400',
+  active: 'text-emerald-400',
+  inactive: 'text-gray-500',
 }
 
 const PRIORITY_TEXT_COLOR: Record<CompanyPriority, string> = {
@@ -906,7 +908,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       .sort((a, b) => a.label.localeCompare(b.label))
 
     return {
-      status: (['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'do_not_call'] as CompanyStatus[]).map(
+      status: (['prospect', 'contacted', 'lead_created', 'appointment_made', 'job_walk_scheduled', 'not_very_interested', 'do_not_call'] as CompanyStatus[]).map(
         (s) => ({ value: s, label: STATUS_LABELS[s] })
       ),
       zone: uniqueField('zone').map((v) => ({ value: v, label: v })),
@@ -1634,7 +1636,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
                                 <EditableSelectCell
                                   value={c.status}
                                   showHoverChevron
-                                  options={(['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'do_not_call'] as CompanyStatus[]).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+                                  options={(['prospect', 'contacted', 'lead_created', 'appointment_made', 'job_walk_scheduled', 'not_very_interested', 'do_not_call'] as CompanyStatus[]).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
                                   displayClassName={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
                                   className={`text-sm ${STATUS_TEXT_COLOR[c.status]}`}
                                   onSave={(v) => updateCompanyField(c.id, 'status', (v ?? 'prospect') as CompanyStatus)}

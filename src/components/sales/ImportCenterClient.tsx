@@ -254,7 +254,7 @@ function buildMappedRow(headers: string[], row: string[], mapping: TargetField[]
 function normalizeStatus(s: string | null): string | null {
   if (!s) return null
   const v = s.toLowerCase().trim().replace(/[\s-]/g, '_')
-  if (['prospect', 'contacted', 'lead_created', 'appointment_made', 'not_very_interested', 'do_not_call', 'active', 'inactive'].includes(v)) return v
+  if (['prospect', 'contacted', 'lead_created', 'appointment_made', 'job_walk_scheduled', 'not_very_interested', 'do_not_call', 'active', 'inactive'].includes(v)) return v
   if (/hot/.test(v)) return 'contacted'
   if (/contact/.test(v)) return 'contacted'
   if (/black|do.?not.?call|dnc/.test(v)) return 'do_not_call'
