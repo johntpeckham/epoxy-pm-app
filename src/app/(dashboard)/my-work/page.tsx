@@ -99,9 +99,7 @@ export default async function MyWorkPage() {
     }))
   }
 
-  // Fetch upcoming follow-up reminders assigned to the user (overdue or due within 7 days)
-  const sevenDaysFromNow = new Date()
-  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7)
+  // Fetch all open follow-up reminders assigned to the user.
   const { data: reminderRows } = await supabase
     .from('crm_follow_up_reminders')
     .select(
@@ -110,7 +108,6 @@ export default async function MyWorkPage() {
     )
     .eq('assigned_to', user.id)
     .eq('is_completed', false)
-    .lte('reminder_date', sevenDaysFromNow.toISOString())
     .order('reminder_date', { ascending: true })
 
   type RawReminder = {
