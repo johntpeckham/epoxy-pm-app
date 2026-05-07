@@ -167,10 +167,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
   const [locationRadiusCities, setLocationRadiusCities] =
     useState<Set<string> | null>(null)
   const [industry, setIndustry] = useState<string>('')
-  const [statusFilter, setStatusFilter] = useState<string[]>([
-    'prospect',
-    'contacted',
-  ])
+  const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
   const [assignedToIds, setAssignedToIds] = useState<string[]>([])
   const { users: assignableUsers } = useAssignableUsers()
@@ -528,7 +525,7 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
   }, [assignableUsers])
 
   const statusTriggerLabel = useMemo(() => {
-    if (statusFilter.length === 0) return 'All'
+    if (statusFilter.length === 0) return 'All statuses'
     if (statusFilter.length === 1) {
       const opt = STATUS_OPTIONS.find((o) => o.value === statusFilter[0])
       return opt?.label ?? '1 status'
