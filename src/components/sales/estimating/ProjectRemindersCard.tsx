@@ -4,14 +4,17 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   BellIcon,
   PlusIcon,
-  CheckIcon,
   XIcon,
   ChevronDownIcon,
   AlertTriangleIcon,
   Loader2Icon,
+  PencilIcon,
+  Trash2Icon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
+import KebabMenu from '@/components/ui/KebabMenu'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import type { EstimatingReminder } from './types'
 
 interface ProjectRemindersCardProps {
@@ -30,6 +33,9 @@ export default function ProjectRemindersCard({
   const [reminders, setReminders] = useState<EstimatingReminder[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [editReminder, setEditReminder] = useState<EstimatingReminder | null>(null)
+  const [deleteReminderId, setDeleteReminderId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [completedOpen, setCompletedOpen] = useState(false)
 
   const fetchReminders = useCallback(async () => {
@@ -123,14 +129,16 @@ export default function ProjectRemindersCard({
     )
   }
 
-  async function handleDismiss(r: EstimatingReminder) {
+  async function handleDelete(id: string) {
+    setDeleting(true)
     const supabase = createClient()
     const { error } = await supabase
       .from('estimating_reminders')
-      .update({ status: 'dismissed' })
-      .eq('id', r.id)
+      .delete()
+      .eq('id', id)
+    setDeleting(false)
     if (error) {
-      console.error('[ESTIMATING REMINDER DISMISS ERROR]', {
+      console.error('[ESTIMATING REMINDER DELETE ERROR]', {
         code: error.code,
         message: error.message,
         hint: error.hint,
@@ -138,14 +146,18 @@ export default function ProjectRemindersCard({
       })
       return
     }
-    setReminders((prev) =>
-      prev.map((x) => (x.id === r.id ? { ...x, status: 'dismissed' } : x))
-    )
+    setDeleteReminderId(null)
+    fetchReminders()
   }
 
   function handleCreated(r: EstimatingReminder) {
     setReminders((prev) => [...prev, r])
     setShowAdd(false)
+  }
+
+  function handleUpdated(r: EstimatingReminder) {
+    setReminders((prev) => prev.map((x) => (x.id === r.id ? r : x)))
+    setEditReminder(null)
   }
 
   return (
@@ -183,7 +195,8 @@ export default function ProjectRemindersCard({
                     key={r.id}
                     reminder={r}
                     onComplete={() => handleComplete(r)}
-                    onDismiss={() => handleDismiss(r)}
+                    onEdit={() => setEditReminder(r)}
+                    onDelete={() => setDeleteReminderId(r.id)}
                   />
                 ))}
               </div>
@@ -232,6 +245,28 @@ export default function ProjectRemindersCard({
           onCreated={handleCreated}
         />
       )}
+
+      {editReminder && (
+        <AddReminderModal
+          projectId={projectId}
+          userId={userId}
+          reminder={editReminder}
+          onClose={() => setEditReminder(null)}
+          onCreated={handleCreated}
+          onUpdated={handleUpdated}
+        />
+      )}
+
+      {deleteReminderId && (
+        <ConfirmDialog
+          title="Delete this reminder?"
+          message="This will permanently delete this reminder."
+          onConfirm={() => handleDelete(deleteReminderId)}
+          onCancel={() => setDeleteReminderId(null)}
+          loading={deleting}
+          variant="destructive"
+        />
+      )}
     </>
   )
 }
@@ -239,11 +274,13 @@ export default function ProjectRemindersCard({
 function ReminderRow({
   reminder,
   onComplete,
-  onDismiss,
+  onEdit,
+  onDelete,
 }: {
   reminder: EstimatingReminder
   onComplete: () => void
-  onDismiss: () => void
+  onEdit: () => void
+  onDelete: () => void
 }) {
   const dueDate = new Date(reminder.due_date)
   const now = new Date()
@@ -251,12 +288,21 @@ function ReminderRow({
 
   return (
     <div
-      className={`flex items-start gap-2 p-2.5 rounded-lg border ${
+      className={`group flex items-start gap-3 p-2.5 rounded-lg border ${
         isOverdue
           ? 'border-amber-200 bg-amber-50'
           : 'border-gray-200 bg-white'
       }`}
     >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onComplete()
+        }}
+        className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-400 transition-colors"
+        aria-label="Mark complete"
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           {isOverdue && (
@@ -269,15 +315,6 @@ function ReminderRow({
           >
             {reminder.title}
           </p>
-          <span
-            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-              reminder.reminder_type === 'auto'
-                ? 'bg-gray-100 text-gray-600'
-                : 'bg-amber-100 text-amber-700'
-            }`}
-          >
-            {reminder.reminder_type === 'auto' ? 'Auto' : 'Manual'}
-          </span>
         </div>
         {reminder.description && (
           <p className="text-xs text-gray-500 truncate mt-0.5">
@@ -292,70 +329,60 @@ function ReminderRow({
           Due {dueDate.toLocaleDateString()}
         </p>
       </div>
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <IconButton
-          label="Complete"
-          onClick={onComplete}
-          className="text-green-600 hover:bg-green-50"
-        >
-          <CheckIcon className="w-4 h-4" />
-        </IconButton>
-        <IconButton
-          label="Dismiss"
-          onClick={onDismiss}
-          className="text-red-500 hover:bg-red-50"
-        >
-          <XIcon className="w-4 h-4" />
-        </IconButton>
+      <div onClick={(e) => e.stopPropagation()}>
+        <KebabMenu
+          variant="light"
+          title="Reminder actions"
+          items={[
+            {
+              label: 'Edit',
+              icon: <PencilIcon className="w-4 h-4" />,
+              onSelect: onEdit,
+            },
+            {
+              label: 'Delete',
+              icon: <Trash2Icon className="w-4 h-4" />,
+              destructive: true,
+              onSelect: onDelete,
+            },
+          ]}
+        />
       </div>
     </div>
-  )
-}
-
-function IconButton({
-  label,
-  onClick,
-  className = '',
-  children,
-}: {
-  label: string
-  onClick: () => void
-  className?: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={`w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 transition ${className}`}
-    >
-      {children}
-    </button>
   )
 }
 
 function AddReminderModal({
   projectId,
   userId,
+  reminder,
   onClose,
   onCreated,
+  onUpdated,
 }: {
   projectId: string
   userId: string
+  reminder?: EstimatingReminder
   onClose: () => void
   onCreated: (r: EstimatingReminder) => void
+  onUpdated?: (r: EstimatingReminder) => void
 }) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
+  const isEdit = !!reminder
+  const [title, setTitle] = useState(reminder?.title ?? '')
+  const [description, setDescription] = useState(reminder?.description ?? '')
   const defaultDue = useRef(() => {
     const d = new Date()
     d.setDate(d.getDate() + 1)
     return d.toISOString().slice(0, 10)
   })
-  const [dueDate, setDueDate] = useState(defaultDue.current())
-  const [assignedTo, setAssignedTo] = useState<string>(userId)
+  const [dueDate, setDueDate] = useState(
+    reminder?.due_date
+      ? new Date(reminder.due_date).toISOString().slice(0, 10)
+      : defaultDue.current()
+  )
+  const [assignedTo, setAssignedTo] = useState<string>(
+    reminder?.assigned_to ?? userId
+  )
   const [assignees, setAssignees] = useState<{ id: string; display_name: string | null }[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -389,6 +416,34 @@ function AddReminderModal({
     setError(null)
     const supabase = createClient()
     const dueIso = new Date(`${dueDate}T09:00:00`).toISOString()
+
+    if (isEdit && reminder) {
+      const { data, error: updErr } = await supabase
+        .from('estimating_reminders')
+        .update({
+          title: title.trim(),
+          description: description.trim() || null,
+          due_date: dueIso,
+          assigned_to: assignedTo || userId,
+        })
+        .eq('id', reminder.id)
+        .select('*')
+        .single()
+      setSaving(false)
+      if (updErr || !data) {
+        console.error('[ESTIMATING REMINDER UPDATE ERROR]', {
+          code: updErr?.code,
+          message: updErr?.message,
+          hint: updErr?.hint,
+          details: updErr?.details,
+        })
+        setError(`Failed to update reminder: ${updErr?.message ?? 'unknown error'}`)
+        return
+      }
+      onUpdated?.(data as EstimatingReminder)
+      return
+    }
+
     const { data, error: insErr } = await supabase
       .from('estimating_reminders')
       .insert({
@@ -431,7 +486,9 @@ function AddReminderModal({
             className="flex-none flex items-center justify-between px-4 border-b border-gray-200"
             style={{ minHeight: '56px' }}
           >
-            <h3 className="text-lg font-semibold text-gray-900">Add reminder</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {isEdit ? 'Edit Reminder' : 'Add reminder'}
+            </h3>
             <button
               onClick={onClose}
               disabled={saving}
@@ -459,7 +516,7 @@ function AddReminderModal({
                 Description
               </label>
               <textarea
-                value={description}
+                value={description ?? ''}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 placeholder="Optional notes…"
@@ -521,7 +578,7 @@ function AddReminderModal({
               disabled={saving}
               className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition disabled:opacity-60"
             >
-              {saving ? 'Saving…' : 'Add reminder'}
+              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add reminder'}
             </button>
           </div>
         </div>
@@ -529,4 +586,3 @@ function AddReminderModal({
     </Portal>
   )
 }
-
