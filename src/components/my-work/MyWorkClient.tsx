@@ -1067,7 +1067,7 @@ export default function MyWorkClient({
                                         : r.company_name}
                                     </p>
                                     <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                      <span className="text-[10px] px-1 py-0.5 rounded bg-violet-100 text-violet-700">CRM Reminder</span>
+                                      <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700">CRM Reminder</span>
                                       <span className={`text-[10px] flex items-center gap-0.5 ${overdue ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
                                         <CalendarIcon className="w-2.5 h-2.5" />
                                         {formatReminderDateTime(r.reminder_date)}
