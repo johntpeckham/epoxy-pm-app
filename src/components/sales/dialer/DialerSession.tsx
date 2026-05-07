@@ -214,6 +214,7 @@ export default function DialerSession({
         .from('companies')
         .select('id, name, city, state')
         .eq('archived', false)
+        .neq('status', 'active')
         .order('name', { ascending: true }),
       supabase
         .from('contacts')
