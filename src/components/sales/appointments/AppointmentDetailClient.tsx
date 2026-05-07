@@ -5,15 +5,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeftIcon,
-  TargetIcon,
+  CalendarCheckIcon,
   Trash2Icon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import KebabMenu from '@/components/ui/KebabMenu'
 import type { Customer } from '@/components/proposals/types'
-import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
-import type { Lead, LeadStatus, LeadCategory as LeadCategoryRow } from './LeadsClient'
+import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import UnifiedInfoCard, {
   type UnifiedInfoFields,
   type LeadCategoryOption,
@@ -21,45 +20,68 @@ import UnifiedInfoCard, {
 import ProjectDetailsCard from '@/components/shared/ProjectDetailsCard'
 import PhotosCard from '@/components/shared/PhotosCard'
 import MeasurementsCard from '@/components/shared/MeasurementsCard'
-import LeadPushMenu from './LeadPushMenu'
+import AppointmentPushMenu from './AppointmentPushMenu'
 
-const LEAD_STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
-  { value: 'new', label: 'New' },
-  { value: 'appointment_set', label: 'Appointment Set' },
-  { value: 'sent_to_estimating', label: 'Sent to Estimating' },
-  { value: 'unable_to_reach', label: 'Unable to Reach' },
-  { value: 'disqualified', label: 'Disqualified' },
-]
+export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled'
+export type AppointmentPushedTo = 'job_walk' | 'estimating' | 'proposal' | 'job'
 
-const LEAD_STATUS_COLORS: Record<LeadStatus, { bg: string; border: string; text: string }> = {
-  new: { bg: 'rgba(156,163,175,0.22)', border: 'rgba(156,163,175,0.55)', text: '#d1d5db' },
-  appointment_set: { bg: 'rgba(74,222,128,0.22)', border: 'rgba(74,222,128,0.55)', text: '#4ade80' },
-  sent_to_estimating: { bg: 'rgba(96,165,250,0.22)', border: 'rgba(96,165,250,0.55)', text: '#60a5fa' },
-  unable_to_reach: { bg: 'rgba(251,191,36,0.22)', border: 'rgba(251,191,36,0.55)', text: '#fbbf24' },
-  disqualified: { bg: 'rgba(248,113,113,0.22)', border: 'rgba(248,113,113,0.55)', text: '#f87171' },
+export interface AppointmentRow {
+  id: string
+  company_id: string | null
+  contact_id: string | null
+  title: string | null
+  project_name: string | null
+  customer_name: string | null
+  customer_email: string | null
+  customer_phone: string | null
+  date: string | null
+  address: string | null
+  notes: string | null
+  status: AppointmentStatus
+  pushed_to: AppointmentPushedTo | null
+  pushed_ref_id: string | null
+  assigned_to: string | null
+  lead_source: string | null
+  lead_category_id: string | null
+  project_details: string | null
+  measurements: string | null
+  created_by: string | null
+  created_at: string
 }
 
-interface LeadDetailClientProps {
-  initialLead: Lead
+const STATUS_OPTIONS: { value: AppointmentStatus; label: string }[] = [
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
+
+const STATUS_COLORS: Record<AppointmentStatus, { bg: string; border: string; text: string }> = {
+  scheduled: { bg: 'rgba(52,211,153,0.22)', border: 'rgba(52,211,153,0.55)', text: '#34d399' },
+  completed: { bg: 'rgba(96,165,250,0.22)', border: 'rgba(96,165,250,0.55)', text: '#60a5fa' },
+  cancelled: { bg: 'rgba(156,163,175,0.22)', border: 'rgba(156,163,175,0.55)', text: '#9ca3af' },
+}
+
+interface AppointmentDetailClientProps {
+  initialAppointment: AppointmentRow
   customers: Customer[]
   assignees: AppointmentAssigneeOption[]
-  initialCategories: LeadCategoryRow[]
+  initialCategories: LeadCategoryOption[]
   userId: string
   isAdmin: boolean
 }
 
-export default function LeadDetailClient({
-  initialLead,
+export default function AppointmentDetailClient({
+  initialAppointment,
   customers,
   assignees,
   initialCategories,
   userId,
   isAdmin,
-}: LeadDetailClientProps) {
+}: AppointmentDetailClientProps) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [lead, setLead] = useState<Lead>(initialLead)
+  const [appt, setAppt] = useState<AppointmentRow>(initialAppointment)
   const [categories, setCategories] = useState<LeadCategoryOption[]>(initialCategories)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -70,40 +92,40 @@ export default function LeadDetailClient({
     setTimeout(() => setToast(null), 3500)
   }
 
-  function handleUpdate(patch: Partial<Lead>) {
-    setLead((prev) => ({ ...prev, ...patch }))
+  function handleUpdate(patch: Partial<AppointmentRow>) {
+    setAppt((prev) => ({ ...prev, ...patch }))
   }
 
   function handleInfoPatch(patch: Partial<UnifiedInfoFields>) {
-    setLead((prev) => ({ ...prev, ...patch } as Lead))
+    setAppt((prev) => ({ ...prev, ...patch }))
   }
 
-  async function setLeadStatus(next: LeadStatus) {
-    if (next === lead.status) return
-    const previous = lead.status
-    setLead((prev) => ({ ...prev, status: next }))
+  async function setStatus(next: AppointmentStatus) {
+    if (next === appt.status) return
+    const previous = appt.status
+    setAppt((prev) => ({ ...prev, status: next }))
     const { error } = await supabase
-      .from('leads')
+      .from('crm_appointments')
       .update({ status: next })
-      .eq('id', lead.id)
+      .eq('id', appt.id)
     if (error) {
-      console.error('[LEAD STATUS UPDATE ERROR]', {
+      console.error('[APPOINTMENT STATUS UPDATE ERROR]', {
         code: error.code,
         message: error.message,
         hint: error.hint,
         details: error.details,
       })
-      setLead((prev) => ({ ...prev, status: previous }))
+      setAppt((prev) => ({ ...prev, status: previous }))
       showToast(`Status update failed: ${error.message}`)
     }
   }
 
   async function handleDelete() {
     setDeleting(true)
-    const { error } = await supabase.from('leads').delete().eq('id', lead.id)
+    const { error } = await supabase.from('crm_appointments').delete().eq('id', appt.id)
     setDeleting(false)
     if (error) {
-      console.error('[LEAD DELETE ERROR]', {
+      console.error('[APPOINTMENT DELETE ERROR]', {
         code: error.code,
         message: error.message,
         hint: error.hint,
@@ -113,22 +135,22 @@ export default function LeadDetailClient({
       setConfirmDelete(false)
       return
     }
-    router.push('/sales/leads')
+    router.push('/sales/appointments')
   }
 
-  const colors = LEAD_STATUS_COLORS[lead.status]
+  const colors = STATUS_COLORS[appt.status]
 
   const infoData: UnifiedInfoFields = {
-    project_name: lead.project_name,
-    company_id: lead.company_id,
-    customer_name: lead.customer_name,
-    customer_email: lead.customer_email,
-    customer_phone: lead.customer_phone,
-    address: lead.address,
-    date: lead.date,
-    assigned_to: lead.assigned_to,
-    lead_source: lead.lead_source,
-    lead_category_id: lead.lead_category_id,
+    project_name: appt.project_name,
+    company_id: appt.company_id,
+    customer_name: appt.customer_name,
+    customer_email: appt.customer_email,
+    customer_phone: appt.customer_phone,
+    address: appt.address,
+    date: appt.date,
+    assigned_to: appt.assigned_to,
+    lead_source: appt.lead_source,
+    lead_category_id: appt.lead_category_id,
   }
 
   return (
@@ -137,21 +159,21 @@ export default function LeadDetailClient({
         <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 gap-4">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <Link
-              href="/sales/leads"
+              href="/sales/appointments"
               className="flex-shrink-0 p-1 -ml-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
             >
               <ArrowLeftIcon className="w-5 h-5" />
             </Link>
-            <TargetIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            <CalendarCheckIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
             <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
-              {lead.project_name || 'Lead'}
+              {appt.project_name || appt.title || 'Appointment'}
             </h1>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <select
-              value={lead.status}
-              onChange={(e) => setLeadStatus(e.target.value as LeadStatus)}
+              value={appt.status}
+              onChange={(e) => setStatus(e.target.value as AppointmentStatus)}
               style={{
                 backgroundColor: colors.bg,
                 borderColor: colors.border,
@@ -159,7 +181,7 @@ export default function LeadDetailClient({
               }}
               className="text-[12px] font-medium border rounded-md px-2 py-1 max-w-[175px] cursor-pointer outline-none"
             >
-              {LEAD_STATUS_OPTIONS.map((o) => (
+              {STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
@@ -181,16 +203,16 @@ export default function LeadDetailClient({
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 space-y-4">
         <div className="flex items-center gap-2">
-          <LeadPushMenu
-            lead={lead}
+          <AppointmentPushMenu
+            appointment={appt}
             userId={userId}
             onPatch={handleUpdate}
             showToast={showToast}
           />
         </div>
         <UnifiedInfoCard
-          parentType="lead"
-          parentId={lead.id}
+          parentType="appointment"
+          parentId={appt.id}
           data={infoData}
           customers={customers}
           assignees={assignees}
@@ -200,25 +222,25 @@ export default function LeadDetailClient({
           onCategoriesChanged={(next) => setCategories(next)}
         />
         <ProjectDetailsCard
-          parentType="lead"
-          parentId={lead.id}
-          projectDetails={lead.project_details}
+          parentType="appointment"
+          parentId={appt.id}
+          projectDetails={appt.project_details}
           onPatch={(value) => handleUpdate({ project_details: value })}
         />
         <MeasurementsCard
-          parentType="lead"
-          parentId={lead.id}
+          parentType="appointment"
+          parentId={appt.id}
           userId={userId}
-          measurements={lead.measurements}
+          measurements={appt.measurements}
           onMeasurementsPatch={(value) => handleUpdate({ measurements: value })}
         />
-        <PhotosCard parentType="lead" parentId={lead.id} userId={userId} />
+        <PhotosCard parentType="appointment" parentId={appt.id} userId={userId} />
       </div>
 
       {confirmDelete && (
         <ConfirmDialog
-          title="Delete Lead"
-          message="Are you sure you want to delete this lead? This action cannot be undone."
+          title="Delete Appointment"
+          message="Are you sure you want to delete this appointment? This action cannot be undone."
           confirmLabel="Delete"
           variant="destructive"
           loading={deleting}
@@ -231,9 +253,9 @@ export default function LeadDetailClient({
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg flex items-center gap-3">
           <span>{toast.message}</span>
           {toast.href && (
-            <a href={toast.href} className="text-amber-300 hover:text-amber-100 underline">
+            <Link href={toast.href} className="text-amber-300 hover:text-amber-100 underline">
               View
-            </a>
+            </Link>
           )}
         </div>
       )}

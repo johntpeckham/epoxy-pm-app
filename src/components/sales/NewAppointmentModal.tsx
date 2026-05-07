@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { XIcon, SearchIcon, CheckIcon, Trash2Icon, PlusIcon } from 'lucide-react'
+import { XIcon, SearchIcon, CheckIcon, PlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
-import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 export interface AppointmentCompanyOption {
   id: string
@@ -28,28 +27,15 @@ export interface AppointmentAssigneeOption {
   display_name: string | null
 }
 
-export interface AppointmentDraft {
-  id?: string
-  company_id: string
-  contact_id: string | null
-  date: string // ISO
-  address: string | null
-  notes: string | null
-  assigned_to: string | null
-  status?: 'scheduled' | 'completed' | 'cancelled'
-}
-
 interface NewAppointmentModalProps {
   userId: string
   isAdmin?: boolean
-  existing?: AppointmentDraft
   prefill?: { companyId?: string; contactId?: string | null }
   companies: AppointmentCompanyOption[]
   contacts: AppointmentContactOption[]
   assignees: AppointmentAssigneeOption[]
   onClose: () => void
-  onSaved: () => void
-  onDeleted?: () => void
+  onSaved: (createdId: string) => void
   onCompanyCreated?: (company: AppointmentCompanyOption) => void
 }
 
@@ -64,42 +50,24 @@ function toLocalInput(iso: string): string {
 export default function NewAppointmentModal({
   userId,
   isAdmin = true,
-  existing,
   prefill,
   companies,
   contacts,
   assignees,
   onClose,
   onSaved,
-  onDeleted,
   onCompanyCreated,
 }: NewAppointmentModalProps) {
-  const isEdit = !!existing?.id
-
-  const [companyId, setCompanyId] = useState<string>(
-    existing?.company_id ?? prefill?.companyId ?? ''
-  )
-  const [contactId, setContactId] = useState<string>(
-    existing?.contact_id ?? prefill?.contactId ?? ''
-  )
+  const [companyId, setCompanyId] = useState<string>(prefill?.companyId ?? '')
+  const [contactId, setContactId] = useState<string>(prefill?.contactId ?? '')
   const [dateInput, setDateInput] = useState<string>(
-    existing?.date
-      ? toLocalInput(existing.date)
-      : toLocalInput(new Date(Date.now() + 60 * 60 * 1000).toISOString())
+    toLocalInput(new Date(Date.now() + 60 * 60 * 1000).toISOString())
   )
-  const [address, setAddress] = useState<string>(existing?.address ?? '')
-  const [notes, setNotes] = useState<string>(existing?.notes ?? '')
-  const [assignedTo, setAssignedTo] = useState<string>(
-    existing?.assigned_to ?? userId
-  )
-  const [status, setStatus] = useState<'scheduled' | 'completed' | 'cancelled'>(
-    existing?.status ?? 'scheduled'
-  )
+  const [assignedTo, setAssignedTo] = useState<string>(userId)
+  const [status, setStatus] = useState<'scheduled' | 'completed' | 'cancelled'>('scheduled')
   const [companySearch, setCompanySearch] = useState('')
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [creatingNewCustomer, setCreatingNewCustomer] = useState(false)
   const [newCustomerName, setNewCustomerName] = useState('')
@@ -118,45 +86,11 @@ export default function NewAppointmentModal({
     [contacts, companyId]
   )
 
-  // When switching company (not in edit mode), auto-fill address from primary address
-  // and pick primary contact when none is selected.
   useEffect(() => {
     if (!companyId) return
-    if (isEdit) return
-    let cancelled = false
-    async function loadDefaults() {
-      const supabase = createClient()
-      // Address: primary address for this company
-      const { data: addrRows } = await supabase
-        .from('crm_company_addresses')
-        .select('address, city, state, zip, is_primary')
-        .eq('company_id', companyId)
-        .order('is_primary', { ascending: false })
-        .limit(1)
-      const addr = (addrRows ?? [])[0] as
-        | {
-            address: string
-            city: string | null
-            state: string | null
-            zip: string | null
-          }
-        | undefined
-      if (!cancelled && addr && !address) {
-        const pieces = [addr.address, [addr.city, addr.state, addr.zip]
-          .filter(Boolean)
-          .join(', ')].filter(Boolean)
-        setAddress(pieces.join(', '))
-      }
-      // Contact: primary if none selected
-      if (!cancelled && !contactId) {
-        const primary = contactsForCompany.find((c) => c.is_primary)
-        if (primary) setContactId(primary.id)
-      }
-    }
-    loadDefaults()
-    return () => {
-      cancelled = true
-    }
+    if (contactId) return
+    const primary = contactsForCompany.find((c) => c.is_primary)
+    if (primary) setContactId(primary.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId])
 
@@ -182,55 +116,34 @@ export default function NewAppointmentModal({
     const supabase = createClient()
     const iso = new Date(dateInput).toISOString()
 
-    const payload = {
-      company_id: companyId,
-      contact_id: contactId || null,
-      date: iso,
-      address: address.trim() || null,
-      notes: notes.trim() || null,
-      assigned_to: assignedTo || null,
-      status,
-    }
+    const company = companies.find((c) => c.id === companyId)
 
-    if (isEdit && existing?.id) {
-      const { error: err } = await supabase
-        .from('crm_appointments')
-        .update(payload)
-        .eq('id', existing.id)
-      setSaving(false)
-      if (err) {
-        setError(err.message)
-        return
-      }
-    } else {
-      const { error: err } = await supabase.from('crm_appointments').insert({
-        ...payload,
+    const { data: created, error: err } = await supabase
+      .from('crm_appointments')
+      .insert({
+        company_id: companyId,
+        contact_id: contactId || null,
+        date: iso,
+        assigned_to: assignedTo || null,
+        status,
+        project_name: company?.name ?? null,
+        customer_name: company?.name ?? null,
         created_by: userId,
       })
-      setSaving(false)
-      if (err) {
-        setError(err.message)
-        return
-      }
-    }
-    onSaved()
-  }
-
-  async function handleDelete() {
-    if (!existing?.id) return
-    setDeleting(true)
-    const supabase = createClient()
-    const { error: err } = await supabase
-      .from('crm_appointments')
-      .delete()
-      .eq('id', existing.id)
-    setDeleting(false)
-    setConfirmDelete(false)
-    if (err) {
-      setError(err.message)
+      .select('id')
+      .single()
+    setSaving(false)
+    if (err || !created) {
+      console.error('[NewAppointmentModal] Insert failed:', {
+        code: err?.code,
+        message: err?.message,
+        hint: err?.hint,
+        details: err?.details,
+      })
+      setError(err?.message ?? 'Failed to create appointment.')
       return
     }
-    if (onDeleted) onDeleted()
+    onSaved(created.id as string)
   }
 
   async function handleCreateCustomer() {
@@ -265,7 +178,6 @@ export default function NewAppointmentModal({
     const created = newCust as AppointmentCompanyOption
     setCompanyId(created.id)
     setContactId('')
-    setAddress('')
     setCreatingNewCustomer(false)
     setNewCustomerName('')
     setNewCustomerEmail('')
@@ -292,7 +204,7 @@ export default function NewAppointmentModal({
             style={{ minHeight: '56px' }}
           >
             <h3 className="text-lg font-semibold text-gray-900">
-              {isEdit ? 'Edit Appointment' : 'New Appointment'}
+              New Appointment
             </h3>
             <button
               onClick={onClose}
@@ -364,7 +276,6 @@ export default function NewAppointmentModal({
                               onClick={() => {
                                 setCompanyId(c.id)
                                 setContactId('')
-                                setAddress('')
                                 setShowCompanyDropdown(false)
                                 setCompanySearch('')
                               }}
@@ -502,34 +413,6 @@ export default function NewAppointmentModal({
               />
             </div>
 
-            {/* Address */}
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Address
-              </label>
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Visit location"
-                className={inputClass}
-              />
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Notes
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                placeholder="Purpose of the visit, what to bring, etc."
-                className={inputClass}
-              />
-            </div>
-
             {/* Assigned to */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -550,73 +433,46 @@ export default function NewAppointmentModal({
               </select>
             </div>
 
-            {/* Status (edit only) */}
-            {isEdit && (
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Status
-                </label>
-                <select
-                  value={status}
-                  onChange={(e) =>
-                    setStatus(e.target.value as typeof status)
-                  }
-                  className={inputClass}
-                >
-                  <option value="scheduled">Scheduled</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-            )}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Status
+              </label>
+              <select
+                value={status}
+                onChange={(e) =>
+                  setStatus(e.target.value as typeof status)
+                }
+                className={inputClass}
+              >
+                <option value="scheduled">Scheduled</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
 
             {error && <p className="text-xs text-red-600">{error}</p>}
           </div>
 
           <div
-            className="flex-none flex items-center justify-between gap-2 px-5 py-4 border-t border-gray-200"
+            className="flex-none flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200"
             style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}
           >
-            {isEdit ? (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <Trash2Icon className="w-4 h-4" />
-                Delete
-              </button>
-            ) : (
-              <span />
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={onClose}
-                className="px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={!companyId || !dateInput || saving}
-                className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition-colors"
-              >
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              className="px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!companyId || !dateInput || saving}
+              className="px-4 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
           </div>
         </div>
       </div>
-
-      {confirmDelete && (
-        <ConfirmDialog
-          title="Delete appointment?"
-          message="This will permanently remove the appointment. This cannot be undone."
-          onConfirm={handleDelete}
-          onCancel={() => setConfirmDelete(false)}
-          loading={deleting}
-          variant="destructive"
-        />
-      )}
     </Portal>
   )
 }

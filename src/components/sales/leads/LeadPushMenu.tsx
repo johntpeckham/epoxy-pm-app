@@ -94,30 +94,27 @@ export default function LeadPushMenu({
     setShowAppointmentModal(true)
   }
 
-  async function handleAppointmentSaved() {
+  async function handleAppointmentSaved(newApptId: string) {
     setShowAppointmentModal(false)
-    // Find the appointment we just created by matching on company/address/created_by
     const supabase = createClient()
-    const { data } = await supabase
-      .from('crm_appointments')
-      .select('id')
-      .eq('created_by', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-    const newApptId =
-      ((data ?? []) as { id: string }[])[0]?.id ?? null
-    if (newApptId) {
-      await supabase
-        .from('leads')
-        .update({
-          status: 'appointment_set',
-          pushed_to: 'appointment',
-          pushed_ref_id: newApptId,
-        })
-        .eq('id', lead.id)
-      onPatch({ status: 'appointment_set', pushed_to: 'appointment', pushed_ref_id: newApptId })
+    const { error: updateErr } = await supabase
+      .from('leads')
+      .update({
+        status: 'appointment_set',
+        pushed_to: 'appointment',
+        pushed_ref_id: newApptId,
+      })
+      .eq('id', lead.id)
+    if (updateErr) {
+      console.error('[LeadPushMenu] Lead update after appointment-create failed:', {
+        code: updateErr.code,
+        message: updateErr.message,
+        hint: updateErr.hint,
+        details: updateErr.details,
+      })
     }
-    showToast('Appointment created.', '/sales/appointments')
+    onPatch({ status: 'appointment_set', pushed_to: 'appointment', pushed_ref_id: newApptId })
+    showToast('Appointment created.', `/sales/appointments/${newApptId}`)
   }
 
   return (

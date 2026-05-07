@@ -13,9 +13,16 @@ import { createClient } from '@/lib/supabase/client'
 import PhotoLightbox from '@/components/photos/PhotoLightbox'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
-interface LeadPhoto {
+export type PhotosParentType = 'lead' | 'appointment' | 'job_walk'
+
+interface PhotosCardProps {
+  parentType: PhotosParentType
+  parentId: string
+  userId: string
+}
+
+interface PhotoRow {
   id: string
-  lead_id: string
   image_url: string
   storage_path: string
   caption: string | null
@@ -29,19 +36,37 @@ interface PendingUpload {
   previewUrl: string
 }
 
-interface LeadPhotosCardProps {
-  leadId: string
-  userId: string
+const CONFIG: Record<
+  PhotosParentType,
+  { table: string; fk: string; bucket: string; emptyText: string }
+> = {
+  lead: {
+    table: 'lead_photos',
+    fk: 'lead_id',
+    bucket: 'lead-photos',
+    emptyText: 'No photos yet. Upload or take photos for this lead.',
+  },
+  appointment: {
+    table: 'appointment_photos',
+    fk: 'appointment_id',
+    bucket: 'appointment-photos',
+    emptyText: 'No photos yet. Upload or take photos for this appointment.',
+  },
+  job_walk: {
+    table: 'job_walk_photos',
+    fk: 'job_walk_id',
+    bucket: 'job-walk-photos',
+    emptyText: 'No photos yet. Upload or take photos from your job walk.',
+  },
 }
 
-const BUCKET = 'lead-photos'
-
-export default function LeadPhotosCard({ leadId, userId }: LeadPhotosCardProps) {
-  const [photos, setPhotos] = useState<LeadPhoto[]>([])
+export default function PhotosCard({ parentType, parentId, userId }: PhotosCardProps) {
+  const cfg = CONFIG[parentType]
+  const [photos, setPhotos] = useState<PhotoRow[]>([])
   const [loading, setLoading] = useState(true)
   const [pending, setPending] = useState<PendingUpload[]>([])
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState<LeadPhoto | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<PhotoRow | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
@@ -52,18 +77,23 @@ export default function LeadPhotosCard({ leadId, userId }: LeadPhotosCardProps) 
   const fetchPhotos = useCallback(async () => {
     const supabase = createClient()
     const { data, error } = await supabase
-      .from('lead_photos')
+      .from(cfg.table)
       .select('*')
-      .eq('lead_id', leadId)
+      .eq(cfg.fk, parentId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
     if (error) {
-      console.error('[LeadPhotos] Fetch failed:', error)
+      console.error('[PhotosCard] Fetch failed:', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
     } else if (data) {
-      setPhotos(data as LeadPhoto[])
+      setPhotos(data as PhotoRow[])
     }
     setLoading(false)
-  }, [leadId])
+  }, [cfg.table, cfg.fk, parentId])
 
   useEffect(() => {
     fetchPhotos()
@@ -86,19 +116,19 @@ export default function LeadPhotosCard({ leadId, userId }: LeadPhotosCardProps) 
           const placeholder = pendingList[idx]
           try {
             const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-            const path = `${leadId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+            const path = `${parentId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
             const { error: uploadErr } = await supabase.storage
-              .from(BUCKET)
+              .from(cfg.bucket)
               .upload(path, file, { contentType: file.type || undefined })
             if (uploadErr) throw uploadErr
 
-            const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path)
+            const { data: urlData } = supabase.storage.from(cfg.bucket).getPublicUrl(path)
             const publicUrl = urlData.publicUrl
 
             const { data: inserted, error: insertErr } = await supabase
-              .from('lead_photos')
+              .from(cfg.table)
               .insert({
-                lead_id: leadId,
+                [cfg.fk]: parentId,
                 image_url: publicUrl,
                 storage_path: path,
                 caption: null,
@@ -110,10 +140,10 @@ export default function LeadPhotosCard({ leadId, userId }: LeadPhotosCardProps) 
             if (insertErr) throw insertErr
 
             if (inserted) {
-              setPhotos((prev) => [...prev, inserted as LeadPhoto])
+              setPhotos((prev) => [...prev, inserted as PhotoRow])
             }
           } catch (err) {
-            console.error('[LeadPhotos] Upload failed:', err)
+            console.error('[PhotosCard] Upload failed:', err)
           } finally {
             URL.revokeObjectURL(placeholder.previewUrl)
             setPending((prev) => prev.filter((p) => p.tempId !== placeholder.tempId))
@@ -121,31 +151,31 @@ export default function LeadPhotosCard({ leadId, userId }: LeadPhotosCardProps) 
         })
       )
     },
-    [leadId, userId]
+    [cfg.bucket, cfg.fk, cfg.table, parentId, userId]
   )
 
-  async function handleDelete(photo: LeadPhoto) {
+  async function handleDelete(photo: PhotoRow) {
     setDeleting(true)
     const supabase = createClient()
     try {
-      await supabase.storage.from(BUCKET).remove([photo.storage_path])
-      const { error } = await supabase.from('lead_photos').delete().eq('id', photo.id)
+      await supabase.storage.from(cfg.bucket).remove([photo.storage_path])
+      const { error } = await supabase.from(cfg.table).delete().eq('id', photo.id)
       if (error) throw error
       setPhotos((prev) => prev.filter((p) => p.id !== photo.id))
       setConfirmDelete(null)
     } catch (err) {
-      console.error('[LeadPhotos] Delete failed:', err)
+      console.error('[PhotosCard] Delete failed:', err)
     } finally {
       setDeleting(false)
     }
   }
 
-  function startEditCaption(photo: LeadPhoto) {
+  function startEditCaption(photo: PhotoRow) {
     setEditingId(photo.id)
     setEditingValue(photo.caption ?? '')
   }
 
-  async function commitCaption(photo: LeadPhoto) {
+  async function commitCaption(photo: PhotoRow) {
     const next = editingValue.trim()
     const prev = photo.caption ?? ''
     setEditingId(null)
@@ -156,11 +186,11 @@ export default function LeadPhotosCard({ leadId, userId }: LeadPhotosCardProps) 
       list.map((p) => (p.id === photo.id ? { ...p, caption: newCaption } : p))
     )
     const { error } = await supabase
-      .from('lead_photos')
+      .from(cfg.table)
       .update({ caption: newCaption })
       .eq('id', photo.id)
     if (error) {
-      console.error('[LeadPhotos] Caption update failed:', error)
+      console.error('[PhotosCard] Caption update failed:', error)
       setPhotos((list) =>
         list.map((p) => (p.id === photo.id ? { ...p, caption: photo.caption } : p))
       )
@@ -190,12 +220,10 @@ export default function LeadPhotosCard({ leadId, userId }: LeadPhotosCardProps) 
         ) : photos.length === 0 && pending.length === 0 ? (
           <div className="text-center py-8 px-4 border border-dashed border-gray-200 rounded-lg">
             <ImageIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">
-              No photos yet. Upload or take photos for this lead.
-            </p>
+            <p className="text-sm text-gray-400">{cfg.emptyText}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
             {photos.map((photo, idx) => (
               <div key={photo.id} className="space-y-1">
                 <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 group">
@@ -207,10 +235,10 @@ export default function LeadPhotosCard({ leadId, userId }: LeadPhotosCardProps) 
                   >
                     <Image
                       src={photo.image_url}
-                      alt={photo.caption ?? `Lead photo ${idx + 1}`}
+                      alt={photo.caption ?? `Photo ${idx + 1}`}
                       fill
                       className="object-cover transition group-hover:opacity-90"
-                      sizes="(max-width: 640px) 33vw, 200px"
+                      sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 180px"
                       unoptimized
                     />
                   </button>

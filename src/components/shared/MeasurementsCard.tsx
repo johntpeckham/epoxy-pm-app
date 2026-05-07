@@ -11,17 +11,19 @@ import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
-import type { JobWalk } from './JobWalkClient'
 
-interface JobWalkMeasurementsCardProps {
-  walk: JobWalk
+export type MeasurementsParentType = 'lead' | 'appointment' | 'job_walk'
+
+interface MeasurementsCardProps {
+  parentType: MeasurementsParentType
+  parentId: string
   userId: string
-  onPatch: (patch: Partial<JobWalk>) => void
+  measurements: string | null
+  onMeasurementsPatch: (value: string | null) => void
 }
 
 interface MeasurementPdf {
   id: string
-  job_walk_id: string
   file_name: string
   file_url: string
   storage_path: string
@@ -34,14 +36,44 @@ interface PendingUpload {
   fileName: string
 }
 
-const BUCKET = 'job-walk-measurements'
+const CONFIG: Record<
+  MeasurementsParentType,
+  {
+    parentTable: string
+    pdfTable: string
+    fk: string
+    bucket: string
+  }
+> = {
+  lead: {
+    parentTable: 'leads',
+    pdfTable: 'lead_measurement_pdfs',
+    fk: 'lead_id',
+    bucket: 'lead-measurement-pdfs',
+  },
+  appointment: {
+    parentTable: 'crm_appointments',
+    pdfTable: 'appointment_measurement_pdfs',
+    fk: 'appointment_id',
+    bucket: 'appointment-measurement-pdfs',
+  },
+  job_walk: {
+    parentTable: 'job_walks',
+    pdfTable: 'job_walk_measurement_pdfs',
+    fk: 'job_walk_id',
+    bucket: 'job-walk-measurements',
+  },
+}
 
-export default function JobWalkMeasurementsCard({
-  walk,
+export default function MeasurementsCard({
+  parentType,
+  parentId,
   userId,
-  onPatch,
-}: JobWalkMeasurementsCardProps) {
-  const [measurements, setMeasurements] = useState(walk.measurements ?? '')
+  measurements,
+  onMeasurementsPatch,
+}: MeasurementsCardProps) {
+  const cfg = CONFIG[parentType]
+  const [text, setText] = useState(measurements ?? '')
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -56,36 +88,46 @@ export default function JobWalkMeasurementsCard({
   const fetchPdfs = useCallback(async () => {
     const supabase = createClient()
     const { data, error } = await supabase
-      .from('job_walk_measurement_pdfs')
+      .from(cfg.pdfTable)
       .select('*')
-      .eq('job_walk_id', walk.id)
+      .eq(cfg.fk, parentId)
       .order('created_at', { ascending: true })
     if (error) {
-      console.error('[JobWalkMeasurements] Fetch PDFs failed:', error)
+      console.error('[MeasurementsCard] Fetch PDFs failed:', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
     } else if (data) {
       setPdfs(data as MeasurementPdf[])
     }
     setLoadingPdfs(false)
-  }, [walk.id])
+  }, [cfg.fk, cfg.pdfTable, parentId])
 
   useEffect(() => {
     fetchPdfs()
   }, [fetchPdfs])
 
   function handleTextChange(value: string) {
-    setMeasurements(value)
-    onPatch({ measurements: value || null })
+    setText(value)
+    onMeasurementsPatch(value || null)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     if (savedIndicatorTimerRef.current) clearTimeout(savedIndicatorTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
       setSaveState('saving')
       const supabase = createClient()
       const { error } = await supabase
-        .from('job_walks')
+        .from(cfg.parentTable)
         .update({ measurements: value || null })
-        .eq('id', walk.id)
+        .eq('id', parentId)
       if (error) {
-        console.error('[JobWalkMeasurements] Save failed:', error)
+        console.error('[MeasurementsCard] Text save failed:', {
+          code: error.code,
+          message: error.message,
+          hint: error.hint,
+          details: error.details,
+        })
         setSaveState('error')
       } else {
         setSaveState('saved')
@@ -111,21 +153,21 @@ export default function JobWalkMeasurementsCard({
           const placeholder = pendingList[idx]
           try {
             const ext = (file.name.split('.').pop() || 'pdf').toLowerCase()
-            const path = `${walk.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+            const path = `${parentId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
             const { error: uploadErr } = await supabase.storage
-              .from(BUCKET)
+              .from(cfg.bucket)
               .upload(path, file, {
                 contentType: file.type || 'application/pdf',
               })
             if (uploadErr) throw uploadErr
 
-            const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path)
+            const { data: urlData } = supabase.storage.from(cfg.bucket).getPublicUrl(path)
             const publicUrl = urlData.publicUrl
 
             const { data: inserted, error: insertErr } = await supabase
-              .from('job_walk_measurement_pdfs')
+              .from(cfg.pdfTable)
               .insert({
-                job_walk_id: walk.id,
+                [cfg.fk]: parentId,
                 file_name: file.name,
                 file_url: publicUrl,
                 storage_path: path,
@@ -139,30 +181,30 @@ export default function JobWalkMeasurementsCard({
               setPdfs((prev) => [...prev, inserted as MeasurementPdf])
             }
           } catch (err) {
-            console.error('[JobWalkMeasurements] Upload failed:', err)
+            console.error('[MeasurementsCard] Upload failed:', err)
           } finally {
             setPending((prev) => prev.filter((p) => p.tempId !== placeholder.tempId))
           }
         })
       )
     },
-    [walk.id, userId]
+    [cfg.bucket, cfg.fk, cfg.pdfTable, parentId, userId]
   )
 
   async function handleDeletePdf(pdf: MeasurementPdf) {
     setDeleting(true)
     const supabase = createClient()
     try {
-      await supabase.storage.from(BUCKET).remove([pdf.storage_path])
+      await supabase.storage.from(cfg.bucket).remove([pdf.storage_path])
       const { error } = await supabase
-        .from('job_walk_measurement_pdfs')
+        .from(cfg.pdfTable)
         .delete()
         .eq('id', pdf.id)
       if (error) throw error
       setPdfs((prev) => prev.filter((p) => p.id !== pdf.id))
       setConfirmDelete(null)
     } catch (err) {
-      console.error('[JobWalkMeasurements] Delete failed:', err)
+      console.error('[MeasurementsCard] Delete failed:', err)
     } finally {
       setDeleting(false)
     }
@@ -180,13 +222,12 @@ export default function JobWalkMeasurementsCard({
         </div>
 
         <textarea
-          value={measurements}
+          value={text}
           onChange={(e) => handleTextChange(e.target.value)}
-          placeholder="Add measurement notes from your job walk..."
+          placeholder="Add measurements..."
           className="w-full min-h-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white resize-y"
         />
 
-        {/* PDF thumbnails */}
         <div className="mt-3">
           {loadingPdfs ? (
             <div className="py-4 flex items-center justify-center text-gray-400">
@@ -240,7 +281,6 @@ export default function JobWalkMeasurementsCard({
           )}
         </div>
 
-        {/* Upload button */}
         <div className="mt-3">
           <button
             type="button"
