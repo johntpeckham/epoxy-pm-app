@@ -5,7 +5,6 @@ import {
   BellIcon,
   PlusIcon,
   XIcon,
-  ChevronDownIcon,
   AlertTriangleIcon,
   Loader2Icon,
   PencilIcon,
@@ -36,7 +35,7 @@ export default function ProjectRemindersCard({
   const [editReminder, setEditReminder] = useState<EstimatingReminder | null>(null)
   const [deleteReminderId, setDeleteReminderId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [completedOpen, setCompletedOpen] = useState(false)
+  const [tab, setTab] = useState<'active' | 'completed'>('active')
 
   const fetchReminders = useCallback(async () => {
     setLoading(true)
@@ -98,13 +97,18 @@ export default function ProjectRemindersCard({
     if (!loading) syncNotifications()
   }, [reminders, loading, userId, projectId, projectName, customerId])
 
-  // Snooze is no longer supported. Existing 'snoozed' rows are hidden from
-  // the active list (they aren't surfaced in the completed list either —
-  // the row is simply invisible until it is completed or dismissed).
-  const pending = reminders.filter((r) => r.status === 'pending')
-  const completed = reminders.filter(
-    (r) => r.status === 'completed' || r.status === 'dismissed'
-  )
+  // Snooze and dismiss are not surfaced in the UI — rows with those statuses
+  // are filtered out of both tabs entirely.
+  const pending = reminders
+    .filter((r) => r.status === 'pending')
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))
+  const completed = reminders
+    .filter((r) => r.status === 'completed')
+    .sort((a, b) => {
+      const at = a.completed_at ?? a.updated_at ?? ''
+      const bt = b.completed_at ?? b.updated_at ?? ''
+      return bt.localeCompare(at)
+    })
 
   async function handleComplete(r: EstimatingReminder) {
     const supabase = createClient()
@@ -125,6 +129,28 @@ export default function ProjectRemindersCard({
     setReminders((prev) =>
       prev.map((x) =>
         x.id === r.id ? { ...x, status: 'completed', completed_at: now } : x
+      )
+    )
+  }
+
+  async function handleUncomplete(r: EstimatingReminder) {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('estimating_reminders')
+      .update({ status: 'pending', completed_at: null })
+      .eq('id', r.id)
+    if (error) {
+      console.error('[ESTIMATING REMINDER UNCOMPLETE ERROR]', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
+      return
+    }
+    setReminders((prev) =>
+      prev.map((x) =>
+        x.id === r.id ? { ...x, status: 'pending', completed_at: null } : x
       )
     )
   }
@@ -178,62 +204,66 @@ export default function ProjectRemindersCard({
           </button>
         </div>
 
+        <div className="-mx-4 px-4 mb-3 border-b border-gray-200 flex items-center gap-4">
+          {(['active', 'completed'] as const).map((key) => {
+            const isActive = tab === key
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={`-mb-px py-2 text-sm whitespace-nowrap transition-colors ${
+                  isActive
+                    ? 'text-amber-500 border-b-[1.5px] border-amber-500 font-medium'
+                    : 'text-gray-400 hover:text-gray-600 border-b-[1.5px] border-transparent'
+                }`}
+              >
+                {key === 'active' ? 'Active' : 'Completed'}
+              </button>
+            )
+          })}
+        </div>
+
         {loading ? (
           <div className="py-6 flex items-center justify-center text-gray-400">
             <Loader2Icon className="w-4 h-4 animate-spin" />
           </div>
+        ) : tab === 'active' ? (
+          pending.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">
+              No upcoming reminders.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {pending.map((r) => (
+                <ReminderRow
+                  key={r.id}
+                  reminder={r}
+                  isCompleted={false}
+                  onToggle={() => handleComplete(r)}
+                  onEdit={() => setEditReminder(r)}
+                  onDelete={() => setDeleteReminderId(r.id)}
+                />
+              ))}
+            </div>
+          )
+        ) : completed.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">
+            No completed reminders.
+          </p>
         ) : (
-          <>
-            {pending.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">
-                No upcoming reminders.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {pending.map((r) => (
-                  <ReminderRow
-                    key={r.id}
-                    reminder={r}
-                    onComplete={() => handleComplete(r)}
-                    onEdit={() => setEditReminder(r)}
-                    onDelete={() => setDeleteReminderId(r.id)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {completed.length > 0 && (
-              <div className="mt-3 border-t border-gray-100 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setCompletedOpen((v) => !v)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition"
-                >
-                  <ChevronDownIcon
-                    className={`w-4 h-4 transition-transform ${
-                      completedOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                  Completed ({completed.length})
-                </button>
-                {completedOpen && (
-                  <div className="mt-2 space-y-1">
-                    {completed.map((r) => (
-                      <div
-                        key={r.id}
-                        className="text-xs text-gray-500 py-1 px-2 bg-gray-50 rounded flex items-center justify-between gap-2"
-                      >
-                        <span className="line-through truncate">{r.title}</span>
-                        <span className="text-gray-400 flex-shrink-0">
-                          {r.status === 'dismissed' ? 'Dismissed' : 'Done'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
+          <div className="space-y-2">
+            {completed.map((r) => (
+              <ReminderRow
+                key={r.id}
+                reminder={r}
+                isCompleted
+                onToggle={() => handleUncomplete(r)}
+                onEdit={() => setEditReminder(r)}
+                onDelete={() => setDeleteReminderId(r.id)}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -273,18 +303,20 @@ export default function ProjectRemindersCard({
 
 function ReminderRow({
   reminder,
-  onComplete,
+  isCompleted,
+  onToggle,
   onEdit,
   onDelete,
 }: {
   reminder: EstimatingReminder
-  onComplete: () => void
+  isCompleted: boolean
+  onToggle: () => void
   onEdit: () => void
   onDelete: () => void
 }) {
   const dueDate = new Date(reminder.due_date)
   const now = new Date()
-  const isOverdue = dueDate <= now && reminder.status === 'pending'
+  const isOverdue = !isCompleted && dueDate <= now && reminder.status === 'pending'
 
   return (
     <div
@@ -298,11 +330,21 @@ function ReminderRow({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          onComplete()
+          onToggle()
         }}
-        className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-400 transition-colors"
-        aria-label="Mark complete"
-      />
+        className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+          isCompleted
+            ? 'border-amber-400 bg-amber-50'
+            : 'border-gray-300 hover:border-amber-400'
+        }`}
+        aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+      >
+        {isCompleted && (
+          <svg viewBox="0 0 16 16" className="w-2.5 h-2.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="3">
+            <path d="M3 8l3.5 3.5L13 5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           {isOverdue && (
@@ -310,20 +352,32 @@ function ReminderRow({
           )}
           <p
             className={`text-sm font-medium truncate ${
-              isOverdue ? 'text-amber-900' : 'text-gray-900'
+              isCompleted
+                ? 'text-gray-400 line-through'
+                : isOverdue
+                ? 'text-amber-900'
+                : 'text-gray-900'
             }`}
           >
             {reminder.title}
           </p>
         </div>
         {reminder.description && (
-          <p className="text-xs text-gray-500 truncate mt-0.5">
+          <p
+            className={`text-xs truncate mt-0.5 ${
+              isCompleted ? 'text-gray-400 line-through' : 'text-gray-500'
+            }`}
+          >
             {reminder.description}
           </p>
         )}
         <p
           className={`text-[11px] mt-0.5 ${
-            isOverdue ? 'text-amber-700 font-medium' : 'text-gray-400'
+            isCompleted
+              ? 'text-gray-400'
+              : isOverdue
+              ? 'text-amber-700 font-medium'
+              : 'text-gray-400'
           }`}
         >
           Due {dueDate.toLocaleDateString()}
