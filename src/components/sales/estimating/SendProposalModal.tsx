@@ -108,6 +108,7 @@ export default function SendProposalModal({
               trigger_event: 'proposal_sent',
               status: 'pending',
               created_by: userId,
+              assigned_to: userId,
             }
           })
           await supabase.from('estimating_reminders').insert(inserts)

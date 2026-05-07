@@ -132,6 +132,54 @@ export default async function MyWorkPage() {
       : null,
   }))
 
+  // Fetch open estimating reminders assigned to the user.
+  const { data: estReminderRows, error: estReminderErr } = await supabase
+    .from('estimating_reminders')
+    .select(
+      'id, title, description, due_date, status, project_id, ' +
+        'estimating_projects!inner(id, name, company_id, companies(name))'
+    )
+    .eq('assigned_to', user.id)
+    .eq('status', 'pending')
+    .order('due_date', { ascending: true })
+
+  if (estReminderErr) {
+    console.error('[ESTIMATING REMINDERS FETCH ERROR]', {
+      code: estReminderErr.code,
+      message: estReminderErr.message,
+      hint: estReminderErr.hint,
+      details: estReminderErr.details,
+    })
+  }
+
+  type RawEstReminder = {
+    id: string
+    title: string
+    description: string | null
+    due_date: string
+    status: string
+    project_id: string
+    estimating_projects: {
+      id: string
+      name: string
+      company_id: string
+      companies: { name: string } | null
+    } | null
+  }
+
+  const estimatingReminders = ((estReminderRows ?? []) as unknown as RawEstReminder[]).map(
+    (r) => ({
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      due_date: r.due_date,
+      project_id: r.project_id,
+      project_name: r.estimating_projects?.name ?? 'Project',
+      company_id: r.estimating_projects?.company_id ?? '',
+      company_name: r.estimating_projects?.companies?.name ?? 'Company',
+    })
+  )
+
   // Office Daily Reports — today's snapshot for the card. Skip the queries
   // entirely when the card is hidden for this user.
   const todayDateStr = new Date().toISOString().slice(0, 10)
@@ -184,6 +232,7 @@ export default async function MyWorkPage() {
         initialOfficeTasks={officeTasks ?? []}
         initialExpenses={expenses}
         initialReminders={reminders}
+        initialEstimatingReminders={estimatingReminders}
         initialMyTodayReport={myTodayReport}
         initialTodayReportsCount={todayReportsCount}
       />

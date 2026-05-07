@@ -64,6 +64,7 @@ export interface EstimatingReminder {
   snoozed_until: string | null
   completed_at: string | null
   created_by: string | null
+  assigned_to: string | null
   created_at: string
   updated_at: string
 }
