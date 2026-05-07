@@ -205,7 +205,11 @@ export default function DialerSession({
 
   // Load appointment modal data once, lazily
   const loadAppointmentData = useCallback(async () => {
-    const [{ data: comps }, { data: cts }, { data: profs }] = await Promise.all([
+    const [
+      { data: comps, error: compErr },
+      { data: cts, error: ctErr },
+      { data: profs, error: profErr },
+    ] = await Promise.all([
       supabase
         .from('companies')
         .select('id, name, city, state')
@@ -220,6 +224,30 @@ export default function DialerSession({
         .select('id, display_name')
         .order('display_name', { ascending: true }),
     ])
+    if (compErr) {
+      console.error('[DIALER SESSION COMPANIES FETCH ERROR]', {
+        code: compErr.code,
+        message: compErr.message,
+        hint: compErr.hint,
+        details: compErr.details,
+      })
+    }
+    if (ctErr) {
+      console.error('[DIALER SESSION CONTACTS FETCH ERROR]', {
+        code: ctErr.code,
+        message: ctErr.message,
+        hint: ctErr.hint,
+        details: ctErr.details,
+      })
+    }
+    if (profErr) {
+      console.error('[DIALER SESSION PROFILES FETCH ERROR]', {
+        code: profErr.code,
+        message: profErr.message,
+        hint: profErr.hint,
+        details: profErr.details,
+      })
+    }
     setApptCompanies((comps ?? []) as AppointmentCompanyOption[])
     setApptContacts((cts ?? []) as AppointmentContactOption[])
     setApptAssignees((profs ?? []) as AppointmentAssigneeOption[])
