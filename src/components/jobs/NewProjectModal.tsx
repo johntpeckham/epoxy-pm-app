@@ -26,7 +26,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   const [name, setName] = useState('')
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null)
   const [address, setAddress] = useState('')
-  const [proposalNumber, setProposalNumber] = useState('')
+  const [assignedProjectNumber, setAssignedProjectNumber] = useState<number | null>(null)
   const [status, setStatus] = useState<'Active' | 'Completed' | 'Closed'>('Active')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -64,15 +64,64 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
   useEffect(() => {
     const supabase = createClient()
     async function fetchData() {
-      const [custResult, empResult, tmplResult] = await Promise.all([
-        supabase.from('companies').select('*').eq('archived', false).order('name', { ascending: true }),
+      const [custResult, empResult, tmplResult, estNumResult, projNumResult] = await Promise.all([
+        supabase
+          .from('companies')
+          .select('*')
+          .eq('archived', false)
+          .eq('status', 'active')
+          .order('name', { ascending: true }),
         supabase.from('employee_profiles').select('*').order('name', { ascending: true }),
         supabase.from('checklist_templates').select('id, name, is_default, is_closeout').order('name', { ascending: true }),
+        supabase.from('estimating_projects').select('project_number'),
+        supabase.from('projects').select('proposal_number'),
       ])
+      if (custResult.error) {
+        console.error('[NEW PROJECT COMPANIES FETCH ERROR]', {
+          code: custResult.error.code,
+          message: custResult.error.message,
+          hint: custResult.error.hint,
+          details: custResult.error.details,
+        })
+      }
+      if (estNumResult.error) {
+        console.error('[NEW PROJECT EST NUMBERS FETCH ERROR]', {
+          code: estNumResult.error.code,
+          message: estNumResult.error.message,
+          hint: estNumResult.error.hint,
+          details: estNumResult.error.details,
+        })
+      }
+      if (projNumResult.error) {
+        console.error('[NEW PROJECT PROJ NUMBERS FETCH ERROR]', {
+          code: projNumResult.error.code,
+          message: projNumResult.error.message,
+          hint: projNumResult.error.hint,
+          details: projNumResult.error.details,
+        })
+      }
       if (custResult.data) setCustomers(custResult.data)
       if (empResult.data) setEmployeeProfiles(empResult.data as EmployeeProfile[])
       // Filter out default and closeout templates from manual selection (they're auto-applied)
       if (tmplResult.data) setChecklistTemplates(tmplResult.data.filter((t: { is_default?: boolean; is_closeout?: boolean }) => !t.is_default && !t.is_closeout))
+
+      // Compute next project number as max(existing across both tables) + 1.
+      // Project numbers are stored as text; extract the first run of digits.
+      let maxNumeric = 999 // so the first project becomes 1000
+      const consider = (raw: unknown) => {
+        if (typeof raw !== 'string' && typeof raw !== 'number') return
+        const m = String(raw).match(/(\d+)/)
+        if (!m) return
+        const n = parseInt(m[1], 10)
+        if (Number.isFinite(n) && n > maxNumeric) maxNumeric = n
+      }
+      for (const r of (estNumResult.data ?? []) as { project_number: unknown }[]) {
+        consider(r.project_number)
+      }
+      for (const r of (projNumResult.data ?? []) as { proposal_number: unknown }[]) {
+        consider(r.proposal_number)
+      }
+      setAssignedProjectNumber(maxNumeric + 1)
     }
     fetchData()
   }, [])
@@ -194,7 +243,7 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
       client_name: selectedCompany?.name ?? '',
       address: address.trim(),
       status,
-      ...(proposalNumber.trim() ? { proposal_number: proposalNumber.trim() } : {}),
+      ...(assignedProjectNumber !== null ? { proposal_number: String(assignedProjectNumber) } : {}),
       ...(startDate ? { start_date: startDate } : {}),
       ...(endDate ? { end_date: endDate } : {}),
       include_weekends: includeWeekends,
@@ -207,6 +256,12 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
     }).select('id, start_date').single()
 
     if (error) {
+      console.error('[NEW PROJECT INSERT ERROR]', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      })
       setError(error.message)
       setLoading(false)
       return
@@ -424,14 +479,13 @@ export default function NewProjectModal({ onClose, onCreated }: NewProjectModalP
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Proposal #
+                Project #
               </label>
               <input
                 type="text"
-                value={proposalNumber}
-                onChange={(e) => setProposalNumber(e.target.value)}
-                placeholder="e.g. EST-1042"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                readOnly
+                value={assignedProjectNumber !== null ? `#${assignedProjectNumber}` : '…'}
+                className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2.5 text-sm text-gray-700 cursor-default focus:outline-none"
               />
             </div>
 
