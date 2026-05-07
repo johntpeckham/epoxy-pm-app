@@ -99,16 +99,26 @@ export default async function MyWorkPage() {
     }))
   }
 
-  // Fetch all open follow-up reminders assigned to the user.
-  const { data: reminderRows } = await supabase
+  // Fetch follow-up reminders assigned to the user (open + completed). The
+  // client splits by `is_completed` so completed rows show in the "N completed"
+  // section. There's no time window — mirrors the Office Tasks pattern.
+  const { data: reminderRows, error: reminderErr } = await supabase
     .from('crm_follow_up_reminders')
     .select(
       'id, reminder_date, note, company_id, contact_id, is_completed, ' +
         'companies!inner(id, name), contacts(first_name, last_name)'
     )
     .eq('assigned_to', user.id)
-    .eq('is_completed', false)
     .order('reminder_date', { ascending: true })
+
+  if (reminderErr) {
+    console.error('[CRM REMINDERS FETCH ERROR]', {
+      code: reminderErr.code,
+      message: reminderErr.message,
+      hint: reminderErr.hint,
+      details: reminderErr.details,
+    })
+  }
 
   type RawReminder = {
     id: string
@@ -130,17 +140,20 @@ export default async function MyWorkPage() {
     contact_name: r.contacts
       ? `${r.contacts.first_name} ${r.contacts.last_name}`
       : null,
+    is_completed: r.is_completed,
   }))
 
-  // Fetch open estimating reminders assigned to the user.
+  // Fetch estimating reminders assigned to the user — both pending and
+  // completed. Snoozed/dismissed rows are intentionally excluded. Splitting
+  // happens client-side so completed rows surface in the Completed section.
   const { data: estReminderRows, error: estReminderErr } = await supabase
     .from('estimating_reminders')
     .select(
-      'id, title, description, due_date, status, project_id, ' +
+      'id, title, description, due_date, status, completed_at, project_id, ' +
         'estimating_projects!inner(id, name, company_id, companies(name))'
     )
     .eq('assigned_to', user.id)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'completed'])
     .order('due_date', { ascending: true })
 
   if (estReminderErr) {
@@ -158,6 +171,7 @@ export default async function MyWorkPage() {
     description: string | null
     due_date: string
     status: string
+    completed_at: string | null
     project_id: string
     estimating_projects: {
       id: string
@@ -173,6 +187,8 @@ export default async function MyWorkPage() {
       title: r.title,
       description: r.description,
       due_date: r.due_date,
+      status: r.status,
+      completed_at: r.completed_at,
       project_id: r.project_id,
       project_name: r.estimating_projects?.name ?? 'Project',
       company_id: r.estimating_projects?.company_id ?? '',
