@@ -264,9 +264,9 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     const [
-      { data: compData },
-      { data: contactData },
-      { data: callData },
+      { data: compData, error: compErr },
+      { data: contactData, error: contactErr },
+      { data: callData, error: callErr },
     ] = await Promise.all([
       supabase
         .from('companies')
@@ -282,6 +282,30 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         .select('company_id, call_date')
         .order('call_date', { ascending: false }),
     ])
+    if (compErr) {
+      console.error('[EMAILER COMPANIES FETCH ERROR]', {
+        code: compErr.code,
+        message: compErr.message,
+        hint: compErr.hint,
+        details: compErr.details,
+      })
+    }
+    if (contactErr) {
+      console.error('[EMAILER CONTACTS FETCH ERROR]', {
+        code: contactErr.code,
+        message: contactErr.message,
+        hint: contactErr.hint,
+        details: contactErr.details,
+      })
+    }
+    if (callErr) {
+      console.error('[EMAILER CALL LOG FETCH ERROR]', {
+        code: callErr.code,
+        message: callErr.message,
+        hint: callErr.hint,
+        details: callErr.details,
+      })
+    }
     setCompanies((compData ?? []) as CompanyRow[])
     setContacts((contactData ?? []) as ContactRow[])
     const calls = (callData ?? []) as { company_id: string; call_date: string }[]

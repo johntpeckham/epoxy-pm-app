@@ -198,11 +198,11 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     const [
-      { data: compData },
-      { data: contactData },
-      { data: phoneData },
-      { data: callData },
-      { data: templateData },
+      { data: compData, error: compErr },
+      { data: contactData, error: contactErr },
+      { data: phoneData, error: phoneErr },
+      { data: callData, error: callErr },
+      { data: templateData, error: templateErr },
     ] = await Promise.all([
       supabase
         .from('companies')
@@ -226,6 +226,46 @@ export default function DialerSetup({ userId, onStart }: DialerSetupProps) {
         .select('id, name, type, content')
         .order('created_at', { ascending: false }),
     ])
+    if (compErr) {
+      console.error('[DIALER COMPANIES FETCH ERROR]', {
+        code: compErr.code,
+        message: compErr.message,
+        hint: compErr.hint,
+        details: compErr.details,
+      })
+    }
+    if (contactErr) {
+      console.error('[DIALER CONTACTS FETCH ERROR]', {
+        code: contactErr.code,
+        message: contactErr.message,
+        hint: contactErr.hint,
+        details: contactErr.details,
+      })
+    }
+    if (phoneErr) {
+      console.error('[DIALER PHONES FETCH ERROR]', {
+        code: phoneErr.code,
+        message: phoneErr.message,
+        hint: phoneErr.hint,
+        details: phoneErr.details,
+      })
+    }
+    if (callErr) {
+      console.error('[DIALER CALL LOG FETCH ERROR]', {
+        code: callErr.code,
+        message: callErr.message,
+        hint: callErr.hint,
+        details: callErr.details,
+      })
+    }
+    if (templateErr) {
+      console.error('[DIALER TEMPLATES FETCH ERROR]', {
+        code: templateErr.code,
+        message: templateErr.message,
+        hint: templateErr.hint,
+        details: templateErr.details,
+      })
+    }
     setCompanies((compData ?? []) as CompanyRow[])
     setContacts((contactData ?? []) as ContactRow[])
     const phoneRows = (phoneData ?? []) as PhoneRow[]
