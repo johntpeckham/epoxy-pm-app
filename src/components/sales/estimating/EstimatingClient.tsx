@@ -12,10 +12,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import type { Customer } from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
-import {
-  PROJECT_STATUS_STYLES,
-  PROJECT_SOURCE_LABELS,
-} from './types'
+import { PROJECT_STATUS_STYLES } from './types'
 import NewProjectModal from './NewProjectModal'
 import ProjectDashboard from './ProjectDashboard'
 
@@ -519,11 +516,6 @@ function ProjectListRow({
           </p>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
-          {project.source && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-100">
-              {PROJECT_SOURCE_LABELS[project.source]}
-            </span>
-          )}
           <span
             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusStyle.className}`}
           >
