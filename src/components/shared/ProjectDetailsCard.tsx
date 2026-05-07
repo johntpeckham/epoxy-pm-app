@@ -1,38 +1,55 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { PencilIcon } from 'lucide-react'
+import { FileTextIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
-import type { JobWalk } from './JobWalkClient'
 
-interface JobWalkNotesCardProps {
-  walk: JobWalk
-  onPatch: (patch: Partial<JobWalk>) => void
+export type ProjectDetailsParentType = 'lead' | 'appointment' | 'job_walk'
+
+interface ProjectDetailsCardProps {
+  parentType: ProjectDetailsParentType
+  parentId: string
+  projectDetails: string | null
+  onPatch: (value: string | null) => void
 }
 
-export default function JobWalkNotesCard({ walk, onPatch }: JobWalkNotesCardProps) {
-  // Parent remounts this component (via key={walk.id}) when the selected
-  // walk changes, so initial state always reflects the freshly-selected walk.
-  const [notes, setNotes] = useState(walk.notes ?? '')
+const TABLE: Record<ProjectDetailsParentType, string> = {
+  lead: 'leads',
+  appointment: 'crm_appointments',
+  job_walk: 'job_walks',
+}
+
+export default function ProjectDetailsCard({
+  parentType,
+  parentId,
+  projectDetails,
+  onPatch,
+}: ProjectDetailsCardProps) {
+  const [details, setDetails] = useState(projectDetails ?? '')
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handleChange(value: string) {
-    setNotes(value)
-    onPatch({ notes: value || null })
+    setDetails(value)
+    onPatch(value || null)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     if (savedIndicatorTimerRef.current) clearTimeout(savedIndicatorTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
       setSaveState('saving')
       const supabase = createClient()
       const { error } = await supabase
-        .from('job_walks')
-        .update({ notes: value || null })
-        .eq('id', walk.id)
+        .from(TABLE[parentType])
+        .update({ project_details: value || null })
+        .eq('id', parentId)
       if (error) {
-        console.error('[JobWalk] Notes save failed:', error)
+        console.error('[ProjectDetailsCard] Save failed:', {
+          code: error.code,
+          message: error.message,
+          hint: error.hint,
+          details: error.details,
+        })
         setSaveState('error')
       } else {
         setSaveState('saved')
@@ -45,16 +62,16 @@ export default function JobWalkNotesCard({ walk, onPatch }: JobWalkNotesCardProp
     <div className="bg-white rounded-xl border border-gray-200 p-4 transition-all hover:shadow-sm hover:border-gray-300">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-amber-500">
-          <PencilIcon className="w-5 h-5" />
+          <FileTextIcon className="w-5 h-5" />
         </span>
-        <h3 className="text-sm font-semibold text-gray-900 flex-1">Notes</h3>
+        <h3 className="text-sm font-semibold text-gray-900 flex-1">Project details</h3>
         <AutoSaveIndicator isSaving={saveState === 'saving'} />
       </div>
 
       <textarea
-        value={notes}
+        value={details}
         onChange={(e) => handleChange(e.target.value)}
-        placeholder="Add notes from your job walk..."
+        placeholder="Describe the project scope, requirements, and details..."
         className="w-full min-h-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white resize-y"
       />
     </div>

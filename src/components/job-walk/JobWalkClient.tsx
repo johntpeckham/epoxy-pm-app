@@ -42,6 +42,9 @@ export interface JobWalk {
   date: string | null
   status: JobWalkStatus
   notes: string | null
+  project_details: string | null
+  lead_source: string | null
+  lead_category_id: string | null
   measurements: string | null
   pushed_to: JobWalkPushedTo | null
   pushed_ref_id: string | null

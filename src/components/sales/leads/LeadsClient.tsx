@@ -41,6 +41,8 @@ export interface Lead {
   date: string | null
   status: LeadStatus
   category: string | null
+  lead_source: string | null
+  lead_category_id: string | null
   project_details: string | null
   measurements: string | null
   pushed_to: LeadPushedTo | null

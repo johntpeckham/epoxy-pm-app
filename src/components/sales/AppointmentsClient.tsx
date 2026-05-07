@@ -2,15 +2,14 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   PlusIcon,
   CalendarIcon,
   UserIcon,
-  ChevronDownIcon,
   SearchIcon,
   ArrowLeftIcon,
   CalendarCheckIcon,
-  PencilIcon,
   Trash2Icon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -22,7 +21,6 @@ import NewAppointmentModal, {
   type AppointmentCompanyOption,
   type AppointmentContactOption,
   type AppointmentAssigneeOption,
-  type AppointmentDraft,
 } from './NewAppointmentModal'
 import KebabMenu from '@/components/ui/KebabMenu'
 import PageTabs from './PageTabs'
@@ -106,6 +104,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
   const { canEdit } = usePermissions()
   const isAdmin = canEdit('user_management')
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
 
   const [loading, setLoading] = useState(true)
   const [appointments, setAppointments] = useState<AppointmentRow[]>([])
@@ -118,7 +117,6 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const [showNewModal, setShowNewModal] = useState(false)
-  const [editDraft, setEditDraft] = useState<AppointmentDraft | null>(null)
   const [confirmDeleteAppt, setConfirmDeleteAppt] = useState<AppointmentRow | null>(null)
   const [deletingAppt, setDeletingAppt] = useState(false)
   const [toast, setToast] = useState<{
@@ -306,17 +304,8 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
 
   // ─── Render ────────────────────────────────────────────────────────────
 
-  function openEditModal(appt: AppointmentRow) {
-    setEditDraft({
-      id: appt.id,
-      company_id: appt.company_id,
-      contact_id: appt.contact_id,
-      date: appt.date,
-      address: appt.address,
-      notes: appt.notes,
-      assigned_to: appt.assigned_to,
-      status: appt.status,
-    })
+  function openDetailPage(appt: AppointmentRow) {
+    router.push(`/sales/appointments/${appt.id}`)
   }
 
   function renderCard(appt: AppointmentRow) {
@@ -328,7 +317,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
     return (
       <div
         key={appt.id}
-        onClick={() => openEditModal(appt)}
+        onClick={() => openDetailPage(appt)}
         className={`bg-white dark:bg-[#242424] border border-gray-200 dark:border-[#2a2a2a] rounded-xl cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all ${
           isDimmed ? 'opacity-70' : ''
         }`}
@@ -379,11 +368,6 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
               <KebabMenu
                 variant="light"
                 items={[
-                  {
-                    label: 'Edit',
-                    icon: <PencilIcon className="w-4 h-4" />,
-                    onSelect: () => openEditModal(appt),
-                  },
                   {
                     label: 'Delete',
                     icon: <Trash2Icon className="w-4 h-4" />,
@@ -492,28 +476,18 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
         )}
       </div>
 
-      {/* New / edit modal */}
-      {(showNewModal || editDraft) && (
+      {/* New appointment modal */}
+      {showNewModal && (
         <NewAppointmentModal
           userId={userId}
           isAdmin={isAdmin}
-          existing={editDraft ?? undefined}
           companies={companies}
           contacts={contacts}
           assignees={assignees}
-          onClose={() => {
+          onClose={() => setShowNewModal(false)}
+          onSaved={(createdId) => {
             setShowNewModal(false)
-            setEditDraft(null)
-          }}
-          onSaved={() => {
-            setShowNewModal(false)
-            setEditDraft(null)
-            fetchAll()
-          }}
-          onDeleted={() => {
-            setShowNewModal(false)
-            setEditDraft(null)
-            fetchAll()
+            router.push(`/sales/appointments/${createdId}`)
           }}
           onCompanyCreated={(company) => {
             setCompanies((prev) => [...prev, company].sort((a, b) => a.name.localeCompare(b.name)))
