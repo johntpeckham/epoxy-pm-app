@@ -47,6 +47,7 @@ export interface MyWorkReminder {
   company_id: string
   company_name: string
   contact_name: string | null
+  is_completed: boolean
 }
 
 export interface MyWorkEstimatingReminder {
@@ -54,6 +55,8 @@ export interface MyWorkEstimatingReminder {
   title: string
   description: string | null
   due_date: string
+  status: string
+  completed_at: string | null
   project_id: string
   project_name: string
   company_id: string
@@ -389,11 +392,16 @@ export default function MyWorkClient({
     initialEstimatingReminders ?? []
   )
 
+  // Toggle local state optimistically so the row moves to/from the Completed
+  // section. On DB error, revert.
   const toggleReminderComplete = useCallback(
-    async (id: string) => {
+    async (id: string, target: boolean) => {
+      setReminders((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, is_completed: target } : r))
+      )
       const { error } = await supabase
         .from('crm_follow_up_reminders')
-        .update({ is_completed: true })
+        .update({ is_completed: target })
         .eq('id', id)
       if (error) {
         console.error('[CRM REMINDER COMPLETE ERROR]', {
@@ -402,18 +410,26 @@ export default function MyWorkClient({
           hint: error.hint,
           details: error.details,
         })
-        return
+        setReminders((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, is_completed: !target } : r))
+        )
       }
-      setReminders((prev) => prev.filter((r) => r.id !== id))
     },
     [supabase]
   )
 
   const completeEstimatingReminder = useCallback(
-    async (id: string) => {
+    async (id: string, target: 'pending' | 'completed') => {
+      const nowIso = new Date().toISOString()
+      const completedAt = target === 'completed' ? nowIso : null
+      setEstimatingReminders((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, status: target, completed_at: completedAt } : r
+        )
+      )
       const { error } = await supabase
         .from('estimating_reminders')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .update({ status: target, completed_at: completedAt })
         .eq('id', id)
       if (error) {
         console.error('[ESTIMATING REMINDER COMPLETE ERROR]', {
@@ -422,9 +438,15 @@ export default function MyWorkClient({
           hint: error.hint,
           details: error.details,
         })
-        return
+        const reverted = target === 'completed' ? 'pending' : 'completed'
+        setEstimatingReminders((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, status: reverted, completed_at: reverted === 'completed' ? nowIso : null }
+              : r
+          )
+        )
       }
-      setEstimatingReminders((prev) => prev.filter((r) => r.id !== id))
     },
     [supabase]
   )
@@ -568,6 +590,16 @@ export default function MyWorkClient({
     const key = `ft-${task.id}`
     if (pendingCompleteIds.has(key)) cancelPendingComplete(key)
     else schedulePendingComplete(key, () => { void toggleTaskStatus(task) })
+  }
+  function handleReminderCheckbox(id: string) {
+    const key = `rem-${id}`
+    if (pendingCompleteIds.has(key)) cancelPendingComplete(key)
+    else schedulePendingComplete(key, () => { void toggleReminderComplete(id, true) })
+  }
+  function handleEstimatingReminderCheckbox(id: string) {
+    const key = `est-${id}`
+    if (pendingCompleteIds.has(key)) cancelPendingComplete(key)
+    else schedulePendingComplete(key, () => { void completeEstimatingReminder(id, 'completed') })
   }
 
   /* ================================================================ */
@@ -942,8 +974,15 @@ export default function MyWorkClient({
         >
           {(() => {
             const showReminders = canViewCrm
-            const activeReminders = showReminders ? reminders : []
-            const activeEstimatingReminders = estimatingReminders
+            const visibleReminders = showReminders ? reminders : []
+            const activeReminders = visibleReminders.filter((r) => !r.is_completed)
+            const completedReminders = visibleReminders.filter((r) => r.is_completed)
+            const activeEstimatingReminders = estimatingReminders.filter(
+              (r) => r.status === 'pending'
+            )
+            const completedEstimatingReminders = estimatingReminders.filter(
+              (r) => r.status === 'completed'
+            )
             const totalActive =
               activeOfficeTasks.length +
               activeChecklist.length +
@@ -951,7 +990,11 @@ export default function MyWorkClient({
               activeReminders.length +
               activeEstimatingReminders.length
             const totalCompleted =
-              completedOfficeTasks.length + completedChecklist.length + completedTasks.length
+              completedOfficeTasks.length +
+              completedChecklist.length +
+              completedTasks.length +
+              completedReminders.length +
+              completedEstimatingReminders.length
             const overdueCount =
               activeOfficeTasks.filter((t) => isOverdue(t.due_date) && !t.is_completed).length +
               activeChecklist.filter((c) => isOverdue(c.due_date)).length +
@@ -1042,10 +1085,12 @@ export default function MyWorkClient({
                       if (it.kind === 'reminder') {
                         const r = it.reminder
                         const overdue = isReminderOverdue(r.reminder_date)
+                        const key = `rem-${r.id}`
+                        const isPending = pendingCompleteIds.has(key)
                         return (
                           <div
-                            key={`rem-${r.id}`}
-                            className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group cursor-pointer"
+                            key={key}
+                            className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group cursor-pointer${isPending ? ' opacity-60' : ''}`}
                             onClick={() => router.push(`/sales/crm/${r.company_id}`)}
                           >
                             <div className="flex items-stretch">
@@ -1055,13 +1100,15 @@ export default function MyWorkClient({
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      toggleReminderComplete(r.id)
+                                      handleReminderCheckbox(r.id)
                                     }}
                                     className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
                                     aria-label="Mark complete"
-                                  />
+                                  >
+                                    {isPending && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                                  </button>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-gray-900 truncate">
+                                    <p className={`text-xs font-medium text-gray-900 truncate${isPending ? ' line-through' : ''}`}>
                                       {r.contact_name
                                         ? `${r.contact_name} · ${r.company_name}`
                                         : r.company_name}
@@ -1092,10 +1139,12 @@ export default function MyWorkClient({
                       }
                       const r = it.reminder
                       const overdue = Date.parse(r.due_date) <= Date.now()
+                      const key = `est-${r.id}`
+                      const isPending = pendingCompleteIds.has(key)
                       return (
                         <div
-                          key={`est-${r.id}`}
-                          className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group cursor-pointer"
+                          key={key}
+                          className={`rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group cursor-pointer${isPending ? ' opacity-60' : ''}`}
                           onClick={() =>
                             router.push(
                               `/estimating?customer=${r.company_id}&project=${r.project_id}`
@@ -1109,13 +1158,15 @@ export default function MyWorkClient({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    completeEstimatingReminder(r.id)
+                                    handleEstimatingReminderCheckbox(r.id)
                                   }}
                                   className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
                                   aria-label="Mark complete"
-                                />
+                                >
+                                  {isPending && <CheckIcon className="w-2.5 h-2.5 text-amber-500" />}
+                                </button>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-gray-900 truncate">
+                                  <p className={`text-xs font-medium text-gray-900 truncate${isPending ? ' line-through' : ''}`}>
                                     {r.title}
                                   </p>
                                   <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
@@ -1298,6 +1349,70 @@ export default function MyWorkClient({
                                 </button>
                                 <p className="text-xs text-gray-500 line-through truncate flex-1">{task.title}</p>
                                 <span className="text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-700 flex-shrink-0">Field Tasks</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {completedReminders.map((r) => (
+                        <div
+                          key={`rem-c-${r.id}`}
+                          className="rounded-lg overflow-hidden bg-gray-50 transition-colors cursor-pointer"
+                          onClick={() => router.push(`/sales/crm/${r.company_id}`)}
+                        >
+                          <div className="flex items-stretch">
+                            <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
+                            <div className="flex-1 min-w-0 px-4 py-3">
+                              <div className="flex items-start gap-2.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    void toggleReminderComplete(r.id, false)
+                                  }}
+                                  className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center"
+                                  aria-label="Mark incomplete"
+                                >
+                                  <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                                </button>
+                                <p className="text-xs text-gray-500 line-through truncate flex-1">
+                                  {r.contact_name
+                                    ? `${r.contact_name} · ${r.company_name}`
+                                    : r.company_name}
+                                </p>
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 flex-shrink-0">CRM Reminder</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {completedEstimatingReminders.map((r) => (
+                        <div
+                          key={`est-c-${r.id}`}
+                          className="rounded-lg overflow-hidden bg-gray-50 transition-colors cursor-pointer"
+                          onClick={() =>
+                            router.push(
+                              `/estimating?customer=${r.company_id}&project=${r.project_id}`
+                            )
+                          }
+                        >
+                          <div className="flex items-stretch">
+                            <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
+                            <div className="flex-1 min-w-0 px-4 py-3">
+                              <div className="flex items-start gap-2.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    void completeEstimatingReminder(r.id, 'pending')
+                                  }}
+                                  className="mt-0.5 w-4 h-4 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0 flex items-center justify-center"
+                                  aria-label="Mark incomplete"
+                                >
+                                  <CheckIcon className="w-2.5 h-2.5 text-amber-500" />
+                                </button>
+                                <p className="text-xs text-gray-500 line-through truncate flex-1">
+                                  {r.title}
+                                </p>
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-700 flex-shrink-0">Estimating Reminder</span>
                               </div>
                             </div>
                           </div>
