@@ -312,8 +312,8 @@ export default function MyWorkClient({
   const [officeTasks, setOfficeTasks] = useState(initialOfficeTasks)
   const [showOfficeCreateModal, setShowOfficeCreateModal] = useState(false)
 
-  /* ---- Unified Assigned Work completed toggle ---- */
-  const [showCompletedAssigned, setShowCompletedAssigned] = useState(false)
+  /* ---- Unified Assigned Work tab toggle (Active / Completed) ---- */
+  const [assignedWorkTab, setAssignedWorkTab] = useState<'active' | 'completed'>('active')
 
   /* ---- Unified Assigned Work pending-complete window (shared 3s delay
          before the underlying source actions fire; the user can uncheck
@@ -1008,18 +1008,38 @@ export default function MyWorkClient({
 
             return (
               <>
-                {totalActive > 0 && (
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-600">{totalActive} active</span>
-                    {overdueCount > 0 && (
-                      <span className="text-xs text-red-600 font-medium flex items-center gap-1">
-                        <AlertCircleIcon className="w-3 h-3" />
-                        {overdueCount} overdue
-                      </span>
-                    )}
+                <div className="mb-2 flex items-center justify-between gap-3 border-b border-gray-200 -mx-3.5 px-3.5">
+                  <div className="flex items-center gap-4">
+                    {(['active', 'completed'] as const).map((key) => {
+                      const isActive = assignedWorkTab === key
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setAssignedWorkTab(key)}
+                          className={`-mb-px py-2 text-sm whitespace-nowrap transition-colors ${
+                            isActive
+                              ? 'text-amber-500 border-b-[1.5px] border-amber-500 font-medium'
+                              : 'text-gray-400 hover:text-gray-600 border-b-[1.5px] border-transparent'
+                          }`}
+                        >
+                          {key === 'active' ? 'Active' : 'Completed'}
+                        </button>
+                      )
+                    })}
                   </div>
-                )}
+                  {assignedWorkTab === 'active' && overdueCount > 0 && (
+                    <span className="text-xs text-red-600 font-medium flex items-center gap-1">
+                      <AlertCircleIcon className="w-3 h-3" />
+                      {overdueCount} overdue
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-2 flex-1 min-h-0 overflow-y-auto -mx-4 px-4">
+                  {assignedWorkTab === 'active' && (
+                  <>
+                  {totalActive === 0 && (
+                    <p className="text-xs text-gray-400 py-2">No active work</p>
+                  )}
                   {(() => {
                     type CombinedItem =
                       | { kind: 'office'; date: number; task: typeof activeOfficeTasks[number] }
@@ -1295,17 +1315,13 @@ export default function MyWorkClient({
                     </div>
                     )
                   })}
-                  {totalCompleted > 0 && (
-                    <button
-                      onClick={() => setShowCompletedAssigned(!showCompletedAssigned)}
-                      className="w-full flex items-center gap-1.5 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      {showCompletedAssigned ? <ChevronDownIcon className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
-                      {totalCompleted} completed
-                    </button>
+                  </>
                   )}
-                  {showCompletedAssigned && (
+                  {assignedWorkTab === 'completed' && (
                     <div className="space-y-2 opacity-60">
+                      {totalCompleted === 0 && (
+                        <p className="text-xs text-gray-400 py-2 opacity-100">No completed work yet</p>
+                      )}
                       {completedOfficeTasks.map((task) => (
                         <div key={`ot-c-${task.id}`} className="rounded-lg overflow-hidden bg-gray-50 transition-colors">
                           <div className="flex items-stretch">
