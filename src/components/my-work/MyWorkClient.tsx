@@ -49,6 +49,17 @@ export interface MyWorkReminder {
   contact_name: string | null
 }
 
+export interface MyWorkEstimatingReminder {
+  id: string
+  title: string
+  description: string | null
+  due_date: string
+  project_id: string
+  project_name: string
+  company_id: string
+  company_name: string
+}
+
 type WorkspaceType =
   | 'assigned_tasks'
   | 'assigned_checklist'
@@ -65,6 +76,7 @@ interface Props {
   initialOfficeTasks: OfficeTask[]
   initialExpenses: SalesmanExpenseRow[]
   initialReminders?: MyWorkReminder[]
+  initialEstimatingReminders?: MyWorkEstimatingReminder[]
   initialMyTodayReport?: {
     id: string
     clock_in: string | null
@@ -257,6 +269,7 @@ export default function MyWorkClient({
   initialOfficeTasks,
   initialExpenses,
   initialReminders,
+  initialEstimatingReminders,
   initialMyTodayReport,
   initialTodayReportsCount,
 }: Props) {
@@ -372,6 +385,9 @@ export default function MyWorkClient({
 
   /* ---- Reminders state ---- */
   const [reminders, setReminders] = useState<MyWorkReminder[]>(initialReminders ?? [])
+  const [estimatingReminders, setEstimatingReminders] = useState<MyWorkEstimatingReminder[]>(
+    initialEstimatingReminders ?? []
+  )
 
   const toggleReminderComplete = useCallback(
     async (id: string) => {
@@ -379,8 +395,36 @@ export default function MyWorkClient({
         .from('crm_follow_up_reminders')
         .update({ is_completed: true })
         .eq('id', id)
-      if (error) return
+      if (error) {
+        console.error('[CRM REMINDER COMPLETE ERROR]', {
+          code: error.code,
+          message: error.message,
+          hint: error.hint,
+          details: error.details,
+        })
+        return
+      }
       setReminders((prev) => prev.filter((r) => r.id !== id))
+    },
+    [supabase]
+  )
+
+  const completeEstimatingReminder = useCallback(
+    async (id: string) => {
+      const { error } = await supabase
+        .from('estimating_reminders')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) {
+        console.error('[ESTIMATING REMINDER COMPLETE ERROR]', {
+          code: error.code,
+          message: error.message,
+          hint: error.hint,
+          details: error.details,
+        })
+        return
+      }
+      setEstimatingReminders((prev) => prev.filter((r) => r.id !== id))
     },
     [supabase]
   )
@@ -899,18 +943,21 @@ export default function MyWorkClient({
           {(() => {
             const showReminders = canViewCrm
             const activeReminders = showReminders ? reminders : []
+            const activeEstimatingReminders = estimatingReminders
             const totalActive =
               activeOfficeTasks.length +
               activeChecklist.length +
               activeTasks.length +
-              activeReminders.length
+              activeReminders.length +
+              activeEstimatingReminders.length
             const totalCompleted =
               completedOfficeTasks.length + completedChecklist.length + completedTasks.length
             const overdueCount =
               activeOfficeTasks.filter((t) => isOverdue(t.due_date) && !t.is_completed).length +
               activeChecklist.filter((c) => isOverdue(c.due_date)).length +
               activeTasks.filter((t) => isOverdue(t.due_date)).length +
-              activeReminders.filter((r) => isReminderOverdue(r.reminder_date)).length
+              activeReminders.filter((r) => isReminderOverdue(r.reminder_date)).length +
+              activeEstimatingReminders.filter((r) => Date.parse(r.due_date) <= Date.now()).length
 
             if (totalActive === 0 && totalCompleted === 0) {
               return <p className="text-xs text-gray-400 py-2">No work assigned</p>
@@ -934,6 +981,7 @@ export default function MyWorkClient({
                     type CombinedItem =
                       | { kind: 'office'; date: number; task: typeof activeOfficeTasks[number] }
                       | { kind: 'reminder'; date: number; reminder: typeof activeReminders[number] }
+                      | { kind: 'estimating'; date: number; reminder: typeof activeEstimatingReminders[number] }
                     const combined: CombinedItem[] = [
                       ...activeOfficeTasks.map<CombinedItem>((task) => ({
                         kind: 'office',
@@ -945,6 +993,11 @@ export default function MyWorkClient({
                       ...activeReminders.map<CombinedItem>((r) => ({
                         kind: 'reminder',
                         date: new Date(r.reminder_date).getTime(),
+                        reminder: r,
+                      })),
+                      ...activeEstimatingReminders.map<CombinedItem>((r) => ({
+                        kind: 'estimating',
+                        date: new Date(r.due_date).getTime(),
                         reminder: r,
                       })),
                     ].sort((a, b) => a.date - b.date)
@@ -986,13 +1039,68 @@ export default function MyWorkClient({
                           </div>
                         )
                       }
+                      if (it.kind === 'reminder') {
+                        const r = it.reminder
+                        const overdue = isReminderOverdue(r.reminder_date)
+                        return (
+                          <div
+                            key={`rem-${r.id}`}
+                            className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group cursor-pointer"
+                            onClick={() => router.push(`/sales/crm/${r.company_id}`)}
+                          >
+                            <div className="flex items-stretch">
+                              <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
+                              <div className="flex-1 min-w-0 px-4 py-3">
+                                <div className="flex items-start gap-2.5">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      toggleReminderComplete(r.id)
+                                    }}
+                                    className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
+                                    aria-label="Mark complete"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium text-gray-900 truncate">
+                                      {r.contact_name
+                                        ? `${r.contact_name} · ${r.company_name}`
+                                        : r.company_name}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                      <span className="text-[10px] px-1 py-0.5 rounded bg-violet-200 text-violet-800">CRM Reminder</span>
+                                      <span className={`text-[10px] flex items-center gap-0.5 ${overdue ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                                        <CalendarIcon className="w-2.5 h-2.5" />
+                                        {formatReminderDateTime(r.reminder_date)}
+                                      </span>
+                                      {overdue && (
+                                        <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">
+                                          Overdue
+                                        </span>
+                                      )}
+                                    </div>
+                                    {r.note && (
+                                      <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">
+                                        {r.note}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      }
                       const r = it.reminder
-                      const overdue = isReminderOverdue(r.reminder_date)
+                      const overdue = Date.parse(r.due_date) <= Date.now()
                       return (
                         <div
-                          key={`rem-${r.id}`}
+                          key={`est-${r.id}`}
                           className="rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition duration-200 group cursor-pointer"
-                          onClick={() => router.push(`/sales/crm/${r.company_id}`)}
+                          onClick={() =>
+                            router.push(
+                              `/estimating?customer=${r.company_id}&project=${r.project_id}`
+                            )
+                          }
                         >
                           <div className="flex items-stretch">
                             <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: 'rgba(239, 159, 39, 0.55)' }} aria-hidden />
@@ -1001,22 +1109,23 @@ export default function MyWorkClient({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    toggleReminderComplete(r.id)
+                                    completeEstimatingReminder(r.id)
                                   }}
                                   className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 flex items-center justify-center hover:border-amber-500 transition-colors"
                                   aria-label="Mark complete"
                                 />
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs font-medium text-gray-900 truncate">
-                                    {r.contact_name
-                                      ? `${r.contact_name} · ${r.company_name}`
-                                      : r.company_name}
+                                    {r.title}
                                   </p>
                                   <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                    <span className="text-[10px] px-1 py-0.5 rounded bg-violet-200 text-violet-800">CRM Reminder</span>
+                                    <span className="text-[10px] px-1 py-0.5 rounded bg-green-200 text-green-800">Estimating Reminder</span>
+                                    <span className="text-[10px] text-gray-500 truncate">
+                                      {r.project_name} · {r.company_name}
+                                    </span>
                                     <span className={`text-[10px] flex items-center gap-0.5 ${overdue ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
                                       <CalendarIcon className="w-2.5 h-2.5" />
-                                      {formatReminderDateTime(r.reminder_date)}
+                                      {formatReminderDateTime(r.due_date)}
                                     </span>
                                     {overdue && (
                                       <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">
@@ -1024,9 +1133,9 @@ export default function MyWorkClient({
                                       </span>
                                     )}
                                   </div>
-                                  {r.note && (
+                                  {r.description && (
                                     <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">
-                                      {r.note}
+                                      {r.description}
                                     </p>
                                   )}
                                 </div>
