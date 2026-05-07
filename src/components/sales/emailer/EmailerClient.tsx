@@ -272,6 +272,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
         .from('companies')
         .select('id, name, industry, zone, city, state, status, priority, assigned_to')
         .eq('archived', false)
+        .neq('status', 'active')
         .order('name', { ascending: true }),
       supabase
         .from('contacts')
