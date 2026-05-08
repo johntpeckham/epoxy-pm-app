@@ -85,7 +85,7 @@ SET
   customer_email = COALESCE(a.customer_email, c.email),
   customer_phone = COALESCE(a.customer_phone, c.phone),
   address        = COALESCE(a.address,        c.address)
-FROM crm_companies c
+FROM companies c
 WHERE a.company_id = c.id
   AND (
     a.customer_name IS NULL OR
@@ -113,12 +113,16 @@ CREATE INDEX IF NOT EXISTS idx_appointment_photos_sort
 
 ALTER TABLE appointment_photos ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can view appointment photos" ON appointment_photos;
 CREATE POLICY "Authenticated users can view appointment photos"
   ON appointment_photos FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can insert appointment photos" ON appointment_photos;
 CREATE POLICY "Authenticated users can insert appointment photos"
   ON appointment_photos FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Authenticated users can update appointment photos" ON appointment_photos;
 CREATE POLICY "Authenticated users can update appointment photos"
   ON appointment_photos FOR UPDATE TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can delete appointment photos" ON appointment_photos;
 CREATE POLICY "Authenticated users can delete appointment photos"
   ON appointment_photos FOR DELETE TO authenticated USING (true);
 
@@ -138,12 +142,16 @@ CREATE INDEX IF NOT EXISTS idx_appointment_measurement_pdfs_appointment_id
 
 ALTER TABLE appointment_measurement_pdfs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can view appointment measurement pdfs" ON appointment_measurement_pdfs;
 CREATE POLICY "Authenticated users can view appointment measurement pdfs"
   ON appointment_measurement_pdfs FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can insert appointment measurement pdfs" ON appointment_measurement_pdfs;
 CREATE POLICY "Authenticated users can insert appointment measurement pdfs"
   ON appointment_measurement_pdfs FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Authenticated users can update appointment measurement pdfs" ON appointment_measurement_pdfs;
 CREATE POLICY "Authenticated users can update appointment measurement pdfs"
   ON appointment_measurement_pdfs FOR UPDATE TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can delete appointment measurement pdfs" ON appointment_measurement_pdfs;
 CREATE POLICY "Authenticated users can delete appointment measurement pdfs"
   ON appointment_measurement_pdfs FOR DELETE TO authenticated USING (true);
 
@@ -156,28 +164,38 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('appointment-measurement-pdfs', 'appointment-measurement-pdfs', true)
 ON CONFLICT (id) DO NOTHING;
 
+DROP POLICY IF EXISTS "Authenticated users can upload appointment photos" ON storage.objects;
 CREATE POLICY "Authenticated users can upload appointment photos"
   ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'appointment-photos');
+DROP POLICY IF EXISTS "Anyone can view appointment photos" ON storage.objects;
 CREATE POLICY "Anyone can view appointment photos"
   ON storage.objects FOR SELECT TO public
   USING (bucket_id = 'appointment-photos');
+-- Note: storage.objects policy names duplicate the appointment_photos table
+-- policy names below; that's fine — each policy is namespaced per table.
+DROP POLICY IF EXISTS "Authenticated users can update appointment photos" ON storage.objects;
 CREATE POLICY "Authenticated users can update appointment photos"
   ON storage.objects FOR UPDATE TO authenticated
   USING (bucket_id = 'appointment-photos');
+DROP POLICY IF EXISTS "Authenticated users can delete appointment photos" ON storage.objects;
 CREATE POLICY "Authenticated users can delete appointment photos"
   ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'appointment-photos');
 
+DROP POLICY IF EXISTS "Authenticated users can upload appointment measurement pdfs" ON storage.objects;
 CREATE POLICY "Authenticated users can upload appointment measurement pdfs"
   ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'appointment-measurement-pdfs');
+DROP POLICY IF EXISTS "Anyone can view appointment measurement pdfs" ON storage.objects;
 CREATE POLICY "Anyone can view appointment measurement pdfs"
   ON storage.objects FOR SELECT TO public
   USING (bucket_id = 'appointment-measurement-pdfs');
+DROP POLICY IF EXISTS "Authenticated users can update appointment measurement pdfs" ON storage.objects;
 CREATE POLICY "Authenticated users can update appointment measurement pdfs"
   ON storage.objects FOR UPDATE TO authenticated
   USING (bucket_id = 'appointment-measurement-pdfs');
+DROP POLICY IF EXISTS "Authenticated users can delete appointment measurement pdfs" ON storage.objects;
 CREATE POLICY "Authenticated users can delete appointment measurement pdfs"
   ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'appointment-measurement-pdfs');
