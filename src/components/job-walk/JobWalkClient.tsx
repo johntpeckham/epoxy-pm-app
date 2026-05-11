@@ -50,6 +50,10 @@ export interface JobWalk {
   measurements: string | null
   pushed_to: JobWalkPushedTo | null
   pushed_ref_id: string | null
+  converted_to_project_id: string | null
+  // Joined via PostgREST relationship — see Lead's converted_to_project
+  // for the gating semantics.
+  converted_to_project?: { project_number: string | null } | null
   assigned_to: string | null
   created_by: string | null
   created_at: string
@@ -337,6 +341,16 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
               )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+              {walk.converted_to_project_id && walk.converted_to_project && (
+                <Link
+                  href={`/estimating?customer=${walk.company_id}&project=${walk.converted_to_project_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-full px-2 py-0.5 transition"
+                  title="View linked project"
+                >
+                  → Project #{walk.converted_to_project.project_number ?? '…'}
+                </Link>
+              )}
               <select
                 value={walk.status}
                 onChange={(e) => {

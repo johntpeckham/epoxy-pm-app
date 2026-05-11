@@ -48,6 +48,17 @@ export interface Lead {
   measurements: string | null
   pushed_to: LeadPushedTo | null
   pushed_ref_id: string | null
+  converted_to_project_id: string | null
+  /**
+   * Joined-in object from the PostgREST `select('*, converted_to_project:
+   * estimating_projects!converted_to_project_id(project_number)')`. Used
+   * by the Completed-tab badge to display "→ Project #XXXX". May be null
+   * even when converted_to_project_id is non-null if the project was
+   * deleted (the FK is ON DELETE SET NULL, so id resets to NULL in that
+   * case — but PostgREST sometimes returns a stale shape; gate on both
+   * fields).
+   */
+  converted_to_project?: { project_number: string | null } | null
   assigned_to: string | null
   created_by: string | null
   created_at: string
@@ -305,6 +316,16 @@ export default function LeadsClient({
               )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+              {lead.converted_to_project_id && lead.converted_to_project && (
+                <Link
+                  href={`/estimating?customer=${lead.company_id}&project=${lead.converted_to_project_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-full px-2 py-0.5 transition"
+                  title="View linked project"
+                >
+                  → Project #{lead.converted_to_project.project_number ?? '…'}
+                </Link>
+              )}
               <select
                 value={lead.status}
                 onChange={(e) => {

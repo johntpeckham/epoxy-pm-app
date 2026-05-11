@@ -89,6 +89,62 @@ export default function AppointmentPushMenu({
     setBusy(false)
   }
 
+  async function pushToLead() {
+    setOpen(false)
+    if (busy) return
+    setBusy(true)
+    const supabase = createClient()
+
+    // Drop the time-of-day component — leads.date is a plain DATE column,
+    // not timestamptz. Matches pushToJobWalk's same trim.
+    const dateOnly = appointment.date
+      ? new Date(appointment.date).toISOString().slice(0, 10)
+      : null
+
+    const { data: created, error: createErr } = await supabase
+      .from('leads')
+      .insert({
+        project_name:
+          appointment.project_name || appointment.title || 'Untitled Lead',
+        company_id: appointment.company_id,
+        customer_name: appointment.customer_name,
+        customer_email: appointment.customer_email,
+        customer_phone: appointment.customer_phone,
+        address: appointment.address,
+        project_address: appointment.project_address,
+        date: dateOnly,
+        project_details: appointment.project_details,
+        measurements: appointment.measurements,
+        lead_source: appointment.lead_source,
+        lead_category_id: appointment.lead_category_id,
+        assigned_to: appointment.assigned_to,
+        created_by: userId,
+        status: 'new',
+      })
+      .select('id')
+      .single()
+
+    if (createErr || !created) {
+      console.error('[AppointmentPushMenu] Push to lead failed:', {
+        code: createErr?.code,
+        message: createErr?.message,
+        hint: createErr?.hint,
+        details: createErr?.details,
+      })
+      showToast(`Push failed: ${createErr?.message ?? 'unknown error'}`)
+      setBusy(false)
+      return
+    }
+
+    // Per the prompt's decision A: skip writing source's pushed_to /
+    // pushed_ref_id for new lateral directions. crm_appointments.pushed_to
+    // CHECK doesn't permit 'lead' — writing it would fail. The target
+    // row's existence is the only back-reference we leave behind for now.
+
+    showToast('Pushed to lead', `/sales/leads/${created.id}`)
+    setBusy(false)
+  }
+
   return (
     <div className="relative flex-shrink-0" ref={menuRef}>
       <button
@@ -104,20 +160,17 @@ export default function AppointmentPushMenu({
         <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[220px]">
           <button
             type="button"
+            onClick={pushToLead}
+            className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Push to lead
+          </button>
+          <button
+            type="button"
             onClick={pushToJobWalk}
             className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
             Push to job walk
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false)
-              showToast('Coming soon')
-            }}
-            className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Push to estimating
           </button>
         </div>
       )}
