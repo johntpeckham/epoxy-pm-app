@@ -100,6 +100,7 @@ export default function JobWalkDetailClient({
     customer_email: walk.customer_email,
     customer_phone: walk.customer_phone,
     address: walk.address,
+    project_address: walk.project_address,
     date: walk.date,
     assigned_to: walk.assigned_to,
     lead_source: walk.lead_source,

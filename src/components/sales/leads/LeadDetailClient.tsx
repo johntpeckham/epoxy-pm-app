@@ -125,6 +125,7 @@ export default function LeadDetailClient({
     customer_email: lead.customer_email,
     customer_phone: lead.customer_phone,
     address: lead.address,
+    project_address: lead.project_address,
     date: lead.date,
     assigned_to: lead.assigned_to,
     lead_source: lead.lead_source,

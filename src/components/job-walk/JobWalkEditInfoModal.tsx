@@ -7,11 +7,13 @@ import Portal from '@/components/ui/Portal'
 import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import type { JobWalk } from './JobWalkClient'
+import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
 
 interface JobWalkEditInfoModalProps {
   walk: JobWalk
   customers: Customer[]
   assignees?: AppointmentAssigneeOption[]
+  categories?: LeadCategory[]
   onClose: () => void
   onSaved: (patch: Partial<JobWalk>) => void
 }
@@ -24,6 +26,7 @@ export default function JobWalkEditInfoModal({
   walk,
   customers,
   assignees = [],
+  categories = [],
   onClose,
   onSaved,
 }: JobWalkEditInfoModalProps) {
@@ -33,8 +36,19 @@ export default function JobWalkEditInfoModal({
   const [customerEmail, setCustomerEmail] = useState(walk.customer_email ?? '')
   const [customerPhone, setCustomerPhone] = useState(walk.customer_phone ?? '')
   const [address, setAddress] = useState(walk.address ?? '')
+  const [projectAddress, setProjectAddress] = useState(walk.project_address ?? '')
+  const [sameAsCustomer, setSameAsCustomer] = useState<boolean>(() => {
+    if (!walk.project_address) return true
+    return (walk.project_address ?? '') === (walk.address ?? '')
+  })
   const [date, setDate] = useState(walk.date ?? '')
   const [assignedTo, setAssignedTo] = useState<string>(walk.assigned_to ?? '')
+  const [leadSource, setLeadSource] = useState<string>(walk.lead_source ?? '')
+  const [leadCategoryId, setLeadCategoryId] = useState<string>(walk.lead_category_id ?? '')
+  const [addingCategory, setAddingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [savingCategory, setSavingCategory] = useState(false)
+  const [localCategories, setLocalCategories] = useState<LeadCategory[]>(categories)
 
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -54,6 +68,10 @@ export default function JobWalkEditInfoModal({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  useEffect(() => {
+    if (sameAsCustomer) setProjectAddress(address)
+  }, [sameAsCustomer, address])
+
   const filteredCustomers = useMemo(() => {
     const q = customerQuery.trim().toLowerCase()
     if (!q) return customers
@@ -64,7 +82,7 @@ export default function JobWalkEditInfoModal({
     )
   }, [customers, customerQuery])
 
-  function handleSelectCustomer(c: Customer) {
+  async function handleSelectCustomer(c: Customer) {
     const fullAddr = buildFullAddress(c)
     setCustomerId(c.id)
     setCustomerQuery(c.name)
@@ -72,6 +90,63 @@ export default function JobWalkEditInfoModal({
     setCustomerPhone(c.phone ?? '')
     if (fullAddr) setAddress(fullAddr)
     setCustomerDropdownOpen(false)
+
+    const supabase = createClient()
+    const { data: primary, error: contactErr } = await supabase
+      .from('contacts')
+      .select('email, phone')
+      .eq('company_id', c.id)
+      .eq('is_primary', true)
+      .maybeSingle()
+    if (contactErr) {
+      console.error('[JobWalkEditInfoModal] Primary contact lookup failed:', {
+        code: contactErr.code,
+        message: contactErr.message,
+        hint: contactErr.hint,
+        details: contactErr.details,
+      })
+      return
+    }
+    if (primary) {
+      if (primary.email) setCustomerEmail(primary.email)
+      if (primary.phone) setCustomerPhone(primary.phone)
+    }
+  }
+
+  async function handleAddCategory() {
+    const trimmed = newCategoryName.trim()
+    if (!trimmed) return
+    setSavingCategory(true)
+    const supabase = createClient()
+    const existing = localCategories.find(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+    )
+    let cat = existing
+    if (!cat) {
+      const { data: created, error: createErr } = await supabase
+        .from('lead_categories')
+        .insert({ name: trimmed })
+        .select('*')
+        .single()
+      if (createErr || !created) {
+        console.error('[JobWalkEditInfoModal] Add category failed:', {
+          code: createErr?.code,
+          message: createErr?.message,
+          hint: createErr?.hint,
+          details: createErr?.details,
+        })
+        setSavingCategory(false)
+        return
+      }
+      cat = created as LeadCategory
+      setLocalCategories((prev) =>
+        [...prev, cat as LeadCategory].sort((a, b) => a.name.localeCompare(b.name))
+      )
+    }
+    setLeadCategoryId(cat.id)
+    setSavingCategory(false)
+    setAddingCategory(false)
+    setNewCategoryName('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -95,6 +170,10 @@ export default function JobWalkEditInfoModal({
       finalPhone = customerPhone ? customerPhone : null
     }
 
+    const finalProjectAddress = sameAsCustomer
+      ? (address.trim() || null)
+      : (projectAddress.trim() || null)
+
     const patch: Partial<JobWalk> = {
       project_name: projectName.trim() || 'Untitled Job Walk',
       company_id: finalCustomerId,
@@ -102,8 +181,11 @@ export default function JobWalkEditInfoModal({
       customer_email: finalEmail,
       customer_phone: finalPhone,
       address: address.trim() || null,
+      project_address: finalProjectAddress,
       date: date || null,
       assigned_to: assignedTo || null,
+      lead_source: leadSource.trim() || null,
+      lead_category_id: leadCategoryId || null,
     }
 
     const supabase = createClient()
@@ -254,13 +336,36 @@ export default function JobWalkEditInfoModal({
               </div>
 
               <div>
-                <label className={labelCls}>Address</label>
+                <label className={labelCls}>Customer Address</label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="Street, City, State, Zip"
                   className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 mb-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={sameAsCustomer}
+                    onChange={(e) => setSameAsCustomer(e.target.checked)}
+                    className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Same as customer address
+                  </span>
+                </label>
+                <label className={labelCls}>Project Address</label>
+                <input
+                  type="text"
+                  value={sameAsCustomer ? address : projectAddress}
+                  onChange={(e) => setProjectAddress(e.target.value)}
+                  disabled={sameAsCustomer}
+                  placeholder="Street, City, State, Zip"
+                  className={`${inputCls} ${sameAsCustomer ? 'bg-gray-50 text-gray-600' : ''}`}
                 />
               </div>
 
@@ -272,6 +377,84 @@ export default function JobWalkEditInfoModal({
                   onChange={(e) => setDate(e.target.value)}
                   className={inputCls}
                 />
+              </div>
+
+              <div>
+                <label className={labelCls}>Lead Source</label>
+                <input
+                  type="text"
+                  value={leadSource}
+                  onChange={(e) => setLeadSource(e.target.value)}
+                  placeholder="e.g. Website, Referral, Google Ads"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Lead Category</label>
+                {addingCategory ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddCategory()
+                        } else if (e.key === 'Escape') {
+                          setAddingCategory(false)
+                          setNewCategoryName('')
+                        }
+                      }}
+                      placeholder="New category name"
+                      className={inputCls}
+                      disabled={savingCategory}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      disabled={savingCategory || !newCategoryName.trim()}
+                      className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg disabled:opacity-50"
+                    >
+                      {savingCategory ? '…' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddingCategory(false)
+                        setNewCategoryName('')
+                      }}
+                      disabled={savingCategory}
+                      className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={leadCategoryId}
+                      onChange={(e) => setLeadCategoryId(e.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="">— None —</option>
+                      {localCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setAddingCategory(true)}
+                      className="px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg whitespace-nowrap"
+                    >
+                      Manage
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>

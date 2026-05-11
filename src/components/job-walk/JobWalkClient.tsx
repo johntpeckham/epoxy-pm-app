@@ -20,6 +20,7 @@ import {
 import Link from 'next/link'
 import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
+import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import KebabMenu from '@/components/ui/KebabMenu'
 import NewJobWalkModal from './NewJobWalkModal'
@@ -39,6 +40,7 @@ export interface JobWalk {
   customer_email: string | null
   customer_phone: string | null
   address: string | null
+  project_address: string | null
   date: string | null
   status: JobWalkStatus
   notes: string | null
@@ -98,6 +100,7 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
   const [search, setSearch] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [assignees, setAssignees] = useState<AppointmentAssigneeOption[]>([])
+  const [categories, setCategories] = useState<LeadCategory[]>([])
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingWalk, setEditingWalk] = useState<JobWalk | null>(null)
   const [confirmDeleteWalk, setConfirmDeleteWalk] = useState<JobWalk | null>(null)
@@ -110,7 +113,7 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
   useEffect(() => {
     async function fetchCustomersAndAssignees() {
       const supabase = createClient()
-      const [{ data: custData }, { data: profData }, { data: permsData }] = await Promise.all([
+      const [{ data: custData }, { data: profData }, { data: permsData }, { data: catData }] = await Promise.all([
         supabase
           .from('companies')
           .select('*')
@@ -125,8 +128,13 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
           .select('user_id')
           .eq('feature', 'job_walk')
           .eq('access_level', 'full'),
+        supabase
+          .from('lead_categories')
+          .select('*')
+          .order('name', { ascending: true }),
       ])
       if (custData) setCustomers(custData as Customer[])
+      if (catData) setCategories(catData as LeadCategory[])
       const jobWalkEditIds = new Set(
         ((permsData ?? []) as { user_id: string }[]).map((p) => p.user_id)
       )
@@ -477,6 +485,7 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
           userId={userId}
           customers={customers}
           assignees={assignees}
+          categories={categories}
           onClose={() => setShowCreateModal(false)}
           onCreated={handleCreateFromModal}
         />
@@ -487,6 +496,7 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
           walk={editingWalk}
           customers={customers}
           assignees={assignees}
+          categories={categories}
           onClose={() => setEditingWalk(null)}
           onSaved={(patch) => {
             handleUpdate(editingWalk.id, patch)

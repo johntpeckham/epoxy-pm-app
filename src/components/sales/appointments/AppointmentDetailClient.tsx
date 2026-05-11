@@ -36,6 +36,7 @@ export interface AppointmentRow {
   customer_phone: string | null
   date: string | null
   address: string | null
+  project_address: string | null
   notes: string | null
   status: AppointmentStatus
   pushed_to: AppointmentPushedTo | null
@@ -147,6 +148,7 @@ export default function AppointmentDetailClient({
     customer_email: appt.customer_email,
     customer_phone: appt.customer_phone,
     address: appt.address,
+    project_address: appt.project_address,
     date: appt.date,
     assigned_to: appt.assigned_to,
     lead_source: appt.lead_source,
