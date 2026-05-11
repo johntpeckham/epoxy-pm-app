@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import { US_STATES } from '@/lib/usStates'
 import { useAssignableUsers } from '@/lib/useAssignableUsers'
+import { LEAD_SOURCE_OPTIONS } from '@/lib/crm/leadSources'
 
 export interface EditableCompany {
   id: string
@@ -42,16 +43,6 @@ const INDUSTRY_OPTIONS = [
   'Education',
   'Government',
   'Other',
-]
-
-const LEAD_SOURCE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'google_maps', label: 'Google Maps' },
-  { value: 'referral', label: 'Referral' },
-  { value: 'website', label: 'Website' },
-  { value: 'cold_call', label: 'Cold Call' },
-  { value: 'quickbooks', label: 'QuickBooks' },
-  { value: 'zoom', label: 'Zoom' },
-  { value: 'other', label: 'Other' },
 ]
 
 export default function EditCompanyModal({
