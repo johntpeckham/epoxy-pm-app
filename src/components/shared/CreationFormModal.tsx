@@ -116,6 +116,23 @@ export interface CreationFormModalProps {
   hideAssignedToField?: boolean
   hideAddNewCustomerButton?: boolean
   customerAddressReadOnly?: boolean
+  // Optional banner-style content rendered at the very top of the form
+  // body, above the Project Name field and any error banner. Used by the
+  // conversion modal to show the "X photos and Y PDFs will be copied"
+  // summary. Each wrapper owns its slot content's layout.
+  slotAtTop?: ReactNode
+  // Seed values for the modal's locally-owned form state. The modal still
+  // owns each piece of state via useState; these just override the empty-
+  // string defaults on first render. Useful when pre-filling from an
+  // existing row (e.g. ConvertToProjectModal pre-filling from the source).
+  // Customer pre-fill goes through lockedCustomer / prefillCustomerId; this
+  // prop covers the standalone text/dropdown fields the modal owns.
+  initialValues?: {
+    projectName?: string
+    projectDetails?: string
+    leadSource?: string
+    leadCategoryId?: string
+  }
 
   onSubmit: (data: CreationFormData) => Promise<string | null>
   onClose: () => void
@@ -153,13 +170,15 @@ export default function CreationFormModal({
   hideAssignedToField = false,
   hideAddNewCustomerButton = false,
   customerAddressReadOnly = false,
+  slotAtTop,
+  initialValues,
   onSubmit,
   onClose,
   onCustomerCreated,
 }: CreationFormModalProps) {
   const locked = mode === 'from_company' ? lockedCustomer : null
 
-  const [projectName, setProjectName] = useState('')
+  const [projectName, setProjectName] = useState(initialValues?.projectName ?? '')
   const [customerQuery, setCustomerQuery] = useState(locked?.name ?? '')
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null)
   const [creatingNewCustomer, setCreatingNewCustomer] = useState(false)
@@ -173,9 +192,11 @@ export default function CreationFormModal({
   const [projectAddress, setProjectAddress] = useState('')
   const [sameAsCustomer, setSameAsCustomer] = useState(false)
   const [date, setDate] = useState<string>(todayISO())
-  const [projectDetails, setProjectDetails] = useState('')
-  const [leadSource, setLeadSource] = useState('')
-  const [leadCategoryId, setLeadCategoryId] = useState<string>('')
+  const [projectDetails, setProjectDetails] = useState(initialValues?.projectDetails ?? '')
+  const [leadSource, setLeadSource] = useState(initialValues?.leadSource ?? '')
+  const [leadCategoryId, setLeadCategoryId] = useState<string>(
+    initialValues?.leadCategoryId ?? ''
+  )
   const [addingCategory, setAddingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [savingCategory, setSavingCategory] = useState(false)
@@ -471,6 +492,8 @@ export default function CreationFormModal({
             className="flex-1 flex flex-col overflow-hidden min-h-0"
           >
             <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
+              {slotAtTop}
+
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                   {error}
