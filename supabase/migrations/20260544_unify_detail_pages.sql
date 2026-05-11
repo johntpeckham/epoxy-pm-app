@@ -77,32 +77,42 @@ SET project_details = notes
 WHERE project_details IS NULL
   AND notes IS NOT NULL;
 
--- Backfill customer fields from contacts (linked contact preferred, else
--- the company's primary contact). Address falls back to companies.address.
+-- Backfill customer fields. Postgres won't let us reference the UPDATE
+-- target inside a FROM-clause join chain, so this is split into two passes.
+--
+-- Pass 1: fill from the directly-linked contact (when contact_id is set).
 UPDATE crm_appointments a
 SET
   customer_name = COALESCE(
     a.customer_name,
-    NULLIF(TRIM(CONCAT_WS(' ', ct_direct.first_name, ct_direct.last_name)), ''),
+    NULLIF(TRIM(CONCAT_WS(' ', ct.first_name, ct.last_name)), '')
+  ),
+  customer_email = COALESCE(a.customer_email, ct.email),
+  customer_phone = COALESCE(a.customer_phone, ct.phone)
+FROM contacts ct
+WHERE a.contact_id = ct.id
+  AND (
+    a.customer_name IS NULL OR
+    a.customer_email IS NULL OR
+    a.customer_phone IS NULL
+  );
+
+-- Pass 2: fill any remaining nulls from the company's primary contact,
+-- and address from companies.address. customer_name finally falls back
+-- to the company name if no contact name is available.
+UPDATE crm_appointments a
+SET
+  customer_name = COALESCE(
+    a.customer_name,
     NULLIF(TRIM(CONCAT_WS(' ', ct_primary.first_name, ct_primary.last_name)), ''),
     c.name
   ),
-  customer_email = COALESCE(
-    a.customer_email,
-    ct_direct.email,
-    ct_primary.email
-  ),
-  customer_phone = COALESCE(
-    a.customer_phone,
-    ct_direct.phone,
-    ct_primary.phone
-  ),
-  address = COALESCE(a.address, c.address)
+  customer_email = COALESCE(a.customer_email, ct_primary.email),
+  customer_phone = COALESCE(a.customer_phone, ct_primary.phone),
+  address        = COALESCE(a.address,        c.address)
 FROM companies c
 LEFT JOIN contacts ct_primary
   ON ct_primary.company_id = c.id AND ct_primary.is_primary = true
-LEFT JOIN contacts ct_direct
-  ON ct_direct.id = a.contact_id
 WHERE a.company_id = c.id
   AND (
     a.customer_name IS NULL OR
