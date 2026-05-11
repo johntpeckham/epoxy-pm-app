@@ -40,6 +40,10 @@ interface AppointmentRow {
   status: AppointmentStatus
   pushed_to: PushedTo | null
   pushed_ref_id: string | null
+  converted_to_project_id: string | null
+  // Joined via PostgREST relationship — see Lead's converted_to_project
+  // for the gating semantics.
+  converted_to_project?: { project_number: string | null } | null
   assigned_to: string | null
   created_by: string | null
   created_at: string
@@ -139,7 +143,15 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const apptQuery = supabase.from('crm_appointments').select('*').order('date', { ascending: false })
+    // Join the converted-to project so the Completed-tab badge can show
+    // "→ Project #XXXX" without a second roundtrip. See the leads route
+    // for the same pattern + reasoning.
+    const apptQuery = supabase
+      .from('crm_appointments')
+      .select(
+        '*, converted_to_project:estimating_projects!converted_to_project_id(project_number)'
+      )
+      .order('date', { ascending: false })
     if (!isAdmin) apptQuery.eq('assigned_to', userId)
     const [
       { data: apptData },
@@ -348,6 +360,16 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+              {appt.converted_to_project_id && appt.converted_to_project && (
+                <Link
+                  href={`/estimating?customer=${appt.company_id}&project=${appt.converted_to_project_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-full px-2 py-0.5 transition"
+                  title="View linked project"
+                >
+                  → Project #{appt.converted_to_project.project_number ?? '…'}
+                </Link>
+              )}
               <select
                 value={appt.status}
                 onChange={(e) => {

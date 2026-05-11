@@ -22,6 +22,7 @@ import ProjectDetailsCard from '@/components/shared/ProjectDetailsCard'
 import PhotosCard from '@/components/shared/PhotosCard'
 import MeasurementsCard from '@/components/shared/MeasurementsCard'
 import LeadPushMenu from './LeadPushMenu'
+import ConvertToProjectModal from '@/components/sales/estimating/ConvertToProjectModal'
 
 const LEAD_STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: 'new', label: 'New' },
@@ -64,6 +65,7 @@ export default function LeadDetailClient({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<{ message: string; href?: string | null } | null>(null)
+  const [showConvertModal, setShowConvertModal] = useState(false)
 
   function showToast(message: string, href?: string | null) {
     setToast({ message, href: href ?? null })
@@ -188,6 +190,27 @@ export default function LeadDetailClient({
             onPatch={handleUpdate}
             showToast={showToast}
           />
+          {lead.converted_to_project_id ? (
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/estimating?customer=${lead.company_id}&project=${lead.converted_to_project_id}`
+                )
+              }
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+            >
+              View Project
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowConvertModal(true)}
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+            >
+              Create Project
+            </button>
+          )}
         </div>
         <UnifiedInfoCard
           parentType="lead"
@@ -225,6 +248,28 @@ export default function LeadDetailClient({
           loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => (deleting ? null : setConfirmDelete(false))}
+        />
+      )}
+
+      {showConvertModal && (
+        <ConvertToProjectModal
+          userId={userId}
+          sourceType="lead"
+          sourceId={lead.id}
+          customers={customers}
+          onClose={() => setShowConvertModal(false)}
+          onConverted={(project) => {
+            // Update local lead state so the button flips to "View Project"
+            // immediately. The conversion util also bumped the source's
+            // status to 'sent_to_estimating' server-side — mirror that
+            // here so the status dropdown shows the new value without a
+            // refetch.
+            handleUpdate({
+              converted_to_project_id: project.id,
+              status: 'sent_to_estimating',
+            })
+            setShowConvertModal(false)
+          }}
         />
       )}
 

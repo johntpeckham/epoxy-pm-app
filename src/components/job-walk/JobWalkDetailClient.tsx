@@ -26,6 +26,7 @@ import PhotosCard from '@/components/shared/PhotosCard'
 import MeasurementsCard from '@/components/shared/MeasurementsCard'
 import JobWalkCamToPlanCard from './JobWalkCamToPlanCard'
 import JobWalkPushMenu from './JobWalkPushMenu'
+import ConvertToProjectModal from '@/components/sales/estimating/ConvertToProjectModal'
 
 interface JobWalkDetailClientProps {
   initialWalk: JobWalk
@@ -53,6 +54,7 @@ export default function JobWalkDetailClient({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteToast, setDeleteToast] = useState<string | null>(null)
+  const [showConvertModal, setShowConvertModal] = useState(false)
 
   const handleUpdate = (patch: Partial<JobWalk>) =>
     setWalk((prev) => ({ ...prev, ...patch }))
@@ -164,6 +166,27 @@ export default function JobWalkDetailClient({
             userId={userId}
             onPatch={handleUpdate}
           />
+          {walk.converted_to_project_id ? (
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/estimating?customer=${walk.company_id}&project=${walk.converted_to_project_id}`
+                )
+              }
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+            >
+              View Project
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowConvertModal(true)}
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+            >
+              Create Project
+            </button>
+          )}
         </div>
         <UnifiedInfoCard
           parentType="job_walk"
@@ -202,6 +225,26 @@ export default function JobWalkDetailClient({
           loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => (deleting ? null : setConfirmDelete(false))}
+        />
+      )}
+
+      {showConvertModal && (
+        <ConvertToProjectModal
+          userId={userId}
+          sourceType="job_walk"
+          sourceId={walk.id}
+          customers={customers}
+          onClose={() => setShowConvertModal(false)}
+          onConverted={(project) => {
+            // Conversion util also bumped status to
+            // 'sent_to_estimating' server-side — mirror locally so the
+            // status pill reflects it without a refetch.
+            handleUpdate({
+              converted_to_project_id: project.id,
+              status: 'sent_to_estimating',
+            })
+            setShowConvertModal(false)
+          }}
         />
       )}
 
