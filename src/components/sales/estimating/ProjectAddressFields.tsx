@@ -57,6 +57,11 @@ interface ProjectAddressFieldsProps {
   sameAsCustomer: boolean
   onProjectAddressChange: (next: AddressValues) => void
   onSameAsCustomerChange: (checked: boolean) => void
+  // When true, omit the read-only Customer Address block. Used by the
+  // New Project wrapper, which sits inside CreationFormModal — the shared
+  // modal already renders its own single-text Customer Address field, so
+  // showing this component's 4-field read-only version would duplicate it.
+  hideCustomerAddress?: boolean
 }
 
 export default function ProjectAddressFields({
@@ -65,6 +70,7 @@ export default function ProjectAddressFields({
   sameAsCustomer,
   onProjectAddressChange,
   onSameAsCustomerChange,
+  hideCustomerAddress = false,
 }: ProjectAddressFieldsProps) {
   const lockedInput =
     'w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-sm bg-gray-50 text-gray-600 cursor-not-allowed'
@@ -79,37 +85,39 @@ export default function ProjectAddressFields({
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1.5">
-          Customer Address
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
-          <input
-            readOnly
-            value={customerAddress.street}
-            placeholder="Street"
-            className={`${lockedInput} sm:col-span-6`}
-          />
-          <input
-            readOnly
-            value={customerAddress.city}
-            placeholder="City"
-            className={`${lockedInput} sm:col-span-3`}
-          />
-          <input
-            readOnly
-            value={customerAddress.state}
-            placeholder="State"
-            className={`${lockedInput} sm:col-span-1`}
-          />
-          <input
-            readOnly
-            value={customerAddress.zip}
-            placeholder="Zip"
-            className={`${lockedInput} sm:col-span-2`}
-          />
+      {!hideCustomerAddress && (
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">
+            Customer Address
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
+            <input
+              readOnly
+              value={customerAddress.street}
+              placeholder="Street"
+              className={`${lockedInput} sm:col-span-6`}
+            />
+            <input
+              readOnly
+              value={customerAddress.city}
+              placeholder="City"
+              className={`${lockedInput} sm:col-span-3`}
+            />
+            <input
+              readOnly
+              value={customerAddress.state}
+              placeholder="State"
+              className={`${lockedInput} sm:col-span-1`}
+            />
+            <input
+              readOnly
+              value={customerAddress.zip}
+              placeholder="Zip"
+              className={`${lockedInput} sm:col-span-2`}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
