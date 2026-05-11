@@ -1,16 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PencilIcon, ChevronLeftIcon } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type { Customer } from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
+import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
 import { usePermissions } from '@/lib/usePermissions'
+import UnifiedInfoCard, {
+  type UnifiedInfoFields,
+} from '@/components/shared/UnifiedInfoCard'
+import MeasurementsCard from '@/components/shared/MeasurementsCard'
+import PhotosCard from '@/components/shared/PhotosCard'
 import ProjectEstimatesCard from './ProjectEstimatesCard'
 import ProjectMeasurementsCard from './ProjectMeasurementsCard'
 import ProjectProposalsCard from './ProjectProposalsCard'
 import ProjectRemindersCard from './ProjectRemindersCard'
 import ProjectNumberOverrideModal from './ProjectNumberOverrideModal'
-import EditProjectModal from './EditProjectModal'
+import ProjectEditInfoModal from './ProjectEditInfoModal'
 import { formatAddressLine } from './ProjectAddressFields'
 
 interface ProjectDashboardProps {
@@ -36,6 +43,54 @@ export default function ProjectDashboard({
   const [showOverride, setShowOverride] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
 
+  // The Info card and the edit modal both need the full companies list +
+  // lead_categories. Fetched here once and passed down, matching the
+  // Lead/Appointment/Job Walk detail-page pattern. ProjectDashboard's
+  // external interface from EstimatingClient is unchanged — these are
+  // purely internal additions.
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [categories, setCategories] = useState<LeadCategory[]>([])
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    Promise.all([
+      supabase
+        .from('companies')
+        .select('*')
+        .eq('archived', false)
+        .order('name', { ascending: true }),
+      supabase
+        .from('lead_categories')
+        .select('*')
+        .order('name', { ascending: true }),
+    ]).then(([custRes, catRes]) => {
+      if (cancelled) return
+      if (custRes.error) {
+        console.error('[ProjectDashboard] Load customers failed:', {
+          code: custRes.error.code,
+          message: custRes.error.message,
+          hint: custRes.error.hint,
+          details: custRes.error.details,
+        })
+      } else {
+        setCustomers((custRes.data ?? []) as Customer[])
+      }
+      if (catRes.error) {
+        console.error('[ProjectDashboard] Load lead_categories failed:', {
+          code: catRes.error.code,
+          message: catRes.error.message,
+          hint: catRes.error.hint,
+          details: catRes.error.details,
+        })
+      } else {
+        setCategories((catRes.data ?? []) as LeadCategory[])
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // Compose the project's structured address into a single display line.
   // Falls back to the customer's single-line address only if the project
   // has no structured fields (legacy projects pre-migration backfill).
@@ -45,6 +100,35 @@ export default function ProjectDashboard({
     state: project.project_address_state ?? '',
     zip: project.project_address_zip ?? '',
   })
+
+  // The same line, but used for the Info card's read-only Customer Address
+  // row. Reads directly off the linked customer's structured columns.
+  const customerAddressLine = formatAddressLine({
+    street: customer.address ?? '',
+    city: customer.city ?? '',
+    state: customer.state ?? '',
+    zip: customer.zip ?? '',
+  })
+
+  // UnifiedInfoCard expects a flat UnifiedInfoFields shape. Project's
+  // columns don't line up 1:1 (e.g. estimating_projects.email maps to
+  // customer_email; customer name is read from the joined company; the
+  // structured project address fields concatenate into project_address
+  // for display). Translate here so the card stays oblivious to Project
+  // specifics.
+  const infoData: UnifiedInfoFields = {
+    project_name: project.name,
+    company_id: project.company_id,
+    customer_name: customer?.name ?? null,
+    customer_email: project.email,
+    customer_phone: project.phone,
+    address: customerAddressLine || null,
+    project_address: projectAddressLine || null,
+    date: null,
+    assigned_to: null,
+    lead_source: project.lead_source,
+    lead_category_id: project.lead_category_id,
+  }
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
@@ -100,8 +184,35 @@ export default function ProjectDashboard({
       </div>
 
       <div className="p-4 space-y-4">
+        <UnifiedInfoCard
+          key={`info-${project.id}`}
+          parentType="project"
+          parentId={project.id}
+          data={infoData}
+          customers={customers}
+          assignees={[]}
+          categories={categories}
+          isAdmin={false}
+          onPatch={() => {
+            // Card is read-only for Project — all edits flow through
+            // ProjectEditInfoModal (opened via onEditClick), which calls
+            // ProjectDashboard's onPatch directly. This noop satisfies
+            // the required prop without introducing a second save path.
+          }}
+          onCategoriesChanged={(next) => setCategories(next as LeadCategory[])}
+          onEditClick={() => setShowEdit(true)}
+        />
+
+        <MeasurementsCard
+          key={`measurements-pdfs-${project.id}`}
+          parentType="project"
+          parentId={project.id}
+          userId={userId}
+          dualSourceMode={true}
+        />
+
         <ProjectMeasurementsCard
-          key={`measurements-${project.id}`}
+          key={`takeoffs-${project.id}`}
           project={project}
         />
 
@@ -126,6 +237,13 @@ export default function ProjectDashboard({
           userId={userId}
           customerId={customer.id}
         />
+
+        <PhotosCard
+          key={`photos-${project.id}`}
+          parentType="project"
+          parentId={project.id}
+          userId={userId}
+        />
       </div>
 
       {showOverride && (
@@ -140,11 +258,15 @@ export default function ProjectDashboard({
       )}
 
       {showEdit && (
-        <EditProjectModal
+        <ProjectEditInfoModal
           project={project}
           customer={customer}
+          customers={customers}
+          categories={categories}
+          userId={userId}
           onClose={() => setShowEdit(false)}
           onUpdated={(patch) => onPatch(patch)}
+          onCategoriesChanged={(next) => setCategories(next as LeadCategory[])}
         />
       )}
     </div>
