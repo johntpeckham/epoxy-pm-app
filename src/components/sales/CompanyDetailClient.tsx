@@ -32,13 +32,13 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import NewContactModal, { type ContactForModal } from './NewContactModal'
 import LogCallModal from './LogCallModal'
 import EditCompanyModal, { type EditableCompany } from './EditCompanyModal'
-import NewAppointmentModal from './NewAppointmentModal'
+import ConvertToAppointmentModal from './ConvertToAppointmentModal'
 import NewReminderModal from './NewReminderModal'
 import MergeContactsModal from './MergeContactsModal'
-import AddLeadModal from './leads/AddLeadModal'
+import ConvertToLeadModal from './leads/ConvertToLeadModal'
 import type { LeadCategory } from './leads/LeadsClient'
 import { LEAD_SOURCE_LABELS } from '@/lib/crm/leadSources'
-import NewJobWalkModal from '@/components/job-walk/NewJobWalkModal'
+import ConvertToJobWalkModal from '@/components/job-walk/ConvertToJobWalkModal'
 import type { Customer } from '@/components/proposals/types'
 import type { JobWalk } from '@/components/job-walk/JobWalkClient'
 import KebabMenu, { type KebabMenuItem } from '@/components/ui/KebabMenu'
@@ -1863,20 +1863,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       )}
 
       {showNewAppointment && (
-        <NewAppointmentModal
+        <ConvertToAppointmentModal
           userId={userId}
-          prefill={{
-            companyId,
-            contactId: appointmentContactPrefill,
-          }}
-          companies={[
-            {
-              id: company.id,
-              name: company.name,
-              city: company.city,
-              state: company.state,
-            },
-          ]}
           contacts={contacts.map((c) => ({
             id: c.id,
             company_id: companyId,
@@ -1917,9 +1905,8 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       )}
 
       {showCreateJobWalk && (
-        <NewJobWalkModal
+        <ConvertToJobWalkModal
           userId={userId}
-          customers={[]}
           assignees={profiles.map((p) => ({ id: p.id, display_name: p.display_name }))}
           categories={leadCategories}
           lockedCustomer={{
@@ -2165,10 +2152,9 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       )}
 
       {showConvertToLead && (
-        <AddLeadModal
+        <ConvertToLeadModal
           userId={userId}
           isAdmin={canEdit('user_management')}
-          customers={[]}
           categories={leadCategories}
           assignees={profiles.map((p) => ({ id: p.id, display_name: p.display_name }))}
           lockedCustomer={{
