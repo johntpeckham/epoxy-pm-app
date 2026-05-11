@@ -4,10 +4,12 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, UserIcon, PlusIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
+import LeadSourceDropdown from '@/components/shared/LeadSourceDropdown'
 import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import type { JobWalk } from './JobWalkClient'
 import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
+import type { LockedCustomer } from '@/components/sales/leads/AddLeadModal'
 
 interface NewJobWalkModalProps {
   userId: string
@@ -15,6 +17,7 @@ interface NewJobWalkModalProps {
   assignees?: AppointmentAssigneeOption[]
   categories?: LeadCategory[]
   prefill?: { customer: Customer }
+  lockedCustomer?: LockedCustomer | null
   onClose: () => void
   onCreated: (walk: JobWalk, newCustomer?: Customer | null) => void
 }
@@ -35,23 +38,26 @@ export default function NewJobWalkModal({
   assignees = [],
   categories = [],
   prefill,
+  lockedCustomer = null,
   onClose,
   onCreated,
 }: NewJobWalkModalProps) {
   const prefillCustomer = prefill?.customer ?? null
-  const [projectName, setProjectName] = useState(prefillCustomer?.name ?? '')
-  const [customerQuery, setCustomerQuery] = useState(prefillCustomer?.name ?? '')
+  const [projectName, setProjectName] = useState('')
+  const [customerQuery, setCustomerQuery] = useState(lockedCustomer?.name ?? prefillCustomer?.name ?? '')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(prefillCustomer)
   const [creatingNewCustomer, setCreatingNewCustomer] = useState(false)
   const [newCustomerName, setNewCustomerName] = useState('')
   const [newCustomerEmail, setNewCustomerEmail] = useState('')
   const [newCustomerPhone, setNewCustomerPhone] = useState('')
   const [newCustomerAddress, setNewCustomerAddress] = useState('')
-  const [customerEmail, setCustomerEmail] = useState(prefillCustomer?.email ?? '')
-  const [customerPhone, setCustomerPhone] = useState(prefillCustomer?.phone ?? '')
-  const [address, setAddress] = useState(prefillCustomer ? buildFullAddress(prefillCustomer) : '')
+  const [customerEmail, setCustomerEmail] = useState(lockedCustomer?.email ?? prefillCustomer?.email ?? '')
+  const [customerPhone, setCustomerPhone] = useState(lockedCustomer?.phone ?? prefillCustomer?.phone ?? '')
+  const [address, setAddress] = useState(
+    lockedCustomer?.address ?? (prefillCustomer ? buildFullAddress(prefillCustomer) : '')
+  )
   const [projectAddress, setProjectAddress] = useState('')
-  const [sameAsCustomer, setSameAsCustomer] = useState(true)
+  const [sameAsCustomer, setSameAsCustomer] = useState(false)
   const [leadSource, setLeadSource] = useState('')
   const [leadCategoryId, setLeadCategoryId] = useState<string>('')
   const [addingCategory, setAddingCategory] = useState(false)
@@ -171,7 +177,7 @@ export default function NewJobWalkModal({
       setError('Project name is required.')
       return
     }
-    if (!selectedCustomer && !creatingNewCustomer && !customerQuery.trim()) {
+    if (!lockedCustomer && !selectedCustomer && !creatingNewCustomer && !customerQuery.trim()) {
       setError('Customer is required.')
       return
     }
@@ -179,8 +185,9 @@ export default function NewJobWalkModal({
     setError(null)
     const supabase = createClient()
 
-    let customerId: string | null = selectedCustomer?.id ?? null
-    let customerName = selectedCustomer?.name ?? (customerQuery.trim() || null)
+    let customerId: string | null = lockedCustomer?.id ?? selectedCustomer?.id ?? null
+    let customerName: string | null =
+      lockedCustomer?.name ?? selectedCustomer?.name ?? (customerQuery.trim() || null)
     let finalEmail: string | null = customerEmail.trim() || null
     let finalPhone: string | null = customerPhone.trim() || null
     let finalAddress: string | null = address.trim() || null
@@ -316,6 +323,16 @@ export default function NewJobWalkModal({
                 />
               </div>
 
+              {lockedCustomer ? (
+                <div>
+                  <label className={labelCls}>Customer</label>
+                  <div className={`${inputCls} bg-gray-50 text-gray-700 flex items-center gap-2`}>
+                    <UserIcon className="w-4 h-4 text-gray-400" />
+                    <span className="truncate">{lockedCustomer.name}</span>
+                    <span className="ml-auto text-xs text-gray-400">from company</span>
+                  </div>
+                </div>
+              ) : (
               <div ref={dropdownRef}>
                 <label className={labelCls}>Customer</label>
                 <div className="relative">
@@ -369,8 +386,9 @@ export default function NewJobWalkModal({
                   )}
                 </div>
               </div>
+              )}
 
-              {creatingNewCustomer && (
+              {!lockedCustomer && creatingNewCustomer && (
                 <div className="relative border border-gray-200 rounded-lg p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-gray-700">New customer details</p>
@@ -516,11 +534,9 @@ export default function NewJobWalkModal({
 
               <div>
                 <label className={labelCls}>Lead Source</label>
-                <input
-                  type="text"
+                <LeadSourceDropdown
                   value={leadSource}
-                  onChange={(e) => setLeadSource(e.target.value)}
-                  placeholder="e.g. Website, Referral, Google Ads"
+                  onChange={setLeadSource}
                   className={inputCls}
                 />
               </div>

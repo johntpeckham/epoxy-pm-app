@@ -4,6 +4,8 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { SettingsIcon, PencilIcon, UserIcon, CheckIcon, XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
+import LeadSourceDropdown from '@/components/shared/LeadSourceDropdown'
+import { formatLeadSource } from '@/lib/crm/leadSources'
 import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 
@@ -182,7 +184,7 @@ export default function UnifiedInfoCard({
     {
       label: 'Lead Source',
       value: data.lead_source ? (
-        <span className="text-sm text-gray-900">{data.lead_source}</span>
+        <span className="text-sm text-gray-900">{formatLeadSource(data.lead_source)}</span>
       ) : (
         emptyValue
       ),
@@ -292,10 +294,7 @@ function UnifiedEditInfoModal({
   const [customerPhone, setCustomerPhone] = useState(data.customer_phone ?? '')
   const [address, setAddress] = useState(data.address ?? '')
   const [projectAddress, setProjectAddress] = useState(data.project_address ?? '')
-  const [sameAsCustomer, setSameAsCustomer] = useState<boolean>(() => {
-    if (!data.project_address) return true
-    return (data.project_address ?? '') === (data.address ?? '')
-  })
+  const [sameAsCustomer, setSameAsCustomer] = useState(false)
   const [date, setDate] = useState(toDateInput(data.date, usesDateTime))
   const [assignedTo, setAssignedTo] = useState<string>(data.assigned_to ?? '')
   const [leadSource, setLeadSource] = useState<string>(data.lead_source ?? '')
@@ -659,11 +658,9 @@ function UnifiedEditInfoModal({
 
               <div>
                 <label className={labelCls}>Lead Source</label>
-                <input
-                  type="text"
+                <LeadSourceDropdown
                   value={leadSource}
-                  onChange={(e) => setLeadSource(e.target.value)}
-                  placeholder="e.g. Website, Referral, Google Ads"
+                  onChange={setLeadSource}
                   className={inputCls}
                 />
               </div>

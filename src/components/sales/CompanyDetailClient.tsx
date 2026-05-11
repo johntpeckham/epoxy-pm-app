@@ -35,7 +35,9 @@ import EditCompanyModal, { type EditableCompany } from './EditCompanyModal'
 import NewAppointmentModal from './NewAppointmentModal'
 import NewReminderModal from './NewReminderModal'
 import MergeContactsModal from './MergeContactsModal'
-import ConvertCompanyToLeadModal from './leads/ConvertCompanyToLeadModal'
+import AddLeadModal from './leads/AddLeadModal'
+import type { LeadCategory } from './leads/LeadsClient'
+import { LEAD_SOURCE_LABELS } from '@/lib/crm/leadSources'
 import NewJobWalkModal from '@/components/job-walk/NewJobWalkModal'
 import type { Customer } from '@/components/proposals/types'
 import type { JobWalk } from '@/components/job-walk/JobWalkClient'
@@ -188,16 +190,6 @@ const OUTCOME_DOT_COLOR: Record<string, string> = {
   wrong_number: 'bg-gray-300',
 }
 
-const LEAD_SOURCE_LABELS: Record<string, string> = {
-  google_maps: 'Google Maps',
-  referral: 'Referral',
-  website: 'Website',
-  cold_call: 'Cold Call',
-  quickbooks: 'QuickBooks',
-  zoom: 'Zoom',
-  other: 'Other',
-}
-
 const AVATAR_COLORS = [
   'bg-amber-500',
   'bg-purple-500',
@@ -262,6 +254,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
   const [files, setFiles] = useState<FileRow[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [profiles, setProfiles] = useState<ProfileMini[]>([])
+  const [leadCategories, setLeadCategories] = useState<LeadCategory[]>([])
 
   const profileMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -350,6 +343,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       { data: fileData },
       { data: profileData },
       { data: reminderData },
+      { data: leadCategoryData },
     ] = await Promise.all([
       supabase
         .from('contacts')
@@ -382,6 +376,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
         .select('id, reminder_date, note, contact_id, is_completed, assigned_to')
         .eq('company_id', companyId)
         .order('reminder_date', { ascending: true }),
+      supabase.from('lead_categories').select('*').order('name', { ascending: true }),
     ])
 
     const rawContacts = (contactData ?? []) as Array<Omit<Contact, 'phone_numbers'>>
@@ -414,6 +409,7 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       }))
     )
     setReminders((reminderData ?? []) as Reminder[])
+    setLeadCategories((leadCategoryData ?? []) as LeadCategory[])
     setLoading(false)
   }, [supabase, companyId])
 
@@ -1894,6 +1890,18 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
             id: p.id,
             display_name: p.display_name,
           }))}
+          categories={leadCategories}
+          lockedCustomer={{
+            id: company.id,
+            name: company.name,
+            address: [company.address, company.city, company.state, company.zip]
+              .filter(Boolean)
+              .join(', ') || null,
+            email:
+              contacts.find((c) => c.is_primary)?.email ?? contacts[0]?.email ?? null,
+            phone:
+              contacts.find((c) => c.is_primary)?.phone ?? contacts[0]?.phone ?? null,
+          }}
           onClose={() => {
             setShowNewAppointment(false)
             setAppointmentContactPrefill(null)
@@ -1913,20 +1921,17 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
           userId={userId}
           customers={[]}
           assignees={profiles.map((p) => ({ id: p.id, display_name: p.display_name }))}
-          prefill={{
-            customer: {
-              id: company.id,
-              name: company.name,
-              company: null,
-              email: contacts.find((c) => c.is_primary)?.email ?? contacts[0]?.email ?? null,
-              phone: contacts.find((c) => c.is_primary)?.phone ?? contacts[0]?.phone ?? null,
-              address: company.address,
-              city: company.city,
-              state: company.state,
-              zip: company.zip,
-              created_at: company.created_at,
-              user_id: company.assigned_to ?? userId,
-            } satisfies Customer,
+          categories={leadCategories}
+          lockedCustomer={{
+            id: company.id,
+            name: company.name,
+            address: [company.address, company.city, company.state, company.zip]
+              .filter(Boolean)
+              .join(', ') || null,
+            email:
+              contacts.find((c) => c.is_primary)?.email ?? contacts[0]?.email ?? null,
+            phone:
+              contacts.find((c) => c.is_primary)?.phone ?? contacts[0]?.phone ?? null,
           }}
           onClose={() => setShowCreateJobWalk(false)}
           onCreated={(_walk: JobWalk) => {
@@ -2160,36 +2165,30 @@ export default function CompanyDetailClient({ companyId, userId }: CompanyDetail
       )}
 
       {showConvertToLead && (
-        <ConvertCompanyToLeadModal
+        <AddLeadModal
           userId={userId}
-          companyId={companyId}
-          companyName={company.name}
-          companyCity={company.city}
-          companyState={company.state}
-          primaryContact={(() => {
-            const p = contacts.find((c) => c.is_primary) ?? contacts[0] ?? null
-            if (!p) return null
-            return {
-              id: p.id,
-              first_name: p.first_name,
-              last_name: p.last_name,
-              email: p.email,
-              phone: p.phone,
-            }
-          })()}
-          primaryAddress={company.address ? {
-            address: company.address,
-            city: company.city,
-            state: company.state,
-            zip: company.zip,
-          } : null}
+          isAdmin={canEdit('user_management')}
+          customers={[]}
+          categories={leadCategories}
+          assignees={profiles.map((p) => ({ id: p.id, display_name: p.display_name }))}
+          lockedCustomer={{
+            id: company.id,
+            name: company.name,
+            address: [company.address, company.city, company.state, company.zip]
+              .filter(Boolean)
+              .join(', ') || null,
+            email:
+              contacts.find((c) => c.is_primary)?.email ?? contacts[0]?.email ?? null,
+            phone:
+              contacts.find((c) => c.is_primary)?.phone ?? contacts[0]?.phone ?? null,
+          }}
           onClose={() => setShowConvertToLead(false)}
-          onConverted={(leadId) => {
+          onCreated={(newLead) => {
             setShowConvertToLead(false)
             showToast('Lead created.')
             void updateCompany({ status: 'lead_created' as CompanyStatus })
             void logActivity('Converted to lead')
-            router.push(`/sales/leads/${leadId}`)
+            router.push(`/sales/leads/${newLead.id}`)
           }}
         />
       )}

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { XIcon, UserIcon, CheckIcon, PlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
+import LeadSourceDropdown from '@/components/shared/LeadSourceDropdown'
 import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
 
 export interface AppointmentCompanyOption {
@@ -28,6 +29,14 @@ export interface AppointmentAssigneeOption {
   display_name: string | null
 }
 
+export interface LockedCompany {
+  id: string
+  name: string
+  address: string | null
+  email: string | null
+  phone: string | null
+}
+
 interface NewAppointmentModalProps {
   userId: string
   isAdmin?: boolean
@@ -36,6 +45,7 @@ interface NewAppointmentModalProps {
   contacts: AppointmentContactOption[]
   assignees: AppointmentAssigneeOption[]
   categories?: LeadCategory[]
+  lockedCustomer?: LockedCompany | null
   onClose: () => void
   onSaved: (createdId: string) => void
   onCompanyCreated?: (company: AppointmentCompanyOption) => void
@@ -55,18 +65,19 @@ export default function NewAppointmentModal({
   contacts,
   assignees,
   categories = [],
+  lockedCustomer = null,
   onClose,
   onSaved,
   onCompanyCreated,
 }: NewAppointmentModalProps) {
-  const [companyId, setCompanyId] = useState<string>(prefill?.companyId ?? '')
+  const [companyId, setCompanyId] = useState<string>(lockedCustomer?.id ?? prefill?.companyId ?? '')
   const [projectName, setProjectName] = useState('')
-  const [customerQuery, setCustomerQuery] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [address, setAddress] = useState('')
+  const [customerQuery, setCustomerQuery] = useState(lockedCustomer?.name ?? '')
+  const [customerEmail, setCustomerEmail] = useState(lockedCustomer?.email ?? '')
+  const [customerPhone, setCustomerPhone] = useState(lockedCustomer?.phone ?? '')
+  const [address, setAddress] = useState(lockedCustomer?.address ?? '')
   const [projectAddress, setProjectAddress] = useState('')
-  const [sameAsCustomer, setSameAsCustomer] = useState(true)
+  const [sameAsCustomer, setSameAsCustomer] = useState(false)
   const [date, setDate] = useState<string>(todayISO())
   const [projectDetails, setProjectDetails] = useState('')
   const [leadSource, setLeadSource] = useState('')
@@ -197,7 +208,7 @@ export default function NewAppointmentModal({
       setError('Project name is required.')
       return
     }
-    if (!companyId && !creatingNewCustomer && !customerQuery.trim()) {
+    if (!lockedCustomer && !companyId && !creatingNewCustomer && !customerQuery.trim()) {
       setError('Customer is required.')
       return
     }
@@ -372,6 +383,16 @@ export default function NewAppointmentModal({
                 />
               </div>
 
+              {lockedCustomer ? (
+                <div>
+                  <label className={labelCls}>Customer</label>
+                  <div className={`${inputCls} bg-gray-50 text-gray-700 flex items-center gap-2`}>
+                    <UserIcon className="w-4 h-4 text-gray-400" />
+                    <span className="truncate">{lockedCustomer.name}</span>
+                    <span className="ml-auto text-xs text-gray-400">from company</span>
+                  </div>
+                </div>
+              ) : (
               <div ref={dropdownRef}>
                 <label className={labelCls}>Customer</label>
                 <div className="relative">
@@ -432,8 +453,9 @@ export default function NewAppointmentModal({
                   )}
                 </div>
               </div>
+              )}
 
-              {creatingNewCustomer && (
+              {!lockedCustomer && creatingNewCustomer && (
                 <div className="relative border border-gray-200 rounded-lg p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-gray-700">New customer details</p>
@@ -579,11 +601,9 @@ export default function NewAppointmentModal({
 
               <div>
                 <label className={labelCls}>Lead Source</label>
-                <input
-                  type="text"
+                <LeadSourceDropdown
                   value={leadSource}
-                  onChange={(e) => setLeadSource(e.target.value)}
-                  placeholder="e.g. Website, Referral, Google Ads"
+                  onChange={setLeadSource}
                   className={inputCls}
                 />
               </div>

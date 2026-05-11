@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { XIcon, UserIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
+import LeadSourceDropdown from '@/components/shared/LeadSourceDropdown'
 import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import type { JobWalk } from './JobWalkClient'
@@ -37,10 +38,7 @@ export default function JobWalkEditInfoModal({
   const [customerPhone, setCustomerPhone] = useState(walk.customer_phone ?? '')
   const [address, setAddress] = useState(walk.address ?? '')
   const [projectAddress, setProjectAddress] = useState(walk.project_address ?? '')
-  const [sameAsCustomer, setSameAsCustomer] = useState<boolean>(() => {
-    if (!walk.project_address) return true
-    return (walk.project_address ?? '') === (walk.address ?? '')
-  })
+  const [sameAsCustomer, setSameAsCustomer] = useState(false)
   const [date, setDate] = useState(walk.date ?? '')
   const [assignedTo, setAssignedTo] = useState<string>(walk.assigned_to ?? '')
   const [leadSource, setLeadSource] = useState<string>(walk.lead_source ?? '')
@@ -381,11 +379,9 @@ export default function JobWalkEditInfoModal({
 
               <div>
                 <label className={labelCls}>Lead Source</label>
-                <input
-                  type="text"
+                <LeadSourceDropdown
                   value={leadSource}
-                  onChange={(e) => setLeadSource(e.target.value)}
-                  placeholder="e.g. Website, Referral, Google Ads"
+                  onChange={setLeadSource}
                   className={inputCls}
                 />
               </div>
