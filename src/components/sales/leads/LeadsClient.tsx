@@ -38,6 +38,7 @@ export interface Lead {
   customer_email: string | null
   customer_phone: string | null
   address: string | null
+  project_address: string | null
   date: string | null
   status: LeadStatus
   category: string | null
@@ -450,6 +451,7 @@ export default function LeadsClient({
           lead={editLead}
           customers={customers}
           assignees={assignees}
+          categories={categories}
           isAdmin={isAdmin}
           onClose={() => setEditLead(null)}
           onSaved={(patch) => {

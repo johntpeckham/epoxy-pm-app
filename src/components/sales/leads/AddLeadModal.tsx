@@ -45,7 +45,18 @@ export default function AddLeadModal({
   const [newCustomerEmail, setNewCustomerEmail] = useState('')
   const [newCustomerPhone, setNewCustomerPhone] = useState('')
   const [newCustomerAddress, setNewCustomerAddress] = useState('')
-  const [category, setCategory] = useState<string>('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [address, setAddress] = useState('')
+  const [projectAddress, setProjectAddress] = useState('')
+  const [sameAsCustomer, setSameAsCustomer] = useState(true)
+  const [leadSource, setLeadSource] = useState('')
+  const [leadCategoryId, setLeadCategoryId] = useState<string>('')
+  const [addingCategory, setAddingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [savingCategory, setSavingCategory] = useState(false)
+  const [localCategories, setLocalCategories] = useState<LeadCategory[]>(categories)
+  const [projectDetails, setProjectDetails] = useState('')
   const [assignedTo, setAssignedTo] = useState<string>(userId)
   const [date, setDate] = useState<string>(todayISO())
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -63,6 +74,10 @@ export default function AddLeadModal({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  useEffect(() => {
+    if (sameAsCustomer) setProjectAddress(address)
+  }, [sameAsCustomer, address])
+
   const filteredCustomers = useMemo(() => {
     const q = customerQuery.trim().toLowerCase()
     if (!q) return customers
@@ -73,11 +88,72 @@ export default function AddLeadModal({
     )
   }, [customers, customerQuery])
 
-  function handleSelectCustomer(c: Customer) {
+  async function handleSelectCustomer(c: Customer) {
     setSelectedCustomer(c)
     setCreatingNewCustomer(false)
     setCustomerQuery(c.name)
+    setCustomerEmail(c.email ?? '')
+    setCustomerPhone(c.phone ?? '')
+    const fullAddr = buildFullAddress(c)
+    if (fullAddr) setAddress(fullAddr)
     setDropdownOpen(false)
+
+    const supabase = createClient()
+    const { data: primary, error: contactErr } = await supabase
+      .from('contacts')
+      .select('email, phone')
+      .eq('company_id', c.id)
+      .eq('is_primary', true)
+      .maybeSingle()
+    if (contactErr) {
+      console.error('[AddLeadModal] Primary contact lookup failed:', {
+        code: contactErr.code,
+        message: contactErr.message,
+        hint: contactErr.hint,
+        details: contactErr.details,
+      })
+      return
+    }
+    if (primary) {
+      if (primary.email) setCustomerEmail(primary.email)
+      if (primary.phone) setCustomerPhone(primary.phone)
+    }
+  }
+
+  async function handleAddCategory() {
+    const trimmed = newCategoryName.trim()
+    if (!trimmed) return
+    setSavingCategory(true)
+    const supabase = createClient()
+    const existing = localCategories.find(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+    )
+    let cat = existing
+    if (!cat) {
+      const { data: created, error: createErr } = await supabase
+        .from('lead_categories')
+        .insert({ name: trimmed })
+        .select('*')
+        .single()
+      if (createErr || !created) {
+        console.error('[AddLeadModal] Add category failed:', {
+          code: createErr?.code,
+          message: createErr?.message,
+          hint: createErr?.hint,
+          details: createErr?.details,
+        })
+        setSavingCategory(false)
+        return
+      }
+      cat = created as LeadCategory
+      setLocalCategories((prev) =>
+        [...prev, cat as LeadCategory].sort((a, b) => a.name.localeCompare(b.name))
+      )
+    }
+    setLeadCategoryId(cat.id)
+    setSavingCategory(false)
+    setAddingCategory(false)
+    setNewCategoryName('')
   }
 
   function handleStartCreate() {
@@ -93,15 +169,19 @@ export default function AddLeadModal({
       setError('Project name is required.')
       return
     }
+    if (!selectedCustomer && !creatingNewCustomer && !customerQuery.trim()) {
+      setError('Customer is required.')
+      return
+    }
     setSaving(true)
     setError(null)
     const supabase = createClient()
 
     let customerId: string | null = selectedCustomer?.id ?? null
-    let customerName = selectedCustomer?.name ?? null
-    let customerEmail = selectedCustomer?.email ?? null
-    let customerPhone = selectedCustomer?.phone ?? null
-    let address = selectedCustomer ? buildFullAddress(selectedCustomer) : null
+    let customerName = selectedCustomer?.name ?? (customerQuery.trim() || null)
+    let finalEmail: string | null = customerEmail.trim() || null
+    let finalPhone: string | null = customerPhone.trim() || null
+    let finalAddress: string | null = address.trim() || null
     let createdCustomer: Customer | null = null
 
     if (creatingNewCustomer) {
@@ -115,9 +195,6 @@ export default function AddLeadModal({
         .from('companies')
         .insert({
           name: trimmedName,
-          company: null,
-          email: newCustomerEmail.trim() || null,
-          phone: newCustomerPhone.trim() || null,
           address: newCustomerAddress.trim() || null,
           city: null,
           state: null,
@@ -127,6 +204,12 @@ export default function AddLeadModal({
         .select('*')
         .single()
       if (custErr || !newCust) {
+        console.error('[AddLeadModal] Create customer failed:', {
+          code: custErr?.code,
+          message: custErr?.message,
+          hint: custErr?.hint,
+          details: custErr?.details,
+        })
         setSaving(false)
         setError(`Failed to create customer: ${custErr?.message ?? 'unknown error'}`)
         return
@@ -134,10 +217,14 @@ export default function AddLeadModal({
       createdCustomer = newCust as Customer
       customerId = createdCustomer.id
       customerName = createdCustomer.name
-      customerEmail = createdCustomer.email
-      customerPhone = createdCustomer.phone
-      address = buildFullAddress(createdCustomer) || null
+      finalEmail = newCustomerEmail.trim() || null
+      finalPhone = newCustomerPhone.trim() || null
+      finalAddress = newCustomerAddress.trim() || finalAddress
     }
+
+    const finalProjectAddress = sameAsCustomer
+      ? finalAddress
+      : (projectAddress.trim() || null)
 
     const { data: newLead, error: leadErr } = await supabase
       .from('leads')
@@ -145,11 +232,14 @@ export default function AddLeadModal({
         project_name: projectName.trim(),
         company_id: customerId,
         customer_name: customerName,
-        customer_email: customerEmail,
-        customer_phone: customerPhone,
-        address: address || null,
+        customer_email: finalEmail,
+        customer_phone: finalPhone,
+        address: finalAddress,
+        project_address: finalProjectAddress,
         date: date || null,
-        category: category || null,
+        lead_source: leadSource.trim() || null,
+        lead_category_id: leadCategoryId || null,
+        project_details: projectDetails.trim() || null,
         status: 'new',
         assigned_to: assignedTo || null,
         created_by: userId,
@@ -159,6 +249,12 @@ export default function AddLeadModal({
 
     setSaving(false)
     if (leadErr || !newLead) {
+      console.error('[AddLeadModal] Create lead failed:', {
+        code: leadErr?.code,
+        message: leadErr?.message,
+        hint: leadErr?.hint,
+        details: leadErr?.details,
+      })
       setError(`Failed to create lead: ${leadErr?.message ?? 'unknown error'}`)
       return
     }
@@ -336,31 +432,162 @@ export default function AddLeadModal({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Lead source</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">— Select —</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+              {!creatingNewCustomer && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Email</label>
+                    <input
+                      type="email"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      placeholder="—"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Phone</label>
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="—"
+                      className={inputCls}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className={labelCls}>Date</label>
+              )}
+
+              <div>
+                <label className={labelCls}>Customer Address</label>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Street, City, State, Zip"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 mb-1.5 cursor-pointer select-none">
                   <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className={inputCls}
+                    type="checkbox"
+                    checked={sameAsCustomer}
+                    onChange={(e) => setSameAsCustomer(e.target.checked)}
+                    className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
                   />
-                </div>
+                  <span className="text-sm font-medium text-gray-700">
+                    Same as customer address
+                  </span>
+                </label>
+                <label className={labelCls}>Project Address</label>
+                <input
+                  type="text"
+                  value={sameAsCustomer ? address : projectAddress}
+                  onChange={(e) => setProjectAddress(e.target.value)}
+                  disabled={sameAsCustomer}
+                  placeholder="Street, City, State, Zip"
+                  className={`${inputCls} ${sameAsCustomer ? 'bg-gray-50 text-gray-600' : ''}`}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Project details</label>
+                <textarea
+                  value={projectDetails}
+                  onChange={(e) => setProjectDetails(e.target.value)}
+                  rows={3}
+                  placeholder="Scope, purpose of the project, etc."
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Lead Source</label>
+                <input
+                  type="text"
+                  value={leadSource}
+                  onChange={(e) => setLeadSource(e.target.value)}
+                  placeholder="e.g. Website, Referral, Google Ads"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Lead Category</label>
+                {addingCategory ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddCategory()
+                        } else if (e.key === 'Escape') {
+                          setAddingCategory(false)
+                          setNewCategoryName('')
+                        }
+                      }}
+                      placeholder="New category name"
+                      className={inputCls}
+                      disabled={savingCategory}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      disabled={savingCategory || !newCategoryName.trim()}
+                      className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg disabled:opacity-50"
+                    >
+                      {savingCategory ? '…' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddingCategory(false)
+                        setNewCategoryName('')
+                      }}
+                      disabled={savingCategory}
+                      className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={leadCategoryId}
+                      onChange={(e) => setLeadCategoryId(e.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="">— None —</option>
+                      {localCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setAddingCategory(true)}
+                      className="px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg whitespace-nowrap"
+                    >
+                      Manage
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>

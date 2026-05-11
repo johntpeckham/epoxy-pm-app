@@ -35,6 +35,7 @@ interface AppointmentRow {
   title: string | null
   date: string
   address: string | null
+  project_address: string | null
   notes: string | null
   status: AppointmentStatus
   pushed_to: PushedTo | null

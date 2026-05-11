@@ -21,6 +21,7 @@ export interface UnifiedInfoFields {
   customer_email: string | null
   customer_phone: string | null
   address: string | null
+  project_address: string | null
   /**
    * Calendar date as a string. For Lead/JobWalk this is YYYY-MM-DD;
    * for Appointment this is an ISO timestamp (date+time).
@@ -145,9 +146,17 @@ export default function UnifiedInfoCard({
       ),
     },
     {
-      label: 'Address',
+      label: 'Customer Address',
       value: data.address ? (
         <span className="text-sm text-gray-900">{data.address}</span>
+      ) : (
+        emptyValue
+      ),
+    },
+    {
+      label: 'Project Address',
+      value: data.project_address ? (
+        <span className="text-sm text-gray-900">{data.project_address}</span>
       ) : (
         emptyValue
       ),
@@ -219,7 +228,7 @@ export default function UnifiedInfoCard({
               key={row.label}
               className="flex items-start gap-3 py-2 first:pt-0 last:pb-0"
             >
-              <dt className="w-28 flex-shrink-0 text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-0.5">
+              <dt className="w-32 flex-shrink-0 text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-0.5">
                 {row.label}
               </dt>
               <dd className="flex-1 min-w-0">{row.value}</dd>
@@ -282,6 +291,11 @@ function UnifiedEditInfoModal({
   const [customerEmail, setCustomerEmail] = useState(data.customer_email ?? '')
   const [customerPhone, setCustomerPhone] = useState(data.customer_phone ?? '')
   const [address, setAddress] = useState(data.address ?? '')
+  const [projectAddress, setProjectAddress] = useState(data.project_address ?? '')
+  const [sameAsCustomer, setSameAsCustomer] = useState<boolean>(() => {
+    if (!data.project_address) return true
+    return (data.project_address ?? '') === (data.address ?? '')
+  })
   const [date, setDate] = useState(toDateInput(data.date, usesDateTime))
   const [assignedTo, setAssignedTo] = useState<string>(data.assigned_to ?? '')
   const [leadSource, setLeadSource] = useState<string>(data.lead_source ?? '')
@@ -310,6 +324,10 @@ function UnifiedEditInfoModal({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  useEffect(() => {
+    if (sameAsCustomer) setProjectAddress(address)
+  }, [sameAsCustomer, address])
+
   const filteredCustomers = useMemo(() => {
     const q = customerQuery.trim().toLowerCase()
     if (!q) return customers
@@ -320,7 +338,7 @@ function UnifiedEditInfoModal({
     )
   }, [customers, customerQuery])
 
-  function handleSelectCustomer(c: Customer) {
+  async function handleSelectCustomer(c: Customer) {
     const fullAddr = buildFullAddress(c)
     setCustomerId(c.id)
     setCustomerQuery(c.name)
@@ -328,6 +346,27 @@ function UnifiedEditInfoModal({
     setCustomerPhone(c.phone ?? '')
     if (fullAddr) setAddress(fullAddr)
     setCustomerDropdownOpen(false)
+
+    const supabase = createClient()
+    const { data: primary, error: contactErr } = await supabase
+      .from('contacts')
+      .select('email, phone')
+      .eq('company_id', c.id)
+      .eq('is_primary', true)
+      .maybeSingle()
+    if (contactErr) {
+      console.error('[UnifiedInfoCard] Primary contact lookup failed:', {
+        code: contactErr.code,
+        message: contactErr.message,
+        hint: contactErr.hint,
+        details: contactErr.details,
+      })
+      return
+    }
+    if (primary) {
+      if (primary.email) setCustomerEmail(primary.email)
+      if (primary.phone) setCustomerPhone(primary.phone)
+    }
   }
 
   async function handleAddCategory() {
@@ -389,6 +428,10 @@ function UnifiedEditInfoModal({
         : date
       : null
 
+    const finalProjectAddress = sameAsCustomer
+      ? (address.trim() || null)
+      : (projectAddress.trim() || null)
+
     const patch: Partial<UnifiedInfoFields> = {
       project_name: projectName.trim() || (parentType === 'lead' ? 'Untitled Lead' : parentType === 'job_walk' ? 'Untitled Job Walk' : 'Untitled Appointment'),
       company_id: finalCustomerId,
@@ -396,6 +439,7 @@ function UnifiedEditInfoModal({
       customer_email: finalEmail,
       customer_phone: finalPhone,
       address: address.trim() || null,
+      project_address: finalProjectAddress,
       date: finalDate,
       assigned_to: assignedTo || null,
       lead_source: leadSource.trim() || null,
@@ -553,13 +597,36 @@ function UnifiedEditInfoModal({
               </div>
 
               <div>
-                <label className={labelCls}>Address</label>
+                <label className={labelCls}>Customer Address</label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="Street, City, State, Zip"
                   className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 mb-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={sameAsCustomer}
+                    onChange={(e) => setSameAsCustomer(e.target.checked)}
+                    className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Same as customer address
+                  </span>
+                </label>
+                <label className={labelCls}>Project Address</label>
+                <input
+                  type="text"
+                  value={sameAsCustomer ? address : projectAddress}
+                  onChange={(e) => setProjectAddress(e.target.value)}
+                  disabled={sameAsCustomer}
+                  placeholder="Street, City, State, Zip"
+                  className={`${inputCls} ${sameAsCustomer ? 'bg-gray-50 text-gray-600' : ''}`}
                 />
               </div>
 
