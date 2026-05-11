@@ -9,7 +9,7 @@ import { formatLeadSource } from '@/lib/crm/leadSources'
 import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 
-export type InfoCardParentType = 'lead' | 'appointment' | 'job_walk'
+export type InfoCardParentType = 'lead' | 'appointment' | 'job_walk' | 'project'
 
 export interface LeadCategoryOption {
   id: string
@@ -44,12 +44,23 @@ interface UnifiedInfoCardProps {
   isAdmin: boolean
   onPatch: (patch: Partial<UnifiedInfoFields>) => void
   onCategoriesChanged?: (next: LeadCategoryOption[]) => void
+  // When provided, clicking the pencil calls this callback instead of
+  // opening the built-in UnifiedEditInfoModal. The Project page uses
+  // this so the card's pencil and the loose-header pencil both open the
+  // same ProjectEditInfoModal (which is owned by ProjectDashboard).
+  onEditClick?: () => void
 }
 
 const TABLE: Record<InfoCardParentType, string> = {
   lead: 'leads',
   appointment: 'crm_appointments',
   job_walk: 'job_walks',
+  // Project entries are present for type completeness, but the built-in
+  // UnifiedEditInfoModal is never opened for parentType='project' — the
+  // Project page passes onEditClick that opens ProjectEditInfoModal
+  // instead (which is responsible for its own save and writes the wider
+  // set of columns on estimating_projects).
+  project: 'estimating_projects',
 }
 
 function formatDate(dateStr: string | null, withTime: boolean): string | null {
@@ -86,9 +97,14 @@ export default function UnifiedInfoCard({
   isAdmin,
   onPatch,
   onCategoriesChanged,
+  onEditClick,
 }: UnifiedInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false)
   const usesDateTime = parentType === 'appointment'
+  // Project's row table doesn't carry date or assigned_to columns, so the
+  // loose header + ProjectEditInfoModal own them (it doesn't; we just
+  // hide them). Skip those rows when the card is rendering a Project.
+  const isProject = parentType === 'project'
 
   const emptyValue = <span className="text-sm text-gray-300">—</span>
 
@@ -104,7 +120,7 @@ export default function UnifiedInfoCard({
     return categories.find((c) => c.id === data.lead_category_id)?.name ?? null
   }, [categories, data.lead_category_id])
 
-  const rows: { label: string; value: React.ReactNode }[] = [
+  const allRows: { label: string; value: React.ReactNode; hideForProject?: boolean }[] = [
     {
       label: 'Project',
       value: data.project_name ? (
@@ -172,6 +188,7 @@ export default function UnifiedInfoCard({
       ) : (
         emptyValue
       ),
+      hideForProject: true,
     },
     {
       label: 'Assigned To',
@@ -180,6 +197,7 @@ export default function UnifiedInfoCard({
       ) : (
         emptyValue
       ),
+      hideForProject: true,
     },
     {
       label: 'Lead Source',
@@ -199,11 +217,15 @@ export default function UnifiedInfoCard({
     },
   ]
 
+  const rows = allRows.filter((r) => !(isProject && r.hideForProject))
+
   const titleLabel =
     parentType === 'lead'
       ? 'Lead Info'
       : parentType === 'job_walk'
       ? 'Job Walk Info'
+      : parentType === 'project'
+      ? 'Project Info'
       : 'Appointment Info'
 
   return (
@@ -216,7 +238,10 @@ export default function UnifiedInfoCard({
           <h3 className="text-sm font-semibold text-gray-900 flex-1">{titleLabel}</h3>
           <button
             type="button"
-            onClick={() => setEditOpen(true)}
+            onClick={() => {
+              if (onEditClick) onEditClick()
+              else setEditOpen(true)
+            }}
             aria-label="Edit info"
             className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition"
           >

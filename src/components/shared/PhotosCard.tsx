@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import PhotoLightbox from '@/components/photos/PhotoLightbox'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
-export type PhotosParentType = 'lead' | 'appointment' | 'job_walk'
+export type PhotosParentType = 'lead' | 'appointment' | 'job_walk' | 'project'
 
 interface PhotosCardProps {
   parentType: PhotosParentType
@@ -57,6 +57,12 @@ const CONFIG: Record<
     fk: 'job_walk_id',
     bucket: 'job-walk-photos',
     emptyText: 'No photos yet. Upload or take photos from your job walk.',
+  },
+  project: {
+    table: 'project_photos',
+    fk: 'project_id',
+    bucket: 'project-photos',
+    emptyText: 'No photos yet. Upload or take photos for this project.',
   },
 }
 
