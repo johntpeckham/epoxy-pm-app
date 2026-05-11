@@ -19,6 +19,11 @@ export interface EstimatingProject {
   project_address_city: string | null
   project_address_state: string | null
   project_address_zip: string | null
+  email: string | null
+  phone: string | null
+  lead_source: string | null
+  lead_category_id: string | null
+  converted_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string

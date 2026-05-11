@@ -80,6 +80,32 @@ export interface CreationFormModalProps {
   disableAssigneeWhenNotAdmin?: boolean
 
   extraSections?: ReactNode
+  // Rendered immediately after the Customer block (and the inline new-customer
+  // panel, if expanded), before the Email/Phone grid. Use for fields that
+  // belong visually under Customer — e.g. the Project Number field on the
+  // New Project wrapper. The slot's content owns its own layout; we don't
+  // wrap it.
+  slotAfterCustomer?: ReactNode
+  // When true, hide the single-text Project Address field + the
+  // "Same as customer address" checkbox that the shared modal renders by
+  // default. Wrappers (like the Project modal) that need a structured
+  // 4-field Project Address can set this and render their own in
+  // extraSections without showing the duplicate single-text version.
+  hideProjectAddressField?: boolean
+  // When provided, clicking "Create new customer" in the Customer dropdown
+  // calls this callback instead of opening the shared inline panel. Used by
+  // the New Project wrapper so it can open NewCustomerSubModal, which
+  // creates a richer companies row (status/priority/created_by) plus a
+  // primary contacts row carrying phone/email.
+  onAddNewCustomerClick?: () => void
+  // Initial customer to select on mount. Also re-syncs whenever the value
+  // changes — used by the New Project wrapper to programmatically select a
+  // customer that NewCustomerSubModal just created.
+  prefillCustomerId?: string | null
+  // Emits the currently-selected customer id (or null when cleared). Used by
+  // the New Project wrapper so it can copy the customer's structured address
+  // fields when the "Same as customer address" checkbox is toggled.
+  onCustomerChange?: (customerId: string | null) => void
 
   onSubmit: (data: CreationFormData) => Promise<string | null>
   onClose: () => void
@@ -108,6 +134,11 @@ export default function CreationFormModal({
   showUnassignedAssigneeOption = true,
   disableAssigneeWhenNotAdmin = true,
   extraSections,
+  slotAfterCustomer,
+  hideProjectAddressField = false,
+  onAddNewCustomerClick,
+  prefillCustomerId = null,
+  onCustomerChange,
   onSubmit,
   onClose,
   onCustomerCreated,
@@ -151,6 +182,25 @@ export default function CreationFormModal({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // prefillCustomerId re-sync. When the prop is set (and differs from the
+  // last value we applied), find the matching CustomerOption and run
+  // handleSelectCustomer so the form fills as if the user had picked it.
+  // The ref guards against re-applying the same id, and the selectedCustomer
+  // check avoids redundantly re-running when the user themselves just picked
+  // this customer (the wrapper round-trips via onCustomerChange).
+  const appliedPrefillIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!prefillCustomerId) return
+    if (appliedPrefillIdRef.current === prefillCustomerId) return
+    const opt = customers.find((c) => c.id === prefillCustomerId)
+    if (!opt) return
+    appliedPrefillIdRef.current = prefillCustomerId
+    if (selectedCustomer?.id !== prefillCustomerId) {
+      handleSelectCustomer(opt)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillCustomerId, customers])
+
   useEffect(() => {
     if (sameAsCustomer) setProjectAddress(address)
   }, [sameAsCustomer, address])
@@ -176,6 +226,7 @@ export default function CreationFormModal({
     if (c.phone) setCustomerPhone(c.phone)
     if (c.address) setAddress(c.address)
     setDropdownOpen(false)
+    onCustomerChange?.(c.id)
 
     const supabase = createClient()
 
@@ -263,10 +314,20 @@ export default function CreationFormModal({
   }
 
   function handleStartCreate() {
+    // If a wrapper has registered an override (e.g. the New Project wrapper
+    // routes "Create new customer" through NewCustomerSubModal), call it
+    // instead of opening the shared inline panel. The override is fully
+    // responsible for the customer-creation UX.
+    if (onAddNewCustomerClick) {
+      setDropdownOpen(false)
+      onAddNewCustomerClick()
+      return
+    }
     setSelectedCustomer(null)
     setCreatingNewCustomer(true)
     setNewCustomerName(customerQuery)
     setDropdownOpen(false)
+    onCustomerChange?.(null)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -440,6 +501,7 @@ export default function CreationFormModal({
                         value={customerQuery}
                         onChange={(e) => {
                           setCustomerQuery(e.target.value)
+                          if (selectedCustomer) onCustomerChange?.(null)
                           setSelectedCustomer(null)
                           setCreatingNewCustomer(false)
                           setDropdownOpen(true)
@@ -555,6 +617,8 @@ export default function CreationFormModal({
                 </div>
               )}
 
+              {slotAfterCustomer}
+
               {!creatingNewCustomer && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -591,28 +655,30 @@ export default function CreationFormModal({
                 />
               </div>
 
-              <div>
-                <label className="flex items-center gap-2 mb-1.5 cursor-pointer select-none">
+              {!hideProjectAddressField && (
+                <div>
+                  <label className="flex items-center gap-2 mb-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={sameAsCustomer}
+                      onChange={(e) => setSameAsCustomer(e.target.checked)}
+                      className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Same as customer address
+                    </span>
+                  </label>
+                  <label className={labelCls}>Project Address</label>
                   <input
-                    type="checkbox"
-                    checked={sameAsCustomer}
-                    onChange={(e) => setSameAsCustomer(e.target.checked)}
-                    className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
+                    type="text"
+                    value={sameAsCustomer ? address : projectAddress}
+                    onChange={(e) => setProjectAddress(e.target.value)}
+                    disabled={sameAsCustomer}
+                    placeholder="Street, City, State, Zip"
+                    className={`${inputCls} ${sameAsCustomer ? 'bg-gray-50 text-gray-600' : ''}`}
                   />
-                  <span className="text-sm font-medium text-gray-700">
-                    Same as customer address
-                  </span>
-                </label>
-                <label className={labelCls}>Project Address</label>
-                <input
-                  type="text"
-                  value={sameAsCustomer ? address : projectAddress}
-                  onChange={(e) => setProjectAddress(e.target.value)}
-                  disabled={sameAsCustomer}
-                  placeholder="Street, City, State, Zip"
-                  className={`${inputCls} ${sameAsCustomer ? 'bg-gray-50 text-gray-600' : ''}`}
-                />
-              </div>
+                </div>
+              )}
 
               <div>
                 <label className={labelCls}>Date</label>
