@@ -340,15 +340,25 @@ export default function NewProjectModal({
         mode="standalone"
         customers={customerOptions}
         userId={userId}
-        // Assignee dropdown is shown for consistency with the unified
-        // layout, but estimating_projects has no assigned_to column — the
-        // value is dropped on submit. Pass isAdmin=true so the dropdown
-        // isn't disabled (no admin context handy here and there's no
-        // value in enforcing it for a no-op field).
+        // estimating_projects has no assigned_to column, so the assignee
+        // dropdown is hidden below. isAdmin is still passed for parity
+        // with the other wrappers; it's a no-op while the field is hidden.
         isAdmin={true}
         assignees={assignees}
         categories={categories}
         hideProjectAddressField={true}
+        // estimating_projects has no date or assigned_to columns — hide
+        // those fields rather than showing dead UI.
+        hideDateField={true}
+        hideAssignedToField={true}
+        // Customer Address is purely informational on a Project (it lives
+        // on the FK'd companies row; the project never owns its own copy).
+        // Show it for context, but don't let the user edit a value that
+        // would silently be dropped on submit.
+        customerAddressReadOnly={true}
+        // Match the pre-refactor behavior: only users with CRM-create
+        // permission see the "Create new customer" button.
+        hideAddNewCustomerButton={!canCreateCustomer}
         onAddNewCustomerClick={
           canCreateCustomer ? () => setShowNewCustomer(true) : undefined
         }

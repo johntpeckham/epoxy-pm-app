@@ -106,6 +106,16 @@ export interface CreationFormModalProps {
   // the New Project wrapper so it can copy the customer's structured address
   // fields when the "Same as customer address" checkbox is toggled.
   onCustomerChange?: (customerId: string | null) => void
+  // Cleanup-pass toggles for wrappers whose target entity has no column for
+  // a given field. All default to false ("show / editable") so existing
+  // wrappers continue rendering identically. The New Project wrapper sets
+  // these because estimating_projects has no date / assigned_to / customer-
+  // address columns, and the legacy "create new customer" gating lived in
+  // the wrapper.
+  hideDateField?: boolean
+  hideAssignedToField?: boolean
+  hideAddNewCustomerButton?: boolean
+  customerAddressReadOnly?: boolean
 
   onSubmit: (data: CreationFormData) => Promise<string | null>
   onClose: () => void
@@ -139,6 +149,10 @@ export default function CreationFormModal({
   onAddNewCustomerClick,
   prefillCustomerId = null,
   onCustomerChange,
+  hideDateField = false,
+  hideAssignedToField = false,
+  hideAddNewCustomerButton = false,
+  customerAddressReadOnly = false,
   onSubmit,
   onClose,
   onCustomerCreated,
@@ -513,15 +527,17 @@ export default function CreationFormModal({
                     </div>
                     {dropdownOpen && (
                       <div className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-1">
-                        <button
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={handleStartCreate}
-                          className="w-full text-left px-3 py-2 border-b border-gray-100 flex items-center gap-2 text-sm text-amber-600 hover:bg-amber-50 transition"
-                        >
-                          <PlusIcon className="w-4 h-4" />
-                          Create new customer
-                        </button>
+                        {!hideAddNewCustomerButton && (
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={handleStartCreate}
+                            className="w-full text-left px-3 py-2 border-b border-gray-100 flex items-center gap-2 text-sm text-amber-600 hover:bg-amber-50 transition"
+                          >
+                            <PlusIcon className="w-4 h-4" />
+                            Create new customer
+                          </button>
+                        )}
                         {filteredCustomers.map((c) => (
                           <button
                             key={c.id}
@@ -650,8 +666,16 @@ export default function CreationFormModal({
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
+                  readOnly={customerAddressReadOnly}
                   placeholder="Street, City, State, Zip"
-                  className={inputCls}
+                  // When readOnly, mirror the locked-input styling used in
+                  // ProjectAddressFields (bg-gray-50 + dimmed text + not-allowed
+                  // cursor) so the visual matches other locked inputs.
+                  className={`${inputCls} ${
+                    customerAddressReadOnly
+                      ? 'bg-gray-50 text-gray-600 cursor-not-allowed'
+                      : ''
+                  }`}
                 />
               </div>
 
@@ -680,15 +704,17 @@ export default function CreationFormModal({
                 </div>
               )}
 
-              <div>
-                <label className={labelCls}>Date</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
+              {!hideDateField && (
+                <div>
+                  <label className={labelCls}>Date</label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className={labelCls}>Project details</label>
@@ -777,24 +803,26 @@ export default function CreationFormModal({
                 )}
               </div>
 
-              <div>
-                <label className={labelCls}>Assigned to</label>
-                <select
-                  value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  disabled={assigneeDisabled}
-                  className={`${inputCls} ${assigneeDisabled ? 'bg-gray-50 text-gray-500' : ''}`}
-                >
-                  {showUnassignedAssigneeOption && (
-                    <option value="">— Unassigned —</option>
-                  )}
-                  {assignees.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.display_name || a.id.slice(0, 8)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!hideAssignedToField && (
+                <div>
+                  <label className={labelCls}>Assigned to</label>
+                  <select
+                    value={assignedTo}
+                    onChange={(e) => setAssignedTo(e.target.value)}
+                    disabled={assigneeDisabled}
+                    className={`${inputCls} ${assigneeDisabled ? 'bg-gray-50 text-gray-500' : ''}`}
+                  >
+                    {showUnassignedAssigneeOption && (
+                      <option value="">— Unassigned —</option>
+                    )}
+                    {assignees.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.display_name || a.id.slice(0, 8)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {extraSections}
             </div>
