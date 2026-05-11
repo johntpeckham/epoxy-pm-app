@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import {
+  ArrowRightIcon,
   RulerIcon,
   UploadIcon,
   XIcon,
@@ -11,6 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import PdfThumbnail from '@/components/documents/PdfThumbnail'
 import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
+import TakeoffSummaryPreview from '@/components/shared/TakeoffSummaryPreview'
 
 export type MeasurementsParentType = 'lead' | 'appointment' | 'job_walk' | 'project'
 
@@ -126,11 +129,10 @@ export default function MeasurementsCard({
   const [confirmDelete, setConfirmDelete] = useState<MeasurementPdf | null>(null)
   const [deleting, setDeleting] = useState(false)
   // One hidden file input per upload affordance. The flat (single-list)
-  // mode uses fileInputRef; dualSourceMode uses the two source-specific
-  // refs so the onChange handler can pass the right source value without
-  // shared state coordination between clicks.
+  // mode uses fileInputRef; dualSourceMode only has a Site upload button
+  // (Takeoff data flows in from the takeoff tool — no manual PDF upload
+  // affordance there), so siteInputRef is the only dual-source ref.
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const takeoffInputRef = useRef<HTMLInputElement>(null)
   const siteInputRef = useRef<HTMLInputElement>(null)
 
   const fetchPdfs = useCallback(async () => {
@@ -366,13 +368,12 @@ export default function MeasurementsCard({
     )
   }
 
-  // For dualSourceMode, group PDFs by source. Rows without an explicit
-  // source value fall into the 'takeoff' bucket — this covers historical
-  // rows backfilled by the migration (default 'takeoff') and is harmless
-  // for tables that don't carry a source column.
-  const takeoffPdfs = pdfs.filter((p) => (p.source ?? 'takeoff') === 'takeoff')
+  // For dualSourceMode, filter to source='site' PDFs only — those go in
+  // the Site Measurements sub-section. Takeoff-source PDFs are owned by
+  // the takeoff tool itself (TakeoffSummaryPreview reads them via the
+  // takeoff measurement tables, not via this card), so we don't surface
+  // them here as a separate PDF list.
   const sitePdfs = pdfs.filter((p) => p.source === 'site')
-  const takeoffPending = pending.filter((p) => p.source === 'takeoff')
   const sitePending = pending.filter((p) => p.source === 'site')
 
   return (
@@ -396,32 +397,62 @@ export default function MeasurementsCard({
         )}
 
         {dualSourceMode ? (
-          <div className={`${showMeasurementsTextarea ? 'mt-3' : ''} space-y-4`}>
-            {renderSection({
-              sectionTitle: 'Takeoff Measurements',
-              sectionPdfs: takeoffPdfs,
-              sectionPending: takeoffPending,
-              onUploadClick: () => takeoffInputRef.current?.click(),
-              emptyText: 'No takeoff measurements yet.',
-            })}
-            {renderSection({
-              sectionTitle: 'Site Measurements',
-              sectionPdfs: sitePdfs,
-              sectionPending: sitePending,
-              onUploadClick: () => siteInputRef.current?.click(),
-              emptyText: 'No site measurements yet.',
-            })}
-            <input
-              ref={takeoffInputRef}
-              type="file"
-              accept=".pdf,application/pdf"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                handleFiles(e.target.files, 'takeoff')
-                e.target.value = ''
-              }}
-            />
+          // Project layout: a Takeoff sub-section (summary + "View takeoff"
+          // link, no upload, no textarea) and a Site sub-section
+          // (textarea + Upload PDF + PDF list filtered to source='site').
+          // The takeoff sub-section's data is read-only here; live edits
+          // happen at /estimating/takeoff/{projectId}.
+          <div className="space-y-4">
+            {/* Takeoff Measurements sub-section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Takeoff Measurements
+                </h4>
+                <Link
+                  href={`/estimating/takeoff/${parentId}`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-md transition"
+                >
+                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                  View takeoff
+                </Link>
+              </div>
+              <TakeoffSummaryPreview projectId={parentId} />
+            </div>
+
+            {/* Site Measurements sub-section */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Site Measurements
+              </h4>
+              {measurements !== undefined && onMeasurementsPatch && (
+                <textarea
+                  value={text}
+                  onChange={(e) => handleTextChange(e.target.value)}
+                  placeholder="Add measurements..."
+                  className="w-full min-h-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white resize-y"
+                />
+              )}
+              {loadingPdfs ? (
+                <div className="py-4 flex items-center justify-center text-gray-400">
+                  <Loader2Icon className="w-4 h-4 animate-spin" />
+                </div>
+              ) : sitePdfs.length === 0 && sitePending.length === 0 ? null : (
+                <div className="flex flex-wrap gap-3">
+                  {sitePdfs.map(renderPdfTile)}
+                  {sitePending.map(renderPendingTile)}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => siteInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-amber-300 hover:bg-amber-50 transition"
+              >
+                <UploadIcon className="w-4 h-4" />
+                Upload PDF
+              </button>
+            </div>
+
             <input
               ref={siteInputRef}
               type="file"

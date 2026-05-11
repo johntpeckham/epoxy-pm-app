@@ -13,7 +13,6 @@ import UnifiedInfoCard, {
 import MeasurementsCard from '@/components/shared/MeasurementsCard'
 import PhotosCard from '@/components/shared/PhotosCard'
 import ProjectEstimatesCard from './ProjectEstimatesCard'
-import ProjectMeasurementsCard from './ProjectMeasurementsCard'
 import ProjectProposalsCard from './ProjectProposalsCard'
 import ProjectRemindersCard from './ProjectRemindersCard'
 import ProjectNumberOverrideModal from './ProjectNumberOverrideModal'
@@ -204,16 +203,18 @@ export default function ProjectDashboard({
         />
 
         <MeasurementsCard
-          key={`measurements-pdfs-${project.id}`}
+          key={`measurements-${project.id}`}
           parentType="project"
           parentId={project.id}
           userId={userId}
           dualSourceMode={true}
-        />
-
-        <ProjectMeasurementsCard
-          key={`takeoffs-${project.id}`}
-          project={project}
+          measurements={project.measurements}
+          // The card debounces and writes estimating_projects.measurements
+          // itself via its internal handleTextChange. This callback just
+          // propagates the new value up to EstimatingClient (via onPatch)
+          // so the in-memory project list stays in sync — otherwise this
+          // dashboard would keep stale local data after a remount.
+          onMeasurementsPatch={(value) => onPatch({ measurements: value })}
         />
 
         <ProjectEstimatesCard
