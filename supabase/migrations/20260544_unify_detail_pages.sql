@@ -77,15 +77,32 @@ SET project_details = notes
 WHERE project_details IS NULL
   AND notes IS NOT NULL;
 
--- Backfill customer fields from the linked company so the new Info card has
--- something to show on existing rows.
+-- Backfill customer fields from contacts (linked contact preferred, else
+-- the company's primary contact). Address falls back to companies.address.
 UPDATE crm_appointments a
 SET
-  customer_name  = COALESCE(a.customer_name,  c.name),
-  customer_email = COALESCE(a.customer_email, c.email),
-  customer_phone = COALESCE(a.customer_phone, c.phone),
-  address        = COALESCE(a.address,        c.address)
+  customer_name = COALESCE(
+    a.customer_name,
+    NULLIF(TRIM(CONCAT_WS(' ', ct_direct.first_name, ct_direct.last_name)), ''),
+    NULLIF(TRIM(CONCAT_WS(' ', ct_primary.first_name, ct_primary.last_name)), ''),
+    c.name
+  ),
+  customer_email = COALESCE(
+    a.customer_email,
+    ct_direct.email,
+    ct_primary.email
+  ),
+  customer_phone = COALESCE(
+    a.customer_phone,
+    ct_direct.phone,
+    ct_primary.phone
+  ),
+  address = COALESCE(a.address, c.address)
 FROM companies c
+LEFT JOIN contacts ct_primary
+  ON ct_primary.company_id = c.id AND ct_primary.is_primary = true
+LEFT JOIN contacts ct_direct
+  ON ct_direct.id = a.contact_id
 WHERE a.company_id = c.id
   AND (
     a.customer_name IS NULL OR
