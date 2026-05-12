@@ -10,7 +10,6 @@ import {
   DownloadIcon,
   UploadIcon,
   PlusIcon,
-  ArrowLeftIcon,
   ArrowUpIcon,
   ArrowDownIcon,
   AlertTriangleIcon,
@@ -130,7 +129,7 @@ export default function ExistingCustomersView({
 
   const [page, setPage] = useState(1)
 
-  const { canEdit } = usePermissions()
+  const { canEdit, canView } = usePermissions()
   const canEditCrm = canEdit('crm')
 
   // ─── Custom columns & column prefs (shared with Prospects tab) ──────
@@ -965,7 +964,6 @@ export default function ExistingCustomersView({
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <div className="flex items-center gap-2">
             <Building2Icon className="w-5 h-5 text-gray-400" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">CRM</h1>
@@ -973,6 +971,22 @@ export default function ExistingCustomersView({
           {ViewToggle}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {canView('dialer') && (
+            <Link
+              href="/sales/dialer"
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            >
+              Dialer
+            </Link>
+          )}
+          {canView('emailer') && (
+            <Link
+              href="/sales/emailer"
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            >
+              Emailer
+            </Link>
+          )}
           <div className="relative" style={{ width: 280 }}>
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
