@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon, SendIcon, GripVerticalIcon, Trash2Icon } from 'lucide-react'
+import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon, GripVerticalIcon, Trash2Icon } from 'lucide-react'
 import KebabMenu from '@/components/ui/KebabMenu'
 import {
   DndContext,
@@ -29,7 +29,6 @@ import {
   sortSections,
 } from './sectionTotals'
 import { exportFullReport } from './takeoffExport'
-import PushPlansModal from './PushPlansModal'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
@@ -432,7 +431,6 @@ export default function TakeoffDashboard({
   const [pdfPreview, setPdfPreview] = useState<PdfPreviewData | null>(null)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
-  const [showPushModal, setShowPushModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   // DnD sensors for the Measurements card. PointerSensor with an 8px
@@ -751,13 +749,6 @@ export default function TakeoffDashboard({
         </div>
         {pages.length > 0 && (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowPushModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-amber-500 text-amber-600 hover:bg-amber-50 text-xs font-semibold rounded-lg transition-colors"
-            >
-              <SendIcon className="w-4 h-4" />
-              Push Plans To Job
-            </button>
             <button
               onClick={handleDownloadReport}
               disabled={isDownloadingReport}
@@ -1178,27 +1169,6 @@ export default function TakeoffDashboard({
         </div>
       </div>
 
-
-      {/* Push Plans Modal */}
-      {showPushModal && (
-        <PushPlansModal
-          projectName={projectName}
-          pages={pages}
-          items={items}
-          pageScales={pageScales}
-          pageRenderedSizes={pageRenderedSizes}
-          sections={sections}
-          onClose={() => setShowPushModal(false)}
-          onSuccess={(jobName) => {
-            setShowPushModal(false)
-            setToast({ message: `Plans sent to ${jobName}`, type: 'success' })
-          }}
-          onError={(message) => {
-            setShowPushModal(false)
-            setToast({ message, type: 'error' })
-          }}
-        />
-      )}
 
       {/* Toast notification */}
       {toast && (

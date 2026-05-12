@@ -183,23 +183,35 @@ export default function ProjectDashboard({
       </div>
 
       <div className="p-4 space-y-4">
-        <UnifiedInfoCard
-          key={`info-${project.id}`}
-          parentType="project"
-          parentId={project.id}
-          data={infoData}
-          customers={customers}
-          assignees={[]}
-          categories={categories}
-          isAdmin={false}
-          onPatch={() => {
-            // Card is read-only for Project — all edits flow through
-            // ProjectEditInfoModal (opened via onEditClick), which calls
-            // ProjectDashboard's onPatch directly. This noop satisfies
-            // the required prop without introducing a second save path.
-          }}
-          onEditClick={() => setShowEdit(true)}
-        />
+        {/* Top row: Project Info + Reminders side by side on desktop, stacked
+            on mobile. The other cards below stay full-width. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <UnifiedInfoCard
+            key={`info-${project.id}`}
+            parentType="project"
+            parentId={project.id}
+            data={infoData}
+            customers={customers}
+            assignees={[]}
+            categories={categories}
+            isAdmin={false}
+            onPatch={() => {
+              // Card is read-only for Project — all edits flow through
+              // ProjectEditInfoModal (opened via onEditClick), which calls
+              // ProjectDashboard's onPatch directly. This noop satisfies
+              // the required prop without introducing a second save path.
+            }}
+            onEditClick={() => setShowEdit(true)}
+          />
+
+          <ProjectRemindersCard
+            key={`reminders-${project.id}`}
+            projectId={project.id}
+            projectName={project.name}
+            userId={userId}
+            customerId={customer.id}
+          />
+        </div>
 
         <MeasurementsCard
           key={`measurements-${project.id}`}
@@ -228,14 +240,6 @@ export default function ProjectDashboard({
           project={project}
           customer={customer}
           userId={userId}
-        />
-
-        <ProjectRemindersCard
-          key={`reminders-${project.id}`}
-          projectId={project.id}
-          projectName={project.name}
-          userId={userId}
-          customerId={customer.id}
         />
 
         <PhotosCard
