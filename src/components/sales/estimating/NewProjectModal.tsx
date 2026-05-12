@@ -376,7 +376,13 @@ export default function NewProjectModal({
             isOverridden={isOverridden}
           />
         }
-        extraSections={
+        slotAfterCustomerAddress={
+          // Render the structured 4-field Project Address (with its
+          // "Same as customer address" checkbox) in the same vertical
+          // position the shared modal's single-text Project Address would
+          // normally occupy — i.e. directly below Customer Address. The
+          // wrapper sets hideProjectAddressField={true} (above) so the
+          // single-text version isn't duplicated.
           <ProjectAddressFields
             hideCustomerAddress
             customerAddress={customerStructuredAddress}
