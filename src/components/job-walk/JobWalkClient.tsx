@@ -28,7 +28,12 @@ import PageTabs from '@/components/sales/PageTabs'
 import { usePermissions } from '@/lib/usePermissions'
 import { softDeleteJobWalk } from '@/lib/trashBin'
 
-export type JobWalkStatus = 'upcoming' | 'completed' | 'sent_to_estimating'
+export type JobWalkStatus =
+  | 'upcoming'
+  | 'completed'
+  | 'sent_to_estimating'
+  | 'pushed_to_lead'
+  | 'pushed_to_appointment'
 export type JobWalkPushedTo = 'estimating' | 'proposal' | 'job'
 
 export interface JobWalk {
@@ -67,6 +72,8 @@ interface JobWalkClientProps {
 
 export const JOB_WALK_STATUS_OPTIONS: { value: JobWalkStatus; label: string }[] = [
   { value: 'upcoming', label: 'Upcoming' },
+  { value: 'pushed_to_lead', label: 'Pushed to Lead' },
+  { value: 'pushed_to_appointment', label: 'Pushed to Appointment' },
   { value: 'sent_to_estimating', label: 'Sent to Estimating' },
   { value: 'completed', label: 'Completed' },
 ]
@@ -75,12 +82,16 @@ export const JOB_WALK_STATUS_COLORS: Record<JobWalkStatus, { bg: string; border:
   upcoming: { bg: 'rgba(251,191,36,0.22)', border: 'rgba(251,191,36,0.55)', text: '#fbbf24' },
   sent_to_estimating: { bg: 'rgba(96,165,250,0.22)', border: 'rgba(96,165,250,0.55)', text: '#60a5fa' },
   completed: { bg: 'rgba(52,211,153,0.22)', border: 'rgba(52,211,153,0.55)', text: '#34d399' },
+  pushed_to_lead: { bg: 'rgba(167,139,250,0.22)', border: 'rgba(167,139,250,0.55)', text: '#a78bfa' },
+  pushed_to_appointment: { bg: 'rgba(74,222,128,0.22)', border: 'rgba(74,222,128,0.55)', text: '#4ade80' },
 }
 
 export const STATUS_STYLES: Record<JobWalkStatus, { label: string; className: string }> = {
   upcoming: { label: 'Upcoming', className: 'bg-green-100 text-green-700' },
   completed: { label: 'Completed', className: 'bg-blue-100 text-blue-700' },
   sent_to_estimating: { label: 'Sent to Estimating', className: 'bg-gray-100 text-gray-600' },
+  pushed_to_lead: { label: 'Pushed to Lead', className: 'bg-purple-100 text-purple-700' },
+  pushed_to_appointment: { label: 'Pushed to Appointment', className: 'bg-green-100 text-green-700' },
 }
 
 function formatDate(iso: string | null): string {
@@ -225,7 +236,10 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
       filtered.filter((w) =>
         tab === 'upcoming'
           ? w.status === 'upcoming'
-          : w.status === 'sent_to_estimating' || w.status === 'completed'
+          : w.status === 'sent_to_estimating' ||
+            w.status === 'completed' ||
+            w.status === 'pushed_to_lead' ||
+            w.status === 'pushed_to_appointment'
       ),
     [filtered, tab]
   )
@@ -235,7 +249,10 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
     const matchesTab = (w: JobWalk) =>
       tab === 'upcoming'
         ? w.status === 'upcoming'
-        : w.status === 'sent_to_estimating' || w.status === 'completed'
+        : w.status === 'sent_to_estimating' ||
+          w.status === 'completed' ||
+          w.status === 'pushed_to_lead' ||
+          w.status === 'pushed_to_appointment'
     const base = employeeWalks.filter(matchesTab)
     if (!q) return base
     return base.filter(
@@ -299,7 +316,11 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
         <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <span className="text-[17px] font-medium text-gray-900 dark:text-white">
+              <span
+                className={`text-[17px] font-medium text-gray-900 dark:text-white${
+                  tab === 'completed' ? ' line-through' : ''
+                }`}
+              >
                 {walk.project_name || 'Untitled Job Walk'}
               </span>
               <div className="mt-2 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">

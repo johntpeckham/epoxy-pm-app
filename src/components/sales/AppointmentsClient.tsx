@@ -28,7 +28,12 @@ import type { LeadCategory } from './leads/LeadsClient'
 import KebabMenu from '@/components/ui/KebabMenu'
 import PageTabs from './PageTabs'
 
-type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled'
+type AppointmentStatus =
+  | 'scheduled'
+  | 'completed'
+  | 'cancelled'
+  | 'pushed_to_lead'
+  | 'pushed_to_job_walk'
 type PushedTo = 'job_walk' | 'estimating' | 'proposal' | 'job'
 
 interface AppointmentRow {
@@ -67,18 +72,24 @@ const STATUS_LABELS: Record<AppointmentStatus, string> = {
   scheduled: 'Scheduled',
   completed: 'Completed',
   cancelled: 'Cancelled',
+  pushed_to_lead: 'Pushed to Lead',
+  pushed_to_job_walk: 'Pushed to Job Walk',
 }
 
 const APPOINTMENT_STATUS_OPTIONS: { value: AppointmentStatus; label: string }[] = [
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
+  { value: 'pushed_to_lead', label: 'Pushed to Lead' },
+  { value: 'pushed_to_job_walk', label: 'Pushed to Job Walk' },
 ]
 
 const APPOINTMENT_STATUS_COLORS: Record<AppointmentStatus, { bg: string; border: string; text: string }> = {
   scheduled: { bg: 'rgba(52,211,153,0.22)', border: 'rgba(52,211,153,0.55)', text: '#34d399' },
   completed: { bg: 'rgba(96,165,250,0.22)', border: 'rgba(96,165,250,0.55)', text: '#60a5fa' },
   cancelled: { bg: 'rgba(156,163,175,0.22)', border: 'rgba(156,163,175,0.55)', text: '#9ca3af' },
+  pushed_to_lead: { bg: 'rgba(167,139,250,0.22)', border: 'rgba(167,139,250,0.55)', text: '#a78bfa' },
+  pushed_to_job_walk: { bg: 'rgba(244,114,182,0.22)', border: 'rgba(244,114,182,0.55)', text: '#f472b6' },
 }
 
 function formatDateTime(iso: string): string {
@@ -235,7 +246,14 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
       )
     } else {
-      list = list.filter((a) => a.status === 'completed')
+      // Completed tab catches the 'completed' terminal state plus the two
+      // new lateral-push terminal statuses from convertSourceLateral.
+      list = list.filter(
+        (a) =>
+          a.status === 'completed' ||
+          a.status === 'pushed_to_lead' ||
+          a.status === 'pushed_to_job_walk'
+      )
       list = [...list].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       )
@@ -349,7 +367,11 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
         <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <span className="text-[17px] font-medium text-gray-900 dark:text-white">
+              <span
+                className={`text-[17px] font-medium text-gray-900 dark:text-white${
+                  tab === 'completed' ? ' line-through' : ''
+                }`}
+              >
                 {appt.project_name || company?.name || 'Untitled Appointment'}
               </span>
               <div className="mt-2 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">

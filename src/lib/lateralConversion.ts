@@ -38,8 +38,6 @@ interface SourceConfig {
   pdfTable: string
   pdfFk: string
   pdfBucket: string
-  /** Status value written back to the source row after a successful push. */
-  doneStatus: string
 }
 
 interface TargetConfig {
@@ -61,7 +59,6 @@ const SOURCE_CONFIG: Record<LateralSourceType, SourceConfig> = {
     pdfTable: 'lead_measurement_pdfs',
     pdfFk: 'lead_id',
     pdfBucket: 'lead-measurement-pdfs',
-    doneStatus: 'sent_to_estimating',
   },
   appointment: {
     rowTable: 'crm_appointments',
@@ -71,7 +68,6 @@ const SOURCE_CONFIG: Record<LateralSourceType, SourceConfig> = {
     pdfTable: 'appointment_measurement_pdfs',
     pdfFk: 'appointment_id',
     pdfBucket: 'appointment-measurement-pdfs',
-    doneStatus: 'completed',
   },
   job_walk: {
     rowTable: 'job_walks',
@@ -83,7 +79,34 @@ const SOURCE_CONFIG: Record<LateralSourceType, SourceConfig> = {
     // Asymmetric: job walk's PDF bucket doesn't end in '-pdfs'. Matches
     // the convention used by projectConversion.ts + MeasurementsCard.
     pdfBucket: 'job-walk-measurements',
-    doneStatus: 'sent_to_estimating',
+  },
+}
+
+// Status value to write back on the source row after a successful lateral
+// push. Keyed by source × target so each direction describes where the row
+// WENT (e.g. lead→job_walk = 'job_walk_scheduled', not 'sent_to_estimating'
+// which is reserved for actual Project conversion in projectConversion.ts).
+// The diagonal entries (lead→lead, etc.) are unreachable from the three
+// Push menus but populated for safety. Project conversions are handled by
+// projectConversion.ts and use their own 1D mapping.
+const LATERAL_STATUS_FLIP: Record<
+  LateralSourceType,
+  Record<LateralTargetType, string>
+> = {
+  lead: {
+    lead: 'sent_to_estimating',
+    appointment: 'appointment_set',
+    job_walk: 'job_walk_scheduled',
+  },
+  appointment: {
+    lead: 'pushed_to_lead',
+    appointment: 'completed',
+    job_walk: 'pushed_to_job_walk',
+  },
+  job_walk: {
+    lead: 'pushed_to_lead',
+    appointment: 'pushed_to_appointment',
+    job_walk: 'sent_to_estimating',
   },
 }
 
@@ -469,7 +492,9 @@ export async function convertSourceLateral(
   // Spec: status always flips. pushed_to / pushed_ref_id are written
   // only when the source table's CHECK(pushed_to) allows the lateral
   // value (caller decides; null means skip).
-  const sourceUpdate: Record<string, unknown> = { status: srcCfg.doneStatus }
+  const sourceUpdate: Record<string, unknown> = {
+    status: LATERAL_STATUS_FLIP[sourceType][targetType],
+  }
   if (sourcePushedToValue !== null) {
     sourceUpdate.pushed_to = sourcePushedToValue
     sourceUpdate.pushed_ref_id = targetId

@@ -92,10 +92,10 @@ export default function JobWalkPushMenu({
           source={{ type: 'job_walk', id: walk.id }}
           onClose={() => setShowLeadModal(false)}
           onSourcePushed={(newLeadId) => {
-            // Job Walk source's doneStatus is 'sent_to_estimating'.
-            // pushed_to is skipped because job_walks.pushed_to CHECK does
-            // not permit 'lead'.
-            onPatch({ status: 'sent_to_estimating' })
+            // job_walk→lead writes 'pushed_to_lead' per the 2D status
+            // flip map. pushed_to column is skipped because
+            // job_walks.pushed_to CHECK does not permit 'lead'.
+            onPatch({ status: 'pushed_to_lead' })
             router.push(`/sales/leads/${newLeadId}`)
           }}
         />
@@ -110,9 +110,10 @@ export default function JobWalkPushMenu({
           source={{ type: 'job_walk', id: walk.id }}
           onClose={() => setShowAppointmentModal(false)}
           onSourcePushed={(newApptId) => {
-            // pushed_to is skipped because job_walks.pushed_to CHECK does
-            // not permit 'appointment'.
-            onPatch({ status: 'sent_to_estimating' })
+            // job_walk→appointment writes 'pushed_to_appointment' per
+            // the 2D status flip map. pushed_to column is skipped because
+            // job_walks.pushed_to CHECK does not permit 'appointment'.
+            onPatch({ status: 'pushed_to_appointment' })
             router.push(`/sales/appointments/${newApptId}`)
           }}
         />
