@@ -15,11 +15,11 @@ import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import type { JobWalk, JobWalkStatus } from './JobWalkClient'
 import { JOB_WALK_STATUS_COLORS, JOB_WALK_STATUS_OPTIONS } from './JobWalkClient'
+import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import KebabMenu from '@/components/ui/KebabMenu'
 import UnifiedInfoCard, {
   type UnifiedInfoFields,
-  type LeadCategoryOption,
 } from '@/components/shared/UnifiedInfoCard'
 import ProjectDetailsCard from '@/components/shared/ProjectDetailsCard'
 import PhotosCard from '@/components/shared/PhotosCard'
@@ -32,7 +32,7 @@ interface JobWalkDetailClientProps {
   initialWalk: JobWalk
   customers: Customer[]
   assignees: AppointmentAssigneeOption[]
-  initialCategories: LeadCategoryOption[]
+  initialCategories: LeadCategory[]
   userId: string
   isAdmin: boolean
 }

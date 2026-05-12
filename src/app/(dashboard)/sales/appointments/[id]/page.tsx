@@ -8,7 +8,7 @@ import AppointmentDetailClient, {
 } from '@/components/sales/appointments/AppointmentDetailClient'
 import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
-import type { LeadCategoryOption } from '@/components/shared/UnifiedInfoCard'
+import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -69,7 +69,7 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
         .order('display_name', { ascending: true }),
       supabase
         .from('lead_categories')
-        .select('id, name')
+        .select('*')
         .order('name', { ascending: true }),
     ])
 
@@ -102,7 +102,7 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
   const assignees: AppointmentAssigneeOption[] = (
     (profData ?? []) as { id: string; display_name: string | null; role: string }[]
   ).map((p) => ({ id: p.id, display_name: p.display_name }))
-  const categories = (catData ?? []) as LeadCategoryOption[]
+  const categories = (catData ?? []) as LeadCategory[]
 
   return (
     <AppointmentDetailClient

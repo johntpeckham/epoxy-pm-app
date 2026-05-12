@@ -15,13 +15,13 @@ import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 import UnifiedInfoCard, {
   type UnifiedInfoFields,
-  type LeadCategoryOption,
 } from '@/components/shared/UnifiedInfoCard'
 import ProjectDetailsCard from '@/components/shared/ProjectDetailsCard'
 import PhotosCard from '@/components/shared/PhotosCard'
 import MeasurementsCard from '@/components/shared/MeasurementsCard'
 import AppointmentPushMenu from './AppointmentPushMenu'
 import ConvertToProjectModal from '@/components/sales/estimating/ConvertToProjectModal'
+import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
 
 export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled'
 export type AppointmentPushedTo = 'job_walk' | 'estimating' | 'proposal' | 'job'
@@ -68,7 +68,7 @@ interface AppointmentDetailClientProps {
   initialAppointment: AppointmentRow
   customers: Customer[]
   assignees: AppointmentAssigneeOption[]
-  initialCategories: LeadCategoryOption[]
+  initialCategories: LeadCategory[]
   userId: string
   isAdmin: boolean
 }
