@@ -4,6 +4,7 @@ import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'rea
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   SearchIcon,
@@ -307,7 +308,7 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
   }
 
   const [viewArchived, setViewArchived] = useState(false)
-  const { canEdit } = usePermissions()
+  const { canEdit, canView } = usePermissions()
   // Archive/restore actions were previously admin-only. Now driven by edit
   // access on CRM; admin still gets it via the hook shortcut.
   const canArchive = canEdit('crm')
@@ -1224,6 +1225,22 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {canView('dialer') && (
+            <Link
+              href="/sales/dialer"
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            >
+              Dialer
+            </Link>
+          )}
+          {canView('emailer') && (
+            <Link
+              href="/sales/emailer"
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            >
+              Emailer
+            </Link>
+          )}
           <div className="relative" style={{ width: 280 }}>
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input

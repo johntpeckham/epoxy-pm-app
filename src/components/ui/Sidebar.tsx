@@ -53,10 +53,10 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
 
   const { canView, isHiddenFromSidebar } = usePermissions()
   // Sales section is shown when the user can view any sales sub-feature.
+  // Dialer and Emailer live under Tools now (their canView keys gate the
+  // Tools section instead).
   const canViewSales =
     canView('crm') ||
-    canView('dialer') ||
-    canView('emailer') ||
     canView('leads') ||
     canView('appointments') ||
     canView('estimating') ||
@@ -97,12 +97,12 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
   const isEstimatingActive =
     pathname === '/estimating' || pathname.startsWith('/estimating/')
 
-  // Keep Sales section expanded when any sub-item is active
+  // Keep Sales section expanded when any sub-item is active. Dialer and
+  // Emailer routes auto-open the Tools group instead — see the Tools
+  // useEffect below.
   useEffect(() => {
     if (
       isSalesCrmActive ||
-      isSalesDialerActive ||
-      isSalesEmailerActive ||
       isSalesAppointmentsActive ||
       isSalesLeadsActive ||
       isJobWalkActive
@@ -111,8 +111,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     }
   }, [
     isSalesCrmActive,
-    isSalesDialerActive,
-    isSalesEmailerActive,
     isSalesAppointmentsActive,
     isSalesLeadsActive,
     isJobWalkActive,
@@ -171,12 +169,14 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     isTasksActive,
   ])
 
-  // Auto-open the Tools group when the Takeoff Tools route is active.
+  // Auto-open the Tools group when any Tools route is active (Dialer,
+  // Emailer, Takeoff). Scheduler is desktop-only and has no auto-open
+  // because the group is desktop-hidden in that wrapper.
   useEffect(() => {
-    if (isTakeoffToolsActive) {
+    if (isSalesDialerActive || isSalesEmailerActive || isTakeoffToolsActive) {
       setToolsExpanded(true)
     }
-  }, [isTakeoffToolsActive])
+  }, [isSalesDialerActive, isSalesEmailerActive, isTakeoffToolsActive])
 
   const navContent = (
     <div className="flex flex-col h-full">
@@ -249,34 +249,6 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 >
                   <UsersIcon className="w-4 h-4 flex-shrink-0" />
                   CRM
-                </Link>
-              )}
-              {canView('dialer') && (
-                <Link
-                  href="/sales/dialer"
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isSalesDialerActive
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
-                  }`}
-                >
-                  <PhoneIcon className="w-4 h-4 flex-shrink-0" />
-                  Dialer
-                </Link>
-              )}
-              {canView('emailer') && (
-                <Link
-                  href="/sales/emailer"
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isSalesEmailerActive
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-gray-400 hover:text-white hover:bg-neutral-800'
-                  }`}
-                >
-                  <MailIcon className="w-4 h-4 flex-shrink-0" />
-                  Emailer
                 </Link>
               )}
               {canView('leads') && (
@@ -551,12 +523,15 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         )}
 
         {/* Tools — chevron group with NO destination route. Children:
-            Takeoff (estimating feature key) and Scheduler.
-            The desktop-only `hidden lg:block` on the wrapper preserves
-            Scheduler's existing visibility rule. The group hides entirely
-            if no children are visible to this user. */}
-        {(canView('estimating') || canView('scheduler')) && (
-          <div className="hidden lg:block">
+            Dialer + Emailer (mobile-visible), then Takeoff + Scheduler
+            inside a desktop-only sub-wrapper. The outer wrapper is
+            always-rendered so Dialer/Emailer reach mobile users the way
+            they did when they lived in the Sales group. */}
+        {(canView('dialer') ||
+          canView('emailer') ||
+          canView('estimating') ||
+          canView('scheduler')) && (
+          <div>
             <div className="flex items-center rounded-lg text-sm font-medium text-gray-400">
               <div className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0">
                 <WrenchIcon className="w-5 h-5 flex-shrink-0" />
@@ -577,34 +552,66 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 opacity: toolsExpanded ? 1 : 0,
               }}
             >
-              {canView('estimating') && (
+              {canView('dialer') && (
                 <Link
-                  href="/tools/takeoff"
+                  href="/sales/dialer"
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isTakeoffToolsActive
+                    isSalesDialerActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
-                  <RulerIcon className="w-4 h-4 flex-shrink-0" />
-                  Takeoff
+                  <PhoneIcon className="w-4 h-4 flex-shrink-0" />
+                  Dialer
                 </Link>
               )}
-              {canView('scheduler') && (
+              {canView('emailer') && (
                 <Link
-                  href="/scheduler"
+                  href="/sales/emailer"
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isSchedulerActive
+                    isSalesEmailerActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-neutral-800'
                   }`}
                 >
-                  <CalendarRangeIcon className="w-4 h-4 flex-shrink-0" />
-                  Scheduler
+                  <MailIcon className="w-4 h-4 flex-shrink-0" />
+                  Emailer
                 </Link>
               )}
+              {/* Takeoff + Scheduler stay desktop-only to preserve the
+                  previous visibility rule for Scheduler. */}
+              <div className="hidden lg:block">
+                {canView('estimating') && (
+                  <Link
+                    href="/tools/takeoff"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isTakeoffToolsActive
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'text-gray-400 hover:text-white hover:bg-neutral-800'
+                    }`}
+                  >
+                    <RulerIcon className="w-4 h-4 flex-shrink-0" />
+                    Takeoff
+                  </Link>
+                )}
+                {canView('scheduler') && (
+                  <Link
+                    href="/scheduler"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isSchedulerActive
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'text-gray-400 hover:text-white hover:bg-neutral-800'
+                    }`}
+                  >
+                    <CalendarRangeIcon className="w-4 h-4 flex-shrink-0" />
+                    Scheduler
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         )}
