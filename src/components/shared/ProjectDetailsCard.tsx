@@ -5,7 +5,11 @@ import { FileTextIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
 
-export type ProjectDetailsParentType = 'lead' | 'appointment' | 'job_walk'
+export type ProjectDetailsParentType =
+  | 'lead'
+  | 'appointment'
+  | 'job_walk'
+  | 'project'
 
 interface ProjectDetailsCardProps {
   parentType: ProjectDetailsParentType
@@ -14,10 +18,19 @@ interface ProjectDetailsCardProps {
   onPatch: (value: string | null) => void
 }
 
-const TABLE: Record<ProjectDetailsParentType, string> = {
-  lead: 'leads',
-  appointment: 'crm_appointments',
-  job_walk: 'job_walks',
+// Lead / Appointment / Job Walk each store the free-text field on a column
+// named `project_details`. Project uses `description` instead — the Prompt-5
+// migration (20260547) intentionally reused the existing description column
+// and only relabeled it "Project details" in the UI. The lookup keeps that
+// asymmetry contained.
+const CONFIG: Record<
+  ProjectDetailsParentType,
+  { table: string; column: string }
+> = {
+  lead: { table: 'leads', column: 'project_details' },
+  appointment: { table: 'crm_appointments', column: 'project_details' },
+  job_walk: { table: 'job_walks', column: 'project_details' },
+  project: { table: 'estimating_projects', column: 'description' },
 }
 
 export default function ProjectDetailsCard({
@@ -39,9 +52,10 @@ export default function ProjectDetailsCard({
     saveTimerRef.current = setTimeout(async () => {
       setSaveState('saving')
       const supabase = createClient()
+      const { table, column } = CONFIG[parentType]
       const { error } = await supabase
-        .from(TABLE[parentType])
-        .update({ project_details: value || null })
+        .from(table)
+        .update({ [column]: value || null })
         .eq('id', parentId)
       if (error) {
         console.error('[ProjectDetailsCard] Save failed:', {

@@ -12,6 +12,7 @@ import UnifiedInfoCard, {
 } from '@/components/shared/UnifiedInfoCard'
 import MeasurementsCard from '@/components/shared/MeasurementsCard'
 import PhotosCard from '@/components/shared/PhotosCard'
+import ProjectDetailsCard from '@/components/shared/ProjectDetailsCard'
 import ProjectEstimatesCard from './ProjectEstimatesCard'
 import ProjectProposalsCard from './ProjectProposalsCard'
 import ProjectRemindersCard from './ProjectRemindersCard'
@@ -213,20 +214,34 @@ export default function ProjectDashboard({
           />
         </div>
 
-        <MeasurementsCard
-          key={`measurements-${project.id}`}
-          parentType="project"
-          parentId={project.id}
-          userId={userId}
-          dualSourceMode={true}
-          measurements={project.measurements}
-          // The card debounces and writes estimating_projects.measurements
-          // itself via its internal handleTextChange. This callback just
-          // propagates the new value up to EstimatingClient (via onPatch)
-          // so the in-memory project list stays in sync — otherwise this
-          // dashboard would keep stale local data after a remount.
-          onMeasurementsPatch={(value) => onPatch({ measurements: value })}
-        />
+        {/* Second row: Project Details + Measurements side by side on desktop,
+            stacked on mobile. Project Details writes to
+            estimating_projects.description under the hood (the Prompt-5
+            migration reused that column and just relabels it in the UI). */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ProjectDetailsCard
+            key={`project-details-${project.id}`}
+            parentType="project"
+            parentId={project.id}
+            projectDetails={project.description}
+            onPatch={(value) => onPatch({ description: value })}
+          />
+
+          <MeasurementsCard
+            key={`measurements-${project.id}`}
+            parentType="project"
+            parentId={project.id}
+            userId={userId}
+            dualSourceMode={true}
+            measurements={project.measurements}
+            // The card debounces and writes estimating_projects.measurements
+            // itself via its internal handleTextChange. This callback just
+            // propagates the new value up to EstimatingClient (via onPatch)
+            // so the in-memory project list stays in sync — otherwise this
+            // dashboard would keep stale local data after a remount.
+            onMeasurementsPatch={(value) => onPatch({ measurements: value })}
+          />
+        </div>
 
         <ProjectEstimatesCard
           key={`estimates-${project.id}`}
