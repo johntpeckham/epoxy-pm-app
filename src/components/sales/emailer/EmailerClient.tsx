@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import Link from 'next/link'
 import {
+  ArrowLeftIcon,
   MailIcon,
   ClockIcon,
   UserPlusIcon,
@@ -536,6 +538,7 @@ export default function EmailerClient({ userId }: EmailerClientProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
+          <Link href="/sales/crm" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <MailIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
             Emailer
