@@ -141,6 +141,12 @@ export interface CreationFormModalProps {
     projectDetails?: string
     leadSource?: string
     leadCategoryId?: string
+    // Extended for lateral-push prefill (ConvertTo{Lead,Appointment,JobWalk}
+    // modals): seed the project address, date, and assignee from the source
+    // row. Each is optional so existing wrappers (no prefill) are unaffected.
+    projectAddress?: string
+    date?: string
+    assignedTo?: string
   }
 
   onSubmit: (data: CreationFormData) => Promise<string | null>
@@ -199,15 +205,19 @@ export default function CreationFormModal({
   const [customerEmail, setCustomerEmail] = useState(locked?.email ?? '')
   const [customerPhone, setCustomerPhone] = useState(locked?.phone ?? '')
   const [address, setAddress] = useState(locked?.address ?? '')
-  const [projectAddress, setProjectAddress] = useState('')
+  const [projectAddress, setProjectAddress] = useState(
+    initialValues?.projectAddress ?? ''
+  )
   const [sameAsCustomer, setSameAsCustomer] = useState(false)
-  const [date, setDate] = useState<string>(todayISO())
+  const [date, setDate] = useState<string>(initialValues?.date ?? todayISO())
   const [projectDetails, setProjectDetails] = useState(initialValues?.projectDetails ?? '')
   const [leadSource, setLeadSource] = useState(initialValues?.leadSource ?? '')
   const [leadCategoryId, setLeadCategoryId] = useState<string>(
     initialValues?.leadCategoryId ?? ''
   )
-  const [assignedTo, setAssignedTo] = useState<string>(userId)
+  const [assignedTo, setAssignedTo] = useState<string>(
+    initialValues?.assignedTo ?? userId
+  )
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)

@@ -211,8 +211,9 @@ export default function AppointmentDetailClient({
           <AppointmentPushMenu
             appointment={appt}
             userId={userId}
+            assignees={assignees}
+            categories={categories}
             onPatch={handleUpdate}
-            showToast={showToast}
           />
           {appt.converted_to_project_id ? (
             <button

@@ -164,6 +164,8 @@ export default function JobWalkDetailClient({
           <JobWalkPushMenu
             walk={walk}
             userId={userId}
+            assignees={assignees}
+            categories={categories}
             onPatch={handleUpdate}
           />
           {walk.converted_to_project_id ? (
