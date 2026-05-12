@@ -86,11 +86,19 @@ export interface CreationFormModalProps {
   // New Project wrapper. The slot's content owns its own layout; we don't
   // wrap it.
   slotAfterCustomer?: ReactNode
+  // Rendered at the same vertical position the single-text Project Address
+  // field would render (between Customer Address and Date/Project details).
+  // Used by the New Project wrapper to render its structured 4-field
+  // Project Address + "Same as customer" checkbox in the correct place
+  // when hideProjectAddressField={true}. The slot's content owns its own
+  // layout; we don't wrap it.
+  slotAfterCustomerAddress?: ReactNode
   // When true, hide the single-text Project Address field + the
   // "Same as customer address" checkbox that the shared modal renders by
   // default. Wrappers (like the Project modal) that need a structured
-  // 4-field Project Address can set this and render their own in
-  // extraSections without showing the duplicate single-text version.
+  // 4-field Project Address can set this and render their own via the
+  // slotAfterCustomerAddress slot without showing the duplicate single-
+  // text version.
   hideProjectAddressField?: boolean
   // When provided, clicking "Create new customer" in the Customer dropdown
   // calls this callback instead of opening the shared inline panel. Used by
@@ -162,6 +170,7 @@ export default function CreationFormModal({
   disableAssigneeWhenNotAdmin = true,
   extraSections,
   slotAfterCustomer,
+  slotAfterCustomerAddress,
   hideProjectAddressField = false,
   onAddNewCustomerClick,
   prefillCustomerId = null,
@@ -197,10 +206,6 @@ export default function CreationFormModal({
   const [leadCategoryId, setLeadCategoryId] = useState<string>(
     initialValues?.leadCategoryId ?? ''
   )
-  const [addingCategory, setAddingCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [savingCategory, setSavingCategory] = useState(false)
-  const [localCategories, setLocalCategories] = useState<LeadCategory[]>(categories)
   const [assignedTo, setAssignedTo] = useState<string>(userId)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -312,41 +317,17 @@ export default function CreationFormModal({
     }
   }
 
-  async function handleAddCategory() {
-    const trimmed = newCategoryName.trim()
-    if (!trimmed) return
-    setSavingCategory(true)
-    const supabase = createClient()
-    const existing = localCategories.find(
-      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
-    )
-    let cat = existing
-    if (!cat) {
-      const { data: created, error: createErr } = await supabase
-        .from('lead_categories')
-        .insert({ name: trimmed })
-        .select('*')
-        .single()
-      if (createErr || !created) {
-        console.error('[CreationFormModal] Add category failed:', {
-          code: createErr?.code,
-          message: createErr?.message,
-          hint: createErr?.hint,
-          details: createErr?.details,
-        })
-        setSavingCategory(false)
-        return
-      }
-      cat = created as LeadCategory
-      setLocalCategories((prev) =>
-        [...prev, cat as LeadCategory].sort((a, b) => a.name.localeCompare(b.name))
-      )
-    }
-    setLeadCategoryId(cat.id)
-    setSavingCategory(false)
-    setAddingCategory(false)
-    setNewCategoryName('')
-  }
+  // Categories displayed in the Lead Category dropdown. Sorts alphabetically
+  // but pins a category literally named "Other" to the bottom so the catch-
+  // all bucket is always last in the list. Reads straight from the prop —
+  // no local cache — so wrappers that fetch lead_categories client-side
+  // (e.g. the New Project wrapper) update the dropdown without a re-sync
+  // effect.
+  const sortedCategories = [...categories].sort((a, b) => {
+    if (a.name === 'Other') return 1
+    if (b.name === 'Other') return -1
+    return a.name.localeCompare(b.name)
+  })
 
   function handleStartCreate() {
     // If a wrapper has registered an override (e.g. the New Project wrapper
@@ -702,6 +683,8 @@ export default function CreationFormModal({
                 />
               </div>
 
+              {slotAfterCustomerAddress}
+
               {!hideProjectAddressField && (
                 <div>
                   <label className="flex items-center gap-2 mb-1.5 cursor-pointer select-none">
@@ -761,69 +744,18 @@ export default function CreationFormModal({
 
               <div>
                 <label className={labelCls}>Lead Category</label>
-                {addingCategory ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          handleAddCategory()
-                        } else if (e.key === 'Escape') {
-                          setAddingCategory(false)
-                          setNewCategoryName('')
-                        }
-                      }}
-                      placeholder="New category name"
-                      className={inputCls}
-                      disabled={savingCategory}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddCategory}
-                      disabled={savingCategory || !newCategoryName.trim()}
-                      className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg disabled:opacity-50"
-                    >
-                      {savingCategory ? '…' : 'Save'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingCategory(false)
-                        setNewCategoryName('')
-                      }}
-                      disabled={savingCategory}
-                      className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={leadCategoryId}
-                      onChange={(e) => setLeadCategoryId(e.target.value)}
-                      className={inputCls}
-                    >
-                      <option value="">— None —</option>
-                      {localCategories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setAddingCategory(true)}
-                      className="px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg whitespace-nowrap"
-                    >
-                      Manage
-                    </button>
-                  </div>
-                )}
+                <select
+                  value={leadCategoryId}
+                  onChange={(e) => setLeadCategoryId(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">— None —</option>
+                  {sortedCategories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {!hideAssignedToField && (
