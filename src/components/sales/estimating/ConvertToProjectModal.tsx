@@ -73,10 +73,9 @@ const SOURCE_LABEL: Record<ConversionSourceType, string> = {
   job_walk: 'Job Walk',
 }
 
-// Compose the customer's structured address columns into the same
-// single-line shape the source row stores so we can compare them for
-// the "Source said:" hint. Trims aggressively to avoid false-positives
-// caused by stray whitespace.
+// Compose the company's structured address columns into a single-line
+// shape — still used by the locked-customer payload and the customers
+// dropdown subtitle.
 function joinAddress(parts: {
   address?: string | null
   city?: string | null
@@ -89,9 +88,33 @@ function joinAddress(parts: {
     .join(', ')
 }
 
-function addressesEffectivelyMatch(a: string, b: string): boolean {
-  return a.replace(/\s+/g, ' ').trim().toLowerCase() ===
-    b.replace(/\s+/g, ' ').trim().toLowerCase()
+// Parse the source row's single-text project_address into the four
+// structured fields the project table stores. Source format is
+// historically "Street, City, ST Zip" (3 commas of trailing whitespace-
+// split state+zip) but we handle 1-, 2-, 3-, and 4-part inputs.
+// Malformed / no-comma input lands the whole string in `street` so the
+// user can manually re-split city/state/zip themselves.
+function parseSingleLineAddress(
+  text: string | null | undefined
+): AddressValues {
+  if (!text || !text.trim()) return EMPTY_ADDRESS
+  const parts = text
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)
+  if (parts.length >= 4) {
+    return { street: parts[0], city: parts[1], state: parts[2], zip: parts[3] }
+  }
+  if (parts.length === 3) {
+    const last = parts[2].split(/\s+/).filter(Boolean)
+    const state = last[0] ?? ''
+    const zip = last.slice(1).join(' ')
+    return { street: parts[0], city: parts[1], state, zip }
+  }
+  if (parts.length === 2) {
+    return { street: parts[0], city: parts[1], state: '', zip: '' }
+  }
+  return { street: parts[0] ?? text.trim(), city: '', state: '', zip: '' }
 }
 
 export default function ConvertToProjectModal({
@@ -183,6 +206,10 @@ export default function ConvertToProjectModal({
 
       const row = sourceRes.data as SourceRowShape
       setSourceRow(row)
+      // Auto-fill the structured project address from the source's
+      // single-text project_address column. Empty source → empty fields
+      // (no company fallback — Customer Address handles that separately).
+      setProjectAddress(parseSingleLineAddress(row.project_address))
 
       if (row.converted_to_project_id) {
         // The source detail page should prevent us from getting here in
@@ -227,21 +254,14 @@ export default function ConvertToProjectModal({
         setCategories((categoriesRes.data ?? []) as LeadCategory[])
       }
 
-      // Resolve the company. First look in the customers prop the
-      // parent already loaded; if it's not there (newly created
-      // company, or a stale list) fall back to a fresh fetch.
+      // Resolve the company for the locked-customer block + the "Same
+      // as customer address" checkbox. We no longer seed projectAddress
+      // here — the source's project_address is the authoritative initial
+      // value (set above).
       if (row.company_id) {
         const inMemory = customers.find((c) => c.id === row.company_id)
         if (inMemory) {
           setCompany(inMemory)
-          // Auto-fill structured project address from the company's
-          // columns. Empty columns translate to empty fields.
-          setProjectAddress({
-            street: inMemory.address ?? '',
-            city: inMemory.city ?? '',
-            state: inMemory.state ?? '',
-            zip: inMemory.zip ?? '',
-          })
         } else {
           const { data: companyRow, error: companyErr } = await supabase
             .from('companies')
@@ -257,14 +277,7 @@ export default function ConvertToProjectModal({
               details: companyErr.details,
             })
           } else if (companyRow) {
-            const c = companyRow as Customer
-            setCompany(c)
-            setProjectAddress({
-              street: c.address ?? '',
-              city: c.city ?? '',
-              state: c.state ?? '',
-              zip: c.zip ?? '',
-            })
+            setCompany(companyRow as Customer)
           }
         }
       }
@@ -334,26 +347,6 @@ export default function ConvertToProjectModal({
     }
     setSameAsCustomer(checked)
   }
-
-  // Single-text hint above the structured fields: only shown when the
-  // source row's stored project_address differs (non-empty, not matching
-  // what we'd already display via the company columns). Compares against
-  // the company's joined address since that's what we auto-filled with.
-  const sourceProjectAddressHint = useMemo(() => {
-    if (!sourceRow?.project_address) return null
-    const text = sourceRow.project_address.trim()
-    if (!text) return null
-    const companyJoined = joinAddress({
-      address: company?.address,
-      city: company?.city,
-      state: company?.state,
-      zip: company?.zip,
-    })
-    if (companyJoined && addressesEffectivelyMatch(text, companyJoined)) {
-      return null
-    }
-    return text
-  }, [sourceRow, company])
 
   // Locked-customer payload for CreationFormModal. Building from the
   // source's snapshot for email/phone preserves whatever the user
@@ -603,21 +596,14 @@ export default function ConvertToProjectModal({
         />
       }
       extraSections={
-        <div className="space-y-2">
-          {sourceProjectAddressHint && (
-            <p className="text-xs italic text-gray-500">
-              Source said: {sourceProjectAddressHint}
-            </p>
-          )}
-          <ProjectAddressFields
-            hideCustomerAddress
-            customerAddress={customerStructuredAddress}
-            projectAddress={projectAddress}
-            sameAsCustomer={sameAsCustomer}
-            onProjectAddressChange={setProjectAddress}
-            onSameAsCustomerChange={handleSameAsCustomerChange}
-          />
-        </div>
+        <ProjectAddressFields
+          hideCustomerAddress
+          customerAddress={customerStructuredAddress}
+          projectAddress={projectAddress}
+          sameAsCustomer={sameAsCustomer}
+          onProjectAddressChange={setProjectAddress}
+          onSameAsCustomerChange={handleSameAsCustomerChange}
+        />
       }
       onSubmit={handleSubmit}
       onClose={onClose}
