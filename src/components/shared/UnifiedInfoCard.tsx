@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { SettingsIcon, PencilIcon, UserIcon, CheckIcon, XIcon } from 'lucide-react'
+import { SettingsIcon, PencilIcon, UserIcon, CheckIcon, XIcon, FileTextIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
+import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
 import LeadSourceDropdown from '@/components/shared/LeadSourceDropdown'
 import { formatLeadSource } from '@/lib/crm/leadSources'
 import { sortCategoriesWithOtherLast } from '@/lib/leadCategories'
@@ -49,6 +50,13 @@ interface UnifiedInfoCardProps {
   // this so the card's pencil and the loose-header pencil both open the
   // same ProjectEditInfoModal (which is owned by ProjectDashboard).
   onEditClick?: () => void
+  // Optional, only used when parentType === 'project'. When provided, the
+  // card renders an embedded "Project Details" sub-section below the
+  // read-only fields with its own 1000ms debounced auto-save into
+  // estimating_projects.description. Other parent types still mount the
+  // standalone ProjectDetailsCard on their detail pages — see Prompt 20.
+  projectDetails?: string | null
+  onProjectDetailsPatch?: (value: string | null) => void
 }
 
 const TABLE: Record<InfoCardParentType, string> = {
@@ -97,6 +105,8 @@ export default function UnifiedInfoCard({
   isAdmin,
   onPatch,
   onEditClick,
+  projectDetails,
+  onProjectDetailsPatch,
 }: UnifiedInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false)
   const usesDateTime = parentType === 'appointment'
@@ -104,6 +114,51 @@ export default function UnifiedInfoCard({
   // loose header + ProjectEditInfoModal own them (it doesn't; we just
   // hide them). Skip those rows when the card is rendering a Project.
   const isProject = parentType === 'project'
+
+  // Embedded Project Details sub-section state (only used when isProject).
+  // Mirrors ProjectDetailsCard's 1000ms-debounced auto-save into the
+  // estimating_projects.description column. Hooks must run unconditionally
+  // so we always declare these — the JSX gating keeps them inert when
+  // parentType isn't 'project'.
+  const [detailsText, setDetailsText] = useState(projectDetails ?? '')
+  const [detailsSaveState, setDetailsSaveState] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle')
+  const detailsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const detailsSavedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
+
+  function handleProjectDetailsChange(value: string) {
+    setDetailsText(value)
+    onProjectDetailsPatch?.(value || null)
+    if (detailsSaveTimerRef.current) clearTimeout(detailsSaveTimerRef.current)
+    if (detailsSavedIndicatorTimerRef.current)
+      clearTimeout(detailsSavedIndicatorTimerRef.current)
+    detailsSaveTimerRef.current = setTimeout(async () => {
+      setDetailsSaveState('saving')
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('estimating_projects')
+        .update({ description: value || null })
+        .eq('id', parentId)
+      if (error) {
+        console.error('[UnifiedInfoCard] Project details save failed:', {
+          code: error.code,
+          message: error.message,
+          hint: error.hint,
+          details: error.details,
+        })
+        setDetailsSaveState('error')
+      } else {
+        setDetailsSaveState('saved')
+        detailsSavedIndicatorTimerRef.current = setTimeout(
+          () => setDetailsSaveState('idle'),
+          1500
+        )
+      }
+    }, 1000)
+  }
 
   const emptyValue = <span className="text-sm text-gray-300">—</span>
 
@@ -261,6 +316,31 @@ export default function UnifiedInfoCard({
             </div>
           ))}
         </dl>
+
+        {/* Embedded Project Details sub-section — only on the Estimating
+            project detail page. Other parent types still mount the
+            standalone ProjectDetailsCard. Same 1000ms debounce + Auto-save
+            indicator pattern as the standalone card. */}
+        {isProject && (
+          <>
+            <div className="border-t border-gray-100 my-3" />
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-amber-500">
+                <FileTextIcon className="w-5 h-5" />
+              </span>
+              <h4 className="text-sm font-semibold text-gray-900 flex-1">
+                Project details
+              </h4>
+              <AutoSaveIndicator isSaving={detailsSaveState === 'saving'} />
+            </div>
+            <textarea
+              value={detailsText}
+              onChange={(e) => handleProjectDetailsChange(e.target.value)}
+              placeholder="Describe the project scope, requirements, and details..."
+              className="w-full min-h-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white resize-y"
+            />
+          </>
+        )}
       </div>
 
       {editOpen && (
