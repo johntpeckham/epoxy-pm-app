@@ -112,19 +112,23 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
     isTasksActive,
   ])
 
-  // Auto-open the Tools group when any Tools route is active (Dialer,
-  // Emailer, Takeoff). Scheduler is desktop-only and has no auto-open
-  // because the group is desktop-hidden in that wrapper.
+  // Auto-open the Tools group when a Takeoff or Scheduler route is
+  // active. Dialer / Emailer routes intentionally do NOT auto-open the
+  // group — users reach those via the CRM top-row buttons and shouldn't
+  // have their sidebar state mutated as a side effect. The
+  // isSalesDialerActive / isSalesEmailerActive booleans are still used
+  // below to drive the active-item highlight inside the Tools group
+  // when the user has it manually expanded.
   useEffect(() => {
-    if (isSalesDialerActive || isSalesEmailerActive || isTakeoffToolsActive) {
+    if (isTakeoffToolsActive || isSchedulerActive) {
       setToolsExpanded(true)
     }
-  }, [isSalesDialerActive, isSalesEmailerActive, isTakeoffToolsActive])
+  }, [isTakeoffToolsActive, isSchedulerActive])
 
   const navContent = (
     <div className="flex flex-col h-full">
       {/* Navigation */}
-      <nav className="flex-1 px-3 pt-3 pb-4 space-y-1">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-4 space-y-1">
         <Link
           href="/my-work"
           onClick={() => setMobileOpen(false)}
