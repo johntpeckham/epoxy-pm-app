@@ -198,7 +198,6 @@ export default function ProjectDashboard({
             // ProjectDashboard's onPatch directly. This noop satisfies
             // the required prop without introducing a second save path.
           }}
-          onCategoriesChanged={(next) => setCategories(next as LeadCategory[])}
           onEditClick={() => setShowEdit(true)}
         />
 
@@ -267,7 +266,6 @@ export default function ProjectDashboard({
           userId={userId}
           onClose={() => setShowEdit(false)}
           onUpdated={(patch) => onPatch(patch)}
-          onCategoriesChanged={(next) => setCategories(next as LeadCategory[])}
         />
       )}
     </div>

@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { XIcon, UserIcon, PlusIcon, CheckIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
 import LeadSourceDropdown from '@/components/shared/LeadSourceDropdown'
+import { sortCategoriesWithOtherLast } from '@/lib/leadCategories'
 import type { Customer } from '@/components/proposals/types'
 import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
 
@@ -317,17 +318,10 @@ export default function CreationFormModal({
     }
   }
 
-  // Categories displayed in the Lead Category dropdown. Sorts alphabetically
-  // but pins a category literally named "Other" to the bottom so the catch-
-  // all bucket is always last in the list. Reads straight from the prop —
-  // no local cache — so wrappers that fetch lead_categories client-side
-  // (e.g. the New Project wrapper) update the dropdown without a re-sync
-  // effect.
-  const sortedCategories = [...categories].sort((a, b) => {
-    if (a.name === 'Other') return 1
-    if (b.name === 'Other') return -1
-    return a.name.localeCompare(b.name)
-  })
+  // Reads straight from the prop — no local cache — so wrappers that fetch
+  // lead_categories client-side (e.g. the New Project wrapper) update the
+  // dropdown without a re-sync effect. "Other" pinned last via shared helper.
+  const sortedCategories = sortCategoriesWithOtherLast(categories)
 
   function handleStartCreate() {
     // If a wrapper has registered an override (e.g. the New Project wrapper
