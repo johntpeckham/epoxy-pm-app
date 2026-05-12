@@ -234,7 +234,7 @@ export default function PhotosCard({ parentType, parentId, userId }: PhotosCardP
               <div key={photo.id} className="space-y-1">
                 <div
                   className={`relative rounded-lg overflow-hidden bg-gray-100 group ${
-                    parentType === 'project' ? 'h-40' : 'aspect-square'
+                    parentType === 'project' ? 'h-28' : 'aspect-square'
                   }`}
                 >
                   <button
@@ -315,11 +315,21 @@ export default function PhotosCard({ parentType, parentId, userId }: PhotosCardP
           </div>
         )}
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div
+          className={
+            parentType === 'project'
+              ? 'mt-3 flex justify-end gap-2'
+              : 'mt-3 grid grid-cols-2 gap-2'
+          }
+        >
           <button
             type="button"
             onClick={() => uploadInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-amber-300 hover:bg-amber-50 transition"
+            className={`flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-amber-300 hover:bg-amber-50 transition ${
+              parentType === 'project'
+                ? 'px-3 py-1.5'
+                : 'min-h-[44px] px-3 py-2'
+            }`}
           >
             <UploadIcon className="w-4 h-4" />
             Upload
@@ -327,7 +337,11 @@ export default function PhotosCard({ parentType, parentId, userId }: PhotosCardP
           <button
             type="button"
             onClick={() => cameraInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold transition shadow-sm"
+            className={`flex items-center justify-center gap-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold transition shadow-sm ${
+              parentType === 'project'
+                ? 'px-3 py-1.5'
+                : 'min-h-[44px] px-3 py-2'
+            }`}
           >
             <CameraIcon className="w-4 h-4" />
             Camera
