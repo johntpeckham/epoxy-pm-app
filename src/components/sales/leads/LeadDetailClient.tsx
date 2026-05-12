@@ -186,8 +186,9 @@ export default function LeadDetailClient({
           <LeadPushMenu
             lead={lead}
             userId={userId}
+            assignees={assignees}
+            categories={categories}
             onPatch={handleUpdate}
-            showToast={showToast}
           />
           {lead.converted_to_project_id ? (
             <button
