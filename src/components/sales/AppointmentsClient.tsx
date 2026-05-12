@@ -11,6 +11,9 @@ import {
   ArrowLeftIcon,
   CalendarCheckIcon,
   Trash2Icon,
+  MapPinIcon,
+  PhoneIcon,
+  MailIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/types'
@@ -34,6 +37,10 @@ interface AppointmentRow {
   company_id: string
   contact_id: string | null
   title: string | null
+  project_name: string | null
+  customer_name: string | null
+  customer_email: string | null
+  customer_phone: string | null
   date: string
   address: string | null
   project_address: string | null
@@ -75,20 +82,13 @@ const APPOINTMENT_STATUS_COLORS: Record<AppointmentStatus, { bg: string; border:
   cancelled: { bg: 'rgba(156,163,175,0.22)', border: 'rgba(156,163,175,0.55)', text: '#9ca3af' },
 }
 
-const PUSHED_TO_LABELS: Record<PushedTo, string> = {
-  job_walk: 'Pushed to job walk',
-  estimating: 'Pushed to estimating',
-  proposal: 'Pushed to proposal',
-  job: 'Pushed to job',
-}
-
 function formatDateTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
   const date = d.toLocaleDateString(undefined, {
-    weekday: 'short',
     month: 'short',
     day: 'numeric',
+    year: 'numeric',
   })
   const time = d.toLocaleTimeString(undefined, {
     hour: 'numeric',
@@ -339,9 +339,9 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
 
   function renderCard(appt: AppointmentRow) {
     const company = companyMap.get(appt.company_id)
-    const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null
     const isDimmed = appt.status === 'completed' || appt.status === 'cancelled'
     const colors = APPOINTMENT_STATUS_COLORS[appt.status]
+    const customerName = appt.customer_name ?? company?.name ?? null
 
     return (
       <div
@@ -354,26 +354,45 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
         <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <span className="text-[17px] font-medium text-gray-900 dark:text-white truncate block">
-                {company?.name ?? 'Unknown company'}
+              <span className="text-[17px] font-medium text-gray-900 dark:text-white">
+                {appt.project_name || company?.name || 'Untitled Appointment'}
               </span>
               <div className="mt-2 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarIcon className="w-4 h-4 text-gray-400" />
-                  {formatDateTime(appt.date)}
-                </span>
-                {contact && (
+                {customerName && (
                   <span className="inline-flex items-center gap-1.5">
                     <UserIcon className="w-4 h-4 text-gray-400" />
-                    {contact.first_name} {contact.last_name}
+                    {customerName}
                   </span>
                 )}
-                {appt.pushed_to && (
-                  <span className="text-xs text-gray-400">
-                    {PUSHED_TO_LABELS[appt.pushed_to]}
+                {appt.date && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarIcon className="w-4 h-4 text-gray-400" />
+                    {formatDateTime(appt.date)}
                   </span>
                 )}
               </div>
+              {(appt.address || appt.customer_phone || appt.customer_email) && (
+                <div className="mt-1 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">
+                  {appt.address && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPinIcon className="w-4 h-4 text-gray-400" />
+                      {appt.address}
+                    </span>
+                  )}
+                  {appt.customer_phone && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <PhoneIcon className="w-4 h-4 text-gray-400" />
+                      {appt.customer_phone}
+                    </span>
+                  )}
+                  {appt.customer_email && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MailIcon className="w-4 h-4 text-gray-400" />
+                      {appt.customer_email}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
               {appt.converted_to_project_id && appt.converted_to_project && (
