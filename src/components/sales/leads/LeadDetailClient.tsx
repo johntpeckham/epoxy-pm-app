@@ -16,7 +16,6 @@ import type { AppointmentAssigneeOption } from '../NewAppointmentModal'
 import type { Lead, LeadStatus, LeadCategory as LeadCategoryRow } from './LeadsClient'
 import UnifiedInfoCard, {
   type UnifiedInfoFields,
-  type LeadCategoryOption,
 } from '@/components/shared/UnifiedInfoCard'
 import ProjectDetailsCard from '@/components/shared/ProjectDetailsCard'
 import PhotosCard from '@/components/shared/PhotosCard'
@@ -61,7 +60,7 @@ export default function LeadDetailClient({
   const supabase = createClient()
 
   const [lead, setLead] = useState<Lead>(initialLead)
-  const [categories, setCategories] = useState<LeadCategoryOption[]>(initialCategories)
+  const categories = initialCategories
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<{ message: string; href?: string | null } | null>(null)
@@ -221,7 +220,6 @@ export default function LeadDetailClient({
           categories={categories}
           isAdmin={isAdmin}
           onPatch={handleInfoPatch}
-          onCategoriesChanged={(next) => setCategories(next)}
         />
         <ProjectDetailsCard
           parentType="lead"

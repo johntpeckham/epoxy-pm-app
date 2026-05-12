@@ -50,7 +50,7 @@ export default function JobWalkDetailClient({
   const canManage = canEdit('job_walk')
 
   const [walk, setWalk] = useState<JobWalk>(initialWalk)
-  const [categories, setCategories] = useState<LeadCategoryOption[]>(initialCategories)
+  const categories = initialCategories
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteToast, setDeleteToast] = useState<string | null>(null)
@@ -197,7 +197,6 @@ export default function JobWalkDetailClient({
           categories={categories}
           isAdmin={isAdmin}
           onPatch={handleInfoPatch}
-          onCategoriesChanged={(next) => setCategories(next)}
         />
         <ProjectDetailsCard
           parentType="job_walk"

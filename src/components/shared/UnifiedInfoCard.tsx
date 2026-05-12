@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import LeadSourceDropdown from '@/components/shared/LeadSourceDropdown'
 import { formatLeadSource } from '@/lib/crm/leadSources'
+import { sortCategoriesWithOtherLast } from '@/lib/leadCategories'
 import type { Customer } from '@/components/proposals/types'
 import type { AppointmentAssigneeOption } from '@/components/sales/NewAppointmentModal'
 
@@ -43,7 +44,6 @@ interface UnifiedInfoCardProps {
   categories: LeadCategoryOption[]
   isAdmin: boolean
   onPatch: (patch: Partial<UnifiedInfoFields>) => void
-  onCategoriesChanged?: (next: LeadCategoryOption[]) => void
   // When provided, clicking the pencil calls this callback instead of
   // opening the built-in UnifiedEditInfoModal. The Project page uses
   // this so the card's pencil and the loose-header pencil both open the
@@ -96,7 +96,6 @@ export default function UnifiedInfoCard({
   categories,
   isAdmin,
   onPatch,
-  onCategoriesChanged,
   onEditClick,
 }: UnifiedInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false)
@@ -278,7 +277,6 @@ export default function UnifiedInfoCard({
             onPatch(patch)
             setEditOpen(false)
           }}
-          onCategoriesChanged={onCategoriesChanged}
         />
       )}
     </>
@@ -295,7 +293,6 @@ interface UnifiedEditInfoModalProps {
   isAdmin: boolean
   onClose: () => void
   onSaved: (patch: Partial<UnifiedInfoFields>) => void
-  onCategoriesChanged?: (next: LeadCategoryOption[]) => void
 }
 
 function UnifiedEditInfoModal({
@@ -308,7 +305,6 @@ function UnifiedEditInfoModal({
   isAdmin,
   onClose,
   onSaved,
-  onCategoriesChanged,
 }: UnifiedEditInfoModalProps) {
   const usesDateTime = parentType === 'appointment'
 
@@ -326,9 +322,6 @@ function UnifiedEditInfoModal({
   const [leadCategoryId, setLeadCategoryId] = useState<string>(
     data.lead_category_id ?? ''
   )
-  const [addingCategory, setAddingCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [savingCategory, setSavingCategory] = useState(false)
 
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -391,40 +384,6 @@ function UnifiedEditInfoModal({
       if (primary.email) setCustomerEmail(primary.email)
       if (primary.phone) setCustomerPhone(primary.phone)
     }
-  }
-
-  async function handleAddCategory() {
-    const trimmed = newCategoryName.trim()
-    if (!trimmed) return
-    setSavingCategory(true)
-    const supabase = createClient()
-    const existing = categories.find(
-      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
-    )
-    let cat = existing
-    if (!cat) {
-      const { data: created, error: createErr } = await supabase
-        .from('lead_categories')
-        .insert({ name: trimmed })
-        .select('*')
-        .single()
-      if (createErr || !created) {
-        console.error('[UnifiedInfoCard] Add category failed:', createErr)
-        setSavingCategory(false)
-        return
-      }
-      cat = created as LeadCategoryOption
-      if (onCategoriesChanged) {
-        const next = [...categories, cat].sort((a, b) =>
-          a.name.localeCompare(b.name)
-        )
-        onCategoriesChanged(next)
-      }
-    }
-    setLeadCategoryId(cat.id)
-    setSavingCategory(false)
-    setAddingCategory(false)
-    setNewCategoryName('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -692,69 +651,18 @@ function UnifiedEditInfoModal({
 
               <div>
                 <label className={labelCls}>Lead Category</label>
-                {addingCategory ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          handleAddCategory()
-                        } else if (e.key === 'Escape') {
-                          setAddingCategory(false)
-                          setNewCategoryName('')
-                        }
-                      }}
-                      placeholder="New category name"
-                      className={inputCls}
-                      disabled={savingCategory}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddCategory}
-                      disabled={savingCategory || !newCategoryName.trim()}
-                      className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg disabled:opacity-50"
-                    >
-                      {savingCategory ? '…' : 'Save'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingCategory(false)
-                        setNewCategoryName('')
-                      }}
-                      disabled={savingCategory}
-                      className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={leadCategoryId}
-                      onChange={(e) => setLeadCategoryId(e.target.value)}
-                      className={inputCls}
-                    >
-                      <option value="">— None —</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setAddingCategory(true)}
-                      className="px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg whitespace-nowrap"
-                    >
-                      + Add
-                    </button>
-                  </div>
-                )}
+                <select
+                  value={leadCategoryId}
+                  onChange={(e) => setLeadCategoryId(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">— None —</option>
+                  {sortCategoriesWithOtherLast(categories).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 

@@ -85,7 +85,7 @@ export default function AppointmentDetailClient({
   const supabase = createClient()
 
   const [appt, setAppt] = useState<AppointmentRow>(initialAppointment)
-  const [categories, setCategories] = useState<LeadCategoryOption[]>(initialCategories)
+  const categories = initialCategories
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<{ message: string; href?: string | null } | null>(null)
@@ -245,7 +245,6 @@ export default function AppointmentDetailClient({
           categories={categories}
           isAdmin={isAdmin}
           onPatch={handleInfoPatch}
-          onCategoriesChanged={(next) => setCategories(next)}
         />
         <ProjectDetailsCard
           parentType="appointment"

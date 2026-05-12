@@ -22,6 +22,7 @@ import NewAppointmentModal, {
   type AppointmentContactOption,
   type AppointmentAssigneeOption,
 } from './NewAppointmentModal'
+import type { LeadCategory } from './leads/LeadsClient'
 import KebabMenu from '@/components/ui/KebabMenu'
 import PageTabs from './PageTabs'
 
@@ -116,6 +117,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
   const [companies, setCompanies] = useState<AppointmentCompanyOption[]>([])
   const [contacts, setContacts] = useState<AppointmentContactOption[]>([])
   const [assignees, setAssignees] = useState<AppointmentAssigneeOption[]>([])
+  const [categories, setCategories] = useState<LeadCategory[]>([])
 
   const [tab, setTab] = useState<TabKey>('upcoming')
   const [search, setSearch] = useState('')
@@ -158,6 +160,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
       { data: compData },
       { data: contactData },
       { data: profileData },
+      { data: catData, error: catErr },
     ] = await Promise.all([
       apptQuery,
       supabase
@@ -174,7 +177,19 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
         .select('id, display_name, role')
         .in('role', ['admin', 'office_manager', 'salesman'])
         .order('display_name', { ascending: true }),
+      supabase
+        .from('lead_categories')
+        .select('*')
+        .order('name', { ascending: true }),
     ])
+    if (catErr) {
+      console.error('[AppointmentsClient] Load lead_categories failed:', {
+        code: catErr.code,
+        message: catErr.message,
+        hint: catErr.hint,
+        details: catErr.details,
+      })
+    }
     setAppointments((apptData ?? []) as AppointmentRow[])
     setCompanies((compData ?? []) as AppointmentCompanyOption[])
     setContacts((contactData ?? []) as AppointmentContactOption[])
@@ -184,6 +199,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
         display_name: p.display_name,
       }))
     )
+    setCategories((catData ?? []) as LeadCategory[])
     setLoading(false)
   }, [supabase])
 
@@ -507,6 +523,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
           companies={companies}
           contacts={contacts}
           assignees={assignees}
+          categories={categories}
           onClose={() => setShowNewModal(false)}
           onSaved={(createdId) => {
             setShowNewModal(false)

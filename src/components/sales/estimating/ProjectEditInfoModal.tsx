@@ -5,6 +5,7 @@ import { XIcon, UserIcon, CheckIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Portal from '@/components/ui/Portal'
 import LeadSourceDropdown from '@/components/shared/LeadSourceDropdown'
+import { sortCategoriesWithOtherLast } from '@/lib/leadCategories'
 import type { Customer } from '@/components/proposals/types'
 import type { EstimatingProject } from './types'
 import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
@@ -27,7 +28,6 @@ interface ProjectEditInfoModalProps {
   userId: string
   onClose: () => void
   onUpdated: (patch: Partial<EstimatingProject>) => void
-  onCategoriesChanged?: (next: LeadCategory[]) => void
 }
 
 export default function ProjectEditInfoModal({
@@ -38,7 +38,6 @@ export default function ProjectEditInfoModal({
   userId: _userId,
   onClose,
   onUpdated,
-  onCategoriesChanged,
 }: ProjectEditInfoModalProps) {
   // Initial state — seeded from the current project row. Each field is
   // edited locally; we write all changes to estimating_projects on submit.
@@ -49,10 +48,6 @@ export default function ProjectEditInfoModal({
   const [phone, setPhone] = useState(project.phone ?? '')
   const [leadSource, setLeadSource] = useState(project.lead_source ?? '')
   const [leadCategoryId, setLeadCategoryId] = useState(project.lead_category_id ?? '')
-  const [localCategories, setLocalCategories] = useState<LeadCategory[]>(categories)
-  const [addingCategory, setAddingCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [savingCategory, setSavingCategory] = useState(false)
 
   // Customer picker state. selectedCustomerId is the source of truth for the
   // company_id column; customerQuery is just the search-box text.
@@ -178,44 +173,6 @@ export default function ProjectEditInfoModal({
       if (c.email) setEmail(c.email)
       if (c.phone) setPhone(c.phone)
     }
-  }
-
-  async function handleAddCategory() {
-    const trimmed = newCategoryName.trim()
-    if (!trimmed) return
-    setSavingCategory(true)
-    const supabase = createClient()
-    const existing = localCategories.find(
-      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
-    )
-    let cat: LeadCategory | undefined = existing
-    if (!cat) {
-      const { data: created, error: createErr } = await supabase
-        .from('lead_categories')
-        .insert({ name: trimmed })
-        .select('*')
-        .single()
-      if (createErr || !created) {
-        console.error('[ProjectEditInfoModal] Add category failed:', {
-          code: createErr?.code,
-          message: createErr?.message,
-          hint: createErr?.hint,
-          details: createErr?.details,
-        })
-        setSavingCategory(false)
-        return
-      }
-      cat = created as LeadCategory
-      const next = [...localCategories, cat].sort((a, b) =>
-        a.name.localeCompare(b.name)
-      )
-      setLocalCategories(next)
-      onCategoriesChanged?.(next)
-    }
-    setLeadCategoryId(cat.id)
-    setSavingCategory(false)
-    setAddingCategory(false)
-    setNewCategoryName('')
   }
 
   async function handleSave() {
@@ -479,69 +436,18 @@ export default function ProjectEditInfoModal({
 
               <div>
                 <label className={labelCls}>Lead Category</label>
-                {addingCategory ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          handleAddCategory()
-                        } else if (e.key === 'Escape') {
-                          setAddingCategory(false)
-                          setNewCategoryName('')
-                        }
-                      }}
-                      placeholder="New category name"
-                      className={inputCls}
-                      disabled={savingCategory}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddCategory}
-                      disabled={savingCategory || !newCategoryName.trim()}
-                      className="px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-400 rounded-lg disabled:opacity-50"
-                    >
-                      {savingCategory ? '…' : 'Save'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingCategory(false)
-                        setNewCategoryName('')
-                      }}
-                      disabled={savingCategory}
-                      className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={leadCategoryId}
-                      onChange={(e) => setLeadCategoryId(e.target.value)}
-                      className={inputCls}
-                    >
-                      <option value="">— None —</option>
-                      {localCategories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setAddingCategory(true)}
-                      className="px-3 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg whitespace-nowrap"
-                    >
-                      + Add
-                    </button>
-                  </div>
-                )}
+                <select
+                  value={leadCategoryId}
+                  onChange={(e) => setLeadCategoryId(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">— None —</option>
+                  {sortCategoriesWithOtherLast(categories).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
