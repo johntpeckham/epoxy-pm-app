@@ -4,7 +4,6 @@ import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'rea
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   SearchIcon,
@@ -20,7 +19,6 @@ import {
   Trash2Icon,
   ArchiveIcon,
   ArchiveRestoreIcon,
-  ArrowLeftIcon,
   Building2Icon,
   SettingsIcon,
   CopyIcon,
@@ -1206,7 +1204,6 @@ export default function CrmTableClient({ userId }: CrmTableClientProps) {
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <div className="flex items-center gap-2">
             <Building2Icon className="w-5 h-5 text-gray-400" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">CRM</h1>
