@@ -23,7 +23,12 @@ import AppointmentPushMenu from './AppointmentPushMenu'
 import ConvertToProjectModal from '@/components/sales/estimating/ConvertToProjectModal'
 import type { LeadCategory } from '@/components/sales/leads/LeadsClient'
 
-export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled'
+export type AppointmentStatus =
+  | 'scheduled'
+  | 'completed'
+  | 'cancelled'
+  | 'pushed_to_lead'
+  | 'pushed_to_job_walk'
 export type AppointmentPushedTo = 'job_walk' | 'estimating' | 'proposal' | 'job'
 
 export interface AppointmentRow {
@@ -56,12 +61,16 @@ const STATUS_OPTIONS: { value: AppointmentStatus; label: string }[] = [
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
+  { value: 'pushed_to_lead', label: 'Pushed to Lead' },
+  { value: 'pushed_to_job_walk', label: 'Pushed to Job Walk' },
 ]
 
 const STATUS_COLORS: Record<AppointmentStatus, { bg: string; border: string; text: string }> = {
   scheduled: { bg: 'rgba(52,211,153,0.22)', border: 'rgba(52,211,153,0.55)', text: '#34d399' },
   completed: { bg: 'rgba(96,165,250,0.22)', border: 'rgba(96,165,250,0.55)', text: '#60a5fa' },
   cancelled: { bg: 'rgba(156,163,175,0.22)', border: 'rgba(156,163,175,0.55)', text: '#9ca3af' },
+  pushed_to_lead: { bg: 'rgba(167,139,250,0.22)', border: 'rgba(167,139,250,0.55)', text: '#a78bfa' },
+  pushed_to_job_walk: { bg: 'rgba(244,114,182,0.22)', border: 'rgba(244,114,182,0.55)', text: '#f472b6' },
 }
 
 interface AppointmentDetailClientProps {

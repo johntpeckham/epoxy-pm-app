@@ -26,7 +26,7 @@ import KebabMenu from '@/components/ui/KebabMenu'
 import PageTabs from '../PageTabs'
 import { usePermissions } from '@/lib/usePermissions'
 
-export type LeadStatus = 'new' | 'appointment_set' | 'sent_to_estimating' | 'unable_to_reach' | 'disqualified'
+export type LeadStatus = 'new' | 'appointment_set' | 'sent_to_estimating' | 'unable_to_reach' | 'disqualified' | 'job_walk_scheduled'
 export type LeadPushedTo = 'appointment' | 'job_walk' | 'estimating' | 'proposal' | 'job'
 
 export interface Lead {
@@ -80,6 +80,7 @@ interface LeadsClientProps {
 const LEAD_STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: 'new', label: 'New' },
   { value: 'appointment_set', label: 'Appointment Set' },
+  { value: 'job_walk_scheduled', label: 'Job Walk Scheduled' },
   { value: 'sent_to_estimating', label: 'Sent to Estimating' },
   { value: 'unable_to_reach', label: 'Unable to Reach' },
   { value: 'disqualified', label: 'Disqualified' },
@@ -88,6 +89,7 @@ const LEAD_STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
 const LEAD_STATUS_COLORS: Record<LeadStatus, { bg: string; border: string; text: string }> = {
   new: { bg: 'rgba(156,163,175,0.22)', border: 'rgba(156,163,175,0.55)', text: '#d1d5db' },
   appointment_set: { bg: 'rgba(74,222,128,0.22)', border: 'rgba(74,222,128,0.55)', text: '#4ade80' },
+  job_walk_scheduled: { bg: 'rgba(167,139,250,0.22)', border: 'rgba(167,139,250,0.55)', text: '#a78bfa' },
   sent_to_estimating: { bg: 'rgba(96,165,250,0.22)', border: 'rgba(96,165,250,0.55)', text: '#60a5fa' },
   unable_to_reach: { bg: 'rgba(251,191,36,0.22)', border: 'rgba(251,191,36,0.55)', text: '#fbbf24' },
   disqualified: { bg: 'rgba(248,113,113,0.22)', border: 'rgba(248,113,113,0.55)', text: '#f87171' },
@@ -274,7 +276,11 @@ export default function LeadsClient({
         >
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <span className="text-[17px] font-medium text-gray-900 dark:text-white">
+              <span
+                className={`text-[17px] font-medium text-gray-900 dark:text-white${
+                  tab === 'completed' ? ' line-through' : ''
+                }`}
+              >
                 {lead.project_name || 'Untitled Lead'}
               </span>
               <div className="mt-2 flex items-center gap-4 text-[13px] text-gray-500 dark:text-gray-400 flex-wrap">

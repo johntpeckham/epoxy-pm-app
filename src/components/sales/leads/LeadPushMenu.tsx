@@ -96,11 +96,12 @@ export default function LeadPushMenu({
           onClose={() => setShowAppointmentModal(false)}
           onSourcePushed={(newApptId) => {
             // Mirror what the lateral utility just wrote so the detail
-            // page UI matches without a refetch. Lead source's doneStatus
-            // is 'sent_to_estimating' regardless of target; pushed_to is
-            // permitted by leads.pushed_to CHECK for both lateral targets.
+            // page UI matches without a refetch. Per the 2D status flip
+            // map in lateralConversion.ts, lead→appointment writes
+            // 'appointment_set' on the source. pushed_to is permitted by
+            // leads.pushed_to CHECK for both lateral targets.
             onPatch({
-              status: 'sent_to_estimating',
+              status: 'appointment_set',
               pushed_to: 'appointment',
               pushed_ref_id: newApptId,
             })
@@ -117,8 +118,10 @@ export default function LeadPushMenu({
           source={{ type: 'lead', id: lead.id }}
           onClose={() => setShowJobWalkModal(false)}
           onSourcePushed={(newWalkId) => {
+            // lead→job_walk writes 'job_walk_scheduled' per the 2D status
+            // flip map. pushed_to allowed by leads.pushed_to CHECK.
             onPatch({
-              status: 'sent_to_estimating',
+              status: 'job_walk_scheduled',
               pushed_to: 'job_walk',
               pushed_ref_id: newWalkId,
             })

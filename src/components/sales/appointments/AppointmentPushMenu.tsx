@@ -87,10 +87,10 @@ export default function AppointmentPushMenu({
           source={{ type: 'appointment', id: appointment.id }}
           onClose={() => setShowLeadModal(false)}
           onSourcePushed={(newLeadId) => {
-            // Appointment source's doneStatus is 'completed'. pushed_to
-            // is not written because crm_appointments.pushed_to CHECK
-            // forbids 'lead'.
-            onPatch({ status: 'completed' })
+            // appointment→lead writes 'pushed_to_lead' per the 2D status
+            // flip map. pushed_to column is not written because
+            // crm_appointments.pushed_to CHECK forbids 'lead'.
+            onPatch({ status: 'pushed_to_lead' })
             router.push(`/sales/leads/${newLeadId}`)
           }}
         />
@@ -104,11 +104,11 @@ export default function AppointmentPushMenu({
           source={{ type: 'appointment', id: appointment.id }}
           onClose={() => setShowJobWalkModal(false)}
           onSourcePushed={(newWalkId) => {
-            // Appointment source's doneStatus is 'completed'.
-            // crm_appointments.pushed_to CHECK permits 'job_walk', so we
-            // also write the pushed_to / pushed_ref_id back-reference.
+            // appointment→job_walk writes 'pushed_to_job_walk' per the 2D
+            // status flip map. crm_appointments.pushed_to CHECK permits
+            // 'job_walk', so we also write the back-reference columns.
             onPatch({
-              status: 'completed',
+              status: 'pushed_to_job_walk',
               pushed_to: 'job_walk',
               pushed_ref_id: newWalkId,
             })
