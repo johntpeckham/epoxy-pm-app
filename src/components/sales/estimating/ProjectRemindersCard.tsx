@@ -37,6 +37,73 @@ export default function ProjectRemindersCard({
   const [deleting, setDeleting] = useState(false)
   const [tab, setTab] = useState<'active' | 'completed'>('active')
 
+  // Shared 3-second resetting completion timer — mirrors the pattern used by
+  // the Office Tasks / Assigned Work cards on My Work. Checking a row stages
+  // it in pendingCompleteIds (visual line-through + checkmark) and stores
+  // the commit thunk in pendingRunsRef. The shared timer fires once 3s after
+  // the most recent check, then runs every staged thunk. Unchecking a staged
+  // row before the timer fires cancels just that thunk; if the staged set
+  // empties, the timer itself is cleared.
+  const [pendingCompleteIds, setPendingCompleteIds] = useState<Set<string>>(
+    new Set()
+  )
+  const pendingRunsRef = useRef<Map<string, () => void>>(new Map())
+  const sharedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const commitAllPending = useCallback(() => {
+    const runs = Array.from(pendingRunsRef.current.values())
+    pendingRunsRef.current.clear()
+    setPendingCompleteIds(new Set())
+    sharedTimerRef.current = null
+    for (const run of runs) {
+      try {
+        run()
+      } catch (err) {
+        console.error('[ESTIMATING REMINDER commit run failed]', err)
+      }
+    }
+  }, [])
+
+  const schedulePendingComplete = useCallback(
+    (key: string, runComplete: () => void) => {
+      pendingRunsRef.current.set(key, runComplete)
+      setPendingCompleteIds((prev) => {
+        const next = new Set(prev)
+        next.add(key)
+        return next
+      })
+      if (sharedTimerRef.current) clearTimeout(sharedTimerRef.current)
+      sharedTimerRef.current = setTimeout(() => commitAllPending(), 3000)
+    },
+    [commitAllPending]
+  )
+
+  const cancelPendingComplete = useCallback((key: string) => {
+    pendingRunsRef.current.delete(key)
+    setPendingCompleteIds((prev) => {
+      if (!prev.has(key)) return prev
+      const next = new Set(prev)
+      next.delete(key)
+      return next
+    })
+    if (pendingRunsRef.current.size === 0 && sharedTimerRef.current) {
+      clearTimeout(sharedTimerRef.current)
+      sharedTimerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const timerRef = sharedTimerRef
+    const pendingRuns = pendingRunsRef.current
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+      pendingRuns.clear()
+    }
+  }, [])
+
   const fetchReminders = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
@@ -235,16 +302,26 @@ export default function ProjectRemindersCard({
             </p>
           ) : (
             <div className="space-y-2">
-              {pending.map((r) => (
-                <ReminderRow
-                  key={r.id}
-                  reminder={r}
-                  isCompleted={false}
-                  onToggle={() => handleComplete(r)}
-                  onEdit={() => setEditReminder(r)}
-                  onDelete={() => setDeleteReminderId(r.id)}
-                />
-              ))}
+              {pending.map((r) => {
+                const isPending = pendingCompleteIds.has(r.id)
+                return (
+                  <ReminderRow
+                    key={r.id}
+                    reminder={r}
+                    isCompleted={false}
+                    isPending={isPending}
+                    onToggle={() => {
+                      if (isPending) {
+                        cancelPendingComplete(r.id)
+                      } else {
+                        schedulePendingComplete(r.id, () => handleComplete(r))
+                      }
+                    }}
+                    onEdit={() => setEditReminder(r)}
+                    onDelete={() => setDeleteReminderId(r.id)}
+                  />
+                )
+              })}
             </div>
           )
         ) : completed.length === 0 ? (
@@ -304,19 +381,26 @@ export default function ProjectRemindersCard({
 function ReminderRow({
   reminder,
   isCompleted,
+  isPending = false,
   onToggle,
   onEdit,
   onDelete,
 }: {
   reminder: EstimatingReminder
   isCompleted: boolean
+  isPending?: boolean
   onToggle: () => void
   onEdit: () => void
   onDelete: () => void
 }) {
   const dueDate = new Date(reminder.due_date)
   const now = new Date()
-  const isOverdue = !isCompleted && dueDate <= now && reminder.status === 'pending'
+  const isOverdue = !isCompleted && !isPending && dueDate <= now && reminder.status === 'pending'
+  // Visual checked/strikethrough state is the union of "already completed in
+  // the DB" and "staged for completion by the 3-second timer". The
+  // distinction only matters for the onToggle behavior, which the parent
+  // routes through cancelPendingComplete vs handleUncomplete.
+  const isChecked = isCompleted || isPending
 
   return (
     <div
@@ -333,13 +417,13 @@ function ReminderRow({
           onToggle()
         }}
         className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-          isCompleted
+          isChecked
             ? 'border-amber-400 bg-amber-50'
             : 'border-gray-300 hover:border-amber-400'
         }`}
-        aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+        aria-label={isChecked ? 'Mark incomplete' : 'Mark complete'}
       >
-        {isCompleted && (
+        {isChecked && (
           <svg viewBox="0 0 16 16" className="w-2.5 h-2.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="3">
             <path d="M3 8l3.5 3.5L13 5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -352,7 +436,7 @@ function ReminderRow({
           )}
           <p
             className={`text-sm font-medium truncate ${
-              isCompleted
+              isChecked
                 ? 'text-gray-400 line-through'
                 : isOverdue
                 ? 'text-amber-900'
@@ -365,7 +449,7 @@ function ReminderRow({
         {reminder.description && (
           <p
             className={`text-xs truncate mt-0.5 ${
-              isCompleted ? 'text-gray-400 line-through' : 'text-gray-500'
+              isChecked ? 'text-gray-400 line-through' : 'text-gray-500'
             }`}
           >
             {reminder.description}
@@ -373,7 +457,7 @@ function ReminderRow({
         )}
         <p
           className={`text-[11px] mt-0.5 ${
-            isCompleted
+            isChecked
               ? 'text-gray-400'
               : isOverdue
               ? 'text-amber-700 font-medium'

@@ -232,7 +232,11 @@ export default function PhotosCard({ parentType, parentId, userId }: PhotosCardP
           <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
             {photos.map((photo, idx) => (
               <div key={photo.id} className="space-y-1">
-                <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 group">
+                <div
+                  className={`relative rounded-lg overflow-hidden bg-gray-100 group ${
+                    parentType === 'project' ? 'h-40' : 'aspect-square'
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => setLightboxIndex(idx)}
