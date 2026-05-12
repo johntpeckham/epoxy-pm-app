@@ -9,7 +9,6 @@ import {
   FootprintsIcon,
   ChevronRightIcon,
   Trash2Icon,
-  ArrowLeftIcon,
   MapPinIcon,
   PhoneIcon,
   MailIcon,
@@ -405,7 +404,6 @@ export default function JobWalkClient({ initialJobWalks, initialEmployeeWalks = 
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
-          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <FootprintsIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">Job Walk</h1>
         </div>

@@ -8,7 +8,6 @@ import {
   CalendarIcon,
   UserIcon,
   SearchIcon,
-  ArrowLeftIcon,
   CalendarCheckIcon,
   Trash2Icon,
   MapPinIcon,
@@ -62,7 +61,7 @@ interface AppointmentsClientProps {
   userRole: UserRole
 }
 
-type TabKey = 'upcoming' | 'completed' | 'all'
+type TabKey = 'upcoming' | 'completed'
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   scheduled: 'Scheduled',
@@ -235,12 +234,8 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
       list = [...list].sort(
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
       )
-    } else if (tab === 'completed') {
-      list = list.filter((a) => a.status === 'completed')
-      list = [...list].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      )
     } else {
+      list = list.filter((a) => a.status === 'completed')
       list = [...list].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       )
@@ -446,7 +441,6 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 gap-4 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
-          <Link href="/sales" className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></Link>
           <CalendarCheckIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight truncate">
             Appointments
@@ -482,7 +476,6 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
         tabs={[
           { key: 'upcoming', label: 'Upcoming' },
           { key: 'completed', label: 'Completed' },
-          { key: 'all', label: 'All' },
         ]}
         activeKey={tab}
         onChange={setTab}
@@ -498,9 +491,7 @@ export default function AppointmentsClient({ userId, userRole }: AppointmentsCli
             <p className="text-sm text-gray-400">
               {tab === 'upcoming'
                 ? 'No upcoming appointments.'
-                : tab === 'completed'
-                ? 'No completed appointments.'
-                : 'No appointments yet.'}
+                : 'No completed appointments.'}
             </p>
           </div>
         ) : (
