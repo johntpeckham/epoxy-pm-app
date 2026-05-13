@@ -138,7 +138,9 @@ function PageThumbnail({
         const pdfjs = await getPdfjs()
         const doc = await pdfjs.getDocument({ data: page.arrayBuffer!.slice(0) }).promise
         const pdfPage = await doc.getPage(page.pageIndex + 1)
-        const viewport = pdfPage.getViewport({ scale: 0.3 })
+        // Honor the page's embedded /Rotate hint so authored-rotated pages
+        // render in their intended orientation (matches native PDF viewers).
+        const viewport = pdfPage.getViewport({ scale: 0.3, rotation: pdfPage.rotate })
         const canvas = canvasRef.current
         if (!canvas || cancelled) return
         canvas.width = viewport.width
@@ -577,7 +579,8 @@ export default function TakeoffDashboard({
     const newPages: TakeoffPage[] = []
     for (let i = 0; i < doc.numPages; i++) {
       const pdfPage = await doc.getPage(i + 1)
-      const viewport = pdfPage.getViewport({ scale: 0.3 })
+      // Honor the page's embedded /Rotate hint for newly-uploaded PDFs too.
+      const viewport = pdfPage.getViewport({ scale: 0.3, rotation: pdfPage.rotate })
       const canvas = document.createElement('canvas')
       canvas.width = viewport.width
       canvas.height = viewport.height

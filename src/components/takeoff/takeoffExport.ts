@@ -72,8 +72,11 @@ async function renderPdfPageToCanvas(
   if (!buf) throw new Error('No PDF data for page')
   const doc = await pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise
   const pdfPage = await doc.getPage(page.pageIndex + 1)
-  const rawVp = pdfPage.getViewport({ scale: 1 })
-  const viewport = pdfPage.getViewport({ scale: EXPORT_SCALE })
+  // Honor the page's embedded /Rotate hint. Both viewports use the rotated
+  // dimensions so the export canvas, the jsPDF page format (rawW/rawH), and
+  // the fit-scale math downstream all agree on the rotated orientation.
+  const rawVp = pdfPage.getViewport({ scale: 1, rotation: pdfPage.rotate })
+  const viewport = pdfPage.getViewport({ scale: EXPORT_SCALE, rotation: pdfPage.rotate })
   const canvas = document.createElement('canvas')
   canvas.width = viewport.width
   canvas.height = viewport.height
