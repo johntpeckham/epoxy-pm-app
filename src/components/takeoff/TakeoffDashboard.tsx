@@ -863,9 +863,6 @@ export default function TakeoffDashboard({
         {/* Title row */}
         <div className="flex items-center justify-between px-4 py-3">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-[#e5e5e5]">Measurements</h2>
-          <span className="text-[11px] font-medium text-gray-400 dark:text-[#a0a0a0] bg-gray-100 dark:bg-[#2e2e2e] rounded-full px-2.5 py-0.5">
-            {items.length} item{items.length !== 1 ? 's' : ''}
-          </span>
         </div>
 
         {items.length === 0 && sortedSections.length === 0 && (
@@ -1045,16 +1042,14 @@ export default function TakeoffDashboard({
                                               autoFocus
                                             />
                                           ) : (
-                                            <>
-                                              <span className="text-[14px] text-gray-900 dark:text-[#e5e5e5] truncate">
-                                                {item.name}
-                                              </span>
-                                              {item.type === 'area' && itemPerim > 0 && (
-                                                <span className="text-[12px] text-gray-400 dark:text-[#6b6b6b] flex-shrink-0 truncate">
-                                                  &nbsp;·&nbsp;{fmtFtIn(itemPerim)} perim
-                                                </span>
-                                              )}
-                                            </>
+                                            <span className="text-[14px] text-gray-900 dark:text-[#e5e5e5] truncate flex-1 min-w-0">
+                                              {item.name}
+                                            </span>
+                                          )}
+                                          {item.type === 'area' && itemPerim > 0 && editingItemId !== item.id && (
+                                            <span className="text-[11px] text-[#888] flex-shrink-0 pr-2 tabular-nums">
+                                              {fmtFtIn(itemPerim)} perim
+                                            </span>
                                           )}
                                         </div>
                                         <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right py-3 pr-3 text-[14px] tabular-nums text-gray-900 dark:text-[#e5e5e5]">
@@ -1137,7 +1132,7 @@ export default function TakeoffDashboard({
                 borderTopColor: 'rgba(245,158,11,0.3)',
               }}
             >
-              <span className="text-[12px] font-medium uppercase tracking-[0.06em] text-amber-500">
+              <span className="text-[13px] font-semibold uppercase tracking-[0.04em] text-amber-500">
                 Total
               </span>
               <div
