@@ -194,7 +194,10 @@ async function loadPdfPages(
   const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
   const renderPage = async (pageNumber: number): Promise<TakeoffPage> => {
     const pdfPage = await doc.getPage(pageNumber)
-    const viewport = pdfPage.getViewport({ scale: 0.3 })
+    // Honor the page's embedded /Rotate hint (0, 90, 180, 270). Without this,
+    // pages authored to display rotated render at the raw content-stream
+    // orientation — sideways relative to how the PDF is meant to display.
+    const viewport = pdfPage.getViewport({ scale: 0.3, rotation: pdfPage.rotate })
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width
     canvas.height = viewport.height

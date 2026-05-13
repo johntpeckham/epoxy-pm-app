@@ -470,7 +470,10 @@ export default function TakeoffViewer({
       const canvas = canvasRef.current
       if (!container || !canvas) return
 
-      const rawVp = pdfPage.getViewport({ scale: 1 })
+      // Honor the page's embedded /Rotate hint. rawVp's width/height reflect
+      // the rotated dimensions, so the fit-scale math below sizes the rotated
+      // render correctly into the container.
+      const rawVp = pdfPage.getViewport({ scale: 1, rotation: pdfPage.rotate })
       const cw = container.clientWidth
       const ch = container.clientHeight
       const fitScale = Math.min(cw / rawVp.width, ch / rawVp.height) * 0.92
@@ -482,7 +485,7 @@ export default function TakeoffViewer({
       const RENDER_QUALITY_MULTIPLIER = 2
       const dpr = Math.max(baseDpr, 2) * RENDER_QUALITY_MULTIPLIER
       dprRef.current = dpr
-      const viewport = pdfPage.getViewport({ scale: fitScale * dpr })
+      const viewport = pdfPage.getViewport({ scale: fitScale * dpr, rotation: pdfPage.rotate })
       canvas.width = viewport.width
       canvas.height = viewport.height
       const cssW = viewport.width / dpr
