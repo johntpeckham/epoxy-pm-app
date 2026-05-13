@@ -135,7 +135,7 @@ export default function GlobalHeader({ userId, userEmail, displayName, avatarUrl
         >
           <MenuIcon className="w-5 h-5" />
         </button>
-        <Link href="/my-work" className="flex items-center gap-2.5">
+        <Link href="/my-work" prefetch={false} className="flex items-center gap-2.5">
           {companySettings?.logo_url ? (
             <div className="w-7 h-7 rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: '#ffffff' }}>
               <Image
