@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PlusIcon, RulerIcon, SquareIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon, GripVerticalIcon, Trash2Icon } from 'lucide-react'
+import { PlusIcon, RulerIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon, GripVerticalIcon, Trash2Icon } from 'lucide-react'
 import KebabMenu from '@/components/ui/KebabMenu'
 import {
   DndContext,
@@ -24,7 +24,6 @@ import { CSS } from '@dnd-kit/utilities'
 import type { TakeoffPage, TakeoffItem, Markup, TakeoffSection } from './types'
 import {
   computeProjectTotals,
-  computeTotals,
   groupItemsBySection,
   sortSections,
 } from './sectionTotals'
@@ -285,12 +284,10 @@ function fmtArea(sf: number): string {
 
 function SortableMeasurementRow({
   itemId,
-  isLast,
   draggable,
   children,
 }: {
   itemId: string
-  isLast: boolean
   draggable: boolean
   children: (handle: {
     setActivatorRef: (el: HTMLElement | null) => void
@@ -315,16 +312,10 @@ function SortableMeasurementRow({
     position: 'relative',
     opacity: isDragging ? 0.85 : 1,
     boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.12)' : undefined,
-    background: isDragging ? '#fff' : undefined,
-    borderRadius: isDragging ? 8 : undefined,
   }
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`px-4 py-2.5 ${!isLast ? 'border-b border-gray-100' : ''}`}
-    >
+    <div ref={setNodeRef} style={style}>
       {children({ setActivatorRef: setActivatorNodeRef, listeners, attributes })}
     </div>
   )
@@ -864,296 +855,271 @@ export default function TakeoffDashboard({
         <input ref={fileInputRef} type="file" accept=".pdf" multiple onChange={handleFileUpload} className="hidden" />
       </div>
 
-      {/* Section 2 — Measurement Items Summary */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-5">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900">Measurements</h2>
-          <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2.5 py-0.5">
+      {/* Section 2 — Measurement Items Summary (flat 3-column table) */}
+      <div className="bg-white dark:bg-[#242424] rounded-lg border border-gray-200 dark:border-[#3a3a3a] shadow-sm mb-5">
+        {/* Title row */}
+        <div className="flex items-center justify-between px-4 py-3">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-[#e5e5e5]">Measurements</h2>
+          <span className="text-[11px] font-medium text-gray-400 dark:text-[#a0a0a0] bg-gray-100 dark:bg-[#2e2e2e] rounded-full px-2.5 py-0.5">
             {items.length} item{items.length !== 1 ? 's' : ''}
           </span>
         </div>
 
         {items.length === 0 && sortedSections.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-10 px-4">
-            <RulerIcon className="w-8 h-8 text-gray-300 mb-2" />
-            <p className="text-sm text-gray-400 text-center">No measurements yet — open a page to start measuring</p>
+          <div className="flex flex-col items-center justify-center py-10 px-4 border-t border-gray-200 dark:border-[#3a3a3a]">
+            <RulerIcon className="w-8 h-8 text-gray-300 dark:text-[#6b6b6b] mb-2" />
+            <p className="text-sm text-gray-400 dark:text-[#a0a0a0] text-center">No measurements yet — open a page to start measuring</p>
           </div>
         )}
 
-        {/* Sections: outer DndContext sorts sections; each section has its
-            own inner DndContext sorting items + handling cross-section
-            drops. */}
         {sortedSections.length > 0 && (
-          <div className="pt-[18px] border-t border-gray-200">
-          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
-            <SortableContext items={sortedSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-              {sortedSections.map((section) => {
-                const sectionItems = itemsBySectionId.get(section.id) ?? []
-                const sub = computeTotals(sectionItems)
-                const isRenamingThis = editingSectionId === section.id
-                const sectionDraggable = canEditItems && sortedSections.length > 1
-                return (
-                  <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
-                    {({ setActivatorRef, listeners, attributes }) => (
-                      <div className="mx-3 mb-[18px] rounded-md border border-gray-200 bg-white overflow-hidden shadow-md">
-                        {/* Section header — amber-outlined to mirror the PROJECT TOTALS border. */}
-                        <div className="flex items-center gap-2 px-3 py-2.5 m-1.5 rounded-md border border-amber-200">
-                          {sectionDraggable ? (
-                            <button
-                              ref={setActivatorRef}
-                              type="button"
-                              {...listeners}
-                              {...attributes}
-                              aria-label="Drag to reorder section"
-                              className="flex-shrink-0 p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
-                            >
-                              <GripVerticalIcon className="w-4 h-4" />
-                            </button>
-                          ) : (
-                            <span className="w-6" />
-                          )}
-                          <span aria-hidden="true" className="block w-[3px] h-4 bg-amber-500 rounded-[2px] flex-shrink-0" />
-                          {isRenamingThis ? (
-                            <input
-                              ref={(el) => { sectionEditInputRef.current = el }}
-                              type="text"
-                              value={editingSectionName}
-                              onChange={(e) => setEditingSectionName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  onRenameSection(section.id, editingSectionName)
-                                  setEditingSectionId(null)
-                                }
-                                if (e.key === 'Escape') setEditingSectionId(null)
-                              }}
-                              onBlur={() => {
-                                onRenameSection(section.id, editingSectionName)
-                                setEditingSectionId(null)
-                              }}
-                              onFocus={(e) => e.target.select()}
-                              autoFocus
-                              className="flex-1 text-[16px] font-medium tracking-wide text-gray-900 bg-transparent border-b border-amber-500 outline-none"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <span
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setEditingSectionId(section.id)
-                                setEditingSectionName(section.name)
-                              }}
-                              className="flex-1 text-[16px] font-medium text-gray-900 tracking-wide truncate cursor-pointer hover:text-amber-600"
-                            >
-                              {section.name}
-                            </span>
-                          )}
-                          <KebabMenu
-                            variant="light"
-                            title="Section actions"
-                            items={[
-                              {
-                                label: 'Rename',
-                                icon: <Pencil size={13} />,
-                                onSelect: () => {
-                                  setEditingSectionId(section.id)
-                                  setEditingSectionName(section.name)
-                                },
-                              },
-                              {
-                                label: 'Delete',
-                                destructive: true,
-                                icon: <Trash2Icon className="w-3.5 h-3.5" />,
-                                onSelect: () => {
-                                  const count = sectionItems.length
-                                  const message =
-                                    count > 0
-                                      ? `Delete section "${section.name}" and all ${count} measurement${count === 1 ? '' : 's'} inside? This cannot be undone.`
-                                      : `Delete section "${section.name}"?`
-                                  if (typeof window !== 'undefined' && window.confirm(message)) {
-                                    onDeleteSection(section.id)
-                                  }
-                                },
-                              },
-                            ]}
-                          />
-                        </div>
+          <>
+            {/* Column header row — vertical dividers begin at Linear & Area */}
+            <div
+              className="grid items-center pl-8 pr-10 border-b border-gray-200/60 dark:border-[#3a3a3a]/60"
+              style={{ gridTemplateColumns: '1fr 110px 110px' }}
+            >
+              <div />
+              <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right py-1.5 pr-3 text-[10px] uppercase tracking-[0.08em] text-gray-500 dark:text-[#a0a0a0]">
+                Linear
+              </div>
+              <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right py-1.5 pl-3 pr-3 text-[10px] uppercase tracking-[0.08em] text-gray-500 dark:text-[#a0a0a0]">
+                Area
+              </div>
+            </div>
 
-                        {/* Inner DndContext: items within this section. */}
-                        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd(section.id)}>
-                          <SortableContext items={sectionItems.map((it) => it.id)} strategy={verticalListSortingStrategy}>
-                            {sectionItems.length === 0 ? (
-                              <div className="px-4 py-3 text-xs text-gray-400 italic">
-                                No measurements in this section
+            {/* Section + measurement rows */}
+            <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+              <SortableContext items={sortedSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                {sortedSections.map((section) => {
+                  const sectionItems = itemsBySectionId.get(section.id) ?? []
+                  const isRenamingThis = editingSectionId === section.id
+                  const sectionDraggable = canEditItems && sortedSections.length > 1
+                  return (
+                    <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
+                      {({ setActivatorRef, listeners, attributes }) => (
+                        <>
+                          {/* Section label row — no vertical dividers through value columns */}
+                          <div className="group relative pl-8 pr-10 pt-[18px] pb-[10px]">
+                            {sectionDraggable && (
+                              <button
+                                ref={setActivatorRef}
+                                type="button"
+                                {...listeners}
+                                {...attributes}
+                                aria-label="Drag to reorder section"
+                                className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 dark:text-[#6b6b6b] hover:text-gray-600 dark:hover:text-[#a0a0a0] cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <GripVerticalIcon className="w-4 h-4" />
+                              </button>
+                            )}
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {isRenamingThis ? (
+                                <input
+                                  ref={(el) => { sectionEditInputRef.current = el }}
+                                  type="text"
+                                  value={editingSectionName}
+                                  onChange={(e) => setEditingSectionName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      onRenameSection(section.id, editingSectionName)
+                                      setEditingSectionId(null)
+                                    }
+                                    if (e.key === 'Escape') setEditingSectionId(null)
+                                  }}
+                                  onBlur={() => {
+                                    onRenameSection(section.id, editingSectionName)
+                                    setEditingSectionId(null)
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  autoFocus
+                                  className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-[#a0a0a0] bg-transparent border-b border-amber-500 outline-none"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : (
+                                <span
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setEditingSectionId(section.id)
+                                    setEditingSectionName(section.name)
+                                  }}
+                                  className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-[#a0a0a0] hover:text-amber-600 cursor-pointer truncate"
+                                >
+                                  {section.name}
+                                </span>
+                              )}
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <KebabMenu
+                                  variant="light"
+                                  title="Section actions"
+                                  items={[
+                                    {
+                                      label: 'Rename',
+                                      icon: <Pencil size={13} />,
+                                      onSelect: () => {
+                                        setEditingSectionId(section.id)
+                                        setEditingSectionName(section.name)
+                                      },
+                                    },
+                                    {
+                                      label: 'Delete',
+                                      destructive: true,
+                                      icon: <Trash2Icon className="w-3.5 h-3.5" />,
+                                      onSelect: () => {
+                                        const count = sectionItems.length
+                                        const message =
+                                          count > 0
+                                            ? `Delete section "${section.name}" and all ${count} measurement${count === 1 ? '' : 's'} inside? This cannot be undone.`
+                                            : `Delete section "${section.name}"?`
+                                        if (typeof window !== 'undefined' && window.confirm(message)) {
+                                          onDeleteSection(section.id)
+                                        }
+                                      },
+                                    },
+                                  ]}
+                                />
                               </div>
-                            ) : (
-                              sectionItems.map((item, idx) => {
+                            </div>
+                          </div>
+
+                          {/* Measurement rows */}
+                          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd(section.id)}>
+                            <SortableContext items={sectionItems.map((it) => it.id)} strategy={verticalListSortingStrategy}>
+                              {sectionItems.map((item) => {
                                 const itemTotal = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
                                 const itemPerim = item.type === 'area'
                                   ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0)
                                   : 0
-                                const isLast = idx === sectionItems.length - 1
                                 const dragEnabled = canEditItems
                                 return (
-                                  <SortableMeasurementRow
-                                    key={item.id}
-                                    itemId={item.id}
-                                    isLast={isLast}
-                                    draggable={dragEnabled}
-                                  >
-                                    {({ setActivatorRef, listeners, attributes }) => (<>
-                                    <div className="flex items-center gap-3">
-                                    {dragEnabled ? (
-                                      <button
-                                        ref={setActivatorRef}
-                                        type="button"
-                                        {...listeners}
-                                        {...attributes}
-                                        aria-label="Drag to reorder"
-                                        className="flex-shrink-0 -ml-1 p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
+                                  <SortableMeasurementRow key={item.id} itemId={item.id} draggable={dragEnabled}>
+                                    {({ setActivatorRef, listeners, attributes }) => (
+                                      <div
+                                        className="group relative grid items-center pl-8 pr-10 border-b border-gray-200/60 dark:border-[#3a3a3a]/60 hover:bg-gray-50/70 dark:hover:bg-[#2e2e2e]/40 transition-colors"
+                                        style={{ gridTemplateColumns: '1fr 110px 110px' }}
                                       >
-                                        <GripVerticalIcon className="w-4 h-4" />
-                                      </button>
-                                    ) : (
-                                      <span className="w-2" />
-                                    )}
-                                    <div
-                                      className="w-3 h-3 rounded-full flex-shrink-0"
-                                      style={{ backgroundColor: item.color }}
-                                    />
-                                    {editingItemId === item.id ? (
-                                      <input
-                                        type="text"
-                                        value={editItemName}
-                                        onChange={(e) => setEditItemName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            const trimmed = editItemName.trim()
-                                            if (trimmed) onRenameItem(item.id, trimmed)
-                                            setEditingItemId(null)
-                                          }
-                                          if (e.key === 'Escape') setEditingItemId(null)
-                                        }}
-                                        onBlur={() => {
-                                          const trimmed = editItemName.trim()
-                                          if (trimmed) onRenameItem(item.id, trimmed)
-                                          setEditingItemId(null)
-                                        }}
-                                        onFocus={(e) => e.target.select()}
-                                        className="text-[14px] font-medium border-b border-amber-500 outline-none bg-transparent flex-1"
-                                        autoFocus
-                                      />
-                                    ) : (
-                                      <span className="text-[14px] font-medium text-gray-900 truncate flex-1 min-w-0">
-                                        {item.name}
-                                      </span>
-                                    )}
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
-                                      item.type === 'linear'
-                                        ? 'bg-blue-50 text-blue-600'
-                                        : 'bg-emerald-50 text-emerald-600'
-                                    }`}>
-                                      {item.type === 'linear' ? 'Linear' : 'Area'}
-                                    </span>
-                                    <span className="text-[14px] font-semibold text-amber-600 flex-shrink-0 tabular-nums w-28 text-right">
-                                      {item.type === 'linear' ? fmtFtIn(itemTotal) : fmtArea(itemTotal)}
-                                    </span>
-                                    {item.type === 'area' && itemPerim > 0 && (
-                                      <span className="text-xs text-gray-500 flex-shrink-0 w-24 text-right">
-                                        {fmtFtIn(itemPerim)} perim.
-                                      </span>
-                                    )}
-                                    <KebabMenu
-                                      variant="light"
-                                      title="Item actions"
-                                      items={[
-                                        {
-                                          label: 'Rename',
-                                          icon: <Pencil size={13} />,
-                                          onSelect: () => {
-                                            setEditingItemId(item.id)
-                                            setEditItemName(item.name)
-                                          },
-                                        },
-                                      ]}
-                                    />
-                                    </div>
-                                    {item.measurements.length > 0 && (
-                                      <div className="pl-[26px] pr-2 pt-1.5 space-y-0.5">
-                                        {item.measurements.map((m) => (
-                                          <div key={m.id} className="flex items-center gap-2">
-                                            <span aria-hidden="true" className="block w-1 h-1 rounded-full bg-gray-300 flex-shrink-0" />
-                                            <span className="text-[12px] text-gray-500 tabular-nums">
-                                              {m.type === 'area' ? fmtArea(m.valueInFeet) : fmtFtIn(m.valueInFeet)}
-                                              {m.type === 'area' && m.perimeterFt ? (
-                                                <span className="text-gray-400"> · {fmtFtIn(m.perimeterFt)} perim</span>
-                                              ) : null}
-                                            </span>
-                                          </div>
-                                        ))}
+                                        {dragEnabled && (
+                                          <button
+                                            ref={setActivatorRef}
+                                            type="button"
+                                            {...listeners}
+                                            {...attributes}
+                                            aria-label="Drag to reorder"
+                                            className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 dark:text-[#6b6b6b] hover:text-gray-600 dark:hover:text-[#a0a0a0] cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity"
+                                          >
+                                            <GripVerticalIcon className="w-4 h-4" />
+                                          </button>
+                                        )}
+                                        <div className="flex items-center gap-2 min-w-0 py-3 pr-3">
+                                          <span
+                                            className="w-2 h-2 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: item.color }}
+                                          />
+                                          {editingItemId === item.id ? (
+                                            <input
+                                              type="text"
+                                              value={editItemName}
+                                              onChange={(e) => setEditItemName(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                  const trimmed = editItemName.trim()
+                                                  if (trimmed) onRenameItem(item.id, trimmed)
+                                                  setEditingItemId(null)
+                                                }
+                                                if (e.key === 'Escape') setEditingItemId(null)
+                                              }}
+                                              onBlur={() => {
+                                                const trimmed = editItemName.trim()
+                                                if (trimmed) onRenameItem(item.id, trimmed)
+                                                setEditingItemId(null)
+                                              }}
+                                              onFocus={(e) => e.target.select()}
+                                              className="text-[14px] border-b border-amber-500 outline-none bg-transparent flex-1 min-w-0 text-gray-900 dark:text-[#e5e5e5]"
+                                              autoFocus
+                                            />
+                                          ) : (
+                                            <>
+                                              <span className="text-[14px] text-gray-900 dark:text-[#e5e5e5] truncate">
+                                                {item.name}
+                                              </span>
+                                              {item.type === 'area' && itemPerim > 0 && (
+                                                <span className="text-[12px] text-gray-400 dark:text-[#6b6b6b] flex-shrink-0 truncate">
+                                                  &nbsp;·&nbsp;{fmtFtIn(itemPerim)} perim
+                                                </span>
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
+                                        <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right py-3 pr-3 text-[14px] tabular-nums text-gray-900 dark:text-[#e5e5e5]">
+                                          {item.type === 'linear'
+                                            ? fmtFtIn(itemTotal)
+                                            : <span className="text-gray-300 dark:text-[#6b6b6b]">—</span>}
+                                        </div>
+                                        <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right py-3 pl-3 pr-3 text-[14px] tabular-nums text-gray-900 dark:text-[#e5e5e5]">
+                                          {item.type === 'area'
+                                            ? fmtArea(itemTotal)
+                                            : <span className="text-gray-300 dark:text-[#6b6b6b]">—</span>}
+                                        </div>
+                                        <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <KebabMenu
+                                            variant="light"
+                                            title="Item actions"
+                                            items={[
+                                              {
+                                                label: 'Rename',
+                                                icon: <Pencil size={13} />,
+                                                onSelect: () => {
+                                                  setEditingItemId(item.id)
+                                                  setEditItemName(item.name)
+                                                },
+                                              },
+                                            ]}
+                                          />
+                                        </div>
                                       </div>
                                     )}
-                                    </>)}
                                   </SortableMeasurementRow>
                                 )
-                              })
-                            )}
-                          </SortableContext>
-                        </DndContext>
+                              })}
+                            </SortableContext>
+                          </DndContext>
+                        </>
+                      )}
+                    </SortableSection>
+                  )
+                })}
+              </SortableContext>
+            </DndContext>
 
-                        {/* Section subtotals — visible footer band, darker than card body. */}
-                        <div className="border-t border-gray-200 bg-gray-100">
-                          <div className="flex items-center justify-between px-4 py-2">
-                            <div className="flex items-center gap-2">
-                              <RulerIcon className="w-3.5 h-3.5 text-amber-500" />
-                              <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total Linear</span>
-                            </div>
-                            <span className="text-[13px] font-bold text-amber-600 tabular-nums">{fmtFtIn(sub.linear)}</span>
-                          </div>
-                          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200">
-                            <div className="flex items-center gap-2">
-                              <SquareIcon className="w-3.5 h-3.5 text-amber-500" />
-                              <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-[13px] font-bold text-amber-600 tabular-nums">{fmtArea(sub.area)}</span>
-                              {sub.perim > 0 && (
-                                <span className="text-[11px] text-gray-500">{fmtFtIn(sub.perim)} perim.</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </SortableSection>
-                )
-              })}
-            </SortableContext>
-          </DndContext>
-          </div>
+            {/* Project total row */}
+            <div
+              className="grid items-center pl-8 pr-10 py-4 border-t"
+              style={{
+                gridTemplateColumns: '1fr 110px 110px',
+                borderTopColor: 'rgba(245,158,11,0.3)',
+              }}
+            >
+              <span className="text-[12px] font-medium uppercase tracking-[0.06em] text-amber-500">
+                Total
+              </span>
+              <div
+                className="text-right py-1 pr-3 text-[15px] font-medium tabular-nums text-gray-900 dark:text-[#e5e5e5]"
+                style={{ borderLeft: '1px solid rgba(245,158,11,0.15)' }}
+              >
+                {fmtFtIn(projectTotals.linear)}
+              </div>
+              <div
+                className="text-right py-1 pl-3 pr-3 text-[15px] font-medium tabular-nums text-gray-900 dark:text-[#e5e5e5]"
+                style={{ borderLeft: '1px solid rgba(245,158,11,0.15)' }}
+              >
+                {fmtArea(projectTotals.area)}
+              </div>
+            </div>
+          </>
         )}
 
-        {/* Project totals — emphasized amber-tinted block. Always rendered. */}
-        <div className="mx-3 mb-3 px-4 py-3 rounded-md bg-amber-50 border border-amber-200">
-          <div className="text-[11px] font-medium text-amber-700 uppercase tracking-[0.06em] mb-2">
-            Project Totals
-          </div>
-          <div className="flex items-center justify-between py-1">
-            <span className="text-[13px] font-medium text-gray-700">Project Total Linear</span>
-            <span className="text-[17px] font-medium text-amber-600 tabular-nums">{fmtFtIn(projectTotals.linear)}</span>
-          </div>
-          <div className="flex items-center justify-between py-1">
-            <span className="text-[13px] font-medium text-gray-700">Project Total Area</span>
-            <span className="text-[17px] font-medium text-amber-600 tabular-nums">
-              {fmtArea(projectTotals.area)}
-              {projectTotals.perim > 0 && (
-                <span className="ml-1.5 text-[12px] font-normal text-gray-500"> · {fmtFtIn(projectTotals.perim)} perim</span>
-              )}
-            </span>
-          </div>
-        </div>
-
         {/* + Add Section button */}
-        <div className="px-4 py-3 border-t border-gray-100">
+        <div className="px-4 py-3">
           <button
             onClick={() => {
               const id = onCreateSection('New Section')
@@ -1161,7 +1127,7 @@ export default function TakeoffDashboard({
               setEditingSectionName('New Section')
               setTimeout(() => sectionEditInputRef.current?.focus(), 0)
             }}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 border border-amber-500/40 text-amber-600 hover:bg-amber-50 text-xs font-semibold rounded transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 border border-dashed border-gray-300/60 dark:border-[#3a3a3a]/70 bg-transparent text-gray-500 dark:text-[#a0a0a0] hover:text-amber-600 hover:border-amber-500/40 text-xs font-medium rounded transition-colors"
           >
             <PlusIcon className="w-3.5 h-3.5" />
             Add Section
