@@ -646,6 +646,10 @@ export default function TakeoffClient({
     []
   )
 
+  const handleDeleteItem = useCallback((itemId: string) => {
+    setItems((prev) => prev.filter((it) => it.id !== itemId))
+  }, [])
+
   // ─── Section CRUD ────────────────────────────────────────────────────
   // All persistence is direct to estimating_project_measurement_sections.
   // Items' sectionId lives in JSONB and is persisted by the existing
@@ -890,6 +894,7 @@ export default function TakeoffClient({
         onDeletePage={handleDeletePage}
         onRenamePage={handleRenamePage}
         onRenameItem={handleRenameItem}
+        onDeleteItem={handleDeleteItem}
         onReorderItems={handleReorderItems}
         onCreateSection={handleCreateSection}
         onRenameSection={handleRenameSection}

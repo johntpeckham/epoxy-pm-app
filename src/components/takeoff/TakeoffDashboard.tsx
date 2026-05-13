@@ -24,6 +24,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { TakeoffPage, TakeoffItem, Markup, TakeoffSection } from './types'
 import {
   computeProjectTotals,
+  computeTotals,
   groupItemsBySection,
   sortSections,
 } from './sectionTotals'
@@ -56,6 +57,7 @@ interface TakeoffDashboardProps {
   onDeletePage: (pdfIndex: number, pageIndex: number) => void
   onRenamePage: (pdfIndex: number, pageIndex: number, displayName: string) => void
   onRenameItem: (itemId: string, newName: string) => void
+  onDeleteItem: (itemId: string) => void
   /** Legacy single-level reorder hook. Kept on the interface for callers
    *  that haven't migrated; the dashboard now uses the section-aware
    *  reorder via onReorderItemsInSections. */
@@ -375,6 +377,7 @@ export default function TakeoffDashboard({
   onDeletePage,
   onRenamePage,
   onRenameItem,
+  onDeleteItem,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onReorderItems: _onReorderItemsLegacy,
   canEditItems = true,
@@ -908,7 +911,7 @@ export default function TakeoffDashboard({
                                 {...listeners}
                                 {...attributes}
                                 aria-label="Drag to reorder section"
-                                className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 dark:text-[#6b6b6b] hover:text-gray-600 dark:hover:text-[#a0a0a0] cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 dark:text-[#6b6b6b] hover:text-gray-600 dark:hover:text-[#a0a0a0] cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 group-has-[[aria-expanded=true]]:opacity-100 transition-opacity"
                               >
                                 <GripVerticalIcon className="w-4 h-4" />
                               </button>
@@ -952,7 +955,7 @@ export default function TakeoffDashboard({
                                   {section.name}
                                 </span>
                               )}
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="opacity-0 group-hover:opacity-100 group-has-[[aria-expanded=true]]:opacity-100 transition-opacity">
                                 <KebabMenu
                                   variant="light"
                                   title="Section actions"
@@ -1009,7 +1012,7 @@ export default function TakeoffDashboard({
                                             {...listeners}
                                             {...attributes}
                                             aria-label="Drag to reorder"
-                                            className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 dark:text-[#6b6b6b] hover:text-gray-600 dark:hover:text-[#a0a0a0] cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 dark:text-[#6b6b6b] hover:text-gray-600 dark:hover:text-[#a0a0a0] cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 group-has-[[aria-expanded=true]]:opacity-100 transition-opacity"
                                           >
                                             <GripVerticalIcon className="w-4 h-4" />
                                           </button>
@@ -1064,7 +1067,7 @@ export default function TakeoffDashboard({
                                             ? fmtArea(itemTotal)
                                             : <span className="text-gray-300 dark:text-[#6b6b6b]">—</span>}
                                         </div>
-                                        <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-has-[[aria-expanded=true]]:opacity-100 transition-opacity">
                                           <KebabMenu
                                             variant="light"
                                             title="Item actions"
@@ -1077,6 +1080,16 @@ export default function TakeoffDashboard({
                                                   setEditItemName(item.name)
                                                 },
                                               },
+                                              {
+                                                label: 'Delete',
+                                                destructive: true,
+                                                icon: <Trash2Icon className="w-3.5 h-3.5" />,
+                                                onSelect: () => {
+                                                  if (typeof window !== 'undefined' && window.confirm(`Delete measurement "${item.name}"? This cannot be undone.`)) {
+                                                    onDeleteItem(item.id)
+                                                  }
+                                                },
+                                              },
                                             ]}
                                           />
                                         </div>
@@ -1087,6 +1100,25 @@ export default function TakeoffDashboard({
                               })}
                             </SortableContext>
                           </DndContext>
+
+                          {/* Per-section subtotal — only when the section has at least one measurement. */}
+                          {sectionItems.length > 0 && (() => {
+                            const sub = computeTotals(sectionItems)
+                            return (
+                              <div
+                                className="grid items-center pl-8 pr-10"
+                                style={{ gridTemplateColumns: '1fr 110px 110px' }}
+                              >
+                                <div />
+                                <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right pt-2 pb-1 pr-3 text-[10px] tabular-nums text-gray-400 dark:text-[#888]">
+                                  {fmtFtIn(sub.linear)}
+                                </div>
+                                <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right pt-2 pb-1 pl-3 pr-3 text-[10px] tabular-nums text-gray-400 dark:text-[#888]">
+                                  {fmtArea(sub.area)}
+                                </div>
+                              </div>
+                            )
+                          })()}
                         </>
                       )}
                     </SortableSection>
