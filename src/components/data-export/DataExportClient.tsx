@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 import {
   ArrowLeftIcon,
   DownloadIcon,
@@ -132,8 +133,7 @@ export default function DataExportClient() {
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const nameMatch = p.name.toLowerCase().includes(q)
-        const customerName = (p.companies?.name ?? p.client_name ?? '').toLowerCase()
-        const clientMatch = customerName.includes(q)
+        const clientMatch = displayProjectCustomer(p).toLowerCase().includes(q)
         if (!nameMatch && !clientMatch) return false
       }
       return true
@@ -682,7 +682,7 @@ export default function DataExportClient() {
                   <div className="min-w-0">
                     <span className="text-sm text-gray-900 block truncate">{p.name}</span>
                     {(() => {
-                      const customer = p.companies?.name ?? p.client_name
+                      const customer = displayProjectCustomer(p)
                       return customer ? (
                         <span className="text-xs text-gray-400 block truncate">{customer}</span>
                       ) : null

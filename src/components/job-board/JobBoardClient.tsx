@@ -373,11 +373,10 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
   // Filter then split into pinned / active / completed sections
   const filtered = useMemo(() => projects.filter((p) => {
     const q = search.toLowerCase()
-    const customerName = (p.companies?.name ?? p.client_name ?? '').toLowerCase()
     return (
       !q ||
       p.name.toLowerCase().includes(q) ||
-      customerName.includes(q) ||
+      displayProjectCustomer(p).toLowerCase().includes(q) ||
       p.address.toLowerCase().includes(q)
     )
   }), [projects, search])

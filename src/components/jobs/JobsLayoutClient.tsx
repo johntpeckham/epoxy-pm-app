@@ -12,6 +12,7 @@ import {
 import Link from 'next/link'
 import { Project, FeedPost } from '@/types'
 import { useProjectPins } from '@/lib/useProjectPins'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 import ProjectCard from './ProjectCard'
 import ProjectFeedClient from '@/components/feed/ProjectFeedClient'
 
@@ -122,11 +123,10 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
   // Filter then split into pinned / active / completed sections
   const filtered = useMemo(() => projects.filter((p) => {
     const q = search.toLowerCase()
-    const customerName = (p.companies?.name ?? p.client_name ?? '').toLowerCase()
     return (
       !q ||
       p.name.toLowerCase().includes(q) ||
-      customerName.includes(q) ||
+      displayProjectCustomer(p).toLowerCase().includes(q) ||
       p.address.toLowerCase().includes(q)
     )
   }), [projects, search])

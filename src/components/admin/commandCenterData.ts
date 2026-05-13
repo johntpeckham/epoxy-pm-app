@@ -14,7 +14,7 @@ export interface CommandCenterProject {
   client_name: string | null
   proposal_number: string | null
   status: string
-  companies: { id: string; name: string } | null
+  companies: { id: string; name: string }[] | null
 }
 
 export interface CommandCenterCallLogEntry {

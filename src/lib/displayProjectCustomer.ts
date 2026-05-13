@@ -8,10 +8,12 @@ import type { Project } from '@/types'
  *  with a `company_id`.
  *
  *  Pass a Project that may include the relational `companies` field from
- *  a query like `select('*, companies(id, name)')`. Returns `client_name`
- *  if the join wasn't requested or company_id is null. */
+ *  a query like `select('*, companies(id, name)')`. PostgREST returns FK
+ *  joins as an array (length 0 or 1 for a many-to-one), so we index [0]
+ *  and let optional chaining cover the empty / null / undefined cases —
+ *  any of which falls through to `client_name`. */
 export function displayProjectCustomer(
   project: Pick<Project, 'client_name' | 'companies'>
 ): string {
-  return project.companies?.name ?? project.client_name ?? ''
+  return project.companies?.[0]?.name ?? project.client_name ?? ''
 }
