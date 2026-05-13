@@ -900,7 +900,7 @@ export default function TakeoffDashboard({
                       {({ setActivatorRef, listeners, attributes }) => (
                         <>
                           {/* Section label row — no vertical dividers through value columns */}
-                          <div className="group relative pl-8 pr-10 pt-[18px] pb-[10px]">
+                          <div className="group relative pl-8 pr-10 pt-[20px] pb-[12px]">
                             {sectionDraggable && (
                               <button
                                 ref={setActivatorRef}
@@ -913,7 +913,11 @@ export default function TakeoffDashboard({
                                 <GripVerticalIcon className="w-4 h-4" />
                               </button>
                             )}
-                            <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span
+                                aria-hidden="true"
+                                className="block w-[3px] h-[14px] bg-amber-500 rounded-[2px] flex-shrink-0"
+                              />
                               {isRenamingThis ? (
                                 <input
                                   ref={(el) => { sectionEditInputRef.current = el }}
@@ -933,7 +937,7 @@ export default function TakeoffDashboard({
                                   }}
                                   onFocus={(e) => e.target.select()}
                                   autoFocus
-                                  className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-[#a0a0a0] bg-transparent border-b border-amber-500 outline-none"
+                                  className="text-[13px] font-semibold uppercase tracking-[0.04em] text-gray-900 dark:text-white bg-transparent border-b border-amber-500 outline-none"
                                   onClick={(e) => e.stopPropagation()}
                                 />
                               ) : (
@@ -943,7 +947,7 @@ export default function TakeoffDashboard({
                                     setEditingSectionId(section.id)
                                     setEditingSectionName(section.name)
                                   }}
-                                  className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-[#a0a0a0] hover:text-amber-600 cursor-pointer truncate"
+                                  className="text-[13px] font-semibold uppercase tracking-[0.04em] text-gray-900 dark:text-white hover:text-amber-500 cursor-pointer truncate"
                                 >
                                   {section.name}
                                 </span>

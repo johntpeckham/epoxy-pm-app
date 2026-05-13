@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { PlusIcon, Trash2Icon, XIcon, Pencil, Plus, GripVerticalIcon, RulerIcon, SquareIcon } from 'lucide-react'
+import { PlusIcon, Trash2Icon, Pencil, Plus, GripVerticalIcon } from 'lucide-react'
 import KebabMenu from '@/components/ui/KebabMenu'
 import {
   DndContext,
@@ -496,7 +496,10 @@ export default function TakeoffSidebar({
   return (
     <div className="w-[325px] flex-shrink-0 bg-neutral-900 border-l border-neutral-800 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-2.5 border-b border-neutral-800 flex items-center justify-between flex-shrink-0">
+      <div
+        className="px-3 pt-2.5 pb-3.5 flex items-center justify-between flex-shrink-0"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+      >
         <span className="text-gray-300 font-semibold text-xs tracking-wide uppercase">Measurement Items</span>
         <button
           onClick={handleTogglePanel}
@@ -657,30 +660,27 @@ export default function TakeoffSidebar({
               const sub = computeTotals(sectionItems)
               const subLinear = sub.linear
               const subArea = sub.area
-              const subPerim = sub.perim
               const isRenamingThis = editingSectionId === section.id
               const sectionDraggable = sortedSections.length > 1
               return (
                 <SortableSection key={section.id} sectionId={section.id} draggable={sectionDraggable}>
                   {({ setActivatorRef, listeners, attributes }) => (
-                    <div className="mx-3 mb-[18px] rounded-md border border-gray-200 bg-white overflow-hidden">
-                      {/* Section header — amber-outlined to mirror the PROJECT TOTALS border. */}
-                      <div className="flex items-center gap-2 px-3 py-2.5 m-1.5 rounded-md border border-amber-500/30">
-                        {sectionDraggable ? (
+                    <div>
+                      {/* Section label row — flat, orange bar + white uppercase text */}
+                      <div className="group relative flex items-center px-3 pt-[18px] pb-[12px]">
+                        {sectionDraggable && (
                           <button
                             ref={setActivatorRef}
                             type="button"
                             {...listeners}
                             {...attributes}
                             aria-label="Drag to reorder section"
-                            className="flex-shrink-0 p-1 text-gray-500 hover:text-gray-300 cursor-grab active:cursor-grabbing touch-none"
+                            className="flex-shrink-0 mr-1 p-0.5 text-gray-300 cursor-grab active:cursor-grabbing touch-none opacity-40 group-hover:opacity-100 transition-opacity"
                           >
                             <GripVerticalIcon className="w-4 h-4" />
                           </button>
-                        ) : (
-                          <span className="w-6" />
                         )}
-                        <span aria-hidden="true" className="block w-[3px] h-4 bg-amber-500 rounded-[2px] flex-shrink-0" />
+                        <span aria-hidden="true" className="block w-[3px] h-[13px] bg-amber-500 rounded-[2px] flex-shrink-0 mr-2" />
                         {isRenamingThis ? (
                           <input
                             ref={(el) => { sectionEditInputRef.current = el }}
@@ -700,7 +700,7 @@ export default function TakeoffSidebar({
                             }}
                             onFocus={(e) => e.target.select()}
                             autoFocus
-                            className="flex-1 text-[16px] font-medium border-b border-amber-500 outline-none bg-transparent text-white"
+                            className="flex-1 min-w-0 text-[12px] font-semibold uppercase tracking-[0.04em] text-white bg-transparent border-b border-amber-500 outline-none"
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : (
@@ -710,66 +710,72 @@ export default function TakeoffSidebar({
                               setEditingSectionId(section.id)
                               setEditingSectionName(section.name)
                             }}
-                            className="flex-1 text-[16px] font-medium tracking-wide text-gray-100 truncate cursor-pointer hover:text-white"
+                            className="flex-1 min-w-0 text-[12px] font-semibold uppercase tracking-[0.04em] text-white truncate cursor-pointer hover:text-amber-400"
                           >
                             {section.name}
                           </span>
                         )}
-                        <KebabMenu
-                          variant="dark"
-                          title="Section actions"
-                          items={[
-                            {
-                              label: 'Rename',
-                              icon: <Pencil size={13} />,
-                              onSelect: () => {
-                                setEditingSectionId(section.id)
-                                setEditingSectionName(section.name)
+                        <div className="flex-shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+                          <KebabMenu
+                            variant="dark"
+                            title="Section actions"
+                            items={[
+                              {
+                                label: 'Rename',
+                                icon: <Pencil size={13} />,
+                                onSelect: () => {
+                                  setEditingSectionId(section.id)
+                                  setEditingSectionName(section.name)
+                                },
                               },
-                            },
-                            {
-                              label: 'Delete',
-                              destructive: true,
-                              icon: <Trash2Icon className="w-3.5 h-3.5" />,
-                              onSelect: () => {
-                                const count = sectionItems.length
-                                const message =
-                                  count > 0
-                                    ? `Delete section "${section.name}" and all ${count} measurement${count === 1 ? '' : 's'} inside? This cannot be undone.`
-                                    : `Delete section "${section.name}"?`
-                                if (typeof window !== 'undefined' && window.confirm(message)) {
-                                  onDeleteSection(section.id)
-                                }
+                              {
+                                label: 'Delete',
+                                destructive: true,
+                                icon: <Trash2Icon className="w-3.5 h-3.5" />,
+                                onSelect: () => {
+                                  const count = sectionItems.length
+                                  const message =
+                                    count > 0
+                                      ? `Delete section "${section.name}" and all ${count} measurement${count === 1 ? '' : 's'} inside? This cannot be undone.`
+                                      : `Delete section "${section.name}"?`
+                                  if (typeof window !== 'undefined' && window.confirm(message)) {
+                                    onDeleteSection(section.id)
+                                  }
+                                },
                               },
-                            },
-                          ]}
-                        />
+                            ]}
+                          />
+                        </div>
                       </div>
 
                       {/* Inner DndContext: items within this section. */}
                       <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd(section.id)}>
                         <SortableContext items={sectionItems.map((it) => it.id)} strategy={verticalListSortingStrategy}>
                           {sectionItems.length === 0 ? (
-                            <div className="px-4 py-3 text-[11px] text-gray-600 italic">
+                            <div className="px-3 py-[10px] text-[11px] text-[#666] italic">
                               No measurements in this section
                             </div>
                           ) : (
                             sectionItems.map((item) => {
                               const isSelected = item.id === selectedItemId
                               const total = item.measurements.reduce((s, m) => s + m.valueInFeet, 0)
+                              const itemPerim = item.type === 'area'
+                                ? item.measurements.reduce((s, m) => s + (m.perimeterFt || 0), 0)
+                                : 0
                               const isEditing = editingId === item.id
                               return (
                                 <SortableMeasurementRow key={item.id} itemId={item.id} draggable={!isEditing}>
                                   {({ setActivatorRef, listeners, attributes }) => (
                                     <div
                                       onClick={() => onSelectItem(item.id)}
-                                      className={`cursor-pointer transition-colors ${
+                                      className={`group cursor-pointer transition-colors ${
                                         isSelected
-                                          ? 'bg-neutral-700/60 border-l-4 border-l-amber-500'
-                                          : 'bg-transparent hover:bg-neutral-700/30 border-l-4 border-l-transparent'
+                                          ? 'bg-neutral-700/60 border-l-2 border-l-amber-500'
+                                          : 'bg-transparent hover:bg-neutral-800/40 border-l-2 border-l-transparent'
                                       }`}
+                                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                                     >
-                                      <div className="px-2 py-2 flex items-center gap-1.5 min-w-0">
+                                      <div className="flex items-center px-3 pt-[11px] pb-[11px] min-w-0">
                                         <button
                                           ref={setActivatorRef}
                                           type="button"
@@ -777,11 +783,14 @@ export default function TakeoffSidebar({
                                           {...attributes}
                                           aria-label="Drag to reorder measurement"
                                           onClick={(e) => e.stopPropagation()}
-                                          className="flex-shrink-0 p-0.5 text-gray-700 hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none"
+                                          className="flex-shrink-0 mr-1 p-0.5 text-gray-300 cursor-grab active:cursor-grabbing touch-none opacity-40 group-hover:opacity-100 transition-opacity"
                                         >
                                           <GripVerticalIcon className="w-3.5 h-3.5" />
                                         </button>
-                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                                        <span
+                                          className="rounded-full flex-shrink-0 mr-2"
+                                          style={{ width: '7px', height: '7px', backgroundColor: item.color }}
+                                        />
                                         {isEditing ? (
                                           <div className="flex-1 min-w-0 space-y-1.5">
                                             <input
@@ -793,7 +802,7 @@ export default function TakeoffSidebar({
                                                 if (e.key === 'Escape') setEditingId(null)
                                               }}
                                               onFocus={(e) => e.target.select()}
-                                              className="text-sm font-semibold border-b border-amber-500 outline-none bg-transparent w-full max-w-[160px] text-white"
+                                              className="text-[13px] font-medium border-b border-amber-500 outline-none bg-transparent w-full max-w-[160px] text-white"
                                               autoFocus
                                               onClick={(e) => e.stopPropagation()}
                                             />
@@ -807,63 +816,55 @@ export default function TakeoffSidebar({
                                           </div>
                                         ) : (
                                           <>
-                                            <span className={`text-[14px] font-medium truncate flex-1 min-w-0 ${isSelected ? 'text-white' : 'text-gray-200'}`}>
+                                            <span className="flex-1 min-w-0 text-[13px] text-white truncate mr-1.5">
                                               {item.name}
                                             </span>
-                                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
-                                              item.type === 'linear' ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
-                                            }`}>
+                                            <span
+                                              className={`flex-shrink-0 mr-2 uppercase tracking-[0.04em] ${
+                                                item.type === 'linear' ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
+                                              }`}
+                                              style={{
+                                                fontSize: '9px',
+                                                fontWeight: 500,
+                                                padding: '1px 5px',
+                                                borderRadius: '3px',
+                                              }}
+                                            >
                                               {item.type === 'linear' ? 'LINEAR' : 'AREA'}
                                             </span>
-                                            <span className="text-[12px] font-semibold text-amber-400 flex-shrink-0 tabular-nums">
+                                            <span className="flex-shrink-0 text-[13px] font-medium text-white tabular-nums whitespace-nowrap">
                                               {item.type === 'linear' ? fmtFtIn(total) : fmtArea(total)}
                                             </span>
-                                            <KebabMenu
-                                              variant="dark"
-                                              title="Item actions"
-                                              items={[
-                                                {
-                                                  label: 'Add measurements',
-                                                  icon: <Plus className="w-3.5 h-3.5" />,
-                                                  onSelect: () => onAddMoreToItem(item.id),
-                                                },
-                                                {
-                                                  label: 'Rename',
-                                                  icon: <Pencil size={13} />,
-                                                  onSelect: () => startRename(item),
-                                                },
-                                                {
-                                                  label: 'Delete',
-                                                  destructive: true,
-                                                  icon: <Trash2Icon className="w-3.5 h-3.5" />,
-                                                  onSelect: () => onDeleteItem(item.id),
-                                                },
-                                              ]}
-                                            />
+                                            <div className="flex-shrink-0 ml-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                                              <KebabMenu
+                                                variant="dark"
+                                                title="Item actions"
+                                                items={[
+                                                  {
+                                                    label: 'Add measurements',
+                                                    icon: <Plus className="w-3.5 h-3.5" />,
+                                                    onSelect: () => onAddMoreToItem(item.id),
+                                                  },
+                                                  {
+                                                    label: 'Rename',
+                                                    icon: <Pencil size={13} />,
+                                                    onSelect: () => startRename(item),
+                                                  },
+                                                  {
+                                                    label: 'Delete',
+                                                    destructive: true,
+                                                    icon: <Trash2Icon className="w-3.5 h-3.5" />,
+                                                    onSelect: () => onDeleteItem(item.id),
+                                                  },
+                                                ]}
+                                              />
+                                            </div>
                                           </>
                                         )}
                                       </div>
-                                      {item.measurements.length > 0 && (
-                                        <div className="pl-[22px] pr-3 pb-2">
-                                          {item.measurements.map((m) => (
-                                            <div key={m.id} className="flex items-center gap-2 py-0.5 group">
-                                              <span aria-hidden="true" className="block w-1 h-1 rounded-full bg-gray-600 flex-shrink-0" />
-                                              <span className="text-[12px] text-gray-400 tabular-nums">
-                                                {m.type === 'area'
-                                                  ? fmtArea(m.valueInFeet)
-                                                  : fmtFtIn(m.valueInFeet)}
-                                                {m.type === 'area' && m.perimeterFt ? (
-                                                  <span className="text-gray-600"> · {fmtFtIn(m.perimeterFt)} perim</span>
-                                                ) : null}
-                                              </span>
-                                              <button
-                                                onClick={(e) => { e.stopPropagation(); onDeleteMeasurement(item.id, m.id) }}
-                                                className="ml-auto p-1 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                              >
-                                                <XIcon className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          ))}
+                                      {!isEditing && item.type === 'area' && itemPerim > 0 && (
+                                        <div className="pl-[15px] pb-[6px] text-[11px] text-[#888] tabular-nums">
+                                          {fmtFtIn(itemPerim)} perim
                                         </div>
                                       )}
                                     </div>
@@ -875,28 +876,14 @@ export default function TakeoffSidebar({
                         </SortableContext>
                       </DndContext>
 
-                      {/* Section subtotals — visible footer band, darker than card body. */}
-                      <div className="bg-gray-100 border-t border-gray-200">
-                        <div className="flex items-center justify-between px-4 py-2">
-                          <div className="flex items-center gap-1.5">
-                            <RulerIcon className="w-3 h-3 text-amber-500" />
-                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Total Linear</span>
-                          </div>
-                          <span className="text-[13px] font-bold text-amber-400 tabular-nums">{fmtFtIn(subLinear)}</span>
+                      {/* Per-section total — single muted right-aligned line. Only when section has measurements. */}
+                      {sectionItems.length > 0 && (
+                        <div className="flex items-center justify-end gap-3 px-3 pt-2 pb-0.5">
+                          <span className="text-[10px] text-[#888] tabular-nums">{fmtFtIn(subLinear)}</span>
+                          <span className="text-[10px] text-[#444]">·</span>
+                          <span className="text-[10px] text-[#888] tabular-nums">{fmtArea(subArea)}</span>
                         </div>
-                        <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200">
-                          <div className="flex items-center gap-1.5">
-                            <SquareIcon className="w-3 h-3 text-amber-500" />
-                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Total Area</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-bold text-amber-400 tabular-nums">{fmtArea(subArea)}</span>
-                            {subPerim > 0 && (
-                              <span className="text-[10px] text-gray-500">{fmtFtIn(subPerim)} perim.</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </SortableSection>
@@ -905,28 +892,23 @@ export default function TakeoffSidebar({
           </SortableContext>
         </DndContext>
 
-        {/* Project totals — emphasized amber-tinted block. Always rendered. */}
-        <div className="mx-3 mt-1 mb-2 px-4 py-3 rounded-md bg-amber-500/10 border border-amber-500/30">
-          <div className="text-[11px] font-medium text-amber-400 uppercase tracking-[0.06em] mb-2">
-            Project Totals
-          </div>
-          <div className="flex items-center justify-between py-1">
-            <span className="text-[13px] font-medium text-gray-300">Project Total Linear</span>
-            <span className="text-[17px] font-medium text-amber-400 tabular-nums">{fmtFtIn(projectTotals.linear)}</span>
-          </div>
-          <div className="flex items-center justify-between py-1">
-            <span className="text-[13px] font-medium text-gray-300">Project Total Area</span>
-            <span className="text-[17px] font-medium text-amber-400 tabular-nums">
-              {fmtArea(projectTotals.area)}
-              {projectTotals.perim > 0 && (
-                <span className="ml-1.5 text-[12px] font-normal text-gray-500"> · {fmtFtIn(projectTotals.perim)} perim</span>
-              )}
-            </span>
+        {/* Project total row — flat, single line with orange top divider. */}
+        <div
+          className="flex items-center justify-between px-3 mt-2.5 pt-[18px] pb-1"
+          style={{ borderTop: '1px solid rgba(245,158,11,0.3)' }}
+        >
+          <span className="text-[11px] font-semibold text-amber-500 uppercase tracking-[0.06em]">
+            Total
+          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-[14px] font-medium text-white tabular-nums whitespace-nowrap">{fmtFtIn(projectTotals.linear)}</span>
+            <span className="text-[14px] text-[#444]">·</span>
+            <span className="text-[14px] font-medium text-white tabular-nums whitespace-nowrap">{fmtArea(projectTotals.area)}</span>
           </div>
         </div>
 
-        {/* + Add Section button — at the bottom of the list. */}
-        <div className="px-3 py-3">
+        {/* + Add Section button — flat dashed gray at the bottom of the list. */}
+        <div className="px-3 mt-4 pb-3">
           <button
             onClick={() => {
               const id = onCreateSection('New Section')
@@ -935,7 +917,8 @@ export default function TakeoffSidebar({
               setEditingSectionName('New Section')
               setTimeout(() => sectionEditInputRef.current?.focus(), 0)
             }}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs font-medium rounded transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-[10px] bg-transparent text-[#888] hover:text-gray-300 text-[12px] font-medium rounded-md transition-colors"
+            style={{ border: '1px dashed rgba(255,255,255,0.15)' }}
           >
             <Plus className="w-3.5 h-3.5" />
             Add Section
