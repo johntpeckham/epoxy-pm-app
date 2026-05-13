@@ -1012,7 +1012,7 @@ export default function TakeoffDashboard({
                                             {...listeners}
                                             {...attributes}
                                             aria-label="Drag to reorder"
-                                            className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 dark:text-[#6b6b6b] hover:text-gray-600 dark:hover:text-[#a0a0a0] cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 group-has-[[aria-expanded=true]]:opacity-100 transition-opacity"
+                                            className="absolute left-1 top-[calc(50%-12px)] p-1 text-gray-400 dark:text-[#6b6b6b] hover:text-gray-600 dark:hover:text-[#a0a0a0] cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 group-has-[[aria-expanded=true]]:opacity-100 transition-opacity"
                                           >
                                             <GripVerticalIcon className="w-4 h-4" />
                                           </button>
@@ -1067,7 +1067,7 @@ export default function TakeoffDashboard({
                                             ? fmtArea(itemTotal)
                                             : <span className="text-gray-300 dark:text-[#6b6b6b]">—</span>}
                                         </div>
-                                        <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-has-[[aria-expanded=true]]:opacity-100 transition-opacity">
+                                        <div className="absolute right-1 top-[calc(50%-12px)] opacity-0 group-hover:opacity-100 group-has-[[aria-expanded=true]]:opacity-100 transition-opacity">
                                           <KebabMenu
                                             variant="light"
                                             title="Item actions"
@@ -1109,11 +1109,13 @@ export default function TakeoffDashboard({
                                 className="grid items-center pl-8 pr-10"
                                 style={{ gridTemplateColumns: '1fr 110px 110px' }}
                               >
-                                <div />
-                                <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right pt-2 pb-1 pr-3 text-[10px] tabular-nums text-gray-400 dark:text-[#888]">
+                                <div className="pt-[10px] pb-2 pl-4 pr-3 text-[14px] font-medium uppercase tracking-[0.04em] text-gray-400 dark:text-[#888]">
+                                  Total
+                                </div>
+                                <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right pt-[10px] pb-2 pr-3 text-[14px] tabular-nums text-gray-400 dark:text-[#888]">
                                   {fmtFtIn(sub.linear)}
                                 </div>
-                                <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right pt-2 pb-1 pl-3 pr-3 text-[10px] tabular-nums text-gray-400 dark:text-[#888]">
+                                <div className="border-l border-gray-200/60 dark:border-[#3a3a3a]/60 text-right pt-[10px] pb-2 pl-3 pr-3 text-[14px] tabular-nums text-gray-400 dark:text-[#888]">
                                   {fmtArea(sub.area)}
                                 </div>
                               </div>
