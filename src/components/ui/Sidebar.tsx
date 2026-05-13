@@ -131,6 +131,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
       <nav className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-4 space-y-1">
         <Link
           href="/my-work"
+          prefetch={false}
           onClick={() => setMobileOpen(false)}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             isMyWorkActive
@@ -144,6 +145,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         {canView('office') && (
           <Link
             href="/office"
+            prefetch={false}
             onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isOfficeActive
@@ -167,6 +169,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             {canView('crm') && (
               <Link
                 href="/sales/crm"
+                prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isSalesCrmActive
@@ -181,6 +184,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             {canView('leads') && (
               <Link
                 href="/sales/leads"
+                prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isSalesLeadsActive
@@ -195,6 +199,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             {canView('appointments') && (
               <Link
                 href="/sales/appointments"
+                prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isSalesAppointmentsActive
@@ -209,6 +214,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             {canView('job_walk') && (
               <Link
                 href="/job-walk"
+                prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isJobWalkActive
@@ -235,6 +241,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             {canView('estimating') && (
               <Link
                 href="/estimating"
+                prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isEstimatingActive
@@ -250,6 +257,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             {canView('job_board') && (
               <Link
                 href={jobBoardHref}
+                prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isJobBoardActive
@@ -273,6 +281,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 }`}>
                   <Link
                     href={jobFeedHref}
+                    prefetch={false}
                     onClick={() => setMobileOpen(false)}
                     className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
                   >
@@ -297,6 +306,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   {canView('daily_reports') && !isHiddenFromSidebar('daily_reports') && (
                     <Link
                       href="/daily-reports"
+                      prefetch={false}
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isReportsActive
@@ -311,6 +321,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   {canView('jsa_reports') && !isHiddenFromSidebar('jsa_reports') && (
                     <Link
                       href="/jsa-reports"
+                      prefetch={false}
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isJsaReportsActive
@@ -325,6 +336,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   {canView('receipts') && !isHiddenFromSidebar('receipts') && (
                     <Link
                       href="/receipts"
+                      prefetch={false}
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isReceiptsActive
@@ -339,6 +351,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   {canView('timesheets') && !isHiddenFromSidebar('timesheets') && (
                     <Link
                       href="/timesheets"
+                      prefetch={false}
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isTimesheetsActive
@@ -353,6 +366,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   {canView('photos') && !isHiddenFromSidebar('photos') && (
                     <Link
                       href="/photos"
+                      prefetch={false}
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isPhotosActive
@@ -367,6 +381,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                   {canView('tasks') && !isHiddenFromSidebar('tasks') && (
                     <Link
                       href="/tasks"
+                      prefetch={false}
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isTasksActive
@@ -384,6 +399,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
             {canView('billing') && (
               <Link
                 href="/billing"
+                prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className={`hidden md:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isBillingActive
@@ -404,6 +420,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         {canView('calendar') && (
           <Link
             href="/calendar"
+            prefetch={false}
             onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isCalendarActive
@@ -419,6 +436,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
         {canView('marketing') && (
           <Link
             href="/marketing"
+            prefetch={false}
             onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isMarketingActive
@@ -464,6 +482,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
               {canView('dialer') && (
                 <Link
                   href="/sales/dialer"
+                  prefetch={false}
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isSalesDialerActive
@@ -478,6 +497,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
               {canView('emailer') && (
                 <Link
                   href="/sales/emailer"
+                  prefetch={false}
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isSalesEmailerActive
@@ -495,6 +515,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 {canView('estimating') && (
                   <Link
                     href="/tools/takeoff"
+                    prefetch={false}
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isTakeoffToolsActive
@@ -509,6 +530,7 @@ export default function Sidebar({ userId, userEmail, displayName, avatarUrl }: S
                 {canView('scheduler') && (
                   <Link
                     href="/scheduler"
+                    prefetch={false}
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isSchedulerActive
