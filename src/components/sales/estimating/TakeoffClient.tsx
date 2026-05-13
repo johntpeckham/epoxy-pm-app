@@ -191,9 +191,8 @@ async function loadPdfPages(
   const arrayBuffer = await res.arrayBuffer()
 
   const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
-  const pages: TakeoffPage[] = []
-  for (let i = 0; i < doc.numPages; i++) {
-    const pdfPage = await doc.getPage(i + 1)
+  const renderPage = async (pageNumber: number): Promise<TakeoffPage> => {
+    const pdfPage = await doc.getPage(pageNumber)
     const viewport = pdfPage.getViewport({ scale: 0.3 })
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width
@@ -202,20 +201,21 @@ async function loadPdfPages(
     await pdfPage.render({ canvas, canvasContext: ctx, viewport }).promise
     const thumbnailDataUrl = canvas.toDataURL('image/png')
 
-    pages.push({
+    return {
       pdfIndex,
-      pageIndex: i,
+      pageIndex: pageNumber - 1,
       pdfName: pdf.file_name,
-      displayName: doc.numPages > 1
-        ? `${pdf.file_name} — Page ${i + 1}`
-        : pdf.file_name,
+      displayName:
+        doc.numPages > 1 ? `${pdf.file_name} — Page ${pageNumber}` : pdf.file_name,
       thumbnailDataUrl,
       arrayBuffer,
       pdfBase64: null,
       pdfId: pdf.id,
-    })
+    }
   }
-  return pages
+
+  const pageNumbers = Array.from({ length: doc.numPages }, (_, i) => i + 1)
+  return Promise.all(pageNumbers.map(renderPage))
 }
 
 // ─── Component ─────────────────────────────────────────────────────────
@@ -347,13 +347,31 @@ export default function TakeoffClient({
     setLoadProgressDone(0)
     ;(async () => {
       try {
+        // Load all PDFs in parallel. Each PDF's fetch + parse + thumbnail
+        // render runs independently so total wall-clock time is dominated by
+        // the slowest single PDF, not the sum across PDFs. Progress increments
+        // as each PDF finishes so the loading bar reflects real activity.
+        const results = await Promise.allSettled(
+          pdfs.map(async (pdf, i) => {
+            const pdfPages = await loadPdfPages(pdf, i)
+            if (!cancelled) {
+              setLoadProgressDone((n) => n + 1)
+            }
+            return pdfPages
+          })
+        )
+        if (cancelled) return
         const all: TakeoffPage[] = []
-        for (let i = 0; i < pdfs.length; i++) {
-          const pdfPages = await loadPdfPages(pdfs[i], i)
-          if (cancelled) return
-          all.push(...pdfPages)
-          setLoadProgressDone(i + 1)
-        }
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled') {
+            all.push(...r.value)
+          } else {
+            console.error(
+              `[Takeoff] Failed to load PDF "${pdfs[i].file_name}":`,
+              r.reason
+            )
+          }
+        })
         if (!cancelled) setPages(all)
       } catch (err) {
         console.error('[Takeoff] Failed to load PDFs:', err)
