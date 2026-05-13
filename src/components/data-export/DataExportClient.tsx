@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 import {
   ArrowLeftIcon,
   DownloadIcon,
@@ -98,10 +99,18 @@ export default function DataExportClient() {
   // Load all projects once
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('projects')
-        .select('*')
+        .select('*, companies(id, name)')
         .order('name', { ascending: true })
+      if (error) {
+        console.error('[DATA EXPORT PROJECTS FETCH ERROR]', {
+          code: error.code,
+          message: error.message,
+          hint: error.hint,
+          details: error.details,
+        })
+      }
       if (data) setAllProjects(data as Project[])
     }
     load()
@@ -124,7 +133,7 @@ export default function DataExportClient() {
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const nameMatch = p.name.toLowerCase().includes(q)
-        const clientMatch = p.client_name?.toLowerCase().includes(q) || false
+        const clientMatch = displayProjectCustomer(p).toLowerCase().includes(q)
         if (!nameMatch && !clientMatch) return false
       }
       return true
@@ -672,9 +681,12 @@ export default function DataExportClient() {
                   />
                   <div className="min-w-0">
                     <span className="text-sm text-gray-900 block truncate">{p.name}</span>
-                    {p.client_name && (
-                      <span className="text-xs text-gray-400 block truncate">{p.client_name}</span>
-                    )}
+                    {(() => {
+                      const customer = displayProjectCustomer(p)
+                      return customer ? (
+                        <span className="text-xs text-gray-400 block truncate">{customer}</span>
+                      ) : null
+                    })()}
                   </div>
                 </label>
               ))

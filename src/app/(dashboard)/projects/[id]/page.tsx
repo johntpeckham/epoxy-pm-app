@@ -13,11 +13,19 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const { id } = await params
   const { supabase, user } = await requirePermission('jobs', 'view')
 
-  const { data: project } = await supabase
+  const { data: project, error: projectErr } = await supabase
     .from('projects')
-    .select('*')
+    .select('*, companies(id, name)')
     .eq('id', id)
     .single()
+  if (projectErr) {
+    console.error('[PROJECT PAGE FETCH ERROR]', {
+      code: projectErr.code,
+      message: projectErr.message,
+      hint: projectErr.hint,
+      details: projectErr.details,
+    })
+  }
 
   if (!project) notFound()
 

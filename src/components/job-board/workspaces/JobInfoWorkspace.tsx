@@ -3,6 +3,7 @@
 import { SettingsIcon, PencilIcon, MapPinIcon, UserIcon, CalendarIcon, UsersIcon, FileTextIcon } from 'lucide-react'
 import { Project } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 
 interface JobInfoWorkspaceProps {
   project: Project
@@ -34,7 +35,7 @@ export default function JobInfoWorkspace({ project, onBack, onEdit }: JobInfoWor
       <div className="p-4 max-w-2xl">
         <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
           <InfoRow label="Project Name" value={project.proposal_number ? `Proposal #${project.proposal_number} - ${project.name}` : project.name} icon={<FileTextIcon className="w-4 h-4" />} />
-          <InfoRow label="Customer" value={project.client_name} icon={<UserIcon className="w-4 h-4" />} />
+          <InfoRow label="Customer" value={displayProjectCustomer(project)} icon={<UserIcon className="w-4 h-4" />} />
           <InfoRow label="Address" value={project.address} icon={<MapPinIcon className="w-4 h-4" />} />
           <InfoRow
             label="Status"

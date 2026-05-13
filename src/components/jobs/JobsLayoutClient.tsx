@@ -12,6 +12,7 @@ import {
 import Link from 'next/link'
 import { Project, FeedPost } from '@/types'
 import { useProjectPins } from '@/lib/useProjectPins'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 import ProjectCard from './ProjectCard'
 import ProjectFeedClient from '@/components/feed/ProjectFeedClient'
 
@@ -44,9 +45,14 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     const supabase = createClient()
     const { data, error } = await supabase
       .from('projects')
-      .select('*')
+      .select('*, companies(id, name)')
       .order('created_at', { ascending: false })
-    if (error) console.error('[Jobs] Fetch projects failed:', error)
+    if (error) console.error('[Jobs] Fetch projects failed:', {
+      code: error.code,
+      message: error.message,
+      hint: error.hint,
+      details: error.details,
+    })
     if (data) {
       setProjects(data)
       setSelectedProject((prev) => {
@@ -120,7 +126,7 @@ export default function JobsLayoutClient({ initialProjects, userId }: JobsLayout
     return (
       !q ||
       p.name.toLowerCase().includes(q) ||
-      p.client_name.toLowerCase().includes(q) ||
+      displayProjectCustomer(p).toLowerCase().includes(q) ||
       p.address.toLowerCase().includes(q)
     )
   }), [projects, search])

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Project, ProjectStatus } from '@/types'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 
 interface ChecklistItem {
   id: string
@@ -331,12 +332,15 @@ function ProjectSummaryCard({
             )}
             {project.proposal_number && <span className="text-xs text-gray-300">-</span>}
             <span className="text-sm font-semibold text-gray-900 truncate">{project.name}</span>
-            {project.client_name && (
-              <>
-                <span className="text-xs text-gray-300">&middot;</span>
-                <span className="text-xs text-gray-500 truncate">{project.client_name}</span>
-              </>
-            )}
+            {(() => {
+              const customer = displayProjectCustomer(project)
+              return customer ? (
+                <>
+                  <span className="text-xs text-gray-300">&middot;</span>
+                  <span className="text-xs text-gray-500 truncate">{customer}</span>
+                </>
+              ) : null
+            })()}
           </div>
           {project.address && (
             <p className="text-xs text-gray-400 mt-0.5 truncate">{project.address}</p>

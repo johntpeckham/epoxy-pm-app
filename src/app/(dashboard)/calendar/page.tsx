@@ -15,7 +15,7 @@ export default async function CalendarPage() {
       .order('start_date', { ascending: true }),
     supabase
       .from('projects')
-      .select('*')
+      .select('*, companies(id, name)')
       .order('name', { ascending: true }),
   ])
 

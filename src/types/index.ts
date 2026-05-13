@@ -4,6 +4,16 @@ export interface Project {
   id: string
   name: string
   client_name: string
+  /** FK to companies(id). Nullable in the DB so historical pre-CRM-linkage
+   *  rows remain valid. New projects always have this set (required at the
+   *  form level). Display sites should resolve the customer name via the
+   *  joined `companies` field when set, falling back to `client_name`. */
+  company_id?: string | null
+  /** Populated by Supabase relational selects (e.g. `select('*, companies(id, name)')`).
+   *  PostgREST returns FK joins as an array even for many-to-one relationships
+   *  (length 0 when the FK is null, length 1 otherwise). Use the
+   *  `displayProjectCustomer` helper instead of indexing this directly. */
+  companies?: { id: string; name: string }[] | null
   address: string
   status: ProjectStatus
   proposal_number?: string

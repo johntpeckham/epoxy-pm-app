@@ -302,7 +302,7 @@ export default function ExistingCustomersView({
         .select('id, company_id, status, created_at, updated_at'),
       supabase
         .from('projects')
-        .select('id, client_name, status, created_at'),
+        .select('id, company_id, client_name, status, created_at'),
       supabase
         .from('invoices')
         .select('id, company_id, total, issued_date'),
@@ -479,17 +479,38 @@ export default function ExistingCustomersView({
       completedEstProjByCustomer.set(row.company_id, cur)
     }
 
-    // Aggregate completed projects by client_name
+    // Aggregate completed projects. Prefer company_id FK match; fall back
+    // to client_name text match for legacy rows that haven't been backfilled.
+    // (Rows with company_id set use the FK map; rows without contribute to
+    // the name map. A project never lands in both, so no double counting.)
+    const completedProjByCompanyId = new Map<
+      string,
+      { count: number; lastDate: string | null }
+    >()
     const completedProjByName = new Map<
       string,
       { count: number; lastDate: string | null }
     >()
     for (const row of (projectRows ?? []) as Array<{
+      company_id: string | null
       client_name: string | null
       status: string
       created_at: string
     }>) {
       if ((row.status ?? '').toLowerCase() !== 'completed') continue
+      if (row.company_id) {
+        const cur =
+          completedProjByCompanyId.get(row.company_id) ?? {
+            count: 0,
+            lastDate: null as string | null,
+          }
+        cur.count += 1
+        if (!cur.lastDate || row.created_at > cur.lastDate) {
+          cur.lastDate = row.created_at
+        }
+        completedProjByCompanyId.set(row.company_id, cur)
+        continue
+      }
       const key = (row.client_name ?? '').trim().toLowerCase()
       if (!key) continue
       const cur =
@@ -561,9 +582,11 @@ export default function ExistingCustomersView({
 
       const accepted = acceptedByCustomer.get(c.id)
       const estProj = completedEstProjByCustomer.get(c.id)
+      const projById = completedProjByCompanyId.get(c.id)
       const projByName = nameKey ? completedProjByName.get(nameKey) : undefined
 
-      const jobsCompleted = (estProj?.count ?? 0) + (projByName?.count ?? 0)
+      const jobsCompleted =
+        (estProj?.count ?? 0) + (projById?.count ?? 0) + (projByName?.count ?? 0)
 
       const invoices = invoiceByCustomer.get(c.id)
       const totalRevenue =

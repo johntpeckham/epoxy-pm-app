@@ -411,13 +411,14 @@ function JobCard({
   job,
 }: {
   job: {
-    project: { id: string; name: string; client_name: string | null; proposal_number: string | null; status: string }
+    project: { id: string; name: string; client_name: string | null; proposal_number: string | null; status: string; companies: { id: string; name: string }[] | null }
     items: { id: string; name: string; is_complete: boolean; group_name: string | null }[]
     projectCount: { done: number; total: number }
     closeoutCount: { done: number; total: number }
   }
 }) {
   const p = job.project
+  const customerName = p.companies?.[0]?.name ?? p.client_name
 
   // Order: Project checklist first, then others, then Closeout last
   const orderedItems = useMemo(() => {
@@ -451,9 +452,9 @@ function JobCard({
               {p.name}
             </span>
           </div>
-          {p.client_name && (
+          {customerName && (
             <div style={{ color: C.text4, fontSize: 10 }} className="truncate mt-0.5">
-              {p.client_name}
+              {customerName}
             </div>
           )}
         </div>
