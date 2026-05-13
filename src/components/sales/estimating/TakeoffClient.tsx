@@ -10,6 +10,7 @@ import {
   RulerIcon,
   MonitorIcon,
   ArrowLeftIcon,
+  Loader2Icon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import AutoSaveIndicator from '@/components/ui/AutoSaveIndicator'
@@ -241,8 +242,16 @@ export default function TakeoffClient({
   const [loadingPdfs, setLoadingPdfs] = useState(initialPdfs.length > 0)
   // Real progress count for the initial PDF-load loop. Each PDF that
   // finishes fetching + thumbnailing increments by 1; the loading screen
-  // surfaces (loadProgressDone / pdfs.length) as a percentage.
+  // surfaces it as "Loading plan N of M…" during the 'plans' stage.
   const [loadProgressDone, setLoadProgressDone] = useState(0)
+  // Multi-stage loading state. The project + plans-list query is already
+  // resolved server-side (initialPdfs is server-rendered), so we skip a
+  // 'project' stage that would be a lie. 'viewer' covers the period from
+  // mount through the first PDF completing (pdfjs import + first fetch).
+  type LoadStage = 'viewer' | 'plans' | 'finalizing' | 'done'
+  const [loadStage, setLoadStage] = useState<LoadStage>(
+    initialPdfs.length > 0 ? 'viewer' : 'done'
+  )
 
   const initial = useMemo(
     () => buildInitialState(initialPdfs, measurements),
@@ -341,26 +350,33 @@ export default function TakeoffClient({
     if (pdfs.length === 0) {
       setPages([])
       setLoadingPdfs(false)
+      setLoadStage('done')
       return
     }
     setLoadingPdfs(true)
     setLoadProgressDone(0)
+    setLoadStage('viewer')
     ;(async () => {
       try {
         // Load all PDFs in parallel. Each PDF's fetch + parse + thumbnail
         // render runs independently so total wall-clock time is dominated by
         // the slowest single PDF, not the sum across PDFs. Progress increments
-        // as each PDF finishes so the loading bar reflects real activity.
+        // as each PDF finishes so the loading indicator reflects real activity.
         const results = await Promise.allSettled(
           pdfs.map(async (pdf, i) => {
             const pdfPages = await loadPdfPages(pdf, i)
             if (!cancelled) {
+              // First completion leaves the 'viewer' stage. pdfjs is now
+              // resolved from the module cache for every other in-flight
+              // call, and we have real per-plan progress to surface.
+              setLoadStage((s) => (s === 'viewer' ? 'plans' : s))
               setLoadProgressDone((n) => n + 1)
             }
             return pdfPages
           })
         )
         if (cancelled) return
+        setLoadStage('finalizing')
         const all: TakeoffPage[] = []
         results.forEach((r, i) => {
           if (r.status === 'fulfilled') {
@@ -376,7 +392,10 @@ export default function TakeoffClient({
       } catch (err) {
         console.error('[Takeoff] Failed to load PDFs:', err)
       } finally {
-        if (!cancelled) setLoadingPdfs(false)
+        if (!cancelled) {
+          setLoadingPdfs(false)
+          setLoadStage('done')
+        }
       }
     })()
     return () => {
@@ -876,23 +895,22 @@ export default function TakeoffClient({
       />
     )
   } else if (loadingPdfs && pages.length === 0) {
-    // Real progress: each PDF that finishes fetching + thumbnailing
-    // advances the bar by (1 / total). pdfs.length === 0 case is handled
-    // earlier (sets loadingPdfs=false and skips this branch entirely).
-    const total = pdfs.length || 1
-    const pct = Math.min(100, Math.round((loadProgressDone / total) * 100))
+    // Multi-stage status. The previous single-percentage bar sat at 0%
+    // for the entire ~12s cold load because the first PDF dominates the
+    // wall clock; users perceived a frozen page. Now the text swaps as
+    // each phase completes so the wait visibly progresses.
     column3Content = (
       <div className="flex items-center justify-center h-full bg-gray-50">
-        <div className="w-[320px]">
-          <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-amber-500 transition-[width] duration-200"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="text-sm text-gray-500 text-center mt-3 tabular-nums">
-            Loading plans… {pct}%
-          </p>
+        <div className="flex items-center gap-2 text-sm text-gray-500 tabular-nums">
+          <Loader2Icon className="w-4 h-4 animate-spin" />
+          <span>
+            {loadStage === 'viewer' && 'Preparing viewer…'}
+            {loadStage === 'plans' &&
+              (pdfs.length > 0
+                ? `Loading plan ${loadProgressDone} of ${pdfs.length}…`
+                : 'Loading plans…')}
+            {loadStage === 'finalizing' && 'Finalizing…'}
+          </span>
         </div>
       </div>
     )
