@@ -842,22 +842,43 @@ export default function TakeoffViewer({
   // tally inline in the panel.
   const [panelSessionItemId, setPanelSessionItemId] = useState<string | null>(null)
 
+  // Guard so a rapid double-tap of Start Measuring with zero sections
+  // doesn't fire two onCreateSection calls. The first invocation flips
+  // this ref true; a re-entrant call while still in-flight bails out.
+  const isCreatingDefaultSectionRef = useRef(false)
+
   function handleAddItem(
     name: string,
     type: MeasurementType,
     color?: string,
     sectionId?: string,
   ) {
+    // Auto-create a Default section if the user has deleted them all.
+    // Without this guard the new item gets sectionId=undefined and falls
+    // out of the sidebar's section-grouped render until a section is
+    // later created — which manifests as a "disappearing measurement"
+    // bug from the user's perspective.
+    let effectiveSectionId = sectionId
+    if (!effectiveSectionId && sections.length === 0) {
+      if (isCreatingDefaultSectionRef.current) return
+      isCreatingDefaultSectionRef.current = true
+      try {
+        effectiveSectionId = onCreateSection('Default')
+      } finally {
+        isCreatingDefaultSectionRef.current = false
+      }
+    }
     if (panelSessionItemId) {
       // Already created the item this session — just re-arm placement and
       // (if the user changed the dropdown) move the item to the new
       // section.
       const existing = items.find((it) => it.id === panelSessionItemId)
       if (existing) {
-        if (sectionId && existing.sectionId !== sectionId) {
+        if (effectiveSectionId && existing.sectionId !== effectiveSectionId) {
+          const targetSectionId = effectiveSectionId
           onItemsChange(
             items.map((it) =>
-              it.id === existing.id ? { ...it, sectionId } : it
+              it.id === existing.id ? { ...it, sectionId: targetSectionId } : it
             )
           )
         }
@@ -868,7 +889,7 @@ export default function TakeoffViewer({
         return
       }
     }
-    const fallbackSection = sectionId || sections[0]?.id
+    const fallbackSection = effectiveSectionId || sections[0]?.id
     const newItem: TakeoffItem = {
       id: genId(),
       name,
