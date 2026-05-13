@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import * as pdfjsLib from 'pdfjs-dist'
 import { PlusIcon, RulerIcon, XIcon, Loader2Icon, AlertCircleIcon, Pencil, DownloadIcon, GripVerticalIcon, Trash2Icon } from 'lucide-react'
 import KebabMenu from '@/components/ui/KebabMenu'
 import {
@@ -32,10 +31,22 @@ import { exportFullReport } from './takeoffExport'
 import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString()
+// Lazy-loaded pdfjs-dist — keeps the ~1MB pdfjs bundle out of the
+// initial takeoff page chunk so the page chrome paints before pdfjs
+// downloads, parses, and configures its worker. Mirrors the pattern
+// already in TakeoffViewer.tsx and takeoffExport.ts.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pdfjsLib: any = null
+async function getPdfjs() {
+  if (!pdfjsLib) {
+    pdfjsLib = await import('pdfjs-dist')
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString()
+  }
+  return pdfjsLib
+}
 
 import { CheckIcon } from 'lucide-react'
 
@@ -124,7 +135,8 @@ function PageThumbnail({
     let cancelled = false
     async function render() {
       try {
-        const doc = await pdfjsLib.getDocument({ data: page.arrayBuffer!.slice(0) }).promise
+        const pdfjs = await getPdfjs()
+        const doc = await pdfjs.getDocument({ data: page.arrayBuffer!.slice(0) }).promise
         const pdfPage = await doc.getPage(page.pageIndex + 1)
         const viewport = pdfPage.getViewport({ scale: 0.3 })
         const canvas = canvasRef.current
@@ -558,7 +570,8 @@ export default function TakeoffDashboard({
       reader.readAsArrayBuffer(file)
     })
     const pdfBase64 = arrayBufferToBase64(arrayBuffer)
-    const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise
+    const pdfjs = await getPdfjs()
+    const doc = await pdfjs.getDocument({ data: arrayBuffer.slice(0) }).promise
     const currentPages = pages
     const pdfIndex = currentPages.length > 0 ? Math.max(...currentPages.map((p) => p.pdfIndex)) + 1 : 0
     const newPages: TakeoffPage[] = []
