@@ -2,6 +2,7 @@
 
 import { SettingsIcon } from 'lucide-react'
 import { Project } from '@/types'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 
 interface JobInfoDashboardCardProps {
   project: Project
@@ -47,7 +48,7 @@ export default function JobInfoDashboardCard({ project, onEdit }: JobInfoDashboa
         {/* Customer */}
         <div>
           <div className={labelCls}>Customer</div>
-          <div className={valueCls}>{project.client_name || emptyValue}</div>
+          <div className={valueCls}>{displayProjectCustomer(project) || emptyValue}</div>
         </div>
 
         {/* Proposal # */}

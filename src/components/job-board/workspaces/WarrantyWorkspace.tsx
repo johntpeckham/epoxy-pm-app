@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useCompanySettings } from '@/lib/useCompanySettings'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 import { Project, WarrantyTemplate, ManufacturerWarranty, ProjectWarranty } from '@/types'
 import WorkspaceShell from '../WorkspaceShell'
 import ReportPreviewModal, { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
@@ -103,7 +104,7 @@ export default function WarrantyWorkspace({ project, userId, onBack }: Props) {
       day: 'numeric',
     })
     return text
-      .replace(/\{\{customer_name\}\}/g, project.client_name || '—')
+      .replace(/\{\{customer_name\}\}/g, displayProjectCustomer(project) || '—')
       .replace(/\{\{project_name\}\}/g, project.name || '—')
       .replace(/\{\{proposal_number\}\}/g, project.proposal_number || '—')
       .replace(/\{\{address\}\}/g, project.address || '—')

@@ -31,6 +31,7 @@ import { Project, Task, FeedPost, TaskStatus } from '@/types'
 import { usePermissions } from '@/lib/usePermissions'
 import { useProjectPins } from '@/lib/useProjectPins'
 import { softDeleteProject } from '@/lib/trashBin'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 import ProjectCard from '@/components/jobs/ProjectCard'
 import NewProjectModal from '@/components/jobs/NewProjectModal'
 import EditProjectModal from '@/components/jobs/EditProjectModal'
@@ -148,9 +149,14 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
     const supabase = createClient()
     const { data, error } = await supabase
       .from('projects')
-      .select('*')
+      .select('*, companies(id, name)')
       .order('created_at', { ascending: false })
-    if (error) console.error('[JobBoard] Fetch projects failed:', error)
+    if (error) console.error('[JobBoard] Fetch projects failed:', {
+      code: error.code,
+      message: error.message,
+      hint: error.hint,
+      details: error.details,
+    })
     if (data) {
       setProjects(data)
       setSelectedProject((prev) => {
@@ -367,10 +373,11 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
   // Filter then split into pinned / active / completed sections
   const filtered = useMemo(() => projects.filter((p) => {
     const q = search.toLowerCase()
+    const customerName = (p.companies?.name ?? p.client_name ?? '').toLowerCase()
     return (
       !q ||
       p.name.toLowerCase().includes(q) ||
-      p.client_name.toLowerCase().includes(q) ||
+      customerName.includes(q) ||
       p.address.toLowerCase().includes(q)
     )
   }), [projects, search])
@@ -781,7 +788,7 @@ export default function JobBoardClient({ initialProjects, userId }: JobBoardClie
                         : selectedProject.name}
                     </h2>
                     <p className="text-xs text-gray-500 truncate">
-                      {selectedProject.client_name} &middot; {selectedProject.address}
+                      {displayProjectCustomer(selectedProject)} &middot; {selectedProject.address}
                     </p>
                   </div>
                   {/* Status dropdown button */}

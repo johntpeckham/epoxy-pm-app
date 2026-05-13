@@ -235,6 +235,7 @@ export default function ProposalEditor({
     const supabase = createClient()
     const { data: newProject, error } = await supabase.from('projects').insert({
       name: projectName || `Proposal #${proposalNumber}`,
+      company_id: customer.id,
       client_name: customerName,
       address: [customer.address, customer.city, customer.state, customer.zip].filter(Boolean).join(', '),
       status: 'Active',

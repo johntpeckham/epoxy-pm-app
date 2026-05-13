@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { UserIcon, PencilIcon, Trash2Icon, PinIcon } from 'lucide-react'
 import { Project } from '@/types'
 import KebabMenu, { KebabMenuItem } from '@/components/ui/KebabMenu'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 
 interface ProjectCardProps {
   project: Project
@@ -51,7 +52,7 @@ export default memo(function ProjectCard({
             <div className="mt-1">
               <div className="flex items-center gap-1.5 text-xs text-gray-600">
                 <UserIcon className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{project.client_name}</span>
+                <span className="truncate">{displayProjectCustomer(project)}</span>
               </div>
             </div>
           </div>

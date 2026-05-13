@@ -14,6 +14,7 @@ export interface CommandCenterProject {
   client_name: string | null
   proposal_number: string | null
   status: string
+  companies: { id: string; name: string } | null
 }
 
 export interface CommandCenterCallLogEntry {
@@ -135,7 +136,7 @@ export async function fetchCommandCenterData(): Promise<CommandCenterData> {
     supabase.from('profiles').select('id, display_name, avatar_url, role'),
     supabase
       .from('projects')
-      .select('id, name, client_name, proposal_number, status')
+      .select('id, name, client_name, proposal_number, status, companies(id, name)')
       .order('name', { ascending: true }),
     supabase
       .from('project_checklist_items')

@@ -11,6 +11,7 @@ import DocumentUploadModal from '@/components/documents/DocumentUploadModal'
 import ProjectReportModal from '@/components/reports/ProjectReportModal'
 import ProjectPhotosModal from '@/components/photos/ProjectPhotosModal'
 import { FeedPost, Project } from '@/types'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 
 interface ProjectFeedClientProps {
   project: Project
@@ -126,7 +127,7 @@ export default function ProjectFeedClient({
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
                 <span className="flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
-                  <UserIcon className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{project.client_name}</span>
+                  <UserIcon className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{displayProjectCustomer(project)}</span>
                 </span>
                 <span className="flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
                   <MapPinIcon className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{project.address}</span>
@@ -267,7 +268,7 @@ export default function ProjectFeedClient({
         <ProjectReportModal
           projectId={project.id}
           projectName={project.name}
-          clientName={project.client_name}
+          clientName={displayProjectCustomer(project)}
           address={project.address}
           proposalNumber={project.proposal_number ?? ''}
           userId={userId}

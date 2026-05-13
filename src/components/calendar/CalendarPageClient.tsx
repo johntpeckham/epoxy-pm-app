@@ -14,6 +14,7 @@ import ReportPreviewModal from '@/components/ui/ReportPreviewModal'
 import type { PdfPreviewData } from '@/components/ui/ReportPreviewModal'
 import { CalendarEvent, EmployeeProfile, Project } from '@/types'
 import type { UserRole } from '@/types'
+import { displayProjectCustomer } from '@/lib/displayProjectCustomer'
 import { usePermissions } from '@/lib/usePermissions'
 import { applyDefaultChecklist } from '@/lib/applyDefaultChecklist'
 import { moveToTrash } from '@/lib/trashBin'
@@ -178,7 +179,7 @@ function projectToFCEvents(proj: Project): FCEvent[] {
       _isStandalone: false,
       _isLinkedProject: true,
       _linkedProjectId: proj.id,
-      _clientName: proj.client_name,
+      _clientName: displayProjectCustomer(proj),
       _address: proj.address,
       _proposalNumber: proj.proposal_number || null,
       _status: proj.status,
@@ -1039,7 +1040,10 @@ export default function CalendarPageClient({ initialEvents, initialProjects, use
                       <div className="w-4 h-4 rounded-sm flex-shrink-0 mt-0.5" style={{ backgroundColor: job.color || PRESET_COLORS[0].value }} />
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{job.name}</p>
-                        {job.client_name && <p className="text-xs text-gray-500 truncate">{job.client_name}</p>}
+                        {(() => {
+                          const customer = displayProjectCustomer(job)
+                          return customer ? <p className="text-xs text-gray-500 truncate">{customer}</p> : null
+                        })()}
                         <p className="text-xs text-gray-400 mt-1">
                           {formatDisplayDate(job.start_date!)} – {formatDisplayDate(job.end_date!)}
                         </p>
