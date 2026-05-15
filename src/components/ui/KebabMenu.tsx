@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { MoreVerticalIcon } from 'lucide-react'
 
 export interface KebabMenuItem {
@@ -29,9 +30,18 @@ export default function KebabMenu({
   buttonClassName,
 }: KebabMenuProps) {
   const [open, setOpen] = useState(false)
-  const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom')
-  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  // Pixel coordinates for the portaled menu, anchored to the trigger's right
+  // edge and either pinned from `top` (menu opens downward) or pinned from
+  // `bottom` (menu opens upward). Only one of top/bottom is set.
+  const [coords, setCoords] = useState<{ top?: number; bottom?: number; right: number } | null>(null)
+  const [mounted, setMounted] = useState(false)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
+
+  // The component renders on the server during initial pass-through; portals
+  // can only be opened to document.body once we're in the browser.
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -45,21 +55,40 @@ export default function KebabMenu({
     return () => document.removeEventListener('keydown', onKey, true)
   }, [open])
 
-  // Auto-flip: when opening, measure the trigger's distance from the bottom of
-  // the viewport and compare it to an estimated menu height. If the menu
-  // wouldn't fit below, flip it above. Each item is ~28px tall plus the menu's
-  // py-1 wrapper, so estimatedHeight = items.length * 28 + 8. The 16px buffer
-  // leaves breathing room before the menu would touch the viewport edge.
+  // Close on scroll/resize while open — the portaled menu uses fixed pixel
+  // coordinates relative to the trigger's bounding rect, so any layout change
+  // would leave it stranded. Easier to close than to re-measure continuously.
+  useEffect(() => {
+    if (!open) return
+    function close() { setOpen(false) }
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [open])
+
+  // Auto-flip + coordinate computation. Measure the trigger's distance from
+  // the viewport edges and decide whether to render above or below. Coords
+  // anchor the menu to the trigger's right edge (matching the prior
+  // right-aligned behavior) and either rect.bottom (downward) or rect.top
+  // (upward). Each menu item is ~28px tall plus the py-1 wrapper, so the
+  // height estimate is items.length * 28 + 8. The 16px buffer leaves space
+  // before the menu would touch the viewport edge.
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
     const estimatedHeight = items.length * 28 + 8
     const spaceBelow = window.innerHeight - rect.bottom
     const spaceAbove = rect.top
+    const rightAnchor = window.innerWidth - rect.right
     if (spaceBelow < estimatedHeight + 16 && spaceAbove > spaceBelow) {
-      setPlacement('top')
+      // Grow upward: anchor the menu's bottom edge 4px above the trigger.
+      setCoords({ bottom: window.innerHeight - rect.top + 4, right: rightAnchor })
     } else {
-      setPlacement('bottom')
+      // Grow downward: anchor the menu's top edge 4px below the trigger.
+      setCoords({ top: rect.bottom + 4, right: rightAnchor })
     }
   }, [open, items.length])
 
@@ -69,12 +98,12 @@ export default function KebabMenu({
     ? 'p-1 text-gray-500 hover:text-gray-200 hover:bg-white/5 rounded transition-colors'
     : 'p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors'
 
-  const popoverPositioning =
-    placement === 'top' ? 'absolute right-0 bottom-full mb-1' : 'absolute right-0 top-full mt-1'
-
+  // Portaled menus use position: fixed with inline coordinates computed from
+  // the trigger's bounding rect, so the absolute parent-relative anchoring
+  // (right-0 top-full / bottom-full) is no longer needed.
   const popoverClass = isDark
-    ? `${popoverPositioning} z-50 min-w-[160px] rounded-md py-1 px-1 bg-[#1a1a1a] border border-gray-800 shadow-xl`
-    : `${popoverPositioning} z-50 min-w-[160px] rounded-md py-1 px-1 bg-white border border-gray-200 shadow-lg`
+    ? `fixed z-50 min-w-[160px] rounded-md py-1 px-1 bg-[#1a1a1a] border border-gray-800 shadow-xl`
+    : `fixed z-50 min-w-[160px] rounded-md py-1 px-1 bg-white border border-gray-200 shadow-lg`
 
   const itemBase = isDark
     ? 'flex items-center gap-2 w-full px-2.5 py-1.5 text-[13px] rounded text-gray-200 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-left'
@@ -84,25 +113,11 @@ export default function KebabMenu({
     ? 'flex items-center gap-2 w-full px-2.5 py-1.5 text-[13px] rounded text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-left'
     : 'flex items-center gap-2 w-full px-2.5 py-1.5 text-[13px] rounded text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-left'
 
-  return (
-    <div ref={wrapperRef} className="relative flex-shrink-0">
-      <button
-        ref={triggerRef}
-        type="button"
-        title={title}
-        aria-label={title}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen((v) => !v)
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        className={`${triggerBase} ${buttonClassName ?? ''}`}
-      >
-        <MoreVerticalIcon className="w-4 h-4" />
-      </button>
-      {open && (
+  // The menu (backdrop + popover) is portaled to document.body so it can
+  // escape any ancestor with `overflow` clipping (e.g. the section table's
+  // `overflow-x-auto` wrapper that was clipping last-row dropdowns).
+  const portaled = open && mounted && coords
+    ? createPortal(
         <>
           <div
             className="fixed inset-0 z-40"
@@ -115,6 +130,11 @@ export default function KebabMenu({
           <div
             role="menu"
             className={popoverClass}
+            style={{
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              right: `${coords.right}px`,
+            }}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
@@ -136,8 +156,30 @@ export default function KebabMenu({
               </button>
             ))}
           </div>
-        </>
-      )}
+        </>,
+        document.body,
+      )
+    : null
+
+  return (
+    <div className="relative flex-shrink-0">
+      <button
+        ref={triggerRef}
+        type="button"
+        title={title}
+        aria-label={title}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((v) => !v)
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className={`${triggerBase} ${buttonClassName ?? ''}`}
+      >
+        <MoreVerticalIcon className="w-4 h-4" />
+      </button>
+      {portaled}
     </div>
   )
 }
