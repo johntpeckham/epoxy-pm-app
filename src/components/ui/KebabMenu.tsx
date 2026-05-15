@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MoreVerticalIcon } from 'lucide-react'
 
 export interface KebabMenuItem {
@@ -29,7 +29,9 @@ export default function KebabMenu({
   buttonClassName,
 }: KebabMenuProps) {
   const [open, setOpen] = useState(false)
+  const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom')
   const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -43,15 +45,36 @@ export default function KebabMenu({
     return () => document.removeEventListener('keydown', onKey, true)
   }, [open])
 
+  // Auto-flip: when opening, measure the trigger's distance from the bottom of
+  // the viewport and compare it to an estimated menu height. If the menu
+  // wouldn't fit below, flip it above. Each item is ~28px tall plus the menu's
+  // py-1 wrapper, so estimatedHeight = items.length * 28 + 8. The 16px buffer
+  // leaves breathing room before the menu would touch the viewport edge.
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const estimatedHeight = items.length * 28 + 8
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    if (spaceBelow < estimatedHeight + 16 && spaceAbove > spaceBelow) {
+      setPlacement('top')
+    } else {
+      setPlacement('bottom')
+    }
+  }, [open, items.length])
+
   const isDark = variant === 'dark'
 
   const triggerBase = isDark
     ? 'p-1 text-gray-500 hover:text-gray-200 hover:bg-white/5 rounded transition-colors'
     : 'p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors'
 
+  const popoverPositioning =
+    placement === 'top' ? 'absolute right-0 bottom-full mb-1' : 'absolute right-0 top-full mt-1'
+
   const popoverClass = isDark
-    ? 'absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-md py-1 px-1 bg-[#1a1a1a] border border-gray-800 shadow-xl'
-    : 'absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-md py-1 px-1 bg-white border border-gray-200 shadow-lg'
+    ? `${popoverPositioning} z-50 min-w-[160px] rounded-md py-1 px-1 bg-[#1a1a1a] border border-gray-800 shadow-xl`
+    : `${popoverPositioning} z-50 min-w-[160px] rounded-md py-1 px-1 bg-white border border-gray-200 shadow-lg`
 
   const itemBase = isDark
     ? 'flex items-center gap-2 w-full px-2.5 py-1.5 text-[13px] rounded text-gray-200 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-left'
@@ -64,6 +87,7 @@ export default function KebabMenu({
   return (
     <div ref={wrapperRef} className="relative flex-shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         title={title}
         aria-label={title}

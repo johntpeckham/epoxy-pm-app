@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/usePermissions'
 import KebabMenu, { type KebabMenuItem } from '@/components/ui/KebabMenu'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import Tooltip from '@/components/ui/Tooltip'
 import { AREA_TYPE_STYLES } from '../../types'
 import type {
   EstimateArea,
@@ -480,7 +481,7 @@ export default function AreasTab({
         return (
           <div key={area.id} className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-3 gap-2">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0 w-[40%]">
                 <span
                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${style.className}`}
                 >
@@ -510,9 +511,11 @@ export default function AreasTab({
                 <thead>
                   <tr className="text-left text-[11px] text-gray-400 uppercase tracking-wide">
                     <th className="pb-2 pr-3 font-medium">Section</th>
-                    <th className="pb-2 pr-3 font-medium text-right">Length</th>
                     {!isLinear(area.area_type) && (
-                      <th className="pb-2 pr-3 font-medium text-right">Width</th>
+                      <>
+                        <th className="pb-2 pr-3 font-medium text-right">Length</th>
+                        <th className="pb-2 pr-3 font-medium text-right">Width</th>
+                      </>
                     )}
                     <th className="pb-2 pr-3 font-medium text-right">Total</th>
                     <th className="pb-2 font-medium text-right w-8" />
@@ -532,7 +535,7 @@ export default function AreasTab({
                   ))}
                   {areaRows.length === 0 && (
                     <tr>
-                      <td colSpan={isLinear(area.area_type) ? 4 : 5} className="py-3 text-xs text-gray-400 italic">
+                      <td colSpan={isLinear(area.area_type) ? 3 : 5} className="py-3 text-xs text-gray-400 italic">
                         No sections yet.
                       </td>
                     </tr>
@@ -541,16 +544,18 @@ export default function AreasTab({
               </table>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-3">
+            <div className="mt-3 flex flex-wrap gap-3 items-center">
               {canCreateAreas && (
-                <button
-                  type="button"
-                  onClick={() => addSectionTo(area)}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
-                >
-                  <PlusIcon className="w-3.5 h-3.5" />
-                  Add section
-                </button>
+                <Tooltip label="Add section" placement="top">
+                  <button
+                    type="button"
+                    onClick={() => addSectionTo(area)}
+                    aria-label="Add section"
+                    className="inline-flex items-center justify-center w-6 h-6 rounded text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                  </button>
+                </Tooltip>
               )}
             </div>
 
@@ -588,7 +593,7 @@ export default function AreasTab({
                         className="mt-4 pt-4 border-t border-gray-200 dark:border-[#3a3a3a]"
                       >
                         <div className="flex items-center justify-between mb-2 gap-2">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 min-w-0 w-[40%]">
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${coveStyle.className}`}
                             >
@@ -600,6 +605,7 @@ export default function AreasTab({
                               onConsumeFocus={() => setFocusAreaNameId((curr) => (curr === cove.id ? null : curr))}
                               disabled={!canEditAreas}
                               onSave={(name) => saveAreaName(cove, name)}
+                              tier="nested"
                             />
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
@@ -617,7 +623,6 @@ export default function AreasTab({
                             <thead>
                               <tr className="text-left text-[11px] text-gray-400 uppercase tracking-wide">
                                 <th className="pb-2 pr-3 font-medium">Section</th>
-                                <th className="pb-2 pr-3 font-medium text-right">Length</th>
                                 <th className="pb-2 pr-3 font-medium text-right">Total</th>
                                 <th className="pb-2 font-medium text-right w-8" />
                               </tr>
@@ -636,7 +641,7 @@ export default function AreasTab({
                               ))}
                               {coveRows.length === 0 && (
                                 <tr>
-                                  <td colSpan={4} className="py-3 text-xs text-gray-400 italic">
+                                  <td colSpan={3} className="py-3 text-xs text-gray-400 italic">
                                     No sections yet.
                                   </td>
                                 </tr>
@@ -647,14 +652,16 @@ export default function AreasTab({
 
                         {canCreateAreas && (
                           <div className="mt-2">
-                            <button
-                              type="button"
-                              onClick={() => addSectionTo(cove)}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
-                            >
-                              <PlusIcon className="w-3.5 h-3.5" />
-                              Add section
-                            </button>
+                            <Tooltip label="Add section" placement="top">
+                              <button
+                                type="button"
+                                onClick={() => addSectionTo(cove)}
+                                aria-label="Add section"
+                                className="inline-flex items-center justify-center w-6 h-6 rounded text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition"
+                              >
+                                <PlusIcon className="w-4 h-4" />
+                              </button>
+                            </Tooltip>
                           </div>
                         )}
                       </div>
@@ -664,7 +671,8 @@ export default function AreasTab({
               )
             })()}
 
-            {/* "+ Add cove to this floor" — multiple per floor allowed */}
+            {/* "+ Add cove" — multiple per floor allowed; the "to this floor"
+                is implied by its position inside the floor card. */}
             {canCreateAreas && area.area_type === 'floor' && (
               <div className="mt-3">
                 <button
@@ -673,7 +681,7 @@ export default function AreasTab({
                   className="inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-700 transition"
                 >
                   <PlusIcon className="w-3.5 h-3.5" />
-                  Add cove to this floor
+                  Add cove
                 </button>
               </div>
             )}
@@ -722,12 +730,16 @@ function AreaNameInput({
   onConsumeFocus,
   disabled,
   onSave,
+  tier = 'top',
 }: {
   area: EstimateArea
   autoFocus: boolean
   onConsumeFocus: () => void
   disabled: boolean
   onSave: (name: string) => void
+  /** Visual hierarchy: top-level cards use H2 (18px), nested cove
+   *  mini-headers use H3 (16px). Both are weight 500. */
+  tier?: 'top' | 'nested'
 }) {
   const [value, setValue] = useState(area.name)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -762,7 +774,7 @@ function AreaNameInput({
       }}
       disabled={disabled}
       placeholder="Untitled area"
-      className="text-lg font-medium text-gray-900 dark:text-white bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 min-w-0 flex-1 disabled:cursor-default"
+      className={`${tier === 'nested' ? 'text-base' : 'text-lg'} font-medium text-gray-900 dark:text-white bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 min-w-0 flex-1 disabled:cursor-default`}
     />
   )
 }
@@ -940,40 +952,42 @@ function SectionRow({
           onKeyDown={onKey}
           disabled={disabled}
           placeholder="Section name"
-          className="w-full text-sm text-gray-700 dark:text-[#e5e5e5] bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 disabled:cursor-default"
-        />
-      </td>
-      <td className="py-2 pr-3 text-right">
-        <input
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0"
-          value={length}
-          onChange={(e) => handleLengthChange(e.target.value)}
-          onBlur={commitLength}
-          onKeyDown={onKey}
-          disabled={disabled}
-          placeholder="—"
-          className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
+          className="w-40 max-w-full text-sm text-gray-700 dark:text-[#e5e5e5] bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 disabled:cursor-default"
         />
       </td>
       {!linear && (
-        <td className="py-2 pr-3 text-right">
-          <input
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0"
-            value={width}
-            onChange={(e) => handleWidthChange(e.target.value)}
-            onBlur={commitWidth}
-            onKeyDown={onKey}
-            disabled={disabled}
-            placeholder="—"
-            className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
-          />
-        </td>
+        <>
+          <td className="py-2 pr-3 text-right">
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              value={length}
+              onChange={(e) => handleLengthChange(e.target.value)}
+              onBlur={commitLength}
+              onKeyDown={onKey}
+              disabled={disabled}
+              placeholder="—"
+              className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
+            />
+          </td>
+          <td className="py-2 pr-3 text-right">
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              value={width}
+              onChange={(e) => handleWidthChange(e.target.value)}
+              onBlur={commitWidth}
+              onKeyDown={onKey}
+              disabled={disabled}
+              placeholder="—"
+              className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
+            />
+          </td>
+        </>
       )}
       <td className="py-2 pr-3 text-right">
         <input
