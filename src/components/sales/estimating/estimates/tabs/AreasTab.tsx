@@ -50,6 +50,10 @@ interface Props {
   setSections: React.Dispatch<React.SetStateAction<EstimateAreaMeasurement[]>>
   setSectionCoves: React.Dispatch<React.SetStateAction<EstimateSectionCove[]>>
   reportAutoSave: (s: AutoSaveState) => void
+  /** Called BEFORE each state-mutating user action to push the current
+   *  document state onto the undo stack. The owner suppresses this during
+   *  its own undo/redo restoration via a guard ref. */
+  captureSnapshot: () => void
 }
 
 // Section name generator: A, B, ... Z, AA, AB, ...
@@ -84,6 +88,7 @@ export default function AreasTab({
   setSections,
   setSectionCoves,
   reportAutoSave,
+  captureSnapshot,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const { canCreate, canEdit } = usePermissions()
@@ -175,6 +180,7 @@ export default function AreasTab({
 
   // ── Add area + first section ─────────────────────────────────────────────
   async function addAreaOfType(type: EstimateAreaType) {
+    captureSnapshot()
     const nextSortOrder = (areas[areas.length - 1]?.sort_order ?? 0) + 1
     const result = await withAutoSave(async () => {
       const { data: insertedArea, error: areaErr } = await supabase
@@ -218,6 +224,7 @@ export default function AreasTab({
 
   // ── Add a section to an existing area ────────────────────────────────────
   async function addSectionTo(area: EstimateArea) {
+    captureSnapshot()
     const existing = sectionsByArea.get(area.id) ?? []
     const nextSortOrder = (existing[existing.length - 1]?.sort_order ?? 0) + 1
     const result = await withAutoSave(async () => {
@@ -242,6 +249,7 @@ export default function AreasTab({
 
   // ── Section coves (Floor-area sections only) ─────────────────────────────
   async function addSectionCove(section: EstimateAreaMeasurement) {
+    captureSnapshot()
     const existing = covesBySection.get(section.id) ?? []
     const nextSortOrder = (existing[existing.length - 1]?.sort_order ?? 0) + 1
     const result = await withAutoSave(async () => {
@@ -265,6 +273,7 @@ export default function AreasTab({
 
   async function saveCoveLength(cove: EstimateSectionCove, nextLength: number | null) {
     if (nextLength === cove.cove_length) return
+    captureSnapshot()
     const previous = cove
     setSectionCoves((prev) => prev.map((c) => (c.id === cove.id ? { ...c, cove_length: nextLength } : c)))
     const ok = await withAutoSave(async () => {
@@ -287,6 +296,7 @@ export default function AreasTab({
     // Treat null and empty equivalently — the trim happens in the row component.
     const normalized = nextName === '' ? null : nextName
     if (normalized === (cove.name ?? null)) return
+    captureSnapshot()
     const previous = cove
     setSectionCoves((prev) => prev.map((c) => (c.id === cove.id ? { ...c, name: normalized } : c)))
     const ok = await withAutoSave(async () => {
@@ -307,6 +317,7 @@ export default function AreasTab({
 
   async function confirmDeleteCove() {
     if (!deleteCoveTarget) return
+    captureSnapshot()
     const target = deleteCoveTarget
     setDeleting(true)
     const ok = await withAutoSave(async () => {
@@ -328,6 +339,7 @@ export default function AreasTab({
   async function saveAreaName(area: EstimateArea, nextName: string) {
     const trimmed = nextName.trim()
     if (trimmed === area.name) return
+    captureSnapshot()
     const previous = area
     setAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, name: trimmed } : a)))
     const result = await withAutoSave(async () => {
@@ -413,6 +425,7 @@ export default function AreasTab({
     ) {
       return
     }
+    captureSnapshot()
     const previous = section
     setSections((prev) => prev.map((s) => (s.id === section.id ? { ...s, ...patch } : s)))
     const result = await withAutoSave(async () => {
@@ -434,6 +447,7 @@ export default function AreasTab({
   // ── Delete handlers ──────────────────────────────────────────────────────
   async function confirmDeleteArea() {
     if (!deleteAreaTarget) return
+    captureSnapshot()
     const target = deleteAreaTarget
     setDeleting(true)
     const ok = await withAutoSave(async () => {
@@ -475,6 +489,7 @@ export default function AreasTab({
 
   async function confirmDeleteSection() {
     if (!deleteSectionTarget) return
+    captureSnapshot()
     const target = deleteSectionTarget
     setDeleting(true)
     const ok = await withAutoSave(async () => {
@@ -506,6 +521,8 @@ export default function AreasTab({
     const oldIdx = topLevelAreas.findIndex((a) => a.id === active.id)
     const newIdx = topLevelAreas.findIndex((a) => a.id === over.id)
     if (oldIdx < 0 || newIdx < 0) return
+
+    captureSnapshot()
 
     const reordered = [...topLevelAreas]
     const [moved] = reordered.splice(oldIdx, 1)
