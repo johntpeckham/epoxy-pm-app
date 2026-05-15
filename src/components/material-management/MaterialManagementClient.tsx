@@ -728,14 +728,31 @@ export default function MaterialManagementClient({
 
   async function saveKitGroup(data: MasterKitGroupFormData) {
     if (!kitGroupModalSupplierId) return
+    // Material Systems Wave 1 follow-up: persist the kit group's optional
+    // default_* fields on every write. Null values are written explicitly so
+    // an edit that clears the rule persists the cleared state.
+    const defaultsPayload = {
+      default_quantity_mode: data.default_quantity_mode,
+      default_coverage_amount: data.default_coverage_amount,
+      default_coverage_basis: data.default_coverage_basis,
+      default_fixed_quantity: data.default_fixed_quantity,
+      default_unit: data.default_unit,
+    }
     if (editingKitGroup) {
       const previous = editingKitGroup
-      setKitGroups((prev) => prev.map((g) => g.id === previous.id ? { ...g, name: data.name } : g))
-      const { error } = await supabase.from('master_kit_groups').update({ name: data.name }).eq('id', previous.id)
-      if (error) setKitGroups((prev) => prev.map((g) => (g.id === previous.id ? previous : g)))
+      setKitGroups((prev) => prev.map((g) => g.id === previous.id ? { ...g, name: data.name, ...defaultsPayload } : g))
+      const { error } = await supabase.from('master_kit_groups').update({ name: data.name, ...defaultsPayload }).eq('id', previous.id)
+      if (error) {
+        console.error('Failed to update master_kit_groups', { code: error.code, message: error.message, hint: error.hint, details: error.details })
+        setKitGroups((prev) => prev.map((g) => (g.id === previous.id ? previous : g)))
+      }
     } else {
-      const { data: inserted, error } = await supabase.from('master_kit_groups').insert({ supplier_id: kitGroupModalSupplierId, name: data.name }).select().single()
-      if (!error && inserted) setKitGroups((prev) => [...prev, inserted as MasterKitGroup])
+      const { data: inserted, error } = await supabase.from('master_kit_groups').insert({ supplier_id: kitGroupModalSupplierId, name: data.name, ...defaultsPayload }).select().single()
+      if (error) {
+        console.error('Failed to insert master_kit_groups', { code: error.code, message: error.message, hint: error.hint, details: error.details })
+      } else if (inserted) {
+        setKitGroups((prev) => [...prev, inserted as MasterKitGroup])
+      }
     }
     setKitGroupModalOpen(false)
     setEditingKitGroup(null)
@@ -1610,6 +1627,7 @@ export default function MaterialManagementClient({
         <MasterKitGroupModal
           kitGroup={editingKitGroup}
           supplierName={suppliers.find((s) => s.id === kitGroupModalSupplierId)?.name ?? ''}
+          unitTypes={unitTypes}
           onClose={() => { setKitGroupModalOpen(false); setEditingKitGroup(null); setKitGroupModalSupplierId(null) }}
           onSave={saveKitGroup}
         />
