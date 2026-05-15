@@ -3,14 +3,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { XIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
+import FileDropzone from './FileDropzone'
 import type { MasterKitGroup, MasterProduct, MasterSupplier, UnitType } from '@/types'
 
 export interface MasterProductFormData {
   name: string
+  description: string | null
   unit: string
   price: number | null
   kit_group_id: string | null
   supplier_id: string | null
+  pdsFile: File | null
+  sdsFile: File | null
 }
 
 interface Props {
@@ -40,6 +44,9 @@ export default function MasterProductModal({
   const autoSupplierId = !isEdit && suppliers.length === 1 ? suppliers[0].id : initialSupplierId
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(autoSupplierId ?? '')
   const [name, setName] = useState(product?.name ?? '')
+  const [description, setDescription] = useState<string>(product?.description ?? '')
+  const [pdsFile, setPdsFile] = useState<File | null>(null)
+  const [sdsFile, setSdsFile] = useState<File | null>(null)
   const [price, setPrice] = useState<string>(
     product?.price !== undefined && product?.price !== null
       ? String(product.price)
@@ -130,12 +137,16 @@ export default function MasterProductModal({
     setError(null)
     setSaving(true)
     try {
+      const trimmedDescription = description.trim()
       await onSave({
         name: trimmed,
+        description: trimmedDescription === '' ? null : trimmedDescription,
         unit,
         price: parsedPrice,
         kit_group_id: kitGroupId || null,
         supplier_id: isEdit ? null : selectedSupplierId,
+        pdsFile,
+        sdsFile,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save product.')
@@ -273,6 +284,19 @@ export default function MasterProductModal({
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g. Two-component polyurea basecoat"
+                  rows={3}
+                  className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e] resize-y"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
@@ -310,6 +334,23 @@ export default function MasterProductModal({
                   </select>
                 </div>
               </div>
+
+              {!isEdit && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                      Product Data Sheet (PDS)
+                    </label>
+                    <FileDropzone file={pdsFile} onChange={setPdsFile} disabled={saving} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                      Safety Data Sheet (SDS)
+                    </label>
+                    <FileDropzone file={sdsFile} onChange={setSdsFile} disabled={saving} />
+                  </div>
+                </>
+              )}
 
               {/* Kit Group dropdown is only available when editing an
                   existing product. The add flow creates standalone products

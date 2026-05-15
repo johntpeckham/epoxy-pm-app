@@ -1,53 +1,29 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
-import { XIcon, UploadIcon, Loader2Icon } from 'lucide-react'
+import { useState } from 'react'
+import { XIcon, Loader2Icon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
+import FileDropzone from './FileDropzone'
 
 interface Props {
   productName: string
   onClose: () => void
   onUpload: (documentType: 'PDS' | 'SDS', file: File) => Promise<void>
+  initialType?: 'PDS' | 'SDS'
 }
 
 const labelCls =
   'block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1'
 
-export default function DocumentUploadModal({ productName, onClose, onUpload }: Props) {
-  const [documentType, setDocumentType] = useState<'PDS' | 'SDS'>('PDS')
+export default function DocumentUploadModal({ productName, onClose, onUpload, initialType }: Props) {
+  const [documentType, setDocumentType] = useState<'PDS' | 'SDS'>(initialType ?? 'PDS')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dragActive, setDragActive] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    const dropped = e.dataTransfer.files?.[0]
-    if (dropped) {
-      setFile(dropped)
-      setError(null)
-    }
-  }, [])
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0] ?? null
-    if (selected) {
-      setFile(selected)
-      setError(null)
-    }
+  function handleFileChange(next: File | null) {
+    setFile(next)
+    if (next) setError(null)
   }
 
   const handleSubmit = async () => {
@@ -134,52 +110,7 @@ export default function DocumentUploadModal({ productName, onClose, onUpload }: 
             {/* File upload area */}
             <div>
               <label className={labelCls}>File *</label>
-              <div
-                onDragEnter={handleDrag}
-                onDragOver={handleDrag}
-                onDragLeave={handleDrag}
-                onDrop={handleDrop}
-                onClick={() => !uploading && fileRef.current?.click()}
-                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                  dragActive
-                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                    : file
-                      ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/10'
-                      : 'border-gray-200 dark:border-[#3a3a3a] hover:border-amber-300 dark:hover:border-amber-500/50 hover:bg-amber-50/30 dark:hover:bg-amber-900/10'
-                }`}
-              >
-                {file ? (
-                  <>
-                    <UploadIcon className="w-6 h-6 text-green-500 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-[#a0a0a0] mt-1">
-                      {(file.size / 1024).toFixed(1)} KB &middot; Click or drop to replace
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <UploadIcon className="w-6 h-6 text-gray-400 dark:text-[#6b6b6b] mx-auto mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-[#a0a0a0]">
-                      <span className="font-medium text-amber-600 dark:text-amber-400">
-                        Click to browse
-                      </span>{' '}
-                      or drag and drop
-                    </p>
-                    <p className="text-xs text-gray-400 dark:text-[#6b6b6b] mt-1">
-                      PDF, Word, or image files
-                    </p>
-                  </>
-                )}
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </div>
+              <FileDropzone file={file} onChange={handleFileChange} disabled={uploading} />
             </div>
           </div>
 

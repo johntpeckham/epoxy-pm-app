@@ -667,10 +667,13 @@ export interface MasterProduct {
   supplier_id: string
   kit_group_id: string | null
   name: string
+  description: string | null
   unit: string
   price: number | null
   price_check_date: string | null
   price_check_task_id: string | null
+  pds_file_path: string | null
+  sds_file_path: string | null
   sort_order: number
   created_at: string
 }

@@ -32,8 +32,6 @@ import {
   PlusIcon,
   Settings2Icon,
   Trash2Icon,
-  UploadIcon,
-  XIcon,
 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import MasterSupplierModal from './MasterSupplierModal'
@@ -352,6 +350,17 @@ export default function MaterialManagementClient({
 
   // Document upload modal
   const [docUploadProduct, setDocUploadProduct] = useState<MasterProduct | null>(null)
+  const [docUploadInitialType, setDocUploadInitialType] = useState<'PDS' | 'SDS' | undefined>(undefined)
+
+  function openDocUpload(product: MasterProduct, initialType?: 'PDS' | 'SDS') {
+    setDocUploadProduct(product)
+    setDocUploadInitialType(initialType)
+  }
+
+  function closeDocUpload() {
+    setDocUploadProduct(null)
+    setDocUploadInitialType(undefined)
+  }
 
   // Manual price check date override
   const manualPriceDateInputRef = useRef<HTMLInputElement>(null)
@@ -488,16 +497,81 @@ export default function MaterialManagementClient({
 
     if (editingProduct) {
       const previous = editingProduct
-      setProducts((prev) => prev.map((p) => p.id === previous.id ? { ...p, name: trimmedName, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id } : p))
-      const { error } = await supabase.from('master_products').update({ name: trimmedName, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id }).eq('id', previous.id)
-      if (error) setProducts((prev) => prev.map((p) => (p.id === previous.id ? previous : p)))
+      setProducts((prev) => prev.map((p) => p.id === previous.id ? { ...p, name: trimmedName, description: data.description, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id } : p))
+      const { error } = await supabase.from('master_products').update({ name: trimmedName, description: data.description, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id }).eq('id', previous.id)
+      if (error) {
+        console.error('Failed to update master product', { code: error.code, message: error.message, hint: error.hint, details: error.details })
+        setProducts((prev) => prev.map((p) => (p.id === previous.id ? previous : p)))
+        throw new Error(error.message)
+      }
     } else {
-      const { data: inserted, error } = await supabase.from('master_products').insert({ supplier_id: supplierId, name: trimmedName, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id }).select().single()
-      if (!error && inserted) setProducts((prev) => [...prev, inserted as MasterProduct])
+      const { data: inserted, error: insertErr } = await supabase
+        .from('master_products')
+        .insert({ supplier_id: supplierId, name: trimmedName, description: data.description, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id })
+        .select()
+        .single()
+      if (insertErr || !inserted) {
+        console.error('Failed to insert master product', { code: insertErr?.code, message: insertErr?.message, hint: insertErr?.hint, details: insertErr?.details })
+        throw new Error(insertErr?.message ?? 'Failed to create product.')
+      }
+      const insertedProduct = inserted as MasterProduct
+      let pdsPath: string | null = null
+      let sdsPath: string | null = null
+
+      const uploadedPaths: string[] = []
+      try {
+        if (data.pdsFile) {
+          pdsPath = await uploadMaterialFile(insertedProduct.id, 'PDS', data.pdsFile)
+          uploadedPaths.push(pdsPath)
+        }
+        if (data.sdsFile) {
+          sdsPath = await uploadMaterialFile(insertedProduct.id, 'SDS', data.sdsFile)
+          uploadedPaths.push(sdsPath)
+        }
+
+        if (pdsPath || sdsPath) {
+          const updatePayload: { pds_file_path?: string; sds_file_path?: string } = {}
+          if (pdsPath) updatePayload.pds_file_path = pdsPath
+          if (sdsPath) updatePayload.sds_file_path = sdsPath
+          const { error: updErr } = await supabase
+            .from('master_products')
+            .update(updatePayload)
+            .eq('id', insertedProduct.id)
+          if (updErr) {
+            console.error('Failed to attach file paths to master product', { code: updErr.code, message: updErr.message, hint: updErr.hint, details: updErr.details })
+            throw new Error(updErr.message)
+          }
+        }
+
+        setProducts((prev) => [
+          ...prev,
+          { ...insertedProduct, pds_file_path: pdsPath, sds_file_path: sdsPath },
+        ])
+      } catch (err) {
+        // Roll back: delete uploaded files (best-effort) + delete the inserted product row.
+        if (uploadedPaths.length > 0) {
+          const { error: rmErr } = await supabase.storage.from('material-documents').remove(uploadedPaths)
+          if (rmErr) console.error('Rollback: failed to remove uploaded files', { code: rmErr.name, message: rmErr.message })
+        }
+        const { error: delErr } = await supabase.from('master_products').delete().eq('id', insertedProduct.id)
+        if (delErr) console.error('Rollback: failed to delete inserted product', { code: delErr.code, message: delErr.message, hint: delErr.hint, details: delErr.details })
+        throw err
+      }
     }
     setProductModalOpen(false)
     setEditingProduct(null)
     setProductModalSupplierId(null)
+  }
+
+  async function uploadMaterialFile(productId: string, documentType: 'PDS' | 'SDS', file: File): Promise<string> {
+    const fileExt = file.name.split('.').pop() ?? 'pdf'
+    const storagePath = `${productId}/${documentType.toLowerCase()}-${Date.now()}.${fileExt}`
+    const { error: upErr } = await supabase.storage.from('material-documents').upload(storagePath, file)
+    if (upErr) {
+      console.error(`Failed to upload ${documentType} file`, { code: upErr.name, message: upErr.message })
+      throw new Error(upErr.message)
+    }
+    return storagePath
   }
 
   async function confirmDeleteProduct() {
@@ -531,22 +605,79 @@ export default function MaterialManagementClient({
   async function saveNewKit(data: MasterAddKitFormData) {
     const supplierId = data.supplier_id ?? addKitSupplierId
     if (!supplierId) return
+
     const { data: insertedKit, error: kitErr } = await supabase.from('master_kit_groups').insert({ supplier_id: supplierId, name: data.name }).select().single()
-    if (kitErr || !insertedKit) throw kitErr ?? new Error('Failed to create kit.')
+    if (kitErr || !insertedKit) {
+      console.error('Failed to insert kit group', { code: kitErr?.code, message: kitErr?.message, hint: kitErr?.hint, details: kitErr?.details })
+      throw new Error(kitErr?.message ?? 'Failed to create kit.')
+    }
     const kit = insertedKit as MasterKitGroup
 
-    if (data.products.length > 0) {
-      const rows = data.products.map((p) => ({ supplier_id: supplierId, kit_group_id: kit.id, name: p.name, unit: p.unit }))
-      const { data: insertedProducts, error: prodErr } = await supabase.from('master_products').insert(rows).select()
-      if (prodErr) {
-        await supabase.from('master_kit_groups').delete().eq('id', kit.id)
-        throw prodErr
+    const insertedProductIds: string[] = []
+    const uploadedPaths: string[] = []
+    const finalProducts: MasterProduct[] = []
+
+    try {
+      // Insert + upload one product at a time so PDS/SDS files always pair
+      // unambiguously with the inserted row — batch insert order isn't a
+      // strict guarantee from PostgREST.
+      for (const formItem of data.products) {
+        const { data: insertedRaw, error: prodErr } = await supabase
+          .from('master_products')
+          .insert({ supplier_id: supplierId, kit_group_id: kit.id, name: formItem.name, description: formItem.description, unit: formItem.unit })
+          .select()
+          .single()
+        if (prodErr || !insertedRaw) {
+          console.error('Failed to insert kit product', { code: prodErr?.code, message: prodErr?.message, hint: prodErr?.hint, details: prodErr?.details })
+          throw new Error(prodErr?.message ?? 'Failed to create kit product.')
+        }
+        const inserted = insertedRaw as MasterProduct
+        insertedProductIds.push(inserted.id)
+
+        let pdsPath: string | null = null
+        let sdsPath: string | null = null
+        if (formItem.pdsFile) {
+          pdsPath = await uploadMaterialFile(inserted.id, 'PDS', formItem.pdsFile)
+          uploadedPaths.push(pdsPath)
+        }
+        if (formItem.sdsFile) {
+          sdsPath = await uploadMaterialFile(inserted.id, 'SDS', formItem.sdsFile)
+          uploadedPaths.push(sdsPath)
+        }
+        if (pdsPath || sdsPath) {
+          const updatePayload: { pds_file_path?: string; sds_file_path?: string } = {}
+          if (pdsPath) updatePayload.pds_file_path = pdsPath
+          if (sdsPath) updatePayload.sds_file_path = sdsPath
+          const { error: updErr } = await supabase
+            .from('master_products')
+            .update(updatePayload)
+            .eq('id', inserted.id)
+          if (updErr) {
+            console.error('Failed to attach file paths to kit product', { code: updErr.code, message: updErr.message, hint: updErr.hint, details: updErr.details })
+            throw new Error(updErr.message)
+          }
+        }
+        finalProducts.push({ ...inserted, pds_file_path: pdsPath, sds_file_path: sdsPath })
       }
-      setProducts((prev) => [...prev, ...((insertedProducts ?? []) as MasterProduct[])])
+
+      setProducts((prev) => [...prev, ...finalProducts])
+      setKitGroups((prev) => [...prev, kit])
+      setAddKitModalOpen(false)
+      setAddKitSupplierId(null)
+    } catch (err) {
+      // Roll back EVERYTHING inserted/uploaded so far: files first, then product rows, then kit row.
+      if (uploadedPaths.length > 0) {
+        const { error: rmErr } = await supabase.storage.from('material-documents').remove(uploadedPaths)
+        if (rmErr) console.error('Rollback: failed to remove uploaded kit files', { code: rmErr.name, message: rmErr.message })
+      }
+      if (insertedProductIds.length > 0) {
+        const { error: delProdErr } = await supabase.from('master_products').delete().in('id', insertedProductIds)
+        if (delProdErr) console.error('Rollback: failed to delete inserted kit products', { code: delProdErr.code, message: delProdErr.message, hint: delProdErr.hint, details: delProdErr.details })
+      }
+      const { error: delKitErr } = await supabase.from('master_kit_groups').delete().eq('id', kit.id)
+      if (delKitErr) console.error('Rollback: failed to delete inserted kit', { code: delKitErr.code, message: delKitErr.message, hint: delKitErr.hint, details: delKitErr.details })
+      throw err
     }
-    setKitGroups((prev) => [...prev, kit])
-    setAddKitModalOpen(false)
-    setAddKitSupplierId(null)
   }
 
   async function saveKitGroup(data: MasterKitGroupFormData) {
@@ -690,7 +821,7 @@ export default function MaterialManagementClient({
     }).select().single()
     if (insertErr) throw insertErr
     if (docRow) setDocuments((prev) => [...prev, docRow as MasterProductDocument])
-    setDocUploadProduct(null)
+    closeDocUpload()
   }
 
   async function confirmDeleteDocument() {
@@ -796,8 +927,8 @@ export default function MaterialManagementClient({
     const priceDateClass = checkDateClass(priceLevel)
 
     const productDocs = documentsByProduct.get(product.id) ?? []
-    const pdsDocs = productDocs.filter((d) => d.document_type === 'PDS')
-    const sdsDocs = productDocs.filter((d) => d.document_type === 'SDS')
+    const hasPds = !!product.pds_file_path || productDocs.some((d) => d.document_type === 'PDS')
+    const hasSds = !!product.sds_file_path || productDocs.some((d) => d.document_type === 'SDS')
 
     return (
       <div key={product.id} className="sm:grid sm:grid-cols-[1fr_90px_120px_120px_100px_60px] gap-2 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors min-w-[700px]">
@@ -842,37 +973,44 @@ export default function MaterialManagementClient({
         {/* PDS / SDS */}
         <div className="mt-1 sm:mt-0 text-xs sm:text-center">
           <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">Docs:</span>
-          <div className="inline-flex items-center gap-1 flex-wrap">
-            {pdsDocs.map((doc) => (
-              <span key={doc.id} className="group inline-flex items-center gap-0.5">
-                <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors" title={doc.file_name}>
-                  <FileTextIcon className="w-2.5 h-2.5" />PDS
-                </a>
-                {canDelete && (
-                  <button onClick={() => setDeleteDocTarget(doc)} className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-all" title="Delete PDS">
-                    <XIcon className="w-2.5 h-2.5" />
+          <div className="inline-flex items-center gap-1">
+            {(['PDS', 'SDS'] as const).map((type) => {
+              const attached = type === 'PDS' ? hasPds : hasSds
+              const title = canManage
+                ? `${attached ? 'View or replace' : 'Upload'} ${type === 'PDS' ? 'Product Data Sheet' : 'Safety Data Sheet'}`
+                : attached
+                  ? `${type} attached`
+                  : `No ${type} attached`
+              const baseCls = 'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors'
+              const attachedCls = 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/40 hover:bg-amber-100 dark:hover:bg-amber-900/30'
+              const dimCls = 'bg-gray-50 dark:bg-[#2a2a2a] text-gray-400 dark:text-[#6b6b6b] border-gray-200 dark:border-[#3a3a3a] hover:bg-gray-100 dark:hover:bg-[#3a3a3a]'
+              if (canManage) {
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => openDocUpload(product, type)}
+                    className={`${baseCls} ${attached ? attachedCls : dimCls}`}
+                    title={title}
+                  >
+                    <FileTextIcon className="w-2.5 h-2.5" />
+                    {type}
+                    {attached && <CheckIcon className="w-2.5 h-2.5" />}
                   </button>
-                )}
-              </span>
-            ))}
-            {sdsDocs.map((doc) => (
-              <span key={doc.id} className="group inline-flex items-center gap-0.5">
-                <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors" title={doc.file_name}>
-                  <FileTextIcon className="w-2.5 h-2.5" />SDS
-                </a>
-                {canDelete && (
-                  <button onClick={() => setDeleteDocTarget(doc)} className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-all" title="Delete SDS">
-                    <XIcon className="w-2.5 h-2.5" />
-                  </button>
-                )}
-              </span>
-            ))}
-            {canManage && (
-              <button onClick={() => setDocUploadProduct(product)} className="inline-flex items-center px-1 py-0.5 rounded text-[10px] text-gray-400 hover:text-amber-600 dark:text-[#6b6b6b] dark:hover:text-amber-400 hover:bg-gray-100 dark:hover:bg-[#2e2e2e] transition-colors" title="Upload PDS/SDS document">
-                <UploadIcon className="w-3 h-3" />
-              </button>
-            )}
-            {productDocs.length === 0 && !canManage && <span className="text-gray-400 dark:text-[#6b6b6b]">—</span>}
+                )
+              }
+              return (
+                <span
+                  key={type}
+                  className={`${baseCls} ${attached ? attachedCls : dimCls}`}
+                  title={title}
+                >
+                  <FileTextIcon className="w-2.5 h-2.5" />
+                  {type}
+                  {attached && <CheckIcon className="w-2.5 h-2.5" />}
+                </span>
+              )
+            })}
           </div>
         </div>
         {/* Actions */}
@@ -1171,8 +1309,9 @@ export default function MaterialManagementClient({
       {docUploadProduct && (
         <DocumentUploadModal
           productName={docUploadProduct.name}
-          onClose={() => setDocUploadProduct(null)}
+          onClose={closeDocUpload}
           onUpload={handleDocumentUpload}
+          initialType={docUploadInitialType}
         />
       )}
 

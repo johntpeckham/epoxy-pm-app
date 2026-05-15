@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { XIcon, PlusIcon } from 'lucide-react'
 import Portal from '@/components/ui/Portal'
+import FileDropzone from './FileDropzone'
 import type { MasterSupplier, UnitType } from '@/types'
 
 export interface MasterAddKitSubItemFormData {
   name: string
+  description: string | null
   unit: string
+  pdsFile: File | null
+  sdsFile: File | null
 }
 
 export interface MasterAddKitFormData {
@@ -27,7 +31,10 @@ interface Props {
 interface RowState {
   localId: string
   name: string
+  description: string
   unit: string
+  pdsFile: File | null
+  sdsFile: File | null
 }
 
 let rowCounter = 0
@@ -36,7 +43,10 @@ function createEmptyRow(defaultUnit: string = 'gal'): RowState {
   return {
     localId: `master-row-${rowCounter}`,
     name: '',
+    description: '',
     unit: defaultUnit,
+    pdsFile: null,
+    sdsFile: null,
   }
 }
 
@@ -138,10 +148,16 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
       setError('Add at least one product to the kit.')
       return
     }
-    const products: MasterAddKitSubItemFormData[] = nonEmptyRows.map((r) => ({
-      name: r.name.trim(),
-      unit: r.unit,
-    }))
+    const products: MasterAddKitSubItemFormData[] = nonEmptyRows.map((r) => {
+      const trimmedDescription = r.description.trim()
+      return {
+        name: r.name.trim(),
+        description: trimmedDescription === '' ? null : trimmedDescription,
+        unit: r.unit,
+        pdsFile: r.pdsFile,
+        sdsFile: r.sdsFile,
+      }
+    })
     setError(null)
     setSaving(true)
     try {
@@ -275,48 +291,81 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
                 <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-2">
                   Products *
                 </label>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {rows.map((row, idx) => (
-                    <div key={row.localId} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={row.name}
-                        onChange={(e) => updateRow(row.localId, { name: e.target.value })}
-                        placeholder={`Product ${idx + 1} name`}
-                        className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                    <div key={row.localId} className="border border-gray-200 dark:border-[#3a3a3a] rounded-lg p-3 bg-gray-50/40 dark:bg-[#2a2a2a]/40 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={row.name}
+                          onChange={(e) => updateRow(row.localId, { name: e.target.value })}
+                          placeholder={`Product ${idx + 1} name`}
+                          className="flex-1 min-w-0 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                        />
+                        <select
+                          value={row.unit}
+                          onChange={(e) =>
+                            updateRow(row.localId, { unit: e.target.value })
+                          }
+                          aria-label="Unit"
+                          className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                        >
+                          {unitTypes.length === 0 ? (
+                            <option value="" disabled>No units</option>
+                          ) : (
+                            unitTypes.map((ut) => (
+                              <option key={ut.id} value={ut.abbreviation}>
+                                {ut.abbreviation}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeRow(row.localId)}
+                          disabled={rows.length <= 1}
+                          className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                          title={
+                            rows.length <= 1
+                              ? 'At least one product is required'
+                              : 'Remove product'
+                          }
+                          aria-label="Remove product"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <textarea
+                        value={row.description}
+                        onChange={(e) => updateRow(row.localId, { description: e.target.value })}
+                        placeholder="Description (optional)"
+                        rows={2}
+                        className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e] resize-y"
                       />
-                      <select
-                        value={row.unit}
-                        onChange={(e) =>
-                          updateRow(row.localId, { unit: e.target.value })
-                        }
-                        aria-label="Unit"
-                        className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
-                      >
-                        {unitTypes.length === 0 ? (
-                          <option value="" disabled>No units</option>
-                        ) : (
-                          unitTypes.map((ut) => (
-                            <option key={ut.id} value={ut.abbreviation}>
-                              {ut.abbreviation}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => removeRow(row.localId)}
-                        disabled={rows.length <= 1}
-                        className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                        title={
-                          rows.length <= 1
-                            ? 'At least one product is required'
-                            : 'Remove product'
-                        }
-                        aria-label="Remove product"
-                      >
-                        <XIcon className="w-4 h-4" />
-                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                            PDS
+                          </label>
+                          <FileDropzone
+                            file={row.pdsFile}
+                            onChange={(f) => updateRow(row.localId, { pdsFile: f })}
+                            disabled={saving}
+                            size="sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                            SDS
+                          </label>
+                          <FileDropzone
+                            file={row.sdsFile}
+                            onChange={(f) => updateRow(row.localId, { sdsFile: f })}
+                            disabled={saving}
+                            size="sm"
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
