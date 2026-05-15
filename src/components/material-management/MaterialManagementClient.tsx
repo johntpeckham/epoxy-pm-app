@@ -43,6 +43,7 @@ import MasterAddKitModal, { type MasterAddKitFormData } from './MasterAddKitModa
 import MasterPriceCheckRequestModal from './MasterPriceCheckRequestModal'
 import MasterSettingsModal from './MasterSettingsModal'
 import DocumentUploadModal from './DocumentUploadModal'
+import DocumentViewerModal, { type DocumentFileType } from './DocumentViewerModal'
 import { usePermissions } from '@/lib/usePermissions'
 import type {
   MasterKitGroup,
@@ -356,6 +357,15 @@ export default function MaterialManagementClient({
   // Document upload modal
   const [docUploadProduct, setDocUploadProduct] = useState<MasterProduct | null>(null)
   const [docUploadInitialType, setDocUploadInitialType] = useState<'PDS' | 'SDS' | undefined>(undefined)
+
+  // Document viewer modal — opens when the user clicks an attached PDS/SDS
+  // indicator. We resolve the public URL up-front so the viewer doesn't need
+  // a supabase client reference.
+  const [viewingDoc, setViewingDoc] = useState<{
+    fileUrl: string
+    fileName: string
+    fileType: DocumentFileType
+  } | null>(null)
 
   function openDocUpload(product: MasterProduct, initialType?: 'PDS' | 'SDS') {
     setDocUploadProduct(product)
@@ -918,23 +928,65 @@ export default function MaterialManagementClient({
     return { columnPath: columnPath ?? null, legacyDoc: legacy }
   }
 
-  // Open an attached PDS/SDS in a new tab. Uses the public URL since the
-  // material-documents bucket is public; falls back to the legacy doc row's
-  // stored file_url if the new column isn't set.
+  // Derive a viewer file type from a path/filename's extension.
+  function fileTypeFromPath(pathOrName: string): DocumentFileType {
+    const ext = pathOrName.toLowerCase().split('.').pop() ?? ''
+    if (ext === 'pdf') return 'pdf'
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image'
+    if (['doc', 'docx'].includes(ext)) return 'word'
+    return 'unknown'
+  }
+
+  // Open an attached PDS/SDS in the in-app viewer modal. Resolves the
+  // public URL from either the new column path or the legacy doc row's
+  // stored file_url, then hands off to <DocumentViewerModal>. The
+  // material-documents bucket is public so getPublicUrl is sufficient.
   function openAttachedDoc(product: MasterProduct, type: 'PDS' | 'SDS') {
     const resolved = getAttachedDoc(product, type)
     if (!resolved) return
+
     let url: string | null = null
+    let displayName: string | null = null
+    let typeSourcePath: string | null = null
+
     if (resolved.columnPath) {
-      url = supabase.storage.from('material-documents').getPublicUrl(resolved.columnPath).data.publicUrl ?? null
+      const { data } = supabase.storage.from('material-documents').getPublicUrl(resolved.columnPath)
+      url = data?.publicUrl ?? null
+      typeSourcePath = resolved.columnPath
+      // The column-based upload path doesn't preserve the original filename,
+      // so synthesize a friendly label that includes product + type + ext.
+      const ext = resolved.columnPath.split('.').pop() ?? ''
+      displayName = ext ? `${product.name} — ${type}.${ext}` : `${product.name} — ${type}`
     } else if (resolved.legacyDoc) {
       url = resolved.legacyDoc.file_url
+      displayName = resolved.legacyDoc.file_name
+      typeSourcePath = resolved.legacyDoc.file_name
     }
-    if (!url) {
+
+    if (!url || !displayName || !typeSourcePath) {
       console.error('Could not resolve public URL for attached doc', { productId: product.id, type })
       return
     }
-    window.open(url, '_blank', 'noopener,noreferrer')
+    setViewingDoc({ fileUrl: url, fileName: displayName, fileType: fileTypeFromPath(typeSourcePath) })
+  }
+
+  // Best-effort download: same pattern used elsewhere in the app. The
+  // Supabase storage URL is cross-origin, so the browser may treat the
+  // download attribute as a hint only — that's acceptable here.
+  function downloadViewingDoc() {
+    if (!viewingDoc) return
+    try {
+      const a = document.createElement('a')
+      a.href = viewingDoc.fileUrl
+      a.download = viewingDoc.fileName
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch (err) {
+      console.error('Failed to trigger download', { message: err instanceof Error ? err.message : String(err) })
+    }
   }
 
   function startDeleteDoc(product: MasterProduct, type: 'PDS' | 'SDS') {
@@ -1577,6 +1629,17 @@ export default function MaterialManagementClient({
           onClose={closeDocUpload}
           onUpload={handleDocumentUpload}
           initialType={docUploadInitialType}
+        />
+      )}
+
+      {viewingDoc && (
+        <DocumentViewerModal
+          isOpen={true}
+          onClose={() => setViewingDoc(null)}
+          fileUrl={viewingDoc.fileUrl}
+          fileName={viewingDoc.fileName}
+          fileType={viewingDoc.fileType}
+          onDownload={downloadViewingDoc}
         />
       )}
 
