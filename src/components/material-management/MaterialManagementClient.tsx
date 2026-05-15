@@ -35,6 +35,7 @@ import {
   XIcon,
 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import KebabMenu, { type KebabMenuItem } from '@/components/ui/KebabMenu'
 import MasterSupplierModal from './MasterSupplierModal'
 import MasterProductModal, { type MasterProductFormData } from './MasterProductModal'
 import MasterKitGroupModal, { type MasterKitGroupFormData } from './MasterKitGroupModal'
@@ -1200,16 +1201,26 @@ export default function MaterialManagementClient({
         </div>
         {/* Actions */}
         <div className="mt-2 sm:mt-0 flex sm:justify-end items-center gap-1">
-          {canManage && (
-            <button onClick={() => openEditProduct(product)} className="p-1.5 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors" title="Edit product">
-              <PencilIcon className="w-4 h-4" />
-            </button>
-          )}
-          {canDelete && (
-            <button onClick={() => setDeleteProductTarget(product)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors" title="Delete product">
-              <Trash2Icon className="w-4 h-4" />
-            </button>
-          )}
+          {(() => {
+            const items: KebabMenuItem[] = []
+            if (canManage) {
+              items.push({
+                label: 'Edit',
+                icon: <PencilIcon size={13} />,
+                onSelect: () => openEditProduct(product),
+              })
+            }
+            if (canDelete) {
+              items.push({
+                label: 'Delete',
+                icon: <Trash2Icon size={13} />,
+                destructive: true,
+                onSelect: () => setDeleteProductTarget(product),
+              })
+            }
+            if (items.length === 0) return null
+            return <KebabMenu variant="light" title="Product actions" items={items} />
+          })()}
         </div>
       </div>
     )
@@ -1270,16 +1281,26 @@ export default function MaterialManagementClient({
         <div className="mt-1 sm:mt-0 text-xs text-gray-400 dark:text-[#6b6b6b] sm:text-center"><span className="sm:hidden mr-1">Docs:</span>—</div>
         {/* Actions */}
         <div className="mt-2 sm:mt-0 flex sm:justify-end items-center gap-1">
-          {canManage && (
-            <button onClick={() => openEditKitGroup(group)} className="p-1.5 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors" title="Edit kit group">
-              <PencilIcon className="w-4 h-4" />
-            </button>
-          )}
-          {canDelete && (
-            <button onClick={() => setDeleteKitGroupTarget(group)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors" title="Delete kit group">
-              <Trash2Icon className="w-4 h-4" />
-            </button>
-          )}
+          {(() => {
+            const items: KebabMenuItem[] = []
+            if (canManage) {
+              items.push({
+                label: 'Edit',
+                icon: <PencilIcon size={13} />,
+                onSelect: () => openEditKitGroup(group),
+              })
+            }
+            if (canDelete) {
+              items.push({
+                label: 'Delete',
+                icon: <Trash2Icon size={13} />,
+                destructive: true,
+                onSelect: () => setDeleteKitGroupTarget(group),
+              })
+            }
+            if (items.length === 0) return null
+            return <KebabMenu variant="light" title="Kit actions" items={items} />
+          })()}
         </div>
       </div>
     )
@@ -1399,16 +1420,30 @@ export default function MaterialManagementClient({
                       <span className="text-[11px] text-gray-500 dark:text-[#a0a0a0] bg-white/60 dark:bg-[#2e2e2e]/80 px-2.5 py-0.5 rounded-full font-medium">
                         {supplierProducts.length} {supplierProducts.length === 1 ? 'product' : 'products'}
                       </span>
-                      {canManage && (
-                        <button onClick={() => openEditSupplier(supplier)} className="p-1.5 text-gray-400 hover:text-amber-500 dark:text-[#6b6b6b] dark:hover:text-amber-400 transition-colors" title="Edit supplier">
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button onClick={() => setDeleteSupplierTarget(supplier)} className="p-1.5 mr-2 text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 transition-colors" title="Delete supplier">
-                          <Trash2Icon className="w-4 h-4" />
-                        </button>
-                      )}
+                      {(() => {
+                        const items: KebabMenuItem[] = []
+                        if (canManage) {
+                          items.push({
+                            label: 'Edit',
+                            icon: <PencilIcon size={13} />,
+                            onSelect: () => openEditSupplier(supplier),
+                          })
+                        }
+                        if (canDelete) {
+                          items.push({
+                            label: 'Delete',
+                            icon: <Trash2Icon size={13} />,
+                            destructive: true,
+                            onSelect: () => setDeleteSupplierTarget(supplier),
+                          })
+                        }
+                        if (items.length === 0) return null
+                        return (
+                          <div className="mr-2">
+                            <KebabMenu variant="light" title="Supplier actions" items={items} />
+                          </div>
+                        )
+                      })()}
                     </div>
 
                     {!collapsed && (
