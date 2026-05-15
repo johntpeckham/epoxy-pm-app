@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircleIcon, CheckIcon, Loader2Icon } from 'lucide-react'
+import { AlertCircleIcon, CheckIcon } from 'lucide-react'
 
 export type AutoSaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -9,39 +9,56 @@ interface Props {
 }
 
 /**
- * Page-level auto-save indicator. Lives in the EstimateDetailClient header
- * top-right. State is lifted to the orchestrator so any tab can drive it.
+ * Page-level auto-save indicator. Always rendered — no pop-in on first
+ * edit. Wrapped in a bordered pill that visually matches the undo/redo
+ * buttons next to it.
  *
- * - SAVING: small spinner + "Saving..."
- * - SAVED: small check + "Saved" (persists until next save starts)
- * - ERROR: alert icon + "Error saving" (persists until resolved)
- * - IDLE: hidden
+ * - SAVED / IDLE: muted gray check + "Saved", standard border, no animation.
+ * - SAVING: muted text + faint green pulsing glow on the border.
+ * - ERROR: loud red text + red border, no animation; persists until the
+ *   next successful save returns the indicator to SAVED.
+ *
+ * Width is locked via min-w so the pill never resizes between states —
+ * "Saving…" is the widest label and sets the floor.
  */
 export default function AutoSaveIndicator({ state }: Props) {
-  if (state === 'idle') return null
+  // 'idle' visually behaves like 'saved' so the indicator looks settled at
+  // page load before the user has done anything.
+  const isSaving = state === 'saving'
+  const isError = state === 'error'
 
-  if (state === 'saving') {
+  const baseCls =
+    'inline-flex items-center justify-center gap-1.5 h-8 px-3 min-w-[100px] rounded-md border text-xs transition-[box-shadow,border-color,color] duration-200'
+
+  const stateCls = isError
+    ? 'border-red-500/50 dark:border-red-500/50 text-red-500 dark:text-red-400'
+    : 'border-gray-200 dark:border-[#3a3a3a] text-gray-500 dark:text-[#a0a0a0]'
+
+  const animationCls = isSaving ? 'animate-save-pulse' : ''
+
+  if (isError) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-[#a0a0a0]">
-        <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+      <span className={`${baseCls} ${stateCls}`}>
+        <AlertCircleIcon className="w-3.5 h-3.5" />
+        Error
+      </span>
+    )
+  }
+
+  if (isSaving) {
+    return (
+      <span className={`${baseCls} ${stateCls} ${animationCls}`}>
+        <CheckIcon className="w-3.5 h-3.5" />
         Saving…
       </span>
     )
   }
 
-  if (state === 'saved') {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-[#a0a0a0]">
-        <CheckIcon className="w-3.5 h-3.5 text-green-500 dark:text-green-400" />
-        Saved
-      </span>
-    )
-  }
-
+  // saved or idle
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-      <AlertCircleIcon className="w-3.5 h-3.5" />
-      Error saving
+    <span className={`${baseCls} ${stateCls}`}>
+      <CheckIcon className="w-3.5 h-3.5" />
+      Saved
     </span>
   )
 }

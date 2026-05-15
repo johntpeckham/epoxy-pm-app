@@ -360,14 +360,12 @@ export default function AreasTab({
   }
 
   // ── Save a section row's editable fields ─────────────────────────────────
-  // Patch shape supports both modes. In dimensioned mode the caller passes
-  // length/width and we compute the total. In total_only mode the caller
-  // passes total directly and we null length/width. The input_mode field can
-  // be supplied alone (toggle flip) or together with values.
-  //
-  // Toggle semantics:
-  //   dimensioned → total_only: length/width null, total = displayed L×W
-  //   total_only → dimensioned: length/width left null (user re-enters)
+  // saveSection is now a literal patch applier: every field present in
+  // `next` overrides the existing section's value; missing fields fall
+  // through. The caller (commitName / commitLength / commitWidth /
+  // commitTotal in SectionRow) is authoritative on the entire row shape so
+  // it can express things like "clear L+W when Total is edited directly"
+  // without saveSection second-guessing.
   async function saveSection(
     section: EstimateAreaMeasurement,
     next: {
@@ -381,39 +379,18 @@ export default function AreasTab({
     const area = areas.find((a) => a.id === section.area_id)
     if (!area) return
     const linear = isLinear(area.area_type)
-    const mode: EstimateSectionInputMode =
-      next.input_mode !== undefined ? next.input_mode : section.input_mode
     const nextName = next.section_name !== undefined ? next.section_name : section.section_name
-
-    let nextLength: number | null
-    let nextWidth: number | null
-    let nextTotal: number | null
-
-    if (mode === 'total_only') {
-      nextLength = null
-      nextWidth = null
-      nextTotal = next.total !== undefined ? next.total : section.total
-    } else {
-      nextLength = next.length !== undefined ? next.length : section.length
-      nextWidth = linear ? null : (next.width !== undefined ? next.width : section.width)
-      // Recompute total from length/width unless caller explicitly supplied one
-      // (e.g. when toggling from dimensioned → total_only we want to carry
-      // the displayed total forward).
-      if (next.total !== undefined) {
-        nextTotal = next.total
-      } else {
-        const l = typeof nextLength === 'number' ? nextLength : 0
-        const w = linear ? 1 : (typeof nextWidth === 'number' ? nextWidth : 0)
-        nextTotal = linear ? l : l * w
-      }
-    }
+    const nextLength = next.length !== undefined ? next.length : section.length
+    const nextWidth = next.width !== undefined ? next.width : (linear ? null : section.width)
+    const nextTotal = next.total !== undefined ? next.total : section.total
+    const nextMode = next.input_mode !== undefined ? next.input_mode : section.input_mode
 
     const patch: Partial<EstimateAreaMeasurement> = {
       section_name: nextName ?? null,
       length: nextLength,
       width: nextWidth,
       total: nextTotal,
-      input_mode: mode,
+      input_mode: nextMode,
     }
     // No-op short-circuit: skip if nothing actually changed.
     if (
@@ -823,6 +800,9 @@ function SortableArea({
       // doesn't leak into descendant Tooltips (which use unscoped `group`).
       className={`relative group/area bg-white rounded-xl border border-gray-200 p-4 ${isDragging ? 'opacity-60 z-10 shadow-lg' : ''}`}
     >
+      {/* Drag handle: top-5 (20px) places its vertical center at y=30,
+          matching the badge/title row's center (header content starts at
+          y=16 due to the card's p-4; row is ~28px tall → center y=30). */}
       {showHandle && (
         <button
           type="button"
@@ -830,7 +810,7 @@ function SortableArea({
           {...listeners}
           aria-label="Drag to reorder"
           title="Drag to reorder"
-          className="absolute top-3 left-1 opacity-0 group-hover/area:opacity-100 focus:opacity-100 p-0.5 text-gray-400 hover:text-gray-700 dark:text-[#a0a0a0] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none transition-opacity"
+          className="absolute top-5 left-1 opacity-0 group-hover/area:opacity-100 focus:opacity-100 p-0.5 text-gray-400 hover:text-gray-700 dark:text-[#a0a0a0] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none transition-opacity"
         >
           <GripVerticalIcon className="w-4 h-4" />
         </button>
@@ -1050,20 +1030,38 @@ function SectionRow({
     })
   }
   function commitTotal() {
+    const t = parseNum(totalInput)
+
+    // No-op: user clicked/blurred Total without actually changing the value.
+    // Without this short-circuit, every Total focus+blur would re-save the
+    // row and incorrectly flip input_mode based on the current values,
+    // making L/W disappear from view.
+    if (t === section.total) return
+
     const l = parseNum(length)
     const w = parseNum(width)
-    const t = parseNum(totalInput)
-    if (l === null && w === null && t === null) {
-      onSave({ length: null, width: null, total: null, input_mode: 'dimensioned' })
+    const bothDimsSet = !linear && l !== null && w !== null
+
+    if (t === null) {
+      // User CLEARED Total.
+      if (bothDimsSet) {
+        // L+W populated → wipe all three together; mode dimensioned.
+        onSave({ length: null, width: null, total: null, input_mode: 'dimensioned' })
+      } else {
+        // Edge case (one of L/W already empty) → just clear Total.
+        onSave({ length: l, width: linear ? null : w, total: null, input_mode: 'dimensioned' })
+      }
       return
     }
-    if (!linear && l !== null && w !== null) {
-      // Both dimensions present — keep them as reference, total direct.
-      onSave({ length: l, width: w, total: t, input_mode: 'total_only' })
-      return
+
+    // User entered or changed Total to a non-null value.
+    if (bothDimsSet) {
+      // L+W populated → user is overriding with manual Total. Clear L+W.
+      onSave({ length: null, width: null, total: t, input_mode: 'total_only' })
+    } else {
+      // L or W already empty → preserve them as-is, save direct Total.
+      onSave({ length: l, width: linear ? null : w, total: t, input_mode: 'total_only' })
     }
-    // Otherwise the direct total wins; dimensions are not used.
-    onSave({ length: null, width: null, total: t, input_mode: 'total_only' })
   }
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {

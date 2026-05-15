@@ -282,6 +282,19 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
+/* Auto-save indicator: gentle green pulse on the bordered pill while a save
+   is in flight. Subtle by design — read like a breath, not a strobe.
+   Runs ~1.5s ease-in-out infinite alternate so the glow grows and shrinks
+   smoothly. The pill itself ramps the glow off via `transition: box-shadow`
+   when leaving the saving state. */
+@keyframes save-pulse {
+  0%, 100% { box-shadow: 0 0 6px 0 rgba(34, 197, 94, 0.20); }
+  50%      { box-shadow: 0 0 10px 1px rgba(34, 197, 94, 0.45); }
+}
+.animate-save-pulse {
+  animation: save-pulse 1.5s ease-in-out infinite;
+}
+
 html, body {
   height: 100%;
   min-height: 100dvh;
