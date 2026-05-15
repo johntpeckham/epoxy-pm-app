@@ -952,7 +952,6 @@ function SectionRow({
             onKeyDown={onKey}
             disabled={disabled}
             placeholder="Section name"
-            data-plain-text
             className="w-40 max-w-full text-sm text-gray-700 dark:text-[#e5e5e5] bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 disabled:cursor-default"
           />
           {canAddCove && (
@@ -983,7 +982,6 @@ function SectionRow({
               onKeyDown={onKey}
               disabled={disabled}
               placeholder="—"
-              data-plain-text
               className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
             />
           </td>
@@ -999,7 +997,6 @@ function SectionRow({
               onKeyDown={onKey}
               disabled={disabled}
               placeholder="—"
-              data-plain-text
               className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
             />
           </td>
@@ -1016,7 +1013,6 @@ function SectionRow({
           onBlur={commitTotal}
           onKeyDown={onKey}
           disabled={disabled}
-          data-plain-text
           className={`${inputBase} font-medium ${disabled ? disabledInputCls : 'text-gray-900 dark:text-white border-transparent focus:border-amber-400'}`}
         />
       </td>
@@ -1131,7 +1127,6 @@ function CoveLineRow({
           onKeyDown={onKey}
           disabled={disabled}
           placeholder="—"
-          data-plain-text
           className={`w-20 text-sm bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 text-right font-medium ${disabled ? 'text-gray-400 dark:text-[#6b6b6b] cursor-not-allowed' : 'text-gray-900 dark:text-white'}`}
         />
       </td>
