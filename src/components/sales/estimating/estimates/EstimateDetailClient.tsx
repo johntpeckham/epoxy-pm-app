@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon } from 'lucide-react'
-import type { Estimate } from '../types'
+import type { Estimate, EstimateArea, EstimateAreaMeasurement } from '../types'
 import SummaryTab from './tabs/SummaryTab'
 import AreasTab from './tabs/AreasTab'
 import MaterialsTab from './tabs/MaterialsTab'
@@ -15,6 +15,7 @@ import ConfirmedMeasurementsCard from './ConfirmedMeasurementsCard'
 import MeasurementReferences from './tabs/MeasurementReferences'
 import AddModuleButton from './AddModuleButton'
 import CpiCalculatorCard from './CpiCalculatorCard'
+import AutoSaveIndicator, { type AutoSaveState } from './AutoSaveIndicator'
 
 const TABS = [
   { key: 'summary', label: 'Summary' },
@@ -34,6 +35,8 @@ interface EstimateDetailClientProps {
   projectId: string
   customerId: string
   customerName: string
+  initialAreas: EstimateArea[]
+  initialSections: EstimateAreaMeasurement[]
 }
 
 export default function EstimateDetailClient({
@@ -42,12 +45,23 @@ export default function EstimateDetailClient({
   projectId,
   customerId,
   customerName,
+  initialAreas,
+  initialSections,
 }: EstimateDetailClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('summary')
   const [sidebarModules, setSidebarModules] = useState<string[]>(
     () => (estimate as unknown as Record<string, unknown>).sidebar_modules as string[] ?? []
   )
+
+  // ── Areas & measurements state (shared across tabs) ───────────────────────
+  const [areas, setAreas] = useState<EstimateArea[]>(initialAreas)
+  const [sections, setSections] = useState<EstimateAreaMeasurement[]>(initialSections)
+
+  // ── Page-level auto-save indicator state ──────────────────────────────────
+  const [autoSaveState, setAutoSaveState] = useState<AutoSaveState>('idle')
+  // Stable setter to pass deep without forcing rerenders.
+  const reportAutoSave = useCallback((s: AutoSaveState) => setAutoSaveState(s), [])
 
   function handleAddModule(moduleId: string) {
     setSidebarModules((prev) => [...prev, moduleId])
@@ -58,18 +72,33 @@ export default function EstimateDetailClient({
   }
 
   function handleBack() {
-    router.push(
-      `/estimating?customer=${customerId}&project=${projectId}`
-    )
+    router.push(`/estimating?customer=${customerId}&project=${projectId}`)
   }
+
+  // Total measurements headline = sum of SF-unit areas (Floor, Roof, Walls,
+  // Custom default SF). Cove (LF) intentionally excluded per the mockup —
+  // mixing SF + LF in the same headline number is misleading.
+  const totalSfMeasurements = useMemo(() => {
+    let total = 0
+    for (const area of areas) {
+      if (area.area_type === 'cove') continue
+      for (const s of sections) {
+        if (s.area_id !== area.id) continue
+        if (typeof s.total === 'number') total += s.total
+      }
+    }
+    return total
+  }, [areas, sections])
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gray-50">
       {/* Header */}
       <div className="flex-none bg-white dark:bg-[#242424] border-b border-gray-200 dark:border-[#2a2a2a] px-4 sm:px-6 py-3">
         <div className="flex items-center gap-2 min-w-0">
-          <button onClick={handleBack} className="flex-shrink-0"><ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" /></button>
-          <div className="min-w-0">
+          <button onClick={handleBack} className="flex-shrink-0">
+            <ArrowLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+          </button>
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-gray-400">
               {customerName} &middot; {projectName}
             </p>
@@ -77,10 +106,12 @@ export default function EstimateDetailClient({
               {estimate.name}
             </h1>
             {estimate.template_id && (
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                From template
-              </p>
+              <p className="text-[11px] text-gray-400 mt-0.5">From template</p>
             )}
+          </div>
+          {/* Auto-save indicator — pinned to the top-right of the header */}
+          <div className="flex-shrink-0">
+            <AutoSaveIndicator state={autoSaveState} />
           </div>
         </div>
       </div>
@@ -119,8 +150,23 @@ export default function EstimateDetailClient({
 
           {/* Left column: tab content */}
           <div className="flex-1 min-w-0">
-            {activeTab === 'summary' && <SummaryTab />}
-            {activeTab === 'areas' && <AreasTab />}
+            {activeTab === 'summary' && (
+              <SummaryTab
+                areas={areas}
+                sections={sections}
+                totalSfMeasurements={totalSfMeasurements}
+              />
+            )}
+            {activeTab === 'areas' && (
+              <AreasTab
+                estimateId={estimate.id}
+                areas={areas}
+                sections={sections}
+                setAreas={setAreas}
+                setSections={setSections}
+                reportAutoSave={reportAutoSave}
+              />
+            )}
             {activeTab === 'materials' && <MaterialsTab />}
             {activeTab === 'labor' && <LaborTab />}
             {activeTab === 'prep' && <PrepToolsTab />}
