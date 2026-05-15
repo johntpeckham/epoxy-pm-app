@@ -123,8 +123,18 @@ export default function AreasTab({
   // migration 20260554 wiped those rows. Anything that still has a
   // parent_area_id sneaks past as a safety net to keep the top-level filter
   // defensive — but no UI path can create one anymore.
+  // Sort by sort_order so optimistic updates from drag-and-drop reorder
+  // (which stamp new sort_order values onto items without mutating array
+  // order) flow through to the rendered list. created_at is a stable
+  // tiebreaker on fresh inserts before they get their sort_order saved.
   const topLevelAreas = useMemo(
-    () => areas.filter((a) => !a.parent_area_id),
+    () =>
+      areas
+        .filter((a) => !a.parent_area_id)
+        .sort((a, b) => {
+          if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+          return a.created_at.localeCompare(b.created_at)
+        }),
     [areas]
   )
 
@@ -598,7 +608,7 @@ export default function AreasTab({
         return (
           <SortableArea key={area.id} id={area.id} showHandle={canEditAreas}>
             <div className="flex items-center justify-between mb-3 gap-2">
-              <div className="flex items-center gap-2 min-w-0 w-[40%]">
+              <div className="flex items-center gap-2 min-w-0 w-[40%] pl-4">
                 <span
                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${style.className}`}
                 >
@@ -791,7 +801,10 @@ function SortableArea({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative group bg-white rounded-xl border border-gray-200 p-4 ${isDragging ? 'opacity-60 z-10 shadow-lg' : ''}`}
+      // Use a Tailwind v4 NAMED group ("area") so the grip handle's
+      // group-hover/area: trigger fires only on hover of THIS card and
+      // doesn't leak into descendant Tooltips (which use unscoped `group`).
+      className={`relative group/area bg-white rounded-xl border border-gray-200 p-4 ${isDragging ? 'opacity-60 z-10 shadow-lg' : ''}`}
     >
       {showHandle && (
         <button
@@ -800,7 +813,7 @@ function SortableArea({
           {...listeners}
           aria-label="Drag to reorder"
           title="Drag to reorder"
-          className="absolute top-3 left-1 opacity-0 group-hover:opacity-100 focus:opacity-100 p-0.5 text-gray-400 hover:text-gray-700 dark:text-[#a0a0a0] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none transition-opacity"
+          className="absolute top-3 left-1 opacity-0 group-hover/area:opacity-100 focus:opacity-100 p-0.5 text-gray-400 hover:text-gray-700 dark:text-[#a0a0a0] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none transition-opacity"
         >
           <GripVerticalIcon className="w-4 h-4" />
         </button>
