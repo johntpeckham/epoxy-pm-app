@@ -459,7 +459,6 @@ export default function AreasTab({
         const unit = unitForType(area.area_type)
         const areaRows = sectionsByArea.get(area.id) ?? []
         const total = areaTotal(area)
-        const sectionCount = areaRows.length
 
         const kebabItems: KebabMenuItem[] = []
         if (canEditAreas) {
@@ -496,9 +495,6 @@ export default function AreasTab({
                 />
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-xs text-gray-400 hidden sm:inline">
-                  {sectionCount} {sectionCount === 1 ? 'section' : 'sections'}
-                </span>
                 <span className="text-sm font-medium text-gray-700">
                   {formatTotal(total)} {unit}
                 </span>
@@ -558,12 +554,14 @@ export default function AreasTab({
               )}
             </div>
 
-            {/* Nested coves (only present on floor cards) */}
+            {/* Nested coves (only present on floor cards) — each cove sits
+                below a horizontal divider with no inner card / indent / accent.
+                The divider is the only nesting cue. */}
             {area.area_type === 'floor' && (() => {
               const nested = nestedCovesByParent.get(area.id) ?? []
               if (nested.length === 0) return null
               return (
-                <div className="mt-4 space-y-3">
+                <>
                   {nested.map((cove) => {
                     const coveRows = sectionsByArea.get(cove.id) ?? []
                     const coveTotal = areaTotal(cove)
@@ -587,7 +585,7 @@ export default function AreasTab({
                     return (
                       <div
                         key={cove.id}
-                        className="rounded-lg border border-gray-200 dark:border-[#3a3a3a] bg-gray-50 dark:bg-[#2e2e2e] p-3"
+                        className="mt-4 pt-4 border-t border-gray-200 dark:border-[#3a3a3a]"
                       >
                         <div className="flex items-center justify-between mb-2 gap-2">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -605,9 +603,6 @@ export default function AreasTab({
                             />
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-xs text-gray-400 hidden sm:inline">
-                              {coveRows.length} {coveRows.length === 1 ? 'section' : 'sections'}
-                            </span>
                             <span className="text-sm font-medium text-gray-700">
                               {formatTotal(coveTotal)} LF
                             </span>
@@ -665,7 +660,7 @@ export default function AreasTab({
                       </div>
                     )
                   })}
-                </div>
+                </>
               )
             })()}
 
@@ -767,52 +762,8 @@ function AreaNameInput({
       }}
       disabled={disabled}
       placeholder="Untitled area"
-      className="text-sm font-semibold text-gray-900 bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 min-w-0 flex-1 disabled:cursor-default"
+      className="text-lg font-medium text-gray-900 dark:text-white bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 min-w-0 flex-1 disabled:cursor-default"
     />
-  )
-}
-
-function InputModeToggle({
-  mode,
-  linear,
-  disabled,
-  onChange,
-}: {
-  mode: EstimateSectionInputMode
-  linear: boolean
-  disabled: boolean
-  onChange: (next: EstimateSectionInputMode) => void
-}) {
-  const dimLabel = linear ? 'L' : 'L×W'
-  const baseBtn =
-    'px-1.5 py-0.5 text-[10px] font-semibold rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
-  const activeCls = 'bg-amber-500 text-white'
-  const inactiveCls = 'text-gray-500 hover:text-gray-700'
-  return (
-    <div
-      className="inline-flex items-center gap-0.5 rounded bg-gray-100 dark:bg-[#2e2e2e] p-0.5"
-      role="group"
-      aria-label="Section input mode"
-    >
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => mode !== 'dimensioned' && onChange('dimensioned')}
-        className={`${baseBtn} ${mode === 'dimensioned' ? activeCls : inactiveCls}`}
-        title={linear ? 'Enter length, total auto-calcs' : 'Enter length × width, total auto-calcs'}
-      >
-        {dimLabel}
-      </button>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => mode !== 'total_only' && onChange('total_only')}
-        className={`${baseBtn} ${mode === 'total_only' ? activeCls : inactiveCls}`}
-        title="Enter total directly"
-      >
-        Total
-      </button>
-    </div>
   )
 }
 
@@ -838,7 +789,6 @@ function SectionRow({
   onDelete: () => void
 }) {
   const linear = isLinear(area.area_type)
-  const mode = section.input_mode
 
   const [name, setName] = useState(section.section_name ?? '')
   const [length, setLength] = useState<string>(
@@ -851,8 +801,8 @@ function SectionRow({
     section.total === null || section.total === undefined ? '' : String(section.total)
   )
 
-  // Resync local state when the row updates from outside (rollback or
-  // toggle-driven server write).
+  // Resync local state when the row updates from outside (e.g. rollback, or
+  // when the server normalizes a save).
   useEffect(() => {
     setName(section.section_name ?? '')
     setLength(section.length === null || section.length === undefined ? '' : String(section.length))
@@ -867,13 +817,32 @@ function SectionRow({
     return n
   }
 
-  // Live total in dimensioned mode (display only — commit on blur).
-  const liveDimensionedTotal = (() => {
-    const l = parseNum(length)
+  // Live preview: when both Length and Width have valid values, the Total
+  // cell mirrors the product as the user types. We keep totalInput in sync
+  // via the length/width onChange handlers so the displayed value stays
+  // coherent; if the user types directly in Total, that override sticks
+  // until length or width is edited again.
+  function handleLengthChange(next: string) {
+    setLength(next)
+    const l = parseNum(next)
     const w = parseNum(width)
-    if (linear) return l ?? 0
-    return (l ?? 0) * (w ?? 0)
-  })()
+    if (l !== null && (linear || w !== null)) {
+      const product = linear ? l : l * (w ?? 0)
+      setTotalInput(String(product))
+    } else {
+      setTotalInput('')
+    }
+  }
+  function handleWidthChange(next: string) {
+    setWidth(next)
+    const l = parseNum(length)
+    const w = parseNum(next)
+    if (l !== null && w !== null) {
+      setTotalInput(String(l * w))
+    } else {
+      setTotalInput('')
+    }
+  }
 
   const kebabItems: KebabMenuItem[] = []
   if (canDelete) {
@@ -885,17 +854,66 @@ function SectionRow({
     })
   }
 
+  // Per-field commit. Each handler knows which field was just blurred and
+  // derives input_mode implicitly:
+  //   - name only → preserve current input_mode, patch section_name
+  //   - length / width → input_mode = 'dimensioned', recompute total
+  //   - total → input_mode = 'total_only' if any value entered; if both L
+  //             and W have values, keep them as reference; otherwise null
+  //             them out per the brief's rule
+  //   - all three empty → input_mode = 'dimensioned' with all nulls
   function commitName() {
+    if ((name ?? '') === (section.section_name ?? '')) return
     onSave({ section_name: name })
   }
   function commitLength() {
-    onSave({ length: parseNum(length) })
+    const l = parseNum(length)
+    const w = parseNum(width)
+    const t = parseNum(totalInput)
+    if (l === null && w === null && t === null) {
+      onSave({ length: null, width: null, total: null, input_mode: 'dimensioned' })
+      return
+    }
+    const computed = linear
+      ? (l ?? 0)
+      : ((l ?? 0) * (w ?? 0))
+    onSave({
+      length: l,
+      width: linear ? null : w,
+      total: computed,
+      input_mode: 'dimensioned',
+    })
   }
   function commitWidth() {
-    onSave({ width: parseNum(width) })
+    const l = parseNum(length)
+    const w = parseNum(width)
+    const t = parseNum(totalInput)
+    if (l === null && w === null && t === null) {
+      onSave({ length: null, width: null, total: null, input_mode: 'dimensioned' })
+      return
+    }
+    onSave({
+      length: l,
+      width: linear ? null : w,
+      total: linear ? (l ?? 0) : ((l ?? 0) * (w ?? 0)),
+      input_mode: 'dimensioned',
+    })
   }
   function commitTotal() {
-    onSave({ total: parseNum(totalInput) })
+    const l = parseNum(length)
+    const w = parseNum(width)
+    const t = parseNum(totalInput)
+    if (l === null && w === null && t === null) {
+      onSave({ length: null, width: null, total: null, input_mode: 'dimensioned' })
+      return
+    }
+    if (!linear && l !== null && w !== null) {
+      // Both dimensions present — keep them as reference, total direct.
+      onSave({ length: l, width: w, total: t, input_mode: 'total_only' })
+      return
+    }
+    // Otherwise the direct total wins; dimensions are not used.
+    onSave({ length: null, width: null, total: t, input_mode: 'total_only' })
   }
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
@@ -903,52 +921,27 @@ function SectionRow({
       ;(e.target as HTMLInputElement).blur()
     }
   }
-  function handleToggleMode(next: EstimateSectionInputMode) {
-    if (next === mode) return
-    if (next === 'total_only') {
-      // Carry the currently displayed L×W total into the total_only field
-      // so flipping doesn't lose the value the user was just looking at.
-      onSave({ input_mode: 'total_only', total: liveDimensionedTotal })
-    } else {
-      // Flip back. Length/width were nulled on the way out; user re-enters.
-      onSave({ input_mode: 'dimensioned' })
-    }
-  }
-
-  const totalOnly = mode === 'total_only'
-  // Dimensioned-mode inputs are disabled both for permission lockout AND when
-  // the row is in total_only mode (so length/width visually dim).
-  const dimensionInputsDisabled = disabled || totalOnly
-  const totalInputDisabled = disabled || !totalOnly
 
   const inputBase =
     'w-20 text-sm bg-transparent border-b focus:outline-none px-0.5 py-0.5 text-right'
   const activeInputCls =
-    'text-gray-700 border-transparent focus:border-amber-400'
-  const dimmedInputCls =
+    'text-gray-700 dark:text-[#e5e5e5] border-transparent focus:border-amber-400'
+  const disabledInputCls =
     'text-gray-400 dark:text-[#6b6b6b] border-transparent cursor-not-allowed'
 
   return (
     <tr>
       <td className="py-2 pr-3">
-        <div className="flex items-center gap-2">
-          <InputModeToggle
-            mode={mode}
-            linear={linear}
-            disabled={disabled}
-            onChange={handleToggleMode}
-          />
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={commitName}
-            onKeyDown={onKey}
-            disabled={disabled}
-            placeholder="Section name"
-            className="flex-1 min-w-0 text-sm text-gray-700 bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 disabled:cursor-default"
-          />
-        </div>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={commitName}
+          onKeyDown={onKey}
+          disabled={disabled}
+          placeholder="Section name"
+          className="w-full text-sm text-gray-700 dark:text-[#e5e5e5] bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 disabled:cursor-default"
+        />
       </td>
       <td className="py-2 pr-3 text-right">
         <input
@@ -957,12 +950,12 @@ function SectionRow({
           step="0.01"
           min="0"
           value={length}
-          onChange={(e) => setLength(e.target.value)}
+          onChange={(e) => handleLengthChange(e.target.value)}
           onBlur={commitLength}
           onKeyDown={onKey}
-          disabled={dimensionInputsDisabled}
-          placeholder={totalOnly ? '—' : '0'}
-          className={`${inputBase} ${dimensionInputsDisabled ? dimmedInputCls : activeInputCls}`}
+          disabled={disabled}
+          placeholder="—"
+          className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
         />
       </td>
       {!linear && (
@@ -973,35 +966,28 @@ function SectionRow({
             step="0.01"
             min="0"
             value={width}
-            onChange={(e) => setWidth(e.target.value)}
+            onChange={(e) => handleWidthChange(e.target.value)}
             onBlur={commitWidth}
             onKeyDown={onKey}
-            disabled={dimensionInputsDisabled}
-            placeholder={totalOnly ? '—' : '0'}
-            className={`${inputBase} ${dimensionInputsDisabled ? dimmedInputCls : activeInputCls}`}
+            disabled={disabled}
+            placeholder="—"
+            className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
           />
         </td>
       )}
       <td className="py-2 pr-3 text-right">
-        {totalOnly ? (
-          <input
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0"
-            value={totalInput}
-            onChange={(e) => setTotalInput(e.target.value)}
-            onBlur={commitTotal}
-            onKeyDown={onKey}
-            disabled={totalInputDisabled}
-            placeholder="0"
-            className={`${inputBase} font-medium ${totalInputDisabled ? dimmedInputCls : 'text-gray-900 border-transparent focus:border-amber-400'}`}
-          />
-        ) : (
-          <span className="text-sm font-medium text-gray-900">
-            {formatTotal(liveDimensionedTotal)}
-          </span>
-        )}
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          value={totalInput}
+          onChange={(e) => setTotalInput(e.target.value)}
+          onBlur={commitTotal}
+          onKeyDown={onKey}
+          disabled={disabled}
+          className={`${inputBase} font-medium ${disabled ? disabledInputCls : 'text-gray-900 dark:text-white border-transparent focus:border-amber-400'}`}
+        />
       </td>
       <td className="py-2 text-right">
         {kebabItems.length > 0 && (
