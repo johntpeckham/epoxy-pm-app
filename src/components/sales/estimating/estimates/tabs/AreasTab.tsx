@@ -257,6 +257,28 @@ export default function AreasTab({
     }
   }
 
+  async function saveCoveName(cove: EstimateSectionCove, nextName: string | null) {
+    // Treat null and empty equivalently — the trim happens in the row component.
+    const normalized = nextName === '' ? null : nextName
+    if (normalized === (cove.name ?? null)) return
+    const previous = cove
+    setSectionCoves((prev) => prev.map((c) => (c.id === cove.id ? { ...c, name: normalized } : c)))
+    const ok = await withAutoSave(async () => {
+      const { error } = await supabase
+        .from('estimate_section_coves')
+        .update({ name: normalized })
+        .eq('id', cove.id)
+      if (error) {
+        console.error('Failed to update cove name', { code: error.code, message: error.message, hint: error.hint, details: error.details })
+        throw new Error(error.message)
+      }
+      return true
+    })
+    if (!ok) {
+      setSectionCoves((prev) => prev.map((c) => (c.id === cove.id ? previous : c)))
+    }
+  }
+
   async function confirmDeleteCove() {
     if (!deleteCoveTarget) return
     const target = deleteCoveTarget
@@ -569,7 +591,8 @@ export default function AreasTab({
                             cove={cove}
                             disabled={!canEditAreas}
                             canDelete={canDelete}
-                            onSave={(length) => saveCoveLength(cove, length)}
+                            onSaveLength={(length) => saveCoveLength(cove, length)}
+                            onSaveName={(nextName) => saveCoveName(cove, nextName)}
                             onDelete={() => setDeleteCoveTarget(cove)}
                           />
                         ))}
@@ -729,6 +752,10 @@ function AreaNameInput({
       disabled={disabled}
       placeholder="Untitled area"
       title={disabled ? undefined : 'Click to rename'}
+      // Opt out of the global dark-mode input chrome rule in globals.css so
+      // our bg-transparent / border-transparent Tailwind utilities actually
+      // win. The rule excludes inputs with this attribute.
+      data-plain-text
       className={[
         tier === 'nested' ? 'text-base' : 'text-lg',
         'font-medium text-gray-900 dark:text-white',
@@ -916,16 +943,31 @@ function SectionRow({
   return (
     <tr>
       <td className="py-2 pr-3">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={commitName}
-          onKeyDown={onKey}
-          disabled={disabled}
-          placeholder="Section name"
-          className="w-40 max-w-full text-sm text-gray-700 dark:text-[#e5e5e5] bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 disabled:cursor-default"
-        />
+        <div className="inline-flex items-center gap-1">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={onKey}
+            disabled={disabled}
+            placeholder="Section name"
+            data-plain-text
+            className="w-40 max-w-full text-sm text-gray-700 dark:text-[#e5e5e5] bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 disabled:cursor-default"
+          />
+          {canAddCove && (
+            <Tooltip label="Add cove" placement="top">
+              <button
+                type="button"
+                onClick={onAddCove}
+                aria-label="Add cove"
+                className="inline-flex items-center justify-center w-5 h-5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-[#a0a0a0] dark:hover:text-white dark:hover:bg-white/10 transition-colors flex-shrink-0"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+          )}
+        </div>
       </td>
       {!linear && (
         <>
@@ -941,6 +983,7 @@ function SectionRow({
               onKeyDown={onKey}
               disabled={disabled}
               placeholder="—"
+              data-plain-text
               className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
             />
           </td>
@@ -956,6 +999,7 @@ function SectionRow({
               onKeyDown={onKey}
               disabled={disabled}
               placeholder="—"
+              data-plain-text
               className={`${inputBase} ${disabled ? disabledInputCls : activeInputCls}`}
             />
           </td>
@@ -972,27 +1016,14 @@ function SectionRow({
           onBlur={commitTotal}
           onKeyDown={onKey}
           disabled={disabled}
+          data-plain-text
           className={`${inputBase} font-medium ${disabled ? disabledInputCls : 'text-gray-900 dark:text-white border-transparent focus:border-amber-400'}`}
         />
       </td>
-      <td className="py-2 text-right whitespace-nowrap">
-        <div className="inline-flex items-center gap-0.5 justify-end">
-          {kebabItems.length > 0 && (
-            <KebabMenu variant="light" title="Section actions" items={kebabItems} />
-          )}
-          {canAddCove && (
-            <Tooltip label="Add cove" placement="top">
-              <button
-                type="button"
-                onClick={onAddCove}
-                aria-label="Add cove"
-                className="inline-flex items-center justify-center w-6 h-6 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-[#a0a0a0] dark:hover:text-white dark:hover:bg-white/10 transition-colors"
-              >
-                <PlusIcon className="w-4 h-4" />
-              </button>
-            </Tooltip>
-          )}
-        </div>
+      <td className="py-2 text-right">
+        {kebabItems.length > 0 && (
+          <KebabMenu variant="light" title="Section actions" items={kebabItems} />
+        )}
       </td>
     </tr>
   )
@@ -1003,22 +1034,28 @@ function CoveLineRow({
   cove,
   disabled,
   canDelete,
-  onSave,
+  onSaveLength,
+  onSaveName,
   onDelete,
 }: {
   cove: EstimateSectionCove
   disabled: boolean
   canDelete: boolean
-  onSave: (nextLength: number | null) => void
+  onSaveLength: (nextLength: number | null) => void
+  onSaveName: (nextName: string | null) => void
   onDelete: () => void
 }) {
-  const [value, setValue] = useState<string>(
+  const [lengthInput, setLengthInput] = useState<string>(
     cove.cove_length === null || cove.cove_length === undefined ? '' : String(cove.cove_length)
   )
+  const [nameInput, setNameInput] = useState<string>(cove.name ?? '')
 
   useEffect(() => {
-    setValue(cove.cove_length === null || cove.cove_length === undefined ? '' : String(cove.cove_length))
+    setLengthInput(cove.cove_length === null || cove.cove_length === undefined ? '' : String(cove.cove_length))
   }, [cove.cove_length])
+  useEffect(() => {
+    setNameInput(cove.name ?? '')
+  }, [cove.name])
 
   function parseNum(s: string): number | null {
     if (s.trim() === '') return null
@@ -1026,8 +1063,12 @@ function CoveLineRow({
     if (Number.isNaN(n)) return null
     return n
   }
-  function commit() {
-    onSave(parseNum(value))
+  function commitLength() {
+    onSaveLength(parseNum(lengthInput))
+  }
+  function commitName() {
+    const trimmed = nameInput.trim()
+    onSaveName(trimmed === '' ? null : trimmed)
   }
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
@@ -1051,11 +1092,32 @@ function CoveLineRow({
   return (
     <tr>
       <td colSpan={3} className="py-1.5 pr-3 pl-6">
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${coveBadgeCls}`}
-        >
-          Cove
-        </span>
+        <div className="inline-flex items-center gap-2 min-w-0 max-w-full">
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${coveBadgeCls}`}
+          >
+            Cove
+          </span>
+          <input
+            type="text"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={onKey}
+            disabled={disabled}
+            placeholder="Add label"
+            data-plain-text
+            // Matches AreaNameInput's plain-text-at-rest pattern: transparent
+            // surface at rest, hover tint, focus chrome via Tailwind utilities.
+            // Opt out of the global dark-input chrome rule via data-plain-text.
+            className={[
+              'flex-1 min-w-0 text-sm font-medium text-gray-700 dark:text-[#e5e5e5]',
+              'bg-transparent border border-transparent rounded px-1.5 py-0.5',
+              disabled ? 'cursor-default' : 'cursor-text hover:bg-gray-100 dark:hover:bg-[#2e2e2e]',
+              'focus:bg-white dark:focus:bg-[#1f1f1f] focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400/30 disabled:hover:bg-transparent',
+            ].join(' ')}
+          />
+        </div>
       </td>
       <td className="py-1.5 pr-3 text-right">
         <input
@@ -1063,12 +1125,13 @@ function CoveLineRow({
           inputMode="decimal"
           step="0.01"
           min="0"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={commit}
+          value={lengthInput}
+          onChange={(e) => setLengthInput(e.target.value)}
+          onBlur={commitLength}
           onKeyDown={onKey}
           disabled={disabled}
           placeholder="—"
+          data-plain-text
           className={`w-20 text-sm bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 text-right font-medium ${disabled ? 'text-gray-400 dark:text-[#6b6b6b] cursor-not-allowed' : 'text-gray-900 dark:text-white'}`}
         />
       </td>

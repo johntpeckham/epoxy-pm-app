@@ -207,16 +207,19 @@ html.dark .border-pink-200  { border-color: rgba(236, 72, 153, 0.30); }
 html.dark .border-indigo-200 { border-color: rgba(99, 102, 241, 0.30); }
 
 /* Form inputs and selects — keep them legible on dark backgrounds.
-   Use Level 2 so inputs sit visibly *inside* cards. */
-html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+   Use Level 2 so inputs sit visibly *inside* cards.
+   Inputs that are meant to read as plain text at rest (inline-editable
+   labels like the area name and cove name) opt out via data-plain-text;
+   they manage their own background/border via Tailwind utilities. */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([data-plain-text]),
 html.dark select,
-html.dark textarea {
+html.dark textarea:not([data-plain-text]) {
   background-color: var(--dark-bg-tertiary);
   color: var(--dark-text-primary);
   border-color: var(--dark-border);
 }
-html.dark input::placeholder,
-html.dark textarea::placeholder {
+html.dark input:not([data-plain-text])::placeholder,
+html.dark textarea:not([data-plain-text])::placeholder {
   color: var(--dark-text-tertiary);
 }
 /* Date/time input pickers */

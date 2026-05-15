@@ -139,6 +139,7 @@ export type EstimateSectionInputMode = 'dimensioned' | 'total_only'
 export interface EstimateSectionCove {
   id: string
   section_id: string
+  name: string | null
   cove_length: number | null
   sort_order: number
   created_at: string
