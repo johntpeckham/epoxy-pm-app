@@ -653,7 +653,21 @@ export interface MasterSupplier {
   created_at: string
 }
 
-export interface MasterKitGroup {
+/** Optional default quantity rule fields shared by master_products and
+ *  master_kit_groups. Wave 1 of Material Systems adds these so that when a
+ *  product/kit is added to a system, the system row inherits sensible
+ *  defaults from the product/kit. NULL on existing rows; not backfilled. */
+export type MasterDefaultQuantityMode = 'coverage' | 'fixed' | null
+
+export interface MasterDefaultQuantityFields {
+  default_quantity_mode: MasterDefaultQuantityMode
+  default_coverage_amount: number | null
+  default_coverage_basis: number | null
+  default_fixed_quantity: number | null
+  default_unit: string | null
+}
+
+export interface MasterKitGroup extends MasterDefaultQuantityFields {
   id: string
   supplier_id: string
   name: string
@@ -664,7 +678,7 @@ export interface MasterKitGroup {
   created_at: string
 }
 
-export interface MasterProduct {
+export interface MasterProduct extends MasterDefaultQuantityFields {
   id: string
   supplier_id: string
   kit_group_id: string | null
@@ -687,4 +701,40 @@ export interface MasterProductDocument {
   file_name: string
   file_url: string
   created_at: string
+}
+
+/* ================================================================== */
+/*  Material Systems (Wave 1)                                          */
+/* ================================================================== */
+
+export interface MaterialSystem {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type MaterialSystemItemType = 'product' | 'kit'
+export type MaterialSystemQuantityMode = 'coverage' | 'fixed'
+
+export interface MaterialSystemItem {
+  id: string
+  system_id: string
+  item_type: MaterialSystemItemType
+  /** Set when item_type='product', null when item_type='kit'. DB-level XOR
+   *  CHECK constraint enforces this so a half-shaped row can't exist. */
+  product_id: string | null
+  /** Set when item_type='kit', null when item_type='product'. Points at
+   *  master_kit_groups.id (the kit table is named master_kit_groups in
+   *  this codebase, not master_kits). */
+  kit_id: string | null
+  quantity_mode: MaterialSystemQuantityMode
+  coverage_amount: number | null
+  coverage_basis: number | null
+  fixed_quantity: number | null
+  unit: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
 }

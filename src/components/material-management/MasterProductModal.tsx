@@ -15,6 +15,15 @@ export interface MasterProductFormData {
   supplier_id: string | null
   pdsFile: File | null
   sdsFile: File | null
+  // Material Systems Wave 1: optional default quantity rule. When mode is
+  // null all five default_* fields persist as NULL. When mode is 'coverage',
+  // amount + basis + unit are saved and fixed_quantity is null. When mode
+  // is 'fixed', fixed_quantity + unit are saved and coverage_* are null.
+  default_quantity_mode: 'coverage' | 'fixed' | null
+  default_coverage_amount: number | null
+  default_coverage_basis: number | null
+  default_fixed_quantity: number | null
+  default_unit: string | null
 }
 
 interface Props {
@@ -59,6 +68,27 @@ export default function MasterProductModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // ── Default quantity rule (Material Systems Wave 1) ───────────────────────
+  // 'none' is local UI state for the empty/null DB value.
+  type DefaultMode = 'none' | 'coverage' | 'fixed'
+  const [defaultMode, setDefaultMode] = useState<DefaultMode>(
+    product?.default_quantity_mode === 'coverage' ? 'coverage'
+      : product?.default_quantity_mode === 'fixed' ? 'fixed'
+      : 'none'
+  )
+  const [defaultCoverageAmount, setDefaultCoverageAmount] = useState<string>(
+    product?.default_coverage_amount != null ? String(product.default_coverage_amount) : ''
+  )
+  const [defaultCoverageBasis, setDefaultCoverageBasis] = useState<string>(
+    product?.default_coverage_basis != null ? String(product.default_coverage_basis) : ''
+  )
+  const [defaultFixedQuantity, setDefaultFixedQuantity] = useState<string>(
+    product?.default_fixed_quantity != null ? String(product.default_fixed_quantity) : ''
+  )
+  const [defaultUnit, setDefaultUnit] = useState<string>(
+    product?.default_unit ?? (unitTypes.length > 0 ? unitTypes[0].abbreviation : 'gal')
+  )
 
   // --- Searchable supplier dropdown state ---
   const [supplierQuery, setSupplierQuery] = useState<string>(() => {
@@ -134,6 +164,39 @@ export default function MasterProductModal({
         return
       }
     }
+
+    // ── Default quantity rule validation + serialization ────────────────────
+    let defaultMode_db: 'coverage' | 'fixed' | null = null
+    let defaultCoverageAmount_db: number | null = null
+    let defaultCoverageBasis_db: number | null = null
+    let defaultFixedQuantity_db: number | null = null
+    let defaultUnit_db: string | null = null
+    if (defaultMode === 'coverage') {
+      const a = parseFloat(defaultCoverageAmount)
+      const b = parseFloat(defaultCoverageBasis)
+      if (defaultCoverageAmount.trim() === '' || Number.isNaN(a) || a <= 0) {
+        setError('Coverage amount must be a positive number.')
+        return
+      }
+      if (defaultCoverageBasis.trim() === '' || Number.isNaN(b) || b <= 0) {
+        setError('Coverage basis must be a positive number.')
+        return
+      }
+      defaultMode_db = 'coverage'
+      defaultCoverageAmount_db = a
+      defaultCoverageBasis_db = b
+      defaultUnit_db = defaultUnit
+    } else if (defaultMode === 'fixed') {
+      const q = parseFloat(defaultFixedQuantity)
+      if (defaultFixedQuantity.trim() === '' || Number.isNaN(q) || q <= 0) {
+        setError('Fixed quantity must be a positive number.')
+        return
+      }
+      defaultMode_db = 'fixed'
+      defaultFixedQuantity_db = q
+      defaultUnit_db = defaultUnit
+    }
+
     setError(null)
     setSaving(true)
     try {
@@ -147,6 +210,11 @@ export default function MasterProductModal({
         supplier_id: isEdit ? null : selectedSupplierId,
         pdsFile,
         sdsFile,
+        default_quantity_mode: defaultMode_db,
+        default_coverage_amount: defaultCoverageAmount_db,
+        default_coverage_basis: defaultCoverageBasis_db,
+        default_fixed_quantity: defaultFixedQuantity_db,
+        default_unit: defaultUnit_db,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save product.')
@@ -333,6 +401,99 @@ export default function MasterProductModal({
                     )}
                   </select>
                 </div>
+              </div>
+
+              {/* Default quantity rule (Material Systems Wave 1).
+                  Optional — leave as None to persist all five default_*
+                  fields as NULL. Coverage / Fixed reveal the relevant inputs. */}
+              <div className="pt-1">
+                <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
+                  Default quantity rule
+                </label>
+                <select
+                  value={defaultMode}
+                  onChange={(e) => setDefaultMode(e.target.value as 'none' | 'coverage' | 'fixed')}
+                  className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                >
+                  <option value="none">None (no default)</option>
+                  <option value="coverage">Coverage rate</option>
+                  <option value="fixed">Fixed quantity</option>
+                </select>
+                {defaultMode === 'coverage' && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      value={defaultCoverageAmount}
+                      onChange={(e) => setDefaultCoverageAmount(e.target.value)}
+                      placeholder="1"
+                      className="w-20 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                      aria-label="Coverage amount"
+                    />
+                    <span className="text-xs text-gray-500 dark:text-[#a0a0a0]">per</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      value={defaultCoverageBasis}
+                      onChange={(e) => setDefaultCoverageBasis(e.target.value)}
+                      placeholder="200"
+                      className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                      aria-label="Coverage basis"
+                    />
+                    <span className="text-xs text-gray-500 dark:text-[#a0a0a0]">sqft of</span>
+                    <select
+                      value={defaultUnit}
+                      onChange={(e) => setDefaultUnit(e.target.value)}
+                      className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                      aria-label="Default unit"
+                    >
+                      {unitTypes.length === 0 ? (
+                        <option value="" disabled>—</option>
+                      ) : (
+                        unitTypes.map((ut) => (
+                          <option key={ut.id} value={ut.abbreviation}>
+                            {ut.abbreviation}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                )}
+                {defaultMode === 'fixed' && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      value={defaultFixedQuantity}
+                      onChange={(e) => setDefaultFixedQuantity(e.target.value)}
+                      placeholder="4"
+                      className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                      aria-label="Fixed quantity"
+                    />
+                    <select
+                      value={defaultUnit}
+                      onChange={(e) => setDefaultUnit(e.target.value)}
+                      className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                      aria-label="Default unit"
+                    >
+                      {unitTypes.length === 0 ? (
+                        <option value="" disabled>—</option>
+                      ) : (
+                        unitTypes.map((ut) => (
+                          <option key={ut.id} value={ut.abbreviation}>
+                            {ut.abbreviation}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                )}
               </div>
 
               {!isEdit && (

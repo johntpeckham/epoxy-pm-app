@@ -519,10 +519,21 @@ export default function MaterialManagementClient({
     const supplierId = editingProduct ? productModalSupplierId ?? editingProduct.supplier_id : data.supplier_id ?? productModalSupplierId
     if (!trimmedName || !supplierId) return
 
+    // Material Systems Wave 1: include the five default_* fields on every
+    // master_products write. Null values are written explicitly so an edit
+    // that clears the defaults persists the cleared state.
+    const defaultsPayload = {
+      default_quantity_mode: data.default_quantity_mode,
+      default_coverage_amount: data.default_coverage_amount,
+      default_coverage_basis: data.default_coverage_basis,
+      default_fixed_quantity: data.default_fixed_quantity,
+      default_unit: data.default_unit,
+    }
+
     if (editingProduct) {
       const previous = editingProduct
-      setProducts((prev) => prev.map((p) => p.id === previous.id ? { ...p, name: trimmedName, description: data.description, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id } : p))
-      const { error } = await supabase.from('master_products').update({ name: trimmedName, description: data.description, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id }).eq('id', previous.id)
+      setProducts((prev) => prev.map((p) => p.id === previous.id ? { ...p, name: trimmedName, description: data.description, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id, ...defaultsPayload } : p))
+      const { error } = await supabase.from('master_products').update({ name: trimmedName, description: data.description, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id, ...defaultsPayload }).eq('id', previous.id)
       if (error) {
         console.error('Failed to update master product', { code: error.code, message: error.message, hint: error.hint, details: error.details })
         setProducts((prev) => prev.map((p) => (p.id === previous.id ? previous : p)))
@@ -531,7 +542,7 @@ export default function MaterialManagementClient({
     } else {
       const { data: inserted, error: insertErr } = await supabase
         .from('master_products')
-        .insert({ supplier_id: supplierId, name: trimmedName, description: data.description, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id })
+        .insert({ supplier_id: supplierId, name: trimmedName, description: data.description, unit: data.unit, price: data.price, kit_group_id: data.kit_group_id, ...defaultsPayload })
         .select()
         .single()
       if (insertErr || !inserted) {
@@ -630,7 +641,18 @@ export default function MaterialManagementClient({
     const supplierId = data.supplier_id ?? addKitSupplierId
     if (!supplierId) return
 
-    const { data: insertedKit, error: kitErr } = await supabase.from('master_kit_groups').insert({ supplier_id: supplierId, name: data.name }).select().single()
+    // Material Systems Wave 1: include the kit's optional default_* fields
+    // on insert. Null values are written explicitly so an unset default
+    // persists as NULL rather than relying on column defaults.
+    const { data: insertedKit, error: kitErr } = await supabase.from('master_kit_groups').insert({
+      supplier_id: supplierId,
+      name: data.name,
+      default_quantity_mode: data.default_quantity_mode,
+      default_coverage_amount: data.default_coverage_amount,
+      default_coverage_basis: data.default_coverage_basis,
+      default_fixed_quantity: data.default_fixed_quantity,
+      default_unit: data.default_unit,
+    }).select().single()
     if (kitErr || !insertedKit) {
       console.error('Failed to insert kit group', { code: kitErr?.code, message: kitErr?.message, hint: kitErr?.hint, details: kitErr?.details })
       throw new Error(kitErr?.message ?? 'Failed to create kit.')
