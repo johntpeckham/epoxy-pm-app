@@ -63,12 +63,14 @@ export default async function MaterialManagementPage() {
   const profiles = (profilesRaw ?? []) as MaterialProfileOption[]
   const unitTypes = (unitTypesRaw ?? []) as UnitType[]
 
-  // Build pending price check lookup
+  // Build pending price check lookup — pulls task ids from both products
+  // and kit groups since both can have a pending price check.
   const pendingTaskIds = Array.from(
     new Set(
-      products
-        .map((p) => p.price_check_task_id)
-        .filter((v): v is string => !!v)
+      [
+        ...products.map((p) => p.price_check_task_id),
+        ...kitGroups.map((g) => g.price_check_task_id),
+      ].filter((v): v is string => !!v)
     )
   )
   const pendingPriceChecks: Record<string, PendingPriceCheckInfo> = {}

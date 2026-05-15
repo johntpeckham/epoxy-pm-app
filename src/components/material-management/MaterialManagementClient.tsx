@@ -32,6 +32,7 @@ import {
   PlusIcon,
   Settings2Icon,
   Trash2Icon,
+  XIcon,
 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import MasterSupplierModal from './MasterSupplierModal'
@@ -345,8 +346,11 @@ export default function MaterialManagementClient({
   const [addKitModalOpen, setAddKitModalOpen] = useState(false)
   const [addKitSupplierId, setAddKitSupplierId] = useState<string | null>(null)
 
-  // Price check request modal
+  // Price check request modal — products and kit groups share the modal
+  // component but track separate target state so we know which entity to
+  // update on submit.
   const [priceCheckProduct, setPriceCheckProduct] = useState<MasterProduct | null>(null)
+  const [priceCheckKitGroup, setPriceCheckKitGroup] = useState<MasterKitGroup | null>(null)
 
   // Document upload modal
   const [docUploadProduct, setDocUploadProduct] = useState<MasterProduct | null>(null)
@@ -370,7 +374,16 @@ export default function MaterialManagementClient({
   const [deleteSupplierTarget, setDeleteSupplierTarget] = useState<MasterSupplier | null>(null)
   const [deleteProductTarget, setDeleteProductTarget] = useState<MasterProduct | null>(null)
   const [deleteKitGroupTarget, setDeleteKitGroupTarget] = useState<MasterKitGroup | null>(null)
-  const [deleteDocTarget, setDeleteDocTarget] = useState<MasterProductDocument | null>(null)
+  // Doc delete supports both new column-based files on master_products and
+  // legacy rows in master_product_documents. We keep references to both
+  // sources so the confirm handler can clean up whatever exists.
+  const [deleteDocTarget, setDeleteDocTarget] = useState<{
+    productId: string
+    productName: string
+    type: 'PDS' | 'SDS'
+    columnPath: string | null
+    legacyDoc: MasterProductDocument | null
+  } | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   // material_management maps: any create access lets you manage, edit lets
@@ -739,33 +752,61 @@ export default function MaterialManagementClient({
   /*  PRICE CHECK REQUEST                                              */
   /* ================================================================ */
 
-  async function submitPriceCheckRequest(assignedToId: string) {
-    if (!priceCheckProduct) return
-    const product = priceCheckProduct
-    const supplier = suppliers.find((s) => s.id === product.supplier_id)
+  // Generic Price Check submit. Creates an office_tasks row, links it back
+  // to the target row via the entity's price_check_task_id column, and
+  // updates the pending-check map. Used for both products and kit groups.
+  async function submitPriceCheckCore(
+    entity: { kind: 'product' | 'kit'; id: string; name: string; supplierId: string },
+    assignedToId: string,
+  ): Promise<void> {
+    const supplier = suppliers.find((s) => s.id === entity.supplierId)
     const supplierName = supplier?.name ?? ''
-    const title = supplierName ? `Price Check: ${product.name} (${supplierName})` : `Price Check: ${product.name}`
+    const entityLabel = entity.kind === 'kit' ? 'kit' : 'product'
+    const title = supplierName ? `Price Check: ${entity.name} (${supplierName})` : `Price Check: ${entity.name}`
 
     const { data: inserted, error: taskErr } = await supabase.from('office_tasks').insert({
       title,
-      description: `Price check request for ${product.name}. Please verify the current price with the supplier and mark this task complete — the Price Check Date on the product will update automatically.`,
+      description: `Price check request for ${entity.name}. Please verify the current price with the supplier and mark this task complete — the Price Check Date on the ${entityLabel} will update automatically.`,
       assigned_to: assignedToId,
       priority: 'Normal',
       created_by: currentUserId,
     }).select('id').single()
-    if (taskErr || !inserted) throw taskErr ?? new Error('Failed to create price check task.')
+    if (taskErr || !inserted) {
+      console.error('Failed to create price check task', { code: taskErr?.code, message: taskErr?.message, hint: taskErr?.hint, details: taskErr?.details })
+      throw new Error(taskErr?.message ?? 'Failed to create price check task.')
+    }
     const newTaskId = (inserted as { id: string }).id
 
-    const { error: linkErr } = await supabase.from('master_products').update({ price_check_task_id: newTaskId }).eq('id', product.id)
+    const table = entity.kind === 'kit' ? 'master_kit_groups' : 'master_products'
+    const { error: linkErr } = await supabase.from(table).update({ price_check_task_id: newTaskId }).eq('id', entity.id)
     if (linkErr) {
-      await supabase.from('office_tasks').delete().eq('id', newTaskId)
-      throw linkErr
+      console.error(`Failed to link price-check task to ${table}`, { code: linkErr.code, message: linkErr.message, hint: linkErr.hint, details: linkErr.details })
+      const { error: cleanupErr } = await supabase.from('office_tasks').delete().eq('id', newTaskId)
+      if (cleanupErr) console.error('Rollback: failed to delete price-check task', { code: cleanupErr.code, message: cleanupErr.message, hint: cleanupErr.hint, details: cleanupErr.details })
+      throw new Error(linkErr.message)
     }
 
-    setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, price_check_task_id: newTaskId } : p))
+    if (entity.kind === 'kit') {
+      setKitGroups((prev) => prev.map((g) => g.id === entity.id ? { ...g, price_check_task_id: newTaskId } : g))
+    } else {
+      setProducts((prev) => prev.map((p) => p.id === entity.id ? { ...p, price_check_task_id: newTaskId } : p))
+    }
     const assignee = profiles.find((p) => p.id === assignedToId)
     setPendingPriceChecks((prev) => ({ ...prev, [newTaskId]: { taskId: newTaskId, assigneeId: assignedToId, assigneeName: assignee?.display_name ?? 'Unknown' } }))
+  }
+
+  async function submitPriceCheckRequest(assignedToId: string) {
+    if (!priceCheckProduct) return
+    const product = priceCheckProduct
+    await submitPriceCheckCore({ kind: 'product', id: product.id, name: product.name, supplierId: product.supplier_id }, assignedToId)
     setPriceCheckProduct(null)
+  }
+
+  async function submitKitPriceCheckRequest(assignedToId: string) {
+    if (!priceCheckKitGroup) return
+    const kit = priceCheckKitGroup
+    await submitPriceCheckCore({ kind: 'kit', id: kit.id, name: kit.name, supplierId: kit.supplier_id }, assignedToId)
+    setPriceCheckKitGroup(null)
   }
 
   /* ================================================================ */
@@ -795,7 +836,44 @@ export default function MaterialManagementClient({
     const isoDate = new Date(`${newValue}T12:00:00`).toISOString()
     setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, price_check_date: isoDate } : p)))
     const { error } = await supabase.from('master_products').update({ price_check_date: isoDate }).eq('id', productId)
-    if (error) setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, price_check_date: previous.price_check_date } : p))
+    if (error) {
+      console.error('Failed to update master_products price_check_date', { code: error.code, message: error.message, hint: error.hint, details: error.details })
+      setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, price_check_date: previous.price_check_date } : p))
+    }
+  }
+
+  // Manual price check date override for kit groups — mirrors the product
+  // flow using the same shared hidden <input type="date">.
+  const [manualPriceDateKitGroupId, setManualPriceDateKitGroupId] = useState<string | null>(null)
+  const kitManualPriceDateInputRef = useRef<HTMLInputElement>(null)
+
+  function openKitManualPriceDatePicker(group: MasterKitGroup) {
+    if (!canManage) return
+    setManualPriceDateKitGroupId(group.id)
+    requestAnimationFrame(() => {
+      const input = kitManualPriceDateInputRef.current
+      if (!input) return
+      input.value = toDateInputValue(group.price_check_date)
+      if (typeof (input as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+        ;(input as HTMLInputElement & { showPicker: () => void }).showPicker()
+      } else { input.focus(); input.click() }
+    })
+  }
+
+  async function handleKitManualPriceDateChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const groupId = manualPriceDateKitGroupId
+    const newValue = e.target.value
+    setManualPriceDateKitGroupId(null)
+    if (!groupId || !newValue) return
+    const previous = kitGroups.find((g) => g.id === groupId)
+    if (!previous) return
+    const isoDate = new Date(`${newValue}T12:00:00`).toISOString()
+    setKitGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, price_check_date: isoDate } : g)))
+    const { error } = await supabase.from('master_kit_groups').update({ price_check_date: isoDate }).eq('id', groupId)
+    if (error) {
+      console.error('Failed to update master_kit_groups price_check_date', { code: error.code, message: error.message, hint: error.hint, details: error.details })
+      setKitGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, price_check_date: previous.price_check_date } : g))
+    }
   }
 
   /* ================================================================ */
@@ -824,20 +902,101 @@ export default function MaterialManagementClient({
     closeDocUpload()
   }
 
+  // Resolve which storage path + source backs an attached doc indicator.
+  // Prefers the new pds_file_path / sds_file_path columns on master_products
+  // (set by Phase 2a's create modals) and falls back to the legacy
+  // master_product_documents row source. Returns null if neither exists.
+  function getAttachedDoc(product: MasterProduct, type: 'PDS' | 'SDS'): {
+    columnPath: string | null
+    legacyDoc: MasterProductDocument | null
+  } | null {
+    const columnPath = type === 'PDS' ? product.pds_file_path : product.sds_file_path
+    const docs = documentsByProduct.get(product.id) ?? []
+    const legacy = docs.find((d) => d.document_type === type) ?? null
+    if (!columnPath && !legacy) return null
+    return { columnPath: columnPath ?? null, legacyDoc: legacy }
+  }
+
+  // Open an attached PDS/SDS in a new tab. Uses the public URL since the
+  // material-documents bucket is public; falls back to the legacy doc row's
+  // stored file_url if the new column isn't set.
+  function openAttachedDoc(product: MasterProduct, type: 'PDS' | 'SDS') {
+    const resolved = getAttachedDoc(product, type)
+    if (!resolved) return
+    let url: string | null = null
+    if (resolved.columnPath) {
+      url = supabase.storage.from('material-documents').getPublicUrl(resolved.columnPath).data.publicUrl ?? null
+    } else if (resolved.legacyDoc) {
+      url = resolved.legacyDoc.file_url
+    }
+    if (!url) {
+      console.error('Could not resolve public URL for attached doc', { productId: product.id, type })
+      return
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  function startDeleteDoc(product: MasterProduct, type: 'PDS' | 'SDS') {
+    const resolved = getAttachedDoc(product, type)
+    if (!resolved) return
+    setDeleteDocTarget({
+      productId: product.id,
+      productName: product.name,
+      type,
+      columnPath: resolved.columnPath,
+      legacyDoc: resolved.legacyDoc,
+    })
+  }
+
   async function confirmDeleteDocument() {
     if (!deleteDocTarget) return
     const target = deleteDocTarget
     setDeleting(true)
-    // Extract storage path from public URL
-    const urlParts = target.file_url.split('/material-documents/')
-    const storagePath = urlParts.length > 1 ? urlParts[urlParts.length - 1] : null
-    if (storagePath) {
-      await supabase.storage.from('material-documents').remove([storagePath])
+
+    const pathsToRemove: string[] = []
+    if (target.columnPath) pathsToRemove.push(target.columnPath)
+    if (target.legacyDoc) {
+      const urlParts = target.legacyDoc.file_url.split('/material-documents/')
+      const legacyStoragePath = urlParts.length > 1 ? urlParts[urlParts.length - 1] : null
+      if (legacyStoragePath) pathsToRemove.push(legacyStoragePath)
     }
-    const { error } = await supabase.from('master_product_documents').delete().eq('id', target.id)
-    if (!error) setDocuments((prev) => prev.filter((d) => d.id !== target.id))
+
+    if (pathsToRemove.length > 0) {
+      const { error: rmErr } = await supabase.storage.from('material-documents').remove(pathsToRemove)
+      if (rmErr) console.error('Failed to remove storage object(s) for doc delete', { code: rmErr.name, message: rmErr.message })
+    }
+
+    let columnCleared = !target.columnPath
+    let legacyDeleted = !target.legacyDoc
+
+    if (target.columnPath) {
+      const column = target.type === 'PDS' ? 'pds_file_path' : 'sds_file_path'
+      const { error: updErr } = await supabase
+        .from('master_products')
+        .update({ [column]: null })
+        .eq('id', target.productId)
+      if (updErr) {
+        console.error('Failed to clear file_path column on master_products', { code: updErr.code, message: updErr.message, hint: updErr.hint, details: updErr.details })
+      } else {
+        columnCleared = true
+        setProducts((prev) => prev.map((p) => p.id === target.productId ? { ...p, [column]: null } : p))
+      }
+    }
+
+    if (target.legacyDoc) {
+      const { error: delErr } = await supabase.from('master_product_documents').delete().eq('id', target.legacyDoc.id)
+      if (delErr) {
+        console.error('Failed to delete legacy master_product_documents row', { code: delErr.code, message: delErr.message, hint: delErr.hint, details: delErr.details })
+      } else {
+        legacyDeleted = true
+        setDocuments((prev) => prev.filter((d) => d.id !== target.legacyDoc!.id))
+      }
+    }
+
     setDeleting(false)
-    setDeleteDocTarget(null)
+    // Only clear the target if all branches succeeded; otherwise leave the
+    // dialog visible so the user can see something went wrong.
+    if (columnCleared && legacyDeleted) setDeleteDocTarget(null)
   }
 
   /* ================================================================ */
@@ -976,38 +1135,64 @@ export default function MaterialManagementClient({
           <div className="inline-flex items-center gap-1">
             {(['PDS', 'SDS'] as const).map((type) => {
               const attached = type === 'PDS' ? hasPds : hasSds
-              const title = canManage
-                ? `${attached ? 'View or replace' : 'Upload'} ${type === 'PDS' ? 'Product Data Sheet' : 'Safety Data Sheet'}`
-                : attached
-                  ? `${type} attached`
-                  : `No ${type} attached`
+              const longName = type === 'PDS' ? 'Product Data Sheet' : 'Safety Data Sheet'
               const baseCls = 'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors'
               const attachedCls = 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/40 hover:bg-amber-100 dark:hover:bg-amber-900/30'
               const dimCls = 'bg-gray-50 dark:bg-[#2a2a2a] text-gray-400 dark:text-[#6b6b6b] border-gray-200 dark:border-[#3a3a3a] hover:bg-gray-100 dark:hover:bg-[#3a3a3a]'
+
+              if (attached) {
+                // View on click; show a hover-X for users who can delete.
+                return (
+                  <span key={type} className="group relative inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => openAttachedDoc(product, type)}
+                      className={`${baseCls} ${attachedCls}`}
+                      title={`View ${longName}`}
+                    >
+                      <FileTextIcon className="w-2.5 h-2.5" />
+                      {type}
+                      <CheckIcon className="w-2.5 h-2.5" />
+                    </button>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); startDeleteDoc(product, type) }}
+                        className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 focus:opacity-100 p-0.5 rounded-full bg-white dark:bg-[#242424] text-gray-400 hover:text-red-500 dark:text-[#6b6b6b] dark:hover:text-red-400 border border-gray-200 dark:border-[#3a3a3a] shadow-sm transition-opacity"
+                        title={`Delete ${type}`}
+                        aria-label={`Delete ${type}`}
+                      >
+                        <XIcon className="w-2.5 h-2.5" />
+                      </button>
+                    )}
+                  </span>
+                )
+              }
+
+              // Unattached — clickable to upload for users who can manage,
+              // otherwise a static dimmed badge.
               if (canManage) {
                 return (
                   <button
                     key={type}
                     type="button"
                     onClick={() => openDocUpload(product, type)}
-                    className={`${baseCls} ${attached ? attachedCls : dimCls}`}
-                    title={title}
+                    className={`${baseCls} ${dimCls}`}
+                    title={`Upload ${longName}`}
                   >
                     <FileTextIcon className="w-2.5 h-2.5" />
                     {type}
-                    {attached && <CheckIcon className="w-2.5 h-2.5" />}
                   </button>
                 )
               }
               return (
                 <span
                   key={type}
-                  className={`${baseCls} ${attached ? attachedCls : dimCls}`}
-                  title={title}
+                  className={`${baseCls} ${dimCls}`}
+                  title={`No ${type} attached`}
                 >
                   <FileTextIcon className="w-2.5 h-2.5" />
                   {type}
-                  {attached && <CheckIcon className="w-2.5 h-2.5" />}
                 </span>
               )
             })}
@@ -1031,22 +1216,57 @@ export default function MaterialManagementClient({
   }
 
   function renderKitGroupHeaderRow(group: MasterKitGroup) {
+    const pricePendingInfo = group.price_check_task_id ? pendingPriceChecks[group.price_check_task_id] : undefined
+    const hasPricePending = !!group.price_check_task_id
+    const priceLevel = getPriceCheckLevel(group.price_check_date, hasPricePending)
+    const priceDateText = formatCheckDate(group.price_check_date)
+    const priceDateClass = checkDateClass(priceLevel)
+
     return (
       <div key={`kit-group-${group.id}`} className="sm:grid sm:grid-cols-[1fr_90px_120px_120px_100px_60px] gap-2 px-4 py-3 items-center hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors min-w-[700px]">
-        {/* Group name */}
-        <div className="flex items-center gap-2 min-w-0">
+        {/* Group name + muted "Kit Price" label pinned to the right edge of
+            the name column so it sits just before the Price column. */}
+        <div className="flex items-center justify-between gap-2 min-w-0">
           <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{group.name}</span>
+          <span className="hidden sm:inline text-xs text-gray-400 dark:text-[#6b6b6b] flex-shrink-0">
+            Kit Price
+          </span>
         </div>
         {/* Kit Price */}
         <div className="mt-1 sm:mt-0 text-sm text-gray-600 dark:text-[#a0a0a0] sm:text-right">
           <span className="sm:hidden text-xs text-gray-400 dark:text-[#6b6b6b] mr-1">Price:</span>
           <InlinePriceEditor price={group.price} disabled={!canManage} onSave={(p) => saveKitGroupPrice(group.id, p)} />
         </div>
-        {/* Price check */}
-        <div className="mt-1 sm:mt-0 text-xs text-gray-400 dark:text-[#6b6b6b] sm:text-center"><span className="sm:hidden mr-1">Price check:</span>—</div>
-        {/* Price date */}
-        <div className="mt-1 sm:mt-0 text-xs sm:text-sm text-gray-400 dark:text-[#6b6b6b] sm:text-center"><span className="sm:hidden mr-1">Price date:</span>—</div>
-        {/* PDS/SDS */}
+        {/* Price check request */}
+        <div className="mt-1 sm:mt-0 text-xs sm:text-center">
+          <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">Price check:</span>
+          {hasPricePending ? (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40" title={`Pending — assigned to ${pricePendingInfo?.assigneeName ?? 'Unknown'}`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Pending
+              {pricePendingInfo?.assigneeName && <span className="hidden lg:inline text-amber-600 dark:text-amber-400 font-normal">· {pricePendingInfo.assigneeName}</span>}
+            </span>
+          ) : canManage ? (
+            <button type="button" onClick={() => setPriceCheckKitGroup(group)} className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/40 transition-colors" title="Request a price check">
+              Price Check
+            </button>
+          ) : (
+            <span className="text-gray-400 dark:text-[#6b6b6b]">—</span>
+          )}
+        </div>
+        {/* Price check date */}
+        <div className="mt-1 sm:mt-0 text-xs sm:text-sm sm:text-center">
+          <span className="sm:hidden text-gray-400 dark:text-[#6b6b6b] mr-1">Price date:</span>
+          {canManage ? (
+            <button type="button" onClick={() => openKitManualPriceDatePicker(group)} className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-gray-100 dark:hover:bg-[#2e2e2e] transition-colors ${priceDateClass}`} title="Click to set the price check date manually">
+              <CalendarIcon className="w-3 h-3 opacity-60" />
+              {priceDateText}
+            </button>
+          ) : (
+            <span className={priceDateClass}>{priceDateText}</span>
+          )}
+        </div>
+        {/* PDS/SDS — kits don't carry data sheets */}
         <div className="mt-1 sm:mt-0 text-xs text-gray-400 dark:text-[#6b6b6b] sm:text-center"><span className="sm:hidden mr-1">Docs:</span>—</div>
         {/* Actions */}
         <div className="mt-2 sm:mt-0 flex sm:justify-end items-center gap-1">
@@ -1306,6 +1526,16 @@ export default function MaterialManagementClient({
         />
       )}
 
+      {priceCheckKitGroup && (
+        <MasterPriceCheckRequestModal
+          productName={priceCheckKitGroup.name}
+          supplierName={suppliers.find((s) => s.id === priceCheckKitGroup.supplier_id)?.name ?? ''}
+          profiles={profiles}
+          onClose={() => setPriceCheckKitGroup(null)}
+          onSubmit={submitKitPriceCheckRequest}
+        />
+      )}
+
       {docUploadProduct && (
         <DocumentUploadModal
           productName={docUploadProduct.name}
@@ -1356,16 +1586,16 @@ export default function MaterialManagementClient({
       )}
       {deleteDocTarget && (
         <ConfirmDialog
-          title="Delete Document"
-          message={`Delete "${deleteDocTarget.file_name}" (${deleteDocTarget.document_type})? This cannot be undone.`}
-          confirmLabel="Delete Document"
+          title={`Delete ${deleteDocTarget.type}`}
+          message={`Delete the ${deleteDocTarget.type} attached to "${deleteDocTarget.productName}"? This cannot be undone.`}
+          confirmLabel={`Delete ${deleteDocTarget.type}`}
           onConfirm={confirmDeleteDocument}
           onCancel={() => setDeleteDocTarget(null)}
           loading={deleting}
         />
       )}
 
-      {/* Hidden date input for manual price check date override */}
+      {/* Hidden date input for manual price check date override (product) */}
       <input
         ref={manualPriceDateInputRef}
         type="date"
@@ -1373,6 +1603,16 @@ export default function MaterialManagementClient({
         tabIndex={-1}
         aria-hidden="true"
         onChange={handleManualPriceDateChange}
+      />
+
+      {/* Hidden date input for manual price check date override (kit group) */}
+      <input
+        ref={kitManualPriceDateInputRef}
+        type="date"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={handleKitManualPriceDateChange}
       />
     </div>
   )

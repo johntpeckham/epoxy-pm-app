@@ -658,6 +658,8 @@ export interface MasterKitGroup {
   supplier_id: string
   name: string
   price: number | null
+  price_check_date: string | null
+  price_check_task_id: string | null
   sort_order: number
   created_at: string
 }
