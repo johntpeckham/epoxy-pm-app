@@ -131,13 +131,16 @@ export interface EstimateArea {
   created_at: string
 }
 
+export type EstimateSectionInputMode = 'dimensioned' | 'total_only'
+
 export interface EstimateAreaMeasurement {
   id: string
   area_id: string
   section_name: string | null
-  length: number
+  length: number | null
   width: number | null
-  total: number
+  total: number | null
+  input_mode: EstimateSectionInputMode
   sort_order: number
   created_at: string
 }

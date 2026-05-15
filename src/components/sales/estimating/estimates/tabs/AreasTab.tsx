@@ -7,7 +7,12 @@ import { usePermissions } from '@/lib/usePermissions'
 import KebabMenu, { type KebabMenuItem } from '@/components/ui/KebabMenu'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { AREA_TYPE_STYLES } from '../../types'
-import type { EstimateArea, EstimateAreaMeasurement, EstimateAreaType } from '../../types'
+import type {
+  EstimateArea,
+  EstimateAreaMeasurement,
+  EstimateAreaType,
+  EstimateSectionInputMode,
+} from '../../types'
 import type { AutoSaveState } from '../AutoSaveIndicator'
 
 const ADD_BUTTONS: { type: EstimateAreaType; label: string }[] = [
@@ -93,6 +98,30 @@ export default function AreasTab({
     }
     return map
   }, [sections])
+
+  // Areas with parent_area_id render NESTED inside their parent card, not at
+  // the top level. Top-level loop filters them out; floor cards look them
+  // up here.
+  const topLevelAreas = useMemo(
+    () => areas.filter((a) => !a.parent_area_id),
+    [areas]
+  )
+  const nestedCovesByParent = useMemo(() => {
+    const map = new Map<string, EstimateArea[]>()
+    for (const a of areas) {
+      if (!a.parent_area_id) continue
+      const arr = map.get(a.parent_area_id) ?? []
+      arr.push(a)
+      map.set(a.parent_area_id, arr)
+    }
+    for (const arr of map.values()) {
+      arr.sort((x, y) => {
+        if (x.sort_order !== y.sort_order) return x.sort_order - y.sort_order
+        return x.created_at.localeCompare(y.created_at)
+      })
+    }
+    return map
+  }, [areas])
 
   // Helper: report a save lifecycle around any awaitable operation.
   const withAutoSave = useCallback(
@@ -245,30 +274,68 @@ export default function AreasTab({
   }
 
   // ── Save a section row's editable fields ─────────────────────────────────
+  // Patch shape supports both modes. In dimensioned mode the caller passes
+  // length/width and we compute the total. In total_only mode the caller
+  // passes total directly and we null length/width. The input_mode field can
+  // be supplied alone (toggle flip) or together with values.
+  //
+  // Toggle semantics:
+  //   dimensioned → total_only: length/width null, total = displayed L×W
+  //   total_only → dimensioned: length/width left null (user re-enters)
   async function saveSection(
     section: EstimateAreaMeasurement,
-    next: { section_name?: string; length?: number | null; width?: number | null }
+    next: {
+      section_name?: string
+      length?: number | null
+      width?: number | null
+      total?: number | null
+      input_mode?: EstimateSectionInputMode
+    }
   ) {
     const area = areas.find((a) => a.id === section.area_id)
     if (!area) return
-    const nextLength = next.length !== undefined ? next.length : section.length
-    const nextWidth = isLinear(area.area_type) ? null : (next.width !== undefined ? next.width : section.width)
+    const linear = isLinear(area.area_type)
+    const mode: EstimateSectionInputMode =
+      next.input_mode !== undefined ? next.input_mode : section.input_mode
     const nextName = next.section_name !== undefined ? next.section_name : section.section_name
-    const total = isLinear(area.area_type)
-      ? (typeof nextLength === 'number' ? nextLength : 0)
-      : ((typeof nextLength === 'number' ? nextLength : 0) * (typeof nextWidth === 'number' ? nextWidth : 0))
+
+    let nextLength: number | null
+    let nextWidth: number | null
+    let nextTotal: number | null
+
+    if (mode === 'total_only') {
+      nextLength = null
+      nextWidth = null
+      nextTotal = next.total !== undefined ? next.total : section.total
+    } else {
+      nextLength = next.length !== undefined ? next.length : section.length
+      nextWidth = linear ? null : (next.width !== undefined ? next.width : section.width)
+      // Recompute total from length/width unless caller explicitly supplied one
+      // (e.g. when toggling from dimensioned → total_only we want to carry
+      // the displayed total forward).
+      if (next.total !== undefined) {
+        nextTotal = next.total
+      } else {
+        const l = typeof nextLength === 'number' ? nextLength : 0
+        const w = linear ? 1 : (typeof nextWidth === 'number' ? nextWidth : 0)
+        nextTotal = linear ? l : l * w
+      }
+    }
+
     const patch: Partial<EstimateAreaMeasurement> = {
       section_name: nextName ?? null,
-      length: typeof nextLength === 'number' ? nextLength : 0,
+      length: nextLength,
       width: nextWidth,
-      total,
+      total: nextTotal,
+      input_mode: mode,
     }
     // No-op short-circuit: skip if nothing actually changed.
     if (
       patch.section_name === section.section_name &&
       patch.length === section.length &&
       patch.width === section.width &&
-      patch.total === section.total
+      patch.total === section.total &&
+      patch.input_mode === section.input_mode
     ) {
       return
     }
@@ -296,7 +363,9 @@ export default function AreasTab({
     const target = deleteAreaTarget
     setDeleting(true)
     const ok = await withAutoSave(async () => {
-      // FK cascade handles section cleanup, but be explicit for clarity.
+      // The DB cascades both the area's sections (via area_id FK) and any
+      // nested-cove children (via parent_area_id FK CASCADE — migration
+      // 20260553). Local state has to drop the same set.
       const { error } = await supabase.from('estimate_areas').delete().eq('id', target.id)
       if (error) {
         console.error('Failed to delete area', { code: error.code, message: error.message, hint: error.hint, details: error.details })
@@ -305,8 +374,21 @@ export default function AreasTab({
       return true
     })
     if (ok) {
-      setAreas((prev) => prev.filter((a) => a.id !== target.id))
-      setSections((prev) => prev.filter((s) => s.area_id !== target.id))
+      // Compute the full set of areas to remove: the target + any nested
+      // descendants under it. Walk the parent_area_id tree once.
+      const removedIds = new Set<string>([target.id])
+      let added = true
+      while (added) {
+        added = false
+        for (const a of areas) {
+          if (a.parent_area_id && removedIds.has(a.parent_area_id) && !removedIds.has(a.id)) {
+            removedIds.add(a.id)
+            added = true
+          }
+        }
+      }
+      setAreas((prev) => prev.filter((a) => !removedIds.has(a.id)))
+      setSections((prev) => prev.filter((s) => !removedIds.has(s.area_id)))
     }
     setDeleting(false)
     setDeleteAreaTarget(null)
@@ -358,7 +440,7 @@ export default function AreasTab({
       )}
 
       {/* Empty state */}
-      {areas.length === 0 && (
+      {topLevelAreas.length === 0 && (
         <div className="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center">
           <p className="text-sm text-gray-500 dark:text-[#a0a0a0]">
             No areas yet.
@@ -371,8 +453,8 @@ export default function AreasTab({
         </div>
       )}
 
-      {/* Area cards */}
-      {areas.map((area) => {
+      {/* Area cards (top-level only — nested coves render inside floor cards) */}
+      {topLevelAreas.map((area) => {
         const style = AREA_TYPE_STYLES[area.area_type]
         const unit = unitForType(area.area_type)
         const areaRows = sectionsByArea.get(area.id) ?? []
@@ -474,7 +556,122 @@ export default function AreasTab({
                   Add section
                 </button>
               )}
-              {canCreateAreas && area.area_type === 'floor' && (
+            </div>
+
+            {/* Nested coves (only present on floor cards) */}
+            {area.area_type === 'floor' && (() => {
+              const nested = nestedCovesByParent.get(area.id) ?? []
+              if (nested.length === 0) return null
+              return (
+                <div className="mt-4 space-y-3">
+                  {nested.map((cove) => {
+                    const coveRows = sectionsByArea.get(cove.id) ?? []
+                    const coveTotal = areaTotal(cove)
+                    const coveStyle = AREA_TYPE_STYLES[cove.area_type]
+                    const coveKebab: KebabMenuItem[] = []
+                    if (canEditAreas) {
+                      coveKebab.push({
+                        label: 'Rename',
+                        icon: <PencilIcon size={13} />,
+                        onSelect: () => setFocusAreaNameId(cove.id),
+                      })
+                    }
+                    if (canDelete) {
+                      coveKebab.push({
+                        label: 'Delete',
+                        icon: <Trash2Icon size={13} />,
+                        destructive: true,
+                        onSelect: () => setDeleteAreaTarget(cove),
+                      })
+                    }
+                    return (
+                      <div
+                        key={cove.id}
+                        className="rounded-lg border border-gray-200 dark:border-[#3a3a3a] bg-gray-50 dark:bg-[#2e2e2e] p-3"
+                      >
+                        <div className="flex items-center justify-between mb-2 gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${coveStyle.className}`}
+                            >
+                              {coveStyle.label}
+                            </span>
+                            <AreaNameInput
+                              area={cove}
+                              autoFocus={focusAreaNameId === cove.id}
+                              onConsumeFocus={() => setFocusAreaNameId((curr) => (curr === cove.id ? null : curr))}
+                              disabled={!canEditAreas}
+                              onSave={(name) => saveAreaName(cove, name)}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-xs text-gray-400 hidden sm:inline">
+                              {coveRows.length} {coveRows.length === 1 ? 'section' : 'sections'}
+                            </span>
+                            <span className="text-sm font-medium text-gray-700">
+                              {formatTotal(coveTotal)} LF
+                            </span>
+                            {coveKebab.length > 0 && (
+                              <KebabMenu variant="light" title="Cove actions" items={coveKebab} />
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-[11px] text-gray-400 uppercase tracking-wide">
+                                <th className="pb-2 pr-3 font-medium">Section</th>
+                                <th className="pb-2 pr-3 font-medium text-right">Length</th>
+                                <th className="pb-2 pr-3 font-medium text-right">Total</th>
+                                <th className="pb-2 font-medium text-right w-8" />
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
+                              {coveRows.map((s) => (
+                                <SectionRow
+                                  key={s.id}
+                                  area={cove}
+                                  section={s}
+                                  disabled={!canEditAreas}
+                                  canDelete={canDelete}
+                                  onSave={(patch) => saveSection(s, patch)}
+                                  onDelete={() => setDeleteSectionTarget(s)}
+                                />
+                              ))}
+                              {coveRows.length === 0 && (
+                                <tr>
+                                  <td colSpan={4} className="py-3 text-xs text-gray-400 italic">
+                                    No sections yet.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {canCreateAreas && (
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={() => addSectionTo(cove)}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition"
+                            >
+                              <PlusIcon className="w-3.5 h-3.5" />
+                              Add section
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+
+            {/* "+ Add cove to this floor" — multiple per floor allowed */}
+            {canCreateAreas && area.area_type === 'floor' && (
+              <div className="mt-3">
                 <button
                   type="button"
                   onClick={() => addCoveLinkedTo(area)}
@@ -483,23 +680,29 @@ export default function AreasTab({
                   <PlusIcon className="w-3.5 h-3.5" />
                   Add cove to this floor
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )
       })}
 
       {/* Delete confirmation dialogs */}
-      {deleteAreaTarget && (
-        <ConfirmDialog
-          title="Delete area"
-          message={`Delete "${deleteAreaTarget.name || untitledFor(deleteAreaTarget.area_type)}"? This will also delete its sections. This cannot be undone.`}
-          confirmLabel="Delete area"
-          onConfirm={confirmDeleteArea}
-          onCancel={() => setDeleteAreaTarget(null)}
-          loading={deleting}
-        />
-      )}
+      {deleteAreaTarget && (() => {
+        const nestedCount = (nestedCovesByParent.get(deleteAreaTarget.id) ?? []).length
+        const nestedNote = nestedCount > 0
+          ? ` This will also delete its sections and the ${nestedCount} nested ${nestedCount === 1 ? 'cove' : 'coves'}.`
+          : ' This will also delete its sections.'
+        return (
+          <ConfirmDialog
+            title="Delete area"
+            message={`Delete "${deleteAreaTarget.name || untitledFor(deleteAreaTarget.area_type)}"?${nestedNote} This cannot be undone.`}
+            confirmLabel="Delete area"
+            onConfirm={confirmDeleteArea}
+            onCancel={() => setDeleteAreaTarget(null)}
+            loading={deleting}
+          />
+        )
+      })()}
       {deleteSectionTarget && (
         <ConfirmDialog
           title="Delete section"
@@ -569,6 +772,50 @@ function AreaNameInput({
   )
 }
 
+function InputModeToggle({
+  mode,
+  linear,
+  disabled,
+  onChange,
+}: {
+  mode: EstimateSectionInputMode
+  linear: boolean
+  disabled: boolean
+  onChange: (next: EstimateSectionInputMode) => void
+}) {
+  const dimLabel = linear ? 'L' : 'L×W'
+  const baseBtn =
+    'px-1.5 py-0.5 text-[10px] font-semibold rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
+  const activeCls = 'bg-amber-500 text-white'
+  const inactiveCls = 'text-gray-500 hover:text-gray-700'
+  return (
+    <div
+      className="inline-flex items-center gap-0.5 rounded bg-gray-100 dark:bg-[#2e2e2e] p-0.5"
+      role="group"
+      aria-label="Section input mode"
+    >
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => mode !== 'dimensioned' && onChange('dimensioned')}
+        className={`${baseBtn} ${mode === 'dimensioned' ? activeCls : inactiveCls}`}
+        title={linear ? 'Enter length, total auto-calcs' : 'Enter length × width, total auto-calcs'}
+      >
+        {dimLabel}
+      </button>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => mode !== 'total_only' && onChange('total_only')}
+        className={`${baseBtn} ${mode === 'total_only' ? activeCls : inactiveCls}`}
+        title="Enter total directly"
+      >
+        Total
+      </button>
+    </div>
+  )
+}
+
 function SectionRow({
   area,
   section,
@@ -581,9 +828,18 @@ function SectionRow({
   section: EstimateAreaMeasurement
   disabled: boolean
   canDelete: boolean
-  onSave: (patch: { section_name?: string; length?: number | null; width?: number | null }) => void
+  onSave: (patch: {
+    section_name?: string
+    length?: number | null
+    width?: number | null
+    total?: number | null
+    input_mode?: EstimateSectionInputMode
+  }) => void
   onDelete: () => void
 }) {
+  const linear = isLinear(area.area_type)
+  const mode = section.input_mode
+
   const [name, setName] = useState(section.section_name ?? '')
   const [length, setLength] = useState<string>(
     section.length === null || section.length === undefined ? '' : String(section.length)
@@ -591,13 +847,18 @@ function SectionRow({
   const [width, setWidth] = useState<string>(
     section.width === null || section.width === undefined ? '' : String(section.width)
   )
+  const [totalInput, setTotalInput] = useState<string>(
+    section.total === null || section.total === undefined ? '' : String(section.total)
+  )
 
-  // Resync local state when the row updates from outside (e.g. rollback).
+  // Resync local state when the row updates from outside (rollback or
+  // toggle-driven server write).
   useEffect(() => {
     setName(section.section_name ?? '')
     setLength(section.length === null || section.length === undefined ? '' : String(section.length))
     setWidth(section.width === null || section.width === undefined ? '' : String(section.width))
-  }, [section.section_name, section.length, section.width])
+    setTotalInput(section.total === null || section.total === undefined ? '' : String(section.total))
+  }, [section.section_name, section.length, section.width, section.total, section.input_mode])
 
   function parseNum(s: string): number | null {
     if (s.trim() === '') return null
@@ -606,11 +867,11 @@ function SectionRow({
     return n
   }
 
-  // Live total (display only — commit happens on blur via saveSection).
-  const liveTotal = (() => {
+  // Live total in dimensioned mode (display only — commit on blur).
+  const liveDimensionedTotal = (() => {
     const l = parseNum(length)
     const w = parseNum(width)
-    if (isLinear(area.area_type)) return l ?? 0
+    if (linear) return l ?? 0
     return (l ?? 0) * (w ?? 0)
   })()
 
@@ -633,26 +894,61 @@ function SectionRow({
   function commitWidth() {
     onSave({ width: parseNum(width) })
   }
+  function commitTotal() {
+    onSave({ total: parseNum(totalInput) })
+  }
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
       e.preventDefault()
       ;(e.target as HTMLInputElement).blur()
     }
   }
+  function handleToggleMode(next: EstimateSectionInputMode) {
+    if (next === mode) return
+    if (next === 'total_only') {
+      // Carry the currently displayed L×W total into the total_only field
+      // so flipping doesn't lose the value the user was just looking at.
+      onSave({ input_mode: 'total_only', total: liveDimensionedTotal })
+    } else {
+      // Flip back. Length/width were nulled on the way out; user re-enters.
+      onSave({ input_mode: 'dimensioned' })
+    }
+  }
+
+  const totalOnly = mode === 'total_only'
+  // Dimensioned-mode inputs are disabled both for permission lockout AND when
+  // the row is in total_only mode (so length/width visually dim).
+  const dimensionInputsDisabled = disabled || totalOnly
+  const totalInputDisabled = disabled || !totalOnly
+
+  const inputBase =
+    'w-20 text-sm bg-transparent border-b focus:outline-none px-0.5 py-0.5 text-right'
+  const activeInputCls =
+    'text-gray-700 border-transparent focus:border-amber-400'
+  const dimmedInputCls =
+    'text-gray-400 dark:text-[#6b6b6b] border-transparent cursor-not-allowed'
 
   return (
     <tr>
       <td className="py-2 pr-3">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={commitName}
-          onKeyDown={onKey}
-          disabled={disabled}
-          placeholder="Section name"
-          className="w-full text-sm text-gray-700 bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 disabled:cursor-default"
-        />
+        <div className="flex items-center gap-2">
+          <InputModeToggle
+            mode={mode}
+            linear={linear}
+            disabled={disabled}
+            onChange={handleToggleMode}
+          />
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={onKey}
+            disabled={disabled}
+            placeholder="Section name"
+            className="flex-1 min-w-0 text-sm text-gray-700 bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 disabled:cursor-default"
+          />
+        </div>
       </td>
       <td className="py-2 pr-3 text-right">
         <input
@@ -664,12 +960,12 @@ function SectionRow({
           onChange={(e) => setLength(e.target.value)}
           onBlur={commitLength}
           onKeyDown={onKey}
-          disabled={disabled}
-          placeholder="0"
-          className="w-20 text-sm text-gray-700 bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 text-right disabled:cursor-default"
+          disabled={dimensionInputsDisabled}
+          placeholder={totalOnly ? '—' : '0'}
+          className={`${inputBase} ${dimensionInputsDisabled ? dimmedInputCls : activeInputCls}`}
         />
       </td>
-      {!isLinear(area.area_type) && (
+      {!linear && (
         <td className="py-2 pr-3 text-right">
           <input
             type="number"
@@ -680,14 +976,32 @@ function SectionRow({
             onChange={(e) => setWidth(e.target.value)}
             onBlur={commitWidth}
             onKeyDown={onKey}
-            disabled={disabled}
-            placeholder="0"
-            className="w-20 text-sm text-gray-700 bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 text-right disabled:cursor-default"
+            disabled={dimensionInputsDisabled}
+            placeholder={totalOnly ? '—' : '0'}
+            className={`${inputBase} ${dimensionInputsDisabled ? dimmedInputCls : activeInputCls}`}
           />
         </td>
       )}
-      <td className="py-2 pr-3 text-right text-sm font-medium text-gray-900">
-        {formatTotal(liveTotal)}
+      <td className="py-2 pr-3 text-right">
+        {totalOnly ? (
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            value={totalInput}
+            onChange={(e) => setTotalInput(e.target.value)}
+            onBlur={commitTotal}
+            onKeyDown={onKey}
+            disabled={totalInputDisabled}
+            placeholder="0"
+            className={`${inputBase} font-medium ${totalInputDisabled ? dimmedInputCls : 'text-gray-900 border-transparent focus:border-amber-400'}`}
+          />
+        ) : (
+          <span className="text-sm font-medium text-gray-900">
+            {formatTotal(liveDimensionedTotal)}
+          </span>
+        )}
       </td>
       <td className="py-2 text-right">
         {kebabItems.length > 0 && (
