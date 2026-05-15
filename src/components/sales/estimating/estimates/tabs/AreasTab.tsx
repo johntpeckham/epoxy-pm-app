@@ -1,7 +1,23 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PlusIcon, PencilIcon, Trash2Icon } from 'lucide-react'
+import { PlusIcon, PencilIcon, Trash2Icon, GripVerticalIcon } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/usePermissions'
 import KebabMenu, { type KebabMenuItem } from '@/components/ui/KebabMenu'
@@ -468,6 +484,51 @@ export default function AreasTab({
     setDeleteSectionTarget(null)
   }
 
+  // ── Drag-and-drop: reorder top-level area cards ──────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  async function handleAreaDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = topLevelAreas.findIndex((a) => a.id === active.id)
+    const newIdx = topLevelAreas.findIndex((a) => a.id === over.id)
+    if (oldIdx < 0 || newIdx < 0) return
+
+    const reordered = [...topLevelAreas]
+    const [moved] = reordered.splice(oldIdx, 1)
+    reordered.splice(newIdx, 0, moved)
+    const sortOrderById = new Map<string, number>()
+    reordered.forEach((a, i) => sortOrderById.set(a.id, i + 1))
+
+    // Optimistic local update: stamp the new sort_order on every reordered
+    // top-level area; non-top-level rows (defensive, none today) untouched.
+    const previousAreas = areas
+    setAreas((prev) =>
+      prev.map((a) => (sortOrderById.has(a.id) ? { ...a, sort_order: sortOrderById.get(a.id)! } : a))
+    )
+
+    const ok = await withAutoSave(async () => {
+      const results = await Promise.all(
+        Array.from(sortOrderById.entries()).map(([id, sortOrder]) =>
+          supabase.from('estimate_areas').update({ sort_order: sortOrder }).eq('id', id)
+        )
+      )
+      const firstErr = results.find((r) => r.error)?.error
+      if (firstErr) {
+        console.error('Failed to persist area sort_order', { code: firstErr.code, message: firstErr.message, hint: firstErr.hint, details: firstErr.details })
+        throw new Error(firstErr.message)
+      }
+      return true
+    })
+    if (!ok) {
+      // Rollback to the previous ordering on any persistence error.
+      setAreas(previousAreas)
+    }
+  }
+
   // ── Render helpers ───────────────────────────────────────────────────────
   function areaTotal(area: EstimateArea): number {
     const rows = sectionsByArea.get(area.id) ?? []
@@ -508,7 +569,11 @@ export default function AreasTab({
         </div>
       )}
 
-      {/* Area cards (top-level only — section coves render under their section row) */}
+      {/* Area cards (top-level only — section coves render under their section row).
+          Wrapped in DndContext + SortableContext so the cards can be reordered
+          by dragging the grip handle that fades in on hover. */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleAreaDragEnd}>
+      <SortableContext items={topLevelAreas.map((a) => a.id)} strategy={verticalListSortingStrategy}>
       {topLevelAreas.map((area) => {
         const style = AREA_TYPE_STYLES[area.area_type]
         const areaRows = sectionsByArea.get(area.id) ?? []
@@ -531,7 +596,7 @@ export default function AreasTab({
         }
 
         return (
-          <div key={area.id} className="bg-white rounded-xl border border-gray-200 p-4">
+          <SortableArea key={area.id} id={area.id} showHandle={canEditAreas}>
             <div className="flex items-center justify-between mb-3 gap-2">
               <div className="flex items-center gap-2 min-w-0 w-[40%]">
                 <span
@@ -548,6 +613,18 @@ export default function AreasTab({
                 />
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
+                {canCreateAreas && (
+                  <Tooltip label="Add section" placement="top">
+                    <button
+                      type="button"
+                      onClick={() => addSectionTo(area)}
+                      aria-label="Add section"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
+                )}
                 {kebabItems.length > 0 && (
                   <KebabMenu variant="light" title="Area actions" items={kebabItems} />
                 )}
@@ -610,21 +687,6 @@ export default function AreasTab({
               </table>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-3 items-center">
-              {canCreateAreas && (
-                <Tooltip label="Add section" placement="top">
-                  <button
-                    type="button"
-                    onClick={() => addSectionTo(area)}
-                    aria-label="Add section"
-                    className="inline-flex items-center justify-center w-6 h-6 rounded text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition"
-                  >
-                    <PlusIcon className="w-4 h-4" />
-                  </button>
-                </Tooltip>
-              )}
-            </div>
-
             {/* Bottom totals — divider + right-aligned per area type.
                   Floor: always Total SF, + Total LF if any section cove exists.
                   Roof / Walls / Custom: Total SF only.
@@ -658,9 +720,11 @@ export default function AreasTab({
                 </div>
               )
             })()}
-          </div>
+          </SortableArea>
         )
       })}
+      </SortableContext>
+      </DndContext>
 
       {/* Delete confirmation dialogs */}
       {deleteAreaTarget && (
@@ -700,6 +764,51 @@ export default function AreasTab({
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Subcomponents — kept inline for proximity to the tab logic                 */
 /* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Sortable wrapper for a top-level area card. Provides the outer card
+ * surface (rounded, border, padding), the dnd-kit ref + transform plumbing,
+ * and a grip handle that fades in on hover at the card's left edge.
+ *
+ * The handle is absolute-positioned over the card's left padding area so
+ * its appearance never shifts the card content; only the trigger is wired
+ * with dnd-kit attributes + listeners, so dragging is initiated solely by
+ * the grip — the rest of the card (name, kebab, "+ Add section", section
+ * rows) remains fully interactive.
+ */
+function SortableArea({
+  id,
+  showHandle,
+  children,
+}: {
+  id: string
+  showHandle: boolean
+  children: React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style = { transform: CSS.Transform.toString(transform), transition }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative group bg-white rounded-xl border border-gray-200 p-4 ${isDragging ? 'opacity-60 z-10 shadow-lg' : ''}`}
+    >
+      {showHandle && (
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          title="Drag to reorder"
+          className="absolute top-3 left-1 opacity-0 group-hover:opacity-100 focus:opacity-100 p-0.5 text-gray-400 hover:text-gray-700 dark:text-[#a0a0a0] dark:hover:text-white cursor-grab active:cursor-grabbing touch-none transition-opacity"
+        >
+          <GripVerticalIcon className="w-4 h-4" />
+        </button>
+      )}
+      {children}
+    </div>
+  )
+}
 
 function AreaNameInput({
   area,
