@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { requirePermission } from '@/lib/requirePermission'
 import { redirect } from 'next/navigation'
 import EstimateDetailClient from '@/components/sales/estimating/estimates/EstimateDetailClient'
-import type { EstimateArea, EstimateAreaMeasurement } from '@/components/sales/estimating/types'
+import type { EstimateArea, EstimateAreaMeasurement, EstimateSectionCove } from '@/components/sales/estimating/types'
 
 export default async function EstimateDetailPage({
   params,
@@ -35,10 +35,15 @@ export default async function EstimateDetailPage({
         .single()
     : { data: null }
 
-  // Fetch areas + section measurements for this estimate. Tables are new in
-  // migration 20260552; their absence (pre-migration) returns an error we
-  // surface as empty arrays so the page still renders cleanly.
-  const [{ data: areasRaw, error: areasErr }, { data: sectionsRaw, error: sectionsErr }] = await Promise.all([
+  // Fetch areas + section measurements + section coves for this estimate.
+  // Tables: estimate_areas + estimate_area_measurements (migration 20260552);
+  // estimate_section_coves (migration 20260554). Pre-migration the queries
+  // error out; errors are logged and the page renders with empty data.
+  const [
+    { data: areasRaw, error: areasErr },
+    { data: sectionsRaw, error: sectionsErr },
+    { data: covesRaw, error: covesErr },
+  ] = await Promise.all([
     supabase
       .from('estimate_areas')
       .select('*')
@@ -51,14 +56,24 @@ export default async function EstimateDetailPage({
       .eq('estimate_areas.estimate_id', id)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
+    supabase
+      .from('estimate_section_coves')
+      .select('*, estimate_area_measurements!inner(area_id, estimate_areas!inner(estimate_id))')
+      .eq('estimate_area_measurements.estimate_areas.estimate_id', id)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
   ])
   if (areasErr) console.error('Failed to fetch estimate_areas', { code: areasErr.code, message: areasErr.message, hint: areasErr.hint, details: areasErr.details })
   if (sectionsErr) console.error('Failed to fetch estimate_area_measurements', { code: sectionsErr.code, message: sectionsErr.message, hint: sectionsErr.hint, details: sectionsErr.details })
+  if (covesErr) console.error('Failed to fetch estimate_section_coves', { code: covesErr.code, message: covesErr.message, hint: covesErr.hint, details: covesErr.details })
 
   const initialAreas = (areasRaw ?? []) as EstimateArea[]
   // Drop the join column so the section rows match the EstimateAreaMeasurement shape.
   const initialSections = ((sectionsRaw ?? []) as Array<EstimateAreaMeasurement & { estimate_areas?: unknown }>).map(
     ({ estimate_areas: _ignored, ...rest }) => rest as EstimateAreaMeasurement
+  )
+  const initialSectionCoves = ((covesRaw ?? []) as Array<EstimateSectionCove & { estimate_area_measurements?: unknown }>).map(
+    ({ estimate_area_measurements: _ignored, ...rest }) => rest as EstimateSectionCove
   )
 
   return (
@@ -70,6 +85,7 @@ export default async function EstimateDetailPage({
       customerName={customer?.name ?? 'Unknown customer'}
       initialAreas={initialAreas}
       initialSections={initialSections}
+      initialSectionCoves={initialSectionCoves}
     />
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PlusIcon, PencilIcon, Trash2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/usePermissions'
@@ -12,6 +12,7 @@ import type {
   EstimateArea,
   EstimateAreaMeasurement,
   EstimateAreaType,
+  EstimateSectionCove,
   EstimateSectionInputMode,
 } from '../../types'
 import type { AutoSaveState } from '../AutoSaveIndicator'
@@ -28,8 +29,10 @@ interface Props {
   estimateId: string
   areas: EstimateArea[]
   sections: EstimateAreaMeasurement[]
+  sectionCoves: EstimateSectionCove[]
   setAreas: React.Dispatch<React.SetStateAction<EstimateArea[]>>
   setSections: React.Dispatch<React.SetStateAction<EstimateAreaMeasurement[]>>
+  setSectionCoves: React.Dispatch<React.SetStateAction<EstimateSectionCove[]>>
   reportAutoSave: (s: AutoSaveState) => void
 }
 
@@ -42,10 +45,6 @@ function nextSectionLetter(existingCount: number): string {
     n = Math.floor(n / 26) - 1
   } while (n >= 0)
   return `Section ${letters.join('')}`
-}
-
-function unitForType(type: EstimateAreaType): 'SF' | 'LF' {
-  return type === 'cove' ? 'LF' : 'SF'
 }
 
 function isLinear(type: EstimateAreaType): boolean {
@@ -64,8 +63,10 @@ export default function AreasTab({
   estimateId,
   areas,
   sections,
+  sectionCoves,
   setAreas,
   setSections,
+  setSectionCoves,
   reportAutoSave,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
@@ -81,6 +82,7 @@ export default function AreasTab({
   // Delete confirms
   const [deleteAreaTarget, setDeleteAreaTarget] = useState<EstimateArea | null>(null)
   const [deleteSectionTarget, setDeleteSectionTarget] = useState<EstimateAreaMeasurement | null>(null)
+  const [deleteCoveTarget, setDeleteCoveTarget] = useState<EstimateSectionCove | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   // Group sections by area, sorted by sort_order then created_at for stability.
@@ -100,29 +102,33 @@ export default function AreasTab({
     return map
   }, [sections])
 
-  // Areas with parent_area_id render NESTED inside their parent card, not at
-  // the top level. Top-level loop filters them out; floor cards look them
-  // up here.
+  // Coves are now per-section (estimate_section_coves), not per-area. The old
+  // model used estimate_areas.parent_area_id for nested-cove-as-its-own-area;
+  // migration 20260554 wiped those rows. Anything that still has a
+  // parent_area_id sneaks past as a safety net to keep the top-level filter
+  // defensive — but no UI path can create one anymore.
   const topLevelAreas = useMemo(
     () => areas.filter((a) => !a.parent_area_id),
     [areas]
   )
-  const nestedCovesByParent = useMemo(() => {
-    const map = new Map<string, EstimateArea[]>()
-    for (const a of areas) {
-      if (!a.parent_area_id) continue
-      const arr = map.get(a.parent_area_id) ?? []
-      arr.push(a)
-      map.set(a.parent_area_id, arr)
+
+  // Group section coves by their parent section id for fast per-section
+  // lookup during render.
+  const covesBySection = useMemo(() => {
+    const map = new Map<string, EstimateSectionCove[]>()
+    for (const c of sectionCoves) {
+      const arr = map.get(c.section_id) ?? []
+      arr.push(c)
+      map.set(c.section_id, arr)
     }
     for (const arr of map.values()) {
-      arr.sort((x, y) => {
-        if (x.sort_order !== y.sort_order) return x.sort_order - y.sort_order
-        return x.created_at.localeCompare(y.created_at)
+      arr.sort((a, b) => {
+        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+        return a.created_at.localeCompare(b.created_at)
       })
     }
     return map
-  }, [areas])
+  }, [sectionCoves])
 
   // Helper: report a save lifecycle around any awaitable operation.
   const withAutoSave = useCallback(
@@ -184,49 +190,6 @@ export default function AreasTab({
     setFocusAreaNameId(result.area.id)
   }
 
-  // ── Add cove area linked to a parent floor ───────────────────────────────
-  async function addCoveLinkedTo(parentFloor: EstimateArea) {
-    const nextSortOrder = (areas[areas.length - 1]?.sort_order ?? 0) + 1
-    const result = await withAutoSave(async () => {
-      const { data: insertedArea, error: areaErr } = await supabase
-        .from('estimate_areas')
-        .insert({
-          estimate_id: estimateId,
-          area_type: 'cove',
-          name: `Cove — ${parentFloor.name || 'floor'}`,
-          parent_area_id: parentFloor.id,
-          sort_order: nextSortOrder,
-        })
-        .select()
-        .single()
-      if (areaErr || !insertedArea) {
-        console.error('Failed to create cove area', { code: areaErr?.code, message: areaErr?.message, hint: areaErr?.hint, details: areaErr?.details })
-        throw new Error(areaErr?.message ?? 'Failed to create cove area.')
-      }
-      const area = insertedArea as EstimateArea
-      const { data: insertedSection, error: secErr } = await supabase
-        .from('estimate_area_measurements')
-        .insert({
-          area_id: area.id,
-          section_name: nextSectionLetter(0),
-          sort_order: 1,
-        })
-        .select()
-        .single()
-      if (secErr || !insertedSection) {
-        console.error('Failed to seed cove section', { code: secErr?.code, message: secErr?.message, hint: secErr?.hint, details: secErr?.details })
-        const { error: rbErr } = await supabase.from('estimate_areas').delete().eq('id', area.id)
-        if (rbErr) console.error('Rollback: failed to delete orphaned cove area', { code: rbErr.code, message: rbErr.message })
-        throw new Error(secErr?.message ?? 'Failed to seed cove section.')
-      }
-      return { area, section: insertedSection as EstimateAreaMeasurement }
-    })
-    if (!result) return
-    setAreas((prev) => [...prev, result.area])
-    setSections((prev) => [...prev, result.section])
-    setFocusAreaNameId(result.area.id)
-  }
-
   // ── Add a section to an existing area ────────────────────────────────────
   async function addSectionTo(area: EstimateArea) {
     const existing = sectionsByArea.get(area.id) ?? []
@@ -249,6 +212,68 @@ export default function AreasTab({
     })
     if (!result) return
     setSections((prev) => [...prev, result])
+  }
+
+  // ── Section coves (Floor-area sections only) ─────────────────────────────
+  async function addSectionCove(section: EstimateAreaMeasurement) {
+    const existing = covesBySection.get(section.id) ?? []
+    const nextSortOrder = (existing[existing.length - 1]?.sort_order ?? 0) + 1
+    const result = await withAutoSave(async () => {
+      const { data: inserted, error } = await supabase
+        .from('estimate_section_coves')
+        .insert({
+          section_id: section.id,
+          sort_order: nextSortOrder,
+        })
+        .select()
+        .single()
+      if (error || !inserted) {
+        console.error('Failed to add section cove', { code: error?.code, message: error?.message, hint: error?.hint, details: error?.details })
+        throw new Error(error?.message ?? 'Failed to add cove.')
+      }
+      return inserted as EstimateSectionCove
+    })
+    if (!result) return
+    setSectionCoves((prev) => [...prev, result])
+  }
+
+  async function saveCoveLength(cove: EstimateSectionCove, nextLength: number | null) {
+    if (nextLength === cove.cove_length) return
+    const previous = cove
+    setSectionCoves((prev) => prev.map((c) => (c.id === cove.id ? { ...c, cove_length: nextLength } : c)))
+    const ok = await withAutoSave(async () => {
+      const { error } = await supabase
+        .from('estimate_section_coves')
+        .update({ cove_length: nextLength })
+        .eq('id', cove.id)
+      if (error) {
+        console.error('Failed to update cove length', { code: error.code, message: error.message, hint: error.hint, details: error.details })
+        throw new Error(error.message)
+      }
+      return true
+    })
+    if (!ok) {
+      setSectionCoves((prev) => prev.map((c) => (c.id === cove.id ? previous : c)))
+    }
+  }
+
+  async function confirmDeleteCove() {
+    if (!deleteCoveTarget) return
+    const target = deleteCoveTarget
+    setDeleting(true)
+    const ok = await withAutoSave(async () => {
+      const { error } = await supabase.from('estimate_section_coves').delete().eq('id', target.id)
+      if (error) {
+        console.error('Failed to delete section cove', { code: error.code, message: error.message, hint: error.hint, details: error.details })
+        throw new Error(error.message)
+      }
+      return true
+    })
+    if (ok) {
+      setSectionCoves((prev) => prev.filter((c) => c.id !== target.id))
+    }
+    setDeleting(false)
+    setDeleteCoveTarget(null)
   }
 
   // ── Save an area's editable fields (just name in Phase 2) ────────────────
@@ -375,21 +400,26 @@ export default function AreasTab({
       return true
     })
     if (ok) {
-      // Compute the full set of areas to remove: the target + any nested
-      // descendants under it. Walk the parent_area_id tree once.
-      const removedIds = new Set<string>([target.id])
+      // Walk the parent_area_id tree once. Section-level coves no longer use
+      // this relation but the walk is defensive in case any legacy nested
+      // rows survived the 20260554 wipe.
+      const removedAreaIds = new Set<string>([target.id])
       let added = true
       while (added) {
         added = false
         for (const a of areas) {
-          if (a.parent_area_id && removedIds.has(a.parent_area_id) && !removedIds.has(a.id)) {
-            removedIds.add(a.id)
+          if (a.parent_area_id && removedAreaIds.has(a.parent_area_id) && !removedAreaIds.has(a.id)) {
+            removedAreaIds.add(a.id)
             added = true
           }
         }
       }
-      setAreas((prev) => prev.filter((a) => !removedIds.has(a.id)))
-      setSections((prev) => prev.filter((s) => !removedIds.has(s.area_id)))
+      const removedSectionIds = new Set<string>(
+        sections.filter((s) => removedAreaIds.has(s.area_id)).map((s) => s.id)
+      )
+      setAreas((prev) => prev.filter((a) => !removedAreaIds.has(a.id)))
+      setSections((prev) => prev.filter((s) => !removedAreaIds.has(s.area_id)))
+      setSectionCoves((prev) => prev.filter((c) => !removedSectionIds.has(c.section_id)))
     }
     setDeleting(false)
     setDeleteAreaTarget(null)
@@ -400,6 +430,7 @@ export default function AreasTab({
     const target = deleteSectionTarget
     setDeleting(true)
     const ok = await withAutoSave(async () => {
+      // Section coves cascade-delete via estimate_section_coves.section_id FK.
       const { error } = await supabase.from('estimate_area_measurements').delete().eq('id', target.id)
       if (error) {
         console.error('Failed to delete section', { code: error.code, message: error.message, hint: error.hint, details: error.details })
@@ -409,6 +440,7 @@ export default function AreasTab({
     })
     if (ok) {
       setSections((prev) => prev.filter((s) => s.id !== target.id))
+      setSectionCoves((prev) => prev.filter((c) => c.section_id !== target.id))
     }
     setDeleting(false)
     setDeleteSectionTarget(null)
@@ -454,12 +486,10 @@ export default function AreasTab({
         </div>
       )}
 
-      {/* Area cards (top-level only — nested coves render inside floor cards) */}
+      {/* Area cards (top-level only — section coves render under their section row) */}
       {topLevelAreas.map((area) => {
         const style = AREA_TYPE_STYLES[area.area_type]
-        const unit = unitForType(area.area_type)
         const areaRows = sectionsByArea.get(area.id) ?? []
-        const total = areaTotal(area)
 
         const kebabItems: KebabMenuItem[] = []
         if (canEditAreas) {
@@ -496,9 +526,6 @@ export default function AreasTab({
                 />
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-sm font-medium text-gray-700">
-                  {formatTotal(total)} {unit}
-                </span>
                 {kebabItems.length > 0 && (
                   <KebabMenu variant="light" title="Area actions" items={kebabItems} />
                 )}
@@ -521,18 +548,34 @@ export default function AreasTab({
                     <th className="pb-2 font-medium text-right w-8" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {areaRows.map((s) => (
-                    <SectionRow
-                      key={s.id}
-                      area={area}
-                      section={s}
-                      disabled={!canEditAreas}
-                      canDelete={canDelete}
-                      onSave={(patch) => saveSection(s, patch)}
-                      onDelete={() => setDeleteSectionTarget(s)}
-                    />
-                  ))}
+                <tbody className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
+                  {areaRows.map((s) => {
+                    const sectionCoveRows = covesBySection.get(s.id) ?? []
+                    return (
+                      <React.Fragment key={s.id}>
+                        <SectionRow
+                          area={area}
+                          section={s}
+                          disabled={!canEditAreas}
+                          canDelete={canDelete}
+                          canAddCove={canCreateAreas && area.area_type === 'floor'}
+                          onSave={(patch) => saveSection(s, patch)}
+                          onDelete={() => setDeleteSectionTarget(s)}
+                          onAddCove={() => addSectionCove(s)}
+                        />
+                        {sectionCoveRows.map((cove) => (
+                          <CoveLineRow
+                            key={cove.id}
+                            cove={cove}
+                            disabled={!canEditAreas}
+                            canDelete={canDelete}
+                            onSave={(length) => saveCoveLength(cove, length)}
+                            onDelete={() => setDeleteCoveTarget(cove)}
+                          />
+                        ))}
+                      </React.Fragment>
+                    )
+                  })}
                   {areaRows.length === 0 && (
                     <tr>
                       <td colSpan={isLinear(area.area_type) ? 3 : 5} className="py-3 text-xs text-gray-400 italic">
@@ -559,160 +602,71 @@ export default function AreasTab({
               )}
             </div>
 
-            {/* Nested coves (only present on floor cards) — each cove sits
-                below a horizontal divider with no inner card / indent / accent.
-                The divider is the only nesting cue. */}
-            {area.area_type === 'floor' && (() => {
-              const nested = nestedCovesByParent.get(area.id) ?? []
-              if (nested.length === 0) return null
+            {/* Bottom totals — divider + right-aligned per area type.
+                  Floor: always Total SF, + Total LF if any section cove exists.
+                  Roof / Walls / Custom: Total SF only.
+                  Standalone Cove (top-level): Total LF only. */}
+            {(() => {
+              const sfTotal = areaTotal(area)
+              const sectionIdsInArea = areaRows.map((s) => s.id)
+              const lfTotal = sectionCoves.reduce(
+                (acc, c) => (sectionIdsInArea.includes(c.section_id) && typeof c.cove_length === 'number' ? acc + c.cove_length : acc),
+                0
+              )
+              const hasCoves = sectionCoves.some((c) => sectionIdsInArea.includes(c.section_id))
+              const isStandaloneCove = area.area_type === 'cove'
+              const showSf = !isStandaloneCove
+              const showLf = isStandaloneCove || (area.area_type === 'floor' && hasCoves)
+              const lfValue = isStandaloneCove ? sfTotal : lfTotal // standalone coves store LF in section.total
               return (
-                <>
-                  {nested.map((cove) => {
-                    const coveRows = sectionsByArea.get(cove.id) ?? []
-                    const coveTotal = areaTotal(cove)
-                    const coveStyle = AREA_TYPE_STYLES[cove.area_type]
-                    const coveKebab: KebabMenuItem[] = []
-                    if (canEditAreas) {
-                      coveKebab.push({
-                        label: 'Rename',
-                        icon: <PencilIcon size={13} />,
-                        onSelect: () => setFocusAreaNameId(cove.id),
-                      })
-                    }
-                    if (canDelete) {
-                      coveKebab.push({
-                        label: 'Delete',
-                        icon: <Trash2Icon size={13} />,
-                        destructive: true,
-                        onSelect: () => setDeleteAreaTarget(cove),
-                      })
-                    }
-                    return (
-                      <div
-                        key={cove.id}
-                        className="mt-4 pt-4 border-t border-gray-200 dark:border-[#3a3a3a]"
-                      >
-                        <div className="flex items-center justify-between mb-2 gap-2">
-                          <div className="flex items-center gap-2 min-w-0 w-[40%]">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${coveStyle.className}`}
-                            >
-                              {coveStyle.label}
-                            </span>
-                            <AreaNameInput
-                              area={cove}
-                              autoFocus={focusAreaNameId === cove.id}
-                              onConsumeFocus={() => setFocusAreaNameId((curr) => (curr === cove.id ? null : curr))}
-                              disabled={!canEditAreas}
-                              onSave={(name) => saveAreaName(cove, name)}
-                              tier="nested"
-                            />
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-sm font-medium text-gray-700">
-                              {formatTotal(coveTotal)} LF
-                            </span>
-                            {coveKebab.length > 0 && (
-                              <KebabMenu variant="light" title="Cove actions" items={coveKebab} />
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="text-left text-[11px] text-gray-400 uppercase tracking-wide">
-                                <th className="pb-2 pr-3 font-medium">Section</th>
-                                <th className="pb-2 pr-3 font-medium text-right">Total</th>
-                                <th className="pb-2 font-medium text-right w-8" />
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-[#3a3a3a]">
-                              {coveRows.map((s) => (
-                                <SectionRow
-                                  key={s.id}
-                                  area={cove}
-                                  section={s}
-                                  disabled={!canEditAreas}
-                                  canDelete={canDelete}
-                                  onSave={(patch) => saveSection(s, patch)}
-                                  onDelete={() => setDeleteSectionTarget(s)}
-                                />
-                              ))}
-                              {coveRows.length === 0 && (
-                                <tr>
-                                  <td colSpan={3} className="py-3 text-xs text-gray-400 italic">
-                                    No sections yet.
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        {canCreateAreas && (
-                          <div className="mt-2">
-                            <Tooltip label="Add section" placement="top">
-                              <button
-                                type="button"
-                                onClick={() => addSectionTo(cove)}
-                                aria-label="Add section"
-                                className="inline-flex items-center justify-center w-6 h-6 rounded text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition"
-                              >
-                                <PlusIcon className="w-4 h-4" />
-                              </button>
-                            </Tooltip>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </>
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-[#3a3a3a] flex flex-col items-end gap-0.5 text-sm">
+                  {showSf && (
+                    <div>
+                      <span className="text-gray-500 dark:text-[#a0a0a0] mr-2">Total SF:</span>
+                      <span className="font-medium text-gray-900 dark:text-[#e5e5e5]">{formatTotal(sfTotal)}</span>
+                    </div>
+                  )}
+                  {showLf && (
+                    <div>
+                      <span className="text-gray-500 dark:text-[#a0a0a0] mr-2">Total LF:</span>
+                      <span className="font-medium text-gray-900 dark:text-[#e5e5e5]">{formatTotal(lfValue)}</span>
+                    </div>
+                  )}
+                </div>
               )
             })()}
-
-            {/* "+ Add cove" — multiple per floor allowed; the "to this floor"
-                is implied by its position inside the floor card. */}
-            {canCreateAreas && area.area_type === 'floor' && (
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => addCoveLinkedTo(area)}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-700 transition"
-                >
-                  <PlusIcon className="w-3.5 h-3.5" />
-                  Add cove
-                </button>
-              </div>
-            )}
           </div>
         )
       })}
 
       {/* Delete confirmation dialogs */}
-      {deleteAreaTarget && (() => {
-        const nestedCount = (nestedCovesByParent.get(deleteAreaTarget.id) ?? []).length
-        const nestedNote = nestedCount > 0
-          ? ` This will also delete its sections and the ${nestedCount} nested ${nestedCount === 1 ? 'cove' : 'coves'}.`
-          : ' This will also delete its sections.'
-        return (
-          <ConfirmDialog
-            title="Delete area"
-            message={`Delete "${deleteAreaTarget.name || untitledFor(deleteAreaTarget.area_type)}"?${nestedNote} This cannot be undone.`}
-            confirmLabel="Delete area"
-            onConfirm={confirmDeleteArea}
-            onCancel={() => setDeleteAreaTarget(null)}
-            loading={deleting}
-          />
-        )
-      })()}
+      {deleteAreaTarget && (
+        <ConfirmDialog
+          title="Delete area"
+          message={`Delete "${deleteAreaTarget.name || untitledFor(deleteAreaTarget.area_type)}"? This will also delete its sections and any cove lines on them. This cannot be undone.`}
+          confirmLabel="Delete area"
+          onConfirm={confirmDeleteArea}
+          onCancel={() => setDeleteAreaTarget(null)}
+          loading={deleting}
+        />
+      )}
       {deleteSectionTarget && (
         <ConfirmDialog
           title="Delete section"
-          message="Delete this section? This cannot be undone."
+          message="Delete this section? Any cove lines on this section will also be deleted. This cannot be undone."
           confirmLabel="Delete section"
           onConfirm={confirmDeleteSection}
           onCancel={() => setDeleteSectionTarget(null)}
+          loading={deleting}
+        />
+      )}
+      {deleteCoveTarget && (
+        <ConfirmDialog
+          title="Delete cove"
+          message="Delete this cove line?"
+          confirmLabel="Delete cove"
+          onConfirm={confirmDeleteCove}
+          onCancel={() => setDeleteCoveTarget(null)}
           loading={deleting}
         />
       )}
@@ -774,7 +728,19 @@ function AreaNameInput({
       }}
       disabled={disabled}
       placeholder="Untitled area"
-      className={`${tier === 'nested' ? 'text-base' : 'text-lg'} font-medium text-gray-900 dark:text-white bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 min-w-0 flex-1 disabled:cursor-default`}
+      title={disabled ? undefined : 'Click to rename'}
+      className={[
+        tier === 'nested' ? 'text-base' : 'text-lg',
+        'font-medium text-gray-900 dark:text-white',
+        // At rest: render as plain styled text — fully transparent so no
+        // input chrome appears until the user shows intent.
+        'bg-transparent border border-transparent rounded',
+        'px-1.5 py-0.5 min-w-0 flex-1',
+        // Hover: subtle tint indicates editability; cursor switches to text.
+        disabled ? 'cursor-default' : 'cursor-text hover:bg-gray-100 dark:hover:bg-[#2e2e2e]',
+        // Focus: full input styling — solid surface + amber border ring.
+        'focus:bg-white dark:focus:bg-[#1f1f1f] focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400/30 disabled:hover:bg-transparent',
+      ].join(' ')}
     />
   )
 }
@@ -784,13 +750,18 @@ function SectionRow({
   section,
   disabled,
   canDelete,
+  canAddCove,
   onSave,
   onDelete,
+  onAddCove,
 }: {
   area: EstimateArea
   section: EstimateAreaMeasurement
   disabled: boolean
   canDelete: boolean
+  /** Only true on Floor-area sections (and when the user has create perms).
+   *  Drives whether the "+" icon for adding a cove appears next to the kebab. */
+  canAddCove: boolean
   onSave: (patch: {
     section_name?: string
     length?: number | null
@@ -799,6 +770,7 @@ function SectionRow({
     input_mode?: EstimateSectionInputMode
   }) => void
   onDelete: () => void
+  onAddCove: () => void
 }) {
   const linear = isLinear(area.area_type)
 
@@ -1003,9 +975,106 @@ function SectionRow({
           className={`${inputBase} font-medium ${disabled ? disabledInputCls : 'text-gray-900 dark:text-white border-transparent focus:border-amber-400'}`}
         />
       </td>
-      <td className="py-2 text-right">
+      <td className="py-2 text-right whitespace-nowrap">
+        <div className="inline-flex items-center gap-0.5 justify-end">
+          {kebabItems.length > 0 && (
+            <KebabMenu variant="light" title="Section actions" items={kebabItems} />
+          )}
+          {canAddCove && (
+            <Tooltip label="Add cove" placement="top">
+              <button
+                type="button"
+                onClick={onAddCove}
+                aria-label="Add cove"
+                className="inline-flex items-center justify-center w-6 h-6 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-[#a0a0a0] dark:hover:text-white dark:hover:bg-white/10 transition-colors"
+              >
+                <PlusIcon className="w-4 h-4" />
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+/** A single cove line under a Floor-area section. One length input + delete. */
+function CoveLineRow({
+  cove,
+  disabled,
+  canDelete,
+  onSave,
+  onDelete,
+}: {
+  cove: EstimateSectionCove
+  disabled: boolean
+  canDelete: boolean
+  onSave: (nextLength: number | null) => void
+  onDelete: () => void
+}) {
+  const [value, setValue] = useState<string>(
+    cove.cove_length === null || cove.cove_length === undefined ? '' : String(cove.cove_length)
+  )
+
+  useEffect(() => {
+    setValue(cove.cove_length === null || cove.cove_length === undefined ? '' : String(cove.cove_length))
+  }, [cove.cove_length])
+
+  function parseNum(s: string): number | null {
+    if (s.trim() === '') return null
+    const n = Number(s)
+    if (Number.isNaN(n)) return null
+    return n
+  }
+  function commit() {
+    onSave(parseNum(value))
+  }
+  function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      ;(e.target as HTMLInputElement).blur()
+    }
+  }
+
+  const kebabItems: KebabMenuItem[] = []
+  if (canDelete) {
+    kebabItems.push({
+      label: 'Delete',
+      icon: <Trash2Icon size={13} />,
+      destructive: true,
+      onSelect: onDelete,
+    })
+  }
+
+  const coveBadgeCls = AREA_TYPE_STYLES.cove.className
+
+  return (
+    <tr>
+      <td colSpan={3} className="py-1.5 pr-3 pl-6">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${coveBadgeCls}`}
+        >
+          Cove
+        </span>
+      </td>
+      <td className="py-1.5 pr-3 text-right">
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={onKey}
+          disabled={disabled}
+          placeholder="—"
+          className={`w-20 text-sm bg-transparent border-b border-transparent focus:border-amber-400 focus:outline-none px-0.5 py-0.5 text-right font-medium ${disabled ? 'text-gray-400 dark:text-[#6b6b6b] cursor-not-allowed' : 'text-gray-900 dark:text-white'}`}
+        />
+      </td>
+      <td className="py-1.5 text-right">
         {kebabItems.length > 0 && (
-          <KebabMenu variant="light" title="Section actions" items={kebabItems} />
+          <KebabMenu variant="light" title="Cove actions" items={kebabItems} />
         )}
       </td>
     </tr>

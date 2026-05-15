@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon } from 'lucide-react'
-import type { Estimate, EstimateArea, EstimateAreaMeasurement } from '../types'
+import type { Estimate, EstimateArea, EstimateAreaMeasurement, EstimateSectionCove } from '../types'
 import SummaryTab from './tabs/SummaryTab'
 import AreasTab from './tabs/AreasTab'
 import MaterialsTab from './tabs/MaterialsTab'
@@ -37,6 +37,7 @@ interface EstimateDetailClientProps {
   customerName: string
   initialAreas: EstimateArea[]
   initialSections: EstimateAreaMeasurement[]
+  initialSectionCoves: EstimateSectionCove[]
 }
 
 export default function EstimateDetailClient({
@@ -47,6 +48,7 @@ export default function EstimateDetailClient({
   customerName,
   initialAreas,
   initialSections,
+  initialSectionCoves,
 }: EstimateDetailClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('summary')
@@ -57,6 +59,7 @@ export default function EstimateDetailClient({
   // ── Areas & measurements state (shared across tabs) ───────────────────────
   const [areas, setAreas] = useState<EstimateArea[]>(initialAreas)
   const [sections, setSections] = useState<EstimateAreaMeasurement[]>(initialSections)
+  const [sectionCoves, setSectionCoves] = useState<EstimateSectionCove[]>(initialSectionCoves)
 
   // ── Page-level auto-save indicator state ──────────────────────────────────
   const [autoSaveState, setAutoSaveState] = useState<AutoSaveState>('idle')
@@ -162,8 +165,10 @@ export default function EstimateDetailClient({
                 estimateId={estimate.id}
                 areas={areas}
                 sections={sections}
+                sectionCoves={sectionCoves}
                 setAreas={setAreas}
                 setSections={setSections}
+                setSectionCoves={setSectionCoves}
                 reportAutoSave={reportAutoSave}
               />
             )}

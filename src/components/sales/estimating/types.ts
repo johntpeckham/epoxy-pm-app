@@ -133,6 +133,17 @@ export interface EstimateArea {
 
 export type EstimateSectionInputMode = 'dimensioned' | 'total_only'
 
+/** A single cove line on a section row. Floor-area sections only — Roof,
+ *  Walls, and Custom sections do not get section coves. Multiple coves
+ *  can stack under a single section. Linked via estimate_area_measurements.id. */
+export interface EstimateSectionCove {
+  id: string
+  section_id: string
+  cove_length: number | null
+  sort_order: number
+  created_at: string
+}
+
 export interface EstimateAreaMeasurement {
   id: string
   area_id: string
