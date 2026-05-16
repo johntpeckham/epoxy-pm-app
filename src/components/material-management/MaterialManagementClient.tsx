@@ -519,14 +519,12 @@ export default function MaterialManagementClient({
     const supplierId = editingProduct ? productModalSupplierId ?? editingProduct.supplier_id : data.supplier_id ?? productModalSupplierId
     if (!trimmedName || !supplierId) return
 
-    // Material Systems Wave 1: include the five default_* fields on every
-    // master_products write. Null values are written explicitly so an edit
-    // that clears the defaults persists the cleared state.
+    // Material Systems: include the simplified default coverage rate fields
+    // on every master_products write. Null values are written explicitly so
+    // an edit that clears the rule persists the cleared state.
     const defaultsPayload = {
-      default_quantity_mode: data.default_quantity_mode,
-      default_coverage_amount: data.default_coverage_amount,
       default_coverage_basis: data.default_coverage_basis,
-      default_fixed_quantity: data.default_fixed_quantity,
+      default_coverage_basis_unit: data.default_coverage_basis_unit,
       default_unit: data.default_unit,
     }
 
@@ -647,10 +645,8 @@ export default function MaterialManagementClient({
     const { data: insertedKit, error: kitErr } = await supabase.from('master_kit_groups').insert({
       supplier_id: supplierId,
       name: data.name,
-      default_quantity_mode: data.default_quantity_mode,
-      default_coverage_amount: data.default_coverage_amount,
       default_coverage_basis: data.default_coverage_basis,
-      default_fixed_quantity: data.default_fixed_quantity,
+      default_coverage_basis_unit: data.default_coverage_basis_unit,
       default_unit: data.default_unit,
     }).select().single()
     if (kitErr || !insertedKit) {
@@ -728,14 +724,12 @@ export default function MaterialManagementClient({
 
   async function saveKitGroup(data: MasterKitGroupFormData) {
     if (!kitGroupModalSupplierId) return
-    // Material Systems Wave 1 follow-up: persist the kit group's optional
-    // default_* fields on every write. Null values are written explicitly so
-    // an edit that clears the rule persists the cleared state.
+    // Material Systems: persist the kit group's optional default coverage
+    // rate fields on every write. Null values are written explicitly so an
+    // edit that clears the rule persists the cleared state.
     const defaultsPayload = {
-      default_quantity_mode: data.default_quantity_mode,
-      default_coverage_amount: data.default_coverage_amount,
       default_coverage_basis: data.default_coverage_basis,
-      default_fixed_quantity: data.default_fixed_quantity,
+      default_coverage_basis_unit: data.default_coverage_basis_unit,
       default_unit: data.default_unit,
     }
     if (editingKitGroup) {

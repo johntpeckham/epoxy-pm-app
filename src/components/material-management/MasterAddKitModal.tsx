@@ -18,13 +18,11 @@ export interface MasterAddKitFormData {
   name: string
   products: MasterAddKitSubItemFormData[]
   supplier_id: string | null
-  // Material Systems Wave 1: optional default quantity rule for the KIT
-  // as a whole (not for individual products inside the kit). Same shape
-  // as MasterProductFormData's defaults; persists to master_kit_groups.
-  default_quantity_mode: 'coverage' | 'fixed' | null
-  default_coverage_amount: number | null
+  // Material Systems: optional default coverage rate for the KIT as a whole.
+  // Reads as "1 [unit] covers [basis] [basis_unit]". Persists to
+  // master_kit_groups; all three move together.
   default_coverage_basis: number | null
-  default_fixed_quantity: number | null
+  default_coverage_basis_unit: 'sqft' | 'lf' | null
   default_unit: string | null
 }
 
@@ -68,13 +66,12 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
   const [error, setError] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Kit-level default quantity rule (Material Systems Wave 1) ─────────────
-  type KitDefaultMode = 'none' | 'coverage' | 'fixed'
-  const [kitDefaultMode, setKitDefaultMode] = useState<KitDefaultMode>('none')
-  const [kitDefaultCoverageAmount, setKitDefaultCoverageAmount] = useState<string>('')
+  // ── Kit-level default coverage rate (Material Systems) ────────────────────
+  // 1 [kitDefaultUnit] covers [kitDefaultCoverageBasis] [kitDefaultCoverageBasisUnit].
+  // All three move together — empty = no default; partial states rejected.
   const [kitDefaultCoverageBasis, setKitDefaultCoverageBasis] = useState<string>('')
-  const [kitDefaultFixedQuantity, setKitDefaultFixedQuantity] = useState<string>('')
-  const [kitDefaultUnit, setKitDefaultUnit] = useState<string>(defaultUnit)
+  const [kitDefaultCoverageBasisUnit, setKitDefaultCoverageBasisUnit] = useState<'' | 'sqft' | 'lf'>('')
+  const [kitDefaultUnit, setKitDefaultUnit] = useState<string>('')
 
   // Searchable supplier dropdown state
   const [supplierQuery, setSupplierQuery] = useState<string>(() => {
@@ -175,36 +172,28 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
       }
     })
 
-    // ── Kit-level default quantity rule validation + serialization ──────────
-    let kitDefaultMode_db: 'coverage' | 'fixed' | null = null
-    let kitDefaultCoverageAmount_db: number | null = null
+    // ── Kit-level default coverage rate validation + serialization ──────────
+    const basisStr = kitDefaultCoverageBasis.trim()
+    const basisUnitVal = kitDefaultCoverageBasisUnit
+    const unitVal = kitDefaultUnit.trim()
+    const anySet = basisStr !== '' || basisUnitVal !== '' || unitVal !== ''
+    const allSet = basisStr !== '' && basisUnitVal !== '' && unitVal !== ''
     let kitDefaultCoverageBasis_db: number | null = null
-    let kitDefaultFixedQuantity_db: number | null = null
+    let kitDefaultCoverageBasisUnit_db: 'sqft' | 'lf' | null = null
     let kitDefaultUnit_db: string | null = null
-    if (kitDefaultMode === 'coverage') {
-      const a = parseFloat(kitDefaultCoverageAmount)
-      const b = parseFloat(kitDefaultCoverageBasis)
-      if (kitDefaultCoverageAmount.trim() === '' || Number.isNaN(a) || a <= 0) {
-        setError('Default coverage amount must be a positive number.')
+    if (anySet && !allSet) {
+      setError('Default coverage rate needs all three fields filled in (or all left blank).')
+      return
+    }
+    if (allSet) {
+      const b = parseFloat(basisStr)
+      if (Number.isNaN(b) || b <= 0) {
+        setError('Coverage basis must be a positive number.')
         return
       }
-      if (kitDefaultCoverageBasis.trim() === '' || Number.isNaN(b) || b <= 0) {
-        setError('Default coverage basis must be a positive number.')
-        return
-      }
-      kitDefaultMode_db = 'coverage'
-      kitDefaultCoverageAmount_db = a
       kitDefaultCoverageBasis_db = b
-      kitDefaultUnit_db = kitDefaultUnit
-    } else if (kitDefaultMode === 'fixed') {
-      const q = parseFloat(kitDefaultFixedQuantity)
-      if (kitDefaultFixedQuantity.trim() === '' || Number.isNaN(q) || q <= 0) {
-        setError('Default fixed quantity must be a positive number.')
-        return
-      }
-      kitDefaultMode_db = 'fixed'
-      kitDefaultFixedQuantity_db = q
-      kitDefaultUnit_db = kitDefaultUnit
+      kitDefaultCoverageBasisUnit_db = basisUnitVal as 'sqft' | 'lf'
+      kitDefaultUnit_db = unitVal
     }
 
     setError(null)
@@ -214,10 +203,8 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
         name: trimmedKitName,
         products,
         supplier_id: selectedSupplierId,
-        default_quantity_mode: kitDefaultMode_db,
-        default_coverage_amount: kitDefaultCoverageAmount_db,
         default_coverage_basis: kitDefaultCoverageBasis_db,
-        default_fixed_quantity: kitDefaultFixedQuantity_db,
+        default_coverage_basis_unit: kitDefaultCoverageBasisUnit_db,
         default_unit: kitDefaultUnit_db,
       })
     } catch (err) {
@@ -345,97 +332,53 @@ export default function MasterAddKitModal({ suppliers, unitTypes, initialSupplie
                 />
               </div>
 
-              {/* Default quantity rule for the KIT as a whole (Material
-                  Systems Wave 1). Applies to the kit when consumed by a
-                  system; NOT to individual products inside the kit. */}
+              {/* Default coverage rate for the KIT as a whole (Material
+                  Systems). Applies to the kit when consumed by a system;
+                  NOT to individual products inside the kit. */}
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-[#a0a0a0] uppercase tracking-wide mb-1">
                   Default quantity rule
                 </label>
-                <select
-                  value={kitDefaultMode}
-                  onChange={(e) => setKitDefaultMode(e.target.value as 'none' | 'coverage' | 'fixed')}
-                  className="w-full border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
-                >
-                  <option value="none">None (no default)</option>
-                  <option value="coverage">Coverage rate</option>
-                  <option value="fixed">Fixed quantity</option>
-                </select>
-                {kitDefaultMode === 'coverage' && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      min="0"
-                      value={kitDefaultCoverageAmount}
-                      onChange={(e) => setKitDefaultCoverageAmount(e.target.value)}
-                      placeholder="1"
-                      className="w-20 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
-                      aria-label="Default coverage amount"
-                    />
-                    <span className="text-xs text-gray-500 dark:text-[#a0a0a0]">per</span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      min="0"
-                      value={kitDefaultCoverageBasis}
-                      onChange={(e) => setKitDefaultCoverageBasis(e.target.value)}
-                      placeholder="250"
-                      className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
-                      aria-label="Default coverage basis"
-                    />
-                    <span className="text-xs text-gray-500 dark:text-[#a0a0a0]">sqft of</span>
-                    <select
-                      value={kitDefaultUnit}
-                      onChange={(e) => setKitDefaultUnit(e.target.value)}
-                      className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
-                      aria-label="Default unit"
-                    >
-                      {unitTypes.length === 0 ? (
-                        <option value="" disabled>—</option>
-                      ) : (
-                        unitTypes.map((ut) => (
-                          <option key={ut.id} value={ut.abbreviation}>
-                            {ut.abbreviation}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                )}
-                {kitDefaultMode === 'fixed' && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      min="0"
-                      value={kitDefaultFixedQuantity}
-                      onChange={(e) => setKitDefaultFixedQuantity(e.target.value)}
-                      placeholder="1"
-                      className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
-                      aria-label="Default fixed quantity"
-                    />
-                    <select
-                      value={kitDefaultUnit}
-                      onChange={(e) => setKitDefaultUnit(e.target.value)}
-                      className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
-                      aria-label="Default unit"
-                    >
-                      {unitTypes.length === 0 ? (
-                        <option value="" disabled>—</option>
-                      ) : (
-                        unitTypes.map((ut) => (
-                          <option key={ut.id} value={ut.abbreviation}>
-                            {ut.abbreviation}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={kitDefaultCoverageBasis}
+                    onChange={(e) => setKitDefaultCoverageBasis(e.target.value)}
+                    placeholder="e.g. 250"
+                    className="w-24 border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#6b6b6b] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                    aria-label="Default coverage basis"
+                  />
+                  <select
+                    value={kitDefaultCoverageBasisUnit}
+                    onChange={(e) => setKitDefaultCoverageBasisUnit(e.target.value as '' | 'sqft' | 'lf')}
+                    className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                    aria-label="Default coverage basis unit"
+                  >
+                    <option value="">—</option>
+                    <option value="sqft">sqft</option>
+                    <option value="lf">lf</option>
+                  </select>
+                  <span className="text-xs text-gray-500 dark:text-[#a0a0a0]">of</span>
+                  <select
+                    value={kitDefaultUnit}
+                    onChange={(e) => setKitDefaultUnit(e.target.value)}
+                    className="border border-gray-300 dark:border-[#3a3a3a] rounded-lg px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white dark:bg-[#2e2e2e]"
+                    aria-label="Default unit"
+                  >
+                    <option value="">—</option>
+                    {unitTypes.map((ut) => (
+                      <option key={ut.id} value={ut.abbreviation}>
+                        {ut.abbreviation}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-1 text-[11px] text-gray-400 dark:text-[#6b6b6b]">
+                  Reads as &ldquo;1 unit covers basis area&rdquo;. Leave all three blank for no default.
+                </p>
               </div>
 
               <div>

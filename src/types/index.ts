@@ -653,17 +653,16 @@ export interface MasterSupplier {
   created_at: string
 }
 
-/** Optional default quantity rule fields shared by master_products and
- *  master_kit_groups. Wave 1 of Material Systems adds these so that when a
- *  product/kit is added to a system, the system row inherits sensible
- *  defaults from the product/kit. NULL on existing rows; not backfilled. */
-export type MasterDefaultQuantityMode = 'coverage' | 'fixed' | null
+/** Optional default coverage rate fields shared by master_products and
+ *  master_kit_groups. Reads as "1 [default_unit] covers [default_coverage_basis]
+ *  [default_coverage_basis_unit]" — e.g. 1 gal covers 250 sqft. All three
+ *  fields move together: either all are set (a configured default) or all
+ *  are NULL (no default). */
+export type MaterialCoverageBasisUnit = 'sqft' | 'lf'
 
 export interface MasterDefaultQuantityFields {
-  default_quantity_mode: MasterDefaultQuantityMode
-  default_coverage_amount: number | null
   default_coverage_basis: number | null
-  default_fixed_quantity: number | null
+  default_coverage_basis_unit: MaterialCoverageBasisUnit | null
   default_unit: string | null
 }
 
@@ -716,7 +715,6 @@ export interface MaterialSystem {
 }
 
 export type MaterialSystemItemType = 'product' | 'kit'
-export type MaterialSystemQuantityMode = 'coverage' | 'fixed'
 
 export interface MaterialSystemItem {
   id: string
@@ -729,10 +727,11 @@ export interface MaterialSystemItem {
    *  master_kit_groups.id (the kit table is named master_kit_groups in
    *  this codebase, not master_kits). */
   kit_id: string | null
-  quantity_mode: MaterialSystemQuantityMode
-  coverage_amount: number | null
+  /** Coverage rate: 1 [unit] per [coverage_basis] [coverage_basis_unit].
+   *  All three move together — either all set (a configured rate) or all
+   *  NULL (no rate). */
   coverage_basis: number | null
-  fixed_quantity: number | null
+  coverage_basis_unit: MaterialCoverageBasisUnit | null
   unit: string | null
   sort_order: number
   created_at: string
